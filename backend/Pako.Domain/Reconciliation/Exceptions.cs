@@ -64,3 +64,18 @@ public class OverReconciliationException : Exception
         Amount = amount;
     }
 }
+
+public class SettlementLineOverConsumedException : Exception
+{
+    public Guid JournalEntryLineId { get; }
+    public decimal LineAmount { get; }
+    public decimal AttemptedTotal { get; }
+
+    public SettlementLineOverConsumedException(Guid journalEntryLineId, decimal lineAmount, decimal attemptedTotal)
+        : base($"Journal entry line {journalEntryLineId} has amount {lineAmount}, but {attemptedTotal} would be reconciled against it in total.")
+    {
+        JournalEntryLineId = journalEntryLineId;
+        LineAmount = lineAmount;
+        AttemptedTotal = attemptedTotal;
+    }
+}

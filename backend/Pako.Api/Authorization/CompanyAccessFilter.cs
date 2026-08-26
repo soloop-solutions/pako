@@ -56,14 +56,21 @@ public class CompanyAccessFilter : IAsyncActionFilter
             return;
         }
 
-        var membership = await _db.Memberships.AsNoTracking()
+        // A user can hold more than one applicable Membership on the same company (e.g. a
+        // firm-cascaded FirmAccountant plus a direct company-scoped ClientViewer added to
+        // restrict/override that specific member). Policy: most-permissive-wins — the union of
+        // what every applicable membership grants, not an arbitrary single row (Postgres doesn't
+        // guarantee row order, so picking one via FirstOrDefault made effective permissions
+        // non-deterministic). Simpler and safer to reason about than "most specific wins."
+        var roles = await _db.Memberships.AsNoTracking()
             .Where(m => m.UserId == userId &&
                 (m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId)))
-            .FirstOrDefaultAsync();
+            .Select(m => m.Role)
+            .ToListAsync();
 
-        if (membership is null ||
-            (_writeAccess && !WriteCapableRoles.Contains(membership.Role)) ||
-            (_adminOnly && !AdminRoles.Contains(membership.Role)))
+        if (roles.Count == 0 ||
+            (_writeAccess && !roles.Any(WriteCapableRoles.Contains)) ||
+            (_adminOnly && !roles.Any(AdminRoles.Contains)))
         {
             context.Result = new ForbidResult();
             return;

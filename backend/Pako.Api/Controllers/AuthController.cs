@@ -26,7 +26,7 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
-            return BadRequest(result.Errors.Select(e => e.Description));
+            return BadRequest("Registration failed. Check your details and try again.");
         }
 
         var token = _tokenService.GenerateToken(user);

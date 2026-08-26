@@ -13,9 +13,6 @@ type RecordPaymentFormProps = {
   companyId: string;
   documentKind: 'invoice' | 'bill';
   documentId: string;
-  partnerId: string;
-  controlAccountId: string;
-  journalId: string;
   cashAccounts: AccountResponse[];
   outstanding: number;
   onRecorded: () => void;
@@ -25,9 +22,6 @@ export function RecordPaymentForm({
   companyId,
   documentKind,
   documentId,
-  partnerId,
-  controlAccountId,
-  journalId,
   cashAccounts,
   outstanding,
   onRecorded,
@@ -52,40 +46,20 @@ export function RecordPaymentForm({
 
     setSubmitting(true);
     try {
-      const description = documentKind === 'invoice' ? 'Payment received' : 'Payment made';
-      const lines =
-        documentKind === 'invoice'
-          ? [
-              { accountId: cashAccountId, partnerId: undefined, debit: parsedAmount, credit: 0, description },
-              { accountId: controlAccountId, partnerId, debit: 0, credit: parsedAmount, description },
-            ]
-          : [
-              { accountId: controlAccountId, partnerId, debit: parsedAmount, credit: 0, description },
-              { accountId: cashAccountId, partnerId: undefined, debit: 0, credit: parsedAmount, description },
-            ];
-
-      const draft = await apiClient.journalEntries(companyId, {
-        journalId,
-        date: new Date().toISOString().slice(0, 10),
-        reference: undefined,
-        lines,
-      });
-      const posted = await apiClient.post3(companyId, draft.id);
-      const settlementLine = posted.lines.find((line) => line.accountId === controlAccountId);
-      if (!settlementLine) {
-        throw new Error('Could not find the posted settlement line to reconcile.');
-      }
-
-      await apiClient.reconciliations(companyId, {
-        invoiceId: documentKind === 'invoice' ? documentId : undefined,
-        billId: documentKind === 'bill' ? documentId : undefined,
-        journalEntryLineId: settlementLine.id,
+      const body = {
         amount: parsedAmount,
-      });
+        cashOrBankAccountId: cashAccountId,
+        date: new Date().toISOString().slice(0, 10),
+      };
+      if (documentKind === 'invoice') {
+        await apiClient.recordPayment2(companyId, documentId, body);
+      } else {
+        await apiClient.recordPayment(companyId, documentId, body);
+      }
 
       onRecorded();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not record the payment.'));
+      setError(getApiErrorMessage(err, 'Could not record the payment — nothing was changed.'));
     } finally {
       setSubmitting(false);
     }

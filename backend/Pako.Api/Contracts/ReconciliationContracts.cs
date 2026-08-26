@@ -5,3 +5,7 @@ public record CreateReconciliationRequest(Guid? InvoiceId, Guid? BillId, Guid Jo
 public record ReconciliationResponse(Guid Id, Guid? InvoiceId, Guid? BillId, Guid JournalEntryLineId, decimal Amount, DateTime ReconciledAt);
 
 public record DocumentBalanceResponse(decimal Total, decimal Reconciled, decimal Outstanding);
+
+public record RecordPaymentRequest(decimal Amount, Guid CashOrBankAccountId, DateOnly Date);
+
+public record RecordPaymentResponse(ReconciliationResponse Reconciliation, DocumentBalanceResponse Balance);

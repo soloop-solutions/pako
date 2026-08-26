@@ -187,6 +187,28 @@ public class FirmsAndMembershipTests
     }
 
     [Fact]
+    public async Task CompanyAccessFilter_UserWithFirmCascadedWriteRoleAndDirectReadOnlyRole_GrantsWriteAccess()
+    {
+        // Most-permissive-wins: a user with BOTH a firm-cascaded FirmAccountant (write-capable)
+        // AND a direct ClientViewer (read-only) on the same company must get write access — the
+        // union of what either membership grants, not whichever row an unordered query happened
+        // to pick first (the bug this fix closes).
+        var db = NewContext();
+        var userId = Guid.NewGuid();
+        var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
+        var company = new Company { Id = Guid.NewGuid(), Name = "Client Co", FirmId = firm.Id };
+        db.Firms.Add(firm);
+        db.Companies.Add(company);
+        db.Memberships.Add(Membership.ForFirm(userId, firm.Id, MembershipRole.FirmAccountant));
+        db.Memberships.Add(Membership.ForCompany(userId, company.Id, MembershipRole.ClientViewer));
+        await db.SaveChangesAsync();
+
+        var result = await RunFilterAsync(new CompanyAccessFilter(db, writeAccess: true), userId, "companyId", company.Id);
+
+        Assert.Null(result);
+    }
+
+    [Fact]
     public async Task AddCompanyMember_NonexistentEmail_ReturnsNotFound()
     {
         var db = NewContext();

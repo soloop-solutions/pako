@@ -303,6 +303,52 @@ export class PakoApiClient {
     }
 
     /**
+     * @return Created
+     */
+    recordPayment(companyId: string, id: string, body: RecordPaymentRequest): Promise<RecordPaymentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bills/{id}/record-payment";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRecordPayment(_response);
+        });
+    }
+
+    protected processRecordPayment(response: Response): Promise<RecordPaymentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as RecordPaymentResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<RecordPaymentResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     post(companyId: string, id: string): Promise<BillResponse> {
@@ -906,6 +952,52 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<DocumentBalanceResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    recordPayment2(companyId: string, id: string, body: RecordPaymentRequest): Promise<RecordPaymentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/record-payment";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRecordPayment2(_response);
+        });
+    }
+
+    protected processRecordPayment2(response: Response): Promise<RecordPaymentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as RecordPaymentResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<RecordPaymentResponse>(null as any);
     }
 
     /**
@@ -1750,42 +1842,6 @@ export class PakoApiClient {
         }
         return Promise.resolve<TaxDefinitionResponse[]>(null as any);
     }
-
-    /**
-     * @return OK
-     */
-    getWeatherForecast(): Promise<WeatherForecast[]> {
-        let url_ = this.baseUrl + "/WeatherForecast";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_: RequestInit = {
-            method: "GET",
-            headers: {
-                "Accept": "application/json"
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processGetWeatherForecast(_response);
-        });
-    }
-
-    protected processGetWeatherForecast(response: Response): Promise<WeatherForecast[]> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
-            return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WeatherForecast[];
-            return result200;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<WeatherForecast[]>(null as any);
-    }
 }
 
 export interface AccountResponse {
@@ -2129,6 +2185,21 @@ export interface ReconciliationResponse {
     [key: string]: any;
 }
 
+export interface RecordPaymentRequest {
+    amount: number;
+    cashOrBankAccountId: string;
+    date: string;
+
+    [key: string]: any;
+}
+
+export interface RecordPaymentResponse {
+    reconciliation: ReconciliationResponse;
+    balance: DocumentBalanceResponse;
+
+    [key: string]: any;
+}
+
 export interface RegisterRequest {
     email: string;
     password: string;
@@ -2184,15 +2255,6 @@ export interface VatReturnResponse {
     totalOutputVat: number;
     totalInputVat: number;
     netVatDue: number;
-
-    [key: string]: any;
-}
-
-export interface WeatherForecast {
-    date?: string;
-    temperatureC?: number;
-    temperatureF?: number;
-    summary?: string | undefined;
 
     [key: string]: any;
 }

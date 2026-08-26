@@ -13,7 +13,9 @@ public static class ReconciliationValidator
         Guid documentPartnerId,
         decimal documentTotal,
         decimal alreadyReconciled,
-        decimal amount)
+        decimal amount,
+        decimal settlementLineAmount,
+        decimal alreadyReconciledForLine)
     {
         if (!documentIsPosted)
         {
@@ -44,6 +46,17 @@ public static class ReconciliationValidator
         if (amount > outstanding)
         {
             throw new OverReconciliationException(outstanding, amount);
+        }
+
+        // The document-level check above only guards the invoice/bill side. It says nothing about
+        // whether this same settlement JournalEntryLine has already had its own amount consumed by
+        // OTHER reconciliations (e.g. reconciled against a different invoice) — without this, one
+        // real receipt could be reconciled in full against two separate documents. A single
+        // settlement line legitimately funds multiple documents (a bulk receipt split across
+        // several invoices), so the cap here is the line's own amount, not "one document per line".
+        if (alreadyReconciledForLine + amount > settlementLineAmount)
+        {
+            throw new SettlementLineOverConsumedException(journalEntryLineId, settlementLineAmount, alreadyReconciledForLine + amount);
         }
     }
 }

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
@@ -55,6 +56,14 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
+    // ReconciledFlag/ReconciliationId are reconciliation bookkeeping, set on a JournalEntryLine
+    // after the fact as it gets consumed by Reconciliation rows — they're deliberately outside the
+    // posted-entry immutability invariant (which protects Debit/Credit/AccountId/etc., the actual
+    // accounting facts) while everything else on a Posted line stays locked.
+    private static bool OnlyReconciliationFieldsChanged(EntityEntry<JournalEntryLine> entry) =>
+        entry.Properties.Where(p => p.IsModified).All(p =>
+            p.Metadata.Name is nameof(JournalEntryLine.ReconciledFlag) or nameof(JournalEntryLine.ReconciliationId));
+
     private void ValidateImmutability()
     {
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
@@ -68,7 +77,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<JournalEntryLine>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted)
+            if (entry.State is EntityState.Deleted || (entry.State == EntityState.Modified && !OnlyReconciliationFieldsChanged(entry)))
             {
                 var parentState = JournalEntries.AsNoTracking()
                     .Where(e => e.Id == entry.Entity.JournalEntryId)
@@ -167,7 +176,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<JournalEntryLine>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted)
+            if (entry.State is EntityState.Deleted || (entry.State == EntityState.Modified && !OnlyReconciliationFieldsChanged(entry)))
             {
                 var parentState = await JournalEntries.AsNoTracking()
                     .Where(e => e.Id == entry.Entity.JournalEntryId)

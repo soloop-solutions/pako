@@ -4,7 +4,6 @@ import type {
   AccountResponse,
   BillResponse,
   DocumentBalanceResponse,
-  JournalResponse,
   PartnerResponse,
   TaxDefinitionResponse,
 } from "@pako/shared";
@@ -20,8 +19,6 @@ import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
 import { estimatedTaxAmount } from "@/lib/tax-enums";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
-const ACCOUNTS_PAYABLE_CODE = "2000";
-
 export function BillDetail() {
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
@@ -31,7 +28,6 @@ export function BillDetail() {
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
-  const [journals, setJournals] = useState<JournalResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
@@ -41,18 +37,16 @@ export function BillDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [billResult, partnersResult, taxesResult, accountsResult, journalsResult] = await Promise.all([
+      const [billResult, partnersResult, taxesResult, accountsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.accounts(companyId),
-        apiClient.journalsAll(companyId),
       ]);
       setBill(billResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAccounts(accountsResult);
-      setJournals(journalsResult);
 
       if (billResult.state === "Posted") {
         setBalance(await apiClient.balance(companyId, id));
@@ -102,9 +96,7 @@ export function BillDetail() {
   }
 
   const partner = partners.find((p) => p.id === bill.partnerId);
-  const controlAccount = accounts.find((a) => a.code === ACCOUNTS_PAYABLE_CODE);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
-  const generalJournal = journals.find((j) => j.code === "GEN") ?? journals[0];
 
   let subtotal = 0;
   let estimatedTax = 0;
@@ -194,20 +186,17 @@ export function BillDetail() {
         </CardContent>
       </Card>
 
-      {bill.state === "Posted" && balance && balance.outstanding > 0 && controlAccount && generalJournal && (
+      {bill.state === "Posted" && balance && balance.outstanding > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Record payment</CardTitle>
-            <CardDescription>Creates and posts the settlement entry, then reconciles it against this bill.</CardDescription>
+            <CardDescription>Records and reconciles the payment against this bill in one step.</CardDescription>
           </CardHeader>
           <CardContent>
             <RecordPaymentForm
               companyId={activeCompany.id}
               documentKind="bill"
               documentId={bill.id}
-              partnerId={bill.partnerId}
-              controlAccountId={controlAccount.id}
-              journalId={generalJournal.id}
               cashAccounts={cashAccounts}
               outstanding={balance.outstanding}
               onRecorded={refresh}

@@ -981,3 +981,244 @@ not repeated here except what's relevant repo-wide.
   AppleScript/System Events UI-scripting timed out — Accessibility automation isn't available
   here), so that part of the flow relies on the curl/`PakoApiClient`-script verification above
   plus code review instead. `pnpm --filter @pako/mobile {typecheck,lint,test,build}` all pass.
+
+## Adversarial QA pass (2026-08-26) — real bugs found, not just happy-path re-verification
+
+Independent QA pass against the live stack (backend 69/69, `@pako/web` 2/2, `@pako/mobile` 9/9
+tests all confirmed genuinely passing, not padded). Everything below was reproduced against the
+running API, not inferred from code reading alone, unless marked otherwise.
+
+- **Real bug: amounts exceeding `numeric(18,2)` on a journal-entry line 500 instead of 400.**
+  `POST .../journal-entries` with a debit/credit of `99999999999999999.99` (one digit past the
+  column's capacity) throws an unhandled `DbUpdateException` → generic `ProblemDetails` 500 via
+  `GlobalExceptionHandler`, not a clean validation error. Same class of gap as the >256-char
+  company-name bug already fixed — this one wasn't. No amount-bounds check exists anywhere before
+  `SaveChanges`. Amounts up to `9999999999999999.99` (exactly 18 digits) work fine; negative
+  debit/credit and both-debit-and-credit-nonzero-on-one-line are also accepted and post
+  successfully (the balance invariant only checks `SUM(debit)==SUM(credit)`, not per-line
+  non-negativity or debit-xor-credit) — mechanically harmless today since nothing downstream reads
+  a line's sign, but worth a guard before real users hit it. No date-range sanity check either: a
+  journal entry dated `1900-01-01` or `2999-01-01` posts with no complaint (the
+  `AccountingLockDateViolationException`/`TaxLockDateViolationException` paths exist in every
+  controller but are currently **dead code** — `Company.AccountingLockDate`/`TaxLockDate` are
+  read-only in every response DTO, there's no endpoint to ever set them, so lock-date protection is
+  100% wired but unreachable through the API today).
+- **Confirmed and quantified: the invoice-numbering concurrency gap CLAUDE.md already flagged is
+  real, and worse than "gaps or duplicates."** Fired 10 simultaneous create+post requests for the
+  same company: only 2/10 succeeded (`INV-0006`/`INV-0007`), the other 8 all hit a raw 500
+  (`Npgsql.PostgresException 23505: duplicate key value violates unique constraint
+  "IX_invoices_CompanyId_InvoiceNumber"` — see `/private/tmp/pako-api.log`). The DB unique
+  constraint does its job: **no duplicate invoice numbers ever land**, and EF's implicit
+  transaction rolls back cleanly on conflict — the 8 failed invoices stayed `Draft` with
+  `invoiceNumber: null` and no orphaned `Posted` journal entries were left behind, confirmed by
+  re-fetching all 10 afterward. So this is not silent corruption — but under any real concurrent
+  month-end invoicing burst, ~80% of requests would visibly fail with a generic 500 and no
+  automatic retry, which is a real reliability problem even though the ledger stays consistent.
+  Fix direction: `SELECT ... FOR UPDATE` or a Postgres sequence on `Company.NextInvoiceNumber`, per
+  the gap already noted in the Invoicing section above, plus a retry-on-409/23505 path so the
+  client doesn't just see a raw failure.
+- **Negative invoices (the only available credit-note substitute, per architecture — no real
+  credit-note support exists) mechanically post but can never be reconciled/settled.** A negative
+  `unitPrice` invoice line posts fine (produces a negative AR debit / negative revenue credit /
+  negative VAT credit, all correctly balanced) and its `.../balance` endpoint correctly reports a
+  negative `outstanding` (e.g. `{-118, 0, -118}`). But `ReconciliationValidator` requires a
+  positive `amount` (`"Reconciliation amount must be positive."`), and any positive amount then
+  fails the "exceeds the outstanding balance" check against a negative outstanding — there is
+  **no way to ever mark a negative invoice as settled** through the reconciliation API. It will sit
+  forever showing a permanent negative outstanding balance. Flag to Erion before anyone builds a
+  "just post a negative invoice as a credit note" workflow on top of this — it's a dead end as
+  currently implemented, not a working substitute.
+- **Reconciliation validator itself is solid** — verified all four asked edge cases reject cleanly
+  with clear 400 messages: more decimal precision than the outstanding balance, reconciling past
+  an already-fully-reconciled invoice, a negative reconciliation amount, and a settlement line
+  whose `PartnerId` doesn't match the document's partner. Also swept 3 additional IDOR-style
+  cross-object-reference attempts (create a reconciliation/journal-entry/invoice **in your own
+  company** but pointing at another company's line/account/partner id) — all three correctly
+  400 with "Invalid X for this company," confirming the tenant-scoping check goes deeper than just
+  the `{companyId}` route guard.
+- **Multi-tenant isolation is genuinely solid, swept broadly, not spot-checked.** Two fully
+  independent users/companies, user B's token against every one of company A's endpoints (17 GET +
+  5 POST across accounts/journals/journal-entries/trial-balance/taxes/partners/invoices/balance/
+  invoice-reconciliations/bills/employees/payroll-runs/all 3 reports/members, plus attempted
+  writes) — 100% returned `403`, zero leaks.
+- **Auth edge cases all behave correctly against the raw API**: an expired-but-validly-signed JWT
+  (forged with the dev signing key from `appsettings.Development.json` and a past `exp`), a
+  malformed token, a tampered token (last char flipped), a missing `Authorization` header, and an
+  `alg: none` token all return a clean `401`. Frontend handling (`apps/web/src/api/client.ts`'s
+  `authorizedFetch` dispatches `pako:auth-expired` on any 401 while a session is stored →
+  `AuthContext` clears session and `RequireAuth` redirects to `/login`) was verified by reading the
+  actual code path, not a browser click-through (no browser-automation tool available here either,
+  same constraint every prior frontend pass hit) — the mechanism is sound and matches what's
+  already documented above.
+- **Reporting math holds up at real volume, not just the small hand-picked scenarios in the
+  existing tests.** Built a fresh company with 21 posted documents (10 invoices split standard-VAT/
+  exempt, 8 bills split VAT/exempt, 3 manual expense entries, a capital entry, a 2-employee payroll
+  run) — P&L net income, balance sheet's synthetic "Current Earnings" line, `Assets ==
+  Liabilities + Equity`, and VAT net due (output − input) all matched hand-computed expectations
+  (net income 656.82, assets 8616.41 = liabilities 2959.59 + equity 5656.82) to the cent; the one
+  VAT-due figure was 310.96 vs. a hand-computed 310.97, a 1-cent difference from Python's rounding
+  vs. the server's per-line `AwayFromZero` rounding, not a bug.
+- **Serious finding: the Record Payment 3-call sequence (`RecordPaymentForm.tsx`) has no
+  idempotency and silently corrupts the GL if the 3rd call fails after the first two succeed.**
+  Reproduced directly: call 1 (`POST journal-entries`, draft) and call 2 (`POST
+  .../journal-entries/{id}/post`) succeed, call 3 (`POST .../reconciliations`) fails (simulated a
+  stale/wrong `journalEntryLineId`, a realistic failure mode e.g. after a page reload or a network
+  blip) → the settlement journal entry is now **Posted, immutable, and permanently orphaned** —
+  invoice balance correctly still shows the full outstanding amount, but there's no reconciliation
+  linking the posted Cash-debit/AR-credit entry to anything. `RecordPaymentForm.tsx`'s `catch`
+  block only sets a generic error string and resets `submitting` — it has zero memory that a
+  journal entry already posted. The obvious next user action (click "Record payment" again)
+  re-runs **all three calls from scratch**: a second settlement journal entry posts, and *this*
+  one reconciles correctly, so the invoice now shows `outstanding: 0` and looks completely normal.
+  But the ledger now has **two** Cash-debit-118/AR-credit-118 entries for one real payment — Cash
+  is silently overstated and AR silently understated by the payment amount, permanently, with the
+  orphaned first entry invisible in the Reconciliation nav page (which only lists documents with
+  `outstanding > 0` — once the second attempt zeroes it out, the orphan drops off that list
+  entirely). Confirmed via the real trial-balance endpoint: Cash's balance is off by exactly the
+  duplicated amount after the two-attempt sequence. **Compounding this: there is no `DELETE` on
+  journal entries at all** (checked the OpenAPI spec — only `GET`/`POST .../journal-entries` and
+  `POST .../journal-entries/{id}/post` exist), so not even a Draft-stage orphan (if call 2 itself
+  had failed instead of call 3) can be cleaned up through the API — the only fix for either failure
+  mode is a manually-authored correcting/reversing journal entry via the generic Ledger UI, which
+  nothing in the product currently prompts the user to do. This is a real risk for a product whose
+  core value proposition is trustworthy books — flag to Erion before this ships: needs either a
+  single-transaction 3-call replacement (e.g. one backend endpoint that does draft+post+reconcile
+  atomically) or, at minimum, idempotency-safe retry logic in `RecordPaymentForm.tsx` that detects
+  and resumes from a partially-completed attempt instead of blindly restarting from call 1.
+
+## Backend fixes pass (2026-08-26) — closed the bugs the adversarial QA pass above found
+
+Fixed all 8 findings from the audit above, backend-only (frontend wiring for the new endpoint is a
+separate pass — the old 3-call `RecordPaymentForm.tsx` sequence still works and was left alone,
+per instruction). `dotnet test Pako.slnx` 90/90 (up from 69), migration applied and every fix
+re-verified against the real Postgres container + a live `Pako.Api`, not just unit tests.
+
+- **Reconciliation double-spend, the highest-priority fix**: `ReconciliationValidator.Validate`
+  only checked a new `Reconciliation`'s amount against the *document's* outstanding balance, never
+  against how much of the *settlement `JournalEntryLine` itself* was already consumed by other
+  `Reconciliation` rows — one real receipt could be reconciled in full against two different
+  invoices. Fixed by adding two parameters, `settlementLineAmount`/`alreadyReconciledForLine`, and
+  a new check (`alreadyReconciledForLine + amount > settlementLineAmount` throws
+  `SettlementLineOverConsumedException`) — a legitimate single-line-split-across-several-documents
+  payment still works, since the cap is the line's own amount, not "one document per line".
+  `JournalEntryLine.ReconciledFlag`/`ReconciliationId` are now actually set when a line becomes
+  fully consumed. Setting those two fields on a line that belongs to an otherwise-immutable
+  Posted `JournalEntry` needed a carve-out in `PakoDbContext.ValidateImmutability`
+  (`OnlyReconciliationFieldsChanged`) — everything else on a Posted line (`Debit`/`Credit`/
+  `AccountId`/etc.) stays locked, only those two reconciliation-bookkeeping fields are exempt.
+  **Two layers of defense-in-depth, same discipline as the balance/scope invariants elsewhere in
+  this repo**: app-level, `ReconciliationsController.Create` and the new record-payment endpoints
+  take a Postgres row lock (`SELECT ... FOR UPDATE`) on the settlement line before reading how much
+  of it is already reconciled, serializing concurrent attempts against the same line
+  (`Pako.Api.Services.DatabaseFacadeExtensions.SupportsRowLocking` gates this to the Npgsql
+  provider — the InMemory test provider skips it, it doesn't need it); DB-level, a new migration
+  (`AddReconciliationLineCapacityTrigger`) adds a Postgres trigger
+  (`enforce_reconciliation_line_capacity`) that independently re-derives and enforces the same cap
+  on every INSERT/UPDATE to `reconciliations` — verified this catches even a raw SQL INSERT that
+  bypasses the API entirely (`RAISE EXCEPTION` on an attempted over-consumption). Regression tests:
+  `ReconciliationValidatorTests` (pure validator), `ReconciliationsControllerTests` (real
+  double-spend across two documents rejected; real 100/100/50 split across three documents
+  succeeds) — reproduced live against Postgres too (see verification below).
+- **Atomic "record payment"**: new `POST .../invoices/{id}/record-payment` and
+  `POST .../bills/{id}/record-payment` (`InvoicesController`/`BillsController`,
+  `{ amount, cashOrBankAccountId, date }`) build the settlement `JournalEntry`, call
+  `JournalEntry.Post(company)`, and create the `Reconciliation` (via the new shared
+  `Pako.Api.Services.ReconciliationCreator.TryCreateAsync`, used by both this endpoint and
+  `ReconciliationsController.Create` so they can never drift on the double-spend check) all inside
+  one Postgres transaction — a failure at any step rolls back everything, including the
+  already-`SaveChanges`d settlement entry from earlier in the same call. The old 3 primitives
+  (`journal-entries` create/post, `reconciliations` create) are untouched and still work standalone.
+  Verified live: happy path returns the reconciliation + updated balance in one call; an invalid
+  `cashOrBankAccountId` 400s before anything is written; retrying payment on an already-fully-paid
+  invoice 400s (over-reconciliation) *and* the settlement entry that attempt built inside the
+  transaction does NOT survive as an orphan (`journal_entries` row count identical before/after,
+  confirmed via `psql` against the real container) — this is the actual proof the transaction
+  rolled back, not just that validation ran early.
+- **Negative/zero-total invoices and bills blocked at create time**: `InvoicesController`/
+  `BillsController.Create` now reject `Quantity <= 0`, `UnitPrice < 0`, and a computed total
+  (`sum(quantity * unitPrice)`) that isn't strictly positive, with "Invoices/Bills must have a
+  positive total. Credit notes are not yet supported." — closes the dead-end negative-invoice
+  credit-note substitute the QA pass flagged.
+- **`JournalEntry.Post()` zero-line guard** added (matching the guard `Invoice.Post`/`Bill.Post`/
+  `PayrollRun.Post` already had) — a bare zero-line entry posted directly through
+  `JournalEntriesController` now 400s instead of becoming a permanently immutable no-op record.
+  `JournalEntriesController.Create` also rejects any line's `Debit`/`Credit` over
+  `9999999999999999.99` (numeric(18,2)'s capacity) with a clean 400 instead of the uncaught
+  `DbUpdateException` -> 500 the QA pass reproduced.
+- **Deterministic most-permissive authorization**: `CompanyAccessFilter` used to pick one
+  applicable `Membership` via unordered `FirstOrDefaultAsync`, so a user with both a firm-cascaded
+  write-granting role and a direct read-only role on the same company got non-deterministic
+  effective permissions (Postgres row order). Now takes the union of every applicable membership's
+  roles — most-permissive-wins, documented as a deliberate policy choice in a code comment on the
+  filter (and mirrored in a comment on `CompanyMembersController.Create`'s duplicate check, which
+  is deliberately still scoped to direct `CompanyId` only — adding a direct membership when a
+  firm-cascaded one already exists is allowed by design, it's how you'd explicitly add/override a
+  member for one company, and the filter's union resolves the combination consistently either way).
+  Verified live: a user with both a firm-cascaded `FirmAccountant` and a direct `ClientViewer` on
+  the same company successfully performs a write action.
+- **Invoice numbering under concurrency**: `InvoicesController.Post` now takes a Postgres row lock
+  on the `Company` row (`SELECT ... FOR UPDATE`, same `SupportsRowLocking` gate) before reading/
+  incrementing `NextInvoiceNumber`, serializing concurrent posts for the same company instead of
+  racing on the unique `(CompanyId, InvoiceNumber)` index. **Confirmed against the real Postgres
+  container under real concurrent load, not just a logic-path test**: 10 simultaneous create+post
+  requests for the same company went from ~20% success (the rest raw 500s on a unique-constraint
+  violation, per the QA pass above) to **10/10 succeeding** with 10 unique sequential numbers, zero
+  duplicates.
+- **Register no longer leaks which emails are already PAKO accounts**: `AuthController.Register`
+  now returns one generic message ("Registration failed. Check your details and try again.") for
+  any Identity failure — duplicate email, weak password, whatever — instead of forwarding Identity's
+  raw per-field error list, which distinguished "email already taken" from everything else.
+- **`backend/.gitignore`** gained `appsettings.*.local.json` — the committed
+  `appsettings.Development.json` stays as the dev-placeholder template (harmless values, keep
+  committing it), but any *real* secret for local dev should go in a gitignored
+  `appsettings.Development.local.json` instead (ASP.NET Core's layered config picks this up by
+  convention, no code change needed) so a future session can't accidentally commit one.
+- **New shared helper worth knowing about**: `Pako.Api/Services/ReconciliationCreator.cs` now owns
+  the entire settlement-line-lookup + validate + stage-the-Reconciliation-and-flag-update logic,
+  used by `ReconciliationsController.Create` and both `RecordPayment` actions — if reconciliation
+  behavior ever needs to change again, change it there once, not in three controllers.
+  `Pako.Api/Services/DatabaseFacadeExtensions.SupportsRowLocking()` is the one place that decides
+  whether a controller action takes a real Postgres row lock/transaction or no-ops for the
+  InMemory test provider — reuse it rather than re-deriving `Database.ProviderName` checks
+  elsewhere.
+
+## `RecordPaymentForm.tsx` switched to the atomic record-payment endpoint (2026-08-26)
+
+Frontend follow-up to the backend fixes pass above — `apps/web/src/pages/shared/
+RecordPaymentForm.tsx` no longer does the old 3-call draft/post/reconcile sequence (the one the
+Adversarial QA pass proved could orphan a posted journal entry and double-book cash on retry). It
+now makes one call: `apiClient.recordPayment2(companyId, invoiceId, body)` for invoices,
+`apiClient.recordPayment(companyId, billId, body)` for bills — same NSwag-numbering-collision
+pattern as `post`/`post2`/`post3`/`post4` (`recordPayment` = Bills, `recordPayment2` = Invoices,
+alphabetical-by-controller as always; re-verify both after any future regeneration, don't assume).
+Body is `{ amount, cashOrBankAccountId, date }`; the component still builds `date` internally as
+today's date (`toISOString().slice(0,10)`), there's no date input in the UI, matching the old
+form's behavior.
+- `partnerId`/`controlAccountId`/`journalId` props are gone from `RecordPaymentFormProps` — the
+  backend endpoint resolves the control account and builds the settlement entry itself, the
+  frontend no longer needs to know either. `InvoiceDetail.tsx`/`BillDetail.tsx` correspondingly
+  dropped their `journals` fetch (`apiClient.journalsAll`) and `controlAccount`/`generalJournal`
+  lookups entirely — they were only ever computed to feed those props.
+  `ACCOUNTS_RECEIVABLE_CODE`/`ACCOUNTS_PAYABLE_CODE` constants are gone from both files for the
+  same reason. The "Record payment" card's render guard is just `balance.outstanding > 0` now
+  (no `controlAccount && generalJournal`).
+- Error message updated to reflect true atomicity: `"Could not record the payment — nothing was
+  changed."` (was `"Could not record the payment."`) — accurate now that a failure means the
+  transaction rolled back, not that some of it may have already landed.
+- `apps/mobile`'s `record-payment-form.tsx` was independently migrated to the same atomic
+  `recordPayment`/`recordPayment2` calls in this same pass (not by this section's author — see
+  `apps/mobile/CLAUDE.md`'s "Record payment flow (atomic, superseded the old 3-call sequence)"
+  section for its own props/verification detail) — both platforms are on the atomic endpoint now.
+- **Verified end-to-end** against the real running API (not just typechecked): created a fresh
+  company/customer/1000-net-18%-VAT invoice, posted it (total 1180), recorded a 700 payment via
+  `POST .../invoices/{id}/record-payment` with the exact `{amount, cashOrBankAccountId, date}`
+  body the form sends — `201`, one call, balance updated to `{1180, 700, 480}`, journal-entry
+  count for the company went from 1 to 2 (invoice + settlement). Then attempted a second payment
+  with an invalid `cashOrBankAccountId` (all-zeros GUID) — clean `400`
+  ("cashOrBankAccountId must be a Cash or Bank account for this company."), balance unchanged at
+  `{1180, 700, 480}`, and journal-entry count for the company **stayed at 2** — confirmed both via
+  the API and directly via `psql` against the real Postgres container
+  (`docker exec backend-postgres-1 psql -U postgres -d pako_dev`, `SELECT "Id","State","Reference"
+  FROM journal_entries WHERE "CompanyId" = '...'`, exactly 2 rows) — true rollback, not just a
+  client-side revert or validation that happened to run before any write. `pnpm --filter @pako/web
+  {typecheck,lint,test,build}` all pass on top of this.

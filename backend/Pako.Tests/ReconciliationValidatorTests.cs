@@ -16,7 +16,9 @@ public class ReconciliationValidatorTests
         bool documentIsPosted = true,
         decimal documentTotal = 100m,
         decimal alreadyReconciled = 0m,
-        decimal amount = 100m) =>
+        decimal amount = 100m,
+        decimal? settlementLineAmount = null,
+        decimal alreadyReconciledForLine = 0m) =>
         ReconciliationValidator.Validate(
             _journalEntryLineId,
             settlementLineIsPosted,
@@ -28,7 +30,9 @@ public class ReconciliationValidatorTests
             _partnerId,
             documentTotal,
             alreadyReconciled,
-            amount);
+            amount,
+            settlementLineAmount ?? amount + alreadyReconciledForLine,
+            alreadyReconciledForLine);
 
     [Fact]
     public void Validate_FullReconciliation_Succeeds()
@@ -86,5 +90,31 @@ public class ReconciliationValidatorTests
     public void Validate_NonPositiveAmount_Throws()
     {
         Assert.Throws<ArgumentException>(() => Validate(amount: 0m));
+    }
+
+    [Fact]
+    public void Validate_SecondReconciliationAgainstAnAlreadyFullyConsumedLine_Throws()
+    {
+        // Reproduces the double-spend: a 100 settlement line already fully reconciled against
+        // Invoice A (documentTotal/alreadyReconciled are per-document, so a fresh Invoice B has no
+        // document-level history) must still be rejected when reconciled against Invoice B too.
+        var ex = Assert.Throws<SettlementLineOverConsumedException>(() => Validate(
+            documentTotal: 100m,
+            alreadyReconciled: 0m,
+            amount: 100m,
+            settlementLineAmount: 100m,
+            alreadyReconciledForLine: 100m));
+
+        Assert.Equal(100m, ex.LineAmount);
+        Assert.Equal(200m, ex.AttemptedTotal);
+    }
+
+    [Fact]
+    public void Validate_LegitimatePartialReconciliationAcrossMultipleDocumentsFromOneLine_Succeeds()
+    {
+        // A single 250 settlement line legitimately split 100/100/50 across three invoices — each
+        // call only checks the running total against the LINE's own 250, not against any one
+        // document, so the third (50) call must still succeed after 200 was already consumed.
+        Validate(documentTotal: 100m, alreadyReconciled: 0m, amount: 50m, settlementLineAmount: 250m, alreadyReconciledForLine: 200m);
     }
 }

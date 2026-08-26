@@ -3,12 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
-using Pako.Domain.Bills;
-using Pako.Domain.Invoicing;
-using Pako.Domain.Ledger;
+using Pako.Api.Services;
 using Pako.Domain.Reconciliation;
 using Pako.Infrastructure;
-using Pako.Localization.Xk;
 
 namespace Pako.Api.Controllers;
 
@@ -34,101 +31,51 @@ public class ReconciliationsController : ControllerBase
             return BadRequest("Exactly one of invoiceId or billId must be set.");
         }
 
-        var settlementLine = await _db.JournalEntryLines.AsNoTracking()
-            .Include(l => l.JournalEntry)
-            .FirstOrDefaultAsync(l => l.Id == request.JournalEntryLineId);
-        if (settlementLine?.JournalEntry is null || settlementLine.JournalEntry.CompanyId != companyId)
-        {
-            return BadRequest("Invalid settlement journal entry line for this company.");
-        }
-
-        Guid documentId;
-        Guid documentPartnerId;
-        Guid? documentJournalEntryId;
-        bool documentIsPosted;
-        string controlAccountCode;
-
-        if (request.InvoiceId is { } invoiceId)
-        {
-            var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == invoiceId && i.CompanyId == companyId);
-            if (invoice is null)
-            {
-                return NotFound();
-            }
-
-            documentId = invoice.Id;
-            documentPartnerId = invoice.PartnerId;
-            documentJournalEntryId = invoice.JournalEntryId;
-            documentIsPosted = invoice.State == InvoiceState.Posted;
-            controlAccountCode = DefaultChartOfAccountsTemplate.AccountsReceivableCode;
-        }
-        else
-        {
-            var bill = await _db.Bills.AsNoTracking().FirstOrDefaultAsync(b => b.Id == request.BillId && b.CompanyId == companyId);
-            if (bill is null)
-            {
-                return NotFound();
-            }
-
-            documentId = bill.Id;
-            documentPartnerId = bill.PartnerId;
-            documentJournalEntryId = bill.JournalEntryId;
-            documentIsPosted = bill.State == BillState.Posted;
-            controlAccountCode = DefaultChartOfAccountsTemplate.AccountsPayableCode;
-        }
-
-        var controlAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == controlAccountCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
-
-        var documentTotal = 0m;
-        if (documentJournalEntryId is { } journalEntryId)
-        {
-            documentTotal = await _db.JournalEntryLines.AsNoTracking()
-                .Where(l => l.JournalEntryId == journalEntryId && l.AccountId == controlAccountId)
-                .SumAsync(l => l.Debit + l.Credit);
-        }
-
-        var alreadyReconciled = await _db.Reconciliations.AsNoTracking()
-            .Where(r => (request.InvoiceId != null && r.InvoiceId == request.InvoiceId) ||
-                        (request.BillId != null && r.BillId == request.BillId))
-            .SumAsync(r => r.Amount);
-
+        // Row-locking the settlement line (Postgres only) before reading how much of it is
+        // already reconciled serializes concurrent reconciliation attempts against the same line
+        // — without it, two concurrent requests could both read "0 already reconciled" and both
+        // pass validation, double-spending the line. See ReconciliationCreator's comment for the
+        // validation itself.
+        var transaction = _db.Database.SupportsRowLocking()
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
         try
         {
-            ReconciliationValidator.Validate(
-                request.JournalEntryLineId,
-                settlementLine.JournalEntry.State == JournalEntryState.Posted,
-                settlementLine.AccountId,
-                controlAccountId,
-                settlementLine.PartnerId,
-                documentId,
-                documentIsPosted,
-                documentPartnerId,
-                documentTotal,
-                alreadyReconciled,
-                request.Amount);
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM journal_entry_lines WHERE \"Id\" = {request.JournalEntryLineId} FOR UPDATE");
+            }
+
+            var result = await ReconciliationCreator.TryCreateAsync(
+                _db, companyId, request.InvoiceId, request.BillId, request.JournalEntryLineId, request.Amount);
+
+            if (result.Status == ReconciliationCreationStatus.NotFound)
+            {
+                return NotFound();
+            }
+
+            if (result.Status == ReconciliationCreationStatus.ValidationFailed)
+            {
+                return BadRequest(result.Error);
+            }
+
+            await _db.SaveChangesAsync();
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            return StatusCode(StatusCodes.Status201Created, ToResponse(result.Reconciliation!));
         }
-        catch (Exception ex) when (
-            ex is ArgumentException or
-            UnpostedSettlementLineException or
-            UnpostedReconciliationDocumentException or
-            ReconciliationAccountMismatchException or
-            ReconciliationPartnerMismatchException or
-            OverReconciliationException)
+        finally
         {
-            return BadRequest(ex.Message);
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
         }
-
-        var reconciliation = request.InvoiceId is { } invId
-            ? Reconciliation.ForInvoice(companyId, invId, request.JournalEntryLineId, request.Amount)
-            : Reconciliation.ForBill(companyId, request.BillId!.Value, request.JournalEntryLineId, request.Amount);
-
-        _db.Reconciliations.Add(reconciliation);
-        await _db.SaveChangesAsync();
-
-        return StatusCode(StatusCodes.Status201Created, ToResponse(reconciliation));
     }
 
     [HttpGet]

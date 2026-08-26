@@ -77,4 +77,21 @@ public class JournalEntryPostingTests
 
         Assert.Throws<InvalidOperationException>(() => entry.Post(company));
     }
+
+    [Fact]
+    public void Post_NoLines_Throws()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = Guid.NewGuid(),
+            JournalId = Guid.NewGuid(),
+            Date = new DateOnly(2026, 8, 26)
+        };
+
+        var ex = Assert.Throws<InvalidOperationException>(() => entry.Post(company));
+        Assert.Contains("no lines", ex.Message);
+        Assert.Equal(JournalEntryState.Draft, entry.State);
+    }
 }

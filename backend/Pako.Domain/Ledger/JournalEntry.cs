@@ -34,6 +34,11 @@ public class JournalEntry
                 $"Journal entry {Id} cannot be posted from state {State}; only Draft entries can be posted.");
         }
 
+        if (Lines.Count == 0)
+        {
+            throw new InvalidOperationException($"Journal entry {Id} has no lines.");
+        }
+
         var totalDebit = Lines.Sum(l => l.Debit);
         var totalCredit = Lines.Sum(l => l.Credit);
         if (totalDebit != totalCredit)

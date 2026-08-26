@@ -44,6 +44,24 @@ backend.
   `estimatedTaxAmount` — no ledger/chart-of-accounts screen exists on mobile in this pass, so
   `accountTypeLabel`/`accountSubTypeLabel` weren't ported.
 
+## Record payment flow (atomic, superseded the old 3-call sequence)
+
+`record-payment-form.tsx` now calls a single atomic backend endpoint —
+`apiClient.recordPayment2(companyId, invoiceId, body)` for invoices, `apiClient.recordPayment(companyId,
+billId, body)` for bills (`{ amount, cashOrBankAccountId, date }`, both return `{ reconciliation, balance
+}`) — instead of the old client-driven `journal-entries` create → `post3` → `reconciliations` sequence.
+The backend endpoint builds the settlement entry, posts it, and reconciles it inside one Postgres
+transaction, so a failure partway through leaves nothing written (verified live: an invalid
+`cashOrBankAccountId` 400s and the `journal_entries` row count is unchanged, vs. the old sequence which
+could orphan a posted, unreconciled, un-deletable journal entry and double-book cash on retry — see root
+`CLAUDE.md`'s "Adversarial QA pass" and "Backend fixes pass" sections for the full story). Because the
+backend now resolves the receivable/payable account and journal internally,
+`InvoiceDetailScreen`/`BillDetailScreen` no longer need to fetch `journals` or find the AR/AP
+`controlAccount` just to feed the form — `RecordPaymentForm` only takes `companyId`, `documentKind`,
+`documentId`, `cashAccounts`, `outstanding`, `onRecorded`. The mentions of the old 3-call sequence
+elsewhere in this file (under "Verification performed") describe that day's original build, before this
+fix landed — kept as-is for historical accuracy, not current behavior.
+
 ## Auth token storage
 
 `expo-secure-store` (Keychain-backed on iOS, Keystore-backed on Android), **not**

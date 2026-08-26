@@ -53,6 +53,12 @@ public class CompanyMembersController : ControllerBase
             return NotFound($"No PAKO account exists for {request.Email}.");
         }
 
+        // Deliberately scoped to a direct CompanyId match only, not the firm-cascade too: adding a
+        // direct membership for a user who already has firm-cascaded access is allowed by design
+        // — it's how you explicitly restrict/override a specific member for this one company (e.g.
+        // give a firm-cascaded FirmAccountant a narrower direct ClientViewer here). CompanyAccessFilter
+        // then resolves the two as a union (most-permissive-wins), so this never silently locks
+        // someone out — see its own comment for that policy.
         var alreadyMember = await _db.Memberships.AsNoTracking()
             .AnyAsync(m => m.UserId == user.Id && m.CompanyId == companyId);
         if (alreadyMember)

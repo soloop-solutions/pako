@@ -5,7 +5,6 @@ import type {
   AccountResponse,
   DocumentBalanceResponse,
   InvoiceResponse,
-  JournalResponse,
   PartnerResponse,
   TaxDefinitionResponse,
 } from '@pako/shared';
@@ -23,8 +22,6 @@ import { useCompany } from '@/context/company-context';
 import { isCashOrBankAccountSubType } from '@/lib/ledger-enums';
 import { estimatedTaxAmount } from '@/lib/tax-enums';
 
-const ACCOUNTS_RECEIVABLE_CODE = '1200';
-
 export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeCompany } = useCompany();
@@ -34,7 +31,6 @@ export default function InvoiceDetailScreen() {
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
-  const [journals, setJournals] = useState<JournalResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
@@ -46,18 +42,16 @@ export default function InvoiceDetailScreen() {
     setError(null);
     setRefreshing(true);
     try {
-      const [invoiceResult, partnersResult, taxesResult, accountsResult, journalsResult] = await Promise.all([
+      const [invoiceResult, partnersResult, taxesResult, accountsResult] = await Promise.all([
         apiClient.invoicesGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.accounts(companyId),
-        apiClient.journalsAll(companyId),
       ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAccounts(accountsResult);
-      setJournals(journalsResult);
 
       if (invoiceResult.state === 'Posted') {
         setBalance(await apiClient.balance2(companyId, id));
@@ -100,9 +94,7 @@ export default function InvoiceDetailScreen() {
   }
 
   const partner = partners.find((p) => p.id === invoice.partnerId);
-  const controlAccount = accounts.find((a) => a.code === ACCOUNTS_RECEIVABLE_CODE);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
-  const generalJournal = journals.find((j) => j.code === 'GEN') ?? journals[0];
 
   let subtotal = 0;
   let estimatedTax = 0;
@@ -174,16 +166,13 @@ export default function InvoiceDetailScreen() {
         )}
       </Card>
 
-      {invoice.state === 'Posted' && balance && balance.outstanding > 0 && controlAccount && generalJournal && (
+      {invoice.state === 'Posted' && balance && balance.outstanding > 0 && (
         <Card>
           <CardHeader title="Record payment" description="Creates and posts the settlement entry, then reconciles it against this invoice." />
           <RecordPaymentForm
             companyId={activeCompany.id}
             documentKind="invoice"
             documentId={invoice.id}
-            partnerId={invoice.partnerId}
-            controlAccountId={controlAccount.id}
-            journalId={generalJournal.id}
             cashAccounts={cashAccounts}
             outstanding={balance.outstanding}
             onRecorded={refresh}

@@ -13,6 +13,8 @@ namespace Pako.Api.Controllers;
 [Authorize]
 public class JournalEntriesController : ControllerBase
 {
+    private const decimal MaxLineAmount = 9999999999999999.99m;
+
     private readonly PakoDbContext _db;
 
     public JournalEntriesController(PakoDbContext db)
@@ -42,6 +44,11 @@ public class JournalEntriesController : ControllerBase
         if (journal is null || journal.CompanyId != companyId)
         {
             return BadRequest("Invalid journal for this company.");
+        }
+
+        if (request.Lines.Any(l => Math.Abs(l.Debit) > MaxLineAmount || Math.Abs(l.Credit) > MaxLineAmount))
+        {
+            return BadRequest($"Line amounts cannot exceed {MaxLineAmount:N2}.");
         }
 
         var accountIds = request.Lines.Select(l => l.AccountId).Distinct().ToList();
