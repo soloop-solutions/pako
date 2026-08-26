@@ -11,6 +11,14 @@ public enum InvoiceState
     Cancelled
 }
 
+public enum DocumentType
+{
+    Invoice,
+    CreditNote,
+    DebitNote,
+    DownPayment
+}
+
 public class Invoice
 {
     public Guid Id { get; set; }
@@ -20,6 +28,8 @@ public class Invoice
     public DateOnly IssueDate { get; set; }
     public DateOnly DueDate { get; set; }
     public InvoiceState State { get; set; } = InvoiceState.Draft;
+    public DocumentType DocumentType { get; set; } = DocumentType.Invoice;
+    public Guid? OriginalInvoiceId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -43,18 +53,22 @@ public class Invoice
             throw new InvalidOperationException($"Invoice {Id} has no lines.");
         }
 
+        // A credit note carries the same positive line quantities/prices as a normal invoice —
+        // only which side of each line gets the amount (Debit vs Credit) reverses, mirroring
+        // Odoo's out_invoice/out_refund move_type distinction rather than negative amounts.
+        var isCreditNote = DocumentType == DocumentType.CreditNote;
         var journalEntryLines = new List<JournalEntryLine>();
         var totalWithTax = 0m;
 
         foreach (var line in Lines)
         {
-            var net = Math.Round(line.Quantity * line.UnitPrice, 2, MidpointRounding.AwayFromZero);
+            var net = Math.Round(line.Quantity * line.UnitPrice * (1 - line.DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
             var netLine = new JournalEntryLine
             {
                 Id = Guid.NewGuid(),
                 AccountId = line.RevenueAccountId,
-                Credit = net,
-                Debit = 0m,
+                Debit = isCreditNote ? net : 0m,
+                Credit = isCreditNote ? 0m : net,
                 Description = line.Description
             };
             totalWithTax += net;
@@ -77,8 +91,8 @@ public class Invoice
                     {
                         Id = Guid.NewGuid(),
                         AccountId = postingLine.AccountId,
-                        Credit = postingLine.Amount,
-                        Debit = 0m,
+                        Debit = isCreditNote ? postingLine.Amount : 0m,
+                        Credit = isCreditNote ? 0m : postingLine.Amount,
                         Description = postingLine.Tag,
                         TaxId = taxDefinitionId
                     });
@@ -93,8 +107,8 @@ public class Invoice
             Id = Guid.NewGuid(),
             AccountId = receivableAccountId,
             PartnerId = PartnerId,
-            Debit = totalWithTax,
-            Credit = 0m
+            Debit = isCreditNote ? 0m : totalWithTax,
+            Credit = isCreditNote ? totalWithTax : 0m
         });
 
         var journalEntry = new JournalEntry
@@ -108,7 +122,13 @@ public class Invoice
 
         journalEntry.Post(company);
 
-        InvoiceNumber = company.ReserveNextInvoiceNumber();
+        InvoiceNumber = DocumentType switch
+        {
+            DocumentType.CreditNote => company.ReserveNextCreditNoteNumber(),
+            DocumentType.DebitNote => company.ReserveNextDebitNoteNumber(),
+            DocumentType.DownPayment => company.ReserveNextDownPaymentNumber(),
+            _ => company.ReserveNextInvoiceNumber()
+        };
         journalEntry.Reference = InvoiceNumber;
         JournalEntryId = journalEntry.Id;
         State = InvoiceState.Posted;

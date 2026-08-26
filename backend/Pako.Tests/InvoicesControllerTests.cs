@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
+using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
@@ -25,6 +26,9 @@ public class InvoicesControllerTests
         db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Cash });
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Receivable });
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
+        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4001", Name = "Other Revenue", AccountType = AccountType.Income });
+        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2100", Name = "VAT Payable", AccountType = AccountType.Liability });
+        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2500", Name = "Customer Deposits", AccountType = AccountType.Liability });
         db.Journals.Add(new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
         await db.SaveChangesAsync();
 
@@ -34,6 +38,11 @@ public class InvoicesControllerTests
     private static CreateInvoiceRequest RequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice) =>
         new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
             new List<CreateInvoiceLineRequest> { new("Consulting", quantity, unitPrice, null, null) });
+
+    private static CreateInvoiceRequest CreditNoteRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice) =>
+        new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Credit", quantity, unitPrice, null, null) },
+            DocumentType.CreditNote);
 
     [Fact]
     public async Task Create_ZeroQuantity_Rejected()
@@ -58,7 +67,7 @@ public class InvoicesControllerTests
     }
 
     [Fact]
-    public async Task Create_ZeroTotal_Rejected()
+    public async Task Create_ZeroTotal_RejectedWithCreditNoteGuidance()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
         var controller = new InvoicesController(db, TaxService);
@@ -66,7 +75,10 @@ public class InvoicesControllerTests
         var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 0m));
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("positive total", badRequest.Value!.ToString());
+        var message = badRequest.Value!.ToString()!;
+        Assert.Contains("positive total", message);
+        Assert.Contains("credit note", message, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("not yet supported", message);
     }
 
     [Fact]
@@ -129,5 +141,53 @@ public class InvoicesControllerTests
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(second.Result);
         Assert.Contains("exceeds the outstanding balance", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task ApplyCreditNote_FullAmount_ReducesOutstandingBalance()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = new InvoicesController(db, TaxService);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var creditNoteCreated = await controller.Create(companyId, CreditNoteRequestWithLine(partnerId, 1m, 200m));
+        var creditNote = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(creditNoteCreated.Result).Value);
+        await controller.Post(companyId, creditNote.Id);
+
+        var result = await controller.ApplyCreditNote(companyId, invoice.Id, new ApplyCreditNoteRequest(creditNote.Id, 200m));
+
+        var response = Assert.IsType<ApplyCreditNoteResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(200m, response.Reconciliation.Amount);
+        Assert.Equal(300m, response.Balance.Outstanding);
+    }
+
+    [Fact]
+    public async Task ApplyCreditNote_BeyondCreditNoteOwnAmount_RejectedBySettlementLineOverConsumptionCheck()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = new InvoicesController(db, TaxService);
+
+        var invoiceACreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoiceA = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceACreated.Result).Value);
+        await controller.Post(companyId, invoiceA.Id);
+
+        var invoiceBCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoiceB = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceBCreated.Result).Value);
+        await controller.Post(companyId, invoiceB.Id);
+
+        var creditNoteCreated = await controller.Create(companyId, CreditNoteRequestWithLine(partnerId, 1m, 100m));
+        var creditNote = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(creditNoteCreated.Result).Value);
+        await controller.Post(companyId, creditNote.Id);
+
+        var first = await controller.ApplyCreditNote(companyId, invoiceA.Id, new ApplyCreditNoteRequest(creditNote.Id, 100m));
+        Assert.Equal(201, ((ObjectResult)first.Result!).StatusCode);
+
+        var second = await controller.ApplyCreditNote(companyId, invoiceB.Id, new ApplyCreditNoteRequest(creditNote.Id, 1m));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(second.Result);
+        Assert.Contains("would be reconciled against it in total", badRequest.Value!.ToString());
     }
 }

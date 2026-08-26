@@ -97,13 +97,19 @@ public class BillsController : ControllerBase
                 return BadRequest("Line unit price cannot be negative.");
             }
 
+            var discountPercent = line.DiscountPercent ?? 0m;
+            if (discountPercent < 0 || discountPercent > 100)
+            {
+                return BadRequest("Line discount percent must be between 0 and 100.");
+            }
+
             var expenseAccountId = line.ExpenseAccountId ?? defaultExpenseAccountId;
             if (!validAccountIds.Contains(expenseAccountId))
             {
                 return BadRequest($"Expense account {expenseAccountId} does not belong to this company.");
             }
 
-            total += line.Quantity * line.UnitPrice;
+            total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
 
             lines.Add(new BillLine
             {
@@ -111,6 +117,7 @@ public class BillsController : ControllerBase
                 Description = line.Description,
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
+                DiscountPercent = discountPercent,
                 TaxDefinitionId = line.TaxDefinitionId,
                 ExpenseAccountId = expenseAccountId
             });
@@ -118,7 +125,17 @@ public class BillsController : ControllerBase
 
         if (total <= 0)
         {
-            return BadRequest("Bills must have a positive total. Credit notes are not yet supported.");
+            return BadRequest("Bills must have a positive total. To credit a vendor, create a credit note instead.");
+        }
+
+        if (request.OriginalBillId is { } originalBillId)
+        {
+            var originalExists = await _db.Bills.AsNoTracking()
+                .AnyAsync(b => b.Id == originalBillId && b.CompanyId == companyId);
+            if (!originalExists)
+            {
+                return BadRequest("originalBillId does not belong to this company.");
+            }
         }
 
         var bill = new Bill
@@ -129,6 +146,8 @@ public class BillsController : ControllerBase
             VendorReference = request.VendorReference,
             IssueDate = request.IssueDate,
             DueDate = request.DueDate,
+            DocumentType = request.DocumentType,
+            OriginalBillId = request.OriginalBillId,
             Lines = lines
         };
 
@@ -269,6 +288,91 @@ public class BillsController : ControllerBase
         }
     }
 
+    // AP mirror of InvoicesController.ApplyCreditNote — feeds the vendor credit note's own AP
+    // line to ReconciliationCreator as the settlement line.
+    [HttpPost("{id:guid}/apply-credit-note")]
+    [RequireCompanyAccess(writeAccess: true)]
+    [ProducesResponseType(typeof(ApplyCreditNoteResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<ApplyCreditNoteResponse>> ApplyCreditNote(Guid companyId, Guid id, ApplyCreditNoteRequest request)
+    {
+        if (request.Amount <= 0)
+        {
+            return BadRequest("Amount must be positive.");
+        }
+
+        var bill = await _db.Bills.AsNoTracking().FirstOrDefaultAsync(b => b.Id == id && b.CompanyId == companyId);
+        if (bill is null)
+        {
+            return NotFound();
+        }
+
+        var creditNote = await _db.Bills.AsNoTracking()
+            .FirstOrDefaultAsync(b => b.Id == request.CreditNoteId && b.CompanyId == companyId);
+        if (creditNote is null)
+        {
+            return NotFound();
+        }
+
+        if (creditNote.DocumentType != DocumentType.CreditNote || creditNote.State != BillState.Posted)
+        {
+            return BadRequest("creditNoteId must reference a Posted credit note for this company.");
+        }
+
+        var payableAccountId = await _db.Accounts.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsPayableCode)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync();
+
+        var creditNoteLineId = await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.JournalEntryId == creditNote.JournalEntryId && l.AccountId == payableAccountId)
+            .Select(l => l.Id)
+            .FirstOrDefaultAsync();
+        if (creditNoteLineId == Guid.Empty)
+        {
+            return BadRequest("Credit note has no payable line to apply.");
+        }
+
+        var transaction = _db.Database.SupportsRowLocking()
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
+        try
+        {
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM journal_entry_lines WHERE \"Id\" = {creditNoteLineId} FOR UPDATE");
+            }
+
+            var result = await ReconciliationCreator.TryCreateAsync(_db, companyId, null, id, creditNoteLineId, request.Amount);
+            if (result.Status == ReconciliationCreationStatus.NotFound)
+            {
+                return NotFound();
+            }
+
+            if (result.Status == ReconciliationCreationStatus.ValidationFailed)
+            {
+                return BadRequest(result.Error);
+            }
+
+            await _db.SaveChangesAsync();
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId);
+            return StatusCode(StatusCodes.Status201Created, new ApplyCreditNoteResponse(ToReconciliationResponse(result.Reconciliation!), balance));
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
+    }
+
     private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid billId, Guid? journalEntryId)
     {
         var total = 0m;
@@ -357,6 +461,8 @@ public class BillsController : ControllerBase
         b.IssueDate,
         b.DueDate,
         b.State.ToString(),
+        b.DocumentType,
+        b.OriginalBillId,
         b.JournalEntryId,
-        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId)).ToList());
+        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent)).ToList());
 }

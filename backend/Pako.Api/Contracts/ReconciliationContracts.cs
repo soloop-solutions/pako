@@ -9,3 +9,11 @@ public record DocumentBalanceResponse(decimal Total, decimal Reconciled, decimal
 public record RecordPaymentRequest(decimal Amount, Guid CashOrBankAccountId, DateOnly Date);
 
 public record RecordPaymentResponse(ReconciliationResponse Reconciliation, DocumentBalanceResponse Balance);
+
+public record ApplyCreditNoteRequest(Guid CreditNoteId, decimal Amount);
+
+public record ApplyCreditNoteResponse(ReconciliationResponse Reconciliation, DocumentBalanceResponse Balance);
+
+public record ApplyDownPaymentRequest(Guid DownPaymentInvoiceId, decimal Amount);
+
+public record ApplyDownPaymentResponse(ReconciliationResponse Reconciliation, DocumentBalanceResponse Balance, Guid ReclassificationJournalEntryId, decimal ReclassifiedAmount);

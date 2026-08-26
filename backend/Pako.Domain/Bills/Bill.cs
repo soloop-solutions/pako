@@ -11,6 +11,12 @@ public enum BillState
     Cancelled
 }
 
+public enum DocumentType
+{
+    Bill,
+    CreditNote
+}
+
 public class Bill
 {
     public Guid Id { get; set; }
@@ -20,6 +26,8 @@ public class Bill
     public DateOnly IssueDate { get; set; }
     public DateOnly DueDate { get; set; }
     public BillState State { get; set; } = BillState.Draft;
+    public DocumentType DocumentType { get; set; } = DocumentType.Bill;
+    public Guid? OriginalBillId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
@@ -43,18 +51,21 @@ public class Bill
             throw new InvalidOperationException($"Bill {Id} has no lines.");
         }
 
+        // Same reversal shape as Invoice.Post: a vendor credit note keeps positive line
+        // quantities/prices, only which side of each line gets the amount reverses.
+        var isCreditNote = DocumentType == DocumentType.CreditNote;
         var journalEntryLines = new List<JournalEntryLine>();
         var totalWithTax = 0m;
 
         foreach (var line in Lines)
         {
-            var net = Math.Round(line.Quantity * line.UnitPrice, 2, MidpointRounding.AwayFromZero);
+            var net = Math.Round(line.Quantity * line.UnitPrice * (1 - line.DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
             var netLine = new JournalEntryLine
             {
                 Id = Guid.NewGuid(),
                 AccountId = line.ExpenseAccountId,
-                Debit = net,
-                Credit = 0m,
+                Debit = isCreditNote ? 0m : net,
+                Credit = isCreditNote ? net : 0m,
                 Description = line.Description
             };
             totalWithTax += net;
@@ -77,8 +88,8 @@ public class Bill
                     {
                         Id = Guid.NewGuid(),
                         AccountId = postingLine.AccountId,
-                        Debit = postingLine.Amount,
-                        Credit = 0m,
+                        Debit = isCreditNote ? 0m : postingLine.Amount,
+                        Credit = isCreditNote ? postingLine.Amount : 0m,
                         Description = postingLine.Tag,
                         TaxId = taxDefinitionId
                     });
@@ -93,8 +104,8 @@ public class Bill
             Id = Guid.NewGuid(),
             AccountId = payableAccountId,
             PartnerId = PartnerId,
-            Credit = totalWithTax,
-            Debit = 0m
+            Credit = isCreditNote ? 0m : totalWithTax,
+            Debit = isCreditNote ? totalWithTax : 0m
         });
 
         var journalEntry = new JournalEntry

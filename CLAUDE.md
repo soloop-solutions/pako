@@ -1222,3 +1222,108 @@ form's behavior.
   FROM journal_entries WHERE "CompanyId" = '...'`, exactly 2 rows) — true rollback, not just a
   client-side revert or validation that happened to run before any write. `pnpm --filter @pako/web
   {typecheck,lint,test,build}` all pass on top of this.
+
+## Real credit-note support, replacing the "negative invoices are blocked" band-aid (2026-08-26)
+
+The backend fixes pass above blocked any non-positive-total invoice/bill with "Credit notes are
+not yet supported" — correct that negative invoices were a dead end (QA pass), wrong that the fix
+was to block rather than build real credit notes. This pass builds them, backend-only.
+
+- **Confirmed against Odoo's actual source before implementing** (`addons/account/models/
+  account_move.py`, `17.0` branch): `move_type` is a `Selection` (`entry`/`out_invoice`/
+  `out_refund`/`in_invoice`/`in_refund`/`out_receipt`/`in_receipt`) — a credit note is a distinct
+  document *type*, not a negative-amount invoice; its lines keep positive quantity/price. A
+  `direction_sign` computed field (`+1` for `is_outbound()` moves, `-1` otherwise) flips
+  `amount_total`/`amount_residual`, and `is_outbound()`/`is_inbound()` group `out_invoice` with
+  `in_refund` (one sign) against `out_refund` with `in_invoice` (the opposite sign) — i.e. a
+  customer credit note (`out_refund`) is accounted in the same direction as a vendor bill
+  (`in_invoice`), confirming the type field alone (not the amount) determines posting direction.
+  PAKO's independent implementation (below) mirrors this shape in C#, not Odoo's code.
+- **Confirmed against Kosovo VAT Law 05/L-037 primary source** (fetched the actual ATK-published
+  PDF, not summarized secondhand): **Article 47 ("Debit and Credit Notes")**, not 47.2.2/48.1.2 as
+  originally guessed — 47.1 requires a credit/debit note when a tax invoice's taxable amount/VAT
+  needs correcting per Article 41, and "shall treat that note as if it were a tax invoice"; **47.2
+  lists the note's mandatory content**: 2.1 date, **2.2 sequence number** (own series), **2.3
+  reference to the original invoice**, 2.4 supplier/purchaser identification, 2.5 reason for
+  correction, 2.6 corrected taxable amount and VAT. Article 48 ("Bad Debt invoice") is a separate,
+  unrelated document type with its own similar 1.1–1.5 list — not built in this pass, not asked
+  for. **Tension worth flagging**: Article 47.2.3 reads as a *mandatory* field ("must at least
+  contain... reference to the original invoice"), but this pass made `OriginalInvoiceId`/
+  `OriginalBillId` nullable per the task's explicit instruction (Odoo also doesn't hard-require
+  `reversed_entry_id`, and a goodwill credit with no clean originating invoice is a real case) —
+  the DB/API allow a fully standalone credit note, which is a deliberate product-flexibility
+  choice, not a legal-compliance claim; flag to Erion before treating a credit note with no
+  `OriginalInvoiceId` as filing-ready under a strict reading of 47.2.3.
+- **Schema**: `Invoice`/`Bill` each gained a `DocumentType` enum (`Invoicing.DocumentType.
+  {Invoice, CreditNote}`, `Bills.DocumentType.{Bill, CreditNote}` — same property name, separate
+  enum per namespace, not reused across modules) and a nullable self-referencing
+  `OriginalInvoiceId`/`OriginalBillId` FK (`DeleteBehavior.Restrict`, no delete endpoint exists
+  for either anyway). Migration `AddCreditNotes`.
+- **Posting logic, one shared code path per document type, not a forked method**: `Invoice.Post`/
+  `Bill.Post` build the exact same line-by-line loop as before (positive `Quantity * UnitPrice`,
+  same `ITaxComputationService.Compute` call) and only the `Debit`/`Credit` assignment on each
+  constructed `JournalEntryLine` is a ternary on `DocumentType == CreditNote` — normal invoice:
+  Debit AR / Credit Revenue / Credit Tax; credit note: Credit AR / Debit Revenue / Debit Tax (AP
+  side mirrors: normal bill Debit Expense/Tax / Credit AP; credit note Credit Expense/Tax / Debit
+  AP). Verified by a real posted pair through the live API (1000 invoice, 400 credit note, no
+  tax): trial balance showed AR `1200.00 debit / 400.00 credit` and Revenue `400.00 debit /
+  1000.00 credit`, P&L net income 600 — the credit note's reversed lines actually landed in the
+  ledger, not just asserted in a unit test.
+- **Credit-note numbering — Invoicing (AR) only, Bills (AP) deliberately excluded, a design
+  decision made explicitly, not an oversight**: `Company.NextCreditNoteNumber`/
+  `ReserveNextCreditNoteNumber()` mints `CN-0001`-style numbers, mirroring
+  `NextInvoiceNumber`/`ReserveNextInvoiceNumber()` as its own counter (never shared) — used by
+  `Invoice.Post` when `DocumentType == CreditNote`. **`Bill` never got an equivalent counter**:
+  Article 45/47's sequential-numbering requirement binds the *issuer* of the document, and for a
+  Bill/vendor-credit-note PAKO is the *recipient*, not the issuer — `Bill.VendorReference` was
+  already free text (the vendor's own number) with zero PAKO-minted numbering before this pass,
+  credit note or not, so a vendor credit note just carries whatever number the vendor put on it in
+  `VendorReference`, same as any other bill. Verified live: `INV-0001` and `CN-0001` coexist for
+  the same company with no collision, a second invoice correctly becomes `INV-0002` (the credit
+  note between them didn't burn an invoice number).
+- **Validation, corrected not loosened**: `InvoicesController`/`BillsController.Create` still
+  reject a non-positive total (`Quantity <= 0`, `UnitPrice < 0`, computed total `<= 0`) for
+  **both** `DocumentType` values — a credit note uses the same positive-amount validation as a
+  normal invoice under this model, so the check itself didn't change, only its message: "Invoices
+  must have a positive total. To credit a customer, create a credit note instead." (Bills:
+  "...To credit a vendor..."). `CreateInvoiceRequest`/`CreateBillRequest` gained optional
+  `DocumentType` (defaults to `Invoice`/`Bill`, fully backward compatible) and
+  `OriginalInvoiceId`/`OriginalBillId`, with a light tenant-scoping check (exists for this company)
+  on the latter if provided — same defense-in-depth spirit as every other cross-reference check in
+  this repo, not full business validation.
+- **`POST .../invoices/{id}/apply-credit-note` and the Bill mirror** (`{ creditNoteId, amount }`):
+  confirms the credit note exists for this company, is `DocumentType.CreditNote`, and is `Posted`
+  (all three checked explicitly, the only checks this endpoint had to add itself), then finds the
+  credit note's own AR/AP control-account `JournalEntryLine` and feeds it straight into
+  `ReconciliationCreator.TryCreateAsync` as the settlement line — **no change was needed in
+  `ReconciliationCreator`/`ReconciliationValidator` at all**: `TryCreateAsync` already took an
+  arbitrary `journalEntryLineId` rather than assuming it always belongs to a newly-created
+  settlement entry, so a credit note's pre-existing posted control line slots in unchanged. This
+  means the partner-match check (credit note's AR/AP line `PartnerId` vs. the target document's
+  `PartnerId`) and Fix 1's settlement-line-over-consumption cap both apply automatically, with zero
+  duplicated logic — same row-locking transaction pattern as `RecordPayment`
+  (`SupportsRowLocking`, `SELECT ... FOR UPDATE` on the credit note's control line before
+  validating). Verified live: applying a 400 credit note against a 1000 invoice dropped
+  outstanding from 1000 to 600 in one call; a second application attempt for just 1 more (401 total
+  against a 400 credit note) correctly 400'd with "...has amount 400,00, but 401,00 would be
+  reconciled against it in total." — the exact over-consumption message, proving the reused check
+  fired, not a new one.
+- **Odoo gap survey (Step 4 of the task, report-only — not built)**: while reading
+  `account_move.py`, three other `account.move`-adjacent features looked clearly load-bearing for
+  a real Kosovo invoicing product and aren't in PAKO yet, worth Erion prioritizing separately: (1)
+  **debit notes** — Kosovo Article 47 covers debit notes in the *same* article as credit notes (an
+  upward correction, e.g. an invoice was undercharged), and PAKO built only the credit-note half;
+  (2) **line-level discounts** — `InvoiceLine`/`BillLine` have no discount field at all, every
+  Odoo invoice line does; (3) **down-payment/deposit invoices** — Odoo has a dedicated flow
+  (invoice a % of an order before the final invoice, then net it off), nothing like it exists
+  here. None of these were built in this pass.
+- **Tests**: `InvoicePostingTests`/`BillPostingTests` gained credit-note posting-direction
+  assertions (exact account/Debit-vs-Credit checks, not just "balances") and a numbering-
+  independence test; `InvoicesControllerTests`/`BillsControllerTests` gained `ApplyCreditNote`
+  happy-path and over-consumption tests, and the existing zero-total-rejected test was
+  strengthened to assert the new message wording rather than just "positive total" substring
+  match. `dotnet test Pako.slnx`: **97/97** (up from 90). Migration `AddCreditNotes` applied and
+  verified against the real Postgres container on port 5433; full manual E2E run (register ->
+  company -> customer+vendor partners -> invoice+credit-note pair and bill+credit-note pair,
+  both posted, both applied via `apply-credit-note`, trial balance and P&L cross-checked by hand)
+  against a real running `Pako.Api` on port 5248, not just curl-replicating unit-test payloads.

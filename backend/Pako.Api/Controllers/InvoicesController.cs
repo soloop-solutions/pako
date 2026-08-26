@@ -83,6 +83,16 @@ public class InvoicesController : ControllerBase
             return BadRequest("Company has no default revenue account seeded.");
         }
 
+        // A down-payment invoice must credit a liability account (deposits aren't earned revenue
+        // yet), not the normal Revenue account — forced here regardless of any RevenueAccountId
+        // the caller supplies per line, so the accounting can't be steered wrong.
+        var depositsAccountId = Guid.Empty;
+        if (request.DocumentType == DocumentType.DownPayment &&
+            !accountsByCode.TryGetValue(DefaultChartOfAccountsTemplate.CustomerDepositsAccountCode, out depositsAccountId))
+        {
+            return BadRequest("Company has no Customer Deposits account seeded.");
+        }
+
         var lines = new List<InvoiceLine>();
         var total = 0m;
         foreach (var line in request.Lines)
@@ -97,13 +107,21 @@ public class InvoicesController : ControllerBase
                 return BadRequest("Line unit price cannot be negative.");
             }
 
-            var revenueAccountId = line.RevenueAccountId ?? defaultRevenueAccountId;
+            var discountPercent = line.DiscountPercent ?? 0m;
+            if (discountPercent < 0 || discountPercent > 100)
+            {
+                return BadRequest("Line discount percent must be between 0 and 100.");
+            }
+
+            var revenueAccountId = request.DocumentType == DocumentType.DownPayment
+                ? depositsAccountId
+                : line.RevenueAccountId ?? defaultRevenueAccountId;
             if (!validAccountIds.Contains(revenueAccountId))
             {
                 return BadRequest($"Revenue account {revenueAccountId} does not belong to this company.");
             }
 
-            total += line.Quantity * line.UnitPrice;
+            total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
 
             lines.Add(new InvoiceLine
             {
@@ -111,6 +129,7 @@ public class InvoicesController : ControllerBase
                 Description = line.Description,
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
+                DiscountPercent = discountPercent,
                 TaxDefinitionId = line.TaxDefinitionId,
                 RevenueAccountId = revenueAccountId
             });
@@ -118,7 +137,17 @@ public class InvoicesController : ControllerBase
 
         if (total <= 0)
         {
-            return BadRequest("Invoices must have a positive total. Credit notes are not yet supported.");
+            return BadRequest("Invoices must have a positive total. To credit a customer, create a credit note instead.");
+        }
+
+        if (request.OriginalInvoiceId is { } originalInvoiceId)
+        {
+            var originalExists = await _db.Invoices.AsNoTracking()
+                .AnyAsync(i => i.Id == originalInvoiceId && i.CompanyId == companyId);
+            if (!originalExists)
+            {
+                return BadRequest("originalInvoiceId does not belong to this company.");
+            }
         }
 
         var invoice = new Invoice
@@ -128,6 +157,8 @@ public class InvoicesController : ControllerBase
             PartnerId = request.PartnerId,
             IssueDate = request.IssueDate,
             DueDate = request.DueDate,
+            DocumentType = request.DocumentType,
+            OriginalInvoiceId = request.OriginalInvoiceId,
             Lines = lines
         };
 
@@ -270,6 +301,250 @@ public class InvoicesController : ControllerBase
         }
     }
 
+    // Applies a Posted credit note against this invoice by feeding the credit note's own AR line
+    // to ReconciliationCreator as the settlement line, instead of creating a new one — the same
+    // double-spend/over-consumption protection Fix 1 built for record-payment applies here for
+    // free (see CLAUDE.md's backend fixes pass), and the partner-match check in
+    // ReconciliationValidator already covers "same partner as the target invoice."
+    [HttpPost("{id:guid}/apply-credit-note")]
+    [RequireCompanyAccess(writeAccess: true)]
+    [ProducesResponseType(typeof(ApplyCreditNoteResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<ApplyCreditNoteResponse>> ApplyCreditNote(Guid companyId, Guid id, ApplyCreditNoteRequest request)
+    {
+        if (request.Amount <= 0)
+        {
+            return BadRequest("Amount must be positive.");
+        }
+
+        var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var creditNote = await _db.Invoices.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == request.CreditNoteId && i.CompanyId == companyId);
+        if (creditNote is null)
+        {
+            return NotFound();
+        }
+
+        if (creditNote.DocumentType != DocumentType.CreditNote || creditNote.State != InvoiceState.Posted)
+        {
+            return BadRequest("creditNoteId must reference a Posted credit note for this company.");
+        }
+
+        var receivableAccountId = await _db.Accounts.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync();
+
+        var creditNoteLineId = await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.JournalEntryId == creditNote.JournalEntryId && l.AccountId == receivableAccountId)
+            .Select(l => l.Id)
+            .FirstOrDefaultAsync();
+        if (creditNoteLineId == Guid.Empty)
+        {
+            return BadRequest("Credit note has no receivable line to apply.");
+        }
+
+        var transaction = _db.Database.SupportsRowLocking()
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
+        try
+        {
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM journal_entry_lines WHERE \"Id\" = {creditNoteLineId} FOR UPDATE");
+            }
+
+            var result = await ReconciliationCreator.TryCreateAsync(_db, companyId, id, null, creditNoteLineId, request.Amount);
+            if (result.Status == ReconciliationCreationStatus.NotFound)
+            {
+                return NotFound();
+            }
+
+            if (result.Status == ReconciliationCreationStatus.ValidationFailed)
+            {
+                return BadRequest(result.Error);
+            }
+
+            await _db.SaveChangesAsync();
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId);
+            return StatusCode(StatusCodes.Status201Created, new ApplyCreditNoteResponse(ToReconciliationResponse(result.Reconciliation!), balance));
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
+    }
+
+    // Applies a Posted down-payment invoice against this invoice in one transaction, doing two
+    // things that must not happen independently: (a) nets the down payment's own AR line against
+    // this invoice's outstanding balance, same ReconciliationCreator mechanism as ApplyCreditNote;
+    // (b) posts a reclassification JournalEntry (Debit Customer Deposits / Credit Revenue) so the
+    // liability the down-payment invoice recognized actually clears instead of sitting on the
+    // balance sheet forever. The reclassified amount is the NET portion of the applied amount —
+    // proportional to the down payment's own net/gross ratio — because the applied amount nets
+    // against AR gross (including VAT already recognized at the down-payment invoice's post time),
+    // but only the net portion was ever credited to Customer Deposits; VAT accounts are not
+    // touched again here.
+    [HttpPost("{id:guid}/apply-down-payment")]
+    [RequireCompanyAccess(writeAccess: true)]
+    [ProducesResponseType(typeof(ApplyDownPaymentResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<ApplyDownPaymentResponse>> ApplyDownPayment(Guid companyId, Guid id, ApplyDownPaymentRequest request)
+    {
+        if (request.Amount <= 0)
+        {
+            return BadRequest("Amount must be positive.");
+        }
+
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+        {
+            return NotFound();
+        }
+
+        var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        var downPayment = await _db.Invoices.AsNoTracking()
+            .FirstOrDefaultAsync(i => i.Id == request.DownPaymentInvoiceId && i.CompanyId == companyId);
+        if (downPayment is null)
+        {
+            return NotFound();
+        }
+
+        if (downPayment.DocumentType != DocumentType.DownPayment || downPayment.State != InvoiceState.Posted)
+        {
+            return BadRequest("downPaymentInvoiceId must reference a Posted down-payment invoice for this company.");
+        }
+
+        var receivableAccountId = await _db.Accounts.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync();
+
+        var depositsAccountId = await _db.Accounts.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.CustomerDepositsAccountCode)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync();
+
+        var revenueAccountId = await _db.Accounts.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.DefaultRevenueAccountCode)
+            .Select(a => a.Id)
+            .FirstOrDefaultAsync();
+
+        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
+        if (journal is null)
+        {
+            return BadRequest("Company has no journal to post into.");
+        }
+
+        var downPaymentArLineId = await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.JournalEntryId == downPayment.JournalEntryId && l.AccountId == receivableAccountId)
+            .Select(l => l.Id)
+            .FirstOrDefaultAsync();
+        if (downPaymentArLineId == Guid.Empty)
+        {
+            return BadRequest("Down payment invoice has no receivable line to apply.");
+        }
+
+        var transaction = _db.Database.SupportsRowLocking()
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
+        try
+        {
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM journal_entry_lines WHERE \"Id\" = {downPaymentArLineId} FOR UPDATE");
+            }
+
+            var downPaymentGrossTotal = await _db.JournalEntryLines.AsNoTracking()
+                .Where(l => l.JournalEntryId == downPayment.JournalEntryId && l.AccountId == receivableAccountId)
+                .SumAsync(l => l.Debit);
+
+            var downPaymentNetTotal = await _db.JournalEntryLines.AsNoTracking()
+                .Where(l => l.JournalEntryId == downPayment.JournalEntryId && l.AccountId == depositsAccountId)
+                .SumAsync(l => l.Credit);
+
+            var result = await ReconciliationCreator.TryCreateAsync(_db, companyId, id, null, downPaymentArLineId, request.Amount);
+            if (result.Status == ReconciliationCreationStatus.NotFound)
+            {
+                return NotFound();
+            }
+
+            if (result.Status == ReconciliationCreationStatus.ValidationFailed)
+            {
+                return BadRequest(result.Error);
+            }
+
+            var reclassifiedAmount = downPaymentGrossTotal == 0m
+                ? 0m
+                : Math.Round(downPaymentNetTotal * request.Amount / downPaymentGrossTotal, 2, MidpointRounding.AwayFromZero);
+
+            var reclassEntry = new JournalEntry
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                JournalId = journal.Id,
+                Date = DateOnly.FromDateTime(DateTime.UtcNow),
+                Reference = $"Down payment reclassification for {invoice.InvoiceNumber}",
+                Lines =
+                {
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = depositsAccountId, Debit = reclassifiedAmount, Credit = 0m },
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = revenueAccountId, Debit = 0m, Credit = reclassifiedAmount }
+                }
+            };
+
+            try
+            {
+                reclassEntry.Post(company);
+            }
+            catch (Exception ex) when (
+                ex is InvalidOperationException or
+                UnbalancedJournalEntryException or
+                AccountingLockDateViolationException or
+                TaxLockDateViolationException)
+            {
+                return BadRequest(ex.Message);
+            }
+
+            _db.JournalEntries.Add(reclassEntry);
+            await _db.SaveChangesAsync();
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId);
+            return StatusCode(StatusCodes.Status201Created,
+                new ApplyDownPaymentResponse(ToReconciliationResponse(result.Reconciliation!), balance, reclassEntry.Id, reclassifiedAmount));
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
+    }
+
     private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid invoiceId, Guid? journalEntryId)
     {
         var total = 0m;
@@ -388,6 +663,8 @@ public class InvoicesController : ControllerBase
         i.IssueDate,
         i.DueDate,
         i.State.ToString(),
+        i.DocumentType,
+        i.OriginalInvoiceId,
         i.JournalEntryId,
-        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId)).ToList());
+        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent)).ToList());
 }

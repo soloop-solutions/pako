@@ -145,4 +145,174 @@ public class InvoicePostingTests
         Assert.Throws<InvalidOperationException>(() =>
             invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>()));
     }
+
+    [Fact]
+    public void Post_CreditNote_ProducesEntryReversedFromANormalInvoice()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+        var vatPayableAccountId = Guid.NewGuid();
+        var taxDefinition = new TaxDefinition
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Rate = 0.18m,
+            IsActive = true,
+            RepartitionLines = { new TaxRepartitionLine { AccountId = vatPayableAccountId, Percentage = 100m } }
+        };
+        var creditNote = InvoiceWithLine(revenueAccountId, taxDefinition.Id);
+        creditNote.DocumentType = DocumentType.CreditNote;
+
+        var journalEntry = creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+
+        Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
+
+        var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
+        Assert.Equal(0m, receivableLine.Debit);
+        Assert.Equal(118m, receivableLine.Credit);
+
+        var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
+        Assert.Equal(100m, revenueLine.Debit);
+        Assert.Equal(0m, revenueLine.Credit);
+
+        var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatPayableAccountId);
+        Assert.Equal(18m, taxLine.Debit);
+        Assert.Equal(0m, taxLine.Credit);
+    }
+
+    [Fact]
+    public void Post_CreditNote_GetsOwnSequenceIndependentOfInvoiceNumbers()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+
+        var invoice = InvoiceWithLine(revenueAccountId);
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var creditNote = InvoiceWithLine(revenueAccountId);
+        creditNote.DocumentType = DocumentType.CreditNote;
+        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var secondInvoice = InvoiceWithLine(revenueAccountId);
+        secondInvoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        Assert.Equal("INV-0001", invoice.InvoiceNumber);
+        Assert.Equal("CN-0001", creditNote.InvoiceNumber);
+        Assert.Equal("INV-0002", secondInvoice.InvoiceNumber);
+    }
+
+    [Fact]
+    public void Post_DebitNote_ProducesSameDirectionAsANormalInvoiceWithOwnSequence()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+
+        var invoice = InvoiceWithLine(revenueAccountId);
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var creditNote = InvoiceWithLine(revenueAccountId);
+        creditNote.DocumentType = DocumentType.CreditNote;
+        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var debitNote = InvoiceWithLine(revenueAccountId);
+        debitNote.DocumentType = DocumentType.DebitNote;
+        var journalEntry = debitNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
+        Assert.Equal(100m, receivableLine.Debit);
+        Assert.Equal(0m, receivableLine.Credit);
+
+        var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
+        Assert.Equal(100m, revenueLine.Credit);
+        Assert.Equal(0m, revenueLine.Debit);
+
+        Assert.Equal("INV-0001", invoice.InvoiceNumber);
+        Assert.Equal("CN-0001", creditNote.InvoiceNumber);
+        Assert.Equal("DN-0001", debitNote.InvoiceNumber);
+    }
+
+    [Fact]
+    public void Post_DiscountedLine_ComputesCorrectNetAndTaxOnDiscountedAmount()
+    {
+        // 2 units at 100 with a 10% discount: net = 2 * 100 * 0.90 = 180.00, not 200.00.
+        // VAT 18% on the discounted net: 180.00 * 0.18 = 32.40, not 200.00 * 0.18 = 36.00.
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+        var vatPayableAccountId = Guid.NewGuid();
+        var taxDefinition = new TaxDefinition
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Rate = 0.18m,
+            IsActive = true,
+            RepartitionLines = { new TaxRepartitionLine { AccountId = vatPayableAccountId, Percentage = 100m } }
+        };
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            PartnerId = Guid.NewGuid(),
+            IssueDate = new DateOnly(2026, 8, 26),
+            DueDate = new DateOnly(2026, 9, 25),
+            Lines =
+            {
+                new InvoiceLine
+                {
+                    Id = Guid.NewGuid(),
+                    Description = "Consulting",
+                    Quantity = 2m,
+                    UnitPrice = 100m,
+                    DiscountPercent = 10m,
+                    RevenueAccountId = revenueAccountId,
+                    TaxDefinitionId = taxDefinition.Id
+                }
+            }
+        };
+
+        var journalEntry = invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+
+        var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
+        Assert.Equal(180m, revenueLine.Credit);
+
+        var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatPayableAccountId);
+        Assert.Equal(32.40m, taxLine.Credit);
+
+        var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
+        Assert.Equal(212.40m, receivableLine.Debit);
+    }
+
+    [Fact]
+    public void Post_DownPayment_PostsSameDirectionAsANormalInvoiceCreditingWhicheverAccountItsLineTargets()
+    {
+        // Invoice.Post itself is account-agnostic — it credits whatever account the line carries.
+        // Forcing that account to be the liability "Customer Deposits" account (not Revenue) for a
+        // DownPayment is InvoicesController.Create's job (see the controller test); this test only
+        // proves the posting direction and numbering are correct once that account is set.
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var depositsAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+
+        var invoice = InvoiceWithLine(Guid.NewGuid());
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var downPayment = InvoiceWithLine(depositsAccountId);
+        downPayment.DocumentType = DocumentType.DownPayment;
+        var journalEntry = downPayment.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+
+        var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
+        Assert.Equal(100m, receivableLine.Debit);
+
+        var depositsLine = Assert.Single(journalEntry.Lines, l => l.AccountId == depositsAccountId);
+        Assert.Equal(100m, depositsLine.Credit);
+        Assert.Equal(0m, depositsLine.Debit);
+
+        Assert.Equal("INV-0001", invoice.InvoiceNumber);
+        Assert.Equal("DP-0001", downPayment.InvoiceNumber);
+    }
 }

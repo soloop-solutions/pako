@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pako.Infrastructure;
@@ -11,9 +12,11 @@ using Pako.Infrastructure;
 namespace Pako.Infrastructure.Migrations
 {
     [DbContext(typeof(PakoDbContext))]
-    partial class PakoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826150105_AddCreditNotes")]
+    partial class AddCreditNotes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -148,9 +151,6 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
 
-                    b.Property<decimal>("DiscountPercent")
-                        .HasColumnType("numeric");
-
                     b.Property<Guid>("ExpenseAccountId")
                         .HasColumnType("uuid");
 
@@ -190,12 +190,6 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("character varying(256)");
 
                     b.Property<int>("NextCreditNoteNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NextDebitNoteNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NextDownPaymentNumber")
                         .HasColumnType("integer");
 
                     b.Property<int>("NextInvoiceNumber")
@@ -353,9 +347,6 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)");
-
-                    b.Property<decimal>("DiscountPercent")
-                        .HasColumnType("numeric");
 
                     b.Property<Guid>("InvoiceId")
                         .HasColumnType("uuid");

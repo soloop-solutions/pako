@@ -14,6 +14,7 @@ public static class DefaultChartOfAccountsTemplate
     public const string PitPayableAccountCode = "2200";
     public const string PensionPayableAccountCode = "2300";
     public const string NetPayPayableAccountCode = "2400";
+    public const string CustomerDepositsAccountCode = "2500";
 
     // Kosovo law (06/L-032) mandates IFRS/IFRS-for-SMEs categories only, not a numbered chart
     // of accounts. This numbering is a design choice for a starting seed, not a legal requirement.
@@ -28,6 +29,7 @@ public static class DefaultChartOfAccountsTemplate
         new("2200", "PIT Payable", AccountType.Liability, AccountSubType.None),
         new("2300", "Pension Payable", AccountType.Liability, AccountSubType.None),
         new("2400", "Net Pay Payable", AccountType.Liability, AccountSubType.None),
+        new("2500", "Customer Deposits", AccountType.Liability, AccountSubType.None),
         new("3000", "Share Capital", AccountType.Equity, AccountSubType.None),
         new("3900", "Retained Earnings", AccountType.Equity, AccountSubType.None),
         new("4000", "Sales Revenue", AccountType.Income, AccountSubType.None),

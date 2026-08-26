@@ -7,6 +7,7 @@ public class InvoiceLine
     public string Description { get; set; } = string.Empty;
     public decimal Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+    public decimal DiscountPercent { get; set; }
     public Guid? TaxDefinitionId { get; set; }
     public Guid RevenueAccountId { get; set; }
 

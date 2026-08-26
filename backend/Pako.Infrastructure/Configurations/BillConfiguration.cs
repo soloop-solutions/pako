@@ -17,5 +17,6 @@ public class BillConfiguration : IEntityTypeConfiguration<Bill>
             .HasForeignKey(l => l.BillId)
             .OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(b => new { b.CompanyId, b.State });
+        builder.HasOne<Bill>().WithMany().HasForeignKey(b => b.OriginalBillId).OnDelete(DeleteBehavior.Restrict);
     }
 }

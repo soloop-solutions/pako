@@ -1,3 +1,5 @@
+using Pako.Domain.Bills;
+
 namespace Pako.Api.Contracts;
 
 public record CreateBillLineRequest(
@@ -5,9 +7,17 @@ public record CreateBillLineRequest(
     decimal Quantity,
     decimal UnitPrice,
     Guid? TaxDefinitionId,
-    Guid? ExpenseAccountId);
+    Guid? ExpenseAccountId,
+    decimal? DiscountPercent = null);
 
-public record CreateBillRequest(Guid PartnerId, string? VendorReference, DateOnly IssueDate, DateOnly DueDate, List<CreateBillLineRequest> Lines);
+public record CreateBillRequest(
+    Guid PartnerId,
+    string? VendorReference,
+    DateOnly IssueDate,
+    DateOnly DueDate,
+    List<CreateBillLineRequest> Lines,
+    DocumentType DocumentType = DocumentType.Bill,
+    Guid? OriginalBillId = null);
 
 public record BillLineResponse(
     Guid Id,
@@ -15,7 +25,8 @@ public record BillLineResponse(
     decimal Quantity,
     decimal UnitPrice,
     Guid? TaxDefinitionId,
-    Guid ExpenseAccountId);
+    Guid ExpenseAccountId,
+    decimal DiscountPercent);
 
 public record BillResponse(
     Guid Id,
@@ -24,5 +35,7 @@ public record BillResponse(
     DateOnly IssueDate,
     DateOnly DueDate,
     string State,
+    DocumentType DocumentType,
+    Guid? OriginalBillId,
     Guid? JournalEntryId,
     List<BillLineResponse> Lines);
