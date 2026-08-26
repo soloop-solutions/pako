@@ -1,0 +1,15 @@
+[Unit]
+Description=Pako Fiscal Bridge Service
+After=network.target
+
+[Service]
+Type=simple
+User=pako
+WorkingDirectory=/opt/pako-fiscal-bridge
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

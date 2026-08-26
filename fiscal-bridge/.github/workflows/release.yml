@@ -1,0 +1,40 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Install pkg
+        run: npm install -g @yao-pkg/pkg
+
+      - name: Build exe
+        run: pkg . --targets node18-win-x64 --output dist/Pako-Bridge.exe
+
+      - name: Copy native bindings
+        run: node scripts/copy-natives.js
+
+      - name: Zip exe + bindings
+        run: Compress-Archive -Path dist/Pako-Bridge.exe, dist/prebuilds -DestinationPath dist/Pako-Bridge.zip
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Pako-Bridge.zip
+          generate_release_notes: true

@@ -1,0 +1,37 @@
+{
+  "name": "pako-fiscal-bridge",
+  "version": "1.0.1",
+  "description": "Local bridge service for PAKO fiscal printer communication",
+  "main": "index.js",
+  "bin": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js",
+    "install-service": "node install/windows-service.js --install",
+    "uninstall-service": "node install/windows-service.js --uninstall",
+    "build:win": "pkg . --targets node18-win-x64 --output dist/Pako-Bridge.exe && node scripts/copy-natives.js"
+  },
+  "pkg": {
+    "targets": ["node18-win-x64"],
+    "outputPath": "dist",
+    "assets": [
+      "node_modules/@serialport/bindings-cpp/prebuilds/**/*",
+      "node_modules/node-gyp-build/**/*"
+    ],
+    "scripts": [
+      "lib/**/*.js"
+    ]
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.7",
+    "cors": "^2.8.5",
+    "serialport": "^12.0.0",
+    "iconv-lite": "^0.6.3",
+    "node-windows": "^1.0.0-beta.8"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.3",
+    "@yao-pkg/pkg": "^5.11.5"
+  }
+}

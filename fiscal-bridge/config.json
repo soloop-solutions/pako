@@ -1,0 +1,9 @@
+{
+  "brand": "datecs",
+  "middleware": "datecs",
+  "port": "",
+  "baudRate": 115200,
+  "operatorId": "1",
+  "operatorPassword": "0000",
+  "configured": false
+}

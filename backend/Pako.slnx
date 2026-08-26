@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="Pako.Api/Pako.Api.csproj" />
+  <Project Path="Pako.Domain/Pako.Domain.csproj" />
+  <Project Path="Pako.Infrastructure/Pako.Infrastructure.csproj" />
+  <Project Path="Pako.Localization.Xk/Pako.Localization.Xk.csproj" />
+  <Project Path="Pako.Tests/Pako.Tests.csproj" />
+</Solution>
