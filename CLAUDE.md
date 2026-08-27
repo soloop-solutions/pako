@@ -1327,3 +1327,210 @@ was to block rather than build real credit notes. This pass builds them, backend
   company -> customer+vendor partners -> invoice+credit-note pair and bill+credit-note pair,
   both posted, both applied via `apply-credit-note`, trial balance and P&L cross-checked by hand)
   against a real running `Pako.Api` on port 5248, not just curl-replicating unit-test payloads.
+
+## Debit notes, line discounts, down payments (`backend/Pako.Domain/Invoicing/`, `backend/Pako.Domain/Bills/`, 2026-08-26) and mobile wiring (`apps/mobile`, 2026-08-27)
+
+**Documentation gap worth knowing about**: the commit that actually shipped debit notes, line
+discounts, and down payments (`2d0b7f0`, "Add credit notes, debit notes, line discounts,
+down-payment invoices") only added CLAUDE.md prose for the credit-note half (the section above) —
+its own "Odoo gap survey" subsection still reads as if those three features were "not built in
+this pass," even though the same commit's diff shows `Invoice.DocumentType` gaining `DebitNote`/
+`DownPayment`, `Company.NextDebitNoteNumber`/`NextDownPaymentNumber` counters, `InvoiceLine`/
+`BillLine.DiscountPercent`, `CustomerDepositsAccountCode`, and a full `apply-down-payment`
+endpoint. Confirmed by reading the actual C#/generated-client code directly, not the prose, before
+building the mobile UI — don't trust this file's "not built" claims over the code without checking.
+Recording the real shape here so it doesn't happen again:
+
+- **`Invoicing.DocumentType`**: `Invoice = 0, CreditNote = 1, DebitNote = 2, DownPayment = 3`.
+  **`Bills.DocumentType`**: `Bill = 0, CreditNote = 1` (Bills deliberately has no DebitNote/
+  DownPayment counterpart). Both come through the generated client as plain `number` — same
+  hand-maintained-enum-order gotcha as every other enum in this repo.
+- **`DebitNote` posts exactly like a normal invoice** (`Invoice.Post`'s `isCreditNote` ternary is
+  only ever true for `CreditNote` — `DebitNote`/`DownPayment` both fall into the same Debit AR /
+  Credit Revenue-or-Deposits branch as a plain `Invoice`), gets its own `DN-####` numbering series,
+  and is settled via the ordinary `record-payment` flow — **there is no `apply-debit-note`
+  endpoint and none should be built**; a debit note is just an invoice with a different prefix and
+  reason. Verified live: `DN-0001` posts and its `balance` behaves identically to a normal invoice.
+- **`DownPayment` credits `CustomerDepositsAccountCode` (a liability), not Revenue**, forced
+  server-side (`InvoicesController.Create` overrides any `revenueAccountId` on a `DownPayment`
+  line's request), and gets its own `DP-####` series. `POST .../invoices/{id}/apply-down-payment`
+  (`ApplyDownPaymentRequest{ downPaymentInvoiceId, amount }`) both nets the down payment's AR line
+  against the target invoice's outstanding balance (via `ReconciliationCreator`, same mechanism as
+  `apply-credit-note`) *and* posts a reclassification `JournalEntry` (Debit Deposits / Credit
+  Revenue) for the **net** portion of the applied amount (`reclassifiedAmount` in the response) —
+  proportional to the down payment's own net/gross ratio, since the applied `amount` nets against
+  AR gross (VAT included) but only the net portion was ever sitting in Deposits.
+- **`InvoiceLine`/`BillLine.DiscountPercent`** (0–100, default 0) applies before tax:
+  `net = quantity * unitPrice * (1 - discountPercent / 100)`, rounded `AwayFromZero`, and tax is
+  computed on that discounted `net`, not the pre-discount amount — verified live (10 × 100 @ 20%
+  discount + 18% VAT → net 800, tax 144, total 944, not 1000/180/1180).
+- **`applyCreditNote`/`applyCreditNote2`/`applyDownPayment` NSwag disambiguation** (same
+  alphabetical-controller-order collision pattern as `post`/`post2` and `recordPayment`/
+  `recordPayment2` documented earlier in this file — **re-verify by reading each method's `url_`
+  literal after any future client regeneration, never assume the numbering holds**): as of this
+  pass, `applyCreditNote` (no suffix) is `BillsController`'s action
+  (`/api/companies/{companyId}/bills/{id}/apply-credit-note`), `applyCreditNote2` is
+  `InvoicesController`'s (`.../invoices/{id}/apply-credit-note`) — numbering is backwards from
+  what you'd guess, `Bills` alphabetically precedes `Invoices` so it claims the bare name.
+  `applyDownPayment` has no collision (invoices-only, no bill equivalent) and keeps its name as-is.
+- **No client-side way to compute a credit note's/down payment's exact remaining "capacity"
+  through the exposed API — this is a real gap, not an oversight in the mobile build.**
+  `GET .../invoices/{id}/balance` (`balance`/`balance2`) computes `total` by summing only
+  `Debit` on that document's own AR control line
+  (`InvoicesController.ComputeBalanceAsync`/`BillsController` equivalent) — for a `CreditNote`,
+  whose AR line is `Credit`-sided by design, that sum is always `0`, so calling `balance2` on a
+  credit note or down payment's own id returns a useless `{0, 0, 0}` regardless of how much of it
+  has actually been applied elsewhere. The real "how much of this credit note/down payment is
+  still available" figure only exists inside `ReconciliationCreator.TryCreateAsync`'s
+  `settlementLineAmount` (`Debit != 0 ? Debit : Credit` on the specific `JournalEntryLine`) minus
+  `alreadyReconciledForLine` (summed by `JournalEntryLineId`, not by document id) — and nothing in
+  the public API exposes a document's control-account `JournalEntryLineId` or a
+  "reconciliations by line id" query, only "reconciliations by document id"
+  (`reconciliationsAll`/`reconciliationsAll2`, invoice-/bill-scoped). **`apps/mobile`'s resolution**
+  (documented in full in `apps/mobile/CLAUDE.md`, same problem `apps/web`'s equivalent pass will
+  hit): list *candidates* as every Posted `CreditNote`/`DownPayment` for the target document's
+  partner (no capacity filtering — can't be done client-side), default the apply amount to
+  `min(estimatedGrossTotal, targetOutstanding)` as a starting point the user can edit, and treat
+  the backend's over-consumption error message
+  (`ReconciliationValidator`'s `SettlementLineOverConsumedException`, "...has amount X, but Y would
+  be reconciled against it in total.") as authoritative — same pattern `RecordPaymentForm` already
+  used for a plain payment amount. Flag to Erion if an exact "remaining capacity" figure becomes a
+  real product requirement — it needs a new backend endpoint (e.g. exposing the control line id, or
+  a dedicated `.../capacity` computation), not a client-side workaround.
+- **Mobile build**: wired document-type creation (Invoice/Credit Note/Debit Note/Down Payment for
+  Invoicing, Bill/Credit Note for Bills), an optional original-invoice/bill picker, per-line
+  discount with a live discounted-net preview, document-type badges on list rows and detail
+  headers, and "Apply credit note"/"Apply down payment" actions on the invoice detail screen
+  (credit-note-only on the bill detail screen, no down-payment equivalent there) — see
+  `apps/mobile/CLAUDE.md`'s "Document types, line discounts, credit notes, and down payments"
+  section for the full file list and verification. `pnpm --filter @pako/mobile
+  {typecheck,lint,test,build}` all pass; end-to-end verified via `npx tsx` against the real
+  `PakoApiClient` and a live `Pako.Api` (discount+tax math, debit-note numbering/direction,
+  credit-note create+apply for both invoices and bills, and the full down-payment lifecycle
+  including the reclassified-amount figure) — not just curl or unit-test replication.
+
+## Debit notes, line discounts, down-payment invoices, and their frontend (2026-08-27)
+
+The Odoo-gap survey above flagged debit notes/line discounts/down payments as not built; a later
+backend-only pass (same commit as the credit-note work per `git log`, CLAUDE.md just wasn't
+updated for it until now) closed all three, then this pass wired all of it into `apps/web`.
+Confirmed shapes (don't re-derive): `Invoice.documentType` is `0=Invoice, 1=CreditNote,
+2=DebitNote, 3=DownPayment`; `Bill.documentType` is `0=Bill, 1=CreditNote` (no debit note/down
+payment on the AP side, a deliberate scope decision). `CreateInvoiceLineRequest`/
+`CreateBillLineRequest` gained optional `discountPercent?: number` (0-100); a line's net is
+`quantity * unitPrice * (1 - discountPercent / 100)`, tax computed on that discounted net —
+verified live (10 × 100 @ 20% discount + 18% VAT posted AR 944.00 / Revenue 800.00 / VAT Payable
+144.00, i.e. tax landed on the 800 discounted net, not 1000). New endpoints:
+`applyCreditNote2`/`applyCreditNote` (invoices/bills respectively — NSwag's numbering is backwards
+from what you'd guess, `applyCreditNote` alphabetically-first-controller is Bills; re-verify the
+`url_` literal after any regeneration, same discipline as every other `postN`/`balanceN` gotcha
+in this file) and `applyDownPayment` (invoices only).
+
+- **Frontend (`apps/web/src/pages/invoicing/`, `apps/web/src/pages/bills/`)**: `InvoiceForm.tsx`/
+  `BillForm.tsx` gained a document-type `<select>` (`src/lib/document-types.ts`, same
+  hand-maintained-enum-order pattern as `ledger-enums.ts`/`tax-enums.ts` since the OpenAPI doc
+  doesn't emit enum names) and, when Credit Note/Debit Note is selected, an optional "original
+  invoice/bill" `<select>` populated from the already-fetched invoice/bill list filtered to that
+  partner's `Posted` documents — no extra fetch needed, `Invoicing.tsx`/`Bills.tsx` already load
+  the full list for the table. Each line row gained a Discount % input (default 0) and a read-only
+  Net cell showing `quantity * unitPrice * (1 - discount/100)` live, so the user sees the real
+  number before submitting (server stays authoritative). List pages show the document type as an
+  `outline`-variant `Badge` next to the number/reference column.
+- **Real, confirmed API gap: there is no way to query a credit note's or down payment's own
+  remaining application capacity through the current API** — found by directly testing it, not
+  assumed. `InvoicesController.ComputeBalanceAsync`/`BillsController`'s equivalent always sum
+  `JournalEntryLine.Debit` on the AR/AP control line for "total," which is 0 for a `CreditNote`
+  (its control line is on the Credit side) — confirmed live: a freshly-posted 300 credit note's own
+  `.../balance` returned `{total:0, reconciled:0, outstanding:0}` before any application at all.
+  Down payments don't have that half of the problem (their AR line is Debit, like a normal
+  invoice, so `total` is correct), but `reconciled` is wrong for both: `ApplyCreditNote`/
+  `ApplyDownPayment` call `ReconciliationCreator.TryCreateAsync(..., id, ...)` with `id` = the
+  *target* document being paid down, so the created `Reconciliation.InvoiceId` is the target's id,
+  never the credit note's/down payment's own id — `.../balance`'s `reconciled` sum
+  (`Where(r => r.InvoiceId == invoiceId)`) can never see it. Confirmed live: applying a full
+  236.00 down payment against an invoice, then re-fetching the down payment's own `.../balance`,
+  still returned `{total:236, reconciled:0, outstanding:236}` — falsely showing it as 100%
+  available after full consumption, not just an unhelpful zero. `ReconciliationsController`'s
+  `ListForInvoice`/`ListForBill` have the identical `InvoiceId`/`BillId`-keyed filter, so they
+  can't answer this either, and `JournalEntryLineResponse` doesn't expose `ReconciledFlag`/
+  `ReconciliationId` (they exist on the entity, just aren't in the DTO). **Given this, `apps/web`
+  does not attempt to compute or claim "remaining capacity"**: `ApplyCreditNoteForm.tsx`/
+  `ApplyDownPaymentForm.tsx` list a partner's posted candidates with their own *nominal* total
+  (computed client-side from the already-loaded document's lines via the new
+  `documentNominalTotal()` in `tax-enums.ts` — no extra fetch), default the amount field to
+  `min(candidate total, target document's real outstanding)`, and lean on the backend's existing
+  over-consumption check (already proven correct in the credit-note pass above) to reject a
+  double-application attempt — the form surfaces that exact server error via
+  `getApiErrorMessage`. A small muted-text hint under each form says the number shown isn't
+  verified-available. Flag to Erion: closing this properly needs either a dedicated
+  "remaining capacity" endpoint or exposing `ReconciledFlag`/consumed-amount per line.
+  **Closed 2026-08-27 — see "CreditNote/DownPayment `.../balance` fix" below.** The existing
+  `.../balance` endpoint now returns this document's own correct capacity for these two types; the
+  frontend gap described above (no verified-available number in the apply forms) is now fixable by
+  calling `.../balance` on the candidate credit-note/down-payment id itself, not a new endpoint.
+- **`InvoiceDetail.tsx`/`BillDetail.tsx`**: "Apply credit note" (both) and "Apply down payment"
+  (invoices only) cards render next to "Record payment," gated on the same `Posted &&
+  outstanding > 0` condition, and only when the partner has at least one candidate document
+  (existence-based, not capacity-based, since capacity can't be determined — see above). A
+  success message (including `reclassifiedAmount` for down payments, e.g. "Applied 236.00 — 200.00
+  recognized as revenue.") is lifted into the parent Detail component's own state (not left inside
+  the apply form), because a fully-consumed candidate can disappear from the options list on
+  refresh, which would otherwise unmount the form and its message with it.
+- **Verified end-to-end** against the real running API (not just typechecked): register -> company
+  -> customer + vendor partners -> posted a discounted+taxed invoice (10 × 100 @ 20% discount, 18%
+  VAT -> 944.00, tax confirmed on the 800.00 discounted net via the trial balance) -> posted a
+  300.00 credit note against it, applied in full via `apply-credit-note` (invoices variant) ->
+  outstanding dropped 944.00 -> 644.00 -> posted a 200.00-net/236.00-total down payment, applied
+  the full 236.00 via `apply-down-payment` -> outstanding dropped to 408.00 and
+  `reclassifiedAmount` came back exactly 200.00 (the net portion) -> mirrored the whole thing on
+  the Bills side (450.00 net after a 10% discount, 531.00 total with 18% purchase VAT, 150.00
+  vendor credit note applied via `apply-credit-note`'s bills variant -> outstanding 381.00). Also
+  reproduced the API-gap finding above live, not inferred. `pnpm --filter @pako/web
+  {typecheck,lint,test,build}` and `pnpm --filter @pako/shared typecheck` all pass on top of this.
+
+## CreditNote/DownPayment `.../balance` fix (`backend/Pako.Api/Controllers/{Invoices,Bills}Controller.cs`, 2026-08-27)
+
+Closed the API gap the "Debit notes, line discounts, down-payment invoices" section above flagged:
+`GET .../invoices/{id}/balance` and `GET .../bills/{id}/balance` now return this document's own
+real total/reconciled/outstanding for a `CreditNote`/`DownPayment`, not just for `Invoice`/
+`DebitNote`/`Bill`. Same URL for every document type — callers don't need to know the type up
+front, `ComputeBalanceAsync` branches internally on `DocumentType`.
+
+- **Root cause, precisely**: a document's own AR/AP control line posts to whichever side (Debit or
+  Credit) that document type's `Post(...)` puts it on — a normal `Invoice`/`DebitNote`/`Bill`
+  Debits/Credits it in the "forward" direction, a `CreditNote` posts to the opposite side (see
+  `Invoice.Post`'s `isCreditNote` flag and `Bill.Post`'s mirror). The old `ComputeBalanceAsync`
+  always summed the forward side only, so a `CreditNote`'s own `total` read as 0 regardless of its
+  face value. Separately, `reconciled` was always `Reconciliations.Where(r => r.InvoiceId ==
+  thisDocumentId)` — but `ApplyCreditNote`/`ApplyDownPayment` create the `Reconciliation` with
+  `InvoiceId`/`BillId` set to the *target* document being paid down, never back to the credit
+  note's/down payment's own id (the credit note/down payment is the settlement *source*, its own
+  `JournalEntryLineId` is what's on the `Reconciliation` row, not its document id) — so
+  `reconciled` read as 0 for a `CreditNote`/`DownPayment` no matter how much of it had been
+  applied elsewhere.
+- **Fix**: `ComputeBalanceAsync` in both controllers now takes the document's `DocumentType`.
+  `Invoice`/`DebitNote`/`Bill` (`isSourceDocument = false`) are completely unchanged — same Debit/
+  Credit sum on the control line, same `Reconciliations.Where(r => r.InvoiceId/BillId ==
+  thisId)`. `CreditNote`/`DownPayment` (`isSourceDocument = true`) instead: `total` reads whichever
+  side (`Credit` for `CreditNote`, `Debit` for `DownPayment`/`Bill`'s single source type is just
+  `CreditNote` → `Debit`) the document's own control line actually posted to; `reconciled` sums
+  `Reconciliation.Amount` **by that control line's own `JournalEntryLineId`**, not by document id —
+  the identical per-line-consumption query `ReconciliationCreator.TryCreateAsync`'s double-spend
+  cap already ran, now extracted to a shared `ReconciliationCreator.SumReconciledForLineAsync(db,
+  journalEntryLineId)` so both call sites can never drift apart. `ReconciliationValidator` itself
+  stayed untouched (it's a pure static method over already-loaded primitives, no DB access — the
+  DB query naturally lives in `ReconciliationCreator`, which is what actually queries the
+  `Reconciliations` table).
+- **Bills has no `DownPayment` `DocumentType`** (`Pako.Domain.Bills.DocumentType` is `Bill,
+  CreditNote` only) — `BillsController.ComputeBalanceAsync`'s `isSourceDocument` check is just
+  `documentType == DocumentType.CreditNote`.
+- **Verified end-to-end** against the real running API: posted a 200.00 invoice and a 200.00
+  credit note, applied 100.00 (half) of the credit note against the invoice via
+  `apply-credit-note` — invoice balance went `{200,0,200}` -> `{200,100,100}` and the credit
+  note's *own* `.../balance` went `{200,0,200}` -> `{200,100,100}` in the same call (previously it
+  would have stayed pinned at `{0,0,0}` the whole time, per the gap noted above). Mirrored for a
+  300.00 down payment applied 150.00 (half) against a 300.00 invoice via `apply-down-payment` — the
+  down payment's own balance went `{300,0,300}` -> `{300,150,150}`. `dotnet test` count went from
+  101 to 106 (5 new tests: credit-note-own-balance and down-payment-own-balance for Invoicing,
+  credit-note-own-balance for Bills, plus one explicit regression pin each for a normal Invoice and
+  a normal Bill's `.../balance` going through the unchanged `isSourceDocument = false` path).

@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import type { PartnerResponse, TaxDefinitionResponse } from '@pako/shared';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { BillResponse, PartnerResponse, TaxDefinitionResponse } from '@pako/shared';
 
 import { Button } from '@/components/ui/button';
 import { ErrorBanner } from '@/components/ui/error-banner';
@@ -10,6 +10,7 @@ import { TextField } from '@/components/ui/text-field';
 import { DocumentLinesEditor, EMPTY_DOCUMENT_LINE, type DocumentLine } from '@/components/shared/document-lines-editor';
 import { apiClient, getApiErrorMessage } from '@/api/client';
 import { useCompany } from '@/context/company-context';
+import { BILL_DOCUMENT_TYPE_BILL, BILL_DOCUMENT_TYPE_CREDIT_NOTE, BILL_DOCUMENT_TYPE_OPTIONS } from '@/lib/document-enums';
 import { taxesForPurchase } from '@/lib/tax-enums';
 
 function today() {
@@ -22,7 +23,10 @@ export default function NewBillScreen() {
 
   const [vendors, setVendors] = useState<PartnerResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
+  const [bills, setBills] = useState<BillResponse[]>([]);
   const [partnerId, setPartnerId] = useState('');
+  const [documentType, setDocumentType] = useState(String(BILL_DOCUMENT_TYPE_BILL));
+  const [originalBillId, setOriginalBillId] = useState('');
   const [vendorReference, setVendorReference] = useState('');
   const [issueDate, setIssueDate] = useState(today);
   const [dueDate, setDueDate] = useState(today);
@@ -33,9 +37,14 @@ export default function NewBillScreen() {
   const loadOptions = useCallback(async () => {
     if (!companyId) return;
     try {
-      const [partnersResult, taxesResult] = await Promise.all([apiClient.partnersAll(companyId), apiClient.taxes(companyId)]);
+      const [partnersResult, taxesResult, billsResult] = await Promise.all([
+        apiClient.partnersAll(companyId),
+        apiClient.taxes(companyId),
+        apiClient.billsAll(companyId),
+      ]);
       setVendors(partnersResult.filter((p) => p.isVendor));
       setTaxes(taxesForPurchase(taxesResult));
+      setBills(billsResult);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not load vendors.'));
     }
@@ -46,6 +55,15 @@ export default function NewBillScreen() {
       await loadOptions();
     })();
   }, [loadOptions]);
+
+  const needsOriginalBill = documentType === String(BILL_DOCUMENT_TYPE_CREDIT_NOTE);
+
+  const originalBillOptions = useMemo(() => {
+    const candidates = bills.filter(
+      (bill) => bill.partnerId === partnerId && bill.documentType === BILL_DOCUMENT_TYPE_BILL && bill.state === 'Posted',
+    );
+    return [{ value: '', label: 'None' }, ...candidates.map((bill) => ({ value: bill.id, label: bill.vendorReference ?? bill.id }))];
+  }, [bills, partnerId]);
 
   function updateLine(index: number, patch: Partial<DocumentLine>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -80,12 +98,15 @@ export default function NewBillScreen() {
         vendorReference: vendorReference.trim() || undefined,
         issueDate,
         dueDate,
+        documentType: Number(documentType),
+        originalBillId: needsOriginalBill && originalBillId ? originalBillId : undefined,
         lines: validLines.map((line) => ({
           description: line.description,
           quantity: parseFloat(line.quantity) || 0,
           unitPrice: parseFloat(line.unitPrice) || 0,
           taxDefinitionId: line.taxDefinitionId || undefined,
           expenseAccountId: undefined,
+          discountPercent: parseFloat(line.discountPercent) || 0,
         })),
       });
       router.back();
@@ -103,10 +124,31 @@ export default function NewBillScreen() {
       <SelectField
         label="Vendor"
         value={partnerId}
-        onChange={setPartnerId}
+        onChange={(value) => {
+          setPartnerId(value);
+          setOriginalBillId('');
+        }}
         options={vendors.map((vendor) => ({ value: vendor.id, label: vendor.name }))}
         placeholder="Select vendor"
       />
+      <SelectField
+        label="Document type"
+        value={documentType}
+        onChange={(value) => {
+          setDocumentType(value);
+          setOriginalBillId('');
+        }}
+        options={BILL_DOCUMENT_TYPE_OPTIONS}
+      />
+      {needsOriginalBill && (
+        <SelectField
+          label="Original bill (optional)"
+          value={originalBillId}
+          onChange={setOriginalBillId}
+          options={originalBillOptions}
+          placeholder="None"
+        />
+      )}
       <TextField label="Vendor reference" value={vendorReference} onChangeText={setVendorReference} />
       <TextField label="Issue date (YYYY-MM-DD)" value={issueDate} onChangeText={setIssueDate} />
       <TextField label="Due date (YYYY-MM-DD)" value={dueDate} onChangeText={setDueDate} />

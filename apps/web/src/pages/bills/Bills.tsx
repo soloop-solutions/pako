@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { billDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
@@ -100,7 +101,13 @@ export function Bills() {
           <CardDescription>Tax is computed by the server when the bill is posted.</CardDescription>
         </CardHeader>
         <CardContent>
-          <BillForm companyId={activeCompany.id} vendors={vendors} taxes={taxesForPurchase(taxes)} onCreated={refresh} />
+          <BillForm
+            companyId={activeCompany.id}
+            vendors={vendors}
+            taxes={taxesForPurchase(taxes)}
+            bills={bills}
+            onCreated={refresh}
+          />
         </CardContent>
       </Card>
 
@@ -113,6 +120,7 @@ export function Bills() {
             <TableHeader>
               <TableRow>
                 <TableHead>Vendor reference</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Vendor</TableHead>
                 <TableHead>Issue date</TableHead>
                 <TableHead>Due date</TableHead>
@@ -125,6 +133,9 @@ export function Bills() {
               {bills.map((bill) => (
                 <TableRow key={bill.id}>
                   <TableCell>{bill.vendorReference ?? "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{billDocumentTypeLabel(bill.documentType)}</Badge>
+                  </TableCell>
                   <TableCell>{partnerName(bill.partnerId)}</TableCell>
                   <TableCell>{bill.issueDate}</TableCell>
                   <TableCell>{bill.dueDate}</TableCell>

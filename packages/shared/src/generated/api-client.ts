@@ -349,6 +349,52 @@ export class PakoApiClient {
     }
 
     /**
+     * @return Created
+     */
+    applyCreditNote(companyId: string, id: string, body: ApplyCreditNoteRequest): Promise<ApplyCreditNoteResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bills/{id}/apply-credit-note";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processApplyCreditNote(_response);
+        });
+    }
+
+    protected processApplyCreditNote(response: Response): Promise<ApplyCreditNoteResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ApplyCreditNoteResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ApplyCreditNoteResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     post(companyId: string, id: string): Promise<BillResponse> {
@@ -998,6 +1044,98 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<RecordPaymentResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    applyCreditNote2(companyId: string, id: string, body: ApplyCreditNoteRequest): Promise<ApplyCreditNoteResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/apply-credit-note";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processApplyCreditNote2(_response);
+        });
+    }
+
+    protected processApplyCreditNote2(response: Response): Promise<ApplyCreditNoteResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ApplyCreditNoteResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ApplyCreditNoteResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    applyDownPayment(companyId: string, id: string, body: ApplyDownPaymentRequest): Promise<ApplyDownPaymentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/apply-down-payment";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processApplyDownPayment(_response);
+        });
+    }
+
+    protected processApplyDownPayment(response: Response): Promise<ApplyDownPaymentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ApplyDownPaymentResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ApplyDownPaymentResponse>(null as any);
     }
 
     /**
@@ -1863,6 +2001,36 @@ export interface AddMemberRequest {
     [key: string]: any;
 }
 
+export interface ApplyCreditNoteRequest {
+    creditNoteId: string;
+    amount: number;
+
+    [key: string]: any;
+}
+
+export interface ApplyCreditNoteResponse {
+    reconciliation: ReconciliationResponse;
+    balance: DocumentBalanceResponse;
+
+    [key: string]: any;
+}
+
+export interface ApplyDownPaymentRequest {
+    downPaymentInvoiceId: string;
+    amount: number;
+
+    [key: string]: any;
+}
+
+export interface ApplyDownPaymentResponse {
+    reconciliation: ReconciliationResponse;
+    balance: DocumentBalanceResponse;
+    reclassificationJournalEntryId: string;
+    reclassifiedAmount: number;
+
+    [key: string]: any;
+}
+
 export interface AuthResponse {
     token: string;
     userId: string;
@@ -1891,6 +2059,7 @@ export interface BillLineResponse {
     unitPrice: number;
     taxDefinitionId: string | undefined;
     expenseAccountId: string;
+    discountPercent: number;
 
     [key: string]: any;
 }
@@ -1902,6 +2071,8 @@ export interface BillResponse {
     issueDate: string;
     dueDate: string;
     state: string;
+    documentType: number;
+    originalBillId: string | undefined;
     journalEntryId: string | undefined;
     lines: BillLineResponse[];
 
@@ -1924,6 +2095,7 @@ export interface CreateBillLineRequest {
     unitPrice: number;
     taxDefinitionId: string | undefined;
     expenseAccountId: string | undefined;
+    discountPercent?: number | undefined;
 
     [key: string]: any;
 }
@@ -1934,6 +2106,8 @@ export interface CreateBillRequest {
     issueDate: string;
     dueDate: string;
     lines: CreateBillLineRequest[];
+    documentType?: number;
+    originalBillId?: string | undefined;
 
     [key: string]: any;
 }
@@ -1964,6 +2138,7 @@ export interface CreateInvoiceLineRequest {
     unitPrice: number;
     taxDefinitionId: string | undefined;
     revenueAccountId: string | undefined;
+    discountPercent?: number | undefined;
 
     [key: string]: any;
 }
@@ -1973,6 +2148,8 @@ export interface CreateInvoiceRequest {
     issueDate: string;
     dueDate: string;
     lines: CreateInvoiceLineRequest[];
+    documentType?: number;
+    originalInvoiceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -2060,6 +2237,7 @@ export interface InvoiceLineResponse {
     unitPrice: number;
     taxDefinitionId: string | undefined;
     revenueAccountId: string;
+    discountPercent: number;
 
     [key: string]: any;
 }
@@ -2071,6 +2249,8 @@ export interface InvoiceResponse {
     issueDate: string;
     dueDate: string;
     state: string;
+    documentType: number;
+    originalInvoiceId: string | undefined;
     journalEntryId: string | undefined;
     lines: InvoiceLineResponse[];
 

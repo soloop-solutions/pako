@@ -2,6 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type {
   AccountResponse,
+  ApplyCreditNoteResponse,
+  ApplyDownPaymentResponse,
   DocumentBalanceResponse,
   InvoiceResponse,
   PartnerResponse,
@@ -15,8 +17,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
 import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
 import { estimatedTaxAmount } from "@/lib/tax-enums";
+import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
+import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
 export function InvoiceDetail() {
@@ -29,9 +34,12 @@ export function InvoiceDetail() {
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
+  const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
+  const [downPaymentOptions, setDownPaymentOptions] = useState<DownPaymentOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
@@ -50,8 +58,33 @@ export function InvoiceDetail() {
 
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
+
+        // The balance endpoint now correctly computes remaining capacity for CreditNote/
+        // DownPayment documents too (branches on DocumentType server-side) - fetch each
+        // candidate's own balance and use its real outstanding amount, not a nominal total.
+        const allInvoices = await apiClient.invoicesAll(companyId);
+        const partnerPostedInvoices = allInvoices.filter(
+          (candidate) => candidate.id !== id && candidate.partnerId === invoiceResult.partnerId && candidate.state === "Posted",
+        );
+
+        const withBalances = async (documentType: number) => {
+          const candidates = partnerPostedInvoices.filter((candidate) => candidate.documentType === documentType);
+          const balances = await Promise.all(candidates.map((candidate) => apiClient.balance2(companyId, candidate.id)));
+          return candidates
+            .map((candidate, index) => ({
+              id: candidate.id,
+              label: candidate.invoiceNumber ?? candidate.id,
+              total: balances[index].outstanding,
+            }))
+            .filter((option) => option.total > 0);
+        };
+
+        setCreditNoteOptions(await withBalances(InvoiceDocumentType.CreditNote));
+        setDownPaymentOptions(await withBalances(InvoiceDocumentType.DownPayment));
       } else {
         setBalance(null);
+        setCreditNoteOptions([]);
+        setDownPaymentOptions([]);
       }
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not load the invoice."));
@@ -74,6 +107,21 @@ export function InvoiceDetail() {
     } finally {
       setPosting(false);
     }
+  }
+
+  async function handleAppliedCreditNote(response: ApplyCreditNoteResponse) {
+    setApplyMessage(`Applied ${response.reconciliation.amount.toFixed(2)} from credit note.`);
+    await refresh();
+  }
+
+  async function handleAppliedDownPayment(response: ApplyDownPaymentResponse) {
+    const applied = response.reconciliation.amount;
+    setApplyMessage(
+      response.reclassifiedAmount > 0
+        ? `Applied ${applied.toFixed(2)} — ${response.reclassifiedAmount.toFixed(2)} recognized as revenue.`
+        : `Applied ${applied.toFixed(2)}.`,
+    );
+    await refresh();
   }
 
   if (!activeCompany || !invoice) {
@@ -101,7 +149,7 @@ export function InvoiceDetail() {
   let subtotal = 0;
   let estimatedTax = 0;
   for (const line of invoice.lines) {
-    const net = line.quantity * line.unitPrice;
+    const net = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
     subtotal += net;
     estimatedTax += estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
   }
@@ -118,11 +166,20 @@ export function InvoiceDetail() {
         </Alert>
       )}
 
+      {applyMessage && (
+        <Alert>
+          <AlertDescription>{applyMessage}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{invoice.invoiceNumber ?? "Draft invoice"}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>{invoice.invoiceNumber ?? "Draft invoice"}</CardTitle>
+                <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType)}</Badge>
+              </div>
               <CardDescription>{partner?.name ?? invoice.partnerId}</CardDescription>
             </div>
             <Badge variant={invoice.state === "Posted" ? "default" : "secondary"}>{invoice.state}</Badge>
@@ -144,6 +201,7 @@ export function InvoiceDetail() {
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead className="text-right">Unit price</TableHead>
+                <TableHead className="text-right">Discount %</TableHead>
                 <TableHead>Tax</TableHead>
                 <TableHead className="text-right">Net</TableHead>
               </TableRow>
@@ -154,8 +212,11 @@ export function InvoiceDetail() {
                   <TableCell>{line.description}</TableCell>
                   <TableCell className="text-right">{line.quantity}</TableCell>
                   <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
                   <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>
-                  <TableCell className="text-right">{(line.quantity * line.unitPrice).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">
+                    {(line.quantity * line.unitPrice * (1 - line.discountPercent / 100)).toFixed(2)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -200,6 +261,43 @@ export function InvoiceDetail() {
               cashAccounts={cashAccounts}
               outstanding={balance.outstanding}
               onRecorded={refresh}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Apply credit note</CardTitle>
+            <CardDescription>Reconciles one of this customer's posted credit notes against this invoice.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ApplyCreditNoteForm
+              companyId={activeCompany.id}
+              documentKind="invoice"
+              documentId={invoice.id}
+              outstanding={balance.outstanding}
+              options={creditNoteOptions}
+              onApplied={handleAppliedCreditNote}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Apply down payment</CardTitle>
+            <CardDescription>Reconciles one of this customer's posted down payments against this invoice.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ApplyDownPaymentForm
+              companyId={activeCompany.id}
+              invoiceId={invoice.id}
+              outstanding={balance.outstanding}
+              options={downPaymentOptions}
+              onApplied={handleAppliedDownPayment}
             />
           </CardContent>
         </Card>

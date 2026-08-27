@@ -14,6 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { apiClient, getApiErrorMessage } from '@/api/client';
 import { useCompany } from '@/context/company-context';
 import { useTheme } from '@/hooks/use-theme';
+import { invoiceDocumentTypeLabel } from '@/lib/document-enums';
 
 export default function InvoicingScreen() {
   const { activeCompany } = useCompany();
@@ -73,7 +74,10 @@ export default function InvoicingScreen() {
             <Card style={styles.invoiceRow}>
               <View style={styles.invoiceRowTop}>
                 <ThemedText type="smallBold">{item.invoiceNumber ?? 'Draft invoice'}</ThemedText>
-                <Badge label={item.state} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
+                <View style={styles.badgeGroup}>
+                  <Badge label={invoiceDocumentTypeLabel(item.documentType)} />
+                  <Badge label={item.state} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
+                </View>
               </View>
               <ThemedText type="small" themeColor="textSecondary">
                 {customers.find((c) => c.id === item.partnerId)?.name ?? item.partnerId}
@@ -144,6 +148,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  badgeGroup: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   invoiceRowBottom: {
     flexDirection: 'row',

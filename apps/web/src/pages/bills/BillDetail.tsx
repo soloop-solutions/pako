@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type {
   AccountResponse,
+  ApplyCreditNoteResponse,
   BillResponse,
   DocumentBalanceResponse,
   PartnerResponse,
@@ -15,8 +16,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
 import { estimatedTaxAmount } from "@/lib/tax-enums";
+import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
 export function BillDetail() {
@@ -29,9 +32,11 @@ export function BillDetail() {
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
+  const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
@@ -50,8 +55,33 @@ export function BillDetail() {
 
       if (billResult.state === "Posted") {
         setBalance(await apiClient.balance(companyId, id));
+
+        // The balance endpoint now correctly computes remaining capacity for CreditNote
+        // documents too (branches on DocumentType server-side) - fetch each candidate's own
+        // balance and use its real outstanding amount, not a nominal total.
+        const allBills = await apiClient.billsAll(companyId);
+        const creditNoteCandidates = allBills.filter(
+          (candidate) =>
+            candidate.id !== id &&
+            candidate.partnerId === billResult.partnerId &&
+            candidate.state === "Posted" &&
+            candidate.documentType === BillDocumentType.CreditNote,
+        );
+        const creditNoteBalances = await Promise.all(
+          creditNoteCandidates.map((candidate) => apiClient.balance(companyId, candidate.id)),
+        );
+        setCreditNoteOptions(
+          creditNoteCandidates
+            .map((candidate, index) => ({
+              id: candidate.id,
+              label: candidate.vendorReference ?? candidate.id,
+              total: creditNoteBalances[index].outstanding,
+            }))
+            .filter((option) => option.total > 0),
+        );
       } else {
         setBalance(null);
+        setCreditNoteOptions([]);
       }
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not load the bill."));
@@ -74,6 +104,11 @@ export function BillDetail() {
     } finally {
       setPosting(false);
     }
+  }
+
+  async function handleAppliedCreditNote(response: ApplyCreditNoteResponse) {
+    setApplyMessage(`Applied ${response.reconciliation.amount.toFixed(2)} from credit note.`);
+    await refresh();
   }
 
   if (!activeCompany || !bill) {
@@ -101,7 +136,7 @@ export function BillDetail() {
   let subtotal = 0;
   let estimatedTax = 0;
   for (const line of bill.lines) {
-    const net = line.quantity * line.unitPrice;
+    const net = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
     subtotal += net;
     estimatedTax += estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
   }
@@ -118,11 +153,20 @@ export function BillDetail() {
         </Alert>
       )}
 
+      {applyMessage && (
+        <Alert>
+          <AlertDescription>{applyMessage}</AlertDescription>
+        </Alert>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>{bill.vendorReference ?? "Draft bill"}</CardTitle>
+              <div className="flex items-center gap-2">
+                <CardTitle>{bill.vendorReference ?? "Draft bill"}</CardTitle>
+                <Badge variant="outline">{billDocumentTypeLabel(bill.documentType)}</Badge>
+              </div>
               <CardDescription>{partner?.name ?? bill.partnerId}</CardDescription>
             </div>
             <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
@@ -144,6 +188,7 @@ export function BillDetail() {
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
                 <TableHead className="text-right">Unit price</TableHead>
+                <TableHead className="text-right">Discount %</TableHead>
                 <TableHead>Tax</TableHead>
                 <TableHead className="text-right">Net</TableHead>
               </TableRow>
@@ -154,8 +199,11 @@ export function BillDetail() {
                   <TableCell>{line.description}</TableCell>
                   <TableCell className="text-right">{line.quantity}</TableCell>
                   <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
                   <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>
-                  <TableCell className="text-right">{(line.quantity * line.unitPrice).toFixed(2)}</TableCell>
+                  <TableCell className="text-right">
+                    {(line.quantity * line.unitPrice * (1 - line.discountPercent / 100)).toFixed(2)}
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -200,6 +248,25 @@ export function BillDetail() {
               cashAccounts={cashAccounts}
               outstanding={balance.outstanding}
               onRecorded={refresh}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {bill.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Apply credit note</CardTitle>
+            <CardDescription>Reconciles one of this vendor's posted credit notes against this bill.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ApplyCreditNoteForm
+              companyId={activeCompany.id}
+              documentKind="bill"
+              documentId={bill.id}
+              outstanding={balance.outstanding}
+              options={creditNoteOptions}
+              onApplied={handleAppliedCreditNote}
             />
           </CardContent>
         </Card>

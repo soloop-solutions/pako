@@ -150,4 +150,52 @@ public class BillsControllerTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(second.Result);
         Assert.Contains("would be reconciled against it in total", badRequest.Value!.ToString());
     }
+
+    [Fact]
+    public async Task Balance_OnCreditNoteOwnDocument_DropsAsItIsAppliedAgainstABill()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = new BillsController(db, TaxService);
+
+        var billCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 400m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(billCreated.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var creditNoteCreated = await controller.Create(companyId, CreditNoteRequestWithLine(partnerId, 1m, 150m));
+        var creditNote = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(creditNoteCreated.Result).Value);
+        await controller.Post(companyId, creditNote.Id);
+
+        var before = await controller.Balance(companyId, creditNote.Id);
+        var beforeBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(before.Result).Value);
+        Assert.Equal(150m, beforeBalance.Total);
+        Assert.Equal(0m, beforeBalance.Reconciled);
+        Assert.Equal(150m, beforeBalance.Outstanding);
+
+        await controller.ApplyCreditNote(companyId, bill.Id, new ApplyCreditNoteRequest(creditNote.Id, 75m));
+
+        var after = await controller.Balance(companyId, creditNote.Id);
+        var afterBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(after.Result).Value);
+        Assert.Equal(150m, afterBalance.Total);
+        Assert.Equal(75m, afterBalance.Reconciled);
+        Assert.Equal(75m, afterBalance.Outstanding);
+    }
+
+    [Fact]
+    public async Task Balance_OnNormalBill_UnaffectedByDocumentTypeBranching()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var controller = new BillsController(db, TaxService);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 400m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        await controller.RecordPayment(companyId, bill.Id, new RecordPaymentRequest(150m, cashAccountId, new DateOnly(2026, 8, 27)));
+
+        var result = await controller.Balance(companyId, bill.Id);
+        var balance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(400m, balance.Total);
+        Assert.Equal(150m, balance.Reconciled);
+        Assert.Equal(250m, balance.Outstanding);
+    }
 }

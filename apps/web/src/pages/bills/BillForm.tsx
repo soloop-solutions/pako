@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { BillResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,31 +7,45 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { BILL_DOCUMENT_TYPE_OPTIONS, BillDocumentType } from "@/lib/document-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
 
-type Line = { description: string; quantity: string; unitPrice: string; taxDefinitionId: string };
+type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
 
-const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", taxDefinitionId: "" };
+const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: "" };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function lineNet(line: Line): number {
+  const quantity = parseFloat(line.quantity) || 0;
+  const unitPrice = parseFloat(line.unitPrice) || 0;
+  const discountPercent = parseFloat(line.discountPercent) || 0;
+  return quantity * unitPrice * (1 - discountPercent / 100);
 }
 
 type BillFormProps = {
   companyId: string;
   vendors: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
+  bills: BillResponse[];
   onCreated: () => void;
 };
 
-export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps) {
+export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFormProps) {
   const [partnerId, setPartnerId] = useState("");
+  const [documentType, setDocumentType] = useState<number>(BillDocumentType.Bill);
+  const [originalBillId, setOriginalBillId] = useState("");
   const [vendorReference, setVendorReference] = useState("");
   const [issueDate, setIssueDate] = useState(today);
   const [dueDate, setDueDate] = useState(today);
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const needsOriginalBill = documentType === BillDocumentType.CreditNote;
+  const originalBillCandidates = bills.filter((bill) => bill.partnerId === partnerId && bill.state === "Posted");
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -66,15 +80,20 @@ export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps
         vendorReference: vendorReference.trim() || undefined,
         issueDate,
         dueDate,
+        documentType,
+        originalBillId: originalBillId || undefined,
         lines: validLines.map((line) => ({
           description: line.description,
           quantity: parseFloat(line.quantity) || 0,
           unitPrice: parseFloat(line.unitPrice) || 0,
+          discountPercent: parseFloat(line.discountPercent) || 0,
           taxDefinitionId: line.taxDefinitionId || undefined,
           expenseAccountId: undefined,
         })),
       });
       setPartnerId("");
+      setDocumentType(BillDocumentType.Bill);
+      setOriginalBillId("");
       setVendorReference("");
       setLines([{ ...EMPTY_LINE }]);
       onCreated();
@@ -93,7 +112,7 @@ export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="bill-vendor">Vendor</Label>
           <Select id="bill-vendor" value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
@@ -101,6 +120,23 @@ export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps
             {vendors.map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
                 {vendor.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="bill-document-type">Document type</Label>
+          <Select
+            id="bill-document-type"
+            value={documentType}
+            onChange={(event) => {
+              setDocumentType(Number(event.target.value));
+              setOriginalBillId("");
+            }}
+          >
+            {BILL_DOCUMENT_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </Select>
@@ -129,9 +165,23 @@ export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps
         </div>
       </div>
 
+      {needsOriginalBill && (
+        <div className="flex flex-col gap-2 sm:w-1/2">
+          <Label htmlFor="bill-original">Original bill (optional)</Label>
+          <Select id="bill-original" value={originalBillId} onChange={(event) => setOriginalBillId(event.target.value)}>
+            <option value="">No original bill</option>
+            {originalBillCandidates.map((bill) => (
+              <option key={bill.id} value={bill.id}>
+                {bill.vendorReference ?? bill.id}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         {lines.map((line, index) => (
-          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_1fr_auto] items-end gap-2">
+          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_6rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>Description</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
@@ -157,6 +207,17 @@ export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps
               />
             </div>
             <div className="flex flex-col gap-1">
+              {index === 0 && <Label>Discount %</Label>}
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={line.discountPercent}
+                onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
               {index === 0 && <Label>Tax</Label>}
               <Select
                 value={line.taxDefinitionId}
@@ -169,6 +230,10 @@ export function BillForm({ companyId, vendors, taxes, onCreated }: BillFormProps
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>Net</Label>}
+              <p className="px-3 py-2 text-sm">{lineNet(line).toFixed(2)}</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               Remove

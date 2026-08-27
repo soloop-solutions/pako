@@ -15,12 +15,16 @@ import { Button } from '@/components/ui/button';
 import { Card, CardHeader } from '@/components/ui/card';
 import { ErrorBanner } from '@/components/ui/error-banner';
 import { Screen } from '@/components/ui/screen';
+import { SuccessBanner } from '@/components/ui/success-banner';
+import { ApplyDocumentForm } from '@/components/shared/apply-document-form';
 import { RecordPaymentForm } from '@/components/shared/record-payment-form';
 import { Spacing } from '@/constants/theme';
 import { apiClient, getApiErrorMessage } from '@/api/client';
 import { useCompany } from '@/context/company-context';
+import { BILL_DOCUMENT_TYPE_CREDIT_NOTE, billDocumentTypeLabel } from '@/lib/document-enums';
 import { isCashOrBankAccountSubType } from '@/lib/ledger-enums';
-import { estimatedTaxAmount } from '@/lib/tax-enums';
+import { estimatedTaxAmount, lineNetAmount } from '@/lib/tax-enums';
+import type { ApplyDocumentCandidate } from '@/components/shared/apply-document-form';
 
 export default function BillDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -32,21 +36,25 @@ export default function BillDetailScreen() {
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
+  const [creditNoteCandidates, setCreditNoteCandidates] = useState<ApplyDocumentCandidate[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
     setError(null);
+    setApplyMessage(null);
     setRefreshing(true);
     try {
-      const [billResult, partnersResult, taxesResult, accountsResult] = await Promise.all([
+      const [billResult, partnersResult, taxesResult, accountsResult, allBillsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.accounts(companyId),
+        apiClient.billsAll(companyId),
       ]);
       setBill(billResult);
       setPartners(partnersResult);
@@ -55,8 +63,30 @@ export default function BillDetailScreen() {
 
       if (billResult.state === 'Posted') {
         setBalance(await apiClient.balance(companyId, id));
+
+        // The balance endpoint correctly computes remaining capacity for CreditNote documents
+        // too (branches on DocumentType server-side) - fetch each candidate's own balance and
+        // use its real outstanding amount, not an estimate from its line items.
+        const candidates = allBillsResult.filter(
+          (candidate) =>
+            candidate.id !== billResult.id &&
+            candidate.partnerId === billResult.partnerId &&
+            candidate.documentType === BILL_DOCUMENT_TYPE_CREDIT_NOTE &&
+            candidate.state === 'Posted',
+        );
+        const balances = await Promise.all(candidates.map((candidate) => apiClient.balance(companyId, candidate.id)));
+        setCreditNoteCandidates(
+          candidates
+            .map((candidate, index) => ({
+              id: candidate.id,
+              label: `${candidate.vendorReference ?? 'Credit note'} · ${balances[index].outstanding.toFixed(2)}`,
+              availableAmount: balances[index].outstanding,
+            }))
+            .filter((candidate) => candidate.availableAmount > 0),
+        );
       } else {
         setBalance(null);
+        setCreditNoteCandidates([]);
       }
     } catch (err) {
       setError(getApiErrorMessage(err, 'Could not load the bill.'));
@@ -99,7 +129,7 @@ export default function BillDetailScreen() {
   let subtotal = 0;
   let estimatedTax = 0;
   for (const line of bill.lines) {
-    const net = line.quantity * line.unitPrice;
+    const net = lineNetAmount(line.quantity, line.unitPrice, line.discountPercent);
     subtotal += net;
     estimatedTax += estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
   }
@@ -107,6 +137,7 @@ export default function BillDetailScreen() {
   return (
     <Screen onRefresh={refresh} refreshing={refreshing}>
       {error && <ErrorBanner message={error} />}
+      {applyMessage && <SuccessBanner message={applyMessage} />}
 
       <Card>
         <View style={styles.titleRow}>
@@ -114,7 +145,10 @@ export default function BillDetailScreen() {
             <ThemedText type="subtitle">{bill.vendorReference ?? 'Draft bill'}</ThemedText>
             <ThemedText themeColor="textSecondary">{partner?.name ?? bill.partnerId}</ThemedText>
           </View>
-          <Badge label={bill.state} variant={bill.state === 'Posted' ? 'default' : 'secondary'} />
+          <View style={styles.badgeGroup}>
+            <Badge label={billDocumentTypeLabel(bill.documentType)} />
+            <Badge label={bill.state} variant={bill.state === 'Posted' ? 'default' : 'secondary'} />
+          </View>
         </View>
 
         <View style={styles.metaRow}>
@@ -132,9 +166,10 @@ export default function BillDetailScreen() {
               <ThemedText type="smallBold">{line.description}</ThemedText>
               <View style={styles.lineMeta}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  {line.quantity} x {line.unitPrice.toFixed(2)} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? 'No tax'}
+                  {line.quantity} x {line.unitPrice.toFixed(2)}
+                  {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? 'No tax'}
                 </ThemedText>
-                <ThemedText type="small">{(line.quantity * line.unitPrice).toFixed(2)}</ThemedText>
+                <ThemedText type="small">{lineNetAmount(line.quantity, line.unitPrice, line.discountPercent).toFixed(2)}</ThemedText>
               </View>
             </View>
           ))}
@@ -179,6 +214,24 @@ export default function BillDetailScreen() {
           />
         </Card>
       )}
+
+      {bill.state === 'Posted' && balance && balance.outstanding > 0 && creditNoteCandidates.length > 0 && (
+        <Card>
+          <CardHeader title="Apply credit note" description="Reconciles a posted credit note against this bill's outstanding balance." />
+          <ApplyDocumentForm
+            companyId={activeCompany.id}
+            documentKind="bill"
+            applyKind="credit-note"
+            documentId={bill.id}
+            candidates={creditNoteCandidates}
+            outstanding={balance.outstanding}
+            onApplied={async (message) => {
+              await refresh();
+              setApplyMessage(message);
+            }}
+          />
+        </Card>
+      )}
     </Screen>
   );
 }
@@ -192,6 +245,10 @@ const styles = StyleSheet.create({
   titleText: {
     gap: Spacing.half,
     flexShrink: 1,
+  },
+  badgeGroup: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   metaRow: {
     gap: Spacing.half,

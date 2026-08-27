@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { InvoiceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -7,30 +7,47 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { INVOICE_DOCUMENT_TYPE_OPTIONS, InvoiceDocumentType } from "@/lib/document-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
 
-type Line = { description: string; quantity: string; unitPrice: string; taxDefinitionId: string };
+type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
 
-const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", taxDefinitionId: "" };
+const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: "" };
 
 function today() {
   return new Date().toISOString().slice(0, 10);
+}
+
+function lineNet(line: Line): number {
+  const quantity = parseFloat(line.quantity) || 0;
+  const unitPrice = parseFloat(line.unitPrice) || 0;
+  const discountPercent = parseFloat(line.discountPercent) || 0;
+  return quantity * unitPrice * (1 - discountPercent / 100);
 }
 
 type InvoiceFormProps = {
   companyId: string;
   customers: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
+  invoices: InvoiceResponse[];
   onCreated: () => void;
 };
 
-export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceFormProps) {
+export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }: InvoiceFormProps) {
   const [partnerId, setPartnerId] = useState("");
+  const [documentType, setDocumentType] = useState<number>(InvoiceDocumentType.Invoice);
+  const [originalInvoiceId, setOriginalInvoiceId] = useState("");
   const [issueDate, setIssueDate] = useState(today);
   const [dueDate, setDueDate] = useState(today);
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const needsOriginalInvoice =
+    documentType === InvoiceDocumentType.CreditNote || documentType === InvoiceDocumentType.DebitNote;
+  const originalInvoiceCandidates = invoices.filter(
+    (invoice) => invoice.partnerId === partnerId && invoice.state === "Posted",
+  );
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -64,15 +81,20 @@ export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceF
         partnerId,
         issueDate,
         dueDate,
+        documentType,
+        originalInvoiceId: originalInvoiceId || undefined,
         lines: validLines.map((line) => ({
           description: line.description,
           quantity: parseFloat(line.quantity) || 0,
           unitPrice: parseFloat(line.unitPrice) || 0,
+          discountPercent: parseFloat(line.discountPercent) || 0,
           taxDefinitionId: line.taxDefinitionId || undefined,
           revenueAccountId: undefined,
         })),
       });
       setPartnerId("");
+      setDocumentType(InvoiceDocumentType.Invoice);
+      setOriginalInvoiceId("");
       setLines([{ ...EMPTY_LINE }]);
       onCreated();
     } catch (err) {
@@ -90,7 +112,7 @@ export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceF
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="invoice-customer">Customer</Label>
           <Select id="invoice-customer" value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
@@ -98,6 +120,23 @@ export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceF
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="invoice-document-type">Document type</Label>
+          <Select
+            id="invoice-document-type"
+            value={documentType}
+            onChange={(event) => {
+              setDocumentType(Number(event.target.value));
+              setOriginalInvoiceId("");
+            }}
+          >
+            {INVOICE_DOCUMENT_TYPE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
               </option>
             ))}
           </Select>
@@ -124,9 +163,27 @@ export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceF
         </div>
       </div>
 
+      {needsOriginalInvoice && (
+        <div className="flex flex-col gap-2 sm:w-1/2">
+          <Label htmlFor="invoice-original">Original invoice (optional)</Label>
+          <Select
+            id="invoice-original"
+            value={originalInvoiceId}
+            onChange={(event) => setOriginalInvoiceId(event.target.value)}
+          >
+            <option value="">No original invoice</option>
+            {originalInvoiceCandidates.map((invoice) => (
+              <option key={invoice.id} value={invoice.id}>
+                {invoice.invoiceNumber ?? invoice.id}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         {lines.map((line, index) => (
-          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_1fr_auto] items-end gap-2">
+          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_6rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>Description</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
@@ -152,6 +209,17 @@ export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceF
               />
             </div>
             <div className="flex flex-col gap-1">
+              {index === 0 && <Label>Discount %</Label>}
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={line.discountPercent}
+                onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
               {index === 0 && <Label>Tax</Label>}
               <Select
                 value={line.taxDefinitionId}
@@ -164,6 +232,10 @@ export function InvoiceForm({ companyId, customers, taxes, onCreated }: InvoiceF
                   </option>
                 ))}
               </Select>
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>Net</Label>}
+              <p className="px-3 py-2 text-sm">{lineNet(line).toFixed(2)}</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               Remove

@@ -23,3 +23,18 @@ export function estimatedTaxAmount(netAmount: number, taxDefinition: TaxDefiniti
   if (!taxDefinition) return 0;
   return Math.round(netAmount * taxDefinition.rate * 100) / 100;
 }
+
+export function lineNetAmount(quantity: number, unitPrice: number, discountPercent: number): number {
+  return quantity * unitPrice * (1 - discountPercent / 100);
+}
+
+type DiscountedLine = { quantity: number; unitPrice: number; discountPercent: number; taxDefinitionId?: string };
+
+export function estimatedDocumentTotal(lines: DiscountedLine[], taxes: TaxDefinitionResponse[]): number {
+  let total = 0;
+  for (const line of lines) {
+    const net = lineNetAmount(line.quantity, line.unitPrice, line.discountPercent);
+    total += net + estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
+  }
+  return total;
+}

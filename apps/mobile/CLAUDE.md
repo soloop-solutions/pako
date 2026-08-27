@@ -219,3 +219,96 @@ start` briefly (or `CI=1 npx expo start --web`, which exits cleanly once Metro i
 `test` (`jest`, preset `jest-expo`), `typecheck` (`tsc --noEmit`), `lint` (`expo lint`), plus
 `android`/`ios`/`web` for platform-specific dev server launches (Expo Go, managed workflow — no
 native `ios/`/`android/` directories are checked in; see the `expo run:ios` note above).
+
+## Document types, line discounts, credit notes, and down payments (2026-08-27)
+
+Wired the backend's credit-note/debit-note/line-discount/down-payment support (see root
+`CLAUDE.md`'s "Debit notes, line discounts, down payments" section for the exact backend shapes,
+enum values, and the `applyCreditNote`/`applyCreditNote2`/`applyDownPayment` NSwag-numbering
+disambiguation) into Invoicing and Bills. `packages/shared/src/generated/api-client.ts` was
+already regenerated for this by a separate pass — not touched here.
+
+- **New**: `src/lib/document-enums.ts` (hand-maintained `DocumentType` enum order + label helpers +
+  `SelectField` option lists, same pattern as `ledger-enums.ts`/`tax-enums.ts`); `src/components/
+  shared/apply-document-form.tsx` (one form for both "Apply credit note" and "Apply down payment" —
+  `applyKind: 'credit-note' | 'down-payment'` picks the request shape and which `apiClient.apply*`
+  method to call, `documentKind: 'invoice' | 'bill'` picks `applyCreditNote` vs `applyCreditNote2`;
+  bills only ever pass `applyKind: 'credit-note'`, there's no down-payment call path to accidentally
+  wire up for bills); `src/components/ui/success-banner.tsx` (mirrors `error-banner.tsx`'s styling
+  with `theme.tint` instead of `theme.danger`, used for the apply-forms' success message and the
+  down-payment's `reclassifiedAmount` confirmation).
+- **`src/lib/tax-enums.ts`** gained `lineNetAmount(quantity, unitPrice, discountPercent)` and
+  `estimatedDocumentTotal(lines, taxes)` — also fixed a latent bug this surfaced: both detail
+  screens' subtotal/estimated-tax loops previously computed `net = quantity * unitPrice` with no
+  discount awareness, which was silently correct only because no line had ever had a discount
+  before this pass. Now both invoice and bill lines display `− {discountPercent}%` inline and their
+  net/subtotal/estimated-tax figures are discount-aware.
+- **`document-lines-editor.tsx`**: `DocumentLine` gained `discountPercent: string` (default `'0'`),
+  a third field in the existing Qty/Unit price row, and a live `Net: {amount}` line computed via
+  `lineNetAmount` — updates on every keystroke, no debounce needed at this scale.
+- **`invoicing/new.tsx`/`bills/new.tsx`**: a "Document type" `SelectField` (4 options for invoices,
+  2 for bills) plus a conditional "Original invoice/bill (optional)" `SelectField` — shown only for
+  Credit Note/Debit Note on invoices, Credit Note on bills (Down Payment deliberately has no
+  original-document picker, matching the backend model: a down payment is created standalone and
+  only referenced *later*, from the final invoice's "Apply down payment" action). The candidate
+  list is the partner's other **Posted**, base-type (`Invoice`/`Bill`, not another note) documents;
+  selecting a different customer/vendor or document type resets the picked original id directly in
+  the `onChange` handler (not a `useEffect` watching `[partnerId, documentType]`) — deliberately,
+  per this repo's `set-state-in-effect` lint gotcha below: a `setState` that only derives from
+  already-rendered state belongs in the event handler that changed that state, not a reactive
+  effect.
+- **List screens** (`invoicing/index.tsx`, `bills/index.tsx`): a second `Badge` next to the state
+  badge shows `invoiceDocumentTypeLabel`/`billDocumentTypeLabel` for every row (not just non-default
+  types) — kept unconditional for simplicity, one line either way. Detail screens
+  (`invoicing/[id].tsx`, `bills/[id].tsx`) got the same badge in the header — not explicitly asked
+  for the detail screen, but without it a Credit Note/Debit Note/Down Payment in `Draft` state (no
+  number minted yet) is visually indistinguishable from a plain invoice, which defeats the point of
+  surfacing document types in the UI at all.
+- **"Apply credit note"/"Apply down payment" cards** on `invoicing/[id].tsx` (both) and
+  `bills/[id].tsx` (credit note only) render only when `balance.outstanding > 0` **and** at least
+  one same-partner Posted candidate of the right type exists — computed via `useMemo` over a full
+  `invoicesAll`/`billsAll` fetch added to each detail screen's existing `refresh()`
+  `Promise.all` (same list already fetched by the index screens, no new endpoint). See root
+  `CLAUDE.md`'s writeup of why an exact "remaining capacity" figure isn't computable client-side
+  today — candidates are shown by partner+type+state match only, the apply amount defaults to
+  `min(estimatedGrossTotal, outstanding)`, and the backend's over-consumption error is what's
+  actually authoritative (surfaced verbatim via `getApiErrorMessage`, same as every other form here).
+  No debit-note apply UI exists anywhere — debit notes are settled through the existing "Record
+  payment" card, unchanged.
+
+### Verification performed (2026-08-27)
+
+- `pnpm --filter @pako/mobile {typecheck,lint,test,build}` all pass (`build` = `expo export`,
+  still 25 static routes, no new routes added — only existing screens gained UI, no navigation
+  changes).
+- **Real end-to-end verification through the actual generated `PakoApiClient`, not curl** (same
+  technique as the original Record Payment pass and the credit-note backend pass): a standalone
+  `npx tsx` script against the live `Pako.Api`/Postgres drove the exact request shapes these
+  screens now send — `invoicesPOST`/`billsPOST` with `documentType`/`originalInvoiceId`/
+  `originalBillId`/per-line `discountPercent`, `post`/`post2`, `balance`/`balance2`,
+  `applyCreditNote`/`applyCreditNote2`, `applyDownPayment` — and asserted on the actual response
+  values, not just "no exception thrown":
+  - a 10×100 line at 20% discount + 18% VAT posted with total **944** (not 1180), confirming tax
+    computes on the discounted net;
+  - a debit note posted as `DN-0001` and behaved exactly like a normal invoice (`balance.total`
+    equal to its face value, no special direction);
+  - a credit note posted as `CN-0001`, and applying 200 of it against the discounted invoice
+    dropped `outstanding` from 944 to 744;
+  - a down payment posted as `DP-0001` with gross total 354 (300 net + 18% VAT), and applying it in
+    full against an unrelated 1180 final invoice dropped `outstanding` to 826 and returned
+    `reclassifiedAmount: 300` (the net portion) with a `reclassificationJournalEntryId` present;
+  - the bills mirror: a 5×100 line at 10% discount + 18% VAT bill posted with total 531, and
+    applying a 100 vendor credit note via the bills variant (`applyCreditNote`, not `...2`) dropped
+    its outstanding from 531 to 431 — confirming the `applyCreditNote`/`applyCreditNote2`
+    disambiguation documented in root `CLAUDE.md` is correct, not just assumed from the URL literal
+    read during code review.
+  - All 21 assertions in the script passed against the real backend (Postgres on 5433, `Pako.Api`
+    on 5248, both already running from a prior session in this environment).
+- **No simulator/device run this pass** — every new control (document-type picker, discount field,
+  apply-credit-note/apply-down-payment forms) lives behind Login → company selection → tab
+  navigation → a Posted document with an applicable partner document, and this environment still
+  cannot automate taps/typing (no `idb`/`cliclick`, AppleScript UI-scripting times out — same
+  constraint documented in "Verification performed (2026-08-26)" above). Booting a simulator here
+  would only re-confirm the already-documented Login-screen render, not exercise any of this pass's
+  actual new UI, so it was skipped rather than staged for appearance's sake. If Erion wants a real
+  visual check, either enable Accessibility automation in this environment or drive it manually.

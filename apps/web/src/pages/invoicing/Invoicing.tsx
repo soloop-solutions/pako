@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { invoiceDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
@@ -100,7 +101,13 @@ export function Invoicing() {
           <CardDescription>Tax is computed by the server when the invoice is posted.</CardDescription>
         </CardHeader>
         <CardContent>
-          <InvoiceForm companyId={activeCompany.id} customers={customers} taxes={taxesForSale(taxes)} onCreated={refresh} />
+          <InvoiceForm
+            companyId={activeCompany.id}
+            customers={customers}
+            taxes={taxesForSale(taxes)}
+            invoices={invoices}
+            onCreated={refresh}
+          />
         </CardContent>
       </Card>
 
@@ -113,6 +120,7 @@ export function Invoicing() {
             <TableHeader>
               <TableRow>
                 <TableHead>Number</TableHead>
+                <TableHead>Type</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Issue date</TableHead>
                 <TableHead>Due date</TableHead>
@@ -125,6 +133,9 @@ export function Invoicing() {
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell>{invoice.invoiceNumber ?? "-"}</TableCell>
+                  <TableCell>
+                    <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType)}</Badge>
+                  </TableCell>
                   <TableCell>{partnerName(invoice.partnerId)}</TableCell>
                   <TableCell>{invoice.issueDate}</TableCell>
                   <TableCell>{invoice.dueDate}</TableCell>

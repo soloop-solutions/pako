@@ -94,9 +94,7 @@ public static class ReconciliationCreator
             .Where(r => (invoiceId != null && r.InvoiceId == invoiceId) || (billId != null && r.BillId == billId))
             .SumAsync(r => r.Amount);
 
-        var alreadyReconciledForLine = await db.Reconciliations.AsNoTracking()
-            .Where(r => r.JournalEntryLineId == journalEntryLineId)
-            .SumAsync(r => r.Amount);
+        var alreadyReconciledForLine = await SumReconciledForLineAsync(db, journalEntryLineId);
 
         var settlementLineAmount = settlementLine.Debit != 0 ? settlementLine.Debit : settlementLine.Credit;
 
@@ -143,4 +141,9 @@ public static class ReconciliationCreator
 
         return new ReconciliationCreationResult(ReconciliationCreationStatus.Success, reconciliation);
     }
+
+    public static Task<decimal> SumReconciledForLineAsync(PakoDbContext db, Guid journalEntryLineId) =>
+        db.Reconciliations.AsNoTracking()
+            .Where(r => r.JournalEntryLineId == journalEntryLineId)
+            .SumAsync(r => r.Amount);
 }

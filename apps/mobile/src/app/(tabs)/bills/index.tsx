@@ -14,6 +14,7 @@ import { Spacing } from '@/constants/theme';
 import { apiClient, getApiErrorMessage } from '@/api/client';
 import { useCompany } from '@/context/company-context';
 import { useTheme } from '@/hooks/use-theme';
+import { billDocumentTypeLabel } from '@/lib/document-enums';
 
 export default function BillsScreen() {
   const { activeCompany } = useCompany();
@@ -73,7 +74,10 @@ export default function BillsScreen() {
             <Card style={styles.billRow}>
               <View style={styles.billRowTop}>
                 <ThemedText type="smallBold">{item.vendorReference ?? 'Bill'}</ThemedText>
-                <Badge label={item.state} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
+                <View style={styles.badgeGroup}>
+                  <Badge label={billDocumentTypeLabel(item.documentType)} />
+                  <Badge label={item.state} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
+                </View>
               </View>
               <ThemedText type="small" themeColor="textSecondary">
                 {vendors.find((v) => v.id === item.partnerId)?.name ?? item.partnerId}
@@ -144,6 +148,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+  },
+  badgeGroup: {
+    flexDirection: 'row',
+    gap: Spacing.two,
   },
   billRowBottom: {
     flexDirection: 'row',

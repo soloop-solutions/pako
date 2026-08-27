@@ -44,6 +44,11 @@ public class InvoicesControllerTests
             new List<CreateInvoiceLineRequest> { new("Credit", quantity, unitPrice, null, null) },
             DocumentType.CreditNote);
 
+    private static CreateInvoiceRequest DownPaymentRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice) =>
+        new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Deposit", quantity, unitPrice, null, null) },
+            DocumentType.DownPayment);
+
     [Fact]
     public async Task Create_ZeroQuantity_Rejected()
     {
@@ -189,5 +194,90 @@ public class InvoicesControllerTests
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(second.Result);
         Assert.Contains("would be reconciled against it in total", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Balance_OnCreditNoteOwnDocument_DropsAsItIsAppliedAgainstAnInvoice()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = new InvoicesController(db, TaxService);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var creditNoteCreated = await controller.Create(companyId, CreditNoteRequestWithLine(partnerId, 1m, 200m));
+        var creditNote = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(creditNoteCreated.Result).Value);
+        await controller.Post(companyId, creditNote.Id);
+
+        var before = await controller.Balance(companyId, creditNote.Id);
+        var beforeBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(before.Result).Value);
+        Assert.Equal(200m, beforeBalance.Total);
+        Assert.Equal(0m, beforeBalance.Reconciled);
+        Assert.Equal(200m, beforeBalance.Outstanding);
+
+        await controller.ApplyCreditNote(companyId, invoice.Id, new ApplyCreditNoteRequest(creditNote.Id, 100m));
+
+        var after = await controller.Balance(companyId, creditNote.Id);
+        var afterBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(after.Result).Value);
+        Assert.Equal(200m, afterBalance.Total);
+        Assert.Equal(100m, afterBalance.Reconciled);
+        Assert.Equal(100m, afterBalance.Outstanding);
+    }
+
+    [Fact]
+    public async Task Balance_OnDownPaymentOwnDocument_ReflectsPartialThenFullApplication()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = new InvoicesController(db, TaxService);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var downPaymentCreated = await controller.Create(companyId, DownPaymentRequestWithLine(partnerId, 1m, 300m));
+        var downPayment = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(downPaymentCreated.Result).Value);
+        await controller.Post(companyId, downPayment.Id);
+
+        var before = await controller.Balance(companyId, downPayment.Id);
+        var beforeBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(before.Result).Value);
+        Assert.Equal(300m, beforeBalance.Total);
+        Assert.Equal(0m, beforeBalance.Reconciled);
+        Assert.Equal(300m, beforeBalance.Outstanding);
+
+        await controller.ApplyDownPayment(companyId, invoice.Id, new ApplyDownPaymentRequest(downPayment.Id, 150m));
+
+        var mid = await controller.Balance(companyId, downPayment.Id);
+        var midBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(mid.Result).Value);
+        Assert.Equal(300m, midBalance.Total);
+        Assert.Equal(150m, midBalance.Reconciled);
+        Assert.Equal(150m, midBalance.Outstanding);
+
+        await controller.ApplyDownPayment(companyId, invoice.Id, new ApplyDownPaymentRequest(downPayment.Id, 150m));
+
+        var after = await controller.Balance(companyId, downPayment.Id);
+        var afterBalance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(after.Result).Value);
+        Assert.Equal(300m, afterBalance.Total);
+        Assert.Equal(300m, afterBalance.Reconciled);
+        Assert.Equal(0m, afterBalance.Outstanding);
+    }
+
+    [Fact]
+    public async Task Balance_OnNormalInvoice_UnaffectedByDocumentTypeBranching()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var controller = new InvoicesController(db, TaxService);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        await controller.RecordPayment(companyId, invoice.Id, new RecordPaymentRequest(200m, cashAccountId, new DateOnly(2026, 8, 27)));
+
+        var result = await controller.Balance(companyId, invoice.Id);
+        var balance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(500m, balance.Total);
+        Assert.Equal(200m, balance.Reconciled);
+        Assert.Equal(300m, balance.Outstanding);
     }
 }

@@ -167,7 +167,7 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(await ComputeBalanceAsync(companyId, id, bill.JournalEntryId));
+        return Ok(await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType));
     }
 
     // Atomic replacement for the client's old draft-journal-entry -> post -> reconcile 3-call
@@ -276,7 +276,7 @@ public class BillsController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId);
+            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType);
             return StatusCode(StatusCodes.Status201Created, new RecordPaymentResponse(ToReconciliationResponse(result.Reconciliation!), balance));
         }
         finally
@@ -361,7 +361,7 @@ public class BillsController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId);
+            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType);
             return StatusCode(StatusCodes.Status201Created, new ApplyCreditNoteResponse(ToReconciliationResponse(result.Reconciliation!), balance));
         }
         finally
@@ -373,23 +373,42 @@ public class BillsController : ControllerBase
         }
     }
 
-    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid billId, Guid? journalEntryId)
+    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid billId, Guid? journalEntryId, DocumentType documentType)
     {
+        var isSourceDocument = documentType == DocumentType.CreditNote;
+
         var total = 0m;
+        Guid? controlLineId = null;
         if (journalEntryId is { } jeId)
         {
             var payableAccountId = await _db.Accounts.AsNoTracking()
                 .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsPayableCode)
                 .Select(a => a.Id)
                 .FirstOrDefaultAsync();
-            total = await _db.JournalEntryLines.AsNoTracking()
-                .Where(l => l.JournalEntryId == jeId && l.AccountId == payableAccountId)
-                .SumAsync(l => l.Credit);
+
+            if (isSourceDocument)
+            {
+                var controlLine = await _db.JournalEntryLines.AsNoTracking()
+                    .Where(l => l.JournalEntryId == jeId && l.AccountId == payableAccountId)
+                    .Select(l => new { l.Id, l.Debit })
+                    .FirstOrDefaultAsync();
+                if (controlLine is not null)
+                {
+                    controlLineId = controlLine.Id;
+                    total = controlLine.Debit;
+                }
+            }
+            else
+            {
+                total = await _db.JournalEntryLines.AsNoTracking()
+                    .Where(l => l.JournalEntryId == jeId && l.AccountId == payableAccountId)
+                    .SumAsync(l => l.Credit);
+            }
         }
 
-        var reconciled = await _db.Reconciliations.AsNoTracking()
-            .Where(r => r.BillId == billId)
-            .SumAsync(r => r.Amount);
+        var reconciled = isSourceDocument
+            ? controlLineId is { } lineId ? await ReconciliationCreator.SumReconciledForLineAsync(_db, lineId) : 0m
+            : await _db.Reconciliations.AsNoTracking().Where(r => r.BillId == billId).SumAsync(r => r.Amount);
 
         return new DocumentBalanceResponse(total, reconciled, total - reconciled);
     }
