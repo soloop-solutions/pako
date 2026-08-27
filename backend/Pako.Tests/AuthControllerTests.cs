@@ -48,14 +48,19 @@ public class AuthControllerTests
     }
 
     [Fact]
-    public async Task Register_WeakPassword_ReturnsSameGenericMessageAsDuplicateEmail()
+    public async Task Register_WeakPassword_ReturnsSpecificReasonNotGenericMessage()
     {
+        // Password strength rules aren't secret information the way "this email is taken" is -
+        // hiding them behind the same generic message just breaks registration for anyone who
+        // trips a real, fixable validation rule (a very real bug this test used to enshrine).
         var (_, userManager) = NewContext();
         var controller = new AuthController(userManager, NewTokenService());
 
         var result = await controller.Register(new RegisterRequest("weak@example.com", "abc"));
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        var message = badRequest.Value!.ToString();
 
-        Assert.Equal("Registration failed. Check your details and try again.", badRequest.Value);
+        Assert.NotEqual("Registration failed. Check your details and try again.", message);
+        Assert.Contains("password", message, StringComparison.OrdinalIgnoreCase);
     }
 }

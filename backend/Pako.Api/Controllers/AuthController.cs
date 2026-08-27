@@ -26,7 +26,18 @@ public class AuthController : ControllerBase
         var result = await _userManager.CreateAsync(user, request.Password);
         if (!result.Succeeded)
         {
-            return BadRequest("Registration failed. Check your details and try again.");
+            var isDuplicateEmail = result.Errors.Any(e =>
+                e.Code is "DuplicateUserName" or "DuplicateEmail");
+            if (isDuplicateEmail)
+            {
+                // Deliberately generic: distinguishing this from other failures would let an
+                // attacker enumerate registered emails. Every other failure below is safe to
+                // describe specifically - password/email format rules aren't secret information,
+                // and hiding them just breaks registration for anyone who trips one.
+                return BadRequest("Registration failed. Check your details and try again.");
+            }
+
+            return BadRequest(string.Join(" ", result.Errors.Select(e => e.Description)));
         }
 
         var token = _tokenService.GenerateToken(user);
