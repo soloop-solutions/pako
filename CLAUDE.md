@@ -2015,3 +2015,66 @@ net/gross toggle, matching Erion's stated preference.
   posted the invoice through the actual UI, confirmed the detail page's Total reads 100.00 (not
   118) and the underlying journal entry lines (checked directly via `psql`) show `Dr 110100
   100.00 / Cr 210110 15.25 / Cr 400100 84.75` — exactly what was typed, to the cent.
+
+## Trial balance sorted by account creation order, not by code (2026-09-01)
+
+Erion's request: "trxs in trial balance should be order by created at, not code" — trial balance
+rows are per-account aggregates, not per-transaction, and `Account` had no creation-time field to
+sort by, so this was clarified via `AskUserQuestion` before implementing (confirmed: add a
+`CreatedAt` field to `Account`, sort by that).
+
+- `Account` gained `CreatedAt` (`DateTime`, default `DateTime.UtcNow`) — `backend/Pako.Domain/
+  Ledger/Account.cs`. Migration `AddAccountCreatedAt` backfills existing rows with `-infinity`
+  (EF's default for a non-nullable `DateTime` column with no `HasDefaultValueSql`) rather than a
+  fabricated "now" — honest about the fact that real creation time isn't known for pre-existing
+  rows, and `-infinity` still sorts first/stable, so it doesn't corrupt ordering for old data.
+- `LedgerController.TrialBalance` now does `.OrderBy(s => s.Account.CreatedAt)` instead of relying
+  on `Account.Code`'s incidental ordering (grouped `JournalEntryLine`s were never explicitly
+  ordered before this — `Code`-looking order was a Dictionary/LINQ implementation detail, not a
+  guarantee).
+- New `Pako.Tests/LedgerControllerTests.cs` (`TrialBalance_OrdersByAccountCreatedAt_NotByCode`) —
+  seeds 3 accounts with codes `3000`/`2000`/`1000` created in that exact (reverse-of-code) order,
+  posts a balancing entry, asserts the trial balance returns them in creation order, not code
+  order. `dotnet test Pako.slnx`: 190/190.
+- Verified against the real Postgres container (migration applied on port 5433) — not committed
+  yet at time of writing; see the next section for the committed state.
+
+## Albanian language support — infrastructure only, translations not yet written (2026-09-01)
+
+Erion asked for Albanian language support with everything translated. Scoped via
+`AskUserQuestion` (web app only for now; English stays the default/fallback language; backend
+error/validation messages and database content like `Account.NameSq` are explicitly out of scope
+— frontend-authored UI text only), then Erion asked to stop short of translating every page and
+just land the infrastructure, to be filled in incrementally later.
+
+- **`react-i18next` + `i18next`** added to `apps/web` (`pnpm --filter @pako/web add react-i18next
+  i18next`). `apps/web/src/i18n.ts` initializes it with English as `fallbackLng`, the persisted
+  choice (`localStorage` key `pako.language`) or `"en"` as the initial `lng`, and one namespace
+  per feature area: `common`, `nav`, `auth`, `dashboard`, `companies`, `settings`, `reports`,
+  `ledger`, `invoicing`, `bills`, `payroll`, `reconciliation`, `shared`, `enums` — chosen over one
+  flat translation file specifically so future per-page translation passes (including parallel
+  agent work) can each own a distinct JSON file with zero merge risk.
+- **`apps/web/src/locales/{en,sq}/*.json`**: `common.json` is genuinely translated (both
+  languages) — it's the shared vocabulary (buttons, statuses, generic labels) needed for the
+  language switcher itself to demonstrate real translation, not a per-page namespace. Every other
+  namespace file is currently an empty `{}` placeholder on both sides — the 26 files enumerated
+  during this pass (`pages/**/*.tsx`, `components/RequireAuth.tsx`,
+  `components/layout/AppLayout.tsx`, plus the enum-label helpers in `src/lib/{ledger-enums,
+  tax-enums,document-types,membership-enums}.ts`) still have 100% hardcoded English text — **this
+  pass did not translate any page content**, only proved the plumbing works end-to-end.
+- **`apps/web/src/components/LanguageSwitcher.tsx`**: a native `<select>` (same component as
+  everywhere else in this repo, no new UI primitive) bound to `i18n.resolvedLanguage`, calling
+  `i18n.changeLanguage(...)` on change — `i18n.ts`'s own `languageChanged` listener persists the
+  choice to `localStorage`. Placed in `AppLayout.tsx`'s header, next to the company switcher/email/
+  log-out button (`src/components/layout/AppLayout.tsx`) — the only page file this pass actually
+  edited beyond wiring.
+- **`apps/web/src/main.tsx`** imports `@/i18n` for its side effect (the `i18n.use(...).init(...)`
+  call) before rendering `<App />`.
+- **Not started**: translating any of the 26 files' hardcoded strings, or the 4 enum-label helper
+  files. Next pass should work through them incrementally, each adding real content to its
+  namespace's `en.json`/`sq.json` pair (parallel agents are safe to use here — each namespace file
+  is independent, per the design above) — start with `nav.ts`/`AppLayout.tsx`'s remaining strings
+  and `AuthForm.tsx`/`Login.tsx`/`Register.tsx`, since those are the first things every user sees.
+- **Verified**: `pnpm --filter @pako/web {typecheck,lint,test,build}` all pass with the empty
+  namespace stubs in place (i18next silently falls back to the fallback language, here English,
+  for any missing key — an empty namespace file is not a runtime error).
