@@ -1758,3 +1758,66 @@ from Erion — decisions below were made and documented, not stopped-on.
   `Direction`), Stage 4 (the 28 posting rules, `JournalEntry.Reverse()`/storno, audit-trail
   columns, properly splitting the combined pension posting line). Do not build any of these
   without re-confirming scope first.
+
+## Plani Kontabel v2.0 migration — Stage 3: VAT and withholding codes (2026-09-01)
+
+Company creation now seeds the real 20 VAT codes (`20_VAT_Codes`) and 6 withholding codes
+(`21_WHT_Codes`) instead of the old 5-entry `DefaultTaxDefinitionsTemplate` seed. Proceeded under
+the same "full autonomy, do what's best" grant as Stage 2 — `RC18`'s actual dual-line AUTO
+posting (R10) is explicitly deferred to Stage 4, per the brief's own framing ("AUTO → posting
+logic that generates lines (R10...)" is listed under Stage 4, not Stage 3).
+
+- **`VatWithholdingTemplate`** (`Pako.Localization.Xk/VatWithholdingTemplate.cs`) — one
+  `VatCodeTemplateEntry` per `20_VAT_Codes` row (`Code`/`NameSq`/`NameEn`/`Direction`/`Rate`/
+  `DeductiblePercent`/`IsReverseCharge`/`AtkBook`/`RepartitionTargets`/`Confidence`), one
+  `WithholdingCodeTemplateEntry` per `21_WHT_Codes` row **excluding `WHT-PAG`** (wage tax — "
+  Separate payroll engine" per its own note; already computed by `IPayrollCalculationService`,
+  not a flat-rate code). Withholding rates are reused from the existing `KosovoWithholdingRates`
+  (matched by category), not re-declared.
+- **`RepartitionTargets` per VAT code, derived from `10_COA_Master`'s own account descriptions,
+  not invented**: `S18`→210110, `S08`→210120 (rate-specific *Output VAT* accounts, replacing the
+  old flat 210100), `B18`→113110, `B08`→113120 (rate-specific *Input VAT*), `I18`/`I08`→113200
+  (single Import VAT control account, no rate split exists in the chart), `BND`→113900
+  (domestic non-deductible clearing), `IND`→511200 (import non-deductible — a direct *expense*
+  account, not the domestic clearing account, since `10_COA_Master` gives import non-deductible
+  VAT its own dedicated line). Every 0%-rate code (`S00`, `SEXP`, `SEX`, `SRC`, `B00`, `BEX`,
+  `IEX`, `RC00`) and `RC18` have **no** repartition targets — nothing to post for 0%, and RC18's
+  actual posting is Stage 4's AUTO rule, not this mechanism.
+- **`BV50` (dual-use vehicles, 50% cap) splits one repartition into two lines** — 50% of the
+  computed 18% tax to 113110 (deductible), 50% to 113900 (non-deductible) — proving
+  `TaxRepartitionLine`'s existing `Percentage` field (already multi-line-capable since Stage 1,
+  never previously exercised with more than one line) handles a real split correctly with zero
+  changes to `TaxComputationService`. Verified by a real computation test
+  (`VatWithholdingTemplateTests.CreateTaxDefinitions_RepartitionAmountsSumToTaxAmountForATwoLineCode`):
+  1000 net → 180 total tax, 90/90 split.
+- **Profile-aware seeding, same discipline as `CompanyAccountDefaults`**: `I18`/`I08`/`IND` target
+  Import-profile-only accounts (113200/511200), so `CreateTaxDefinitions` skips a VAT code
+  entirely if any of its repartition targets aren't in the company's seeded chart — a CORE-only
+  company gets 20 tax definitions (17 VAT + ... — actually 23: 20 VAT codes minus the 3
+  Import-scoped ones, plus 6 WHT = 23), an Import-enabled company gets the full 26. Verified both
+  live (curl) and in `VatWithholdingTemplateTests`.
+- **`TaxScope`/`TaxType` (kept per Stage 1's decision) derived from the new fields, not
+  hand-picked per code**: `Scope` = `Sale` for `Out`-direction, `Purchase` for `In`/`Imp`, `Both`
+  otherwise (`Rc`/`None`) — so `ReportsController.VatReturn`'s existing Output/Input split keeps
+  working unchanged for every code that has repartition lines. `Type` = `VatStandard`/
+  `VatReduced`/`VatExempt` by rate (18%/8%/other), `Withholding` for WHT codes.
+- **`TaxDefinitionResponse`/`TaxesController` gained `Code`/`Direction`/`IsReverseCharge`** —
+  additive, backward-compatible DTO fields (no `packages/shared` regeneration needed to keep
+  existing frontend code compiling, though a real VAT-code-picker UI would need it regenerated to
+  actually use the new fields — not built in this pass). Without this the 20 short codes would be
+  seeded but practically unselectable from anything except the full English name.
+- **`DefaultTaxDefinitionsTemplate` (old 5-entry seed) kept**, same reasoning as
+  `DefaultChartOfAccountsTemplate` in Stage 2 — `Pako.Tests/ReportsControllerTests.cs` still
+  builds its own fixture from it directly, so it's not dead code, just no longer what
+  `CompaniesController.Create` actually seeds.
+- **`dotnet test`: 148/148** (14 new `VatWithholdingTemplateTests`), zero existing test logic
+  changed. **Verified end-to-end against the real API + Postgres**: a Core+Import company got 26
+  tax definitions (all 20 VAT + 6 WHT); a separate Core-only company got 23 (`I18`/`I08`/`IND`
+  correctly skipped — no Import-profile accounts to post to) — posted a 1000/`S18` invoice on the
+  Core-only company and confirmed via direct `psql` it hit **210110** (not the old flat 210100),
+  matching the exact account `20_VAT_Codes`/`10_COA_Master` specify for that code.
+- **Not started**: `RC18`'s actual R10 AUTO dual-line generation (Stage 4), Stage 4's other 27
+  posting rules, `JournalEntry.Reverse()`/storno, audit-trail columns, migrating
+  `ReportsController`/frontend off `TaxScope` onto `Direction` (still deferred, same reasoning as
+  Stage 1 — the 26 new codes now have real `Direction` data, but `ReportsController.VatReturn`
+  wasn't touched in this pass to avoid scope creep beyond "seed the codes").

@@ -29,7 +29,7 @@ public class TaxesController : ControllerBase
             .ToListAsync();
 
         return Ok(taxes
-            .Select(t => new TaxDefinitionResponse(t.Id, t.Name, t.Rate, t.Type, t.Scope, t.IsActive))
+            .Select(t => new TaxDefinitionResponse(t.Id, t.Name, t.Rate, t.Type, t.Scope, t.IsActive, t.Code, t.Direction, t.IsReverseCharge))
             .ToList());
     }
 }

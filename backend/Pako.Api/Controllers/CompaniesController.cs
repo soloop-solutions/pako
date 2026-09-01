@@ -93,7 +93,11 @@ public class CompaniesController : ControllerBase
             });
         }
 
-        foreach (var taxDefinition in DefaultTaxDefinitionsTemplate.CreateDefaultTaxDefinitions(company.Id, accountIdsByCode))
+        // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 3): the real 20 VAT codes +
+        // 6 withholding codes from 20_VAT_Codes/21_WHT_Codes, replacing the old 5-entry
+        // DefaultTaxDefinitionsTemplate seed (kept only for tests that still reference it
+        // directly, same pattern as DefaultChartOfAccountsTemplate in Stage 2).
+        foreach (var taxDefinition in VatWithholdingTemplate.CreateTaxDefinitions(company.Id, accountIdsByCode))
         {
             _db.TaxDefinitions.Add(taxDefinition);
         }

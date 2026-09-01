@@ -96,9 +96,9 @@ lives in `Pako.Infrastructure`). Status as of 2026-08-26 noted per module.
 - Not yet implemented: numbering-sequence generation (gapless/monotonic per journal), hash
   computation. Reserved, inert, per below.
 
-**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — Stage 1 schema
-(2026-09-01) and Stage 2 seeding + account-role resolution (2026-09-01) both landed; Stages 3-4
-not started.** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan (this
+**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — Stages 1-3 landed
+2026-09-01 (schema, chart seeding + account-role resolution, VAT/withholding codes); Stage 4 not
+started.** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan (this
 repo's copy: not yet moved into `docs/`, still in the user's Downloads folder alongside the two
 source files it names — the workbook and CSV that are its actual source of truth). `Account`
 gained `NameSq`, `Class`/`Group` (6-digit-code class/group, with a DB CHECK constraint enforcing
@@ -130,6 +130,17 @@ all CORE-profile) plus 4 Payroll-profile-gated nullable ones
 foreign AR/AP default, the 400100/661200 revenue/expense defaults, and the known
 combined-employee-employer-pension-posting imprecision (Stage 4 to properly split) is in
 CLAUDE.md's Stage 2 section, not repeated here.
+
+**Stage 3 (2026-09-01)**: `CompaniesController.Create` now seeds the real 20 VAT codes
+(`20_VAT_Codes`) + 6 withholding codes (`21_WHT_Codes`) via
+`Pako.Localization.Xk.VatWithholdingTemplate`, replacing the old 5-entry
+`DefaultTaxDefinitionsTemplate` seed (kept only as a smaller fixture some tests still build
+directly). Each VAT code's tax-amount repartition target is `10_COA_Master`'s own rate-specific
+account (e.g. `S18`→210110, not the old flat 210100); Import-scoped codes (`I18`/`I08`/`IND`) are
+skipped for a company without the Import profile, same discipline as `CompanyAccountDefaults`.
+`RC18`'s actual R10 AUTO dual-line posting is deferred to Stage 4 — its `TaxDefinition` is
+seeded (rate, `IsReverseCharge=true`) but has no ordinary repartition lines yet. Full rationale
+in CLAUDE.md's Stage 3 section.
 
 ### Hash-chain / immutability reservation (per Odoo's `inalterable_hash` pattern) — **columns
 reserved, computation not yet active**
