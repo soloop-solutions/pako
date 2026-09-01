@@ -70,6 +70,11 @@ public class Account
     public Guid? ParentAccountId { get; set; }
     public bool IsReconcilable { get; set; }
 
+    // Trial balance rows sort by this (creation/insertion order), not by Code — the trial
+    // balance is a report over accounts as they were added to the chart, not an alphanumeric
+    // listing.
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     // Plani Kontabel v2.0 fields (COA_V2_IMPLEMENTATION_BRIEF.md Stage 1). Nullable: the
     // legacy Stage-0 chart (DefaultChartOfAccountsTemplate) predates v2 and has no data for
     // these columns — only Stage 2's 233-row seed populates them for real. AccountType/

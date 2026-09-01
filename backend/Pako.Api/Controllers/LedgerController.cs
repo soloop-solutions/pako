@@ -36,12 +36,9 @@ public class LedgerController : ControllerBase
             .ToDictionaryAsync(a => a.Id);
 
         var result = sums
-            .Select(s =>
-            {
-                var account = accounts[s.AccountId];
-                return new TrialBalanceLine(s.AccountId, account.Code, account.Name, s.Debit, s.Credit, s.Debit - s.Credit);
-            })
-            .OrderBy(l => l.AccountCode)
+            .Select(s => (Account: accounts[s.AccountId], s.Debit, s.Credit))
+            .OrderBy(s => s.Account.CreatedAt)
+            .Select(s => new TrialBalanceLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit, s.Credit, s.Debit - s.Credit))
             .ToList();
 
         return Ok(result);
