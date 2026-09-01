@@ -1,5 +1,6 @@
 import { NavLink, Outlet } from "react-router-dom";
 
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { navItems } from "@/config/nav";
@@ -61,6 +62,7 @@ export function AppLayout() {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <span className="text-sm text-muted-foreground">{auth?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>
               Log out
