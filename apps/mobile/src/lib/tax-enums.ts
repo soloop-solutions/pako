@@ -19,22 +19,36 @@ export function taxRatePercentLabel(taxDefinition: TaxDefinitionResponse): strin
   return `${taxDefinition.name} (${(taxDefinition.rate * 100).toFixed(0)}%)`;
 }
 
-export function estimatedTaxAmount(netAmount: number, taxDefinition: TaxDefinitionResponse | undefined): number {
-  if (!taxDefinition) return 0;
-  return Math.round(netAmount * taxDefinition.rate * 100) / 100;
+// Line entry is gross (brutto) — mirrors backend/Pako.Domain/Tax/TaxComputationService.
+// ComputeFromGross and apps/web/src/lib/tax-enums.ts's computeFromGross exactly. Tax is the
+// exact remainder (gross - net), never an independently-rounded net*rate, so net+tax always
+// equals the entered gross amount exactly. Reverse-charge codes (RC18): the foreign vendor
+// never charged VAT, so the entered amount is fully net regardless of gross-entry convention.
+export function computeFromGross(
+  grossAmount: number,
+  taxDefinition: TaxDefinitionResponse | undefined,
+): { net: number; tax: number } {
+  if (!taxDefinition || taxDefinition.isReverseCharge) {
+    return { net: grossAmount, tax: 0 };
+  }
+  const net = Math.round((grossAmount / (1 + taxDefinition.rate)) * 100) / 100;
+  const tax = Math.round((grossAmount - net) * 100) / 100;
+  return { net, tax };
 }
 
-export function lineNetAmount(quantity: number, unitPrice: number, discountPercent: number): number {
+// The line amount as entered (gross, VAT included) — quantity * unit price, discounted.
+export function lineGrossAmount(quantity: number, unitPrice: number, discountPercent: number): number {
   return quantity * unitPrice * (1 - discountPercent / 100);
 }
 
 type DiscountedLine = { quantity: number; unitPrice: number; discountPercent: number; taxDefinitionId?: string };
 
-export function estimatedDocumentTotal(lines: DiscountedLine[], taxes: TaxDefinitionResponse[]): number {
+// A document's nominal total is simply the sum of its gross line entries — VAT is already
+// included in what was typed, there's nothing left to add on top.
+export function estimatedDocumentTotal(lines: DiscountedLine[]): number {
   let total = 0;
   for (const line of lines) {
-    const net = lineNetAmount(line.quantity, line.unitPrice, line.discountPercent);
-    total += net + estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
+    total += lineGrossAmount(line.quantity, line.unitPrice, line.discountPercent);
   }
   return total;
 }

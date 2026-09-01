@@ -22,4 +22,41 @@ public class TaxComputationService : ITaxComputationService
 
         return new TaxComputationResult(netAmount, taxAmount, netAmount + taxAmount, postingLines);
     }
+
+    // Invoicing/Bills line entry is gross (brutto) — see ITaxComputationService's doc comment
+    // for why this exists alongside Compute rather than replacing it, and why the tax amount is
+    // computed as a remainder (gross - net) rather than independently as net * rate: naive
+    // independent rounding of both pieces doesn't always sum back to the entered gross amount
+    // (100 at 18% -> net 84.75, naive net*rate = 15.255 rounds to 15.26, total 100.01 not 100).
+    public TaxComputationResult ComputeFromGross(decimal grossAmount, TaxDefinition taxDefinition)
+    {
+        // Reverse-charge codes (RC18): the foreign vendor never charged VAT, so the entered
+        // amount is fully net regardless of gross-entry convention — R10's AUTO self-charge
+        // calculation needs the full amount as its base, not a fraction backed out of it.
+        if (taxDefinition.IsReverseCharge)
+        {
+            return new TaxComputationResult(grossAmount, 0m, grossAmount, Array.Empty<TaxPostingLine>());
+        }
+
+        var netAmount = Math.Round(grossAmount / (1 + taxDefinition.Rate), 2, MidpointRounding.AwayFromZero);
+        var totalTax = grossAmount - netAmount;
+
+        var repartitionLines = taxDefinition.RepartitionLines;
+        var postingLines = new List<TaxPostingLine>(repartitionLines.Count);
+        var allocated = 0m;
+        for (var i = 0; i < repartitionLines.Count; i++)
+        {
+            var line = repartitionLines[i];
+            var isLast = i == repartitionLines.Count - 1;
+            var amount = isLast
+                ? totalTax - allocated
+                : Math.Round(totalTax * line.Percentage / 100m, 2, MidpointRounding.AwayFromZero);
+            allocated += amount;
+            postingLines.Add(new TaxPostingLine(line.AccountId, amount, line.Tag));
+        }
+
+        var taxAmount = postingLines.Sum(l => l.Amount);
+
+        return new TaxComputationResult(netAmount, taxAmount, grossAmount, postingLines);
+    }
 }

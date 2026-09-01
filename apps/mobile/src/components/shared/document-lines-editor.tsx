@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/ui/select-field';
 import { TextField } from '@/components/ui/text-field';
 import { Spacing } from '@/constants/theme';
-import { lineNetAmount, taxRatePercentLabel } from '@/lib/tax-enums';
+import { computeFromGross, lineGrossAmount, taxRatePercentLabel } from '@/lib/tax-enums';
 
 export type DocumentLine = { description: string; quantity: string; unitPrice: string; taxDefinitionId: string; discountPercent: string };
 
@@ -24,7 +24,8 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
   return (
     <View style={styles.container}>
       {lines.map((line, index) => {
-        const net = lineNetAmount(parseFloat(line.quantity) || 0, parseFloat(line.unitPrice) || 0, parseFloat(line.discountPercent) || 0);
+        const gross = lineGrossAmount(parseFloat(line.quantity) || 0, parseFloat(line.unitPrice) || 0, parseFloat(line.discountPercent) || 0);
+        const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
         return (
           <View key={index} style={styles.line}>
             <TextField
@@ -43,7 +44,7 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
               </View>
               <View style={styles.rowItem}>
                 <TextField
-                  label="Unit price"
+                  label="Price (incl. VAT)"
                   value={line.unitPrice}
                   onChangeText={(value) => onUpdateLine(index, { unitPrice: value })}
                   keyboardType="decimal-pad"
@@ -59,7 +60,7 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
               </View>
             </View>
             <ThemedText type="small" themeColor="textSecondary">
-              Net: {net.toFixed(2)}
+              Net: {net.toFixed(2)} · VAT: {tax.toFixed(2)} · Total: {gross.toFixed(2)}
             </ThemedText>
             <SelectField
               label="Tax"

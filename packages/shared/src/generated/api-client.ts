@@ -1305,6 +1305,52 @@ export class PakoApiClient {
     }
 
     /**
+     * @return Created
+     */
+    reverse(companyId: string, id: string, body: ReverseJournalEntryRequest): Promise<JournalEntryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/journal-entries/{id}/reverse";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processReverse(_response);
+        });
+    }
+
+    protected processReverse(response: Response): Promise<JournalEntryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as JournalEntryResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<JournalEntryResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     journalsAll(companyId: string): Promise<JournalResponse[]> {
@@ -1943,6 +1989,55 @@ export class PakoApiClient {
     }
 
     /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @return OK
+     */
+    citAddback(companyId: string, from: string | undefined, to: string | undefined): Promise<CitAddBackResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/cit-addback?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCitAddback(_response);
+        });
+    }
+
+    protected processCitAddback(response: Response): Promise<CitAddBackResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CitAddBackResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CitAddBackResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     taxes(companyId: string): Promise<TaxDefinitionResponse[]> {
@@ -2079,12 +2174,34 @@ export interface BillResponse {
     [key: string]: any;
 }
 
+export interface CitAddBackResponse {
+    from: string;
+    to: string;
+    nonDeductible: ReportLine[];
+    limitFlagged: CitLimitFlaggedLine[];
+    totalNonDeductible: number;
+    totalLimitFlagged: number;
+
+    [key: string]: any;
+}
+
+export interface CitLimitFlaggedLine {
+    accountId: string;
+    accountCode: string;
+    accountName: string;
+    amount: number;
+    limitRule: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface CompanyResponse {
     id: string;
     name: string;
     firmId: string | undefined;
     accountingLockDate: string | undefined;
     taxLockDate: string | undefined;
+    enabledProfiles: number;
 
     [key: string]: any;
 }
@@ -2115,6 +2232,7 @@ export interface CreateBillRequest {
 export interface CreateCompanyRequest {
     name: string;
     firmId?: string | undefined;
+    enabledProfiles?: number | undefined;
 
     [key: string]: any;
 }
@@ -2396,6 +2514,13 @@ export interface ReportLine {
     [key: string]: any;
 }
 
+export interface ReverseJournalEntryRequest {
+    date: string;
+    reference?: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface TaxDefinitionResponse {
     id: string;
     name: string;
@@ -2403,6 +2528,9 @@ export interface TaxDefinitionResponse {
     type: number;
     scope: number;
     isActive: boolean;
+    code: string | undefined;
+    direction: number | undefined;
+    isReverseCharge: boolean;
 
     [key: string]: any;
 }

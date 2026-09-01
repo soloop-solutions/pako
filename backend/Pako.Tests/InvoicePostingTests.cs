@@ -55,15 +55,19 @@ public class InvoicePostingTests
         Assert.Equal("INV-0001", invoice.InvoiceNumber);
         Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
 
+        // Line entry is gross (brutto): UnitPrice 100 is the total the customer pays, VAT
+        // included — the receivable is exactly 100, not 118; net (84.75) and VAT (15.25) are
+        // backed out of it (100 / 1.18 = 84.7457... rounds to 84.75; 15.25 is the exact
+        // remainder, not an independently-rounded 84.75 * 0.18 = 15.26).
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
-        Assert.Equal(118m, receivableLine.Debit);
+        Assert.Equal(100m, receivableLine.Debit);
         Assert.Equal(invoice.PartnerId, receivableLine.PartnerId);
 
         var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
-        Assert.Equal(100m, revenueLine.Credit);
+        Assert.Equal(84.75m, revenueLine.Credit);
 
         var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatPayableAccountId);
-        Assert.Equal(18m, taxLine.Credit);
+        Assert.Equal(15.25m, taxLine.Credit);
     }
 
     [Fact]
@@ -171,14 +175,14 @@ public class InvoicePostingTests
 
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
         Assert.Equal(0m, receivableLine.Debit);
-        Assert.Equal(118m, receivableLine.Credit);
+        Assert.Equal(100m, receivableLine.Credit);
 
         var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
-        Assert.Equal(100m, revenueLine.Debit);
+        Assert.Equal(84.75m, revenueLine.Debit);
         Assert.Equal(0m, revenueLine.Credit);
 
         var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatPayableAccountId);
-        Assert.Equal(18m, taxLine.Debit);
+        Assert.Equal(15.25m, taxLine.Debit);
         Assert.Equal(0m, taxLine.Credit);
     }
 
@@ -238,8 +242,13 @@ public class InvoicePostingTests
     [Fact]
     public void Post_DiscountedLine_ComputesCorrectNetAndTaxOnDiscountedAmount()
     {
-        // 2 units at 100 with a 10% discount: net = 2 * 100 * 0.90 = 180.00, not 200.00.
-        // VAT 18% on the discounted net: 180.00 * 0.18 = 32.40, not 200.00 * 0.18 = 36.00.
+        // 2 units at 100 with a 10% discount: gross = 2 * 100 * 0.90 = 180.00, not 200.00 —
+        // discount applies to the entered (gross) price, same as before. That 180.00 is what
+        // the receivable line gets directly (gross entry); VAT is backed out of it, not added
+        // on top: net = 180.00 / 1.18 = 152.5423... rounds to 152.54, tax = the exact remainder
+        // 180.00 - 152.54 = 27.46 (not 152.54 * 0.18 = 27.4572 rounded independently to 27.46 —
+        // here they happen to agree, but only because ComputeFromGross always uses the
+        // remainder, never an independent rounding).
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var revenueAccountId = Guid.NewGuid();
         var receivableAccountId = Guid.NewGuid();
@@ -278,13 +287,13 @@ public class InvoicePostingTests
             new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
-        Assert.Equal(180m, revenueLine.Credit);
+        Assert.Equal(152.54m, revenueLine.Credit);
 
         var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatPayableAccountId);
-        Assert.Equal(32.40m, taxLine.Credit);
+        Assert.Equal(27.46m, taxLine.Credit);
 
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
-        Assert.Equal(212.40m, receivableLine.Debit);
+        Assert.Equal(180m, receivableLine.Debit);
     }
 
     [Fact]

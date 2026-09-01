@@ -149,17 +149,20 @@ public class ReportsControllerTests
         var body = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<ProfitAndLossResponse>(body.Value);
 
+        // Line entry is gross: the invoice's 1000/bill's 400 are VAT-inclusive totals, not net
+        // amounts — 1000/1.18 = 847.4576... rounds to 847.46 (tax 152.54, the exact remainder);
+        // 400/1.18 = 338.9830... rounds to 338.98 (tax 61.02).
         var revenue = Assert.Single(response.Income);
         Assert.Equal("4000", revenue.AccountCode);
-        Assert.Equal(1000m, revenue.Amount);
+        Assert.Equal(847.46m, revenue.Amount);
 
         var expense = Assert.Single(response.Expenses);
         Assert.Equal("6000", expense.AccountCode);
-        Assert.Equal(400m, expense.Amount);
+        Assert.Equal(338.98m, expense.Amount);
 
-        Assert.Equal(1000m, response.TotalIncome);
-        Assert.Equal(400m, response.TotalExpenses);
-        Assert.Equal(600m, response.NetIncome);
+        Assert.Equal(847.46m, response.TotalIncome);
+        Assert.Equal(338.98m, response.TotalExpenses);
+        Assert.Equal(508.48m, response.NetIncome);
     }
 
     [Fact]
@@ -173,14 +176,14 @@ public class ReportsControllerTests
         var body = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<BalanceSheetResponse>(body.Value);
 
-        Assert.Equal(600m, response.CurrentEarnings);
-        Assert.Equal(2252m, response.TotalAssets);
-        Assert.Equal(652m, response.TotalLiabilities);
-        Assert.Equal(1600m, response.TotalEquity);
+        Assert.Equal(508.48m, response.CurrentEarnings);
+        Assert.Equal(2061.02m, response.TotalAssets);
+        Assert.Equal(552.54m, response.TotalLiabilities);
+        Assert.Equal(1508.48m, response.TotalEquity);
 
         Assert.Equal(response.TotalAssets, response.TotalLiabilities + response.TotalEquity);
 
-        Assert.Contains(response.Equity, l => l.AccountName == "Current Earnings" && l.Amount == 600m);
+        Assert.Contains(response.Equity, l => l.AccountName == "Current Earnings" && l.Amount == 508.48m);
     }
 
     [Fact]
@@ -197,14 +200,14 @@ public class ReportsControllerTests
         var output = Assert.Single(response.OutputVat);
         Assert.Equal("VAT 18% (Sales)", output.Name);
         Assert.Equal(0.18m, output.Rate);
-        Assert.Equal(180m, output.Amount);
+        Assert.Equal(152.54m, output.Amount);
 
         var input = Assert.Single(response.InputVat);
         Assert.Equal("VAT 18% (Purchases)", input.Name);
-        Assert.Equal(72m, input.Amount);
+        Assert.Equal(61.02m, input.Amount);
 
-        Assert.Equal(180m, response.TotalOutputVat);
-        Assert.Equal(72m, response.TotalInputVat);
-        Assert.Equal(108m, response.NetVatDue);
+        Assert.Equal(152.54m, response.TotalOutputVat);
+        Assert.Equal(61.02m, response.TotalInputVat);
+        Assert.Equal(91.52m, response.NetVatDue);
     }
 }

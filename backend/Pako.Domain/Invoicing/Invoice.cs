@@ -64,28 +64,25 @@ public class Invoice
 
         foreach (var line in Lines)
         {
-            var net = Math.Round(line.Quantity * line.UnitPrice * (1 - line.DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
-            var netLine = new JournalEntryLine
-            {
-                Id = Guid.NewGuid(),
-                AccountId = line.RevenueAccountId,
-                Debit = isCreditNote ? net : 0m,
-                Credit = isCreditNote ? 0m : net,
-                Description = line.Description
-            };
-            totalWithTax += net;
+            // Line entry is gross (brutto) — line.UnitPrice is what the customer actually pays
+            // per unit, VAT included, not a pre-VAT net price. gross is the amount owed for
+            // this line; the revenue line only gets the net portion once VAT is backed out.
+            var gross = Math.Round(line.Quantity * line.UnitPrice * (1 - line.DiscountPercent / 100m), 2, MidpointRounding.AwayFromZero);
+            var netAmount = gross;
+            Guid? taxDefinitionId = null;
+            totalWithTax += gross;
 
-            if (line.TaxDefinitionId is { } taxDefinitionId)
+            if (line.TaxDefinitionId is { } lineTaxDefinitionId)
             {
-                if (!taxDefinitionsById.TryGetValue(taxDefinitionId, out var taxDefinition) || !taxDefinition.IsActive)
+                if (!taxDefinitionsById.TryGetValue(lineTaxDefinitionId, out var taxDefinition) || !taxDefinition.IsActive)
                 {
                     throw new InvalidOperationException(
-                        $"Invoice {Id} references unknown or inactive tax definition {taxDefinitionId}.");
+                        $"Invoice {Id} references unknown or inactive tax definition {lineTaxDefinitionId}.");
                 }
 
-                netLine.TaxId = taxDefinitionId;
-                var computation = taxComputationService.Compute(net, taxDefinition);
-                totalWithTax += computation.TaxAmount;
+                taxDefinitionId = lineTaxDefinitionId;
+                var computation = taxComputationService.ComputeFromGross(gross, taxDefinition);
+                netAmount = computation.NetAmount;
 
                 foreach (var postingLine in computation.PostingLines)
                 {
@@ -96,17 +93,19 @@ public class Invoice
                         Debit = isCreditNote ? postingLine.Amount : 0m,
                         Credit = isCreditNote ? 0m : postingLine.Amount,
                         Description = postingLine.Tag,
-                        TaxId = taxDefinitionId
+                        TaxId = lineTaxDefinitionId
                     });
                 }
 
                 // R10 (AUTO): a reverse-charge code (RC18) has no ordinary repartition lines —
                 // it self-assesses VAT that's neither owed to nor by the counterparty, so it
                 // can't flow through the totalWithTax/receivable amount like a normal tax. Books
-                // Dr 113300 / Cr 210300 for the same amount a 100%-repartition would compute.
+                // Dr 113300 / Cr 210300 on the full entered amount — for a reverse-charge line,
+                // ComputeFromGross already returned netAmount == gross (the foreign vendor never
+                // charged VAT, so there's nothing to back out).
                 if (taxDefinition.IsReverseCharge)
                 {
-                    var reverseChargeAmount = Math.Round(net * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero);
+                    var reverseChargeAmount = Math.Round(gross * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero);
                     journalEntryLines.Add(new JournalEntryLine
                     {
                         Id = Guid.NewGuid(),
@@ -114,7 +113,7 @@ public class Invoice
                         Debit = reverseChargeAmount,
                         Credit = 0m,
                         Description = "Reverse charge input VAT",
-                        TaxId = taxDefinitionId
+                        TaxId = lineTaxDefinitionId
                     });
                     journalEntryLines.Add(new JournalEntryLine
                     {
@@ -123,12 +122,20 @@ public class Invoice
                         Debit = 0m,
                         Credit = reverseChargeAmount,
                         Description = "Reverse charge output VAT",
-                        TaxId = taxDefinitionId
+                        TaxId = lineTaxDefinitionId
                     });
                 }
             }
 
-            journalEntryLines.Add(netLine);
+            journalEntryLines.Add(new JournalEntryLine
+            {
+                Id = Guid.NewGuid(),
+                AccountId = line.RevenueAccountId,
+                Debit = isCreditNote ? netAmount : 0m,
+                Credit = isCreditNote ? 0m : netAmount,
+                Description = line.Description,
+                TaxId = taxDefinitionId
+            });
         }
 
         journalEntryLines.Insert(0, new JournalEntryLine

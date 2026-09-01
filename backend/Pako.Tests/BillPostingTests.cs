@@ -54,17 +54,20 @@ public class BillPostingTests
         Assert.Equal(BillState.Posted, bill.State);
         Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
 
+        // Line entry is gross: UnitPrice 100 is the vendor's actual total, VAT included — the
+        // payable is exactly 100, not 118; net (84.75) and VAT (15.25, the exact remainder) are
+        // backed out of it.
         var payableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == payableAccountId);
-        Assert.Equal(118m, payableLine.Credit);
+        Assert.Equal(100m, payableLine.Credit);
         Assert.Equal(0m, payableLine.Debit);
         Assert.Equal(bill.PartnerId, payableLine.PartnerId);
 
         var expenseLine = Assert.Single(journalEntry.Lines, l => l.AccountId == expenseAccountId);
-        Assert.Equal(100m, expenseLine.Debit);
+        Assert.Equal(84.75m, expenseLine.Debit);
         Assert.Equal(0m, expenseLine.Credit);
 
         var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatReceivableAccountId);
-        Assert.Equal(18m, taxLine.Debit);
+        Assert.Equal(15.25m, taxLine.Debit);
         Assert.Equal(0m, taxLine.Credit);
     }
 
@@ -129,23 +132,25 @@ public class BillPostingTests
         Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
 
         var payableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == payableAccountId);
-        Assert.Equal(118m, payableLine.Debit);
+        Assert.Equal(100m, payableLine.Debit);
         Assert.Equal(0m, payableLine.Credit);
 
         var expenseLine = Assert.Single(journalEntry.Lines, l => l.AccountId == expenseAccountId);
-        Assert.Equal(100m, expenseLine.Credit);
+        Assert.Equal(84.75m, expenseLine.Credit);
         Assert.Equal(0m, expenseLine.Debit);
 
         var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatReceivableAccountId);
-        Assert.Equal(18m, taxLine.Credit);
+        Assert.Equal(15.25m, taxLine.Credit);
         Assert.Equal(0m, taxLine.Debit);
     }
 
     [Fact]
     public void Post_DiscountedLine_ComputesCorrectNetAndTaxOnDiscountedAmount()
     {
-        // 4 units at 50 with a 25% discount: net = 4 * 50 * 0.75 = 150.00, not 200.00.
-        // VAT 18% on the discounted net: 150.00 * 0.18 = 27.00, not 200.00 * 0.18 = 36.00.
+        // 4 units at 50 with a 25% discount: gross = 4 * 50 * 0.75 = 150.00, not 200.00 —
+        // discount applies to the entered (gross) price. VAT is backed out of that 150.00, not
+        // added on top: net = 150.00 / 1.18 = 127.1186... rounds to 127.12, tax = the exact
+        // remainder 150.00 - 127.12 = 22.88.
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var expenseAccountId = Guid.NewGuid();
         var payableAccountId = Guid.NewGuid();
@@ -185,13 +190,13 @@ public class BillPostingTests
             new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         var expenseLine = Assert.Single(journalEntry.Lines, l => l.AccountId == expenseAccountId);
-        Assert.Equal(150m, expenseLine.Debit);
+        Assert.Equal(127.12m, expenseLine.Debit);
 
         var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatReceivableAccountId);
-        Assert.Equal(27m, taxLine.Debit);
+        Assert.Equal(22.88m, taxLine.Debit);
 
         var payableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == payableAccountId);
-        Assert.Equal(177m, payableLine.Credit);
+        Assert.Equal(150m, payableLine.Credit);
     }
 
     // 60_Posting_Rules R10 (AUTO) — the realistic case, an imported service bill (Google Ads,

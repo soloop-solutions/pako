@@ -23,7 +23,7 @@ import { apiClient, getApiErrorMessage } from '@/api/client';
 import { useCompany } from '@/context/company-context';
 import { BILL_DOCUMENT_TYPE_CREDIT_NOTE, billDocumentTypeLabel } from '@/lib/document-enums';
 import { isCashOrBankAccountSubType } from '@/lib/ledger-enums';
-import { estimatedTaxAmount, lineNetAmount } from '@/lib/tax-enums';
+import { computeFromGross, lineGrossAmount } from '@/lib/tax-enums';
 import type { ApplyDocumentCandidate } from '@/components/shared/apply-document-form';
 
 export default function BillDetailScreen() {
@@ -126,12 +126,17 @@ export default function BillDetailScreen() {
   const partner = partners.find((p) => p.id === bill.partnerId);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
 
-  let subtotal = 0;
+  // Line entry is gross (brutto): unitPrice is VAT-inclusive, so the sum of gross line amounts
+  // IS the bill total — net/VAT are backed out of it for display, not added on top.
+  let total = 0;
+  let estimatedNet = 0;
   let estimatedTax = 0;
   for (const line of bill.lines) {
-    const net = lineNetAmount(line.quantity, line.unitPrice, line.discountPercent);
-    subtotal += net;
-    estimatedTax += estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
+    const gross = lineGrossAmount(line.quantity, line.unitPrice, line.discountPercent);
+    total += gross;
+    const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+    estimatedNet += net;
+    estimatedTax += tax;
   }
 
   return (
@@ -161,28 +166,32 @@ export default function BillDetailScreen() {
         </View>
 
         <View style={styles.lines}>
-          {bill.lines.map((line) => (
-            <View key={line.id} style={styles.line}>
-              <ThemedText type="smallBold">{line.description}</ThemedText>
-              <View style={styles.lineMeta}>
-                <ThemedText type="small" themeColor="textSecondary">
-                  {line.quantity} x {line.unitPrice.toFixed(2)}
-                  {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? 'No tax'}
-                </ThemedText>
-                <ThemedText type="small">{lineNetAmount(line.quantity, line.unitPrice, line.discountPercent).toFixed(2)}</ThemedText>
+          {bill.lines.map((line) => {
+            const gross = lineGrossAmount(line.quantity, line.unitPrice, line.discountPercent);
+            const { net } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+            return (
+              <View key={line.id} style={styles.line}>
+                <ThemedText type="smallBold">{line.description}</ThemedText>
+                <View style={styles.lineMeta}>
+                  <ThemedText type="small" themeColor="textSecondary">
+                    {line.quantity} x {line.unitPrice.toFixed(2)} (incl. VAT)
+                    {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? 'No tax'}
+                  </ThemedText>
+                  <ThemedText type="small">Net: {net.toFixed(2)} · Total: {gross.toFixed(2)}</ThemedText>
+                </View>
               </View>
-            </View>
-          ))}
+            );
+          })}
         </View>
 
         <View style={styles.totals}>
           <ThemedText type="small" themeColor="textSecondary">
-            Subtotal: {subtotal.toFixed(2)}
+            Net (excl. VAT): {estimatedNet.toFixed(2)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Estimated tax: {estimatedTax.toFixed(2)}
+            VAT: {estimatedTax.toFixed(2)}
           </ThemedText>
-          <ThemedText type="smallBold">Estimated total: {(subtotal + estimatedTax).toFixed(2)}</ThemedText>
+          <ThemedText type="smallBold">Total: {total.toFixed(2)}</ThemedText>
         </View>
 
         {bill.state === 'Draft' && (

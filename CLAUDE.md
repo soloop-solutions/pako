@@ -1955,3 +1955,63 @@ assumed.
   reclassification sub-flows. This completes every stage the implementation brief scoped
   (Stages 1-4) to the extent each stage's own text allows — the remaining items are the ones the
   brief itself said needed a prerequisite this repo doesn't have yet, not oversights.
+
+## Invoice/bill line entry switched to gross (brutto) (2026-09-01)
+
+Erion's explicit correction: "invoice/billing items should be brutto — if I input 100 EUR that
+should be the total amount... I never work with net amounts when creating invoice/bill." Before
+this pass, `InvoiceLine`/`BillLine.UnitPrice` was net (pre-VAT) and VAT was added on top; now it's
+gross (VAT-inclusive) and VAT is backed out of it. Applies uniformly to Invoicing and Bills,
+including Credit Notes/Debit Notes/Down Payments (same line model, same `Post()` path) — no
+net/gross toggle, matching Erion's stated preference.
+
+- **The one real design problem, solved precisely**: naive `net = gross/(1+rate)` then
+  `tax = net*rate` independently rounded do **not** sum back to the entered gross (100 at 18% →
+  net 84.75, naive tax 84.75×0.18=15.255→15.26, total 100.01, not 100). Fixed by computing tax as
+  the exact remainder (`gross − net`), never an independent rounding — `net + tax == gross`
+  exactly, always. For multi-line VAT codes (`BV50`'s 50/50 split), the same remainder trick
+  applies one level down: all but the last repartition line round normally, the last absorbs
+  whatever's left, so the split still sums exactly.
+- **`ITaxComputationService.ComputeFromGross(decimal gross, TaxDefinition)`** — new method,
+  sitting alongside the existing `Compute(net, ...)` (kept as-is, fully backward compatible, still
+  used internally and by its own untouched test suite). `Invoice.Post()`/`Bill.Post()` switched to
+  calling `ComputeFromGross`; the revenue/expense line now gets the backed-out net, not the
+  entered amount, and the receivable/payable line sums the raw gross entries directly (guaranteed
+  to equal what was typed, not a re-summed net+tax that could drift).
+  **Reverse-charge codes (RC18) are special-cased to bypass the division entirely** — the foreign
+  vendor never charged VAT, so the entered amount is already fully net; backing anything out of it
+  would have silently broken R10's self-charge calculation (which needs the full entered amount as
+  its base). Verified live: an RC18 bill for 100 still self-assesses `Dr 113300 18.00 / Cr 210300
+  18.00` on the full 100, not on a fictional backed-out 84.75.
+- **Frontend (web + mobile)**: "Unit price" relabeled to "Price (incl. VAT)" in
+  `InvoiceForm.tsx`/`BillForm.tsx` (web) and `document-lines-editor.tsx` (mobile), each line now
+  shows a live Net/VAT breakdown computed by a new `computeFromGross()` helper in both
+  `tax-enums.ts` files (mirrors the backend's remainder-based math exactly, including the
+  reverse-charge bypass). `InvoiceDetail.tsx`/`BillDetail.tsx` (web) and the mobile detail screens
+  gained a VAT column and a Net/VAT/Total summary (previously Subtotal/Estimated tax/Estimated
+  total, computed the old net-first way). Mobile's `lineNetAmount`/`estimatedTaxAmount` were
+  renamed to `lineGrossAmount`/`computeFromGross` — supersedes the naming `apps/mobile/CLAUDE.md`'s
+  2026-08-27 section describes; that section is left as-is for historical accuracy per this
+  repo's convention, not rewritten.
+- **`packages/shared`'s generated client was stale and got regenerated** (`code`/`direction`/
+  `isReverseCharge` were added to `TaxDefinitionResponse` back in the Stage 3 pass above but never
+  actually regenerated into the frontend types until now) — a pure append per the diff, no
+  `postN`/`balanceN`-style numbering shuffled, verified by reading the diff, not assumed.
+- **`documentNominalTotal`/`estimatedDocumentTotal`** (web/mobile) had their signatures simplified
+  (dropped the now-unnecessary `taxes` parameter — a gross line total needs no tax computation to
+  sum) but turned out to already be dead code in both apps: the credit-note/down-payment "apply"
+  forms get their candidate totals from the real `.../balance` endpoint (the fix documented in the
+  "CreditNote/DownPayment `.../balance` fix" section above), not a client-side estimate. Updated
+  for consistency anyway since they were touched; not deleted, matching this repo's "don't remove
+  pre-existing dead code" convention.
+- **Verified thoroughly, not just typechecked**: backend — `dotnet test`: **189/189** (12 new tests:
+  5 `ComputeFromGross` unit tests including the exact-remainder and reverse-charge-bypass cases,
+  7 existing `Invoice`/`Bill`/`Reports` posting tests updated to the new expected numbers, e.g. the
+  mixed-scenario report test's net income went from 600 to 508.48 once both the 1000 and 400 legs
+  were correctly treated as gross). `pnpm --filter @pako/web {typecheck,lint,test,build}` and
+  `pnpm --filter @pako/mobile {typecheck,lint,test,build}` all pass. **Driven through the real
+  running API and a real browser (Playwright), not just curl**: typed 100 in the web Price field
+  with an 18% VAT code selected, watched the live preview show Net 84.75/VAT 15.25, created and
+  posted the invoice through the actual UI, confirmed the detail page's Total reads 100.00 (not
+  118) and the underlying journal entry lines (checked directly via `psql`) show `Dr 110100
+  100.00 / Cr 210110 15.25 / Cr 400100 84.75` — exactly what was typed, to the cent.

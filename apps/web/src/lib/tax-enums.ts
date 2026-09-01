@@ -18,18 +18,32 @@ export function taxRatePercentLabel(taxDefinition: TaxDefinitionResponse): strin
   return `${taxDefinition.name} (${(taxDefinition.rate * 100).toFixed(0)}%)`;
 }
 
-export function estimatedTaxAmount(netAmount: number, taxDefinition: TaxDefinitionResponse | undefined): number {
-  if (!taxDefinition) return 0;
-  return Math.round(netAmount * taxDefinition.rate * 100) / 100;
+// Line entry is gross (brutto) — backend/Pako.Domain/Tax/TaxComputationService.ComputeFromGross
+// is the source of truth this mirrors. Tax is the exact remainder (gross - net), never an
+// independently-rounded net*rate, so net+tax always equals the entered gross amount exactly —
+// see that method's own comment for why naive independent rounding can drift by a cent.
+// Reverse-charge codes (RC18): the foreign vendor never charged VAT, so the entered amount is
+// fully net regardless of gross-entry convention — nothing is backed out.
+export function computeFromGross(
+  grossAmount: number,
+  taxDefinition: TaxDefinitionResponse | undefined,
+): { net: number; tax: number } {
+  if (!taxDefinition || taxDefinition.isReverseCharge) {
+    return { net: grossAmount, tax: 0 };
+  }
+  const net = Math.round((grossAmount / (1 + taxDefinition.rate)) * 100) / 100;
+  const tax = Math.round((grossAmount - net) * 100) / 100;
+  return { net, tax };
 }
 
 type DiscountedTaxedLine = { quantity: number; unitPrice: number; discountPercent: number; taxDefinitionId: string | undefined };
 
-export function documentNominalTotal(lines: DiscountedTaxedLine[], taxes: TaxDefinitionResponse[]): number {
+// A document's nominal total is simply the sum of its gross line entries — under gross entry,
+// VAT is already included in what was typed, there's nothing left to add on top.
+export function documentNominalTotal(lines: DiscountedTaxedLine[]): number {
   let total = 0;
   for (const line of lines) {
-    const net = line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
-    total += net + estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
+    total += line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
   }
   return total;
 }

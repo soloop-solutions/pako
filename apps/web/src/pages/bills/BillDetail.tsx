@@ -18,7 +18,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
-import { estimatedTaxAmount } from "@/lib/tax-enums";
+import { computeFromGross } from "@/lib/tax-enums";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
@@ -133,12 +133,17 @@ export function BillDetail() {
   const partner = partners.find((p) => p.id === bill.partnerId);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
 
-  let subtotal = 0;
+  // Line entry is gross (brutto): unitPrice is VAT-inclusive, so the sum of gross line amounts
+  // IS the bill total (what the payable line shows) — net/VAT are backed out for display.
+  let total = 0;
+  let estimatedNet = 0;
   let estimatedTax = 0;
   for (const line of bill.lines) {
-    const net = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
-    subtotal += net;
-    estimatedTax += estimatedTaxAmount(net, taxes.find((t) => t.id === line.taxDefinitionId));
+    const gross = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
+    total += gross;
+    const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+    estimatedNet += net;
+    estimatedTax += tax;
   }
 
   return (
@@ -187,32 +192,38 @@ export function BillDetail() {
               <TableRow>
                 <TableHead>Description</TableHead>
                 <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Unit price</TableHead>
+                <TableHead className="text-right">Price (incl. VAT)</TableHead>
                 <TableHead className="text-right">Discount %</TableHead>
                 <TableHead>Tax</TableHead>
                 <TableHead className="text-right">Net</TableHead>
+                <TableHead className="text-right">VAT</TableHead>
+                <TableHead className="text-right">Total</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bill.lines.map((line) => (
-                <TableRow key={line.id}>
-                  <TableCell>{line.description}</TableCell>
-                  <TableCell className="text-right">{line.quantity}</TableCell>
-                  <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
-                  <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>
-                  <TableCell className="text-right">
-                    {(line.quantity * line.unitPrice * (1 - line.discountPercent / 100)).toFixed(2)}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {bill.lines.map((line) => {
+                const gross = line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
+                const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+                return (
+                  <TableRow key={line.id}>
+                    <TableCell>{line.description}</TableCell>
+                    <TableCell className="text-right">{line.quantity}</TableCell>
+                    <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
+                    <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>
+                    <TableCell className="text-right">{net.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{tax.toFixed(2)}</TableCell>
+                    <TableCell className="text-right">{gross.toFixed(2)}</TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
 
           <div className="flex flex-col items-end gap-1 text-sm">
-            <p>Subtotal: {subtotal.toFixed(2)}</p>
-            <p>Estimated tax: {estimatedTax.toFixed(2)}</p>
-            <p className="font-medium">Estimated total: {(subtotal + estimatedTax).toFixed(2)}</p>
+            <p>Net (excl. VAT): {estimatedNet.toFixed(2)}</p>
+            <p>VAT: {estimatedTax.toFixed(2)}</p>
+            <p className="font-medium">Total: {total.toFixed(2)}</p>
           </div>
 
           {bill.state === "Draft" && (

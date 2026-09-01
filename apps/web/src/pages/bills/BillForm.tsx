@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTIONS, BillDocumentType } from "@/lib/document-types";
-import { taxRatePercentLabel } from "@/lib/tax-enums";
+import { computeFromGross, taxRatePercentLabel } from "@/lib/tax-enums";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
 
@@ -18,7 +18,8 @@ function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function lineNet(line: Line): number {
+// Price is gross (brutto) — the vendor's actual per-unit price, VAT included.
+function lineGross(line: Line): number {
   const quantity = parseFloat(line.quantity) || 0;
   const unitPrice = parseFloat(line.unitPrice) || 0;
   const discountPercent = parseFloat(line.discountPercent) || 0;
@@ -180,8 +181,11 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
       )}
 
       <div className="flex flex-col gap-2">
-        {lines.map((line, index) => (
-          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_6rem_auto] items-end gap-2">
+        {lines.map((line, index) => {
+          const gross = lineGross(line);
+          const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+          return (
+          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>Description</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
@@ -197,7 +201,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Unit price</Label>}
+              {index === 0 && <Label>Price (incl. VAT)</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -233,13 +237,18 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>Net</Label>}
-              <p className="px-3 py-2 text-sm">{lineNet(line).toFixed(2)}</p>
+              <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>VAT</Label>}
+              <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               Remove
             </Button>
           </div>
-        ))}
+          );
+        })}
         <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
           Add line
         </Button>
