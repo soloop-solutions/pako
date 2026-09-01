@@ -48,7 +48,7 @@ public class BillPostingTests
         var bill = BillWithLine(expenseAccountId, taxDefinition.Id);
 
         var journalEntry = bill.Post(company, Guid.NewGuid(), payableAccountId, _taxComputationService,
-            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal(bill.JournalEntryId, journalEntry.Id);
         Assert.Equal(BillState.Posted, bill.State);
@@ -76,7 +76,7 @@ public class BillPostingTests
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService,
-                new Dictionary<Guid, TaxDefinition>()));
+                new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Contains("unknown or inactive tax definition", ex.Message);
         Assert.Equal(BillState.Draft, bill.State);
@@ -89,7 +89,7 @@ public class BillPostingTests
         var bill = BillWithLine(Guid.NewGuid());
 
         var journalEntry = bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService,
-            new Dictionary<Guid, TaxDefinition>());
+            new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal("SUPPLIER-INV-1", journalEntry.Reference);
     }
@@ -99,10 +99,10 @@ public class BillPostingTests
     {
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var bill = BillWithLine(Guid.NewGuid());
-        bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Throws<InvalidOperationException>(() =>
-            bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>()));
+            bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid()));
     }
 
     [Fact]
@@ -124,7 +124,7 @@ public class BillPostingTests
         creditNote.DocumentType = DocumentType.CreditNote;
 
         var journalEntry = creditNote.Post(company, Guid.NewGuid(), payableAccountId, _taxComputationService,
-            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
 
@@ -182,7 +182,7 @@ public class BillPostingTests
         };
 
         var journalEntry = bill.Post(company, Guid.NewGuid(), payableAccountId, _taxComputationService,
-            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         var expenseLine = Assert.Single(journalEntry.Lines, l => l.AccountId == expenseAccountId);
         Assert.Equal(150m, expenseLine.Debit);
@@ -192,5 +192,42 @@ public class BillPostingTests
 
         var payableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == payableAccountId);
         Assert.Equal(177m, payableLine.Credit);
+    }
+
+    // 60_Posting_Rules R10 (AUTO) — the realistic case, an imported service bill (Google Ads,
+    // Microsoft 365, hosting). See InvoicePostingTests' identical test for the full rationale.
+    [Fact]
+    public void Post_ReverseChargeTaxDefinition_GeneratesReverseChargeInputAndOutputVatLinesAutomatically()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var expenseAccountId = Guid.NewGuid();
+        var payableAccountId = Guid.NewGuid();
+        var reverseChargeInputId = Guid.NewGuid();
+        var reverseChargeOutputId = Guid.NewGuid();
+        var taxDefinition = new TaxDefinition
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Rate = 0.18m,
+            IsActive = true,
+            IsReverseCharge = true
+        };
+        var bill = BillWithLine(expenseAccountId, taxDefinition.Id);
+
+        var journalEntry = bill.Post(
+            company, Guid.NewGuid(), payableAccountId, _taxComputationService,
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition },
+            reverseChargeInputId, reverseChargeOutputId);
+
+        Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
+
+        var payableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == payableAccountId);
+        Assert.Equal(100m, payableLine.Credit); // unaffected by the self-charged VAT
+
+        var inputLine = Assert.Single(journalEntry.Lines, l => l.AccountId == reverseChargeInputId);
+        Assert.Equal(18m, inputLine.Debit);
+
+        var outputLine = Assert.Single(journalEntry.Lines, l => l.AccountId == reverseChargeOutputId);
+        Assert.Equal(18m, outputLine.Credit);
     }
 }

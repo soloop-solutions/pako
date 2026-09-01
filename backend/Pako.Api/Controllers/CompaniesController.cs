@@ -113,7 +113,9 @@ public class CompaniesController : ControllerBase
             PayableAccountId = accountIdsByCode["200100"],
             RevenueAccountId = accountIdsByCode["400100"],
             ExpenseAccountId = accountIdsByCode["661200"],
-            CustomerDepositsAccountId = accountIdsByCode["240300"]
+            CustomerDepositsAccountId = accountIdsByCode["240300"],
+            ReverseChargeInputVatAccountId = accountIdsByCode["113300"],
+            ReverseChargeOutputVatAccountId = accountIdsByCode["210300"]
         };
 
         if (company.EnabledProfiles.HasFlag(CompanyProfile.Payroll))

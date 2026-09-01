@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Contracts;
@@ -13,6 +15,17 @@ namespace Pako.Tests;
 public class InvoicesControllerTests
 {
     private static readonly TaxComputationService TaxService = new();
+
+    private static InvoicesController NewController(PakoDbContext db)
+    {
+        var user = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
+
+        return new InvoicesController(db, TaxService)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+        };
+    }
 
     private static async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
     {
@@ -67,7 +80,7 @@ public class InvoicesControllerTests
     public async Task Create_ZeroQuantity_Rejected()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var result = await controller.Create(companyId, RequestWithLine(partnerId, 0m, 100m));
 
@@ -78,7 +91,7 @@ public class InvoicesControllerTests
     public async Task Create_NegativeUnitPrice_Rejected()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, -50m));
 
@@ -89,7 +102,7 @@ public class InvoicesControllerTests
     public async Task Create_ZeroTotal_RejectedWithCreditNoteGuidance()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 0m));
 
@@ -104,7 +117,7 @@ public class InvoicesControllerTests
     public async Task RecordPayment_FullAmount_CreatesReconciliationAndZeroesOutstandingBalance()
     {
         var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
@@ -121,7 +134,7 @@ public class InvoicesControllerTests
     public async Task RecordPayment_InvalidCashAccount_LeavesNoJournalEntryOrphaned()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
@@ -149,7 +162,7 @@ public class InvoicesControllerTests
         // the no-orphan guarantee itself was additionally verified against the real Postgres
         // container (see CLAUDE.md).
         var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
@@ -166,7 +179,7 @@ public class InvoicesControllerTests
     public async Task ApplyCreditNote_FullAmount_ReducesOutstandingBalance()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
@@ -187,7 +200,7 @@ public class InvoicesControllerTests
     public async Task ApplyCreditNote_BeyondCreditNoteOwnAmount_RejectedBySettlementLineOverConsumptionCheck()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var invoiceACreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
         var invoiceA = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceACreated.Result).Value);
@@ -214,7 +227,7 @@ public class InvoicesControllerTests
     public async Task Balance_OnCreditNoteOwnDocument_DropsAsItIsAppliedAgainstAnInvoice()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
@@ -243,7 +256,7 @@ public class InvoicesControllerTests
     public async Task Balance_OnDownPaymentOwnDocument_ReflectsPartialThenFullApplication()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
@@ -280,7 +293,7 @@ public class InvoicesControllerTests
     public async Task Balance_OnNormalInvoice_UnaffectedByDocumentTypeBranching()
     {
         var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
-        var controller = new InvoicesController(db, TaxService);
+        var controller = NewController(db);
 
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);

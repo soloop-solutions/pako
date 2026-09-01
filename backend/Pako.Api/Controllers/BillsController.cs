@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,8 @@ public class BillsController : ControllerBase
         _db = db;
         _taxComputationService = taxComputationService;
     }
+
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
     [RequireCompanyAccess]
@@ -433,14 +436,16 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
+        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == bill.PartnerId);
+
+        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
         if (journal is null)
         {
             return BadRequest("Company has no journal to post into.");
         }
 
-        var payableAccountId = await GetPayableAccountIdAsync(companyId);
-        if (payableAccountId == Guid.Empty)
+        var defaults = await GetAccountDefaultsAsync(companyId);
+        if (defaults is null || defaults.PayableAccountId == Guid.Empty)
         {
             return BadRequest("Company has no Accounts Payable account seeded.");
         }
@@ -450,19 +455,56 @@ public class BillsController : ControllerBase
             .Where(t => t.CompanyId == companyId)
             .ToDictionaryAsync(t => t.Id);
 
+        // 60_Posting_Rules R07/R08/R09 (BLOCK) — see InvoicesController.Post's identical comment.
+        var lineAccountsById = await _db.Accounts.AsNoTracking()
+            .Where(a => bill.Lines.Select(l => l.ExpenseAccountId).Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id);
+        foreach (var line in bill.Lines)
+        {
+            if (line.TaxDefinitionId is not { } taxDefId || !taxDefinitionsById.TryGetValue(taxDefId, out var taxDef) || taxDef.Code is null)
+            {
+                continue;
+            }
+
+            var account = lineAccountsById[line.ExpenseAccountId];
+            try
+            {
+                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, bill.PartnerId, partner?.TaxNumber);
+                if (taxDef.Direction is { } direction && account.Class is { } accountClass)
+                {
+                    PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
+                }
+                PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
+            }
+            catch (Exception ex) when (
+                ex is MissingCounterpartyTaxNumberException or
+                VatDirectionAccountClassMismatchException or
+                VatOnControlAccountException)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         JournalEntry journalEntry;
         try
         {
-            journalEntry = bill.Post(company, journal.Id, payableAccountId, _taxComputationService, taxDefinitionsById);
+            journalEntry = bill.Post(
+                company, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
+                defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
         }
         catch (Exception ex) when (
             ex is InvalidOperationException or
             UnbalancedJournalEntryException or
             AccountingLockDateViolationException or
-            TaxLockDateViolationException)
+            TaxLockDateViolationException or
+            InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);
         }
+
+        journalEntry.PostedByUserId = CurrentUserId;
+        journalEntry.SourceDocumentId = bill.Id;
+        journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
         _db.JournalEntries.Add(journalEntry);
         await _db.SaveChangesAsync();

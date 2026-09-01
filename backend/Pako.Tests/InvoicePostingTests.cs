@@ -48,7 +48,7 @@ public class InvoicePostingTests
         var journalId = Guid.NewGuid();
 
         var journalEntry = invoice.Post(company, journalId, receivableAccountId, _taxComputationService,
-            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal(invoice.JournalEntryId, journalEntry.Id);
         Assert.Equal(InvoiceState.Posted, invoice.State);
@@ -74,7 +74,7 @@ public class InvoicePostingTests
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService,
-                new Dictionary<Guid, TaxDefinition>()));
+                new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Contains("unknown or inactive tax definition", ex.Message);
         Assert.Equal(InvoiceState.Draft, invoice.State);
@@ -90,7 +90,7 @@ public class InvoicePostingTests
 
         var ex = Assert.Throws<InvalidOperationException>(() =>
             invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService,
-                new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }));
+                new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Contains("unknown or inactive tax definition", ex.Message);
         Assert.Equal(InvoiceState.Draft, invoice.State);
@@ -108,7 +108,7 @@ public class InvoicePostingTests
         {
             var invoice = InvoiceWithLine(revenueAccountId);
             invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
-                new Dictionary<Guid, TaxDefinition>());
+                new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
             numbers.Add(invoice.InvoiceNumber!);
         }
 
@@ -128,7 +128,7 @@ public class InvoicePostingTests
 
         Assert.Throws<Pako.Domain.Ledger.AccountingLockDateViolationException>(() =>
             invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService,
-                new Dictionary<Guid, TaxDefinition>()));
+                new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid()));
 
         Assert.Equal(1, company.NextInvoiceNumber);
         Assert.Null(invoice.InvoiceNumber);
@@ -140,10 +140,10 @@ public class InvoicePostingTests
     {
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var invoice = InvoiceWithLine(Guid.NewGuid());
-        invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Throws<InvalidOperationException>(() =>
-            invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>()));
+            invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid()));
     }
 
     [Fact]
@@ -165,7 +165,7 @@ public class InvoicePostingTests
         creditNote.DocumentType = DocumentType.CreditNote;
 
         var journalEntry = creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
-            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
 
@@ -190,14 +190,14 @@ public class InvoicePostingTests
         var receivableAccountId = Guid.NewGuid();
 
         var invoice = InvoiceWithLine(revenueAccountId);
-        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var creditNote = InvoiceWithLine(revenueAccountId);
         creditNote.DocumentType = DocumentType.CreditNote;
-        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var secondInvoice = InvoiceWithLine(revenueAccountId);
-        secondInvoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        secondInvoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         Assert.Equal("INV-0001", invoice.InvoiceNumber);
         Assert.Equal("CN-0001", creditNote.InvoiceNumber);
@@ -212,15 +212,15 @@ public class InvoicePostingTests
         var receivableAccountId = Guid.NewGuid();
 
         var invoice = InvoiceWithLine(revenueAccountId);
-        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var creditNote = InvoiceWithLine(revenueAccountId);
         creditNote.DocumentType = DocumentType.CreditNote;
-        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var debitNote = InvoiceWithLine(revenueAccountId);
         debitNote.DocumentType = DocumentType.DebitNote;
-        var journalEntry = debitNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        var journalEntry = debitNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
         Assert.Equal(100m, receivableLine.Debit);
@@ -275,7 +275,7 @@ public class InvoicePostingTests
         };
 
         var journalEntry = invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
-            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition });
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
 
         var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
         Assert.Equal(180m, revenueLine.Credit);
@@ -299,11 +299,11 @@ public class InvoicePostingTests
         var receivableAccountId = Guid.NewGuid();
 
         var invoice = InvoiceWithLine(Guid.NewGuid());
-        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var downPayment = InvoiceWithLine(depositsAccountId);
         downPayment.DocumentType = DocumentType.DownPayment;
-        var journalEntry = downPayment.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>());
+        var journalEntry = downPayment.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
         Assert.Equal(100m, receivableLine.Debit);
@@ -314,5 +314,48 @@ public class InvoicePostingTests
 
         Assert.Equal("INV-0001", invoice.InvoiceNumber);
         Assert.Equal("DP-0001", downPayment.InvoiceNumber);
+    }
+
+    // 60_Posting_Rules R10 (AUTO): RC18 generates Dr 113300 / Cr 210300 automatically, on top
+    // of (not instead of) the normal revenue/receivable lines — the self-charged VAT never
+    // touches the receivable total.
+    [Fact]
+    public void Post_ReverseChargeTaxDefinition_GeneratesReverseChargeInputAndOutputVatLinesAutomatically()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+        var reverseChargeInputId = Guid.NewGuid();
+        var reverseChargeOutputId = Guid.NewGuid();
+        var taxDefinition = new TaxDefinition
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Rate = 0.18m,
+            IsActive = true,
+            IsReverseCharge = true
+            // Deliberately no RepartitionLines — RC18 has none in the real Stage 3 seed either;
+            // its posting comes entirely from this AUTO rule, not TaxComputationService.
+        };
+        var invoice = InvoiceWithLine(revenueAccountId, taxDefinition.Id);
+
+        var journalEntry = invoice.Post(
+            company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition },
+            reverseChargeInputId, reverseChargeOutputId);
+
+        Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
+
+        var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
+        Assert.Equal(100m, receivableLine.Debit); // unaffected by the self-charged VAT
+
+        var inputLine = Assert.Single(journalEntry.Lines, l => l.AccountId == reverseChargeInputId);
+        Assert.Equal(18m, inputLine.Debit);
+        Assert.Equal(0m, inputLine.Credit);
+        Assert.Equal(taxDefinition.Id, inputLine.TaxId);
+
+        var outputLine = Assert.Single(journalEntry.Lines, l => l.AccountId == reverseChargeOutputId);
+        Assert.Equal(18m, outputLine.Credit);
+        Assert.Equal(0m, outputLine.Debit);
     }
 }

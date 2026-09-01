@@ -38,7 +38,9 @@ public class Bill
         Guid journalId,
         Guid payableAccountId,
         ITaxComputationService taxComputationService,
-        IReadOnlyDictionary<Guid, TaxDefinition> taxDefinitionsById)
+        IReadOnlyDictionary<Guid, TaxDefinition> taxDefinitionsById,
+        Guid reverseChargeInputVatAccountId,
+        Guid reverseChargeOutputVatAccountId)
     {
         if (State != BillState.Draft)
         {
@@ -91,6 +93,31 @@ public class Bill
                         Debit = isCreditNote ? 0m : postingLine.Amount,
                         Credit = isCreditNote ? postingLine.Amount : 0m,
                         Description = postingLine.Tag,
+                        TaxId = taxDefinitionId
+                    });
+                }
+
+                // R10 (AUTO) — see Invoice.Post's identical comment. Bills are the realistic
+                // case for RC18 (Google Ads, Meta, Microsoft 365, hosting, imported services).
+                if (taxDefinition.IsReverseCharge)
+                {
+                    var reverseChargeAmount = Math.Round(net * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero);
+                    journalEntryLines.Add(new JournalEntryLine
+                    {
+                        Id = Guid.NewGuid(),
+                        AccountId = reverseChargeInputVatAccountId,
+                        Debit = reverseChargeAmount,
+                        Credit = 0m,
+                        Description = "Reverse charge input VAT",
+                        TaxId = taxDefinitionId
+                    });
+                    journalEntryLines.Add(new JournalEntryLine
+                    {
+                        Id = Guid.NewGuid(),
+                        AccountId = reverseChargeOutputVatAccountId,
+                        Debit = 0m,
+                        Credit = reverseChargeAmount,
+                        Description = "Reverse charge output VAT",
                         TaxId = taxDefinitionId
                     });
                 }

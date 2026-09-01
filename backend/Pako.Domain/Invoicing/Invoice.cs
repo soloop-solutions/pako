@@ -40,7 +40,9 @@ public class Invoice
         Guid journalId,
         Guid receivableAccountId,
         ITaxComputationService taxComputationService,
-        IReadOnlyDictionary<Guid, TaxDefinition> taxDefinitionsById)
+        IReadOnlyDictionary<Guid, TaxDefinition> taxDefinitionsById,
+        Guid reverseChargeInputVatAccountId,
+        Guid reverseChargeOutputVatAccountId)
     {
         if (State != InvoiceState.Draft)
         {
@@ -94,6 +96,33 @@ public class Invoice
                         Debit = isCreditNote ? postingLine.Amount : 0m,
                         Credit = isCreditNote ? 0m : postingLine.Amount,
                         Description = postingLine.Tag,
+                        TaxId = taxDefinitionId
+                    });
+                }
+
+                // R10 (AUTO): a reverse-charge code (RC18) has no ordinary repartition lines —
+                // it self-assesses VAT that's neither owed to nor by the counterparty, so it
+                // can't flow through the totalWithTax/receivable amount like a normal tax. Books
+                // Dr 113300 / Cr 210300 for the same amount a 100%-repartition would compute.
+                if (taxDefinition.IsReverseCharge)
+                {
+                    var reverseChargeAmount = Math.Round(net * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero);
+                    journalEntryLines.Add(new JournalEntryLine
+                    {
+                        Id = Guid.NewGuid(),
+                        AccountId = reverseChargeInputVatAccountId,
+                        Debit = reverseChargeAmount,
+                        Credit = 0m,
+                        Description = "Reverse charge input VAT",
+                        TaxId = taxDefinitionId
+                    });
+                    journalEntryLines.Add(new JournalEntryLine
+                    {
+                        Id = Guid.NewGuid(),
+                        AccountId = reverseChargeOutputVatAccountId,
+                        Debit = 0m,
+                        Credit = reverseChargeAmount,
+                        Description = "Reverse charge output VAT",
                         TaxId = taxDefinitionId
                     });
                 }

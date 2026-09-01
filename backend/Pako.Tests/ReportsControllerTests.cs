@@ -102,7 +102,7 @@ public class ReportsControllerTests
             }
         };
         var invoiceEntry = invoice.Post(
-            company, journal.Id, accountIdsByCode["1200"], taxComputationService, taxDefinitionsById);
+            company, journal.Id, accountIdsByCode["1200"], taxComputationService, taxDefinitionsById, Guid.NewGuid(), Guid.NewGuid());
         db.Invoices.Add(invoice);
         db.JournalEntries.Add(invoiceEntry);
 
@@ -128,7 +128,7 @@ public class ReportsControllerTests
             }
         };
         var billEntry = bill.Post(
-            company, journal.Id, accountIdsByCode["2000"], taxComputationService, taxDefinitionsById);
+            company, journal.Id, accountIdsByCode["2000"], taxComputationService, taxDefinitionsById, Guid.NewGuid(), Guid.NewGuid());
         db.Bills.Add(bill);
         db.JournalEntries.Add(billEntry);
 

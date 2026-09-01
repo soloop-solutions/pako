@@ -96,9 +96,9 @@ lives in `Pako.Infrastructure`). Status as of 2026-08-26 noted per module.
 - Not yet implemented: numbering-sequence generation (gapless/monotonic per journal), hash
   computation. Reserved, inert, per below.
 
-**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — Stages 1-3 landed
-2026-09-01 (schema, chart seeding + account-role resolution, VAT/withholding codes); Stage 4 not
-started.** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan (this
+**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — all four stages landed
+2026-09-01 (schema; chart seeding + account-role resolution; VAT/withholding codes; posting
+rules).** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan (this
 repo's copy: not yet moved into `docs/`, still in the user's Downloads folder alongside the two
 source files it names — the workbook and CSV that are its actual source of truth). `Account`
 gained `NameSq`, `Class`/`Group` (6-digit-code class/group, with a DB CHECK constraint enforcing
@@ -138,9 +138,25 @@ CLAUDE.md's Stage 2 section, not repeated here.
 directly). Each VAT code's tax-amount repartition target is `10_COA_Master`'s own rate-specific
 account (e.g. `S18`→210110, not the old flat 210100); Import-scoped codes (`I18`/`I08`/`IND`) are
 skipped for a company without the Import profile, same discipline as `CompanyAccountDefaults`.
-`RC18`'s actual R10 AUTO dual-line posting is deferred to Stage 4 — its `TaxDefinition` is
-seeded (rate, `IsReverseCharge=true`) but has no ordinary repartition lines yet. Full rationale
-in CLAUDE.md's Stage 3 section.
+`RC18`'s actual R10 AUTO dual-line posting was deferred to Stage 4 — its `TaxDefinition` is
+seeded (rate, `IsReverseCharge=true`) but has no ordinary repartition lines. Full rationale in
+CLAUDE.md's Stage 3 section.
+
+**Stage 4 (2026-09-01)**: implements `60_Posting_Rules`' "implementable now" rules
+(R01-05/R07-10/R16/R19-21/R23/R25/R26), each with its own exception type
+(`Pako.Domain.Ledger.PostingRuleValidator` + `Exceptions.cs`). R10's actual RC18 dual-line
+posting landed here (`Invoice.Post`/`Bill.Post` gained
+`reverseChargeInputVatAccountId`/`reverseChargeOutputVatAccountId` parameters, sourced from two
+new `CompanyAccountDefaults` fields). R16 (storno): `JournalEntry.Reverse()` + `POST
+.../journal-entries/{id}/reverse`, with a narrow `PakoDbContext` immutability carve-out for the
+one Posted→Cancelled transition it needs. R23: `JournalEntry.SequenceNumber` now populated on
+every posting path via `Pako.Api.Services.JournalSequencer`. R28: `JournalEntry` gained
+`PostedByUserId`/`PostedFromIp`/`SourceDocumentId` (IP left unpopulated per the brief's own
+explicit allowance). R20/R21 became a new `GET .../reports/cit-addback` report, not a
+posting-time block. Rules needing a prerequisite this repo doesn't have yet (fiscal periods,
+import documents, landed cost, fixed-asset subledger, bank statement import) are left as
+documented TODOs, not faked — full rationale, including R24's deliberate non-enforcement (it
+would reverse an earlier explicit product decision), is in CLAUDE.md's Stage 4 section.
 
 ### Hash-chain / immutability reservation (per Odoo's `inalterable_hash` pattern) — **columns
 reserved, computation not yet active**

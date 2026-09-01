@@ -40,7 +40,7 @@ public class BillImmutabilityTests
                 }
             }
         };
-        bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), new TaxComputationService(), new Dictionary<Guid, TaxDefinition>());
+        bill.Post(company, Guid.NewGuid(), Guid.NewGuid(), new TaxComputationService(), new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         db.Companies.Add(company);
         db.Bills.Add(bill);

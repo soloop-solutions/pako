@@ -8,6 +8,8 @@ public record CreateJournalEntryRequest(
     string? Reference,
     List<CreateJournalEntryLineRequest> Lines);
 
+public record ReverseJournalEntryRequest(DateOnly Date, string? Reference = null);
+
 public record JournalEntryLineResponse(Guid Id, Guid AccountId, Guid? PartnerId, decimal Debit, decimal Credit, string? Description);
 
 public record JournalEntryResponse(

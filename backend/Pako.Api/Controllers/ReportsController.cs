@@ -133,6 +133,28 @@ public class ReportsController : ControllerBase
         return Ok(new VatReturnResponse(from, to, output, input, totalOutput, totalInput, totalOutput - totalInput));
     }
 
+    [HttpGet("cit-addback")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<CitAddBackResponse>> CitAddBack(
+        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var sums = await SumsByAccountAsync(companyId, from, to);
+
+        var nonDeductible = sums.Where(s => s.Account.CitDeductibility == CitDeductibility.Non)
+            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
+            .OrderBy(l => l.AccountCode)
+            .ToList();
+
+        var limitFlagged = sums.Where(s => s.Account.CitDeductibility == CitDeductibility.Limit)
+            .Select(s => new CitLimitFlaggedLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit, s.Account.CitLimitRule))
+            .OrderBy(l => l.AccountCode)
+            .ToList();
+
+        return Ok(new CitAddBackResponse(
+            from, to, nonDeductible, limitFlagged,
+            nonDeductible.Sum(l => l.Amount), limitFlagged.Sum(l => l.Amount)));
+    }
+
     private async Task<List<(Account Account, decimal Debit, decimal Credit)>> SumsByAccountAsync(
         Guid companyId, DateOnly? from, DateOnly to)
     {

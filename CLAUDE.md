@@ -1821,3 +1821,137 @@ logic that generates lines (R10...)" is listed under Stage 4, not Stage 3).
   `ReportsController`/frontend off `TaxScope` onto `Direction` (still deferred, same reasoning as
   Stage 1 — the 26 new codes now have real `Direction` data, but `ReportsController.VatReturn`
   wasn't touched in this pass to avoid scope creep beyond "seed the codes").
+
+## Plani Kontabel v2.0 migration — Stage 4: posting rules (2026-09-01)
+
+Implements the `60_Posting_Rules` rules the brief marked "implementable now"
+(R01/R02/R03/R04/R05/R07/R08/R09/R10/R16/R19/R20/R21/R23/R25/R26), each with its own exception
+type and test per the brief's explicit ask, plus R28's columns. Proceeded under the same "full
+autonomy, do what's best" grant as Stages 2-3. This is the largest single stage of the four —
+scope was deliberately bounded where a rule's real implementation would have meant redesigning
+already-working, well-tested domain methods; every such bound is called out below, not silently
+assumed.
+
+- **New `Pako.Domain.Ledger.PostingRuleValidator`** (pure functions over already-loaded
+  primitives, zero EF dependency — same pattern `Pako.Domain.Reconciliation.
+  ReconciliationValidator` established) plus 8 new exception types in `Exceptions.cs`
+  (`NonPostableAccountException`, `MissingSubledgerReferenceException`,
+  `ControlAccountManualPostingException`, `SystemComputedAccountPostingException`,
+  `MissingCounterpartyTaxNumberException`, `VatDirectionAccountClassMismatchException`,
+  `VatOnControlAccountException`, `InconsistentForeignCurrencyDataException`).
+- **R02/R04/R05 (BLOCK) — manual journal entries only, via `JournalEntriesController.Create`.**
+  Deliberately **not** applied to `Invoice.Post`/`Bill.Post`/`PayrollRun.Post`: those legitimately
+  post to control accounts (110100/200100/etc.) as their entire purpose — R04 explicitly exists
+  to distinguish "manual entry" from "subledger document," and enforcing it inside the subledger
+  posting methods themselves would contradict the rule it's meant to implement.
+- **R03 (BLOCK) — Partner subledger only**, same file, deliberately not extended to Item/Asset/
+  Employee/Customs: `JournalEntryLine` has no `ItemId`/`AssetId`/`EmployeeId`/customs-document
+  reference field to validate against (only `PartnerId` exists) — enforcing those would mean
+  rejecting every line against such an account outright, a fake implementation, not a real check.
+  Documented in `PostingRuleValidator.ValidatePartnerSubledgerReference`'s own comment, not hidden.
+- **R07/R08/R09 (BLOCK) — checked at Post time in `InvoicesController.Post`/`BillsController.Post`,
+  not Create time**, matching this codebase's pre-existing "tax validation is deferred to post
+  time, not create time" convention (a Draft can already reference a not-yet-final tax choice).
+  **Not implemented for the generic manual `JournalEntriesController.Create` path at all** —
+  `CreateJournalEntryLineRequest` has no `TaxId` field, so a manual line can never carry a VAT
+  code through the current API; these three rules are genuinely unreachable there, not a gap.
+  Verified live: R07 rejects an RC18 bill for a vendor with no `TaxNumber`, succeeds once one is
+  set; R08 rejects a purchase-direction code (B18) applied to a class-4 account; R09 rejects a
+  VAT code applied directly to a VAT control account (113110).
+- **R10 (AUTO) — RC18's actual dual-line posting, the piece Stage 3 explicitly deferred.**
+  `Invoice.Post`/`Bill.Post` gained two new required parameters,
+  `reverseChargeInputVatAccountId`/`reverseChargeOutputVatAccountId` — when a line's
+  `TaxDefinition.IsReverseCharge` is true, both methods append `Dr 113300` / `Cr` `210300` for
+  `net * Rate` (same rounding as `TaxComputationService`), **outside** the normal
+  `totalWithTax`/receivable-or-payable calculation — the self-charged VAT is a wash within the
+  company's own books, it doesn't change what's actually owed to/by the counterparty. The two
+  account IDs are new required fields on `CompanyAccountDefaults`
+  (`ReverseChargeInputVatAccountId`/`ReverseChargeOutputVatAccountId`, both CORE-profile, always
+  populated at company creation) — migration `AddReverseChargeAccountDefaults`. Verified live: a
+  100 EUR Google Ads bill under RC18 posted `Dr 113300 18.00 / Cr 210300 18.00` alongside the
+  unaffected `Cr 200100 100.00` / `Dr 661200 100.00` lines.
+- **R16 (storno) — `JournalEntry.Reverse(company, date, reference?)`.** Builds a mirror entry
+  with every line's Debit/Credit swapped, created **already Posted** (a storno document is final
+  the moment it's created, not Draft-then-posted-separately), and transitions the original
+  straight to `Cancelled`. `PakoDbContext.ValidateImmutability` gained a narrow carve-out
+  (`OnlyStateChangedToCancelled`) for exactly this one Posted→Cancelled transition — the same
+  discipline as the existing `ReconciledFlag` carve-out, everything else about a Posted entry
+  stays locked. New endpoint `POST .../journal-entries/{id}/reverse`
+  (`JournalEntriesController.Reverse`, `ReverseJournalEntryRequest{ Date, Reference? }`).
+  Verified live: reversing a posted RC18 bill's journal entry produced a `Posted` mirror with
+  every line's Debit/Credit swapped and set the original to `Cancelled`.
+- **R19 (BLOCK) — the one rule that's pure domain logic with zero new dependencies.**
+  `JournalEntry.Post()` now rejects a line where `OriginalCurrency`/`OriginalAmount`/
+  `ExchangeRate` are partially set (some but not all three) — a partial set can't be reconciled
+  back to the functional-currency `Debit`/`Credit`. All-three-set or all-three-null both pass.
+- **R20/R21 — a new `GET .../reports/cit-addback?from=&to=` report, not a posting-time BLOCK.**
+  Re-reading R20/R21's actual text ("forces the amount into the CIT add-back schedule
+  automatically" / "requires a limit rule reference... evaluated at year end") — these describe a
+  *reporting* concept (a CIT add-back schedule), not something that should block a posting.
+  Reuses `ReportsController`'s existing `SumsByAccountAsync` helper, splitting posted-and-summed
+  amounts by `Account.CitDeductibility`: `Non` → `NonDeductible` (full add-back, `ReportLine[]`),
+  `Limit` → `LimitFlagged` (`CitLimitFlaggedLine[]`, each carrying the account's own
+  `CitLimitRule` note text). **Does not compute or enforce the actual annual cap** (e.g. "1% of
+  gross income") — that's a real year-end tax computation this report doesn't attempt; it
+  surfaces the candidate amounts and their rule text for an accountant to apply the cap to,
+  which is as far as "evaluated at year end" can reasonably go without a fiscal-year-close
+  feature that doesn't exist yet (see R06/R15 below).
+- **R23 (finish `JournalEntry.SequenceNumber`) — extended beyond just the manual-entry path.**
+  New `Pako.Api.Services.JournalSequencer.ReserveNext(Journal)` (formats `{Prefix}-{Number}`,
+  zero-padded, increments the counter) is now called from all 5 places a `JournalEntry`
+  transitions to Posted for the first time: `JournalEntriesController.Post`/`.Reverse`,
+  `InvoicesController.Post`, `BillsController.Post`, `PayrollRunsController.Post`. Only
+  `JournalEntriesController.Post` takes a dedicated `FOR UPDATE` row lock on the `Journal` row
+  (mirroring `InvoicesController.Post`'s own lock on `Company` for invoice numbering) — the other
+  4 call sites reserve the same way but without their own lock, a **documented, narrower race
+  gap** for genuinely concurrent posts to the same journal from different document types, not
+  silently pretended safe. Verified live: 3 sequential invoice posts produced `GEN-0001`,
+  `GEN-0002`, `GEN-0003` with zero gaps.
+- **R28 (audit trail, columns-only per the brief's explicit allowance for IP) — `JournalEntry`
+  gained `PostedByUserId`, `PostedFromIp`, `SourceDocumentId`** (migration
+  `AddJournalEntryAuditColumns`; `PostedAtUtc` already covered the timestamp half). Populated on
+  the same 4 primary posting actions as R23 above (`SourceDocumentId` = the Invoice/Bill/
+  PayrollRun/original-JournalEntry's own id; null for a plain manual entry, where the
+  `JournalEntry` itself *is* the document) — **not** populated on the `RecordPayment`/
+  `ApplyCreditNote`/`ApplyDownPayment` secondary settlement/reclassification entries, an
+  acknowledged gap kept consistent with R23's identical scope boundary rather than fixing one and
+  not the other. `PostedFromIp` stays entirely unpopulated in this stage, per the brief's own
+  explicit text ("even if the IP capture comes later"). Verified live via direct `psql`:
+  `PostedByUserId`/`SourceDocumentId` correctly set on a posted bill's journal entry.
+- **R25/R26 — vacuously already satisfied, no code changed.** R25 (account codes immutable): no
+  endpoint anywhere lets `Account.Code` be edited after creation. R26 (deactivate, never delete):
+  no `Account` delete endpoint exists (same "no DELETE" gap the earlier Adversarial QA pass found
+  for `JournalEntry`) — `IsActive` exists from Stage 1 but nothing sets it yet, since there's no
+  deactivate endpoint either; that's a real product gap (an accountant can't actually deactivate
+  a stale account today) but out of "posting rules" scope, not built in this pass.
+- **R24 — flagged as a genuine conflict with a prior explicit product decision, not
+  enforced.** R24 says a credit note "must reference the original invoice." The credit-note pass
+  (see that section above) made `OriginalInvoiceId`/`OriginalBillId` nullable *by Erion's own
+  explicit instruction*, specifically to allow a standalone goodwill credit with no clean
+  originating invoice. Enforcing R24 as a hard BLOCK would silently reverse that decision. Left
+  unenforced, documented here rather than picked either way unilaterally — flag to Erion if a
+  strict reading of Kosovo VAT Law Article 47.2.3 needs to win here.
+- **Rules left as documented TODOs, matching the brief's own "prerequisite doesn't exist" list —
+  no code changed for these, nothing faked**: R06/R15 (fiscal periods/period close — only
+  `AccountingLockDate`/`TaxLockDate` exist), R11/R12 (import/DUD document type), R13/R14
+  (landed-cost/inventory), R17/R18 (fixed-asset subledger), R22 (bank statement import), R27
+  (POLICY/documentation-only, no code by definition).
+- **Test coverage**: `PostingRuleValidatorTests` (every rule's pure-function pass/fail cases),
+  `JournalEntriesControllerTests` gained 8 new tests (R02/R03/R04/R05 rejections + acceptance,
+  R16 reverse success/reject, R23 sequencing + R28's `PostedByUserId`), `JournalEntryPostingTests`
+  gained R19's 2 cases, `InvoicePostingTests`/`BillPostingTests` each gained R10's dual-line
+  case. `dotnet test Pako.slnx`: **184/184** (up from 148), zero pre-existing test logic changed.
+- **Verified end-to-end against the real API + Postgres container** (fresh `Pako.Api` process on
+  top of the applied migrations): R07 correctly blocked an RC18 bill for a tax-number-less
+  vendor and succeeded once one was set; the resulting posting showed `Dr 113300 18.00 / Cr
+  210300 18.00` with the AP/expense lines unaffected; R16 reversed that same entry into a Posted
+  mirror and set the original `Cancelled`; `PostedByUserId`/`SourceDocumentId` were correctly
+  populated; three sequential invoice posts produced gapless `GEN-0001`/`0002`/`0003`; R04/R05
+  correctly rejected manual postings to a control account and to 304100; R08/R09 correctly
+  rejected a class-mismatched VAT code and a VAT code applied directly to a control account; the
+  CIT add-back report returned a structurally correct (empty, for this test company) response.
+- **Not started / explicitly out of scope**: everything in the "documented TODOs" bullet above,
+  plus R24's enforcement decision, plus fully closing the R23/R28 gap on the settlement/
+  reclassification sub-flows. This completes every stage the implementation brief scoped
+  (Stages 1-4) to the extent each stage's own text allows — the remaining items are the ones the
+  brief itself said needed a prerequisite this repo doesn't have yet, not oversights.

@@ -66,14 +66,25 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         entry.Properties.Where(p => p.IsModified).All(p =>
             p.Metadata.Name is nameof(JournalEntryLine.ReconciledFlag) or nameof(JournalEntryLine.ReconciliationId));
 
+    // R16 (storno): JournalEntry.Reverse() transitions a Posted entry straight to Cancelled —
+    // the one Posted-state mutation this repo allows, since it's how a correction actually
+    // happens (the entry itself never gets un-posted or edited, State is the only field that
+    // moves). Everything else about a Posted entry stays locked.
+    private static bool OnlyStateChangedToCancelled(EntityEntry<JournalEntry> entry) =>
+        entry.Properties.Where(p => p.IsModified).All(p => p.Metadata.Name == nameof(JournalEntry.State)) &&
+        entry.CurrentValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Cancelled;
+
     private void ValidateImmutability()
     {
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Posted)
+            if (entry.State == EntityState.Deleted ||
+                (entry.State == EntityState.Modified && !OnlyStateChangedToCancelled(entry)))
             {
-                throw new PostedJournalEntryImmutableException(entry.Entity.Id);
+                if (entry.OriginalValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Posted)
+                {
+                    throw new PostedJournalEntryImmutableException(entry.Entity.Id);
+                }
             }
         }
 
@@ -169,10 +180,13 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     {
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Posted)
+            if (entry.State == EntityState.Deleted ||
+                (entry.State == EntityState.Modified && !OnlyStateChangedToCancelled(entry)))
             {
-                throw new PostedJournalEntryImmutableException(entry.Entity.Id);
+                if (entry.OriginalValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Posted)
+                {
+                    throw new PostedJournalEntryImmutableException(entry.Entity.Id);
+                }
             }
         }
 

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -26,6 +27,8 @@ public class InvoicesController : ControllerBase
         _db = db;
         _taxComputationService = taxComputationService;
     }
+
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
     [RequireCompanyAccess]
@@ -612,14 +615,16 @@ public class InvoicesController : ControllerBase
                 return NotFound();
             }
 
-            var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
+            var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
+
+            var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
             if (journal is null)
             {
                 return BadRequest("Company has no journal to post into.");
             }
 
-            var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
-            if (receivableAccountId == Guid.Empty)
+            var defaults = await GetAccountDefaultsAsync(companyId);
+            if (defaults is null || defaults.ReceivableAccountId == Guid.Empty)
             {
                 return BadRequest("Company has no Accounts Receivable account seeded.");
             }
@@ -629,19 +634,58 @@ public class InvoicesController : ControllerBase
                 .Where(t => t.CompanyId == companyId)
                 .ToDictionaryAsync(t => t.Id);
 
+            // 60_Posting_Rules R07/R08/R09 (BLOCK) — checked here, not at Create, for the same
+            // reason tax-definition existence itself is only checked at post time: a Draft can
+            // reference a not-yet-final tax choice, per this codebase's established pattern.
+            var lineAccountsById = await _db.Accounts.AsNoTracking()
+                .Where(a => invoice.Lines.Select(l => l.RevenueAccountId).Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id);
+            foreach (var line in invoice.Lines)
+            {
+                if (line.TaxDefinitionId is not { } taxDefId || !taxDefinitionsById.TryGetValue(taxDefId, out var taxDef) || taxDef.Code is null)
+                {
+                    continue;
+                }
+
+                var account = lineAccountsById[line.RevenueAccountId];
+                try
+                {
+                    PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, invoice.PartnerId, partner?.TaxNumber);
+                    if (taxDef.Direction is { } direction && account.Class is { } accountClass)
+                    {
+                        PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
+                    }
+                    PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
+                }
+                catch (Exception ex) when (
+                    ex is MissingCounterpartyTaxNumberException or
+                    VatDirectionAccountClassMismatchException or
+                    VatOnControlAccountException)
+                {
+                    return BadRequest(ex.Message);
+                }
+            }
+
             JournalEntry journalEntry;
             try
             {
-                journalEntry = invoice.Post(company, journal.Id, receivableAccountId, _taxComputationService, taxDefinitionsById);
+                journalEntry = invoice.Post(
+                    company, journal.Id, defaults.ReceivableAccountId, _taxComputationService, taxDefinitionsById,
+                    defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
             }
             catch (Exception ex) when (
                 ex is InvalidOperationException or
                 UnbalancedJournalEntryException or
                 AccountingLockDateViolationException or
-                TaxLockDateViolationException)
+                TaxLockDateViolationException or
+                InconsistentForeignCurrencyDataException)
             {
                 return BadRequest(ex.Message);
             }
+
+            journalEntry.PostedByUserId = CurrentUserId;
+            journalEntry.SourceDocumentId = invoice.Id;
+            journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
             _db.JournalEntries.Add(journalEntry);
             await _db.SaveChangesAsync();

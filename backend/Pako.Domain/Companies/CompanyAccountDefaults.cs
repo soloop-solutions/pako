@@ -53,4 +53,9 @@ public class CompanyAccountDefaults
 
     // 220100 Net Salaries Payable. Null unless the Payroll profile is enabled.
     public Guid? NetPayPayableAccountId { get; set; }
+
+    // 60_Posting_Rules R10 (AUTO, Stage 4): RC18 generates Dr 113300 / Cr 210300 automatically.
+    // Both CORE-profile, always present, so required like the first five roles above.
+    public Guid ReverseChargeInputVatAccountId { get; set; }
+    public Guid ReverseChargeOutputVatAccountId { get; set; }
 }

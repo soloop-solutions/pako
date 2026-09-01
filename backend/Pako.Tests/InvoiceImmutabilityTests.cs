@@ -39,7 +39,7 @@ public class InvoiceImmutabilityTests
                 }
             }
         };
-        invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), new TaxComputationService(), new Dictionary<Guid, TaxDefinition>());
+        invoice.Post(company, Guid.NewGuid(), Guid.NewGuid(), new TaxComputationService(), new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
 
         db.Companies.Add(company);
         db.Invoices.Add(invoice);

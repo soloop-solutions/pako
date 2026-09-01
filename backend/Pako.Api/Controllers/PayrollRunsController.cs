@@ -1,8 +1,10 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Ledger;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
@@ -23,6 +25,8 @@ public class PayrollRunsController : ControllerBase
         _db = db;
         _payrollCalculationService = payrollCalculationService;
     }
+
+    private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
     [RequireCompanyAccess]
@@ -127,7 +131,7 @@ public class PayrollRunsController : ControllerBase
             return NotFound();
         }
 
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
+        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
         if (journal is null)
         {
             return BadRequest("Company has no journal to post into.");
@@ -158,10 +162,15 @@ public class PayrollRunsController : ControllerBase
             ex is InvalidOperationException or
             UnbalancedJournalEntryException or
             AccountingLockDateViolationException or
-            TaxLockDateViolationException)
+            TaxLockDateViolationException or
+            InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);
         }
+
+        journalEntry.PostedByUserId = CurrentUserId;
+        journalEntry.SourceDocumentId = payrollRun.Id;
+        journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
         _db.JournalEntries.Add(journalEntry);
         await _db.SaveChangesAsync();

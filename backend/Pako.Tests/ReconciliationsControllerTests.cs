@@ -34,7 +34,7 @@ public class ReconciliationsControllerTests
             DueDate = new DateOnly(2026, 9, 25),
             Lines = { new InvoiceLine { Id = Guid.NewGuid(), Description = "Line", Quantity = 1m, UnitPrice = unitPrice, RevenueAccountId = revenueAccountId } }
         };
-        var journalEntry = invoice.Post(company, Guid.NewGuid(), receivableAccountId, TaxService, new Dictionary<Guid, TaxDefinition>());
+        var journalEntry = invoice.Post(company, Guid.NewGuid(), receivableAccountId, TaxService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
         return (invoice, journalEntry);
     }
 

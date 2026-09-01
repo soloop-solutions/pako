@@ -94,4 +94,33 @@ public class JournalEntryPostingTests
         Assert.Contains("no lines", ex.Message);
         Assert.Equal(JournalEntryState.Draft, entry.State);
     }
+
+    // 60_Posting_Rules R19 (BLOCK).
+    [Fact]
+    public void Post_LineWithPartialForeignCurrencyData_Throws()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = BalancedEntry(new DateOnly(2026, 8, 26));
+        entry.Lines[0].OriginalCurrency = "USD";
+        entry.Lines[0].OriginalAmount = 108m;
+        // ExchangeRate deliberately left unset.
+
+        var ex = Assert.Throws<InconsistentForeignCurrencyDataException>(() => entry.Post(company));
+        Assert.Equal(entry.Lines[0].Id, ex.LineId);
+        Assert.Equal(JournalEntryState.Draft, entry.State);
+    }
+
+    [Fact]
+    public void Post_LineWithCompleteForeignCurrencyData_Succeeds()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = BalancedEntry(new DateOnly(2026, 8, 26));
+        entry.Lines[0].OriginalCurrency = "USD";
+        entry.Lines[0].OriginalAmount = 108m;
+        entry.Lines[0].ExchangeRate = 0.926m;
+
+        entry.Post(company);
+
+        Assert.Equal(JournalEntryState.Posted, entry.State);
+    }
 }

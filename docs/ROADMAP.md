@@ -14,10 +14,13 @@ as historical, not current status. A new, unphased workstream is now in progress
 `Ledger` module's `Account`/`JournalEntryLine`/`Company`/`TaxDefinition` schema and seed data to
 Kosovo's Plani Kontabel v2.0 (233 accounts, replacing the 16-account placeholder chart below) —
 see `docs/ARCHITECTURE.md`'s "Plani Kontabel v2.0" note and
-`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the staged plan. Stage 1 (additive schema), Stage
-2 (seed the real 233-account chart, replace the hardcoded-account-code lookups with
-`CompanyAccountDefaults`), and Stage 3 (seed the real 20 VAT + 6 withholding codes) are done;
-Stage 4 (the 28 posting rules, storno, audit trail) is not started.
+`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the staged plan. All four stages are done: Stage 1
+(additive schema), Stage 2 (seed the real 233-account chart, replace the hardcoded-account-code
+lookups with `CompanyAccountDefaults`), Stage 3 (seed the real 20 VAT + 6 withholding codes), and
+Stage 4 (the posting rules the brief marked implementable now — storno, audit-trail columns, VAT
+posting-rule enforcement, RC18's reverse-charge posting). Rules whose prerequisite doesn't exist
+yet (fiscal periods, import documents, landed cost, fixed assets, bank reconciliation) are
+documented TODOs in CLAUDE.md's Stage 4 section, not built.
 
 ## Phase 0 — done (2026-08-26)
 
