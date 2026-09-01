@@ -19,6 +19,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     }
 
     public DbSet<Company> Companies => Set<Company>();
+    public DbSet<CompanyAccountDefaults> CompanyAccountDefaults => Set<CompanyAccountDefaults>();
     public DbSet<Firm> Firms => Set<Firm>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Partner> Partners => Set<Partner>();

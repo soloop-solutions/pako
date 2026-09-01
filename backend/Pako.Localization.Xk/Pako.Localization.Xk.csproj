@@ -4,6 +4,13 @@
     <ProjectReference Include="..\Pako.Domain\Pako.Domain.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <!-- Plani Kontabel v2.0 source of truth (COA_V2_IMPLEMENTATION_BRIEF.md Stage 2) — the
+         artifact accountants will edit, parsed at runtime by ChartOfAccountsV2Template, not
+         hand-copied into a C# collection literal. -->
+    <EmbeddedResource Include="Data\PAKO_COA_v2_seed.csv" />
+  </ItemGroup>
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>

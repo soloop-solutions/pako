@@ -14,9 +14,10 @@ as historical, not current status. A new, unphased workstream is now in progress
 `Ledger` module's `Account`/`JournalEntryLine`/`Company`/`TaxDefinition` schema and seed data to
 Kosovo's Plani Kontabel v2.0 (233 accounts, replacing the 16-account placeholder chart below) —
 see `docs/ARCHITECTURE.md`'s "Plani Kontabel v2.0" note and
-`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the staged plan. Stage 1 (additive schema only, no
-seeding) is done; Stages 2-4 (seed the chart, VAT/withholding codes, posting rules) are not
-started.
+`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the staged plan. Stage 1 (additive schema) and
+Stage 2 (seed the real 233-account chart, replace the hardcoded-account-code lookups with
+`CompanyAccountDefaults`) are both done; Stages 3-4 (VAT/withholding codes, posting rules) are
+not started.
 
 ## Phase 0 — done (2026-08-26)
 

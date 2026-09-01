@@ -44,6 +44,15 @@ public class ReportsControllerTests
             });
         }
 
+        // DefaultTaxDefinitionsTemplate's repartition lines target 210100/113100 (Plani
+        // Kontabel v2.0's VAT control accounts, COA_V2_IMPLEMENTATION_BRIEF.md Stage 2) — not
+        // in the old 16-account DefaultChartOfAccountsTemplate this test otherwise seeds from,
+        // so they're added directly.
+        accountIdsByCode["210100"] = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = accountIdsByCode["210100"], CompanyId = company.Id, Code = "210100", Name = "Output VAT - Control", AccountType = AccountType.Liability });
+        accountIdsByCode["113100"] = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = accountIdsByCode["113100"], CompanyId = company.Id, Code = "113100", Name = "Input VAT - Control", AccountType = AccountType.Asset });
+
         var taxDefinitions = DefaultTaxDefinitionsTemplate.CreateDefaultTaxDefinitions(company.Id, accountIdsByCode);
         db.TaxDefinitions.AddRange(taxDefinitions);
         var taxDefinitionsById = taxDefinitions.ToDictionary(t => t.Id);

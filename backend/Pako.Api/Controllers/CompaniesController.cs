@@ -54,11 +54,20 @@ public class CompaniesController : ControllerBase
             }
         }
 
-        var company = new Company { Id = Guid.NewGuid(), Name = request.Name, FirmId = request.FirmId };
+        var company = new Company
+        {
+            Id = Guid.NewGuid(),
+            Name = request.Name,
+            FirmId = request.FirmId,
+            EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core
+        };
         _db.Companies.Add(company);
 
+        // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 2): a fresh copy of the
+        // profile-filtered chart per company, never a shared reference — each Account row below
+        // is newly constructed, not a reused entity.
         var accountIdsByCode = new Dictionary<string, Guid>();
-        foreach (var entry in DefaultChartOfAccountsTemplate.Entries)
+        foreach (var entry in ChartOfAccountsV2Template.ForProfiles(company.EnabledProfiles))
         {
             var accountId = Guid.NewGuid();
             accountIdsByCode[entry.Code] = accountId;
@@ -67,9 +76,20 @@ public class CompaniesController : ControllerBase
                 Id = accountId,
                 CompanyId = company.Id,
                 Code = entry.Code,
-                Name = entry.Name,
-                AccountType = entry.AccountType,
-                AccountSubType = entry.AccountSubType
+                Name = entry.NameEn,
+                AccountType = AccountTypeDerivation.DeriveAccountType(entry.Class, entry.NormalBalance),
+                AccountSubType = AccountTypeDerivation.DeriveAccountSubType(entry.Subledger),
+                NameSq = entry.NameSq,
+                Class = entry.Class,
+                Group = entry.Group,
+                Statement = entry.Statement,
+                NormalBalance = entry.NormalBalance,
+                Subledger = entry.Subledger,
+                IsControl = ChartOfAccountsV2Template.ControlAccountCodes.Contains(entry.Code),
+                DefaultVatCode = entry.DefaultVatCode,
+                CitDeductibility = entry.CitDeductibility,
+                CitLimitRule = entry.CitLimitRule,
+                Profiles = entry.Profile
             });
         }
 
@@ -77,6 +97,30 @@ public class CompaniesController : ControllerBase
         {
             _db.TaxDefinitions.Add(taxDefinition);
         }
+
+        // Replaces the old lookup-by-literal-code pattern (DefaultChartOfAccountsTemplate.
+        // AccountsReceivableCode == "1200", etc.), which broke once codes became 6 digits — see
+        // CompanyAccountDefaults' own doc comment for why the payroll fields are conditional.
+        var accountDefaults = new CompanyAccountDefaults
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            ReceivableAccountId = accountIdsByCode["110100"],
+            PayableAccountId = accountIdsByCode["200100"],
+            RevenueAccountId = accountIdsByCode["400100"],
+            ExpenseAccountId = accountIdsByCode["661200"],
+            CustomerDepositsAccountId = accountIdsByCode["240300"]
+        };
+
+        if (company.EnabledProfiles.HasFlag(CompanyProfile.Payroll))
+        {
+            accountDefaults.SalaryExpenseAccountId = accountIdsByCode["600100"];
+            accountDefaults.PitPayableAccountId = accountIdsByCode["213100"];
+            accountDefaults.PensionPayableAccountId = accountIdsByCode["221100"];
+            accountDefaults.NetPayPayableAccountId = accountIdsByCode["220100"];
+        }
+
+        _db.CompanyAccountDefaults.Add(accountDefaults);
 
         _db.Journals.Add(new Journal
         {
@@ -123,5 +167,5 @@ public class CompaniesController : ControllerBase
     }
 
     private static CompanyResponse ToResponse(Company c) =>
-        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate);
+        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles);
 }

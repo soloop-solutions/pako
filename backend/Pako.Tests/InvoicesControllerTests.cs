@@ -21,15 +21,29 @@ public class InvoicesControllerTests
         var partnerId = Guid.NewGuid();
         var cashAccountId = Guid.NewGuid();
 
+        var receivableAccountId = Guid.NewGuid();
+        var revenueAccountId = Guid.NewGuid();
+        var depositsAccountId = Guid.NewGuid();
+
         db.Companies.Add(company);
         db.Partners.Add(new Partner { Id = partnerId, CompanyId = company.Id, Name = "Acme", IsCustomer = true });
         db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Cash });
-        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Receivable });
-        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
+        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4001", Name = "Other Revenue", AccountType = AccountType.Income });
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2100", Name = "VAT Payable", AccountType = AccountType.Liability });
-        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2500", Name = "Customer Deposits", AccountType = AccountType.Liability });
+        db.Accounts.Add(new Account { Id = depositsAccountId, CompanyId = company.Id, Code = "2500", Name = "Customer Deposits", AccountType = AccountType.Liability });
         db.Journals.Add(new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
+        db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            ReceivableAccountId = receivableAccountId,
+            PayableAccountId = Guid.NewGuid(),
+            RevenueAccountId = revenueAccountId,
+            ExpenseAccountId = Guid.NewGuid(),
+            CustomerDepositsAccountId = depositsAccountId
+        });
         await db.SaveChangesAsync();
 
         return (db, company.Id, partnerId, cashAccountId);

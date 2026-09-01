@@ -4,18 +4,15 @@ namespace Pako.Localization.Xk;
 
 public record ChartOfAccountsTemplateEntry(string Code, string Name, AccountType AccountType, AccountSubType AccountSubType);
 
+// Stage-0 placeholder chart, superseded for real company creation by ChartOfAccountsV2Template
+// (COA_V2_IMPLEMENTATION_BRIEF.md Stage 2) — CompaniesController.Create no longer seeds from
+// here. Kept only because Pako.Tests/ReportsControllerTests.cs still builds its own fixture
+// company from this smaller, simpler 16-account set; the *Code constants that used to be looked
+// up by InvoicesController/BillsController/PayrollRunsController/ReconciliationCreator were
+// removed as part of that Stage 2 refactor (account resolution now goes through
+// CompanyAccountDefaults, not a literal code string).
 public static class DefaultChartOfAccountsTemplate
 {
-    public const string AccountsReceivableCode = "1200";
-    public const string AccountsPayableCode = "2000";
-    public const string DefaultRevenueAccountCode = "4000";
-    public const string DefaultExpenseAccountCode = "6000";
-    public const string SalaryExpenseAccountCode = "6100";
-    public const string PitPayableAccountCode = "2200";
-    public const string PensionPayableAccountCode = "2300";
-    public const string NetPayPayableAccountCode = "2400";
-    public const string CustomerDepositsAccountCode = "2500";
-
     // Kosovo law (06/L-032) mandates IFRS/IFRS-for-SMEs categories only, not a numbered chart
     // of accounts. This numbering is a design choice for a starting seed, not a legal requirement.
     public static readonly IReadOnlyList<ChartOfAccountsTemplateEntry> Entries = new List<ChartOfAccountsTemplateEntry>

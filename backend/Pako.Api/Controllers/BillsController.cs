@@ -5,11 +5,11 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Bills;
+using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Domain.Reconciliation;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
-using Pako.Localization.Xk;
 
 namespace Pako.Api.Controllers;
 
@@ -73,15 +73,18 @@ public class BillsController : ControllerBase
             return BadRequest("Bill must have at least one line.");
         }
 
-        var accountsByCode = await _db.Accounts.AsNoTracking()
+        var validAccountIds = (await _db.Accounts.AsNoTracking()
             .Where(a => a.CompanyId == companyId)
-            .ToDictionaryAsync(a => a.Code, a => a.Id);
-        var validAccountIds = accountsByCode.Values.ToHashSet();
+            .Select(a => a.Id)
+            .ToListAsync()).ToHashSet();
 
-        if (!accountsByCode.TryGetValue(DefaultChartOfAccountsTemplate.DefaultExpenseAccountCode, out var defaultExpenseAccountId))
+        var defaults = await GetAccountDefaultsAsync(companyId);
+        if (defaults is null)
         {
-            return BadRequest("Company has no default expense account seeded.");
+            return BadRequest("Company has no account defaults seeded.");
         }
+
+        var defaultExpenseAccountId = defaults.ExpenseAccountId;
 
         var lines = new List<BillLine>();
         var total = 0m;
@@ -207,10 +210,7 @@ public class BillsController : ControllerBase
             return BadRequest("cashOrBankAccountId must be a Cash or Bank account for this company.");
         }
 
-        var payableAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsPayableCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var payableAccountId = await GetPayableAccountIdAsync(companyId);
         if (payableAccountId == Guid.Empty)
         {
             return BadRequest("Company has no Accounts Payable account seeded.");
@@ -318,10 +318,7 @@ public class BillsController : ControllerBase
             return BadRequest("creditNoteId must reference a Posted credit note for this company.");
         }
 
-        var payableAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsPayableCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var payableAccountId = await GetPayableAccountIdAsync(companyId);
 
         var creditNoteLineId = await _db.JournalEntryLines.AsNoTracking()
             .Where(l => l.JournalEntryId == creditNote.JournalEntryId && l.AccountId == payableAccountId)
@@ -381,10 +378,7 @@ public class BillsController : ControllerBase
         Guid? controlLineId = null;
         if (journalEntryId is { } jeId)
         {
-            var payableAccountId = await _db.Accounts.AsNoTracking()
-                .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsPayableCode)
-                .Select(a => a.Id)
-                .FirstOrDefaultAsync();
+            var payableAccountId = await GetPayableAccountIdAsync(companyId);
 
             if (isSourceDocument)
             {
@@ -416,6 +410,12 @@ public class BillsController : ControllerBase
     private static ReconciliationResponse ToReconciliationResponse(Reconciliation r) =>
         new(r.Id, r.InvoiceId, r.BillId, r.JournalEntryLineId, r.Amount, r.ReconciledAt);
 
+    private Task<CompanyAccountDefaults?> GetAccountDefaultsAsync(Guid companyId) =>
+        _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
+
+    private async Task<Guid> GetPayableAccountIdAsync(Guid companyId) =>
+        (await GetAccountDefaultsAsync(companyId))?.PayableAccountId ?? Guid.Empty;
+
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(writeAccess: true)]
     public async Task<ActionResult<BillResponse>> Post(Guid companyId, Guid id)
@@ -439,10 +439,7 @@ public class BillsController : ControllerBase
             return BadRequest("Company has no journal to post into.");
         }
 
-        var payableAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsPayableCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var payableAccountId = await GetPayableAccountIdAsync(companyId);
         if (payableAccountId == Guid.Empty)
         {
             return BadRequest("Company has no Accounts Payable account seeded.");

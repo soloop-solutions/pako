@@ -1644,3 +1644,117 @@ every company still gets the same 16-account chart and 5 tax definitions it alwa
   `JournalEntry.Reverse()`/storno, audit-trail columns). Do not build any of these without
   re-confirming scope first — the brief is explicit that each stage is its own commit with its
   own review checkpoint.
+
+## Plani Kontabel v2.0 migration — Stage 2: seed the chart + fix account-code coupling (2026-09-01)
+
+Company creation now seeds the real 233-account v2.0 chart (profile-filtered) instead of the old
+16-account placeholder, and every controller that used to find AR/AP/revenue/expense/payroll
+accounts by hardcoded literal code now resolves them by role through a new
+`CompanyAccountDefaults` table. Proceeded under an explicit "full autonomy, do what's best" grant
+from Erion — decisions below were made and documented, not stopped-on.
+
+- **Embedded CSV** (`backend/Pako.Localization.Xk/Data/PAKO_COA_v2_seed.csv`, `EmbeddedResource`
+  in the `.csproj`) + `ChartOfAccountsV2Template` (`Pako.Localization.Xk/ChartOfAccountsV2Template.cs`)
+  — parses it once into `Entries` via a hand-rolled RFC4180-ish line parser (handles the note
+  column's embedded commas/quotes; no CsvHelper dependency added, the file's 13-column shape is
+  fixed and small). `ForProfiles(CompanyProfile)` filters to CORE (always included, even if not
+  explicitly passed) plus whichever profiles are requested — verified this exactly reproduces
+  50_Profiles' stated counts (167/22/5/8/13/18) via `ChartOfAccountsV2TemplateTests`, not just
+  trusted.
+- **`AccountTypeDerivation`** (`Pako.Domain.Ledger/AccountTypeDerivation.cs`) — Stage 1 designed
+  this mapping without invoking it (nothing was seeded yet); this stage is its first caller.
+  `DeriveAccountType`: Class 1/2/3/4/5/6 map directly (Class 7 is the one split, by
+  `NormalBalance`, since it holds both financial income and financial expense rows).
+  `DeriveAccountSubType`: only `Bank`/`Cash` are derived (the only subtype any live code actually
+  reads); `Receivable`/`Payable` stay `None` since v2 has two control accounts per side and a
+  single subtype can no longer identify "the" one.
+- **New `CompanyAccountDefaults`** (`Pako.Domain.Companies/CompanyAccountDefaults.cs`, one row per
+  company, populated inside `CompaniesController.Create`) replaces the literal-code lookup
+  pattern the brief flagged as "the coupling itself is the bug." Nine roles:
+  `ReceivableAccountId`/`PayableAccountId`/`RevenueAccountId`/`ExpenseAccountId`/
+  `CustomerDepositsAccountId` (required — all CORE-profile, always seeded) and
+  `SalaryExpenseAccountId`/`PitPayableAccountId`/`PensionPayableAccountId`/
+  `NetPayPayableAccountId` (nullable — Payroll-profile-gated, only set if the company enabled
+  it). `PayrollRunsController.Post` now rejects with "Company has no payroll accounts configured
+  — enable the Payroll profile for this company." instead of the old per-code error, verified
+  live against a CORE-only company.
+- **Three product decisions made and documented, not silently guessed** (see
+  `CompanyAccountDefaults.cs`'s own doc comments for the full rationale):
+  1. **Receivable/Payable default to the *domestic* control account** (110100/200100, not
+     110200/200200) — `Partner` has no country/foreign flag today, so there's no signal to pick
+     the foreign variant automatically. A real per-partner domestic/foreign selection is future
+     work, not in this stage's scope.
+  2. **Revenue defaults to 400100 "Goods Sales 18%"** — v2 has no single generic revenue account
+     any more (it splits by VAT rate/scope by design), so this is the most common case, not a
+     universal default; callers can always override `revenueAccountId` per line, unchanged.
+     **Expense defaults to 661200 "Other Expenses"** — the closest v2 equivalent to the old
+     generic "Operating Expenses" catch-all.
+  3. **`PensionPayableAccountId` points at 221100 (Employee) only, and both the employee's and
+     employer's pension portions still land there** — `PayrollRun.Post()`'s posting logic is
+     unchanged in this stage (one combined credit line, same as before v2), even though v2 splits
+     employee (221100) and employer (221200) pension into two separate liability accounts.
+     Properly splitting that posting into two lines is Stage 4 (posting rules) scope, flagged
+     explicitly rather than silently left imprecise.
+- **Necessary fix, not Stage 3's work**: `DefaultTaxDefinitionsTemplate`'s
+  `VatPayableAccountCode`/`VatReceivableAccountCode` constants were repointed from the old
+  "2100"/"1300" to v2's own control accounts, "210100"/"113100" (same "Output/Input VAT -
+  Control" role) — without this, company creation would throw a `KeyNotFoundException` the
+  moment the old 16-account chart stopped being seeded, since `CreateDefaultTaxDefinitions`
+  builds its repartition lines by looking those codes up in the just-seeded chart. This keeps the
+  existing 5 tax definitions (Standard/Reduced VAT × Sales/Purchases + Exempt, still on the old
+  `TaxScope` enum per Stage 1's decision to keep it alongside `Direction`) working unchanged —
+  it's explicitly not Stage 3's real work of seeding the 20 real VAT codes from `20_VAT_Codes`.
+- **`IsControl`** is set on exactly `110100`/`110200`/`200100`/`200200` at seed time (R04's
+  control-account list), verified by `CompaniesControllerTests.Create_SeedsExactlyFourControlAccounts`
+  — not enforced against manual postings yet (that's Stage 4).
+- **A real gap in the source CSV found and handled correctly, not fudged**: 5 rows (`223100`,
+  `600700`, `640200`, `640600`, `710400`) have `CIT = LIMIT` with **no** note text at all — the
+  brief's own startup-validation ask ("every CitDeductibility = Limit row has a CitLimitRule")
+  doesn't actually hold for the real data. Seeded as `CitLimitRule = null` for those 5 rather than
+  inventing an explanation, per the brief's rule 5 ("seed it and tag it — do not guess a better
+  value"); `ChartOfAccountsV2TemplateTests` documents the exact 5 codes explicitly so this is
+  discoverable, not silently passing a weakened assertion.
+- **`CreateCompanyRequest` gained `EnabledProfiles` (optional, `CompanyProfile?`)**;
+  `CompanyResponse` gained `EnabledProfiles` (always the effective value, CORE included). No
+  other `Pako.Api` contract changed — `packages/shared`'s generated client was **not**
+  regenerated in this pass (backend-only, matching Stage 1's precedent); regenerate before any
+  frontend profile-selection UI is built, and re-check the NSwag `postN`/`balanceN`-style
+  numbering per the established gotcha.
+- **`DefaultChartOfAccountsTemplate`'s 8 `*Code` constants were removed** (`AccountsReceivableCode`,
+  `AccountsPayableCode`, `DefaultRevenueAccountCode`, `DefaultExpenseAccountCode`,
+  `SalaryExpenseAccountCode`, `PitPayableAccountCode`, `PensionPayableAccountCode`,
+  `NetPayPayableAccountCode`) — they became fully unreferenced once every controller moved to
+  `CompanyAccountDefaults`. `DefaultChartOfAccountsTemplate.Entries` itself (the 16-account list)
+  was **kept**: `Pako.Tests/ReportsControllerTests.cs` still builds its own smaller fixture
+  company from it, so it wasn't actually dead code, just its now-orphaned constants.
+- **Test fixtures updated, not rewritten**: `InvoicesControllerTests`/`BillsControllerTests`/
+  `ReconciliationsControllerTests`' shared `SeedAsync()` helpers each gained one
+  `CompanyAccountDefaults` row pointing at the same hand-built `Account` Guids they already
+  created — every test in those files inherited the fix from the one shared helper.
+  `ReportsControllerTests.SeedMixedScenario` needed two extra `Account` rows for 210100/113100
+  specifically (it seeds from the old `DefaultChartOfAccountsTemplate.Entries`, which predates
+  those codes, while still depending on `DefaultTaxDefinitionsTemplate` for its tax rows).
+  `dotnet test Pako.slnx`: **134/134** (106 Stage-1 baseline + 25 new
+  `ChartOfAccountsV2TemplateTests` + 3 new `CompaniesControllerTests`), zero pre-existing test
+  logic changed, only fixture setup extended.
+- **Verified end-to-end against the real running API + Postgres container** (killed a stale
+  `Pako.Api` process left over from an earlier session serving the pre-Stage-2 binary, same
+  gotcha documented earlier in this file): registered a user, created a company with `Import` +
+  `Payroll` profiles requested (`enabledProfiles: 16` in the request, `17` in the response —
+  Core's bit correctly OR'd in) → **180 accounts** seeded (167 + 13, exactly 50_Profiles' stated
+  counts) → posted a 1000/18%-VAT invoice, confirmed via direct `psql` against the journal entry
+  lines that it hit **110100** (not the old "1200"), **400100**, and **210100** — not asserted,
+  actually queried → posted a 400/18%-VAT bill, confirmed it hit **200100**, **661200**,
+  **113100** → recorded a full payment via `record-payment`, confirmed the reconciliation and
+  zeroed balance → ran and posted payroll for a 500-gross employee, confirmed the posted lines
+  hit **213100**/**220100**/**221100**/**600100** with the exact combined-pension amount (50.00 =
+  25 employee + 25 employer, the known Stage-4-deferred imprecision, confirmed present as
+  documented, not accidentally split) → created a second, CORE-only company and confirmed payroll
+  posting on it cleanly rejects with the new configured-profile message → pulled the trial
+  balance for the full test company and confirmed total debit == total credit (3357.00 both
+  sides) after all of the above postings. `dotnet build`/`dotnet test` both clean throughout.
+- **Not started**: Stage 3 (seed the real 20 VAT codes + withholding codes, `RC18`
+  auto-reverse-charge posting, migrate `ReportsController`/frontend off `TaxScope` onto
+  `Direction`), Stage 4 (the 28 posting rules, `JournalEntry.Reverse()`/storno, audit-trail
+  columns, properly splitting the combined pension posting line). Do not build any of these
+  without re-confirming scope first.

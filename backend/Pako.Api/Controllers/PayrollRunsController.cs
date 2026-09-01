@@ -133,23 +133,14 @@ public class PayrollRunsController : ControllerBase
             return BadRequest("Company has no journal to post into.");
         }
 
-        var accountsByCode = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId)
-            .ToDictionaryAsync(a => a.Code, a => a.Id);
-
-        string[] requiredCodes =
+        var defaults = await _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
+        if (defaults is null ||
+            defaults.SalaryExpenseAccountId is null ||
+            defaults.PitPayableAccountId is null ||
+            defaults.PensionPayableAccountId is null ||
+            defaults.NetPayPayableAccountId is null)
         {
-            DefaultChartOfAccountsTemplate.SalaryExpenseAccountCode,
-            DefaultChartOfAccountsTemplate.PitPayableAccountCode,
-            DefaultChartOfAccountsTemplate.PensionPayableAccountCode,
-            DefaultChartOfAccountsTemplate.NetPayPayableAccountCode
-        };
-        foreach (var code in requiredCodes)
-        {
-            if (!accountsByCode.ContainsKey(code))
-            {
-                return BadRequest($"Company has no {code} account seeded.");
-            }
+            return BadRequest("Company has no payroll accounts configured — enable the Payroll profile for this company.");
         }
 
         JournalEntry journalEntry;
@@ -158,10 +149,10 @@ public class PayrollRunsController : ControllerBase
             journalEntry = payrollRun.Post(
                 company,
                 journal.Id,
-                accountsByCode[DefaultChartOfAccountsTemplate.SalaryExpenseAccountCode],
-                accountsByCode[DefaultChartOfAccountsTemplate.PitPayableAccountCode],
-                accountsByCode[DefaultChartOfAccountsTemplate.PensionPayableAccountCode],
-                accountsByCode[DefaultChartOfAccountsTemplate.NetPayPayableAccountCode]);
+                defaults.SalaryExpenseAccountId.Value,
+                defaults.PitPayableAccountId.Value,
+                defaults.PensionPayableAccountId.Value,
+                defaults.NetPayPayableAccountId.Value);
         }
         catch (Exception ex) when (
             ex is InvalidOperationException or

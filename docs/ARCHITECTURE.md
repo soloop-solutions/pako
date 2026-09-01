@@ -96,27 +96,40 @@ lives in `Pako.Infrastructure`). Status as of 2026-08-26 noted per module.
 - Not yet implemented: numbering-sequence generation (gapless/monotonic per journal), hash
   computation. Reserved, inert, per below.
 
-**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — Stage 1 schema landed
-2026-09-01, seeding not yet done.** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full
-staged plan (this repo's copy: not yet moved into `docs/`, still in the user's Downloads folder
-alongside the two source files it names — the workbook and CSV that are its actual source of
-truth). `Account` gained `NameSq`, `Class`/`Group` (6-digit-code class/group, with a DB CHECK
-constraint enforcing `Code`'s first digit/two digits match them — NULL-tolerant, since the
-existing 16-account legacy template above has none of this data), `Statement`, `NormalBalance`,
-`Subledger`, `IsControl`, `IsPostable`, `DefaultVatCode`, `CitDeductibility`, `CitLimitRule`,
-`Profiles`, `IsActive`, `ValidFrom`/`ValidTo`. `JournalEntryLine` gained `CostCenterId` (new
-company-scoped `CostCenter` entity) and `OriginalCurrency`/`OriginalAmount`/`ExchangeRate` for
-multi-currency lines (`Debit`/`Credit` stay in functional currency). `Company` gained
-`FunctionalCurrency` (default EUR) and `EnabledProfiles` (default Core). `TaxDefinition` gained
-`Direction`/`DeductiblePercent`/`IsReverseCharge`/`AtkBook`/`Code` **alongside** the existing
-`TaxScope` — deliberately not a replacement yet, since `ReportsController.VatReturn` and the
-frontend's `tax-enums.ts` still key off `Scope`, and the 5 existing seeded `TaxDefinition` rows
-have no v2.0 code data until a later stage reseeds from `20_VAT_Codes`/`21_WHT_Codes`.
-`AccountType`/`AccountSubType` above are untouched and **not yet derived** from the new fields —
-that derivation (Class+NormalBalance → AccountType, Subledger → AccountSubType for Bank/Cash
-only) is designed but only gets invoked once the 233-row chart is actually seeded. No seeding
-happened in this stage; the 16-account `DefaultChartOfAccountsTemplate` above is still what every
-company actually gets.
+**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — Stage 1 schema
+(2026-09-01) and Stage 2 seeding + account-role resolution (2026-09-01) both landed; Stages 3-4
+not started.** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan (this
+repo's copy: not yet moved into `docs/`, still in the user's Downloads folder alongside the two
+source files it names — the workbook and CSV that are its actual source of truth). `Account`
+gained `NameSq`, `Class`/`Group` (6-digit-code class/group, with a DB CHECK constraint enforcing
+`Code`'s first digit/two digits match them — NULL-tolerant, since the old 16-account legacy
+template has none of this data), `Statement`, `NormalBalance`, `Subledger`, `IsControl`,
+`IsPostable`, `DefaultVatCode`, `CitDeductibility`, `CitLimitRule`, `Profiles`, `IsActive`,
+`ValidFrom`/`ValidTo`. `JournalEntryLine` gained `CostCenterId` (new company-scoped `CostCenter`
+entity, not yet seeded) and `OriginalCurrency`/`OriginalAmount`/`ExchangeRate` for multi-currency
+lines (`Debit`/`Credit` stay in functional currency). `Company` gained `FunctionalCurrency`
+(default EUR) and `EnabledProfiles` (default Core, settable via `CreateCompanyRequest` since
+Stage 2). `TaxDefinition` gained `Direction`/`DeductiblePercent`/`IsReverseCharge`/`AtkBook`/
+`Code` **alongside** the existing `TaxScope` — deliberately not a replacement yet, since
+`ReportsController.VatReturn` and the frontend's `tax-enums.ts` still key off `Scope`, and the 5
+existing seeded `TaxDefinition` rows have no v2.0 code data until Stage 3 reseeds from
+`20_VAT_Codes`/`21_WHT_Codes`.
+
+**Stage 2 (2026-09-01)**: `CompaniesController.Create` now seeds the real 233-row chart (embedded
+CSV, `Pako.Localization.Xk.ChartOfAccountsV2Template`, profile-filtered per company — CORE plus
+whatever's requested) instead of the old 16-account `DefaultChartOfAccountsTemplate` above, which
+is now only a smaller fixture some domain tests still build against, not what real companies get.
+`AccountType`/`AccountSubType` are now derived at seed time via
+`Pako.Domain.Ledger.AccountTypeDerivation` (Class+NormalBalance → AccountType, Subledger →
+AccountSubType for Bank/Cash only — Stage 1 designed this, Stage 2 is its first caller). A new
+`CompanyAccountDefaults` table (one row per company) replaces the old hardcoded-account-code
+lookup pattern in `InvoicesController`/`BillsController`/`PayrollRunsController`/
+`ReconciliationCreator` — 5 required roles (Receivable/Payable/Revenue/Expense/CustomerDeposits,
+all CORE-profile) plus 4 Payroll-profile-gated nullable ones
+(SalaryExpense/PitPayable/PensionPayable/NetPayPayable). Full rationale for the domestic-vs-
+foreign AR/AP default, the 400100/661200 revenue/expense defaults, and the known
+combined-employee-employer-pension-posting imprecision (Stage 4 to properly split) is in
+CLAUDE.md's Stage 2 section, not repeated here.
 
 ### Hash-chain / immutability reservation (per Odoo's `inalterable_hash` pattern) — **columns
 reserved, computation not yet active**

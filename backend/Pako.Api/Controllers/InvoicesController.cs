@@ -7,9 +7,9 @@ using Pako.Api.Services;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Reconciliation;
+using Pako.Domain.Companies;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
-using Pako.Localization.Xk;
 
 namespace Pako.Api.Controllers;
 
@@ -73,25 +73,23 @@ public class InvoicesController : ControllerBase
             return BadRequest("Invoice must have at least one line.");
         }
 
-        var accountsByCode = await _db.Accounts.AsNoTracking()
+        var validAccountIds = (await _db.Accounts.AsNoTracking()
             .Where(a => a.CompanyId == companyId)
-            .ToDictionaryAsync(a => a.Code, a => a.Id);
-        var validAccountIds = accountsByCode.Values.ToHashSet();
+            .Select(a => a.Id)
+            .ToListAsync()).ToHashSet();
 
-        if (!accountsByCode.TryGetValue(DefaultChartOfAccountsTemplate.DefaultRevenueAccountCode, out var defaultRevenueAccountId))
+        var defaults = await GetAccountDefaultsAsync(companyId);
+        if (defaults is null)
         {
-            return BadRequest("Company has no default revenue account seeded.");
+            return BadRequest("Company has no account defaults seeded.");
         }
+
+        var defaultRevenueAccountId = defaults.RevenueAccountId;
 
         // A down-payment invoice must credit a liability account (deposits aren't earned revenue
         // yet), not the normal Revenue account — forced here regardless of any RevenueAccountId
         // the caller supplies per line, so the accounting can't be steered wrong.
-        var depositsAccountId = Guid.Empty;
-        if (request.DocumentType == DocumentType.DownPayment &&
-            !accountsByCode.TryGetValue(DefaultChartOfAccountsTemplate.CustomerDepositsAccountCode, out depositsAccountId))
-        {
-            return BadRequest("Company has no Customer Deposits account seeded.");
-        }
+        var depositsAccountId = defaults.CustomerDepositsAccountId;
 
         var lines = new List<InvoiceLine>();
         var total = 0m;
@@ -220,10 +218,7 @@ public class InvoicesController : ControllerBase
             return BadRequest("cashOrBankAccountId must be a Cash or Bank account for this company.");
         }
 
-        var receivableAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
         if (receivableAccountId == Guid.Empty)
         {
             return BadRequest("Company has no Accounts Receivable account seeded.");
@@ -334,10 +329,7 @@ public class InvoicesController : ControllerBase
             return BadRequest("creditNoteId must reference a Posted credit note for this company.");
         }
 
-        var receivableAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
 
         var creditNoteLineId = await _db.JournalEntryLines.AsNoTracking()
             .Where(l => l.JournalEntryId == creditNote.JournalEntryId && l.AccountId == receivableAccountId)
@@ -433,20 +425,15 @@ public class InvoicesController : ControllerBase
             return BadRequest("downPaymentInvoiceId must reference a Posted down-payment invoice for this company.");
         }
 
-        var receivableAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var defaults = await GetAccountDefaultsAsync(companyId);
+        if (defaults is null)
+        {
+            return BadRequest("Company has no account defaults seeded.");
+        }
 
-        var depositsAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.CustomerDepositsAccountCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
-
-        var revenueAccountId = await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.DefaultRevenueAccountCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
+        var receivableAccountId = defaults.ReceivableAccountId;
+        var depositsAccountId = defaults.CustomerDepositsAccountId;
+        var revenueAccountId = defaults.RevenueAccountId;
 
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
         if (journal is null)
@@ -553,10 +540,7 @@ public class InvoicesController : ControllerBase
         Guid? controlLineId = null;
         if (journalEntryId is { } jeId)
         {
-            var receivableAccountId = await _db.Accounts.AsNoTracking()
-                .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
-                .Select(a => a.Id)
-                .FirstOrDefaultAsync();
+            var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
 
             if (isSourceDocument)
             {
@@ -587,6 +571,12 @@ public class InvoicesController : ControllerBase
 
     private static ReconciliationResponse ToReconciliationResponse(Reconciliation r) =>
         new(r.Id, r.InvoiceId, r.BillId, r.JournalEntryLineId, r.Amount, r.ReconciledAt);
+
+    private Task<CompanyAccountDefaults?> GetAccountDefaultsAsync(Guid companyId) =>
+        _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
+
+    private async Task<Guid> GetReceivableAccountIdAsync(Guid companyId) =>
+        (await GetAccountDefaultsAsync(companyId))?.ReceivableAccountId ?? Guid.Empty;
 
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(writeAccess: true)]
@@ -628,10 +618,7 @@ public class InvoicesController : ControllerBase
                 return BadRequest("Company has no journal to post into.");
             }
 
-            var receivableAccountId = await _db.Accounts.AsNoTracking()
-                .Where(a => a.CompanyId == companyId && a.Code == DefaultChartOfAccountsTemplate.AccountsReceivableCode)
-                .Select(a => a.Id)
-                .FirstOrDefaultAsync();
+            var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
             if (receivableAccountId == Guid.Empty)
             {
                 return BadRequest("Company has no Accounts Receivable account seeded.");

@@ -11,8 +11,15 @@ public record TaxDefinitionTemplateEntry(string Name, decimal Rate, TaxType Type
 // post to.
 public static class DefaultTaxDefinitionsTemplate
 {
-    public const string VatPayableAccountCode = "2100";
-    public const string VatReceivableAccountCode = "1300";
+    // Repointed at Plani Kontabel v2.0's control accounts (COA_V2_IMPLEMENTATION_BRIEF.md Stage
+    // 2, 10_COA_Master) — "2100"/"1300" were the old 16-account placeholder chart's codes, which
+    // company creation no longer seeds once Stage 2 lands. 210100 "Output VAT - Control" and
+    // 113100 "Input VAT - Control" are v2's direct equivalents (same "Was VAT18 - now NA. Summary/
+    // control only" role), both CORE-profile so always present. This is the minimum necessary to
+    // keep these 5 existing tax definitions functional against the new chart — not Stage 3's
+    // actual work of seeding the real 20 VAT codes from 20_VAT_Codes.
+    public const string VatPayableAccountCode = "210100";
+    public const string VatReceivableAccountCode = "113100";
 
     public static readonly IReadOnlyList<TaxDefinitionTemplateEntry> Entries = new List<TaxDefinitionTemplateEntry>
     {

@@ -4,7 +4,6 @@ using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Reconciliation;
 using Pako.Infrastructure;
-using Pako.Localization.Xk;
 
 namespace Pako.Api.Services;
 
@@ -42,11 +41,13 @@ public static class ReconciliationCreator
                 Error: "Invalid settlement journal entry line for this company.");
         }
 
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
+
         Guid documentId;
         Guid documentPartnerId;
         Guid? documentJournalEntryId;
         bool documentIsPosted;
-        string controlAccountCode;
+        Guid controlAccountId;
 
         if (invoiceId is { } invId)
         {
@@ -60,7 +61,7 @@ public static class ReconciliationCreator
             documentPartnerId = invoice.PartnerId;
             documentJournalEntryId = invoice.JournalEntryId;
             documentIsPosted = invoice.State == InvoiceState.Posted;
-            controlAccountCode = DefaultChartOfAccountsTemplate.AccountsReceivableCode;
+            controlAccountId = defaults?.ReceivableAccountId ?? Guid.Empty;
         }
         else
         {
@@ -74,13 +75,8 @@ public static class ReconciliationCreator
             documentPartnerId = bill.PartnerId;
             documentJournalEntryId = bill.JournalEntryId;
             documentIsPosted = bill.State == BillState.Posted;
-            controlAccountCode = DefaultChartOfAccountsTemplate.AccountsPayableCode;
+            controlAccountId = defaults?.PayableAccountId ?? Guid.Empty;
         }
-
-        var controlAccountId = await db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.Code == controlAccountCode)
-            .Select(a => a.Id)
-            .FirstOrDefaultAsync();
 
         var documentTotal = 0m;
         if (documentJournalEntryId is { } journalEntryId)
