@@ -1534,3 +1534,113 @@ front, `ComputeBalanceAsync` branches internally on `DocumentType`.
   101 to 106 (5 new tests: credit-note-own-balance and down-payment-own-balance for Invoicing,
   credit-note-own-balance for Bills, plus one explicit regression pin each for a normal Invoice and
   a normal Bill's `.../balance` going through the unchanged `isSourceDocument = false` path).
+
+## Plani Kontabel v2.0 (Kosovo standard chart of accounts) migration — Stage 1: schema (2026-09-01)
+
+First stage of a staged migration replacing the 16-account placeholder chart with Kosovo's real
+233-account standard chart. Source of truth and full staged plan:
+`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` (not yet moved into `docs/` — still sitting in the
+user's Downloads folder alongside its two named source files, `PAKO_Plani_Kontabel_v2.xlsx` (12
+sheets) and `PAKO_COA_v2_seed.csv` (233 rows), which are the actual source of truth for every
+value referenced below). **This stage is schema only — no seeding, no posting rules, no
+behavior change.** `DefaultChartOfAccountsTemplate`/`DefaultTaxDefinitionsTemplate` are untouched;
+every company still gets the same 16-account chart and 5 tax definitions it always has.
+
+- **One correction to the brief before implementing it**: `10_COA_Master`'s `Stmt` column is
+  `BS`/`IS` (Balance Sheet / Income Statement), not `BS`/`PL` as an earlier draft of the brief
+  said — verified against all 233 rows, only those two literals appear. Used `IS`, not `PL`.
+- **New enums**, member sets verified against the CSV's actual distinct values (not the brief's
+  prose, which is occasionally imprecise per the correction above): `AccountStatement`
+  (`BalanceSheet, IncomeStatement`), `NormalBalance` (`Debit, Credit`), `SubledgerType` (`None,
+  Partner, Item, Asset, Employee, Bank, Cash, Tax, Customs`), `CitDeductibility` (`Full, Limit,
+  Non, Na`) — all in `Pako.Domain.Ledger` (`Account.cs`). `CompanyProfile` (`[Flags]`: `None=0,
+  Core=1, Import=2, Mfg=4, Serv=8, Payroll=16, IfrsPlus=32`) is in `Pako.Domain.Companies`
+  (`Company.cs`), shared by `Account.Profiles` and `Company.EnabledProfiles` — `Ledger` already
+  depends on `Companies` (`JournalEntry.Post(Company)`), so this added no new project dependency.
+  `TaxDirection` (`Out, In, Imp, Rc, None`) and `TaxAtkBook` (`Shitje, Blerje, BlerjeImport,
+  BlerjeInvestime, None`) are in `Pako.Domain.Tax` (`TaxDefinition.cs`).
+- **New entity `CostCenter`** (`Pako.Domain.Ledger/CostCenter.cs`): `{ Id, CompanyId, Code, Name,
+  NameEn, Profile }`, company-scoped like `Account`/`Journal`/`TaxDefinition`. Referenced by the
+  new `JournalEntryLine.CostCenterId` (nullable `Guid`, no DB-level FK — same convention already
+  used for `JournalEntryLine.PartnerId`/`TaxId`, which also have no FK constraint, app-level
+  validation only). **Zero rows seeded in this stage** — the 12 standard cost centers from
+  `40_Cost_Centers` land in Stage 2 alongside the chart.
+- **`Account` gained**: `NameSq`, `Class`, `Group`, `Statement`, `NormalBalance`, `Subledger`,
+  `IsControl` (default false), `IsPostable` (default true), `DefaultVatCode`, `CitDeductibility`,
+  `CitLimitRule`, `Profiles` (default `CompanyProfile.None`), `IsActive` (default true),
+  `ValidFrom`/`ValidTo`. **Design principle applied to every one of these except `Profiles`/
+  `IsControl`/`IsPostable`/`IsActive`: nullable.** The live dev Postgres container already has
+  real `Account` rows (854 of them across every company created in every prior session) from the
+  legacy 16-account template, which has no v2.0 classification data at all — inventing values for
+  them would violate the brief's own "never invent a value not in the source files" rule, so
+  nullable + a NULL-tolerant CHECK constraint was the only genuinely additive option. `Profiles`
+  is the one flags-enum exception: `None` (0) is itself a real, meaningful value for a flags type,
+  not a sentinel standing in for missing data, so it stays non-nullable.
+- **The class/group invariant is a real DB CHECK constraint**, not just app-level validation:
+  `ck_accounts_code_class_group` on `accounts`, `NULL`-tolerant on `Class`/`Group` so the 854
+  existing legacy rows pass vacuously, otherwise requiring `Code`'s first digit == `Class` and
+  first two digits == `Group` (zero-padded). **Verified three ways against the real Postgres
+  container** (not just InMemory, which enforces no constraints at all — same testing gap the
+  brief's own Testing section flags, addressed here the same way every prior constraint in this
+  repo was addressed: manual verification against the real container, not a Testcontainers
+  migration, which would be its own separate piece of work): (1) a violating insert (`Class=1`,
+  `Code="210300"`) correctly rejected; (2) a matching insert (`Class=2, Group=21,
+  Code="210300"`) correctly accepted; (3) **all 233 real rows from `PAKO_COA_v2_seed.csv`**
+  inserted inside a `BEGIN`/`ROLLBACK` transaction against the live container — zero constraint
+  violations, then rolled back with zero trace left in the DB — proving Stage 2's eventual real
+  seed won't be blocked by this constraint, without actually seeding anything in this stage.
+- **`JournalEntryLine` gained**: `CostCenterId`, `OriginalCurrency` (`char(3)`),
+  `OriginalAmount` (`numeric(18,2)`, matching `Debit`/`Credit`), `ExchangeRate`
+  (`numeric(18,6)` — more precision than the money columns; this precision choice is this pass's
+  own engineering call, not sourced from either source file). All nullable, zero backfill risk.
+  `Debit`/`Credit` stay in functional currency (R19) — `OriginalAmount`/`ExchangeRate` only record
+  the foreign-currency facts alongside them.
+- **`Company` gained**: `FunctionalCurrency` (`string`, default `"EUR"` — safe non-nullable
+  default, every existing company is already implicitly EUR) and `EnabledProfiles`
+  (`CompanyProfile`, default `Core` — safe, "CORE is always on" is stated in the source itself,
+  not a guess).
+- **`TaxDefinition` gained `Direction`/`DeductiblePercent`/`IsReverseCharge`/`AtkBook`/`Code`
+  *alongside* the existing `TaxScope`, not replacing it** — a deliberate deviation from the
+  brief's literal "Replace `TaxScope`" instruction, confirmed with Erion before implementing.
+  Reason: `TaxScope` is still what `ReportsController.VatReturn` (Output vs Input VAT split) and
+  the frontend's `apps/web/src/lib/tax-enums.ts` key off, and the 5 existing seeded
+  `TaxDefinition` rows (`DefaultTaxDefinitionsTemplate`) have no v2.0 `Direction`/`Code` data
+  until a later stage actually reseeds from `20_VAT_Codes`/`21_WHT_Codes` — deleting `Scope` now
+  would break real behavior for no benefit in a schema-only stage. `DeductiblePercent` is
+  `decimal?`, not defaulted to 0: `20_VAT_Codes` uses `-` for "not applicable" on every
+  OUT/NONE-direction code, which is semantically different from an actual 0% — collapsing them
+  would have been a silent data-modeling error. `Code` has a unique index on `(CompanyId, Code)`;
+  Postgres unique indexes treat multiple `NULL`s as distinct, so the 5 untouched existing rows
+  don't collide with each other.
+- **`Account.DefaultVatCode` is a plain string, not a DB foreign key** — deliberately: there's no
+  VAT-code table with real rows to reference until Stage 3 seeds `20_VAT_Codes`, and `Account`
+  itself has no v2.0 data until Stage 2. A hard FK between two not-yet-populated datasets would
+  have been premature for a schema-only stage.
+- **`AccountType`/`AccountSubType` (the existing 5-value enums) are untouched, and the
+  Class/Subledger → AccountType/AccountSubType derivation is designed but not implemented or
+  invoked anywhere yet** — there's nothing to seed against in this stage. The rule, verified
+  against every row in the CSV so Stage 2 can rely on it: `Class 1/2/3` → `Asset/Liability/Equity`
+  regardless of normal balance (contra accounts, e.g. accumulated depreciation, net correctly
+  since `ReportsController` nets each `AccountType` bucket by its own normal-balance sign
+  already); `Class 4` → `Income` (including the one debit-normal contra-revenue row, 400900);
+  `Class 5`/`6` → `Expense` (every row in those classes is debit-normal, confirmed); `Class 7` is
+  the one genuine split, by `NormalBalance` alone (credit rows 700100/200/300 → `Income`, debit
+  rows 710100...720200 → `Expense`) — verified individually against all 9 Class-7 rows.
+  `AccountSubType`: `Subledger == Bank/Cash` → `Bank/Cash` (the only subtype actually consumed by
+  live code, in `InvoicesController`/`BillsController`'s record-payment validation), everything
+  else → `None` — deliberately not attempting to map `Partner`-subledger control accounts to
+  `Receivable`/`Payable`, since that subtype isn't used by any real logic today (only by test
+  fixtures) and the brief itself flags "resolve AR/AP by role, not hardcoded code" as separate
+  Stage 2 work this shouldn't preempt.
+- **Migration**: `AddCoaV2Schema`, applied and verified against the real Postgres container on
+  port 5433 (854 pre-existing `Account` rows across every prior session's test companies remained
+  valid post-migration — confirms the nullable-everywhere approach was necessary, not just
+  theoretically safer). `dotnet test Pako.slnx`: 106/106, unchanged — no existing behavior
+  touched. No frontend changes: no `Pako.Api` controller/DTO/OpenAPI surface changed in this
+  stage, so `packages/shared`'s generated client needed no regeneration.
+- **Not started**: Stage 2 (seed the 233-row chart as an embedded CSV resource, fix the
+  hardcoded-account-code-lookup pattern in `InvoicesController`/`BillsController`), Stage 3 (VAT/
+  withholding codes, `RC18` auto-reverse-charge posting), Stage 4 (the 28 posting rules,
+  `JournalEntry.Reverse()`/storno, audit-trail columns). Do not build any of these without
+  re-confirming scope first — the brief is explicit that each stage is its own commit with its
+  own review checkpoint.

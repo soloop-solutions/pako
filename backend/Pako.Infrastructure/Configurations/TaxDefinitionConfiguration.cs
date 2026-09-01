@@ -17,5 +17,10 @@ public class TaxDefinitionConfiguration : IEntityTypeConfiguration<TaxDefinition
             .WithOne(r => r.TaxDefinition)
             .HasForeignKey(r => r.TaxDefinitionId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.Property(t => t.DeductiblePercent).HasColumnType("numeric(5,2)");
+        builder.Property(t => t.IsReverseCharge).HasDefaultValue(false);
+        builder.Property(t => t.Code).HasMaxLength(16);
+        builder.HasIndex(t => new { t.CompanyId, t.Code }).IsUnique();
     }
 }

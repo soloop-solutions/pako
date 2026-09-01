@@ -8,6 +8,16 @@ sooner it has a real compliance story to sell against ProData/Kubit/Bilanci; (3)
 inherently a multi-month build even scoped tightly — sequencing can't shortcut that, only avoid
 wasting the months.
 
+**2026-09-01 note**: this doc's phasing predates `Tax`/`Invoicing`/`Bills`/`Reconciliation`/
+`Payroll` all being built ahead of their Phase 2-4 slots (see `CLAUDE.md`) — treat phase numbers
+as historical, not current status. A new, unphased workstream is now in progress: migrating the
+`Ledger` module's `Account`/`JournalEntryLine`/`Company`/`TaxDefinition` schema and seed data to
+Kosovo's Plani Kontabel v2.0 (233 accounts, replacing the 16-account placeholder chart below) —
+see `docs/ARCHITECTURE.md`'s "Plani Kontabel v2.0" note and
+`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the staged plan. Stage 1 (additive schema only, no
+seeding) is done; Stages 2-4 (seed the chart, VAT/withholding codes, posting rules) are not
+started.
+
 ## Phase 0 — done (2026-08-26)
 
 - Repo scaffolded, renamed Kudo Books -> **PAKO** (final name, matches kudofatura-mobile's

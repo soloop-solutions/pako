@@ -14,5 +14,10 @@ public class JournalEntryLineConfiguration : IEntityTypeConfiguration<JournalEnt
         builder.Property(l => l.Credit).HasColumnType("numeric(18,2)");
         builder.Property(l => l.Description).HasMaxLength(512);
         builder.HasIndex(l => l.AccountId);
+
+        builder.Property(l => l.OriginalCurrency).HasMaxLength(3);
+        builder.Property(l => l.OriginalAmount).HasColumnType("numeric(18,2)");
+        builder.Property(l => l.ExchangeRate).HasColumnType("numeric(18,6)");
+        builder.HasIndex(l => l.CostCenterId);
     }
 }

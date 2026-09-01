@@ -96,6 +96,28 @@ lives in `Pako.Infrastructure`). Status as of 2026-08-26 noted per module.
 - Not yet implemented: numbering-sequence generation (gapless/monotonic per journal), hash
   computation. Reserved, inert, per below.
 
+**Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — Stage 1 schema landed
+2026-09-01, seeding not yet done.** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full
+staged plan (this repo's copy: not yet moved into `docs/`, still in the user's Downloads folder
+alongside the two source files it names — the workbook and CSV that are its actual source of
+truth). `Account` gained `NameSq`, `Class`/`Group` (6-digit-code class/group, with a DB CHECK
+constraint enforcing `Code`'s first digit/two digits match them — NULL-tolerant, since the
+existing 16-account legacy template above has none of this data), `Statement`, `NormalBalance`,
+`Subledger`, `IsControl`, `IsPostable`, `DefaultVatCode`, `CitDeductibility`, `CitLimitRule`,
+`Profiles`, `IsActive`, `ValidFrom`/`ValidTo`. `JournalEntryLine` gained `CostCenterId` (new
+company-scoped `CostCenter` entity) and `OriginalCurrency`/`OriginalAmount`/`ExchangeRate` for
+multi-currency lines (`Debit`/`Credit` stay in functional currency). `Company` gained
+`FunctionalCurrency` (default EUR) and `EnabledProfiles` (default Core). `TaxDefinition` gained
+`Direction`/`DeductiblePercent`/`IsReverseCharge`/`AtkBook`/`Code` **alongside** the existing
+`TaxScope` — deliberately not a replacement yet, since `ReportsController.VatReturn` and the
+frontend's `tax-enums.ts` still key off `Scope`, and the 5 existing seeded `TaxDefinition` rows
+have no v2.0 code data until a later stage reseeds from `20_VAT_Codes`/`21_WHT_Codes`.
+`AccountType`/`AccountSubType` above are untouched and **not yet derived** from the new fields —
+that derivation (Class+NormalBalance → AccountType, Subledger → AccountSubType for Bank/Cash
+only) is designed but only gets invoked once the 233-row chart is actually seeded. No seeding
+happened in this stage; the 16-account `DefaultChartOfAccountsTemplate` above is still what every
+company actually gets.
+
 ### Hash-chain / immutability reservation (per Odoo's `inalterable_hash` pattern) — **columns
 reserved, computation not yet active**
 

@@ -12,5 +12,8 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.HasKey(c => c.Id);
         builder.Property(c => c.Name).IsRequired().HasMaxLength(256);
         builder.HasOne<Firm>().WithMany().HasForeignKey(c => c.FirmId).OnDelete(DeleteBehavior.SetNull);
+
+        builder.Property(c => c.FunctionalCurrency).IsRequired().HasMaxLength(3).HasDefaultValue("EUR");
+        builder.Property(c => c.EnabledProfiles).HasDefaultValue(CompanyProfile.Core);
     }
 }

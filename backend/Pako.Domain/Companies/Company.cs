@@ -1,5 +1,20 @@
 namespace Pako.Domain.Companies;
 
+// 50_Profiles: which activation profile(s) a company/account belongs to. CORE is always on
+// for every company (per that sheet's own text) and is included in every seeded account of
+// group CORE, so it's the safe default rather than None.
+[Flags]
+public enum CompanyProfile
+{
+    None = 0,
+    Core = 1,
+    Import = 2,
+    Mfg = 4,
+    Serv = 8,
+    Payroll = 16,
+    IfrsPlus = 32
+}
+
 public class Company
 {
     public Guid Id { get; set; }
@@ -11,6 +26,10 @@ public class Company
     public int NextCreditNoteNumber { get; set; } = 1;
     public int NextDebitNoteNumber { get; set; } = 1;
     public int NextDownPaymentNumber { get; set; } = 1;
+
+    // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 1, R01 / 50_Profiles).
+    public string FunctionalCurrency { get; set; } = "EUR";
+    public CompanyProfile EnabledProfiles { get; set; } = CompanyProfile.Core;
 
     // Kosovo VAT Law Article 45/56 requires invoice numbering to be gapless and strictly
     // monotonic per company. This mints the number and advances the counter together so a

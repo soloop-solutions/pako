@@ -26,6 +26,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Journal> Journals => Set<Journal>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
+    public DbSet<CostCenter> CostCenters => Set<CostCenter>();
     public DbSet<TaxDefinition> TaxDefinitions => Set<TaxDefinition>();
     public DbSet<TaxRepartitionLine> TaxRepartitionLines => Set<TaxRepartitionLine>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
