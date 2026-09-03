@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import type { AccountResponse, JournalEntryResponse, JournalResponse, TrialBalanceLine } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -11,6 +12,7 @@ import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
 import { JournalEntryForm } from "@/pages/ledger/JournalEntryForm";
 
 export function Ledger() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -37,11 +39,11 @@ export function Ledger() {
       setEntries(entriesResult);
       setTrialBalance(trialBalanceResult);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load the ledger."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "ledger.loadError" })));
     } finally {
       setLoading(false);
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -51,11 +53,11 @@ export function Ledger() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Ledger</CardTitle>
-          <CardDescription>Chart of accounts, journals, and journal entries.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "ledger.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "ledger.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -71,17 +73,17 @@ export function Ledger() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Chart of accounts</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "ledger.chartOfAccounts" })}</CardTitle>
           <CardDescription>{activeCompany.name}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Sub-type</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.name" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "ledger.subType" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -89,20 +91,20 @@ export function Ledger() {
                 <TableRow key={account.id}>
                   <TableCell>{account.code}</TableCell>
                   <TableCell>{account.name}</TableCell>
-                  <TableCell>{accountTypeLabel(account.accountType)}</TableCell>
-                  <TableCell>{accountSubTypeLabel(account.accountSubType)}</TableCell>
+                  <TableCell>{accountTypeLabel(account.accountType, intl)}</TableCell>
+                  <TableCell>{accountSubTypeLabel(account.accountSubType, intl)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {!loading && accounts.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No accounts found.</p>}
+          {!loading && accounts.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "ledger.noAccounts" })}</p>}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>New journal entry</CardTitle>
-          <CardDescription>Debits must equal credits before it can be posted.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "ledger.newJournalEntry" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "ledger.newJournalEntryDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <JournalEntryForm companyId={activeCompany.id} journals={journals} accounts={accounts} onCreated={refresh} />
@@ -111,28 +113,28 @@ export function Ledger() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Journal entries</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "ledger.journalEntries" })}</CardTitle>
         </CardHeader>
         <CardContent>
           <JournalEntriesTable companyId={activeCompany.id} entries={entries} journals={journals} onPosted={refresh} />
-          {!loading && entries.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No journal entries yet.</p>}
+          {!loading && entries.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "ledger.noJournalEntries" })}</p>}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Trial balance</CardTitle>
-          <CardDescription>Posted entries only.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "ledger.trialBalance" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "ledger.trialBalanceDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Account</TableHead>
-                <TableHead className="text-right">Debit</TableHead>
-                <TableHead className="text-right">Credit</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "ledger.account" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "ledger.debit" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "ledger.credit" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "ledger.balance" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -148,7 +150,7 @@ export function Ledger() {
             </TableBody>
           </Table>
           {!loading && trialBalance.length === 0 && (
-            <p className="mt-2 text-sm text-muted-foreground">No posted entries yet.</p>
+            <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "ledger.noPostedEntries" })}</p>
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { BillResponse, DocumentBalanceResponse, InvoiceResponse, PartnerResponse } from "@pako/shared";
 
@@ -9,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCompany } from "@/context/CompanyContext";
 
 export function Reconciliation() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -42,9 +44,9 @@ export function Reconciliation() {
       setInvoiceBalances(Object.fromEntries(invoiceBalanceEntries));
       setBillBalances(Object.fromEntries(billBalanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load reconciliation data."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "reconciliation.loadError" })));
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -54,11 +56,11 @@ export function Reconciliation() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Reconciliation</CardTitle>
-          <CardDescription>Match payments against invoices and bills.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "reconciliation.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "reconciliation.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -73,7 +75,7 @@ export function Reconciliation() {
   return (
     <div className="flex flex-col gap-6">
       <CardDescription className="text-sm text-muted-foreground">
-        Outstanding invoices and bills. Record payments from an invoice's or bill's own detail page.
+        {intl.formatMessage({ id: "reconciliation.outstandingInfo" })}
       </CardDescription>
 
       {error && (
@@ -84,17 +86,17 @@ export function Reconciliation() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Accounts receivable</CardTitle>
-          <CardDescription>Total outstanding: {totalAr.toFixed(2)}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsReceivable" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: totalAr.toFixed(2) })}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Number</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead className="text-right">Outstanding</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.number" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.customer" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.dueDate" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "reconciliation.outstanding" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -107,7 +109,7 @@ export function Reconciliation() {
                   <TableCell className="text-right">{invoiceBalances[invoice.id]?.outstanding.toFixed(2)}</TableCell>
                   <TableCell>
                     <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${invoice.id}`}>
-                      View
+                      {intl.formatMessage({ id: "common.view" })}
                     </Link>
                   </TableCell>
                 </TableRow>
@@ -115,24 +117,24 @@ export function Reconciliation() {
             </TableBody>
           </Table>
           {outstandingInvoices.length === 0 && (
-            <p className="mt-2 text-sm text-muted-foreground">No outstanding invoices.</p>
+            <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "reconciliation.noOutstandingInvoices" })}</p>
           )}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Accounts payable</CardTitle>
-          <CardDescription>Total outstanding: {totalAp.toFixed(2)}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsPayable" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: totalAp.toFixed(2) })}</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Vendor reference</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead className="text-right">Outstanding</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.vendorReference" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.vendor" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.dueDate" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "reconciliation.outstanding" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -145,14 +147,14 @@ export function Reconciliation() {
                   <TableCell className="text-right">{billBalances[bill.id]?.outstanding.toFixed(2)}</TableCell>
                   <TableCell>
                     <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${bill.id}`}>
-                      View
+                      {intl.formatMessage({ id: "common.view" })}
                     </Link>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {outstandingBills.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No outstanding bills.</p>}
+          {outstandingBills.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "reconciliation.noOutstandingBills" })}</p>}
         </CardContent>
       </Card>
     </div>

@@ -1,4 +1,5 @@
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type { TaxDefinitionResponse } from '@pako/shared';
 
 import { ThemedText } from '@/components/themed-text';
@@ -21,6 +22,8 @@ type DocumentLinesEditorProps = {
 };
 
 export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onRemoveLine }: DocumentLinesEditorProps) {
+  const intl = useIntl();
+
   return (
     <View style={styles.container}>
       {lines.map((line, index) => {
@@ -29,14 +32,14 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
         return (
           <View key={index} style={styles.line}>
             <TextField
-              label={`Line ${index + 1} description`}
+              label={intl.formatMessage({ id: 'lines.lineDescription' }, { index: index + 1 })}
               value={line.description}
               onChangeText={(value) => onUpdateLine(index, { description: value })}
             />
             <View style={styles.row}>
               <View style={styles.rowItem}>
                 <TextField
-                  label="Qty"
+                  label={intl.formatMessage({ id: 'lines.qty' })}
                   value={line.quantity}
                   onChangeText={(value) => onUpdateLine(index, { quantity: value })}
                   keyboardType="decimal-pad"
@@ -44,7 +47,7 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
               </View>
               <View style={styles.rowItem}>
                 <TextField
-                  label="Price (incl. VAT)"
+                  label={intl.formatMessage({ id: 'lines.priceInclVat' })}
                   value={line.unitPrice}
                   onChangeText={(value) => onUpdateLine(index, { unitPrice: value })}
                   keyboardType="decimal-pad"
@@ -52,7 +55,7 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
               </View>
               <View style={styles.rowItem}>
                 <TextField
-                  label="Discount %"
+                  label={intl.formatMessage({ id: 'lines.discountPercent' })}
                   value={line.discountPercent}
                   onChangeText={(value) => onUpdateLine(index, { discountPercent: value })}
                   keyboardType="decimal-pad"
@@ -60,20 +63,20 @@ export function DocumentLinesEditor({ lines, taxes, onUpdateLine, onAddLine, onR
               </View>
             </View>
             <ThemedText type="small" themeColor="textSecondary">
-              Net: {net.toFixed(2)} · VAT: {tax.toFixed(2)} · Total: {gross.toFixed(2)}
+              {intl.formatMessage({ id: 'common.net' })}: {net.toFixed(2)} · {intl.formatMessage({ id: 'invoiceDetail.vat' })}: {tax.toFixed(2)} · {intl.formatMessage({ id: 'common.total' })}: {gross.toFixed(2)}
             </ThemedText>
             <SelectField
-              label="Tax"
+              label={intl.formatMessage({ id: 'lines.tax' })}
               value={line.taxDefinitionId}
               onChange={(value) => onUpdateLine(index, { taxDefinitionId: value })}
               options={taxes.map((tax) => ({ value: tax.id, label: taxRatePercentLabel(tax) }))}
-              placeholder="No tax"
+              placeholder={intl.formatMessage({ id: 'lines.noTax' })}
             />
-            <Button title="Remove line" variant="ghost" onPress={() => onRemoveLine(index)} disabled={lines.length <= 1} />
+            <Button title={intl.formatMessage({ id: 'lines.removeLine' })} variant="ghost" onPress={() => onRemoveLine(index)} disabled={lines.length <= 1} />
           </View>
         );
       })}
-      <Button title="Add line" variant="outline" onPress={onAddLine} />
+      <Button title={intl.formatMessage({ id: 'lines.addLine' })} variant="outline" onPress={onAddLine} />
     </View>
   );
 }

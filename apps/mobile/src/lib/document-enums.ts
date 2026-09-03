@@ -1,3 +1,5 @@
+import type { IntlShape } from 'react-intl';
+
 import type { SelectOption } from '@/components/ui/select-field';
 
 // Pako.Api doesn't emit enum member names (see ledger-enums.ts) - order must match
@@ -12,31 +14,37 @@ export const INVOICE_DOCUMENT_TYPE_DOWN_PAYMENT = 3;
 export const BILL_DOCUMENT_TYPE_BILL = 0;
 export const BILL_DOCUMENT_TYPE_CREDIT_NOTE = 1;
 
-export function invoiceDocumentTypeLabel(value: number): string {
+export function invoiceDocumentTypeLabel(value: number, intl: IntlShape): string {
   switch (value) {
     case INVOICE_DOCUMENT_TYPE_CREDIT_NOTE:
-      return 'Credit Note';
+      return intl.formatMessage({ id: 'docType.creditNote' });
     case INVOICE_DOCUMENT_TYPE_DEBIT_NOTE:
-      return 'Debit Note';
+      return intl.formatMessage({ id: 'docType.debitNote' });
     case INVOICE_DOCUMENT_TYPE_DOWN_PAYMENT:
-      return 'Down Payment';
+      return intl.formatMessage({ id: 'docType.downPayment' });
     default:
-      return 'Invoice';
+      return intl.formatMessage({ id: 'docType.invoice' });
   }
 }
 
-export function billDocumentTypeLabel(value: number): string {
-  return value === BILL_DOCUMENT_TYPE_CREDIT_NOTE ? 'Credit Note' : 'Bill';
+export function billDocumentTypeLabel(value: number, intl: IntlShape): string {
+  return value === BILL_DOCUMENT_TYPE_CREDIT_NOTE
+    ? intl.formatMessage({ id: 'docType.creditNote' })
+    : intl.formatMessage({ id: 'docType.bill' });
 }
 
-export const INVOICE_DOCUMENT_TYPE_OPTIONS: SelectOption[] = [
-  { value: String(INVOICE_DOCUMENT_TYPE_INVOICE), label: 'Invoice' },
-  { value: String(INVOICE_DOCUMENT_TYPE_CREDIT_NOTE), label: 'Credit Note' },
-  { value: String(INVOICE_DOCUMENT_TYPE_DEBIT_NOTE), label: 'Debit Note' },
-  { value: String(INVOICE_DOCUMENT_TYPE_DOWN_PAYMENT), label: 'Down Payment' },
-];
+export function invoiceDocumentTypeOptions(intl: IntlShape): SelectOption[] {
+  return [
+    { value: String(INVOICE_DOCUMENT_TYPE_INVOICE), label: intl.formatMessage({ id: 'docType.invoice' }) },
+    { value: String(INVOICE_DOCUMENT_TYPE_CREDIT_NOTE), label: intl.formatMessage({ id: 'docType.creditNote' }) },
+    { value: String(INVOICE_DOCUMENT_TYPE_DEBIT_NOTE), label: intl.formatMessage({ id: 'docType.debitNote' }) },
+    { value: String(INVOICE_DOCUMENT_TYPE_DOWN_PAYMENT), label: intl.formatMessage({ id: 'docType.downPayment' }) },
+  ];
+}
 
-export const BILL_DOCUMENT_TYPE_OPTIONS: SelectOption[] = [
-  { value: String(BILL_DOCUMENT_TYPE_BILL), label: 'Bill' },
-  { value: String(BILL_DOCUMENT_TYPE_CREDIT_NOTE), label: 'Credit Note' },
-];
+export function billDocumentTypeOptions(intl: IntlShape): SelectOption[] {
+  return [
+    { value: String(BILL_DOCUMENT_TYPE_BILL), label: intl.formatMessage({ id: 'docType.bill' }) },
+    { value: String(BILL_DOCUMENT_TYPE_CREDIT_NOTE), label: intl.formatMessage({ id: 'docType.creditNote' }) },
+  ];
+}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { MemberResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -11,8 +12,8 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
 import {
-  companyMemberRoles,
-  firmMemberRoles,
+  companyMemberRoleValues,
+  firmMemberRoleValues,
   isCompanyAdminRole,
   isFirmAdminRole,
   membershipRoleLabel,
@@ -24,15 +25,16 @@ type MembersPanelProps = {
 };
 
 export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
+  const intl = useIntl();
   const { auth } = useAuth();
-  const roleOptions = scope === "company" ? companyMemberRoles : firmMemberRoles;
+  const roleValues = scope === "company" ? companyMemberRoleValues : firmMemberRoleValues;
 
   const [members, setMembers] = useState<MemberResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState(roleOptions[roleOptions.length - 1].value);
+  const [role, setRole] = useState(roleValues[roleValues.length - 1]);
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -43,11 +45,11 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
       const result = scope === "company" ? await apiClient.membersAll(scopeId) : await apiClient.membersAll2(scopeId);
       setMembers(result);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load members."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "members.loadError" })));
     } finally {
       setLoading(false);
     }
-  }, [scope, scopeId]);
+  }, [scope, scopeId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -66,7 +68,7 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
       setEmail("");
       await refresh();
     } catch (err) {
-      setAddError(getApiErrorMessage(err, "Could not add member."));
+      setAddError(getApiErrorMessage(err, intl.formatMessage({ id: "members.addError" })));
     } finally {
       setAdding(false);
     }
@@ -86,13 +88,13 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {loading && members.length === 0 && <p className="text-sm text-muted-foreground">Loading members...</p>}
+      {loading && members.length === 0 && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "members.loadingMembers" })}</p>}
 
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Email</TableHead>
-            <TableHead>Role</TableHead>
+            <TableHead>{intl.formatMessage({ id: "members.email" })}</TableHead>
+            <TableHead>{intl.formatMessage({ id: "members.role" })}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -100,13 +102,13 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
             <TableRow key={member.membershipId}>
               <TableCell>{member.email}</TableCell>
               <TableCell>
-                <Badge variant="secondary">{membershipRoleLabel(member.role)}</Badge>
+                <Badge variant="secondary">{membershipRoleLabel(member.role, intl)}</Badge>
               </TableCell>
             </TableRow>
           ))}
         </TableBody>
       </Table>
-      {!loading && members.length === 0 && <p className="text-sm text-muted-foreground">No members yet.</p>}
+      {!loading && members.length === 0 && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "members.noMembers" })}</p>}
 
       {isAdmin && (
         <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleAdd}>
@@ -116,7 +118,7 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
             </Alert>
           )}
           <div className="flex flex-1 flex-col gap-2">
-            <Label htmlFor={`${scope}-${scopeId}-member-email`}>Email</Label>
+            <Label htmlFor={`${scope}-${scopeId}-member-email`}>{intl.formatMessage({ id: "members.email" })}</Label>
             <Input
               id={`${scope}-${scopeId}-member-email`}
               type="email"
@@ -126,22 +128,22 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor={`${scope}-${scopeId}-member-role`}>Role</Label>
+            <Label htmlFor={`${scope}-${scopeId}-member-role`}>{intl.formatMessage({ id: "members.role" })}</Label>
             <Select
               id={`${scope}-${scopeId}-member-role`}
               className="w-40"
               value={role}
               onChange={(event) => setRole(Number(event.target.value))}
             >
-              {roleOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
+              {roleValues.map((value) => (
+                <option key={value} value={value}>
+                  {membershipRoleLabel(value, intl)}
                 </option>
               ))}
             </Select>
           </div>
           <Button type="submit" disabled={adding || email.trim().length === 0}>
-            {adding ? "Adding..." : "Add member"}
+            {adding ? intl.formatMessage({ id: "members.adding" }) : intl.formatMessage({ id: "members.addMember" })}
           </Button>
         </form>
       )}

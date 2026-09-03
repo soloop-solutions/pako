@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader>
+  <resheader name="version"><value>2.0</value></resheader>
+  <resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader>
+  <resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
+
+  <!-- Auth -->
+  <data name="RegistrationFailed" xml:space="preserve"><value>Registration failed. Check your details and try again.</value></data>
+
+  <!-- Companies -->
+  <data name="CompanyNameRequired" xml:space="preserve"><value>Company name is required.</value></data>
+  <data name="CompanyNameTooLong" xml:space="preserve"><value>Company name must be 256 characters or fewer.</value></data>
+  <data name="FirmNotFound" xml:space="preserve"><value>Firm {0} not found.</value></data>
+
+  <!-- Firms -->
+  <data name="FirmNameRequired" xml:space="preserve"><value>Firm name is required.</value></data>
+  <data name="FirmNameTooLong" xml:space="preserve"><value>Firm name must be 256 characters or fewer.</value></data>
+
+  <!-- Members -->
+  <data name="RoleMustBeFirmRole" xml:space="preserve"><value>Role must be FirmAdmin or FirmAccountant for a firm membership.</value></data>
+  <data name="RoleMustBeCompanyRole" xml:space="preserve"><value>Role must be ClientAdmin or ClientViewer for a company membership.</value></data>
+  <data name="NoAccountForEmail" xml:space="preserve"><value>No PAKO account exists for {0}.</value></data>
+  <data name="AlreadyFirmMember" xml:space="preserve"><value>{0} is already a member of this firm.</value></data>
+  <data name="AlreadyCompanyMember" xml:space="preserve"><value>{0} is already a member of this company.</value></data>
+
+  <!-- Employees -->
+  <data name="EmployeeNameRequired" xml:space="preserve"><value>Employee name is required.</value></data>
+  <data name="SalaryMustBePositive" xml:space="preserve"><value>Monthly gross salary must be positive.</value></data>
+
+  <!-- Journal Entries -->
+  <data name="InvalidJournal" xml:space="preserve"><value>Invalid journal for this company.</value></data>
+  <data name="LineAmountExceedsMax" xml:space="preserve"><value>Line amounts cannot exceed {0}.</value></data>
+  <data name="AccountsNotBelongToCompany" xml:space="preserve"><value>One or more accounts do not belong to this company.</value></data>
+  <data name="JournalNoLongerExists" xml:space="preserve"><value>Journal entry references a journal that no longer exists.</value></data>
+
+  <!-- Invoices -->
+  <data name="InvalidCustomerPartner" xml:space="preserve"><value>Invalid customer partner for this company.</value></data>
+  <data name="InvoiceMustHaveLines" xml:space="preserve"><value>Invoice must have at least one line.</value></data>
+  <data name="NoAccountDefaults" xml:space="preserve"><value>Company has no account defaults seeded.</value></data>
+  <data name="LineQuantityMustBePositive" xml:space="preserve"><value>Line quantity must be greater than zero.</value></data>
+  <data name="LineUnitPriceNonNegative" xml:space="preserve"><value>Line unit price cannot be negative.</value></data>
+  <data name="LineDiscountOutOfRange" xml:space="preserve"><value>Line discount percent must be between 0 and 100.</value></data>
+  <data name="RevenueAccountNotBelongToCompany" xml:space="preserve"><value>Revenue account {0} does not belong to this company.</value></data>
+  <data name="InvoiceMustBePositiveTotal" xml:space="preserve"><value>Invoices must have a positive total. To credit a customer, create a credit note instead.</value></data>
+  <data name="OriginalInvoiceNotBelongToCompany" xml:space="preserve"><value>originalInvoiceId does not belong to this company.</value></data>
+  <data name="AmountMustBePositive" xml:space="preserve"><value>Amount must be positive.</value></data>
+  <data name="InvoiceMustBePostedForPayment" xml:space="preserve"><value>Invoice must be Posted before a payment can be recorded against it.</value></data>
+  <data name="InvalidCashOrBankAccount" xml:space="preserve"><value>cashOrBankAccountId must be a Cash or Bank account for this company.</value></data>
+  <data name="NoReceivableAccount" xml:space="preserve"><value>Company has no Accounts Receivable account seeded.</value></data>
+  <data name="NoJournalToPost" xml:space="preserve"><value>Company has no journal to post into.</value></data>
+  <data name="InvalidCreditNote" xml:space="preserve"><value>creditNoteId must reference a Posted credit note for this company.</value></data>
+  <data name="CreditNoteNoReceivableLine" xml:space="preserve"><value>Credit note has no receivable line to apply.</value></data>
+  <data name="InvalidDownPayment" xml:space="preserve"><value>downPaymentInvoiceId must reference a Posted down-payment invoice for this company.</value></data>
+  <data name="DownPaymentNoReceivableLine" xml:space="preserve"><value>Down payment invoice has no receivable line to apply.</value></data>
+
+  <!-- Bills -->
+  <data name="InvalidVendorPartner" xml:space="preserve"><value>Invalid vendor partner for this company.</value></data>
+  <data name="BillMustHaveLines" xml:space="preserve"><value>Bill must have at least one line.</value></data>
+  <data name="ExpenseAccountNotBelongToCompany" xml:space="preserve"><value>Expense account {0} does not belong to this company.</value></data>
+  <data name="BillMustBePositiveTotal" xml:space="preserve"><value>Bills must have a positive total. To credit a vendor, create a credit note instead.</value></data>
+  <data name="OriginalBillNotBelongToCompany" xml:space="preserve"><value>originalBillId does not belong to this company.</value></data>
+  <data name="BillMustBePostedForPayment" xml:space="preserve"><value>Bill must be Posted before a payment can be recorded against it.</value></data>
+  <data name="NoPayableAccount" xml:space="preserve"><value>Company has no Accounts Payable account seeded.</value></data>
+  <data name="CreditNoteNoPayableLine" xml:space="preserve"><value>Credit note has no payable line to apply.</value></data>
+
+  <!-- Payroll -->
+  <data name="PeriodEndBeforeStart" xml:space="preserve"><value>periodEnd must be on or after periodStart.</value></data>
+  <data name="NoActiveEmployees" xml:space="preserve"><value>Company has no active employees for a payroll run.</value></data>
+  <data name="NoPayrollAccounts" xml:space="preserve"><value>Company has no payroll accounts configured — enable the Payroll profile for this company.</value></data>
+
+  <!-- Reconciliation -->
+  <data name="ExactlyOneDocumentRequired" xml:space="preserve"><value>Exactly one of invoiceId or billId must be set.</value></data>
+
+  <!-- Global -->
+  <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
+  <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>
+</root>

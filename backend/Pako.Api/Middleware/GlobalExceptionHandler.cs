@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 
 namespace Pako.Api.Middleware;
 
@@ -7,11 +8,13 @@ public class GlobalExceptionHandler : IExceptionHandler
 {
     private readonly ILogger<GlobalExceptionHandler> _logger;
     private readonly IHostEnvironment _environment;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IHostEnvironment environment)
+    public GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logger, IHostEnvironment environment, IStringLocalizer<ErrorMessages> localizer)
     {
         _logger = logger;
         _environment = environment;
+        _localizer = localizer;
     }
 
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
@@ -22,10 +25,10 @@ public class GlobalExceptionHandler : IExceptionHandler
         var problem = new ProblemDetails
         {
             Status = StatusCodes.Status500InternalServerError,
-            Title = "An unexpected error occurred.",
+            Title = _localizer["UnexpectedError"].Value,
             Detail = _environment.IsDevelopment()
                 ? exception.Message
-                : "Please try again or contact support if the problem persists.",
+                : _localizer["TryAgainOrContactSupport"].Value,
             Instance = httpContext.Request.Path
         };
 

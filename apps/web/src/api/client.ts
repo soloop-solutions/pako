@@ -1,8 +1,20 @@
 import { ApiException, PakoApiClient } from "@pako/shared";
 
+import { en, sq } from "@/i18n/messages";
 import { getStoredAuth } from "@/lib/auth-storage";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
+const LANGUAGE_STORAGE_KEY = "pako.language";
+
+function currentLocale(): string {
+  try {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    if (stored === "en" || stored === "sq") return stored;
+  } catch {
+    // fallback
+  }
+  return "en";
+}
 
 async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
   const auth = getStoredAuth();
@@ -10,6 +22,7 @@ async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Re
   if (auth) {
     headers.set("Authorization", `Bearer ${auth.token}`);
   }
+  headers.set("Accept-Language", currentLocale());
 
   const response = await fetch(url, { ...init, headers });
   if (response.status === 401 && auth) {
@@ -20,7 +33,9 @@ async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Re
 
 export const apiClient = new PakoApiClient(API_BASE_URL, { fetch: authorizedFetch });
 
-export function getApiErrorMessage(err: unknown, fallback = "Something went wrong."): string {
+export function getApiErrorMessage(err: unknown, fallback?: string): string {
+  const msgs = currentLocale() === "sq" ? sq : en;
+  const fb = fallback ?? msgs["errors.somethingWentWrong"];
   if (err instanceof ApiException) {
     const raw = err.response?.trim();
     if (raw) {
@@ -32,8 +47,8 @@ export function getApiErrorMessage(err: unknown, fallback = "Something went wron
         return raw;
       }
     }
-    return err.message || fallback;
+    return err.message || fb;
   }
   if (err instanceof Error) return err.message;
-  return fallback;
+  return fb;
 }

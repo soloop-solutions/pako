@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type {
   AccountResponse,
   DocumentBalanceResponse,
@@ -30,6 +31,7 @@ export default function InvoiceDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const intl = useIntl();
 
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
@@ -65,9 +67,6 @@ export default function InvoiceDetailScreen() {
       if (invoiceResult.state === 'Posted') {
         setBalance(await apiClient.balance2(companyId, id));
 
-        // The balance endpoint correctly computes remaining capacity for CreditNote/DownPayment
-        // documents too (branches on DocumentType server-side) - fetch each candidate's own
-        // balance and use its real outstanding amount, not an estimate from its line items.
         const candidatesOfType = (documentType: number) =>
           allInvoicesResult.filter(
             (candidate) =>
@@ -88,19 +87,19 @@ export default function InvoiceDetailScreen() {
             .filter((candidate) => candidate.availableAmount > 0);
         };
 
-        setCreditNoteCandidates(await withBalances(INVOICE_DOCUMENT_TYPE_CREDIT_NOTE, 'Credit note'));
-        setDownPaymentCandidates(await withBalances(INVOICE_DOCUMENT_TYPE_DOWN_PAYMENT, 'Down payment'));
+        setCreditNoteCandidates(await withBalances(INVOICE_DOCUMENT_TYPE_CREDIT_NOTE, intl.formatMessage({ id: 'applyDocument.creditNote' })));
+        setDownPaymentCandidates(await withBalances(INVOICE_DOCUMENT_TYPE_DOWN_PAYMENT, intl.formatMessage({ id: 'applyDocument.downPayment' })));
       } else {
         setBalance(null);
         setCreditNoteCandidates([]);
         setDownPaymentCandidates([]);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not load the invoice.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'invoiceDetail.loadError' })));
     } finally {
       setRefreshing(false);
     }
-  }, [companyId, id]);
+  }, [companyId, id, intl]);
 
   useEffect(() => {
     void (async () => {
@@ -116,7 +115,7 @@ export default function InvoiceDetailScreen() {
       await apiClient.post2(companyId, id);
       await refresh();
     } catch (err) {
-      setPostError(getApiErrorMessage(err, 'Could not post this invoice.'));
+      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: 'invoiceDetail.postError' })));
     } finally {
       setPosting(false);
     }
@@ -125,7 +124,7 @@ export default function InvoiceDetailScreen() {
   if (!activeCompany || !invoice) {
     return (
       <Screen>
-        {error ? <ErrorBanner message={error} /> : <ThemedText themeColor="textSecondary">Loading...</ThemedText>}
+        {error ? <ErrorBanner message={error} /> : <ThemedText themeColor="textSecondary">{intl.formatMessage({ id: 'invoiceDetail.loading' })}</ThemedText>}
       </Screen>
     );
   }
@@ -133,8 +132,6 @@ export default function InvoiceDetailScreen() {
   const partner = partners.find((p) => p.id === invoice.partnerId);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
 
-  // Line entry is gross (brutto): unitPrice is VAT-inclusive, so the sum of gross line amounts
-  // IS the invoice total — net/VAT are backed out of it for display, not added on top.
   let total = 0;
   let estimatedNet = 0;
   let estimatedTax = 0;
@@ -154,21 +151,21 @@ export default function InvoiceDetailScreen() {
       <Card>
         <View style={styles.titleRow}>
           <View style={styles.titleText}>
-            <ThemedText type="subtitle">{invoice.invoiceNumber ?? 'Draft invoice'}</ThemedText>
+            <ThemedText type="subtitle">{invoice.invoiceNumber ?? intl.formatMessage({ id: 'invoicing.draftInvoice' })}</ThemedText>
             <ThemedText themeColor="textSecondary">{partner?.name ?? invoice.partnerId}</ThemedText>
           </View>
           <View style={styles.badgeGroup}>
-            <Badge label={invoiceDocumentTypeLabel(invoice.documentType)} />
-            <Badge label={invoice.state} variant={invoice.state === 'Posted' ? 'default' : 'secondary'} />
+            <Badge label={invoiceDocumentTypeLabel(invoice.documentType, intl)} />
+            <Badge label={invoice.state === 'Posted' ? intl.formatMessage({ id: 'common.posted' }) : intl.formatMessage({ id: 'common.draft' })} variant={invoice.state === 'Posted' ? 'default' : 'secondary'} />
           </View>
         </View>
 
         <View style={styles.metaRow}>
           <ThemedText type="small" themeColor="textSecondary">
-            Issue date: {invoice.issueDate}
+            {intl.formatMessage({ id: 'invoiceDetail.issueDate' })} {invoice.issueDate}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Due date: {invoice.dueDate}
+            {intl.formatMessage({ id: 'invoiceDetail.dueDate' })} {invoice.dueDate}
           </ThemedText>
         </View>
 
@@ -181,10 +178,10 @@ export default function InvoiceDetailScreen() {
                 <ThemedText type="smallBold">{line.description}</ThemedText>
                 <View style={styles.lineMeta}>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {line.quantity} x {line.unitPrice.toFixed(2)} (incl. VAT)
-                    {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? 'No tax'}
+                    {line.quantity} x {line.unitPrice.toFixed(2)} ({intl.formatMessage({ id: 'invoiceDetail.inclVat' })})
+                    {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? intl.formatMessage({ id: 'invoiceDetail.noTax' })}
                   </ThemedText>
-                  <ThemedText type="small">Net: {net.toFixed(2)} · Total: {gross.toFixed(2)}</ThemedText>
+                  <ThemedText type="small">{intl.formatMessage({ id: 'common.net' })}: {net.toFixed(2)} · {intl.formatMessage({ id: 'common.total' })}: {gross.toFixed(2)}</ThemedText>
                 </View>
               </View>
             );
@@ -193,33 +190,33 @@ export default function InvoiceDetailScreen() {
 
         <View style={styles.totals}>
           <ThemedText type="small" themeColor="textSecondary">
-            Net (excl. VAT): {estimatedNet.toFixed(2)}
+            {intl.formatMessage({ id: 'invoiceDetail.netExclVat' })}: {estimatedNet.toFixed(2)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            VAT: {estimatedTax.toFixed(2)}
+            {intl.formatMessage({ id: 'invoiceDetail.vat' })}: {estimatedTax.toFixed(2)}
           </ThemedText>
-          <ThemedText type="smallBold">Total: {total.toFixed(2)}</ThemedText>
+          <ThemedText type="smallBold">{intl.formatMessage({ id: 'invoiceDetail.total' })}: {total.toFixed(2)}</ThemedText>
         </View>
 
         {invoice.state === 'Draft' && (
           <View style={styles.postSection}>
-            <Button title={posting ? 'Posting...' : 'Post invoice'} onPress={handlePost} loading={posting} />
+            <Button title={posting ? intl.formatMessage({ id: 'invoiceDetail.posting' }) : intl.formatMessage({ id: 'invoiceDetail.postInvoice' })} onPress={handlePost} loading={posting} />
             {postError && <ErrorBanner message={postError} />}
           </View>
         )}
 
         {invoice.state === 'Posted' && balance && (
           <View style={styles.balanceRow}>
-            <ThemedText type="small">Total: {balance.total.toFixed(2)}</ThemedText>
-            <ThemedText type="small">Reconciled: {balance.reconciled.toFixed(2)}</ThemedText>
-            <ThemedText type="smallBold">Outstanding: {balance.outstanding.toFixed(2)}</ThemedText>
+            <ThemedText type="small">{intl.formatMessage({ id: 'invoiceDetail.total' })}: {balance.total.toFixed(2)}</ThemedText>
+            <ThemedText type="small">{intl.formatMessage({ id: 'invoiceDetail.reconciled' })}: {balance.reconciled.toFixed(2)}</ThemedText>
+            <ThemedText type="smallBold">{intl.formatMessage({ id: 'invoicing.outstanding' })}: {balance.outstanding.toFixed(2)}</ThemedText>
           </View>
         )}
       </Card>
 
       {invoice.state === 'Posted' && balance && balance.outstanding > 0 && (
         <Card>
-          <CardHeader title="Record payment" description="Creates and posts the settlement entry, then reconciles it against this invoice." />
+          <CardHeader title={intl.formatMessage({ id: 'recordPayment.title' })} description={intl.formatMessage({ id: 'recordPayment.invoiceDescription' })} />
           <RecordPaymentForm
             companyId={activeCompany.id}
             documentKind="invoice"
@@ -233,7 +230,7 @@ export default function InvoiceDetailScreen() {
 
       {invoice.state === 'Posted' && balance && balance.outstanding > 0 && creditNoteCandidates.length > 0 && (
         <Card>
-          <CardHeader title="Apply credit note" description="Reconciles a posted credit note against this invoice's outstanding balance." />
+          <CardHeader title={intl.formatMessage({ id: 'applyDocument.creditNoteTitle' })} description={intl.formatMessage({ id: 'applyDocument.creditNoteInvoiceDescription' })} />
           <ApplyDocumentForm
             companyId={activeCompany.id}
             documentKind="invoice"
@@ -252,8 +249,8 @@ export default function InvoiceDetailScreen() {
       {invoice.state === 'Posted' && balance && balance.outstanding > 0 && downPaymentCandidates.length > 0 && (
         <Card>
           <CardHeader
-            title="Apply down payment"
-            description="Nets a posted down payment against this invoice and reclassifies the deposit to revenue."
+            title={intl.formatMessage({ id: 'applyDocument.downPaymentTitle' })}
+            description={intl.formatMessage({ id: 'applyDocument.downPaymentDescription' })}
           />
           <ApplyDocumentForm
             companyId={activeCompany.id}

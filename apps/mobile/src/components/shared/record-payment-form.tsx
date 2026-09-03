@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type { AccountResponse } from '@pako/shared';
 
 import { Button } from '@/components/ui/button';
@@ -26,6 +27,7 @@ export function RecordPaymentForm({
   outstanding,
   onRecorded,
 }: RecordPaymentFormProps) {
+  const intl = useIntl();
   const [amount, setAmount] = useState(() => outstanding.toFixed(2));
   const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id ?? '');
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +38,11 @@ export function RecordPaymentForm({
 
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError('Enter a payment amount greater than zero.');
+      setError(intl.formatMessage({ id: 'recordPayment.amountError' }));
       return;
     }
     if (!cashAccountId) {
-      setError('Select a cash or bank account.');
+      setError(intl.formatMessage({ id: 'recordPayment.accountError' }));
       return;
     }
 
@@ -59,7 +61,7 @@ export function RecordPaymentForm({
 
       onRecorded();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not record the payment — nothing was changed.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'recordPayment.error' })));
     } finally {
       setSubmitting(false);
     }
@@ -68,15 +70,15 @@ export function RecordPaymentForm({
   return (
     <View style={styles.container}>
       {error && <ErrorBanner message={error} />}
-      <TextField label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+      <TextField label={intl.formatMessage({ id: 'recordPayment.amount' })} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
       <SelectField
-        label="Cash / bank account"
+        label={intl.formatMessage({ id: 'recordPayment.cashAccount' })}
         value={cashAccountId}
         onChange={setCashAccountId}
         options={cashAccounts.map((account) => ({ value: account.id, label: `${account.code} - ${account.name}` }))}
-        placeholder="No cash/bank account seeded"
+        placeholder={intl.formatMessage({ id: 'recordPayment.noAccountsSeeded' })}
       />
-      <Button title={submitting ? 'Recording...' : 'Record payment'} onPress={handleSubmit} loading={submitting} disabled={cashAccounts.length === 0} />
+      <Button title={submitting ? intl.formatMessage({ id: 'recordPayment.recording' }) : intl.formatMessage({ id: 'recordPayment.recordPayment' })} onPress={handleSubmit} loading={submitting} disabled={cashAccounts.length === 0} />
     </View>
   );
 }

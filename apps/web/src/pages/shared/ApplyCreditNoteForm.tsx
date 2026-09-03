@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { ApplyCreditNoteResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -27,6 +28,7 @@ export function ApplyCreditNoteForm({
   options,
   onApplied,
 }: ApplyCreditNoteFormProps) {
+  const intl = useIntl();
   const [creditNoteId, setCreditNoteId] = useState(options[0]?.id ?? "");
   const [amount, setAmount] = useState(() => Math.min(options[0]?.total ?? 0, outstanding).toFixed(2));
   const [error, setError] = useState<string | null>(null);
@@ -43,12 +45,12 @@ export function ApplyCreditNoteForm({
     setError(null);
 
     if (!creditNoteId) {
-      setError("Select a credit note.");
+      setError(intl.formatMessage({ id: "applyCreditNote.selectError" }));
       return;
     }
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError("Enter an amount greater than zero.");
+      setError(intl.formatMessage({ id: "applyCreditNote.amountError" }));
       return;
     }
 
@@ -61,7 +63,7 @@ export function ApplyCreditNoteForm({
           : await apiClient.applyCreditNote(companyId, documentId, body);
       onApplied(response);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not apply the credit note — nothing was changed."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "applyCreditNote.error" })));
     } finally {
       setSubmitting(false);
     }
@@ -76,7 +78,7 @@ export function ApplyCreditNoteForm({
       )}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-credit-note-select">Credit note</Label>
+          <Label htmlFor="apply-credit-note-select">{intl.formatMessage({ id: "applyCreditNote.creditNote" })}</Label>
           <Select
             id="apply-credit-note-select"
             value={creditNoteId}
@@ -84,13 +86,13 @@ export function ApplyCreditNoteForm({
           >
             {options.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.label} (available {option.total.toFixed(2)})
+                {option.label} ({intl.formatMessage({ id: "applyCreditNote.available" })} {option.total.toFixed(2)})
               </option>
             ))}
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-credit-note-amount">Amount</Label>
+          <Label htmlFor="apply-credit-note-amount">{intl.formatMessage({ id: "applyCreditNote.amount" })}</Label>
           <Input
             id="apply-credit-note-amount"
             type="number"
@@ -103,7 +105,7 @@ export function ApplyCreditNoteForm({
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={submitting || options.length === 0}>
-            {submitting ? "Applying..." : "Apply credit note"}
+            {submitting ? intl.formatMessage({ id: "applyCreditNote.applying" }) : intl.formatMessage({ id: "applyCreditNote.apply" })}
           </Button>
         </div>
       </div>

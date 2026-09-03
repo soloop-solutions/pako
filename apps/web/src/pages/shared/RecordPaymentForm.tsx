@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { AccountResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -25,6 +26,7 @@ export function RecordPaymentForm({
   outstanding,
   onRecorded,
 }: RecordPaymentFormProps) {
+  const intl = useIntl();
   const [amount, setAmount] = useState(() => outstanding.toFixed(2));
   const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +38,11 @@ export function RecordPaymentForm({
 
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError("Enter a payment amount greater than zero.");
+      setError(intl.formatMessage({ id: "recordPayment.amountError" }));
       return;
     }
     if (!cashAccountId) {
-      setError("Select a cash or bank account.");
+      setError(intl.formatMessage({ id: "recordPayment.accountError" }));
       return;
     }
 
@@ -60,7 +62,7 @@ export function RecordPaymentForm({
 
       onRecorded();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not record the payment — nothing was changed."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "recordPayment.error" })));
     } finally {
       setSubmitting(false);
     }
@@ -75,7 +77,7 @@ export function RecordPaymentForm({
       )}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="payment-amount">Amount</Label>
+          <Label htmlFor="payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
           <Input
             id="payment-amount"
             type="number"
@@ -87,9 +89,9 @@ export function RecordPaymentForm({
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="payment-account">Cash / bank account</Label>
+          <Label htmlFor="payment-account">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
           <Select id="payment-account" value={cashAccountId} onChange={(event) => setCashAccountId(event.target.value)}>
-            {cashAccounts.length === 0 && <option value="">No cash/bank account seeded</option>}
+            {cashAccounts.length === 0 && <option value="">{intl.formatMessage({ id: "recordPayment.noCashBankAccount" })}</option>}
             {cashAccounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.code} - {account.name}
@@ -99,7 +101,7 @@ export function RecordPaymentForm({
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={submitting || cashAccounts.length === 0}>
-            {submitting ? "Recording..." : "Record payment"}
+            {submitting ? intl.formatMessage({ id: "recordPayment.recording" }) : intl.formatMessage({ id: "recordPayment.recordPayment" })}
           </Button>
         </div>
       </div>

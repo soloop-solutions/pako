@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Payroll;
@@ -14,10 +15,12 @@ namespace Pako.Api.Controllers;
 public class EmployeesController : ControllerBase
 {
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public EmployeesController(PakoDbContext db)
+    public EmployeesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -39,12 +42,12 @@ public class EmployeesController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest("Employee name is required.");
+            return BadRequest(_localizer["EmployeeNameRequired"].Value);
         }
 
         if (request.MonthlyGrossSalary <= 0)
         {
-            return BadRequest("Monthly gross salary must be positive.");
+            return BadRequest(_localizer["SalaryMustBePositive"].Value);
         }
 
         var employee = new Employee

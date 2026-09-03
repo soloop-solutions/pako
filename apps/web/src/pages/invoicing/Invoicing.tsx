@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
 
@@ -14,6 +15,7 @@ import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 
 export function Invoicing() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -41,9 +43,9 @@ export function Invoicing() {
       );
       setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load invoicing data."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "invoicing.loadError" })));
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -53,11 +55,11 @@ export function Invoicing() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Invoicing</CardTitle>
-          <CardDescription>Customer invoices (accounts receivable).</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "invoicing.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "invoicing.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -76,13 +78,13 @@ export function Invoicing() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Customers</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "invoicing.customers" })}</CardTitle>
           <CardDescription>{activeCompany.name}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <PartnerForm companyId={activeCompany.id} role="customer" onCreated={refresh} />
           {customers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No customers yet.</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.noCustomers" })}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {customers.map((customer) => (
@@ -97,8 +99,8 @@ export function Invoicing() {
 
       <Card>
         <CardHeader>
-          <CardTitle>New invoice</CardTitle>
-          <CardDescription>Tax is computed by the server when the invoice is posted.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "invoicing.newInvoice" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "invoicing.newInvoiceDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <InvoiceForm
@@ -113,19 +115,19 @@ export function Invoicing() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Invoices</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "invoicing.invoices" })}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Number</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Customer</TableHead>
-                <TableHead>Issue date</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead className="text-right">Outstanding</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.number" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.customer" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.dueDate" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.state" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoicing.outstanding" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -134,7 +136,7 @@ export function Invoicing() {
                 <TableRow key={invoice.id}>
                   <TableCell>{invoice.invoiceNumber ?? "-"}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType)}</Badge>
+                    <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType, intl)}</Badge>
                   </TableCell>
                   <TableCell>{partnerName(invoice.partnerId)}</TableCell>
                   <TableCell>{invoice.issueDate}</TableCell>
@@ -147,14 +149,14 @@ export function Invoicing() {
                   </TableCell>
                   <TableCell>
                     <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${invoice.id}`}>
-                      View
+                      {intl.formatMessage({ id: "common.view" })}
                     </Link>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {invoices.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No invoices yet.</p>}
+          {invoices.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.noInvoices" })}</p>}
         </CardContent>
       </Card>
     </div>

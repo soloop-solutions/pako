@@ -1,6 +1,7 @@
 import { useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type {
   AccountResponse,
   BillResponse,
@@ -30,6 +31,7 @@ export default function BillDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const intl = useIntl();
 
   const [bill, setBill] = useState<BillResponse | null>(null);
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
@@ -64,9 +66,6 @@ export default function BillDetailScreen() {
       if (billResult.state === 'Posted') {
         setBalance(await apiClient.balance(companyId, id));
 
-        // The balance endpoint correctly computes remaining capacity for CreditNote documents
-        // too (branches on DocumentType server-side) - fetch each candidate's own balance and
-        // use its real outstanding amount, not an estimate from its line items.
         const candidates = allBillsResult.filter(
           (candidate) =>
             candidate.id !== billResult.id &&
@@ -79,7 +78,7 @@ export default function BillDetailScreen() {
           candidates
             .map((candidate, index) => ({
               id: candidate.id,
-              label: `${candidate.vendorReference ?? 'Credit note'} · ${balances[index].outstanding.toFixed(2)}`,
+              label: `${candidate.vendorReference ?? intl.formatMessage({ id: 'applyDocument.creditNote' })} · ${balances[index].outstanding.toFixed(2)}`,
               availableAmount: balances[index].outstanding,
             }))
             .filter((candidate) => candidate.availableAmount > 0),
@@ -89,11 +88,11 @@ export default function BillDetailScreen() {
         setCreditNoteCandidates([]);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not load the bill.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'billDetail.loadError' })));
     } finally {
       setRefreshing(false);
     }
-  }, [companyId, id]);
+  }, [companyId, id, intl]);
 
   useEffect(() => {
     void (async () => {
@@ -109,7 +108,7 @@ export default function BillDetailScreen() {
       await apiClient.post(companyId, id);
       await refresh();
     } catch (err) {
-      setPostError(getApiErrorMessage(err, 'Could not post this bill.'));
+      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: 'billDetail.postError' })));
     } finally {
       setPosting(false);
     }
@@ -118,7 +117,7 @@ export default function BillDetailScreen() {
   if (!activeCompany || !bill) {
     return (
       <Screen>
-        {error ? <ErrorBanner message={error} /> : <ThemedText themeColor="textSecondary">Loading...</ThemedText>}
+        {error ? <ErrorBanner message={error} /> : <ThemedText themeColor="textSecondary">{intl.formatMessage({ id: 'billDetail.loading' })}</ThemedText>}
       </Screen>
     );
   }
@@ -126,8 +125,6 @@ export default function BillDetailScreen() {
   const partner = partners.find((p) => p.id === bill.partnerId);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
 
-  // Line entry is gross (brutto): unitPrice is VAT-inclusive, so the sum of gross line amounts
-  // IS the bill total — net/VAT are backed out of it for display, not added on top.
   let total = 0;
   let estimatedNet = 0;
   let estimatedTax = 0;
@@ -147,21 +144,21 @@ export default function BillDetailScreen() {
       <Card>
         <View style={styles.titleRow}>
           <View style={styles.titleText}>
-            <ThemedText type="subtitle">{bill.vendorReference ?? 'Draft bill'}</ThemedText>
+            <ThemedText type="subtitle">{bill.vendorReference ?? intl.formatMessage({ id: 'bills.draftBill' })}</ThemedText>
             <ThemedText themeColor="textSecondary">{partner?.name ?? bill.partnerId}</ThemedText>
           </View>
           <View style={styles.badgeGroup}>
-            <Badge label={billDocumentTypeLabel(bill.documentType)} />
-            <Badge label={bill.state} variant={bill.state === 'Posted' ? 'default' : 'secondary'} />
+            <Badge label={billDocumentTypeLabel(bill.documentType, intl)} />
+            <Badge label={bill.state === 'Posted' ? intl.formatMessage({ id: 'common.posted' }) : intl.formatMessage({ id: 'common.draft' })} variant={bill.state === 'Posted' ? 'default' : 'secondary'} />
           </View>
         </View>
 
         <View style={styles.metaRow}>
           <ThemedText type="small" themeColor="textSecondary">
-            Issue date: {bill.issueDate}
+            {intl.formatMessage({ id: 'billDetail.issueDate' })} {bill.issueDate}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            Due date: {bill.dueDate}
+            {intl.formatMessage({ id: 'billDetail.dueDate' })} {bill.dueDate}
           </ThemedText>
         </View>
 
@@ -174,10 +171,10 @@ export default function BillDetailScreen() {
                 <ThemedText type="smallBold">{line.description}</ThemedText>
                 <View style={styles.lineMeta}>
                   <ThemedText type="small" themeColor="textSecondary">
-                    {line.quantity} x {line.unitPrice.toFixed(2)} (incl. VAT)
-                    {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? 'No tax'}
+                    {line.quantity} x {line.unitPrice.toFixed(2)} ({intl.formatMessage({ id: 'billDetail.inclVat' })})
+                    {line.discountPercent > 0 ? ` − ${line.discountPercent}%` : ''} - {taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? intl.formatMessage({ id: 'billDetail.noTax' })}
                   </ThemedText>
-                  <ThemedText type="small">Net: {net.toFixed(2)} · Total: {gross.toFixed(2)}</ThemedText>
+                  <ThemedText type="small">{intl.formatMessage({ id: 'common.net' })}: {net.toFixed(2)} · {intl.formatMessage({ id: 'common.total' })}: {gross.toFixed(2)}</ThemedText>
                 </View>
               </View>
             );
@@ -186,33 +183,33 @@ export default function BillDetailScreen() {
 
         <View style={styles.totals}>
           <ThemedText type="small" themeColor="textSecondary">
-            Net (excl. VAT): {estimatedNet.toFixed(2)}
+            {intl.formatMessage({ id: 'billDetail.netExclVat' })}: {estimatedNet.toFixed(2)}
           </ThemedText>
           <ThemedText type="small" themeColor="textSecondary">
-            VAT: {estimatedTax.toFixed(2)}
+            {intl.formatMessage({ id: 'billDetail.vat' })}: {estimatedTax.toFixed(2)}
           </ThemedText>
-          <ThemedText type="smallBold">Total: {total.toFixed(2)}</ThemedText>
+          <ThemedText type="smallBold">{intl.formatMessage({ id: 'billDetail.total' })}: {total.toFixed(2)}</ThemedText>
         </View>
 
         {bill.state === 'Draft' && (
           <View style={styles.postSection}>
-            <Button title={posting ? 'Posting...' : 'Post bill'} onPress={handlePost} loading={posting} />
+            <Button title={posting ? intl.formatMessage({ id: 'billDetail.posting' }) : intl.formatMessage({ id: 'billDetail.postBill' })} onPress={handlePost} loading={posting} />
             {postError && <ErrorBanner message={postError} />}
           </View>
         )}
 
         {bill.state === 'Posted' && balance && (
           <View style={styles.balanceRow}>
-            <ThemedText type="small">Total: {balance.total.toFixed(2)}</ThemedText>
-            <ThemedText type="small">Reconciled: {balance.reconciled.toFixed(2)}</ThemedText>
-            <ThemedText type="smallBold">Outstanding: {balance.outstanding.toFixed(2)}</ThemedText>
+            <ThemedText type="small">{intl.formatMessage({ id: 'billDetail.total' })}: {balance.total.toFixed(2)}</ThemedText>
+            <ThemedText type="small">{intl.formatMessage({ id: 'billDetail.reconciled' })}: {balance.reconciled.toFixed(2)}</ThemedText>
+            <ThemedText type="smallBold">{intl.formatMessage({ id: 'bills.outstanding' })}: {balance.outstanding.toFixed(2)}</ThemedText>
           </View>
         )}
       </Card>
 
       {bill.state === 'Posted' && balance && balance.outstanding > 0 && (
         <Card>
-          <CardHeader title="Record payment" description="Creates and posts the settlement entry, then reconciles it against this bill." />
+          <CardHeader title={intl.formatMessage({ id: 'recordPayment.title' })} description={intl.formatMessage({ id: 'recordPayment.billDescription' })} />
           <RecordPaymentForm
             companyId={activeCompany.id}
             documentKind="bill"
@@ -226,7 +223,7 @@ export default function BillDetailScreen() {
 
       {bill.state === 'Posted' && balance && balance.outstanding > 0 && creditNoteCandidates.length > 0 && (
         <Card>
-          <CardHeader title="Apply credit note" description="Reconciles a posted credit note against this bill's outstanding balance." />
+          <CardHeader title={intl.formatMessage({ id: 'applyDocument.creditNoteTitle' })} description={intl.formatMessage({ id: 'applyDocument.creditNoteBillDescription' })} />
           <ApplyDocumentForm
             companyId={activeCompany.id}
             documentKind="bill"

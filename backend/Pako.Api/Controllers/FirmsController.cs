@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Infrastructure;
@@ -14,10 +15,12 @@ namespace Pako.Api.Controllers;
 public class FirmsController : ControllerBase
 {
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public FirmsController(PakoDbContext db)
+    public FirmsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -28,12 +31,12 @@ public class FirmsController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest("Firm name is required.");
+            return BadRequest(_localizer["FirmNameRequired"].Value);
         }
 
         if (request.Name.Length > 256)
         {
-            return BadRequest("Firm name must be 256 characters or fewer.");
+            return BadRequest(_localizer["FirmNameTooLong"].Value);
         }
 
         var firm = new Firm { Id = Guid.NewGuid(), Name = request.Name };

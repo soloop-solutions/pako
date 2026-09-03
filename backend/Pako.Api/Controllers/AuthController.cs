@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Auth;
 using Pako.Api.Contracts;
 using Pako.Infrastructure.Identity;
@@ -12,11 +13,13 @@ public class AuthController : ControllerBase
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtTokenService _tokenService;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService)
+    public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService, IStringLocalizer<ErrorMessages> localizer)
     {
         _userManager = userManager;
         _tokenService = tokenService;
+        _localizer = localizer;
     }
 
     [HttpPost("register")]
@@ -30,11 +33,7 @@ public class AuthController : ControllerBase
                 e.Code is "DuplicateUserName" or "DuplicateEmail");
             if (isDuplicateEmail)
             {
-                // Deliberately generic: distinguishing this from other failures would let an
-                // attacker enumerate registered emails. Every other failure below is safe to
-                // describe specifically - password/email format rules aren't secret information,
-                // and hiding them just breaks registration for anyone who trips one.
-                return BadRequest("Registration failed. Check your details and try again.");
+                return BadRequest(_localizer["RegistrationFailed"].Value);
             }
 
             return BadRequest(string.Join(" ", result.Errors.Select(e => e.Description)));

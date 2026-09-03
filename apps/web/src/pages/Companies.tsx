@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { FirmResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -13,6 +14,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
 
 export function Companies() {
+  const intl = useIntl();
   const { companies, activeCompanyId, loading, error, setActiveCompanyId, createCompany } = useCompany();
   const [name, setName] = useState("");
   const [firmId, setFirmId] = useState("");
@@ -35,11 +37,11 @@ export function Companies() {
       const result = await apiClient.firmsAll();
       setFirms(result);
     } catch (err) {
-      setFirmsError(getApiErrorMessage(err, "Could not load firms."));
+      setFirmsError(getApiErrorMessage(err, intl.formatMessage({ id: "companies.loadFirmsError" })));
     } finally {
       setFirmsLoading(false);
     }
-  }, []);
+  }, [intl]);
 
   useEffect(() => {
     void refreshFirms();
@@ -66,7 +68,7 @@ export function Companies() {
       setName("");
       setFirmId("");
     } catch (err) {
-      setCreateError(getApiErrorMessage(err, "Could not create company."));
+      setCreateError(getApiErrorMessage(err, intl.formatMessage({ id: "companies.createError" })));
     } finally {
       setCreating(false);
     }
@@ -81,7 +83,7 @@ export function Companies() {
       setNewFirmName("");
       await refreshFirms();
     } catch (err) {
-      setCreateFirmError(getApiErrorMessage(err, "Could not create firm."));
+      setCreateFirmError(getApiErrorMessage(err, intl.formatMessage({ id: "companies.createFirmError" })));
     } finally {
       setCreatingFirm(false);
     }
@@ -91,8 +93,8 @@ export function Companies() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Companies</CardTitle>
-          <CardDescription>Switch between companies and manage firm-client access.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "companies.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "companies.description" })}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {error && (
@@ -101,10 +103,10 @@ export function Companies() {
             </Alert>
           )}
           {loading && companies.length === 0 && (
-            <p className="text-sm text-muted-foreground">Loading companies...</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "companies.loadingCompanies" })}</p>
           )}
           {!loading && companies.length === 0 && !error && (
-            <p className="text-sm text-muted-foreground">No companies yet. Create one below.</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "companies.noCompanies" })}</p>
           )}
           {companies.map((company) => {
             const key = `company:${company.id}`;
@@ -113,11 +115,13 @@ export function Companies() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{company.name}</span>
-                    {company.id === activeCompanyId && <Badge>Active</Badge>}
+                    {company.id === activeCompanyId && <Badge>{intl.formatMessage({ id: "common.active" })}</Badge>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="ghost" size="sm" onClick={() => toggleExpanded(key)}>
-                      {expanded.has(key) ? "Hide members" : "Members"}
+                      {expanded.has(key)
+                        ? intl.formatMessage({ id: "companies.hideMembers" })
+                        : intl.formatMessage({ id: "companies.members" })}
                     </Button>
                     <Button
                       variant={company.id === activeCompanyId ? "secondary" : "outline"}
@@ -125,7 +129,9 @@ export function Companies() {
                       onClick={() => setActiveCompanyId(company.id)}
                       disabled={company.id === activeCompanyId}
                     >
-                      {company.id === activeCompanyId ? "Active" : "Set active"}
+                      {company.id === activeCompanyId
+                        ? intl.formatMessage({ id: "common.active" })
+                        : intl.formatMessage({ id: "companies.setActive" })}
                     </Button>
                   </div>
                 </div>
@@ -138,19 +144,19 @@ export function Companies() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Create a company</CardTitle>
-          <CardDescription>Seeds a Kosovo chart of accounts and a default "General" journal.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "companies.createCompany" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "companies.createCompanyDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleCreate}>
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="company-name">Company name</Label>
+              <Label htmlFor="company-name">{intl.formatMessage({ id: "companies.companyName" })}</Label>
               <Input id="company-name" required value={name} onChange={(event) => setName(event.target.value)} />
             </div>
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="company-firm">Firm (optional)</Label>
+              <Label htmlFor="company-firm">{intl.formatMessage({ id: "companies.firmOptional" })}</Label>
               <Select id="company-firm" value={firmId} onChange={(event) => setFirmId(event.target.value)}>
-                <option value="">Direct company (no firm)</option>
+                <option value="">{intl.formatMessage({ id: "companies.directCompany" })}</option>
                 {firms.map((firm) => (
                   <option key={firm.id} value={firm.id}>
                     {firm.name}
@@ -159,7 +165,9 @@ export function Companies() {
               </Select>
             </div>
             <Button type="submit" disabled={creating || name.trim().length === 0}>
-              {creating ? "Creating..." : "Create company"}
+              {creating
+                ? intl.formatMessage({ id: "companies.creating" })
+                : intl.formatMessage({ id: "companies.createCompanyButton" })}
             </Button>
           </form>
           {createError && (
@@ -172,8 +180,8 @@ export function Companies() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Firms</CardTitle>
-          <CardDescription>Accounting firms managing companies on your behalf, or that you manage.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "companies.firmsTitle" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "companies.firmsDescription" })}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {firmsError && (
@@ -181,9 +189,9 @@ export function Companies() {
               <AlertDescription>{firmsError}</AlertDescription>
             </Alert>
           )}
-          {firmsLoading && firms.length === 0 && <p className="text-sm text-muted-foreground">Loading firms...</p>}
+          {firmsLoading && firms.length === 0 && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "companies.loadingFirms" })}</p>}
           {!firmsLoading && firms.length === 0 && !firmsError && (
-            <p className="text-sm text-muted-foreground">No firms yet. Create one below.</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "companies.noFirms" })}</p>
           )}
           {firms.map((firm) => {
             const key = `firm:${firm.id}`;
@@ -192,7 +200,9 @@ export function Companies() {
                 <div className="flex items-center justify-between">
                   <span className="font-medium">{firm.name}</span>
                   <Button variant="ghost" size="sm" onClick={() => toggleExpanded(key)}>
-                    {expanded.has(key) ? "Hide members" : "Members"}
+                    {expanded.has(key)
+                      ? intl.formatMessage({ id: "companies.hideMembers" })
+                      : intl.formatMessage({ id: "companies.members" })}
                   </Button>
                 </div>
                 {expanded.has(key) && <MembersPanel scope="firm" scopeId={firm.id} />}
@@ -202,11 +212,13 @@ export function Companies() {
 
           <form className="flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-end" onSubmit={handleCreateFirm}>
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="firm-name">Firm name</Label>
+              <Label htmlFor="firm-name">{intl.formatMessage({ id: "companies.firmName" })}</Label>
               <Input id="firm-name" required value={newFirmName} onChange={(event) => setNewFirmName(event.target.value)} />
             </div>
             <Button type="submit" disabled={creatingFirm || newFirmName.trim().length === 0}>
-              {creatingFirm ? "Creating..." : "Create firm"}
+              {creatingFirm
+                ? intl.formatMessage({ id: "companies.creating" })
+                : intl.formatMessage({ id: "companies.createFirmButton" })}
             </Button>
           </form>
           {createFirmError && (

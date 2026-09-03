@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 
 import { Button } from '@/components/ui/button';
 import { ErrorBanner } from '@/components/ui/error-banner';
@@ -29,6 +30,7 @@ export function ApplyDocumentForm({
   outstanding,
   onApplied,
 }: ApplyDocumentFormProps) {
+  const intl = useIntl();
   const [selectedId, setSelectedId] = useState('');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +47,12 @@ export function ApplyDocumentForm({
     setError(null);
 
     if (!selectedId) {
-      setError(applyKind === 'credit-note' ? 'Select a credit note.' : 'Select a down payment.');
+      setError(applyKind === 'credit-note' ? intl.formatMessage({ id: 'applyDocument.selectCreditNote' }) : intl.formatMessage({ id: 'applyDocument.selectDownPayment' }));
       return;
     }
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError('Enter an amount greater than zero.');
+      setError(intl.formatMessage({ id: 'applyDocument.amountError' }));
       return;
     }
 
@@ -63,16 +65,16 @@ export function ApplyDocumentForm({
         } else {
           await apiClient.applyCreditNote(companyId, documentId, body);
         }
-        onApplied('Credit note applied.');
+        onApplied(intl.formatMessage({ id: 'applyDocument.creditNoteApplied' }));
       } else {
         const result = await apiClient.applyDownPayment(companyId, documentId, {
           downPaymentInvoiceId: selectedId,
           amount: parsedAmount,
         });
-        onApplied(`Down payment applied. ${result.reclassifiedAmount.toFixed(2)} reclassified from deposits to revenue.`);
+        onApplied(`${intl.formatMessage({ id: 'applyDocument.downPaymentApplied' })} ${result.reclassifiedAmount.toFixed(2)} ${intl.formatMessage({ id: 'applyDocument.reclassified' })}`);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not apply the document — nothing was changed.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'applyDocument.error' })));
     } finally {
       setSubmitting(false);
     }
@@ -82,14 +84,14 @@ export function ApplyDocumentForm({
     <View style={styles.container}>
       {error && <ErrorBanner message={error} />}
       <SelectField
-        label={applyKind === 'credit-note' ? 'Credit note' : 'Down payment'}
+        label={applyKind === 'credit-note' ? intl.formatMessage({ id: 'applyDocument.creditNote' }) : intl.formatMessage({ id: 'applyDocument.downPayment' })}
         value={selectedId}
         onChange={selectCandidate}
         options={candidates.map((candidate) => ({ value: candidate.id, label: candidate.label }))}
-        placeholder="Select..."
+        placeholder={intl.formatMessage({ id: 'applyDocument.selectPlaceholder' })}
       />
-      <TextField label="Amount" value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
-      <Button title={submitting ? 'Applying...' : 'Apply'} onPress={handleSubmit} loading={submitting} disabled={candidates.length === 0} />
+      <TextField label={intl.formatMessage({ id: 'applyDocument.amount' })} value={amount} onChangeText={setAmount} keyboardType="decimal-pad" />
+      <Button title={submitting ? intl.formatMessage({ id: 'applyDocument.applying' }) : intl.formatMessage({ id: 'applyDocument.apply' })} onPress={handleSubmit} loading={submitting} disabled={candidates.length === 0} />
     </View>
   );
 }

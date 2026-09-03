@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
@@ -69,7 +70,7 @@ public class FirmsAndMembershipTests
     {
         var db = NewContext();
         var userId = Guid.NewGuid();
-        var controller = WithUser(new FirmsController(db), userId);
+        var controller = WithUser(new FirmsController(db, new NullStringLocalizer<ErrorMessages>()), userId);
 
         var result = await controller.Create(new CreateFirmRequest("Acme Accounting"));
 
@@ -91,14 +92,14 @@ public class FirmsAndMembershipTests
         db.Memberships.Add(Membership.ForFirm(firmAccountant, firm.Id, MembershipRole.FirmAccountant));
         await db.SaveChangesAsync();
 
-        var companiesController = WithUser(new CompaniesController(db), firmAdmin);
+        var companiesController = WithUser(new CompaniesController(db, new NullStringLocalizer<ErrorMessages>()), firmAdmin);
         var createResult = await companiesController.Create(new CreateCompanyRequest("Client Co", firm.Id));
         var created = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
 
         Assert.False(await db.Memberships.AnyAsync(m => m.CompanyId == created.Id),
             "firm-owned company should not get an auto-created direct membership row for the creator");
 
-        var accountantController = WithUser(new CompaniesController(db), firmAccountant);
+        var accountantController = WithUser(new CompaniesController(db, new NullStringLocalizer<ErrorMessages>()), firmAccountant);
         var listResult = await accountantController.List();
         var companies = Assert.IsType<List<CompanyResponse>>(Assert.IsType<OkObjectResult>(listResult.Result).Value);
 
@@ -115,7 +116,7 @@ public class FirmsAndMembershipTests
         db.Memberships.Add(Membership.ForFirm(firmAccountant, firm.Id, MembershipRole.FirmAccountant));
         await db.SaveChangesAsync();
 
-        var controller = WithUser(new CompaniesController(db), firmAccountant);
+        var controller = WithUser(new CompaniesController(db, new NullStringLocalizer<ErrorMessages>()), firmAccountant);
         var result = await controller.Create(new CreateCompanyRequest("Client Co", firm.Id));
 
         Assert.IsType<ForbidResult>(result.Result);
@@ -217,7 +218,7 @@ public class FirmsAndMembershipTests
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 
-        var controller = new CompanyMembersController(db, userManager);
+        var controller = new CompanyMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(company.Id, new AddMemberRequest("ghost@example.com", MembershipRole.ClientViewer));
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
@@ -232,7 +233,7 @@ public class FirmsAndMembershipTests
         db.Firms.Add(firm);
         await db.SaveChangesAsync();
 
-        var controller = new FirmMembersController(db, userManager);
+        var controller = new FirmMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(firm.Id, new AddMemberRequest("ghost@example.com", MembershipRole.FirmAccountant));
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
@@ -250,7 +251,7 @@ public class FirmsAndMembershipTests
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 
-        var controller = new CompanyMembersController(db, userManager);
+        var controller = new CompanyMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(company.Id, new AddMemberRequest("member@example.com", MembershipRole.ClientViewer));
 
         var created = Assert.IsType<MemberResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
@@ -268,7 +269,7 @@ public class FirmsAndMembershipTests
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 
-        var controller = new CompanyMembersController(db, userManager);
+        var controller = new CompanyMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(company.Id, new AddMemberRequest("someone@example.com", MembershipRole.FirmAdmin));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);

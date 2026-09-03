@@ -23,75 +23,75 @@ import { Reports } from "@/pages/Reports";
 import { Settings } from "@/pages/Settings";
 
 export type NavItem = {
-  title: string;
+  titleKey: string;
+  descriptionKey: string;
   path: string;
   icon: LucideIcon;
-  description: string;
   Element?: ComponentType;
 };
 
 export const navItems: NavItem[] = [
   {
-    title: "Dashboard",
+    titleKey: "nav.dashboard",
     path: "/",
     icon: LayoutDashboard,
-    description: "Overview of the active company's financial position.",
+    descriptionKey: "nav.dashboard.description",
     Element: Dashboard,
   },
   {
-    title: "Ledger",
+    titleKey: "nav.ledger",
     path: "/ledger",
     icon: BookOpen,
-    description: "Chart of accounts, journals, and journal entries.",
+    descriptionKey: "nav.ledger.description",
     Element: Ledger,
   },
   {
-    title: "Invoicing",
+    titleKey: "nav.invoicing",
     path: "/invoicing",
     icon: FileText,
-    description: "Customer invoices (accounts receivable).",
+    descriptionKey: "nav.invoicing.description",
     Element: Invoicing,
   },
   {
-    title: "Bills",
+    titleKey: "nav.bills",
     path: "/bills",
     icon: Receipt,
-    description: "Vendor bills (accounts payable).",
+    descriptionKey: "nav.bills.description",
     Element: Bills,
   },
   {
-    title: "Reconciliation",
+    titleKey: "nav.reconciliation",
     path: "/reconciliation",
     icon: GitMerge,
-    description: "Match payments against invoices and bills.",
+    descriptionKey: "nav.reconciliation.description",
     Element: Reconciliation,
   },
   {
-    title: "Payroll",
+    titleKey: "nav.payroll",
     path: "/payroll",
     icon: Users,
-    description: "Employees and payroll runs.",
+    descriptionKey: "nav.payroll.description",
     Element: Payroll,
   },
   {
-    title: "Reports",
+    titleKey: "nav.reports",
     path: "/reports",
     icon: BarChart3,
-    description: "Balance sheet, P&L, and VAT return.",
+    descriptionKey: "nav.reports.description",
     Element: Reports,
   },
   {
-    title: "Companies",
+    titleKey: "nav.companies",
     path: "/companies",
     icon: Building2,
-    description: "Switch between companies and manage firm-client access.",
+    descriptionKey: "nav.companies.description",
     Element: Companies,
   },
   {
-    title: "Settings",
+    titleKey: "nav.settings",
     path: "/settings",
     icon: SettingsIcon,
-    description: "Company, user, and platform settings.",
+    descriptionKey: "nav.settings.description",
     Element: Settings,
   },
 ];

@@ -1,3 +1,5 @@
+import { useIntl } from "react-intl";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -6,6 +8,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
 
 export function Settings() {
+  const intl = useIntl();
   const { auth } = useAuth();
   const { activeCompany } = useCompany();
 
@@ -13,12 +16,12 @@ export function Settings() {
     <div className="flex flex-col gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Account</CardTitle>
-          <CardDescription>Your PAKO account.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "settings.accountTitle" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "settings.accountDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex max-w-sm flex-col gap-2">
-            <Label htmlFor="settings-email">Email</Label>
+            <Label htmlFor="settings-email">{intl.formatMessage({ id: "common.email" })}</Label>
             <Input id="settings-email" value={auth?.email ?? ""} readOnly />
           </div>
         </CardContent>
@@ -26,16 +29,18 @@ export function Settings() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Access</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "settings.accessTitle" })}</CardTitle>
           <CardDescription>
-            {activeCompany ? `Who has access to ${activeCompany.name}.` : "Select a company to see its members."}
+            {activeCompany
+              ? intl.formatMessage({ id: "settings.accessDescriptionWithCompany" }, { companyName: activeCompany.name })
+              : intl.formatMessage({ id: "settings.accessDescriptionNoCompany" })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {activeCompany ? (
             <MembersPanel scope="company" scopeId={activeCompany.id} />
           ) : (
-            <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
           )}
         </CardContent>
       </Card>

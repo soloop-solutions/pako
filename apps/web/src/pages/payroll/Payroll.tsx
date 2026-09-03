@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { EmployeeResponse, PayrollRunResponse } from "@pako/shared";
 
@@ -23,6 +24,7 @@ function endOfMonth() {
 }
 
 export function Payroll() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -51,9 +53,9 @@ export function Payroll() {
       setEmployees(employeesResult);
       setRuns(runsResult);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load payroll data."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.loadError" })));
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -73,7 +75,7 @@ export function Payroll() {
       setEmployeeSalary("");
       await refresh();
     } catch (err) {
-      setEmployeeError(getApiErrorMessage(err, "Could not create employee."));
+      setEmployeeError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.createEmployeeError" })));
     } finally {
       setCreatingEmployee(false);
     }
@@ -88,7 +90,7 @@ export function Payroll() {
       await apiClient.payrollRunsPOST(companyId, { periodStart, periodEnd });
       await refresh();
     } catch (err) {
-      setRunError(getApiErrorMessage(err, "Could not create payroll run."));
+      setRunError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.createRunError" })));
     } finally {
       setCreatingRun(false);
     }
@@ -98,11 +100,11 @@ export function Payroll() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Payroll</CardTitle>
-          <CardDescription>Employees and payroll runs.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "payroll.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "payroll.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -118,7 +120,7 @@ export function Payroll() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Employees</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "payroll.employees" })}</CardTitle>
           <CardDescription>{activeCompany.name}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
@@ -129,11 +131,11 @@ export function Payroll() {
               </Alert>
             )}
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="employee-name">Name</Label>
+              <Label htmlFor="employee-name">{intl.formatMessage({ id: "payroll.employeeName" })}</Label>
               <Input id="employee-name" required value={employeeName} onChange={(event) => setEmployeeName(event.target.value)} />
             </div>
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="employee-salary">Monthly gross salary</Label>
+              <Label htmlFor="employee-salary">{intl.formatMessage({ id: "payroll.monthlyGrossSalary" })}</Label>
               <Input
                 id="employee-salary"
                 type="number"
@@ -145,16 +147,16 @@ export function Payroll() {
               />
             </div>
             <Button type="submit" disabled={creatingEmployee || employeeName.trim().length === 0}>
-              {creatingEmployee ? "Adding..." : "Add employee"}
+              {creatingEmployee ? intl.formatMessage({ id: "payroll.adding" }) : intl.formatMessage({ id: "payroll.addEmployee" })}
             </Button>
           </form>
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead className="text-right">Monthly gross salary</TableHead>
-                <TableHead>Active</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.name" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "payroll.monthlyGrossSalary" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.active" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -163,20 +165,22 @@ export function Payroll() {
                   <TableCell>{employee.name}</TableCell>
                   <TableCell className="text-right">{employee.monthlyGrossSalary.toFixed(2)}</TableCell>
                   <TableCell>
-                    <Badge variant={employee.isActive ? "default" : "secondary"}>{employee.isActive ? "Active" : "Inactive"}</Badge>
+                    <Badge variant={employee.isActive ? "default" : "secondary"}>
+                      {employee.isActive ? intl.formatMessage({ id: "common.active" }) : intl.formatMessage({ id: "common.inactive" })}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {employees.length === 0 && <p className="text-sm text-muted-foreground">No employees yet.</p>}
+          {employees.length === 0 && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "payroll.noEmployees" })}</p>}
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>New payroll run</CardTitle>
-          <CardDescription>Auto-generates payslip lines for all active employees.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "payroll.newPayrollRun" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "payroll.newPayrollRunDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleCreateRun}>
@@ -186,7 +190,7 @@ export function Payroll() {
               </Alert>
             )}
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="run-period-start">Period start</Label>
+              <Label htmlFor="run-period-start">{intl.formatMessage({ id: "payroll.periodStart" })}</Label>
               <Input
                 id="run-period-start"
                 type="date"
@@ -196,7 +200,7 @@ export function Payroll() {
               />
             </div>
             <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="run-period-end">Period end</Label>
+              <Label htmlFor="run-period-end">{intl.formatMessage({ id: "payroll.periodEnd" })}</Label>
               <Input
                 id="run-period-end"
                 type="date"
@@ -206,7 +210,7 @@ export function Payroll() {
               />
             </div>
             <Button type="submit" disabled={creatingRun}>
-              {creatingRun ? "Creating..." : "Create payroll run"}
+              {creatingRun ? intl.formatMessage({ id: "payroll.creatingRun" }) : intl.formatMessage({ id: "payroll.createPayrollRun" })}
             </Button>
           </form>
         </CardContent>
@@ -214,14 +218,14 @@ export function Payroll() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Payroll runs</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "payroll.payrollRuns" })}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Period</TableHead>
-                <TableHead>State</TableHead>
+                <TableHead>{intl.formatMessage({ id: "payroll.period" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "payroll.state" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -236,14 +240,14 @@ export function Payroll() {
                   </TableCell>
                   <TableCell>
                     <Link className="text-sm font-medium text-primary hover:underline" to={`/payroll/${run.id}`}>
-                      View
+                      {intl.formatMessage({ id: "common.view" })}
                     </Link>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {runs.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No payroll runs yet.</p>}
+          {runs.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "payroll.noPayrollRuns" })}</p>}
         </CardContent>
       </Card>
     </div>

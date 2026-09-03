@@ -1,19 +1,21 @@
-import { useTranslation } from "react-i18next";
+import { useIntl } from "react-intl";
 
 import { Select } from "@/components/ui/select";
+import { useLocale } from "@/i18n/IntlProviderWrapper";
 
 export function LanguageSwitcher() {
-  const { t, i18n } = useTranslation("common");
+  const intl = useIntl();
+  const { locale, setLocale } = useLocale();
 
   return (
     <Select
-      aria-label={t("language")}
+      aria-label={intl.formatMessage({ id: "language.label" })}
       className="h-8 w-24"
-      value={i18n.resolvedLanguage ?? "en"}
-      onChange={(event) => void i18n.changeLanguage(event.target.value)}
+      value={locale}
+      onChange={(event) => setLocale(event.target.value)}
     >
-      <option value="en">{t("english")}</option>
-      <option value="sq">{t("albanian")}</option>
+      <option value="en">{intl.formatMessage({ id: "language.english" })}</option>
+      <option value="sq">{intl.formatMessage({ id: "language.albanian" })}</option>
     </Select>
   );
 }

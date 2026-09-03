@@ -1,3 +1,4 @@
+import { useIntl } from "react-intl";
 import { NavLink, Outlet } from "react-router-dom";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -9,6 +10,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 
 export function AppLayout() {
+  const intl = useIntl();
   const { auth, logout } = useAuth();
   const { companies, activeCompanyId, setActiveCompanyId } = useCompany();
 
@@ -19,7 +21,7 @@ export function AppLayout() {
           <span className="text-lg font-semibold">PAKO</span>
         </div>
         <nav className="flex flex-col gap-1 p-2">
-          {navItems.map(({ title, path, icon: Icon }) => (
+          {navItems.map(({ titleKey, path, icon: Icon }) => (
             <NavLink
               key={path}
               to={path}
@@ -34,7 +36,7 @@ export function AppLayout() {
               }
             >
               <Icon className="size-4" />
-              {title}
+              {intl.formatMessage({ id: titleKey })}
             </NavLink>
           ))}
         </nav>
@@ -42,16 +44,16 @@ export function AppLayout() {
       <div className="flex flex-1 flex-col">
         <header className="flex h-14 items-center justify-between border-b px-6">
           <div className="flex items-center gap-3">
-            <span className="text-sm text-muted-foreground">Kosovo accounting &amp; finance platform</span>
+            <span className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.kosovoAccountingPlatform" })}</span>
             {companies.length > 0 && (
               <Select
-                aria-label="Active company"
+                aria-label={intl.formatMessage({ id: "common.selectCompany" })}
                 className="h-8 w-48"
                 value={activeCompanyId ?? ""}
                 onChange={(event) => setActiveCompanyId(event.target.value)}
               >
                 <option value="" disabled>
-                  Select company
+                  {intl.formatMessage({ id: "common.selectCompany" })}
                 </option>
                 {companies.map((company) => (
                   <option key={company.id} value={company.id}>
@@ -65,7 +67,7 @@ export function AppLayout() {
             <LanguageSwitcher />
             <span className="text-sm text-muted-foreground">{auth?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>
-              Log out
+              {intl.formatMessage({ id: "common.logOut" })}
             </Button>
           </div>
         </header>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Services;
 using Pako.Domain.Reconciliation;
 using Pako.Infrastructure;
@@ -15,10 +16,12 @@ namespace Pako.Api.Controllers;
 public class ReconciliationsController : ControllerBase
 {
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public ReconciliationsController(PakoDbContext db)
+    public ReconciliationsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     [HttpPost]
@@ -28,7 +31,7 @@ public class ReconciliationsController : ControllerBase
     {
         if (request.InvoiceId is null == request.BillId is null)
         {
-            return BadRequest("Exactly one of invoiceId or billId must be set.");
+            return BadRequest(_localizer["ExactlyOneDocumentRequired"].Value);
         }
 
         // Row-locking the settlement line (Postgres only) before reading how much of it is

@@ -1,6 +1,7 @@
 import { Link } from 'expo-router';
 import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 
 import { ThemedText } from '@/components/themed-text';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { useAuth } from '@/context/auth-context';
 
 export default function LoginScreen() {
   const { login } = useAuth();
+  const intl = useIntl();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +26,7 @@ export default function LoginScreen() {
     try {
       await login(email.trim(), password);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not sign in.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'auth.signInError' })));
     } finally {
       setSubmitting(false);
     }
@@ -33,28 +35,28 @@ export default function LoginScreen() {
   return (
     <Screen contentContainerStyle={styles.content}>
       <View style={styles.header}>
-        <ThemedText type="title">PAKO</ThemedText>
-        <ThemedText themeColor="textSecondary">Sign in to your account</ThemedText>
+        <ThemedText type="title">{intl.formatMessage({ id: 'auth.pako' })}</ThemedText>
+        <ThemedText themeColor="textSecondary">{intl.formatMessage({ id: 'auth.signInSubtitle' })}</ThemedText>
       </View>
 
       {error && <ErrorBanner message={error} />}
 
       <TextField
-        label="Email"
+        label={intl.formatMessage({ id: 'auth.email' })}
         value={email}
         onChangeText={setEmail}
         autoCapitalize="none"
         autoComplete="email"
         keyboardType="email-address"
       />
-      <TextField label="Password" value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" />
+      <TextField label={intl.formatMessage({ id: 'auth.password' })} value={password} onChangeText={setPassword} secureTextEntry autoComplete="password" />
 
-      <Button title={submitting ? 'Signing in...' : 'Sign in'} onPress={handleSubmit} loading={submitting} disabled={!email || !password} />
+      <Button title={submitting ? intl.formatMessage({ id: 'auth.signingIn' }) : intl.formatMessage({ id: 'auth.signIn' })} onPress={handleSubmit} loading={submitting} disabled={!email || !password} />
 
       <Link href="/register" asChild>
         <Pressable>
           <ThemedText type="linkPrimary" style={styles.link}>
-            Don&apos;t have an account? Create one
+            {intl.formatMessage({ id: 'auth.noAccount' })}
           </ThemedText>
         </Pressable>
       </Link>

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import { Link, useNavigate } from "react-router-dom";
 
 import { getApiErrorMessage } from "@/api/client";
@@ -14,6 +15,7 @@ type AuthFormProps = {
 };
 
 export function AuthForm({ mode }: AuthFormProps) {
+  const intl = useIntl();
   const { login, register } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -34,7 +36,14 @@ export function AuthForm({ mode }: AuthFormProps) {
       }
       navigate("/", { replace: true });
     } catch (err) {
-      setError(getApiErrorMessage(err, isLogin ? "Invalid email or password." : "Could not create account."));
+      setError(
+        getApiErrorMessage(
+          err,
+          isLogin
+            ? intl.formatMessage({ id: "auth.loginFallbackError" })
+            : intl.formatMessage({ id: "auth.registerFallbackError" }),
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -44,8 +53,12 @@ export function AuthForm({ mode }: AuthFormProps) {
     <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{isLogin ? "Log in to PAKO" : "Create your PAKO account"}</CardTitle>
-          <CardDescription>Kosovo accounting &amp; finance platform.</CardDescription>
+          <CardTitle>
+            {isLogin
+              ? intl.formatMessage({ id: "auth.loginTitle" })
+              : intl.formatMessage({ id: "auth.registerTitle" })}
+          </CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "auth.platformDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
@@ -55,7 +68,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               </Alert>
             )}
             <div className="flex flex-col gap-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{intl.formatMessage({ id: "common.email" })}</Label>
               <Input
                 id="email"
                 type="email"
@@ -66,7 +79,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               />
             </div>
             <div className="flex flex-col gap-2">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">{intl.formatMessage({ id: "common.password" })}</Label>
               <Input
                 id="password"
                 type="password"
@@ -77,22 +90,26 @@ export function AuthForm({ mode }: AuthFormProps) {
               />
             </div>
             <Button type="submit" disabled={submitting}>
-              {submitting ? "Please wait..." : isLogin ? "Log in" : "Create account"}
+              {submitting
+                ? intl.formatMessage({ id: "auth.pleaseWait" })
+                : isLogin
+                  ? intl.formatMessage({ id: "auth.loginButton" })
+                  : intl.formatMessage({ id: "auth.registerButton" })}
             </Button>
           </form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
             {isLogin ? (
               <>
-                Don&apos;t have an account?{" "}
+                {intl.formatMessage({ id: "auth.noAccount" })}{" "}
                 <Link className="underline" to="/register">
-                  Register
+                  {intl.formatMessage({ id: "auth.register" })}
                 </Link>
               </>
             ) : (
               <>
-                Already have an account?{" "}
+                {intl.formatMessage({ id: "auth.hasAccount" })}{" "}
                 <Link className="underline" to="/login">
-                  Log in
+                  {intl.formatMessage({ id: "auth.loginButton" })}
                 </Link>
               </>
             )}

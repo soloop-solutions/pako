@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { BillResponse, DocumentBalanceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
 
@@ -14,6 +15,7 @@ import { BillForm } from "@/pages/bills/BillForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 
 export function Bills() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -41,9 +43,9 @@ export function Bills() {
       );
       setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load bills data."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "bills.loadError" })));
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -53,11 +55,11 @@ export function Bills() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Bills</CardTitle>
-          <CardDescription>Vendor bills (accounts payable).</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "bills.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "bills.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -76,13 +78,13 @@ export function Bills() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Vendors</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "bills.vendors" })}</CardTitle>
           <CardDescription>{activeCompany.name}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <PartnerForm companyId={activeCompany.id} role="vendor" onCreated={refresh} />
           {vendors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No vendors yet.</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.noVendors" })}</p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {vendors.map((vendor) => (
@@ -97,8 +99,8 @@ export function Bills() {
 
       <Card>
         <CardHeader>
-          <CardTitle>New bill</CardTitle>
-          <CardDescription>Tax is computed by the server when the bill is posted.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "bills.newBill" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "bills.newBillDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <BillForm
@@ -113,19 +115,19 @@ export function Bills() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Bills</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "bills.billsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Vendor reference</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Vendor</TableHead>
-                <TableHead>Issue date</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead>State</TableHead>
-                <TableHead className="text-right">Outstanding</TableHead>
+                <TableHead>{intl.formatMessage({ id: "bills.vendorReference" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "common.vendor" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.dueDate" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoicing.state" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoicing.outstanding" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
@@ -134,7 +136,7 @@ export function Bills() {
                 <TableRow key={bill.id}>
                   <TableCell>{bill.vendorReference ?? "-"}</TableCell>
                   <TableCell>
-                    <Badge variant="outline">{billDocumentTypeLabel(bill.documentType)}</Badge>
+                    <Badge variant="outline">{billDocumentTypeLabel(bill.documentType, intl)}</Badge>
                   </TableCell>
                   <TableCell>{partnerName(bill.partnerId)}</TableCell>
                   <TableCell>{bill.issueDate}</TableCell>
@@ -147,14 +149,14 @@ export function Bills() {
                   </TableCell>
                   <TableCell>
                     <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${bill.id}`}>
-                      View
+                      {intl.formatMessage({ id: "common.view" })}
                     </Link>
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
-          {bills.length === 0 && <p className="mt-2 text-sm text-muted-foreground">No bills yet.</p>}
+          {bills.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.noBills" })}</p>}
         </CardContent>
       </Card>
     </div>

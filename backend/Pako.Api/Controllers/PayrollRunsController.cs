@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Services;
 using Pako.Domain.Ledger;
 using Pako.Domain.Payroll;
@@ -19,11 +20,13 @@ public class PayrollRunsController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly IPayrollCalculationService _payrollCalculationService;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public PayrollRunsController(PakoDbContext db, IPayrollCalculationService payrollCalculationService)
+    public PayrollRunsController(PakoDbContext db, IPayrollCalculationService payrollCalculationService, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _payrollCalculationService = payrollCalculationService;
+        _localizer = localizer;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -64,7 +67,7 @@ public class PayrollRunsController : ControllerBase
     {
         if (request.PeriodEnd < request.PeriodStart)
         {
-            return BadRequest("periodEnd must be on or after periodStart.");
+            return BadRequest(_localizer["PeriodEndBeforeStart"].Value);
         }
 
         var activeEmployees = await _db.Employees.AsNoTracking()
@@ -73,7 +76,7 @@ public class PayrollRunsController : ControllerBase
 
         if (activeEmployees.Count == 0)
         {
-            return BadRequest("Company has no active employees for a payroll run.");
+            return BadRequest(_localizer["NoActiveEmployees"].Value);
         }
 
         var annualPitBrackets = KosovoPersonalIncomeTaxBrackets.Brackets
@@ -134,7 +137,7 @@ public class PayrollRunsController : ControllerBase
         var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
         if (journal is null)
         {
-            return BadRequest("Company has no journal to post into.");
+            return BadRequest(_localizer["NoJournalToPost"].Value);
         }
 
         var defaults = await _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
@@ -144,7 +147,7 @@ public class PayrollRunsController : ControllerBase
             defaults.PensionPayableAccountId is null ||
             defaults.NetPayPayableAccountId is null)
         {
-            return BadRequest("Company has no payroll accounts configured — enable the Payroll profile for this company.");
+            return BadRequest(_localizer["NoPayrollAccounts"].Value);
         }
 
         JournalEntry journalEntry;

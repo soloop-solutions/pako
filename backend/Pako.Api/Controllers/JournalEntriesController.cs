@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Services;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
@@ -18,10 +19,12 @@ public class JournalEntriesController : ControllerBase
     private const decimal MaxLineAmount = 9999999999999999.99m;
 
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public JournalEntriesController(PakoDbContext db)
+    public JournalEntriesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -47,12 +50,12 @@ public class JournalEntriesController : ControllerBase
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.Id == request.JournalId);
         if (journal is null || journal.CompanyId != companyId)
         {
-            return BadRequest("Invalid journal for this company.");
+            return BadRequest(_localizer["InvalidJournal"].Value);
         }
 
         if (request.Lines.Any(l => Math.Abs(l.Debit) > MaxLineAmount || Math.Abs(l.Credit) > MaxLineAmount))
         {
-            return BadRequest($"Line amounts cannot exceed {MaxLineAmount:N2}.");
+            return BadRequest(string.Format(_localizer["LineAmountExceedsMax"], MaxLineAmount.ToString("N2")));
         }
 
         var accountIds = request.Lines.Select(l => l.AccountId).Distinct().ToList();
@@ -61,7 +64,7 @@ public class JournalEntriesController : ControllerBase
             .ToDictionaryAsync(a => a.Id);
         if (accountsById.Count != accountIds.Count)
         {
-            return BadRequest("One or more accounts do not belong to this company.");
+            return BadRequest(_localizer["AccountsNotBelongToCompany"].Value);
         }
 
         // 60_Posting_Rules R02/R03/R04/R05 (BLOCK) — only for this generic manual-entry path;
@@ -149,7 +152,7 @@ public class JournalEntriesController : ControllerBase
             var journal = await _db.Journals.FirstOrDefaultAsync(j => j.Id == entry.JournalId);
             if (journal is null)
             {
-                return BadRequest("Journal entry references a journal that no longer exists.");
+                return BadRequest(_localizer["JournalNoLongerExists"].Value);
             }
 
             try
@@ -211,7 +214,7 @@ public class JournalEntriesController : ControllerBase
         var journal = await _db.Journals.FirstOrDefaultAsync(j => j.Id == entry.JournalId);
         if (journal is null)
         {
-            return BadRequest("Journal entry references a journal that no longer exists.");
+            return BadRequest(_localizer["JournalNoLongerExists"].Value);
         }
 
         JournalEntry reversal;

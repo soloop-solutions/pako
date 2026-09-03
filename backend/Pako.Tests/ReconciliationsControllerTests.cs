@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
@@ -101,7 +102,7 @@ public class ReconciliationsControllerTests
         await db.SaveChangesAsync();
 
         var settlementLineId = receipt.Lines.Single(l => l.AccountId == receivableAccountId).Id;
-        var controller = new ReconciliationsController(db);
+        var controller = new ReconciliationsController(db, new NullStringLocalizer<ErrorMessages>());
 
         var first = await controller.Create(company.Id, new CreateReconciliationRequest(invoiceA.Id, null, settlementLineId, 100m));
         Assert.IsType<ObjectResult>(first.Result);
@@ -132,7 +133,7 @@ public class ReconciliationsControllerTests
         await db.SaveChangesAsync();
 
         var settlementLineId = receipt.Lines.Single(l => l.AccountId == receivableAccountId).Id;
-        var controller = new ReconciliationsController(db);
+        var controller = new ReconciliationsController(db, new NullStringLocalizer<ErrorMessages>());
 
         var r1 = await controller.Create(company.Id, new CreateReconciliationRequest(invoiceA.Id, null, settlementLineId, 100m));
         var r2 = await controller.Create(company.Id, new CreateReconciliationRequest(invoiceB.Id, null, settlementLineId, 100m));

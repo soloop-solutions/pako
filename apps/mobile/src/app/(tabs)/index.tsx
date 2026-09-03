@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type { TrialBalanceLine } from '@pako/shared';
 
 import { ThemedText } from '@/components/themed-text';
@@ -14,6 +15,7 @@ import { useCompany } from '@/context/company-context';
 export default function DashboardScreen() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const intl = useIntl();
 
   const [trialBalance, setTrialBalance] = useState<TrialBalanceLine[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -26,11 +28,11 @@ export default function DashboardScreen() {
     try {
       setTrialBalance(await apiClient.trialBalance(companyId));
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not load the dashboard summary.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'dashboard.loadError' })));
     } finally {
       setRefreshing(false);
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void (async () => {
@@ -39,7 +41,7 @@ export default function DashboardScreen() {
   }, [refresh]);
 
   if (!activeCompany) {
-    return <SelectCompanyPrompt title="Dashboard" description="Select or create a company to see its financial position." />;
+    return <SelectCompanyPrompt title={intl.formatMessage({ id: 'nav.dashboard' })} description={intl.formatMessage({ id: 'selectCompany.dashboardDescription' })} />;
   }
 
   const totalDebit = trialBalance.reduce((sum, line) => sum + line.debit, 0);
@@ -50,29 +52,29 @@ export default function DashboardScreen() {
       {error && <ErrorBanner message={error} />}
 
       <Card>
-        <CardHeader title={activeCompany.name} description="Posted trial balance snapshot." />
+        <CardHeader title={activeCompany.name} description={intl.formatMessage({ id: 'dashboard.trialBalanceDescription' })} />
         <View style={styles.grid}>
           <View style={styles.stat}>
             <ThemedText type="small" themeColor="textSecondary">
-              Accounts with posted activity
+              {intl.formatMessage({ id: 'dashboard.accountsWithActivity' })}
             </ThemedText>
             <ThemedText type="subtitle">{trialBalance.length}</ThemedText>
           </View>
           <View style={styles.stat}>
             <ThemedText type="small" themeColor="textSecondary">
-              Total posted debit
+              {intl.formatMessage({ id: 'dashboard.totalDebit' })}
             </ThemedText>
             <ThemedText type="subtitle">{totalDebit.toFixed(2)}</ThemedText>
           </View>
           <View style={styles.stat}>
             <ThemedText type="small" themeColor="textSecondary">
-              Total posted credit
+              {intl.formatMessage({ id: 'dashboard.totalCredit' })}
             </ThemedText>
             <ThemedText type="subtitle">{totalCredit.toFixed(2)}</ThemedText>
           </View>
         </View>
         {trialBalance.length === 0 && (
-          <ThemedText themeColor="textSecondary">No posted activity yet. Post an invoice or bill to get started.</ThemedText>
+          <ThemedText themeColor="textSecondary">{intl.formatMessage({ id: 'dashboard.noActivity' })}</ThemedText>
         )}
       </Card>
     </Screen>

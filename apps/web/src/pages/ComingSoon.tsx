@@ -1,19 +1,22 @@
+import { useIntl } from "react-intl";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type ComingSoonProps = {
-  title: string;
-  description: string;
+  titleKey: string;
+  descriptionKey: string;
 };
 
-export function ComingSoon({ title, description }: ComingSoonProps) {
+export function ComingSoon({ titleKey, descriptionKey }: ComingSoonProps) {
+  const intl = useIntl();
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
+        <CardTitle>{intl.formatMessage({ id: titleKey })}</CardTitle>
+        <CardDescription>{intl.formatMessage({ id: descriptionKey })}</CardDescription>
       </CardHeader>
       <CardContent>
-        <p className="text-muted-foreground text-sm">Coming soon.</p>
+        <p className="text-muted-foreground text-sm">{intl.formatMessage({ id: "common.comingSoon" })}</p>
       </CardContent>
     </Card>
   );
