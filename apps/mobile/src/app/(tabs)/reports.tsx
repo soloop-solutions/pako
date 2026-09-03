@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type { BalanceSheetResponse, ProfitAndLossResponse, VatReturnResponse } from '@pako/shared';
 
 import { ThemedText } from '@/components/themed-text';
@@ -25,12 +26,6 @@ function startOfMonth() {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
 }
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: 'pnl', label: 'P&L' },
-  { key: 'balance-sheet', label: 'Balance Sheet' },
-  { key: 'vat', label: 'VAT Return' },
-];
-
 function ReportLineRow({ code, name, amount }: { code: string; name: string; amount: number }) {
   return (
     <View style={styles.reportLine}>
@@ -46,6 +41,7 @@ export default function ReportsScreen() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
   const theme = useTheme();
+  const intl = useIntl();
 
   const [tab, setTab] = useState<Tab>('pnl');
 
@@ -66,6 +62,12 @@ export default function ReportsScreen() {
   const [vatError, setVatError] = useState<string | null>(null);
   const [vatLoading, setVatLoading] = useState(false);
 
+  const TABS: { key: Tab; label: string }[] = [
+    { key: 'pnl', label: intl.formatMessage({ id: 'reports.pnl' }) },
+    { key: 'balance-sheet', label: intl.formatMessage({ id: 'reports.balanceSheet' }) },
+    { key: 'vat', label: intl.formatMessage({ id: 'reports.vatReturn' }) },
+  ];
+
   async function loadPnl() {
     if (!companyId) return;
     setPnlError(null);
@@ -73,7 +75,7 @@ export default function ReportsScreen() {
     try {
       setPnl(await apiClient.profitAndLoss(companyId, pnlFrom, pnlTo));
     } catch (err) {
-      setPnlError(getApiErrorMessage(err, 'Could not load the P&L report.'));
+      setPnlError(getApiErrorMessage(err, intl.formatMessage({ id: 'reports.pnlError' })));
     } finally {
       setPnlLoading(false);
     }
@@ -86,7 +88,7 @@ export default function ReportsScreen() {
     try {
       setBalanceSheet(await apiClient.balanceSheet(companyId, asOf));
     } catch (err) {
-      setBalanceSheetError(getApiErrorMessage(err, 'Could not load the balance sheet.'));
+      setBalanceSheetError(getApiErrorMessage(err, intl.formatMessage({ id: 'reports.balanceSheetError' })));
     } finally {
       setBalanceSheetLoading(false);
     }
@@ -99,14 +101,14 @@ export default function ReportsScreen() {
     try {
       setVatReturn(await apiClient.vatReturn(companyId, vatFrom, vatTo));
     } catch (err) {
-      setVatError(getApiErrorMessage(err, 'Could not load the VAT return.'));
+      setVatError(getApiErrorMessage(err, intl.formatMessage({ id: 'reports.vatError' })));
     } finally {
       setVatLoading(false);
     }
   }
 
   if (!activeCompany) {
-    return <SelectCompanyPrompt title="Reports" description="Select or create a company to run reports." />;
+    return <SelectCompanyPrompt title={intl.formatMessage({ id: 'nav.reports' })} description={intl.formatMessage({ id: 'selectCompany.reportsDescription' })} />;
   }
 
   const balanceSheetOk =
@@ -122,31 +124,31 @@ export default function ReportsScreen() {
 
       {tab === 'pnl' && (
         <Card>
-          <CardHeader title="Profit & Loss" description={activeCompany.name} />
-          <TextField label="From (YYYY-MM-DD)" value={pnlFrom} onChangeText={setPnlFrom} />
-          <TextField label="To (YYYY-MM-DD)" value={pnlTo} onChangeText={setPnlTo} />
-          <Button title={pnlLoading ? 'Loading...' : 'Run report'} onPress={loadPnl} loading={pnlLoading} />
+          <CardHeader title={intl.formatMessage({ id: 'reports.profitAndLoss' })} description={activeCompany.name} />
+          <TextField label={intl.formatMessage({ id: 'reports.from' })} value={pnlFrom} onChangeText={setPnlFrom} />
+          <TextField label={intl.formatMessage({ id: 'reports.to' })} value={pnlTo} onChangeText={setPnlTo} />
+          <Button title={pnlLoading ? intl.formatMessage({ id: 'reports.loading' }) : intl.formatMessage({ id: 'reports.runReport' })} onPress={loadPnl} loading={pnlLoading} />
 
           {pnlError && <ErrorBanner message={pnlError} />}
 
           {pnl && (
             <View style={styles.reportSection}>
-              <ThemedText type="smallBold">Income</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.income' })}</ThemedText>
               {pnl.income.map((line) => (
                 <ReportLineRow key={line.accountId} code={line.accountCode} name={line.accountName} amount={line.amount} />
               ))}
-              <ThemedText type="smallBold">Expenses</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.expenses' })}</ThemedText>
               {pnl.expenses.map((line) => (
                 <ReportLineRow key={line.accountId} code={line.accountCode} name={line.accountName} amount={line.amount} />
               ))}
               <View style={styles.totals}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Total income: {pnl.totalIncome.toFixed(2)}
+                  {intl.formatMessage({ id: 'reports.totalIncome' })}: {pnl.totalIncome.toFixed(2)}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Total expenses: {pnl.totalExpenses.toFixed(2)}
+                  {intl.formatMessage({ id: 'reports.totalExpenses' })}: {pnl.totalExpenses.toFixed(2)}
                 </ThemedText>
-                <ThemedText type="smallBold">Net income: {pnl.netIncome.toFixed(2)}</ThemedText>
+                <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.netIncome' })}: {pnl.netIncome.toFixed(2)}</ThemedText>
               </View>
             </View>
           )}
@@ -155,40 +157,40 @@ export default function ReportsScreen() {
 
       {tab === 'balance-sheet' && (
         <Card>
-          <CardHeader title="Balance Sheet" description={activeCompany.name} />
-          <TextField label="As of (YYYY-MM-DD)" value={asOf} onChangeText={setAsOf} />
-          <Button title={balanceSheetLoading ? 'Loading...' : 'Run report'} onPress={loadBalanceSheet} loading={balanceSheetLoading} />
+          <CardHeader title={intl.formatMessage({ id: 'reports.balanceSheet' })} description={activeCompany.name} />
+          <TextField label={intl.formatMessage({ id: 'reports.asOf' })} value={asOf} onChangeText={setAsOf} />
+          <Button title={balanceSheetLoading ? intl.formatMessage({ id: 'reports.loading' }) : intl.formatMessage({ id: 'reports.runReport' })} onPress={loadBalanceSheet} loading={balanceSheetLoading} />
 
           {balanceSheetError && <ErrorBanner message={balanceSheetError} />}
 
           {balanceSheet && (
             <View style={styles.reportSection}>
-              <ThemedText type="smallBold">Assets</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.assets' })}</ThemedText>
               {balanceSheet.assets.map((line) => (
                 <ReportLineRow key={line.accountId} code={line.accountCode} name={line.accountName} amount={line.amount} />
               ))}
               <ThemedText type="small" themeColor="textSecondary">
-                Total assets: {balanceSheet.totalAssets.toFixed(2)}
+                {intl.formatMessage({ id: 'reports.totalAssets' })}: {balanceSheet.totalAssets.toFixed(2)}
               </ThemedText>
 
-              <ThemedText type="smallBold">Liabilities</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.liabilities' })}</ThemedText>
               {balanceSheet.liabilities.map((line) => (
                 <ReportLineRow key={line.accountId} code={line.accountCode} name={line.accountName} amount={line.amount} />
               ))}
               <ThemedText type="small" themeColor="textSecondary">
-                Total liabilities: {balanceSheet.totalLiabilities.toFixed(2)}
+                {intl.formatMessage({ id: 'reports.totalLiabilities' })}: {balanceSheet.totalLiabilities.toFixed(2)}
               </ThemedText>
 
-              <ThemedText type="smallBold">Equity</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.equity' })}</ThemedText>
               {balanceSheet.equity.map((line) => (
                 <ReportLineRow key={line.accountId} code={line.accountCode} name={line.accountName} amount={line.amount} />
               ))}
               <ThemedText type="small" themeColor="textSecondary">
-                Total equity: {balanceSheet.totalEquity.toFixed(2)}
+                {intl.formatMessage({ id: 'reports.totalEquity' })}: {balanceSheet.totalEquity.toFixed(2)}
               </ThemedText>
 
               <ThemedText type="smallBold" style={{ color: balanceSheetOk ? theme.text : theme.danger }}>
-                Assets ({balanceSheet.totalAssets.toFixed(2)}) = Liabilities + Equity (
+                {intl.formatMessage({ id: 'reports.assets' })} ({balanceSheet.totalAssets.toFixed(2)}) = {intl.formatMessage({ id: 'reports.liabilities' })} + {intl.formatMessage({ id: 'reports.equity' })} (
                 {(balanceSheet.totalLiabilities + balanceSheet.totalEquity).toFixed(2)})
               </ThemedText>
             </View>
@@ -198,31 +200,31 @@ export default function ReportsScreen() {
 
       {tab === 'vat' && (
         <Card>
-          <CardHeader title="VAT Return" description={activeCompany.name} />
-          <TextField label="From (YYYY-MM-DD)" value={vatFrom} onChangeText={setVatFrom} />
-          <TextField label="To (YYYY-MM-DD)" value={vatTo} onChangeText={setVatTo} />
-          <Button title={vatLoading ? 'Loading...' : 'Run report'} onPress={loadVatReturn} loading={vatLoading} />
+          <CardHeader title={intl.formatMessage({ id: 'reports.vatReturn' })} description={activeCompany.name} />
+          <TextField label={intl.formatMessage({ id: 'reports.from' })} value={vatFrom} onChangeText={setVatFrom} />
+          <TextField label={intl.formatMessage({ id: 'reports.to' })} value={vatTo} onChangeText={setVatTo} />
+          <Button title={vatLoading ? intl.formatMessage({ id: 'reports.loading' }) : intl.formatMessage({ id: 'reports.runReport' })} onPress={loadVatReturn} loading={vatLoading} />
 
           {vatError && <ErrorBanner message={vatError} />}
 
           {vatReturn && (
             <View style={styles.reportSection}>
-              <ThemedText type="smallBold">Output VAT (sales)</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.outputVat' })}</ThemedText>
               {vatReturn.outputVat.map((line) => (
                 <ReportLineRow key={line.taxDefinitionId} code={`${(line.rate * 100).toFixed(0)}%`} name={line.name} amount={line.amount} />
               ))}
-              <ThemedText type="smallBold">Input VAT (purchases)</ThemedText>
+              <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.inputVat' })}</ThemedText>
               {vatReturn.inputVat.map((line) => (
                 <ReportLineRow key={line.taxDefinitionId} code={`${(line.rate * 100).toFixed(0)}%`} name={line.name} amount={line.amount} />
               ))}
               <View style={styles.totals}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Total output VAT: {vatReturn.totalOutputVat.toFixed(2)}
+                  {intl.formatMessage({ id: 'reports.totalOutputVat' })}: {vatReturn.totalOutputVat.toFixed(2)}
                 </ThemedText>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Total input VAT: {vatReturn.totalInputVat.toFixed(2)}
+                  {intl.formatMessage({ id: 'reports.totalInputVat' })}: {vatReturn.totalInputVat.toFixed(2)}
                 </ThemedText>
-                <ThemedText type="smallBold">Net VAT due: {vatReturn.netVatDue.toFixed(2)}</ThemedText>
+                <ThemedText type="smallBold">{intl.formatMessage({ id: 'reports.netVatDue' })}: {vatReturn.netVatDue.toFixed(2)}</ThemedText>
               </View>
             </View>
           )}

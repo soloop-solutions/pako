@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import { Link, useParams } from "react-router-dom";
 import type {
   AccountResponse,
@@ -25,6 +26,7 @@ import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/App
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
 export function InvoiceDetail() {
+  const intl = useIntl();
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
@@ -59,9 +61,6 @@ export function InvoiceDetail() {
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
 
-        // The balance endpoint now correctly computes remaining capacity for CreditNote/
-        // DownPayment documents too (branches on DocumentType server-side) - fetch each
-        // candidate's own balance and use its real outstanding amount, not a nominal total.
         const allInvoices = await apiClient.invoicesAll(companyId);
         const partnerPostedInvoices = allInvoices.filter(
           (candidate) => candidate.id !== id && candidate.partnerId === invoiceResult.partnerId && candidate.state === "Posted",
@@ -87,9 +86,9 @@ export function InvoiceDetail() {
         setDownPaymentOptions([]);
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load the invoice."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceDetail.loadError" })));
     }
-  }, [companyId, id]);
+  }, [companyId, id, intl]);
 
   useEffect(() => {
     void refresh();
@@ -103,14 +102,14 @@ export function InvoiceDetail() {
       await apiClient.post2(companyId, id);
       await refresh();
     } catch (err) {
-      setPostError(getApiErrorMessage(err, "Could not post this invoice."));
+      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceDetail.postError" })));
     } finally {
       setPosting(false);
     }
   }
 
   async function handleAppliedCreditNote(response: ApplyCreditNoteResponse) {
-    setApplyMessage(`Applied ${response.reconciliation.amount.toFixed(2)} from credit note.`);
+    setApplyMessage(intl.formatMessage({ id: "invoiceDetail.appliedCreditNote" }, { amount: response.reconciliation.amount.toFixed(2) }));
     await refresh();
   }
 
@@ -118,8 +117,11 @@ export function InvoiceDetail() {
     const applied = response.reconciliation.amount;
     setApplyMessage(
       response.reclassifiedAmount > 0
-        ? `Applied ${applied.toFixed(2)} — ${response.reclassifiedAmount.toFixed(2)} recognized as revenue.`
-        : `Applied ${applied.toFixed(2)}.`,
+        ? intl.formatMessage(
+            { id: "invoiceDetail.appliedDownPaymentWithRevenue" },
+            { amount: applied.toFixed(2), revenueAmount: response.reclassifiedAmount.toFixed(2) },
+          )
+        : intl.formatMessage({ id: "invoiceDetail.appliedDownPayment" }, { amount: applied.toFixed(2) }),
     );
     await refresh();
   }
@@ -128,7 +130,7 @@ export function InvoiceDetail() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Invoice</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "invoiceDetail.title" })}</CardTitle>
         </CardHeader>
         <CardContent>
           {error ? (
@@ -136,7 +138,7 @@ export function InvoiceDetail() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.loading" })}</p>
           )}
         </CardContent>
       </Card>
@@ -146,9 +148,6 @@ export function InvoiceDetail() {
   const partner = partners.find((p) => p.id === invoice.partnerId);
   const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
 
-  // Line entry is gross (brutto): unitPrice is VAT-inclusive, so the sum of gross line amounts
-  // IS the invoice total (what the receivable line shows) — net/VAT are backed out of it for
-  // display, not added on top.
   let total = 0;
   let estimatedNet = 0;
   let estimatedTax = 0;
@@ -163,7 +162,7 @@ export function InvoiceDetail() {
   return (
     <div className="flex flex-col gap-6">
       <Link className="text-sm text-muted-foreground hover:underline" to="/invoicing">
-        &larr; Back to invoicing
+        &larr; {intl.formatMessage({ id: "invoiceDetail.backToInvoicing" })}
       </Link>
 
       {error && (
@@ -183,8 +182,8 @@ export function InvoiceDetail() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle>{invoice.invoiceNumber ?? "Draft invoice"}</CardTitle>
-                <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType)}</Badge>
+                <CardTitle>{invoice.invoiceNumber ?? intl.formatMessage({ id: "invoiceDetail.draftInvoice" })}</CardTitle>
+                <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType, intl)}</Badge>
               </div>
               <CardDescription>{partner?.name ?? invoice.partnerId}</CardDescription>
             </div>
@@ -194,24 +193,24 @@ export function InvoiceDetail() {
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
-              <span className="text-muted-foreground">Issue date:</span> {invoice.issueDate}
+              <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.issueDate" })}</span> {invoice.issueDate}
             </p>
             <p>
-              <span className="text-muted-foreground">Due date:</span> {invoice.dueDate}
+              <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.dueDate" })}</span> {invoice.dueDate}
             </p>
           </div>
 
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Description</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Price (incl. VAT)</TableHead>
-                <TableHead className="text-right">Discount %</TableHead>
-                <TableHead>Tax</TableHead>
-                <TableHead className="text-right">Net</TableHead>
-                <TableHead className="text-right">VAT</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoiceForm.description" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.qty" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.priceInclVat" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "invoiceForm.tax" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.net" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.vat" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "common.total" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -235,15 +234,15 @@ export function InvoiceDetail() {
           </Table>
 
           <div className="flex flex-col items-end gap-1 text-sm">
-            <p>Net (excl. VAT): {estimatedNet.toFixed(2)}</p>
-            <p>VAT: {estimatedTax.toFixed(2)}</p>
-            <p className="font-medium">Total: {total.toFixed(2)}</p>
+            <p>{intl.formatMessage({ id: "invoiceDetail.netExclVat" }, { amount: estimatedNet.toFixed(2) })}</p>
+            <p>{intl.formatMessage({ id: "invoiceDetail.vatAmount" }, { amount: estimatedTax.toFixed(2) })}</p>
+            <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
           </div>
 
           {invoice.state === "Draft" && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={handlePost} disabled={posting}>
-                {posting ? "Posting..." : "Post invoice"}
+                {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}
             </div>
@@ -251,9 +250,9 @@ export function InvoiceDetail() {
 
           {invoice.state === "Posted" && balance && (
             <div className="flex gap-6 text-sm">
-              <p>Total: {balance.total.toFixed(2)}</p>
-              <p>Reconciled: {balance.reconciled.toFixed(2)}</p>
-              <p className="font-medium">Outstanding: {balance.outstanding.toFixed(2)}</p>
+              <p>{intl.formatMessage({ id: "invoiceDetail.totalAmount" }, { amount: balance.total.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "invoiceDetail.reconciled" }, { amount: balance.reconciled.toFixed(2) })}</p>
+              <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.outstanding" }, { amount: balance.outstanding.toFixed(2) })}</p>
             </div>
           )}
         </CardContent>
@@ -262,8 +261,8 @@ export function InvoiceDetail() {
       {invoice.state === "Posted" && balance && balance.outstanding > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Record payment</CardTitle>
-            <CardDescription>Records and reconciles the payment against this invoice in one step.</CardDescription>
+            <CardTitle>{intl.formatMessage({ id: "invoiceDetail.recordPayment" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "invoiceDetail.recordPaymentDescription" })}</CardDescription>
           </CardHeader>
           <CardContent>
             <RecordPaymentForm
@@ -281,8 +280,8 @@ export function InvoiceDetail() {
       {invoice.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Apply credit note</CardTitle>
-            <CardDescription>Reconciles one of this customer's posted credit notes against this invoice.</CardDescription>
+            <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyCreditNote" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "invoiceDetail.applyCreditNoteDescription" })}</CardDescription>
           </CardHeader>
           <CardContent>
             <ApplyCreditNoteForm
@@ -300,8 +299,8 @@ export function InvoiceDetail() {
       {invoice.state === "Posted" && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>Apply down payment</CardTitle>
-            <CardDescription>Reconciles one of this customer's posted down payments against this invoice.</CardDescription>
+            <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyDownPayment" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "invoiceDetail.applyDownPaymentDescription" })}</CardDescription>
           </CardHeader>
           <CardContent>
             <ApplyDownPaymentForm

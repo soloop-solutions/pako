@@ -1,6 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse } from '@pako/shared';
 
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +21,7 @@ export default function InvoicingScreen() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
   const theme = useTheme();
+  const intl = useIntl();
 
   const [customers, setCustomers] = useState<PartnerResponse[]>([]);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
@@ -44,11 +46,11 @@ export default function InvoicingScreen() {
       );
       setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not load invoicing data.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'invoicing.loadError' })));
     } finally {
       setRefreshing(false);
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +59,7 @@ export default function InvoicingScreen() {
   );
 
   if (!activeCompany) {
-    return <SelectCompanyPrompt title="Invoicing" description="Select or create a company to manage invoices." />;
+    return <SelectCompanyPrompt title={intl.formatMessage({ id: 'invoicing.title' })} description={intl.formatMessage({ id: 'selectCompany.invoicingDescription' })} />;
   }
 
   return (
@@ -73,10 +75,10 @@ export default function InvoicingScreen() {
           <Pressable>
             <Card style={styles.invoiceRow}>
               <View style={styles.invoiceRowTop}>
-                <ThemedText type="smallBold">{item.invoiceNumber ?? 'Draft invoice'}</ThemedText>
+                <ThemedText type="smallBold">{item.invoiceNumber ?? intl.formatMessage({ id: 'invoicing.draftInvoice' })}</ThemedText>
                 <View style={styles.badgeGroup}>
-                  <Badge label={invoiceDocumentTypeLabel(item.documentType)} />
-                  <Badge label={item.state} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
+                  <Badge label={invoiceDocumentTypeLabel(item.documentType, intl)} />
+                  <Badge label={item.state === 'Posted' ? intl.formatMessage({ id: 'common.posted' }) : intl.formatMessage({ id: 'common.draft' })} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
                 </View>
               </View>
               <ThemedText type="small" themeColor="textSecondary">
@@ -84,10 +86,10 @@ export default function InvoicingScreen() {
               </ThemedText>
               <View style={styles.invoiceRowBottom}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Due {item.dueDate}
+                  {intl.formatMessage({ id: 'invoicing.due' })} {item.dueDate}
                 </ThemedText>
                 <ThemedText type="smallBold">
-                  {item.state === 'Posted' ? `Outstanding ${balances[item.id]?.outstanding.toFixed(2) ?? '...'}` : '-'}
+                  {item.state === 'Posted' ? `${intl.formatMessage({ id: 'invoicing.outstanding' })} ${balances[item.id]?.outstanding.toFixed(2) ?? '...'}` : '-'}
                 </ThemedText>
               </View>
             </Card>
@@ -99,7 +101,7 @@ export default function InvoicingScreen() {
           {error && <ErrorBanner message={error} />}
 
           <Card>
-            <CardHeader title="Customers" description={activeCompany.name} />
+            <CardHeader title={intl.formatMessage({ id: 'invoicing.customers' })} description={activeCompany.name} />
             <PartnerForm companyId={activeCompany.id} role="customer" onCreated={refresh} />
             {customers.length > 0 && (
               <View style={styles.chips}>
@@ -111,15 +113,15 @@ export default function InvoicingScreen() {
           </Card>
 
           <Link href="/invoicing/new" asChild>
-            <Button title="New invoice" disabled={customers.length === 0} />
+            <Button title={intl.formatMessage({ id: 'invoicing.newInvoiceButton' })} disabled={customers.length === 0} />
           </Link>
 
-          <ThemedText type="smallBold">Invoices</ThemedText>
+          <ThemedText type="smallBold">{intl.formatMessage({ id: 'invoicing.invoicesLabel' })}</ThemedText>
         </View>
       }
       ListEmptyComponent={
         <ThemedText themeColor="textSecondary" style={styles.empty}>
-          No invoices yet.
+          {intl.formatMessage({ id: 'invoicing.noInvoices' })}
         </ThemedText>
       }
       ItemSeparatorComponent={() => <View style={{ height: Spacing.three }} />}

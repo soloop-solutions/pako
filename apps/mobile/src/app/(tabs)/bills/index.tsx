@@ -1,6 +1,7 @@
 import { Link, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 import type { BillResponse, DocumentBalanceResponse, PartnerResponse } from '@pako/shared';
 
 import { ThemedText } from '@/components/themed-text';
@@ -20,6 +21,7 @@ export default function BillsScreen() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
   const theme = useTheme();
+  const intl = useIntl();
 
   const [vendors, setVendors] = useState<PartnerResponse[]>([]);
   const [bills, setBills] = useState<BillResponse[]>([]);
@@ -44,11 +46,11 @@ export default function BillsScreen() {
       );
       setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not load bills data.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'bills.loadError' })));
     } finally {
       setRefreshing(false);
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useFocusEffect(
     useCallback(() => {
@@ -57,7 +59,7 @@ export default function BillsScreen() {
   );
 
   if (!activeCompany) {
-    return <SelectCompanyPrompt title="Bills" description="Select or create a company to manage bills." />;
+    return <SelectCompanyPrompt title={intl.formatMessage({ id: 'bills.title' })} description={intl.formatMessage({ id: 'selectCompany.billsDescription' })} />;
   }
 
   return (
@@ -73,10 +75,10 @@ export default function BillsScreen() {
           <Pressable>
             <Card style={styles.billRow}>
               <View style={styles.billRowTop}>
-                <ThemedText type="smallBold">{item.vendorReference ?? 'Bill'}</ThemedText>
+                <ThemedText type="smallBold">{item.vendorReference ?? intl.formatMessage({ id: 'bills.bill' })}</ThemedText>
                 <View style={styles.badgeGroup}>
-                  <Badge label={billDocumentTypeLabel(item.documentType)} />
-                  <Badge label={item.state} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
+                  <Badge label={billDocumentTypeLabel(item.documentType, intl)} />
+                  <Badge label={item.state === 'Posted' ? intl.formatMessage({ id: 'common.posted' }) : intl.formatMessage({ id: 'common.draft' })} variant={item.state === 'Posted' ? 'default' : 'secondary'} />
                 </View>
               </View>
               <ThemedText type="small" themeColor="textSecondary">
@@ -84,10 +86,10 @@ export default function BillsScreen() {
               </ThemedText>
               <View style={styles.billRowBottom}>
                 <ThemedText type="small" themeColor="textSecondary">
-                  Due {item.dueDate}
+                  {intl.formatMessage({ id: 'bills.due' })} {item.dueDate}
                 </ThemedText>
                 <ThemedText type="smallBold">
-                  {item.state === 'Posted' ? `Outstanding ${balances[item.id]?.outstanding.toFixed(2) ?? '...'}` : '-'}
+                  {item.state === 'Posted' ? `${intl.formatMessage({ id: 'bills.outstanding' })} ${balances[item.id]?.outstanding.toFixed(2) ?? '...'}` : '-'}
                 </ThemedText>
               </View>
             </Card>
@@ -99,7 +101,7 @@ export default function BillsScreen() {
           {error && <ErrorBanner message={error} />}
 
           <Card>
-            <CardHeader title="Vendors" description={activeCompany.name} />
+            <CardHeader title={intl.formatMessage({ id: 'bills.vendors' })} description={activeCompany.name} />
             <PartnerForm companyId={activeCompany.id} role="vendor" onCreated={refresh} />
             {vendors.length > 0 && (
               <View style={styles.chips}>
@@ -111,15 +113,15 @@ export default function BillsScreen() {
           </Card>
 
           <Link href="/bills/new" asChild>
-            <Button title="New bill" disabled={vendors.length === 0} />
+            <Button title={intl.formatMessage({ id: 'bills.newBillButton' })} disabled={vendors.length === 0} />
           </Link>
 
-          <ThemedText type="smallBold">Bills</ThemedText>
+          <ThemedText type="smallBold">{intl.formatMessage({ id: 'bills.billsLabel' })}</ThemedText>
         </View>
       }
       ListEmptyComponent={
         <ThemedText themeColor="textSecondary" style={styles.empty}>
-          No bills yet.
+          {intl.formatMessage({ id: 'bills.noBills' })}
         </ThemedText>
       }
       ItemSeparatorComponent={() => <View style={{ height: Spacing.three }} />}

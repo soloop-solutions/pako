@@ -2,11 +2,13 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import { App } from "@/App";
-import "@/i18n";
+import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import "@/index.css";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <App />
+    <IntlProviderWrapper>
+      <App />
+    </IntlProviderWrapper>
   </StrictMode>,
 );

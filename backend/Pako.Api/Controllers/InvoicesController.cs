@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -21,11 +22,13 @@ public class InvoicesController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly ITaxComputationService _taxComputationService;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public InvoicesController(PakoDbContext db, ITaxComputationService taxComputationService)
+    public InvoicesController(PakoDbContext db, ITaxComputationService taxComputationService, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _taxComputationService = taxComputationService;
+        _localizer = localizer;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -68,12 +71,12 @@ public class InvoicesController : ControllerBase
             .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
         if (partner is null || !partner.IsCustomer)
         {
-            return BadRequest("Invalid customer partner for this company.");
+            return BadRequest(_localizer["InvalidCustomerPartner"].Value);
         }
 
         if (request.Lines.Count == 0)
         {
-            return BadRequest("Invoice must have at least one line.");
+            return BadRequest(_localizer["InvoiceMustHaveLines"].Value);
         }
 
         var validAccountIds = (await _db.Accounts.AsNoTracking()
@@ -84,7 +87,7 @@ public class InvoicesController : ControllerBase
         var defaults = await GetAccountDefaultsAsync(companyId);
         if (defaults is null)
         {
-            return BadRequest("Company has no account defaults seeded.");
+            return BadRequest(_localizer["NoAccountDefaults"].Value);
         }
 
         var defaultRevenueAccountId = defaults.RevenueAccountId;
@@ -100,18 +103,18 @@ public class InvoicesController : ControllerBase
         {
             if (line.Quantity <= 0)
             {
-                return BadRequest("Line quantity must be greater than zero.");
+                return BadRequest(_localizer["LineQuantityMustBePositive"].Value);
             }
 
             if (line.UnitPrice < 0)
             {
-                return BadRequest("Line unit price cannot be negative.");
+                return BadRequest(_localizer["LineUnitPriceNonNegative"].Value);
             }
 
             var discountPercent = line.DiscountPercent ?? 0m;
             if (discountPercent < 0 || discountPercent > 100)
             {
-                return BadRequest("Line discount percent must be between 0 and 100.");
+                return BadRequest(_localizer["LineDiscountOutOfRange"].Value);
             }
 
             var revenueAccountId = request.DocumentType == DocumentType.DownPayment
@@ -119,7 +122,7 @@ public class InvoicesController : ControllerBase
                 : line.RevenueAccountId ?? defaultRevenueAccountId;
             if (!validAccountIds.Contains(revenueAccountId))
             {
-                return BadRequest($"Revenue account {revenueAccountId} does not belong to this company.");
+                return BadRequest(string.Format(_localizer["RevenueAccountNotBelongToCompany"], revenueAccountId));
             }
 
             total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
@@ -138,7 +141,7 @@ public class InvoicesController : ControllerBase
 
         if (total <= 0)
         {
-            return BadRequest("Invoices must have a positive total. To credit a customer, create a credit note instead.");
+            return BadRequest(_localizer["InvoiceMustBePositiveTotal"].Value);
         }
 
         if (request.OriginalInvoiceId is { } originalInvoiceId)
@@ -147,7 +150,7 @@ public class InvoicesController : ControllerBase
                 .AnyAsync(i => i.Id == originalInvoiceId && i.CompanyId == companyId);
             if (!originalExists)
             {
-                return BadRequest("originalInvoiceId does not belong to this company.");
+                return BadRequest(_localizer["OriginalInvoiceNotBelongToCompany"].Value);
             }
         }
 
@@ -194,7 +197,7 @@ public class InvoicesController : ControllerBase
     {
         if (request.Amount <= 0)
         {
-            return BadRequest("Amount must be positive.");
+            return BadRequest(_localizer["AmountMustBePositive"].Value);
         }
 
         var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
@@ -211,26 +214,26 @@ public class InvoicesController : ControllerBase
 
         if (invoice.State != InvoiceState.Posted)
         {
-            return BadRequest("Invoice must be Posted before a payment can be recorded against it.");
+            return BadRequest(_localizer["InvoiceMustBePostedForPayment"].Value);
         }
 
         var cashOrBankAccount = await _db.Accounts.AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.CashOrBankAccountId && a.CompanyId == companyId);
         if (cashOrBankAccount is null || (cashOrBankAccount.AccountSubType != AccountSubType.Cash && cashOrBankAccount.AccountSubType != AccountSubType.Bank))
         {
-            return BadRequest("cashOrBankAccountId must be a Cash or Bank account for this company.");
+            return BadRequest(_localizer["InvalidCashOrBankAccount"].Value);
         }
 
         var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
         if (receivableAccountId == Guid.Empty)
         {
-            return BadRequest("Company has no Accounts Receivable account seeded.");
+            return BadRequest(_localizer["NoReceivableAccount"].Value);
         }
 
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
         if (journal is null)
         {
-            return BadRequest("Company has no journal to post into.");
+            return BadRequest(_localizer["NoJournalToPost"].Value);
         }
 
         var transaction = _db.Database.SupportsRowLocking()
@@ -311,7 +314,7 @@ public class InvoicesController : ControllerBase
     {
         if (request.Amount <= 0)
         {
-            return BadRequest("Amount must be positive.");
+            return BadRequest(_localizer["AmountMustBePositive"].Value);
         }
 
         var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
@@ -329,7 +332,7 @@ public class InvoicesController : ControllerBase
 
         if (creditNote.DocumentType != DocumentType.CreditNote || creditNote.State != InvoiceState.Posted)
         {
-            return BadRequest("creditNoteId must reference a Posted credit note for this company.");
+            return BadRequest(_localizer["InvalidCreditNote"].Value);
         }
 
         var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
@@ -340,7 +343,7 @@ public class InvoicesController : ControllerBase
             .FirstOrDefaultAsync();
         if (creditNoteLineId == Guid.Empty)
         {
-            return BadRequest("Credit note has no receivable line to apply.");
+            return BadRequest(_localizer["CreditNoteNoReceivableLine"].Value);
         }
 
         var transaction = _db.Database.SupportsRowLocking()
@@ -401,7 +404,7 @@ public class InvoicesController : ControllerBase
     {
         if (request.Amount <= 0)
         {
-            return BadRequest("Amount must be positive.");
+            return BadRequest(_localizer["AmountMustBePositive"].Value);
         }
 
         var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
@@ -425,13 +428,13 @@ public class InvoicesController : ControllerBase
 
         if (downPayment.DocumentType != DocumentType.DownPayment || downPayment.State != InvoiceState.Posted)
         {
-            return BadRequest("downPaymentInvoiceId must reference a Posted down-payment invoice for this company.");
+            return BadRequest(_localizer["InvalidDownPayment"].Value);
         }
 
         var defaults = await GetAccountDefaultsAsync(companyId);
         if (defaults is null)
         {
-            return BadRequest("Company has no account defaults seeded.");
+            return BadRequest(_localizer["NoAccountDefaults"].Value);
         }
 
         var receivableAccountId = defaults.ReceivableAccountId;
@@ -441,7 +444,7 @@ public class InvoicesController : ControllerBase
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
         if (journal is null)
         {
-            return BadRequest("Company has no journal to post into.");
+            return BadRequest(_localizer["NoJournalToPost"].Value);
         }
 
         var downPaymentArLineId = await _db.JournalEntryLines.AsNoTracking()
@@ -450,7 +453,7 @@ public class InvoicesController : ControllerBase
             .FirstOrDefaultAsync();
         if (downPaymentArLineId == Guid.Empty)
         {
-            return BadRequest("Down payment invoice has no receivable line to apply.");
+            return BadRequest(_localizer["DownPaymentNoReceivableLine"].Value);
         }
 
         var transaction = _db.Database.SupportsRowLocking()
@@ -620,13 +623,13 @@ public class InvoicesController : ControllerBase
             var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
             if (journal is null)
             {
-                return BadRequest("Company has no journal to post into.");
+                return BadRequest(_localizer["NoJournalToPost"].Value);
             }
 
             var defaults = await GetAccountDefaultsAsync(companyId);
             if (defaults is null || defaults.ReceivableAccountId == Guid.Empty)
             {
-                return BadRequest("Company has no Accounts Receivable account seeded.");
+                return BadRequest(_localizer["NoReceivableAccount"].Value);
             }
 
             var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()

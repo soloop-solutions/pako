@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 
 import { ThemedText } from '@/components/themed-text';
 import { Spacing } from '@/constants/theme';
@@ -15,10 +16,13 @@ type SelectFieldProps = {
   onChange: (value: string) => void;
 };
 
-export function SelectField({ label, value, options, placeholder = 'Select...', onChange }: SelectFieldProps) {
+export function SelectField({ label, value, options, placeholder, onChange }: SelectFieldProps) {
   const theme = useTheme();
+  const intl = useIntl();
   const [open, setOpen] = useState(false);
   const selected = options.find((option) => option.value === value);
+
+  const resolvedPlaceholder = placeholder ?? intl.formatMessage({ id: 'select.placeholder' });
 
   return (
     <View style={styles.container}>
@@ -29,7 +33,7 @@ export function SelectField({ label, value, options, placeholder = 'Select...', 
         onPress={() => setOpen(true)}
         style={[styles.input, { borderColor: theme.border, backgroundColor: theme.backgroundElement }]}
       >
-        <ThemedText themeColor={selected ? 'text' : 'textSecondary'}>{selected?.label ?? placeholder}</ThemedText>
+        <ThemedText themeColor={selected ? 'text' : 'textSecondary'}>{selected?.label ?? resolvedPlaceholder}</ThemedText>
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -55,7 +59,7 @@ export function SelectField({ label, value, options, placeholder = 'Select...', 
               )}
               ListEmptyComponent={
                 <ThemedText themeColor="textSecondary" style={styles.option}>
-                  No options available.
+                  {intl.formatMessage({ id: 'select.noOptions' })}
                 </ThemedText>
               }
             />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useIntl } from "react-intl";
 import type { BalanceSheetResponse, ProfitAndLossResponse, VatReturnResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -22,15 +23,16 @@ function startOfMonth() {
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
 }
 
-const TABS: { key: Tab; label: string }[] = [
-  { key: "pnl", label: "Profit & Loss" },
-  { key: "balance-sheet", label: "Balance Sheet" },
-  { key: "vat", label: "VAT Return" },
-];
-
 export function Reports() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+
+  const TABS: { key: Tab; labelKey: string }[] = [
+    { key: "pnl", labelKey: "reports.profitAndLoss" },
+    { key: "balance-sheet", labelKey: "reports.balanceSheet" },
+    { key: "vat", labelKey: "reports.vatReturn" },
+  ];
 
   const [tab, setTab] = useState<Tab>("pnl");
 
@@ -58,7 +60,7 @@ export function Reports() {
     try {
       setPnl(await apiClient.profitAndLoss(companyId, pnlFrom, pnlTo));
     } catch (err) {
-      setPnlError(getApiErrorMessage(err, "Could not load the P&L report."));
+      setPnlError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.pnlLoadError" })));
     } finally {
       setPnlLoading(false);
     }
@@ -71,7 +73,7 @@ export function Reports() {
     try {
       setBalanceSheet(await apiClient.balanceSheet(companyId, asOf));
     } catch (err) {
-      setBalanceSheetError(getApiErrorMessage(err, "Could not load the balance sheet."));
+      setBalanceSheetError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.balanceSheetLoadError" })));
     } finally {
       setBalanceSheetLoading(false);
     }
@@ -84,7 +86,7 @@ export function Reports() {
     try {
       setVatReturn(await apiClient.vatReturn(companyId, vatFrom, vatTo));
     } catch (err) {
-      setVatError(getApiErrorMessage(err, "Could not load the VAT return."));
+      setVatError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.vatLoadError" })));
     } finally {
       setVatLoading(false);
     }
@@ -94,11 +96,11 @@ export function Reports() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Reports</CardTitle>
-          <CardDescription>Balance sheet, P&amp;L, and VAT return.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "reports.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "reports.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -115,7 +117,7 @@ export function Reports() {
             size="sm"
             onClick={() => setTab(t.key)}
           >
-            {t.label}
+            {intl.formatMessage({ id: t.labelKey })}
           </Button>
         ))}
       </div>
@@ -123,21 +125,21 @@ export function Reports() {
       {tab === "pnl" && (
         <Card>
           <CardHeader>
-            <CardTitle>Profit &amp; Loss</CardTitle>
+            <CardTitle>{intl.formatMessage({ id: "reports.profitAndLoss" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="pnl-from">From</Label>
+                <Label htmlFor="pnl-from">{intl.formatMessage({ id: "reports.from" })}</Label>
                 <Input id="pnl-from" type="date" value={pnlFrom} onChange={(event) => setPnlFrom(event.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="pnl-to">To</Label>
+                <Label htmlFor="pnl-to">{intl.formatMessage({ id: "reports.to" })}</Label>
                 <Input id="pnl-to" type="date" value={pnlTo} onChange={(event) => setPnlTo(event.target.value)} />
               </div>
               <Button onClick={loadPnl} disabled={pnlLoading}>
-                {pnlLoading ? "Loading..." : "Run report"}
+                {pnlLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
             </div>
 
@@ -150,13 +152,13 @@ export function Reports() {
             {pnl && (
               <>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">Income</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.income" })}</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Account</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "ledger.account" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "common.amount" })}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -171,13 +173,13 @@ export function Reports() {
                   </Table>
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">Expenses</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.expenses" })}</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Code</TableHead>
-                        <TableHead>Account</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "ledger.account" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "common.amount" })}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -192,9 +194,9 @@ export function Reports() {
                   </Table>
                 </div>
                 <div className="flex flex-col items-end gap-1 text-sm">
-                  <p>Total income: {pnl.totalIncome.toFixed(2)}</p>
-                  <p>Total expenses: {pnl.totalExpenses.toFixed(2)}</p>
-                  <p className="font-medium">Net income: {pnl.netIncome.toFixed(2)}</p>
+                  <p>{intl.formatMessage({ id: "reports.totalIncome" }, { amount: pnl.totalIncome.toFixed(2) })}</p>
+                  <p>{intl.formatMessage({ id: "reports.totalExpenses" }, { amount: pnl.totalExpenses.toFixed(2) })}</p>
+                  <p className="font-medium">{intl.formatMessage({ id: "reports.netIncome" }, { amount: pnl.netIncome.toFixed(2) })}</p>
                 </div>
               </>
             )}
@@ -205,17 +207,17 @@ export function Reports() {
       {tab === "balance-sheet" && (
         <Card>
           <CardHeader>
-            <CardTitle>Balance Sheet</CardTitle>
+            <CardTitle>{intl.formatMessage({ id: "reports.balanceSheet" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="bs-as-of">As of</Label>
+                <Label htmlFor="bs-as-of">{intl.formatMessage({ id: "reports.asOf" })}</Label>
                 <Input id="bs-as-of" type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} />
               </div>
               <Button onClick={loadBalanceSheet} disabled={balanceSheetLoading}>
-                {balanceSheetLoading ? "Loading..." : "Run report"}
+                {balanceSheetLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
             </div>
 
@@ -229,19 +231,19 @@ export function Reports() {
               <>
                 {(
                   [
-                    ["Assets", balanceSheet.assets, balanceSheet.totalAssets],
-                    ["Liabilities", balanceSheet.liabilities, balanceSheet.totalLiabilities],
-                    ["Equity", balanceSheet.equity, balanceSheet.totalEquity],
+                    ["reports.assets", balanceSheet.assets, balanceSheet.totalAssets, "reports.totalAssets"],
+                    ["reports.liabilities", balanceSheet.liabilities, balanceSheet.totalLiabilities, "reports.totalLiabilities"],
+                    ["reports.equity", balanceSheet.equity, balanceSheet.totalEquity, "reports.totalEquity"],
                   ] as const
-                ).map(([title, lines, total]) => (
-                  <div key={title}>
-                    <h3 className="mb-2 text-sm font-medium">{title}</h3>
+                ).map(([titleKey, lines, total, totalKey]) => (
+                  <div key={titleKey}>
+                    <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: titleKey })}</h3>
                     <Table>
                       <TableHeader>
                         <TableRow>
-                          <TableHead>Code</TableHead>
-                          <TableHead>Account</TableHead>
-                          <TableHead className="text-right">Amount</TableHead>
+                          <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
+                          <TableHead>{intl.formatMessage({ id: "ledger.account" })}</TableHead>
+                          <TableHead className="text-right">{intl.formatMessage({ id: "common.amount" })}</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -254,7 +256,9 @@ export function Reports() {
                         ))}
                       </TableBody>
                     </Table>
-                    <p className="mt-1 text-right text-sm font-medium">Total {title.toLowerCase()}: {total.toFixed(2)}</p>
+                    <p className="mt-1 text-right text-sm font-medium">
+                      {intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })}
+                    </p>
                   </div>
                 ))}
 
@@ -266,8 +270,13 @@ export function Reports() {
                       : "text-destructive",
                   )}
                 >
-                  Assets ({balanceSheet.totalAssets.toFixed(2)}) = Liabilities + Equity (
-                  {(balanceSheet.totalLiabilities + balanceSheet.totalEquity).toFixed(2)})
+                  {intl.formatMessage(
+                    { id: "reports.balanceEquation" },
+                    {
+                      assets: balanceSheet.totalAssets.toFixed(2),
+                      liabilitiesPlusEquity: (balanceSheet.totalLiabilities + balanceSheet.totalEquity).toFixed(2),
+                    },
+                  )}
                 </p>
               </>
             )}
@@ -278,21 +287,21 @@ export function Reports() {
       {tab === "vat" && (
         <Card>
           <CardHeader>
-            <CardTitle>VAT Return</CardTitle>
+            <CardTitle>{intl.formatMessage({ id: "reports.vatReturn" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             <div className="flex flex-wrap items-end gap-4">
               <div className="flex flex-col gap-2">
-                <Label htmlFor="vat-from">From</Label>
+                <Label htmlFor="vat-from">{intl.formatMessage({ id: "reports.from" })}</Label>
                 <Input id="vat-from" type="date" value={vatFrom} onChange={(event) => setVatFrom(event.target.value)} />
               </div>
               <div className="flex flex-col gap-2">
-                <Label htmlFor="vat-to">To</Label>
+                <Label htmlFor="vat-to">{intl.formatMessage({ id: "reports.to" })}</Label>
                 <Input id="vat-to" type="date" value={vatTo} onChange={(event) => setVatTo(event.target.value)} />
               </div>
               <Button onClick={loadVatReturn} disabled={vatLoading}>
-                {vatLoading ? "Loading..." : "Run report"}
+                {vatLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
             </div>
 
@@ -305,13 +314,13 @@ export function Reports() {
             {vatReturn && (
               <>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">Output VAT (sales)</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.outputVat" })}</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Tax</TableHead>
-                        <TableHead className="text-right">Rate</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.tax" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.rate" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "common.amount" })}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -326,13 +335,13 @@ export function Reports() {
                   </Table>
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">Input VAT (purchases)</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.inputVat" })}</h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Tax</TableHead>
-                        <TableHead className="text-right">Rate</TableHead>
-                        <TableHead className="text-right">Amount</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.tax" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.rate" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "common.amount" })}</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -347,9 +356,9 @@ export function Reports() {
                   </Table>
                 </div>
                 <div className="flex flex-col items-end gap-1 text-sm">
-                  <p>Total output VAT: {vatReturn.totalOutputVat.toFixed(2)}</p>
-                  <p>Total input VAT: {vatReturn.totalInputVat.toFixed(2)}</p>
-                  <p className="font-medium">Net VAT due: {vatReturn.netVatDue.toFixed(2)}</p>
+                  <p>{intl.formatMessage({ id: "reports.totalOutputVat" }, { amount: vatReturn.totalOutputVat.toFixed(2) })}</p>
+                  <p>{intl.formatMessage({ id: "reports.totalInputVat" }, { amount: vatReturn.totalInputVat.toFixed(2) })}</p>
+                  <p className="font-medium">{intl.formatMessage({ id: "reports.netVatDue" }, { amount: vatReturn.netVatDue.toFixed(2) })}</p>
                 </div>
               </>
             )}

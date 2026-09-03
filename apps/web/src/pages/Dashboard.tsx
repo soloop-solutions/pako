@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import type { TrialBalanceLine } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -7,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useCompany } from "@/context/CompanyContext";
 
 export function Dashboard() {
+  const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -19,9 +21,9 @@ export function Dashboard() {
     try {
       setTrialBalance(await apiClient.trialBalance(companyId));
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load the dashboard summary."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "dashboard.loadError" })));
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void refresh();
@@ -31,11 +33,11 @@ export function Dashboard() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Dashboard</CardTitle>
-          <CardDescription>Overview of the active company's financial position.</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "dashboard.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "dashboard.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">Select or create a company on the Companies page first.</p>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
         </CardContent>
       </Card>
     );
@@ -55,25 +57,25 @@ export function Dashboard() {
       <Card>
         <CardHeader>
           <CardTitle>{activeCompany.name}</CardTitle>
-          <CardDescription>Posted trial balance snapshot.</CardDescription>
+          <CardDescription>{intl.formatMessage({ id: "dashboard.postedTrialBalanceSnapshot" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 sm:grid-cols-3">
             <div className="rounded-md border px-4 py-3">
-              <p className="text-sm text-muted-foreground">Accounts with posted activity</p>
+              <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dashboard.accountsWithPostedActivity" })}</p>
               <p className="text-2xl font-semibold">{trialBalance.length}</p>
             </div>
             <div className="rounded-md border px-4 py-3">
-              <p className="text-sm text-muted-foreground">Total posted debit</p>
+              <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dashboard.totalPostedDebit" })}</p>
               <p className="text-2xl font-semibold">{totalDebit.toFixed(2)}</p>
             </div>
             <div className="rounded-md border px-4 py-3">
-              <p className="text-sm text-muted-foreground">Total posted credit</p>
+              <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dashboard.totalPostedCredit" })}</p>
               <p className="text-2xl font-semibold">{totalCredit.toFixed(2)}</p>
             </div>
           </div>
           {trialBalance.length === 0 && (
-            <p className="mt-4 text-sm text-muted-foreground">No posted activity yet. See the Ledger page to get started.</p>
+            <p className="mt-4 text-sm text-muted-foreground">{intl.formatMessage({ id: "dashboard.noPostedActivity" })}</p>
           )}
         </CardContent>
       </Card>

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { InvoiceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { INVOICE_DOCUMENT_TYPE_OPTIONS, InvoiceDocumentType } from "@/lib/document-types";
+import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType } from "@/lib/document-types";
 import { computeFromGross, taxRatePercentLabel } from "@/lib/tax-enums";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
@@ -35,6 +36,7 @@ type InvoiceFormProps = {
 };
 
 export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }: InvoiceFormProps) {
+  const intl = useIntl();
   const [partnerId, setPartnerId] = useState("");
   const [documentType, setDocumentType] = useState<number>(InvoiceDocumentType.Invoice);
   const [originalInvoiceId, setOriginalInvoiceId] = useState("");
@@ -67,12 +69,12 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
     setError(null);
 
     if (!partnerId) {
-      setError("Select a customer.");
+      setError(intl.formatMessage({ id: "invoiceForm.selectCustomerError" }));
       return;
     }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
-      setError("Add at least one line.");
+      setError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
       return;
     }
 
@@ -99,7 +101,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
       setLines([{ ...EMPTY_LINE }]);
       onCreated();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not create the invoice."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceForm.createError" })));
     } finally {
       setSubmitting(false);
     }
@@ -115,9 +117,9 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
 
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-customer">Customer</Label>
+          <Label htmlFor="invoice-customer">{intl.formatMessage({ id: "invoiceForm.customer" })}</Label>
           <Select id="invoice-customer" value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
-            <option value="">Select customer</option>
+            <option value="">{intl.formatMessage({ id: "invoiceForm.selectCustomer" })}</option>
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
@@ -126,7 +128,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-document-type">Document type</Label>
+          <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
           <Select
             id="invoice-document-type"
             value={documentType}
@@ -135,15 +137,15 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
               setOriginalInvoiceId("");
             }}
           >
-            {INVOICE_DOCUMENT_TYPE_OPTIONS.map((option) => (
+            {INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {intl.formatMessage({ id: option.labelKey })}
               </option>
             ))}
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-issue-date">Issue date</Label>
+          <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
           <Input
             id="invoice-issue-date"
             type="date"
@@ -153,7 +155,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-due-date">Due date</Label>
+          <Label htmlFor="invoice-due-date">{intl.formatMessage({ id: "invoiceForm.dueDate" })}</Label>
           <Input
             id="invoice-due-date"
             type="date"
@@ -166,13 +168,13 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
 
       {needsOriginalInvoice && (
         <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="invoice-original">Original invoice (optional)</Label>
+          <Label htmlFor="invoice-original">{intl.formatMessage({ id: "invoiceForm.originalInvoice" })}</Label>
           <Select
             id="invoice-original"
             value={originalInvoiceId}
             onChange={(event) => setOriginalInvoiceId(event.target.value)}
           >
-            <option value="">No original invoice</option>
+            <option value="">{intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}</option>
             {originalInvoiceCandidates.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
                 {invoice.invoiceNumber ?? invoice.id}
@@ -189,11 +191,11 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
           return (
           <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Description</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Qty</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -203,7 +205,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Price (incl. VAT)</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.priceInclVat" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -213,7 +215,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Discount %</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -224,12 +226,12 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Tax</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
               <Select
                 value={line.taxDefinitionId}
                 onChange={(event) => updateLine(index, { taxDefinitionId: event.target.value })}
               >
-                <option value="">No tax</option>
+                <option value="">{intl.formatMessage({ id: "invoiceForm.noTax" })}</option>
                 {taxes.map((tax) => (
                   <option key={tax.id} value={tax.id}>
                     {taxRatePercentLabel(tax)}
@@ -238,26 +240,26 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Net</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
               <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>VAT</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
               <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
-              Remove
+              {intl.formatMessage({ id: "invoiceForm.remove" })}
             </Button>
           </div>
           );
         })}
         <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
-          Add line
+          {intl.formatMessage({ id: "invoiceForm.addLine" })}
         </Button>
       </div>
 
       <Button type="submit" className="w-fit" disabled={submitting}>
-        {submitting ? "Creating..." : "Create invoice"}
+        {submitting ? intl.formatMessage({ id: "invoiceForm.creating" }) : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
       </Button>
     </form>
   );

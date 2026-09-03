@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { AccountResponse, JournalResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -20,6 +21,7 @@ type JournalEntryFormProps = {
 };
 
 export function JournalEntryForm({ companyId, journals, accounts, onCreated }: JournalEntryFormProps) {
+  const intl = useIntl();
   const [journalId, setJournalId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
@@ -50,11 +52,11 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
 
     const validLines = lines.filter((line) => line.accountId);
     if (validLines.length < 2) {
-      setError("Add at least two lines.");
+      setError(intl.formatMessage({ id: "journalEntryForm.atLeastTwoLines" }));
       return;
     }
     if (!effectiveJournalId) {
-      setError("No journal available for this company.");
+      setError(intl.formatMessage({ id: "journalEntryForm.noJournal" }));
       return;
     }
 
@@ -76,7 +78,7 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
       setLines([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
       onCreated();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not save the journal entry."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "journalEntryForm.saveError" })));
     } finally {
       setSubmitting(false);
     }
@@ -92,7 +94,7 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
 
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="journal">Journal</Label>
+          <Label htmlFor="journal">{intl.formatMessage({ id: "journalEntryForm.journal" })}</Label>
           <Select id="journal" value={effectiveJournalId} onChange={(event) => setJournalId(event.target.value)}>
             {journals.map((journal) => (
               <option key={journal.id} value={journal.id}>
@@ -102,11 +104,11 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="date">Date</Label>
+          <Label htmlFor="date">{intl.formatMessage({ id: "journalEntryForm.date" })}</Label>
           <Input id="date" type="date" value={date} onChange={(event) => setDate(event.target.value)} required />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="reference">Reference</Label>
+          <Label htmlFor="reference">{intl.formatMessage({ id: "journalEntryForm.reference" })}</Label>
           <Input id="reference" value={reference} onChange={(event) => setReference(event.target.value)} />
         </div>
       </div>
@@ -115,9 +117,9 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
         {lines.map((line, index) => (
           <div key={index} className="grid grid-cols-[1fr_7rem_7rem_1fr_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Account</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "journalEntryForm.account" })}</Label>}
               <Select value={line.accountId} onChange={(event) => updateLine(index, { accountId: event.target.value })}>
-                <option value="">Select account</option>
+                <option value="">{intl.formatMessage({ id: "journalEntryForm.selectAccount" })}</option>
                 {accounts.map((account) => (
                   <option key={account.id} value={account.id}>
                     {account.code} - {account.name}
@@ -126,7 +128,7 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Debit</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "journalEntryForm.debit" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -136,7 +138,7 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Credit</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "journalEntryForm.credit" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -146,26 +148,27 @@ export function JournalEntryForm({ companyId, journals, accounts, onCreated }: J
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Description</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "journalEntryForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 2}>
-              Remove
+              {intl.formatMessage({ id: "journalEntryForm.remove" })}
             </Button>
           </div>
         ))}
         <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
-          Add line
+          {intl.formatMessage({ id: "journalEntryForm.addLine" })}
         </Button>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Total debit: {totalDebit.toFixed(2)} - Total credit: {totalCredit.toFixed(2)}
-        {totalDebit !== totalCredit && <span className="text-destructive"> (unbalanced - posting will be rejected)</span>}
+        {intl.formatMessage({ id: "journalEntryForm.totalDebit" }, { amount: totalDebit.toFixed(2) })} -{" "}
+        {intl.formatMessage({ id: "journalEntryForm.totalCredit" }, { amount: totalCredit.toFixed(2) })}
+        {totalDebit !== totalCredit && <span className="text-destructive"> {intl.formatMessage({ id: "journalEntryForm.unbalanced" })}</span>}
       </p>
 
       <Button type="submit" className="w-fit" disabled={submitting}>
-        {submitting ? "Saving..." : "Save as draft"}
+        {submitting ? intl.formatMessage({ id: "journalEntryForm.saving" }) : intl.formatMessage({ id: "journalEntryForm.saveAsDraft" })}
       </Button>
     </form>
   );

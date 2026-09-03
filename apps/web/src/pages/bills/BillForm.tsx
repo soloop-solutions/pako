@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { BillResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -7,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { BILL_DOCUMENT_TYPE_OPTIONS, BillDocumentType } from "@/lib/document-types";
+import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
 import { computeFromGross, taxRatePercentLabel } from "@/lib/tax-enums";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
@@ -35,6 +36,7 @@ type BillFormProps = {
 };
 
 export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFormProps) {
+  const intl = useIntl();
   const [partnerId, setPartnerId] = useState("");
   const [documentType, setDocumentType] = useState<number>(BillDocumentType.Bill);
   const [originalBillId, setOriginalBillId] = useState("");
@@ -65,12 +67,12 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
     setError(null);
 
     if (!partnerId) {
-      setError("Select a vendor.");
+      setError(intl.formatMessage({ id: "billForm.selectVendorError" }));
       return;
     }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
-      setError("Add at least one line.");
+      setError(intl.formatMessage({ id: "billForm.atLeastOneLine" }));
       return;
     }
 
@@ -99,7 +101,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
       setLines([{ ...EMPTY_LINE }]);
       onCreated();
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not create the bill."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "billForm.createError" })));
     } finally {
       setSubmitting(false);
     }
@@ -115,9 +117,9 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
 
       <div className="grid gap-4 sm:grid-cols-5">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-vendor">Vendor</Label>
+          <Label htmlFor="bill-vendor">{intl.formatMessage({ id: "billForm.vendor" })}</Label>
           <Select id="bill-vendor" value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
-            <option value="">Select vendor</option>
+            <option value="">{intl.formatMessage({ id: "billForm.selectVendor" })}</option>
             {vendors.map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
                 {vendor.name}
@@ -126,7 +128,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-document-type">Document type</Label>
+          <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
           <Select
             id="bill-document-type"
             value={documentType}
@@ -135,15 +137,15 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
               setOriginalBillId("");
             }}
           >
-            {BILL_DOCUMENT_TYPE_OPTIONS.map((option) => (
+            {BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
               <option key={option.value} value={option.value}>
-                {option.label}
+                {intl.formatMessage({ id: option.labelKey })}
               </option>
             ))}
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-vendor-reference">Vendor reference</Label>
+          <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorReference" })}</Label>
           <Input
             id="bill-vendor-reference"
             value={vendorReference}
@@ -151,7 +153,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-issue-date">Issue date</Label>
+          <Label htmlFor="bill-issue-date">{intl.formatMessage({ id: "billForm.issueDate" })}</Label>
           <Input
             id="bill-issue-date"
             type="date"
@@ -161,16 +163,16 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
           />
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-due-date">Due date</Label>
+          <Label htmlFor="bill-due-date">{intl.formatMessage({ id: "billForm.dueDate" })}</Label>
           <Input id="bill-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
         </div>
       </div>
 
       {needsOriginalBill && (
         <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="bill-original">Original bill (optional)</Label>
+          <Label htmlFor="bill-original">{intl.formatMessage({ id: "billForm.originalBill" })}</Label>
           <Select id="bill-original" value={originalBillId} onChange={(event) => setOriginalBillId(event.target.value)}>
-            <option value="">No original bill</option>
+            <option value="">{intl.formatMessage({ id: "billForm.noOriginalBill" })}</option>
             {originalBillCandidates.map((bill) => (
               <option key={bill.id} value={bill.id}>
                 {bill.vendorReference ?? bill.id}
@@ -187,11 +189,11 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
           return (
           <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Description</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Qty</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.qty" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -201,7 +203,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Price (incl. VAT)</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.priceInclVat" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -211,7 +213,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Discount %</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.discountPercent" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -222,12 +224,12 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Tax</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.tax" })}</Label>}
               <Select
                 value={line.taxDefinitionId}
                 onChange={(event) => updateLine(index, { taxDefinitionId: event.target.value })}
               >
-                <option value="">No tax</option>
+                <option value="">{intl.formatMessage({ id: "billForm.noTax" })}</option>
                 {taxes.map((tax) => (
                   <option key={tax.id} value={tax.id}>
                     {taxRatePercentLabel(tax)}
@@ -236,26 +238,26 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
               </Select>
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>Net</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
               <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>VAT</Label>}
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
               <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
             </div>
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
-              Remove
+              {intl.formatMessage({ id: "billForm.remove" })}
             </Button>
           </div>
           );
         })}
         <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
-          Add line
+          {intl.formatMessage({ id: "billForm.addLine" })}
         </Button>
       </div>
 
       <Button type="submit" className="w-fit" disabled={submitting}>
-        {submitting ? "Creating..." : "Create bill"}
+        {submitting ? intl.formatMessage({ id: "billForm.creating" }) : intl.formatMessage({ id: "billForm.createBill" })}
       </Button>
     </form>
   );

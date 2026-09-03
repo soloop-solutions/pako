@@ -4,6 +4,7 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://127.0.0.1:5
 
 let currentToken: string | null = null;
 let unauthorizedHandler: (() => void) | null = null;
+let currentLocaleValue = 'en';
 
 export function setAuthToken(token: string | null): void {
   currentToken = token;
@@ -13,11 +14,16 @@ export function setUnauthorizedHandler(handler: (() => void) | null): void {
   unauthorizedHandler = handler;
 }
 
+export function setCurrentLocale(locale: string): void {
+  currentLocaleValue = locale;
+}
+
 async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
   const headers = new Headers(init?.headers);
   if (currentToken) {
     headers.set('Authorization', `Bearer ${currentToken}`);
   }
+  headers.set('Accept-Language', currentLocaleValue);
 
   const response = await fetch(url, { ...init, headers });
   if (response.status === 401 && currentToken) {

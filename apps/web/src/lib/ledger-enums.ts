@@ -2,15 +2,32 @@
 // generated client types these as plain `number`. Order must be kept in sync by hand with
 // backend/Pako.Domain/Ledger/{Account,Journal}.cs — see packages/shared/README.md.
 
-const ACCOUNT_TYPE_LABELS = ["Asset", "Liability", "Equity", "Income", "Expense"] as const;
-const ACCOUNT_SUB_TYPE_LABELS = ["None", "Receivable", "Payable", "Bank", "Cash"] as const;
+import type { IntlShape } from "react-intl";
 
-export function accountTypeLabel(value: number): string {
-  return ACCOUNT_TYPE_LABELS[value] ?? `Unknown (${value})`;
+const ACCOUNT_TYPE_KEYS = [
+  "enum.accountType.asset",
+  "enum.accountType.liability",
+  "enum.accountType.equity",
+  "enum.accountType.income",
+  "enum.accountType.expense",
+] as const;
+
+const ACCOUNT_SUB_TYPE_KEYS = [
+  "enum.accountSubType.none",
+  "enum.accountSubType.receivable",
+  "enum.accountSubType.payable",
+  "enum.accountSubType.bank",
+  "enum.accountSubType.cash",
+] as const;
+
+export function accountTypeLabel(value: number, intl: IntlShape): string {
+  const key = ACCOUNT_TYPE_KEYS[value];
+  return key ? intl.formatMessage({ id: key }) : `Unknown (${value})`;
 }
 
-export function accountSubTypeLabel(value: number): string {
-  return ACCOUNT_SUB_TYPE_LABELS[value] ?? `Unknown (${value})`;
+export function accountSubTypeLabel(value: number, intl: IntlShape): string {
+  const key = ACCOUNT_SUB_TYPE_KEYS[value];
+  return key ? intl.formatMessage({ id: key }) : `Unknown (${value})`;
 }
 
 const ACCOUNT_SUB_TYPE_BANK = 3;

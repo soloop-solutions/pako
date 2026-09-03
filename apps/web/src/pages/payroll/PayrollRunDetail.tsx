@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useIntl } from "react-intl";
 import { Link, useParams } from "react-router-dom";
 import type { EmployeeResponse, PayrollRunResponse } from "@pako/shared";
 
@@ -11,6 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCompany } from "@/context/CompanyContext";
 
 export function PayrollRunDetail() {
+  const intl = useIntl();
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
@@ -32,9 +34,9 @@ export function PayrollRunDetail() {
       setRun(runResult);
       setEmployees(employeesResult);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not load the payroll run."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "payrollRunDetail.loadError" })));
     }
-  }, [companyId, id]);
+  }, [companyId, id, intl]);
 
   useEffect(() => {
     void refresh();
@@ -48,7 +50,7 @@ export function PayrollRunDetail() {
       await apiClient.post4(companyId, id);
       await refresh();
     } catch (err) {
-      setPostError(getApiErrorMessage(err, "Could not post this payroll run."));
+      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: "payrollRunDetail.postError" })));
     } finally {
       setPosting(false);
     }
@@ -58,7 +60,7 @@ export function PayrollRunDetail() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Payroll run</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "payrollRunDetail.title" })}</CardTitle>
         </CardHeader>
         <CardContent>
           {error ? (
@@ -66,7 +68,7 @@ export function PayrollRunDetail() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : (
-            <p className="text-sm text-muted-foreground">Loading...</p>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.loading" })}</p>
           )}
         </CardContent>
       </Card>
@@ -80,7 +82,7 @@ export function PayrollRunDetail() {
   return (
     <div className="flex flex-col gap-6">
       <Link className="text-sm text-muted-foreground hover:underline" to="/payroll">
-        &larr; Back to payroll
+        &larr; {intl.formatMessage({ id: "payrollRunDetail.backToPayroll" })}
       </Link>
 
       {error && (
@@ -96,7 +98,7 @@ export function PayrollRunDetail() {
               <CardTitle>
                 {run.periodStart} - {run.periodEnd}
               </CardTitle>
-              <CardDescription>Payroll run</CardDescription>
+              <CardDescription>{intl.formatMessage({ id: "payrollRunDetail.title" })}</CardDescription>
             </div>
             <Badge variant={run.state === "Posted" ? "default" : "secondary"}>{run.state}</Badge>
           </div>
@@ -105,12 +107,12 @@ export function PayrollRunDetail() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Employee</TableHead>
-                <TableHead className="text-right">Gross salary</TableHead>
-                <TableHead className="text-right">PIT</TableHead>
-                <TableHead className="text-right">Employee pension</TableHead>
-                <TableHead className="text-right">Employer pension</TableHead>
-                <TableHead className="text-right">Net pay</TableHead>
+                <TableHead>{intl.formatMessage({ id: "payrollRunDetail.employee" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "payrollRunDetail.grossSalary" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "payrollRunDetail.pit" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "payrollRunDetail.employeePension" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "payrollRunDetail.employerPension" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "payrollRunDetail.netPay" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -126,17 +128,17 @@ export function PayrollRunDetail() {
               ))}
             </TableBody>
           </Table>
-          {run.lines.length === 0 && <p className="text-sm text-muted-foreground">No payslip lines.</p>}
+          {run.lines.length === 0 && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "payrollRunDetail.noPayslipLines" })}</p>}
 
           <div className="flex flex-col items-end gap-1 text-sm">
-            <p>Total gross: {totalGross.toFixed(2)}</p>
-            <p className="font-medium">Total net pay: {totalNet.toFixed(2)}</p>
+            <p>{intl.formatMessage({ id: "payrollRunDetail.totalGross" }, { amount: totalGross.toFixed(2) })}</p>
+            <p className="font-medium">{intl.formatMessage({ id: "payrollRunDetail.totalNetPay" }, { amount: totalNet.toFixed(2) })}</p>
           </div>
 
           {run.state === "Draft" && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={handlePost} disabled={posting}>
-                {posting ? "Posting..." : "Post payroll run"}
+                {posting ? intl.formatMessage({ id: "payrollRunDetail.posting" }) : intl.formatMessage({ id: "payrollRunDetail.postPayrollRun" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}
             </div>

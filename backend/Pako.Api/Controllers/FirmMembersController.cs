@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
@@ -17,11 +18,13 @@ public class FirmMembersController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly UserManager<AppUser> _userManager;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public FirmMembersController(PakoDbContext db, UserManager<AppUser> userManager)
+    public FirmMembersController(PakoDbContext db, UserManager<AppUser> userManager, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _userManager = userManager;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -49,20 +52,20 @@ public class FirmMembersController : ControllerBase
     {
         if (request.Role != MembershipRole.FirmAdmin && request.Role != MembershipRole.FirmAccountant)
         {
-            return BadRequest("Role must be FirmAdmin or FirmAccountant for a firm membership.");
+            return BadRequest(_localizer["RoleMustBeFirmRole"].Value);
         }
 
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is null)
         {
-            return NotFound($"No PAKO account exists for {request.Email}.");
+            return NotFound(string.Format(_localizer["NoAccountForEmail"], request.Email));
         }
 
         var alreadyMember = await _db.Memberships.AsNoTracking()
             .AnyAsync(m => m.UserId == user.Id && m.FirmId == firmId);
         if (alreadyMember)
         {
-            return BadRequest($"{request.Email} is already a member of this firm.");
+            return BadRequest(string.Format(_localizer["AlreadyFirmMember"], request.Email));
         }
 
         var membership = Membership.ForFirm(user.Id, firmId, request.Role);

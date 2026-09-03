@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 import type { ApplyDownPaymentResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -19,6 +20,7 @@ type ApplyDownPaymentFormProps = {
 };
 
 export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, options, onApplied }: ApplyDownPaymentFormProps) {
+  const intl = useIntl();
   const [downPaymentInvoiceId, setDownPaymentInvoiceId] = useState(options[0]?.id ?? "");
   const [amount, setAmount] = useState(() => Math.min(options[0]?.total ?? 0, outstanding).toFixed(2));
   const [error, setError] = useState<string | null>(null);
@@ -35,12 +37,12 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
     setError(null);
 
     if (!downPaymentInvoiceId) {
-      setError("Select a down payment.");
+      setError(intl.formatMessage({ id: "applyDownPayment.selectError" }));
       return;
     }
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError("Enter an amount greater than zero.");
+      setError(intl.formatMessage({ id: "applyDownPayment.amountError" }));
       return;
     }
 
@@ -52,7 +54,7 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
       });
       onApplied(response);
     } catch (err) {
-      setError(getApiErrorMessage(err, "Could not apply the down payment — nothing was changed."));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "applyDownPayment.error" })));
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +69,7 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
       )}
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-down-payment-select">Down payment</Label>
+          <Label htmlFor="apply-down-payment-select">{intl.formatMessage({ id: "applyDownPayment.downPayment" })}</Label>
           <Select
             id="apply-down-payment-select"
             value={downPaymentInvoiceId}
@@ -75,13 +77,13 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
           >
             {options.map((option) => (
               <option key={option.id} value={option.id}>
-                {option.label} (available {option.total.toFixed(2)})
+                {option.label} ({intl.formatMessage({ id: "applyDownPayment.available" })} {option.total.toFixed(2)})
               </option>
             ))}
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-down-payment-amount">Amount</Label>
+          <Label htmlFor="apply-down-payment-amount">{intl.formatMessage({ id: "applyDownPayment.amount" })}</Label>
           <Input
             id="apply-down-payment-amount"
             type="number"
@@ -94,7 +96,7 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
         </div>
         <div className="flex items-end">
           <Button type="submit" disabled={submitting || options.length === 0}>
-            {submitting ? "Applying..." : "Apply down payment"}
+            {submitting ? intl.formatMessage({ id: "applyDownPayment.applying" }) : intl.formatMessage({ id: "applyDownPayment.apply" })}
           </Button>
         </div>
       </div>

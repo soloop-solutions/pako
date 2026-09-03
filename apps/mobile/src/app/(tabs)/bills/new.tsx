@@ -1,5 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useIntl } from 'react-intl';
 import type { BillResponse, PartnerResponse, TaxDefinitionResponse } from '@pako/shared';
 
 import { Button } from '@/components/ui/button';
@@ -10,7 +11,7 @@ import { TextField } from '@/components/ui/text-field';
 import { DocumentLinesEditor, EMPTY_DOCUMENT_LINE, type DocumentLine } from '@/components/shared/document-lines-editor';
 import { apiClient, getApiErrorMessage } from '@/api/client';
 import { useCompany } from '@/context/company-context';
-import { BILL_DOCUMENT_TYPE_BILL, BILL_DOCUMENT_TYPE_CREDIT_NOTE, BILL_DOCUMENT_TYPE_OPTIONS } from '@/lib/document-enums';
+import { BILL_DOCUMENT_TYPE_BILL, BILL_DOCUMENT_TYPE_CREDIT_NOTE, billDocumentTypeOptions } from '@/lib/document-enums';
 import { taxesForPurchase } from '@/lib/tax-enums';
 
 function today() {
@@ -20,6 +21,7 @@ function today() {
 export default function NewBillScreen() {
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const intl = useIntl();
 
   const [vendors, setVendors] = useState<PartnerResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
@@ -46,9 +48,9 @@ export default function NewBillScreen() {
       setTaxes(taxesForPurchase(taxesResult));
       setBills(billsResult);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not load vendors.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'billForm.loadError' })));
     }
-  }, [companyId]);
+  }, [companyId, intl]);
 
   useEffect(() => {
     void (async () => {
@@ -62,8 +64,8 @@ export default function NewBillScreen() {
     const candidates = bills.filter(
       (bill) => bill.partnerId === partnerId && bill.documentType === BILL_DOCUMENT_TYPE_BILL && bill.state === 'Posted',
     );
-    return [{ value: '', label: 'None' }, ...candidates.map((bill) => ({ value: bill.id, label: bill.vendorReference ?? bill.id }))];
-  }, [bills, partnerId]);
+    return [{ value: '', label: intl.formatMessage({ id: 'select.none' }) }, ...candidates.map((bill) => ({ value: bill.id, label: bill.vendorReference ?? bill.id }))];
+  }, [bills, partnerId, intl]);
 
   function updateLine(index: number, patch: Partial<DocumentLine>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -82,12 +84,12 @@ export default function NewBillScreen() {
     setError(null);
 
     if (!partnerId) {
-      setError('Select a vendor.');
+      setError(intl.formatMessage({ id: 'billForm.selectVendorError' }));
       return;
     }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
-      setError('Add at least one line.');
+      setError(intl.formatMessage({ id: 'billForm.addLineError' }));
       return;
     }
 
@@ -111,7 +113,7 @@ export default function NewBillScreen() {
       });
       router.back();
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Could not create the bill.'));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: 'billForm.createError' })));
     } finally {
       setSubmitting(false);
     }
@@ -122,40 +124,40 @@ export default function NewBillScreen() {
       {error && <ErrorBanner message={error} />}
 
       <SelectField
-        label="Vendor"
+        label={intl.formatMessage({ id: 'billForm.vendor' })}
         value={partnerId}
         onChange={(value) => {
           setPartnerId(value);
           setOriginalBillId('');
         }}
         options={vendors.map((vendor) => ({ value: vendor.id, label: vendor.name }))}
-        placeholder="Select vendor"
+        placeholder={intl.formatMessage({ id: 'billForm.selectVendor' })}
       />
       <SelectField
-        label="Document type"
+        label={intl.formatMessage({ id: 'billForm.documentType' })}
         value={documentType}
         onChange={(value) => {
           setDocumentType(value);
           setOriginalBillId('');
         }}
-        options={BILL_DOCUMENT_TYPE_OPTIONS}
+        options={billDocumentTypeOptions(intl)}
       />
       {needsOriginalBill && (
         <SelectField
-          label="Original bill (optional)"
+          label={intl.formatMessage({ id: 'billForm.originalBill' })}
           value={originalBillId}
           onChange={setOriginalBillId}
           options={originalBillOptions}
-          placeholder="None"
+          placeholder={intl.formatMessage({ id: 'select.none' })}
         />
       )}
-      <TextField label="Vendor reference" value={vendorReference} onChangeText={setVendorReference} />
-      <TextField label="Issue date (YYYY-MM-DD)" value={issueDate} onChangeText={setIssueDate} />
-      <TextField label="Due date (YYYY-MM-DD)" value={dueDate} onChangeText={setDueDate} />
+      <TextField label={intl.formatMessage({ id: 'billForm.vendorReference' })} value={vendorReference} onChangeText={setVendorReference} />
+      <TextField label={intl.formatMessage({ id: 'billForm.issueDate' })} value={issueDate} onChangeText={setIssueDate} />
+      <TextField label={intl.formatMessage({ id: 'billForm.dueDate' })} value={dueDate} onChangeText={setDueDate} />
 
       <DocumentLinesEditor lines={lines} taxes={taxes} onUpdateLine={updateLine} onAddLine={addLine} onRemoveLine={removeLine} />
 
-      <Button title={submitting ? 'Creating...' : 'Create bill'} onPress={handleSubmit} loading={submitting} />
+      <Button title={submitting ? intl.formatMessage({ id: 'billForm.creating' }) : intl.formatMessage({ id: 'billForm.createBill' })} onPress={handleSubmit} loading={submitting} />
     </Screen>
   );
 }

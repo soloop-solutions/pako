@@ -22,11 +22,11 @@ export function App() {
             <Route path="/register" element={<Register />} />
             <Route element={<RequireAuth />}>
               <Route element={<AppLayout />}>
-                {navItems.map(({ path, title, description, Element }) => (
+                {navItems.map(({ path, titleKey, descriptionKey, Element }) => (
                   <Route
                     key={path}
                     path={path}
-                    element={Element ? <Element /> : <ComingSoon title={title} description={description} />}
+                    element={Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
                   />
                 ))}
                 <Route path="/invoicing/:id" element={<InvoiceDetail />} />

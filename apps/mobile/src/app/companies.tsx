@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { StyleSheet, View } from 'react-native';
+import { useIntl } from 'react-intl';
 
 import { ThemedText } from '@/components/themed-text';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import { useCompany } from '@/context/company-context';
 
 export default function CompaniesScreen() {
   const { companies, activeCompanyId, loading, error, setActiveCompanyId, createCompany, refresh } = useCompany();
+  const intl = useIntl();
   const [name, setName] = useState('');
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
@@ -25,7 +27,7 @@ export default function CompaniesScreen() {
       await createCompany(name.trim());
       setName('');
     } catch (err) {
-      setCreateError(getApiErrorMessage(err, 'Could not create company.'));
+      setCreateError(getApiErrorMessage(err, intl.formatMessage({ id: 'companies.createError' })));
     } finally {
       setCreating(false);
     }
@@ -34,13 +36,13 @@ export default function CompaniesScreen() {
   return (
     <Screen onRefresh={refresh} refreshing={loading}>
       <Card>
-        <CardHeader title="Companies" description="Switch between companies you have access to." />
+        <CardHeader title={intl.formatMessage({ id: 'companies.title' })} description={intl.formatMessage({ id: 'companies.description' })} />
         {error && <ErrorBanner message={error} />}
         {loading && companies.length === 0 && (
-          <ThemedText themeColor="textSecondary">Loading companies...</ThemedText>
+          <ThemedText themeColor="textSecondary">{intl.formatMessage({ id: 'companies.loading' })}</ThemedText>
         )}
         {!loading && companies.length === 0 && !error && (
-          <ThemedText themeColor="textSecondary">No companies yet. Create one below.</ThemedText>
+          <ThemedText themeColor="textSecondary">{intl.formatMessage({ id: 'companies.empty' })}</ThemedText>
         )}
         {companies.map((company) => {
           const isActive = company.id === activeCompanyId;
@@ -48,10 +50,10 @@ export default function CompaniesScreen() {
             <View key={company.id} style={styles.row}>
               <View style={styles.rowLabel}>
                 <ThemedText type="smallBold">{company.name}</ThemedText>
-                {isActive && <Badge label="Active" variant="default" />}
+                {isActive && <Badge label={intl.formatMessage({ id: 'companies.active' })} variant="default" />}
               </View>
               <Button
-                title={isActive ? 'Active' : 'Set active'}
+                title={isActive ? intl.formatMessage({ id: 'companies.active' }) : intl.formatMessage({ id: 'companies.setActive' })}
                 variant={isActive ? 'ghost' : 'outline'}
                 disabled={isActive}
                 onPress={() => setActiveCompanyId(company.id)}
@@ -62,9 +64,9 @@ export default function CompaniesScreen() {
       </Card>
 
       <Card>
-        <CardHeader title="Create a company" description={'Seeds a Kosovo chart of accounts and a default "General" journal.'} />
-        <TextField label="Company name" value={name} onChangeText={setName} autoCapitalize="words" />
-        <Button title={creating ? 'Creating...' : 'Create company'} onPress={handleCreate} loading={creating} disabled={name.trim().length === 0} />
+        <CardHeader title={intl.formatMessage({ id: 'companies.createTitle' })} description={intl.formatMessage({ id: 'companies.createDescription' })} />
+        <TextField label={intl.formatMessage({ id: 'companies.nameLabel' })} value={name} onChangeText={setName} autoCapitalize="words" />
+        <Button title={creating ? intl.formatMessage({ id: 'companies.creating' }) : intl.formatMessage({ id: 'companies.createButton' })} onPress={handleCreate} loading={creating} disabled={name.trim().length === 0} />
         {createError && <ErrorBanner message={createError} />}
       </Card>
     </Screen>

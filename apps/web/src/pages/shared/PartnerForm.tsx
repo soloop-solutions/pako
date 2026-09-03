@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,6 +14,7 @@ type PartnerFormProps = {
 };
 
 export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
+  const intl = useIntl();
   const [name, setName] = useState("");
   const [taxNumber, setTaxNumber] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +35,14 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
       setTaxNumber("");
       onCreated();
     } catch (err) {
-      setError(getApiErrorMessage(err, `Could not create ${role}.`));
+      setError(
+        getApiErrorMessage(
+          err,
+          role === "customer"
+            ? intl.formatMessage({ id: "partnerForm.createCustomerError" })
+            : intl.formatMessage({ id: "partnerForm.createVendorError" }),
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -48,15 +57,19 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
       )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
         <div className="flex flex-1 flex-col gap-2">
-          <Label htmlFor={`${role}-name`}>Name</Label>
+          <Label htmlFor={`${role}-name`}>{intl.formatMessage({ id: "partnerForm.name" })}</Label>
           <Input id={`${role}-name`} required value={name} onChange={(event) => setName(event.target.value)} />
         </div>
         <div className="flex flex-1 flex-col gap-2">
-          <Label htmlFor={`${role}-tax-number`}>Tax number</Label>
+          <Label htmlFor={`${role}-tax-number`}>{intl.formatMessage({ id: "partnerForm.taxNumber" })}</Label>
           <Input id={`${role}-tax-number`} value={taxNumber} onChange={(event) => setTaxNumber(event.target.value)} />
         </div>
         <Button type="submit" disabled={submitting || name.trim().length === 0}>
-          {submitting ? "Creating..." : role === "customer" ? "Add customer" : "Add vendor"}
+          {submitting
+            ? intl.formatMessage({ id: "partnerForm.creating" })
+            : role === "customer"
+              ? intl.formatMessage({ id: "partnerForm.addCustomer" })
+              : intl.formatMessage({ id: "partnerForm.addVendor" })}
         </Button>
       </div>
     </form>

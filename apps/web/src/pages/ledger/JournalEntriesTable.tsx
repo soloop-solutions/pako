@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useIntl } from "react-intl";
 import type { JournalEntryResponse, JournalResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -14,6 +15,7 @@ type JournalEntriesTableProps = {
 };
 
 export function JournalEntriesTable({ companyId, entries, journals, onPosted }: JournalEntriesTableProps) {
+  const intl = useIntl();
   const [postingId, setPostingId] = useState<string | null>(null);
   const [postErrors, setPostErrors] = useState<Record<string, string>>({});
 
@@ -29,7 +31,7 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted }: 
       await apiClient.post3(companyId, entryId);
       onPosted();
     } catch (err) {
-      setPostErrors((prev) => ({ ...prev, [entryId]: getApiErrorMessage(err, "Could not post this entry.") }));
+      setPostErrors((prev) => ({ ...prev, [entryId]: getApiErrorMessage(err, intl.formatMessage({ id: "journalEntries.postError" })) }));
     } finally {
       setPostingId(null);
     }
@@ -39,11 +41,11 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted }: 
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Date</TableHead>
-          <TableHead>Journal</TableHead>
-          <TableHead>Reference</TableHead>
-          <TableHead>State</TableHead>
-          <TableHead>Sequence</TableHead>
+          <TableHead>{intl.formatMessage({ id: "journalEntries.date" })}</TableHead>
+          <TableHead>{intl.formatMessage({ id: "journalEntries.journal" })}</TableHead>
+          <TableHead>{intl.formatMessage({ id: "journalEntries.reference" })}</TableHead>
+          <TableHead>{intl.formatMessage({ id: "journalEntries.state" })}</TableHead>
+          <TableHead>{intl.formatMessage({ id: "journalEntries.sequence" })}</TableHead>
           <TableHead />
         </TableRow>
       </TableHeader>
@@ -61,7 +63,7 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted }: 
               <div className="flex max-w-[16rem] flex-col items-start gap-1">
                 {entry.state === "Draft" && (
                   <Button size="sm" onClick={() => handlePost(entry.id)} disabled={postingId === entry.id}>
-                    {postingId === entry.id ? "Posting..." : "Post"}
+                    {postingId === entry.id ? intl.formatMessage({ id: "journalEntries.posting" }) : intl.formatMessage({ id: "journalEntries.post" })}
                   </Button>
                 )}
                 {postErrors[entry.id] && (

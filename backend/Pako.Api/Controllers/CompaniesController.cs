@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
@@ -16,10 +17,12 @@ namespace Pako.Api.Controllers;
 public class CompaniesController : ControllerBase
 {
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public CompaniesController(PakoDbContext db)
+    public CompaniesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -30,12 +33,12 @@ public class CompaniesController : ControllerBase
     {
         if (string.IsNullOrWhiteSpace(request.Name))
         {
-            return BadRequest("Company name is required.");
+            return BadRequest(_localizer["CompanyNameRequired"].Value);
         }
 
         if (request.Name.Length > 256)
         {
-            return BadRequest("Company name must be 256 characters or fewer.");
+            return BadRequest(_localizer["CompanyNameTooLong"].Value);
         }
 
         if (request.FirmId is Guid firmId)
@@ -43,7 +46,7 @@ public class CompaniesController : ControllerBase
             var firm = await _db.Firms.AsNoTracking().FirstOrDefaultAsync(f => f.Id == firmId);
             if (firm is null)
             {
-                return NotFound($"Firm {firmId} not found.");
+                return NotFound(string.Format(_localizer["FirmNotFound"], firmId));
             }
 
             var isFirmAdmin = await _db.Memberships.AsNoTracking()

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
@@ -17,11 +18,13 @@ public class CompanyMembersController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly UserManager<AppUser> _userManager;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public CompanyMembersController(PakoDbContext db, UserManager<AppUser> userManager)
+    public CompanyMembersController(PakoDbContext db, UserManager<AppUser> userManager, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _userManager = userManager;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -44,26 +47,20 @@ public class CompanyMembersController : ControllerBase
     {
         if (request.Role != MembershipRole.ClientAdmin && request.Role != MembershipRole.ClientViewer)
         {
-            return BadRequest("Role must be ClientAdmin or ClientViewer for a company membership.");
+            return BadRequest(_localizer["RoleMustBeCompanyRole"].Value);
         }
 
         var user = await _userManager.FindByEmailAsync(request.Email);
         if (user is null)
         {
-            return NotFound($"No PAKO account exists for {request.Email}.");
+            return NotFound(string.Format(_localizer["NoAccountForEmail"], request.Email));
         }
 
-        // Deliberately scoped to a direct CompanyId match only, not the firm-cascade too: adding a
-        // direct membership for a user who already has firm-cascaded access is allowed by design
-        // — it's how you explicitly restrict/override a specific member for this one company (e.g.
-        // give a firm-cascaded FirmAccountant a narrower direct ClientViewer here). CompanyAccessFilter
-        // then resolves the two as a union (most-permissive-wins), so this never silently locks
-        // someone out — see its own comment for that policy.
         var alreadyMember = await _db.Memberships.AsNoTracking()
             .AnyAsync(m => m.UserId == user.Id && m.CompanyId == companyId);
         if (alreadyMember)
         {
-            return BadRequest($"{request.Email} is already a member of this company.");
+            return BadRequest(string.Format(_localizer["AlreadyCompanyMember"], request.Email));
         }
 
         var membership = Membership.ForCompany(user.Id, companyId, request.Role);
