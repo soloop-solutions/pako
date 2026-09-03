@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
@@ -19,7 +20,7 @@ public class JournalEntriesControllerTests
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, TestUserId.ToString()) }, "TestAuth"));
 
-        return new JournalEntriesController(db)
+        return new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };
@@ -45,7 +46,7 @@ public class JournalEntriesControllerTests
     public async Task Create_AmountExceedingNumericCapacity_RejectedWithBadRequest()
     {
         var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
-        var controller = new JournalEntriesController(db);
+        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
 
         var request = new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
         {
@@ -62,7 +63,7 @@ public class JournalEntriesControllerTests
     public async Task Create_AmountWithinNumericCapacity_Succeeds()
     {
         var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
-        var controller = new JournalEntriesController(db);
+        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
 
         var request = new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
         {
@@ -79,7 +80,7 @@ public class JournalEntriesControllerTests
     public async Task Post_ZeroLineEntry_RejectedWithBadRequest()
     {
         var (db, companyId, journalId, _, _) = await SeedAsync();
-        var controller = new JournalEntriesController(db);
+        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
 
         var entry = new JournalEntry { Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journalId, Date = new DateOnly(2026, 8, 26) };
         db.JournalEntries.Add(entry);

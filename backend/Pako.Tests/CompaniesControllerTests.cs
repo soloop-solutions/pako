@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
@@ -24,7 +25,7 @@ public class CompaniesControllerTests
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "TestAuth"));
 
-        return new CompaniesController(db)
+        return new CompaniesController(db, new NullStringLocalizer<ErrorMessages>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Pako.Api;
 using Pako.Api.Auth;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
@@ -34,7 +35,7 @@ public class AuthControllerTests
     public async Task Register_DuplicateEmail_DoesNotRevealEmailWasTaken()
     {
         var (_, userManager) = NewContext();
-        var controller = new AuthController(userManager, NewTokenService());
+        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>());
 
         var first = await controller.Register(new RegisterRequest("dup@example.com", "Passw0rd!123"));
         Assert.IsType<OkObjectResult>(first.Result);
@@ -54,7 +55,7 @@ public class AuthControllerTests
         // hiding them behind the same generic message just breaks registration for anyone who
         // trips a real, fixable validation rule (a very real bug this test used to enshrine).
         var (_, userManager) = NewContext();
-        var controller = new AuthController(userManager, NewTokenService());
+        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>());
 
         var result = await controller.Register(new RegisterRequest("weak@example.com", "abc"));
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
