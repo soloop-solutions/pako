@@ -1860,6 +1860,88 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    paymentMethodsAll(companyId: string): Promise<PaymentMethodResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/payment-methods";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaymentMethodsAll(_response);
+        });
+    }
+
+    protected processPaymentMethodsAll(response: Response): Promise<PaymentMethodResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaymentMethodResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaymentMethodResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    paymentMethods(companyId: string, body: CreatePaymentMethodRequest): Promise<PaymentMethodResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/payment-methods";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaymentMethods(_response);
+        });
+    }
+
+    protected processPaymentMethods(response: Response): Promise<PaymentMethodResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaymentMethodResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaymentMethodResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     payrollRunsAll(companyId: string): Promise<PayrollRunResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/payroll-runs";
         if (companyId === undefined || companyId === null)
@@ -2342,6 +2424,50 @@ export class PakoApiClient {
     }
 
     /**
+     * @param asOf (optional) 
+     * @return OK
+     */
+    debtAging(companyId: string, asOf: string | undefined): Promise<DebtAgingResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/debt-aging?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (asOf === null)
+            throw new globalThis.Error("The parameter 'asOf' cannot be null.");
+        else if (asOf !== undefined)
+            url_ += "asOf=" + encodeURIComponent("" + asOf) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDebtAging(_response);
+        });
+    }
+
+    protected processDebtAging(response: Response): Promise<DebtAgingResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DebtAgingResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DebtAgingResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     taxes(companyId: string): Promise<TaxDefinitionResponse[]> {
@@ -2475,6 +2601,7 @@ export interface BillResponse {
     journalEntryId: string | undefined;
     lines: BillLineResponse[];
     internalNotes: string | undefined;
+    priceMode: number;
 
     [key: string]: any;
 }
@@ -2507,6 +2634,7 @@ export interface CompanyResponse {
     accountingLockDate: string | undefined;
     taxLockDate: string | undefined;
     enabledProfiles: number;
+    isVatRegistered: boolean;
 
     [key: string]: any;
 }
@@ -2522,6 +2650,14 @@ export interface CreateBillLineRequest {
     [key: string]: any;
 }
 
+export interface CreateBillPaymentRequest {
+    amount: number;
+    paymentMethodId: string;
+    date?: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface CreateBillRequest {
     partnerId: string;
     vendorReference: string | undefined;
@@ -2530,6 +2666,8 @@ export interface CreateBillRequest {
     lines: CreateBillLineRequest[];
     documentType?: number;
     originalBillId?: string | undefined;
+    priceMode?: number;
+    payment?: CreateBillPaymentRequest | undefined;
 
     [key: string]: any;
 }
@@ -2538,6 +2676,7 @@ export interface CreateCompanyRequest {
     name: string;
     firmId?: string | undefined;
     enabledProfiles?: number | undefined;
+    isVatRegistered?: boolean | undefined;
 
     [key: string]: any;
 }
@@ -2566,6 +2705,14 @@ export interface CreateInvoiceLineRequest {
     [key: string]: any;
 }
 
+export interface CreateInvoicePaymentRequest {
+    amount: number;
+    paymentMethodId: string;
+    date?: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface CreateInvoiceRequest {
     partnerId: string;
     issueDate: string;
@@ -2573,6 +2720,10 @@ export interface CreateInvoiceRequest {
     lines: CreateInvoiceLineRequest[];
     documentType?: number;
     originalInvoiceId?: string | undefined;
+    priceMode?: number;
+    paymentTermDays?: number | undefined;
+    graceDays?: number | undefined;
+    payment?: CreateInvoicePaymentRequest | undefined;
 
     [key: string]: any;
 }
@@ -2613,6 +2764,14 @@ export interface CreatePartnerRequest {
     [key: string]: any;
 }
 
+export interface CreatePaymentMethodRequest {
+    name: string;
+    kind: number;
+    ledgerAccountId: string;
+
+    [key: string]: any;
+}
+
 export interface CreatePayrollRunRequest {
     periodStart: string;
     periodEnd: string;
@@ -2625,6 +2784,29 @@ export interface CreateReconciliationRequest {
     billId: string | undefined;
     journalEntryLineId: string;
     amount: number;
+
+    [key: string]: any;
+}
+
+export interface DebtAgingLine {
+    invoiceId: string;
+    invoiceNumber: string | undefined;
+    partnerId: string;
+    issueDate: string;
+    dueDate: string;
+    graceDays: number | undefined;
+    outstanding: number;
+    bucket: string;
+
+    [key: string]: any;
+}
+
+export interface DebtAgingResponse {
+    asOf: string;
+    lines: DebtAgingLine[];
+    totalCurrent: number;
+    totalWithinGrace: number;
+    totalOverdue: number;
 
     [key: string]: any;
 }
@@ -2691,6 +2873,9 @@ export interface InvoiceResponse {
     journalEntryId: string | undefined;
     lines: InvoiceLineResponse[];
     internalNotes: string | undefined;
+    priceMode: number;
+    paymentTermDays: number | undefined;
+    graceDays: number | undefined;
 
     [key: string]: any;
 }
@@ -2753,6 +2938,15 @@ export interface PartnerResponse {
     taxNumber: string | undefined;
     isCustomer: boolean;
     isVendor: boolean;
+
+    [key: string]: any;
+}
+
+export interface PaymentMethodResponse {
+    id: string;
+    name: string;
+    kind: number;
+    ledgerAccountId: string;
 
     [key: string]: any;
 }
