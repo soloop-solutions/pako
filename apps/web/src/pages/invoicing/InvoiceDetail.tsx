@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
   AccountResponse,
   ApplyCreditNoteResponse,
@@ -28,6 +28,7 @@ import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 export function InvoiceDetail() {
   const intl = useIntl();
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
@@ -41,6 +42,7 @@ export function InvoiceDetail() {
   const [error, setError] = useState<string | null>(null);
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
+  const [converting, setConverting] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -105,6 +107,21 @@ export function InvoiceDetail() {
       setPostError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceDetail.postError" })));
     } finally {
       setPosting(false);
+    }
+  }
+
+  // A3 (v2 release): a proforma never posts — this replaces the Post button for that type below.
+  async function handleConvert() {
+    if (!companyId || !id) return;
+    setPostError(null);
+    setConverting(true);
+    try {
+      const newInvoice = await apiClient.convertToInvoice(companyId, id);
+      navigate(`/invoicing/${newInvoice.id}`);
+    } catch (err) {
+      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceDetail.convertError" })));
+    } finally {
+      setConverting(false);
     }
   }
 
@@ -239,7 +256,16 @@ export function InvoiceDetail() {
             <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
           </div>
 
-          {invoice.state === "Draft" && (
+          {invoice.state === "Draft" && invoice.documentType === InvoiceDocumentType.Proforma && (
+            <div className="flex flex-col items-start gap-1">
+              <Button onClick={handleConvert} disabled={converting}>
+                {converting ? intl.formatMessage({ id: "proforma.converting" }) : intl.formatMessage({ id: "proforma.convert" })}
+              </Button>
+              {postError && <span className="text-xs text-destructive">{postError}</span>}
+            </div>
+          )}
+
+          {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={handlePost} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}

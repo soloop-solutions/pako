@@ -33,12 +33,18 @@ type InvoiceFormProps = {
   taxes: TaxDefinitionResponse[];
   invoices: InvoiceResponse[];
   onCreated: () => void;
+  // A6 (v2 release): when set, this form is dedicated to a single document type (Sales returns,
+  // Proforma) — the type selector is hidden entirely and every reset returns to this value,
+  // rather than the free <Select> Sales/Purchase invoices still uses (INVOICE_DOCUMENT_TYPE_OPTION_KEYS
+  // deliberately still lists only Invoice/CreditNote/DebitNote/DownPayment, unchanged, so that
+  // dropdown never grows the new types).
+  fixedDocumentType?: number;
 };
 
-export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }: InvoiceFormProps) {
+export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, fixedDocumentType }: InvoiceFormProps) {
   const intl = useIntl();
   const [partnerId, setPartnerId] = useState("");
-  const [documentType, setDocumentType] = useState<number>(InvoiceDocumentType.Invoice);
+  const [documentType, setDocumentType] = useState<number>(fixedDocumentType ?? InvoiceDocumentType.Invoice);
   const [originalInvoiceId, setOriginalInvoiceId] = useState("");
   const [issueDate, setIssueDate] = useState(today);
   const [dueDate, setDueDate] = useState(today);
@@ -46,8 +52,13 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
+  // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
   const needsOriginalInvoice =
-    documentType === InvoiceDocumentType.CreditNote || documentType === InvoiceDocumentType.DebitNote;
+    documentType === InvoiceDocumentType.CreditNote ||
+    documentType === InvoiceDocumentType.DebitNote ||
+    documentType === InvoiceDocumentType.SalesReturn;
+  const requiresOriginalInvoice = documentType === InvoiceDocumentType.SalesReturn;
   const originalInvoiceCandidates = invoices.filter(
     (invoice) => invoice.partnerId === partnerId && invoice.state === "Posted",
   );
@@ -70,6 +81,10 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
 
     if (!partnerId) {
       setError(intl.formatMessage({ id: "invoiceForm.selectCustomerError" }));
+      return;
+    }
+    if (requiresOriginalInvoice && !originalInvoiceId) {
+      setError(intl.formatMessage({ id: "invoiceForm.originalInvoiceRequiredError" }));
       return;
     }
     const validLines = lines.filter((line) => line.description.trim());
@@ -96,7 +111,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
         })),
       });
       setPartnerId("");
-      setDocumentType(InvoiceDocumentType.Invoice);
+      setDocumentType(fixedDocumentType ?? InvoiceDocumentType.Invoice);
       setOriginalInvoiceId("");
       setLines([{ ...EMPTY_LINE }]);
       onCreated();
@@ -127,23 +142,25 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
             ))}
           </Select>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
-          <Select
-            id="invoice-document-type"
-            value={documentType}
-            onChange={(event) => {
-              setDocumentType(Number(event.target.value));
-              setOriginalInvoiceId("");
-            }}
-          >
-            {INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {intl.formatMessage({ id: option.labelKey })}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {fixedDocumentType === undefined && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
+            <Select
+              id="invoice-document-type"
+              value={documentType}
+              onChange={(event) => {
+                setDocumentType(Number(event.target.value));
+                setOriginalInvoiceId("");
+              }}
+            >
+              {INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {intl.formatMessage({ id: option.labelKey })}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
           <Input
@@ -168,13 +185,18 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
 
       {needsOriginalInvoice && (
         <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="invoice-original">{intl.formatMessage({ id: "invoiceForm.originalInvoice" })}</Label>
+          <Label htmlFor="invoice-original">
+            {intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
+          </Label>
           <Select
             id="invoice-original"
             value={originalInvoiceId}
             onChange={(event) => setOriginalInvoiceId(event.target.value)}
           >
-            <option value="">{intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}</option>
+            {!requiresOriginalInvoice && <option value="">{intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}</option>}
+            {requiresOriginalInvoice && originalInvoiceCandidates.length === 0 && (
+              <option value="">{intl.formatMessage({ id: "invoiceForm.selectOriginalInvoice" })}</option>
+            )}
             {originalInvoiceCandidates.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
                 {invoice.invoiceNumber ?? invoice.id}

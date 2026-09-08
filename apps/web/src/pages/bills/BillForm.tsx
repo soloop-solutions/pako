@@ -33,12 +33,15 @@ type BillFormProps = {
   taxes: TaxDefinitionResponse[];
   bills: BillResponse[];
   onCreated: () => void;
+  // A6 (v2 release): see InvoiceForm.tsx's identical prop for the full rationale — used by the
+  // Purchase returns page to fix this form to PurchaseReturn with no type selector shown.
+  fixedDocumentType?: number;
 };
 
-export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFormProps) {
+export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDocumentType }: BillFormProps) {
   const intl = useIntl();
   const [partnerId, setPartnerId] = useState("");
-  const [documentType, setDocumentType] = useState<number>(BillDocumentType.Bill);
+  const [documentType, setDocumentType] = useState<number>(fixedDocumentType ?? BillDocumentType.Bill);
   const [originalBillId, setOriginalBillId] = useState("");
   const [vendorReference, setVendorReference] = useState("");
   const [issueDate, setIssueDate] = useState(today);
@@ -47,7 +50,10 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const needsOriginalBill = documentType === BillDocumentType.CreditNote;
+  // A2 (v2 release): PurchaseReturn joins CreditNote in needing an original-bill picker, but
+  // unlike CreditNote it's REQUIRED, not optional — see requiresOriginalBill below.
+  const needsOriginalBill = documentType === BillDocumentType.CreditNote || documentType === BillDocumentType.PurchaseReturn;
+  const requiresOriginalBill = documentType === BillDocumentType.PurchaseReturn;
   const originalBillCandidates = bills.filter((bill) => bill.partnerId === partnerId && bill.state === "Posted");
 
   function updateLine(index: number, patch: Partial<Line>) {
@@ -68,6 +74,10 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
 
     if (!partnerId) {
       setError(intl.formatMessage({ id: "billForm.selectVendorError" }));
+      return;
+    }
+    if (requiresOriginalBill && !originalBillId) {
+      setError(intl.formatMessage({ id: "billForm.originalBillRequiredError" }));
       return;
     }
     const validLines = lines.filter((line) => line.description.trim());
@@ -95,7 +105,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
         })),
       });
       setPartnerId("");
-      setDocumentType(BillDocumentType.Bill);
+      setDocumentType(fixedDocumentType ?? BillDocumentType.Bill);
       setOriginalBillId("");
       setVendorReference("");
       setLines([{ ...EMPTY_LINE }]);
@@ -127,23 +137,25 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
             ))}
           </Select>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
-          <Select
-            id="bill-document-type"
-            value={documentType}
-            onChange={(event) => {
-              setDocumentType(Number(event.target.value));
-              setOriginalBillId("");
-            }}
-          >
-            {BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {intl.formatMessage({ id: option.labelKey })}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {fixedDocumentType === undefined && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
+            <Select
+              id="bill-document-type"
+              value={documentType}
+              onChange={(event) => {
+                setDocumentType(Number(event.target.value));
+                setOriginalBillId("");
+              }}
+            >
+              {BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {intl.formatMessage({ id: option.labelKey })}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorInvoiceNumber" })}</Label>
           <Input
@@ -170,9 +182,14 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
 
       {needsOriginalBill && (
         <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="bill-original">{intl.formatMessage({ id: "billForm.originalBill" })}</Label>
+          <Label htmlFor="bill-original">
+            {intl.formatMessage({ id: requiresOriginalBill ? "billForm.originalBillRequired" : "billForm.originalBill" })}
+          </Label>
           <Select id="bill-original" value={originalBillId} onChange={(event) => setOriginalBillId(event.target.value)}>
-            <option value="">{intl.formatMessage({ id: "billForm.noOriginalBill" })}</option>
+            {!requiresOriginalBill && <option value="">{intl.formatMessage({ id: "billForm.noOriginalBill" })}</option>}
+            {requiresOriginalBill && originalBillCandidates.length === 0 && (
+              <option value="">{intl.formatMessage({ id: "billForm.selectOriginalBill" })}</option>
+            )}
             {originalBillCandidates.map((bill) => (
               <option key={bill.id} value={bill.id}>
                 {bill.vendorReference ?? bill.id}

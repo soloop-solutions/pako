@@ -5,6 +5,9 @@ import {
   BookOpen,
   FileText,
   Receipt,
+  Undo2,
+  RotateCcw,
+  FileClock,
   GitMerge,
   BarChart3,
   Building2,
@@ -13,9 +16,12 @@ import {
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
+import { PurchaseReturns } from "@/pages/bills/PurchaseReturns";
 import { Companies } from "@/pages/Companies";
 import { Dashboard } from "@/pages/Dashboard";
 import { Invoicing } from "@/pages/invoicing/Invoicing";
+import { Proforma } from "@/pages/invoicing/Proforma";
+import { SalesReturns } from "@/pages/invoicing/SalesReturns";
 import { Ledger } from "@/pages/ledger/Ledger";
 import { Payroll } from "@/pages/payroll/Payroll";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
@@ -30,6 +36,11 @@ export type NavItem = {
   Element?: ComponentType;
 };
 
+// A6 (v2 release): the sidebar now names the document, not the module — "Sales invoices"/
+// "Purchase invoices" replace the old "Invoicing"/"Bills" labels (same routes/pages, just
+// relabeled — nav.invoicing/nav.bills keys stay in messages.ts, unused, per "add keys, never
+// rename"), and Sales returns/Purchase returns/Proforma are new dedicated entries rather than
+// document-type options buried inside a single form's dropdown.
 export const navItems: NavItem[] = [
   {
     titleKey: "nav.dashboard",
@@ -46,18 +57,39 @@ export const navItems: NavItem[] = [
     Element: Ledger,
   },
   {
-    titleKey: "nav.invoicing",
+    titleKey: "nav.salesInvoices",
     path: "/invoicing",
     icon: FileText,
-    descriptionKey: "nav.invoicing.description",
+    descriptionKey: "nav.salesInvoices.description",
     Element: Invoicing,
   },
   {
-    titleKey: "nav.bills",
+    titleKey: "nav.purchaseInvoices",
     path: "/bills",
     icon: Receipt,
-    descriptionKey: "nav.bills.description",
+    descriptionKey: "nav.purchaseInvoices.description",
     Element: Bills,
+  },
+  {
+    titleKey: "nav.salesReturns",
+    path: "/sales-returns",
+    icon: Undo2,
+    descriptionKey: "nav.salesReturns.description",
+    Element: SalesReturns,
+  },
+  {
+    titleKey: "nav.purchaseReturns",
+    path: "/purchase-returns",
+    icon: RotateCcw,
+    descriptionKey: "nav.purchaseReturns.description",
+    Element: PurchaseReturns,
+  },
+  {
+    titleKey: "nav.proforma",
+    path: "/proforma",
+    icon: FileClock,
+    descriptionKey: "nav.proforma.description",
+    Element: Proforma,
   },
   {
     titleKey: "nav.reconciliation",
