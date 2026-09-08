@@ -27,6 +27,15 @@ public class Company
     public int NextDebitNoteNumber { get; set; } = 1;
     public int NextDownPaymentNumber { get; set; } = 1;
 
+    // Track A (v2 release, docs/V2_PARALLEL_TRACKS.md) — SalesReturn/Proforma need their own
+    // series like every other Invoicing.DocumentType, added here as a flagged one-time exception
+    // (Company.cs is normally Track B's file) mechanically identical to the four counters above,
+    // per explicit authorization rather than silently editing another track's file. No
+    // PurchaseReturn counter exists because Bill has never had PAKO-minted numbering at all
+    // (VendorReference is free text the vendor supplies) — nothing to add there.
+    public int NextSalesReturnNumber { get; set; } = 1;
+    public int NextProformaNumber { get; set; } = 1;
+
     // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 1, R01 / 50_Profiles).
     public string FunctionalCurrency { get; set; } = "EUR";
     public CompanyProfile EnabledProfiles { get; set; } = CompanyProfile.Core;
@@ -65,6 +74,26 @@ public class Company
     {
         var number = $"DP-{NextDownPaymentNumber:D4}";
         NextDownPaymentNumber++;
+        return number;
+    }
+
+    // A sales return is a legal document PAKO issues to a customer just like a credit/debit note,
+    // so it gets the same own-sequence treatment — a distinct counter, not shared with CreditNote.
+    public string ReserveNextSalesReturnNumber()
+    {
+        var number = $"SR-{NextSalesReturnNumber:D4}";
+        NextSalesReturnNumber++;
+        return number;
+    }
+
+    // A proforma is not a fiscal invoice (see Invoice.Post's Proforma rejection), so its series is
+    // deliberately separate from — and irrelevant to — Article 45/56's gapless/monotonic
+    // requirement, but it still needs its own distinct, predictable sequence for the "PRO-####"
+    // label shown to the user before it's ever converted into a real invoice.
+    public string ReserveNextProformaNumber()
+    {
+        var number = $"PRO-{NextProformaNumber:D4}";
+        NextProformaNumber++;
         return number;
     }
 }

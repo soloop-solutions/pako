@@ -345,6 +345,70 @@ public class InvoicePostingTests
         Assert.Equal("DP-0001", downPayment.InvoiceNumber);
     }
 
+    // Track A (v2 release) — SalesReturn posts through the identical isCreditNote mechanics as
+    // CreditNote: same direction reversal, own document type/number series.
+    [Fact]
+    public void Post_SalesReturn_ProducesEntryReversedFromANormalInvoice()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+        var vatPayableAccountId = Guid.NewGuid();
+        var taxDefinition = new TaxDefinition
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Rate = 0.18m,
+            IsActive = true,
+            RepartitionLines = { new TaxRepartitionLine { AccountId = vatPayableAccountId, Percentage = 100m } }
+        };
+        var salesReturn = InvoiceWithLine(revenueAccountId, taxDefinition.Id);
+        salesReturn.DocumentType = DocumentType.SalesReturn;
+
+        var journalEntry = salesReturn.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
+
+        var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
+        Assert.Equal(0m, receivableLine.Debit);
+        Assert.Equal(100m, receivableLine.Credit);
+
+        var revenueLine = Assert.Single(journalEntry.Lines, l => l.AccountId == revenueAccountId);
+        Assert.Equal(84.75m, revenueLine.Debit);
+        Assert.Equal(0m, revenueLine.Credit);
+
+        var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatPayableAccountId);
+        Assert.Equal(15.25m, taxLine.Debit);
+        Assert.Equal(0m, taxLine.Credit);
+    }
+
+    [Fact]
+    public void Post_SalesReturn_GetsOwnSequenceIndependentOfInvoiceAndCreditNoteNumbers()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var revenueAccountId = Guid.NewGuid();
+        var receivableAccountId = Guid.NewGuid();
+
+        var invoice = InvoiceWithLine(revenueAccountId);
+        invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
+
+        var creditNote = InvoiceWithLine(revenueAccountId);
+        creditNote.DocumentType = DocumentType.CreditNote;
+        creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        creditNote.InvoiceNumber = _documentNumberService.ReserveNext(company, creditNote.DocumentType);
+
+        var salesReturn = InvoiceWithLine(revenueAccountId);
+        salesReturn.DocumentType = DocumentType.SalesReturn;
+        salesReturn.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        salesReturn.InvoiceNumber = _documentNumberService.ReserveNext(company, salesReturn.DocumentType);
+
+        Assert.Equal("INV-0001", invoice.InvoiceNumber);
+        Assert.Equal("CN-0001", creditNote.InvoiceNumber);
+        Assert.Equal("SR-0001", salesReturn.InvoiceNumber);
+    }
+
     // 60_Posting_Rules R10 (AUTO): RC18 generates Dr 113300 / Cr 210300 automatically, on top
     // of (not instead of) the normal revenue/receivable lines — the self-charged VAT never
     // touches the receivable total.

@@ -53,6 +53,9 @@
   <data name="CreditNoteNoReceivableLine" xml:space="preserve"><value>Nota e kreditimit nuk ka rresht arkëtimi për aplikim.</value></data>
   <data name="InvalidDownPayment" xml:space="preserve"><value>downPaymentInvoiceId duhet të referencojë një faturë parapagimi të postuar për këtë kompani.</value></data>
   <data name="DownPaymentNoReceivableLine" xml:space="preserve"><value>Fatura e parapagimit nuk ka rresht arkëtimi për aplikim.</value></data>
+  <data name="OriginalInvoiceRequiredForSalesReturn" xml:space="preserve"><value>originalInvoiceId është i detyrueshëm për një kthim shitjeje.</value></data>
+  <data name="OriginalInvoiceMustBePostedForReturn" xml:space="preserve"><value>Fatura origjinale duhet të jetë e postuar para se një kthim shitjeje të mund të postohet kundër saj.</value></data>
+  <data name="SalesReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>Ky kthim prej {0} do ta kalonte shumën e mbetur të pakthyer të faturës origjinale prej {1}.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Partner furnitor i pavlefshëm për këtë kompani.</value></data>
@@ -63,6 +66,9 @@
   <data name="BillMustBePostedForPayment" xml:space="preserve"><value>Fatura e blerjes duhet të jetë e postuar para se të regjistrohet pagesa.</value></data>
   <data name="NoPayableAccount" xml:space="preserve"><value>Kompania nuk ka llogari të pagesave të seduara.</value></data>
   <data name="CreditNoteNoPayableLine" xml:space="preserve"><value>Nota e kreditimit nuk ka rresht pagese për aplikim.</value></data>
+  <data name="OriginalBillRequiredForPurchaseReturn" xml:space="preserve"><value>originalBillId është i detyrueshëm për një kthim blerjeje.</value></data>
+  <data name="OriginalBillMustBePostedForReturn" xml:space="preserve"><value>Fatura e blerjes origjinale duhet të jetë e postuar para se një kthim blerjeje të mund të postohet kundër saj.</value></data>
+  <data name="PurchaseReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>Ky kthim prej {0} do ta kalonte shumën e mbetur të pakthyer të faturës së blerjes origjinale prej {1}.</value></data>
 
   <!-- Payroll -->
   <data name="PeriodEndBeforeStart" xml:space="preserve"><value>Data e përfundimit duhet të jetë në ose pas datës së fillimit.</value></data>

@@ -78,8 +78,12 @@ public class Invoice
 
         // A credit note carries the same positive line quantities/prices as a normal invoice —
         // only which side of each line gets the amount (Debit vs Credit) reverses, mirroring
-        // Odoo's out_invoice/out_refund move_type distinction rather than negative amounts.
-        var isCreditNote = DocumentType == DocumentType.CreditNote;
+        // Odoo's out_invoice/out_refund move_type distinction rather than negative amounts. A
+        // SalesReturn (Track A, v2 release) posts through the identical mechanics — it's a legal
+        // document that reduces what the customer owes, same shape as a credit note, just its
+        // own document type/number series/required-original-invoice rules (enforced by the
+        // controller, not here).
+        var isCreditNote = DocumentType is DocumentType.CreditNote or DocumentType.SalesReturn;
         var journalEntryLines = new List<JournalEntryLine>();
         var totalWithTax = 0m;
 

@@ -77,6 +77,11 @@ public class InvoicesControllerTests
             new List<CreateInvoiceLineRequest> { new("Deposit", quantity, unitPrice, null, null) },
             DocumentType.DownPayment);
 
+    private static CreateInvoiceRequest SalesReturnRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice, Guid? originalInvoiceId) =>
+        new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Returned goods", quantity, unitPrice, null, null) },
+            DocumentType.SalesReturn, originalInvoiceId);
+
     [Fact]
     public async Task Create_ZeroQuantity_Rejected()
     {
@@ -329,5 +334,105 @@ public class InvoicesControllerTests
         Assert.Equal(500m, balance.Total);
         Assert.Equal(200m, balance.Reconciled);
         Assert.Equal(300m, balance.Outstanding);
+    }
+
+    // A1 (v2 release): the meeting's business case — a customer is invoiced 1000 EUR, refuses the
+    // goods, seller issues a 1000 EUR return. Two documents exist afterwards, original untouched.
+    [Fact]
+    public async Task Create_SalesReturn_WithoutOriginalInvoiceId_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("originalInvoiceId", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Post_SalesReturn_AgainstDraftOriginal_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 1000m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        // Deliberately not posted — a return against a never-posted invoice has nothing to return.
+
+        var returnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, invoice.Id));
+        var salesReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(returnCreated.Result).Value);
+
+        var result = await controller.Post(companyId, salesReturn.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("must be Posted", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Post_SalesReturn_FullAmount_NetsToZeroOnReceivableAccount()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 1000m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var returnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, invoice.Id));
+        var salesReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(returnCreated.Result).Value);
+
+        var result = await controller.Post(companyId, salesReturn.Id);
+        Assert.Equal(200, ((ObjectResult)result.Result!).StatusCode);
+
+        // Original invoice is untouched — still Posted, its own balance unaffected by the return
+        // (they're independent postings that net out on the shared AR control account only).
+        var originalStillPosted = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        Assert.Equal(InvoiceState.Posted, originalStillPosted.State);
+
+        var receivableAccountId = (await db.CompanyAccountDefaults.AsNoTracking()
+            .SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        var netReceivable = await db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.AccountId == receivableAccountId && l.JournalEntry!.CompanyId == companyId && l.JournalEntry.State == JournalEntryState.Posted)
+            .SumAsync(l => l.Debit - l.Credit);
+        Assert.Equal(0m, netReceivable);
+    }
+
+    [Fact]
+    public async Task Post_SalesReturn_Partial_ThenSecondReturnExceedingRemainder_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 1000m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var firstReturnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 600m, invoice.Id));
+        var firstReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(firstReturnCreated.Result).Value);
+        var firstResult = await controller.Post(companyId, firstReturn.Id);
+        Assert.Equal(200, ((ObjectResult)firstResult.Result!).StatusCode);
+
+        // Remaining un-returned amount is now 1000 - 600 = 400; a second return of 500 exceeds it.
+        var secondReturnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 500m, invoice.Id));
+        var secondReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(secondReturnCreated.Result).Value);
+
+        var secondResult = await controller.Post(companyId, secondReturn.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(secondResult.Result);
+        var message = badRequest.Value!.ToString()!;
+        Assert.Contains("500", message);
+        Assert.Contains("400", message);
+
+        // The rejected return never got a number and never posted (no number/journal-entry burn).
+        var secondReturnAfter = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == secondReturn.Id);
+        Assert.Null(secondReturnAfter.InvoiceNumber);
+        Assert.Null(secondReturnAfter.JournalEntryId);
+
+        // A return of exactly the 400 remainder succeeds.
+        var thirdReturnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 400m, invoice.Id));
+        var thirdReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(thirdReturnCreated.Result).Value);
+        var thirdResult = await controller.Post(companyId, thirdReturn.Id);
+        Assert.Equal(200, ((ObjectResult)thirdResult.Result!).StatusCode);
     }
 }

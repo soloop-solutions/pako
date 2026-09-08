@@ -150,6 +150,13 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvoiceMustBePositiveTotal"].Value);
         }
 
+        // Track A (v2 release): a SalesReturn is a correction of a specific prior invoice, unlike
+        // CreditNote/DebitNote/DownPayment where OriginalInvoiceId stays optional.
+        if (request.DocumentType == DocumentType.SalesReturn && request.OriginalInvoiceId is null)
+        {
+            return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
+        }
+
         if (request.OriginalInvoiceId is { } originalInvoiceId)
         {
             var originalExists = await _db.Invoices.AsNoTracking()
@@ -546,7 +553,12 @@ public class InvoicesController : ControllerBase
 
     private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid invoiceId, Guid? journalEntryId, DocumentType documentType)
     {
-        var isSourceDocument = documentType is DocumentType.CreditNote or DocumentType.DownPayment;
+        // A1 (v2 release): SalesReturn posts through the same isCreditNote mechanics as
+        // CreditNote (its own AR control line is Credit-sided, not Debit-sided like a normal
+        // invoice/DebitNote/DownPayment) — same "own total, computed from its own control line"
+        // fix this method already applies to CreditNote/DownPayment.
+        var isSourceDocument = documentType is DocumentType.CreditNote or DocumentType.DownPayment or DocumentType.SalesReturn;
+        var creditSidedControlLine = documentType is DocumentType.CreditNote or DocumentType.SalesReturn;
 
         var total = 0m;
         Guid? controlLineId = null;
@@ -563,7 +575,7 @@ public class InvoicesController : ControllerBase
                 if (controlLine is not null)
                 {
                     controlLineId = controlLine.Id;
-                    total = documentType == DocumentType.CreditNote ? controlLine.Credit : controlLine.Debit;
+                    total = creditSidedControlLine ? controlLine.Credit : controlLine.Debit;
                 }
             }
             else
@@ -622,6 +634,15 @@ public class InvoicesController : ControllerBase
             if (invoice is null)
             {
                 return NotFound();
+            }
+
+            // A3 (v2 release): a proforma is an offer, not a legal invoice — it must never post a
+            // journal entry, consume a fiscal invoice number, or appear in the VAT return. Checked
+            // as early as possible (right after we know the document type) so nothing further
+            // below ever runs for a proforma.
+            if (invoice.DocumentType == DocumentType.Proforma)
+            {
+                return BadRequest(_localizer["ProformaCannotBePosted"].Value);
             }
 
             var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
@@ -690,6 +711,56 @@ public class InvoicesController : ControllerBase
                 InconsistentForeignCurrencyDataException)
             {
                 return BadRequest(ex.Message);
+            }
+
+            // A1 (v2 release): a sales return may be partial but must never exceed what the
+            // original invoice still has un-returned. Checked here, after invoice.Post() already
+            // succeeded, before numbering/SaveChangesAsync — nothing is persisted if this fails,
+            // same "deferred to post time" discipline as tax-definition validity and lock dates.
+            if (invoice.DocumentType == DocumentType.SalesReturn)
+            {
+                if (invoice.OriginalInvoiceId is not { } originalInvoiceId)
+                {
+                    return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
+                }
+
+                if (transaction is not null)
+                {
+                    await _db.Database.ExecuteSqlInterpolatedAsync(
+                        $"SELECT \"Id\" FROM invoices WHERE \"Id\" = {originalInvoiceId} FOR UPDATE");
+                }
+
+                var original = await _db.Invoices.AsNoTracking()
+                    .FirstOrDefaultAsync(i => i.Id == originalInvoiceId && i.CompanyId == companyId);
+                if (original is null || original.State != InvoiceState.Posted)
+                {
+                    return BadRequest(_localizer["OriginalInvoiceMustBePostedForReturn"].Value);
+                }
+
+                var originalTotal = original.JournalEntryId is { } originalJournalEntryId
+                    ? await _db.JournalEntryLines.AsNoTracking()
+                        .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == defaults.ReceivableAccountId)
+                        .SumAsync(l => l.Debit)
+                    : 0m;
+
+                var otherReturnJournalEntryIds = await _db.Invoices.AsNoTracking()
+                    .Where(i => i.CompanyId == companyId && i.OriginalInvoiceId == originalInvoiceId &&
+                        i.DocumentType == DocumentType.SalesReturn && i.State == InvoiceState.Posted && i.Id != invoice.Id)
+                    .Select(i => i.JournalEntryId)
+                    .ToListAsync();
+                var alreadyReturned = otherReturnJournalEntryIds.Count == 0
+                    ? 0m
+                    : await _db.JournalEntryLines.AsNoTracking()
+                        .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == defaults.ReceivableAccountId)
+                        .SumAsync(l => l.Credit);
+
+                var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == defaults.ReceivableAccountId).Credit;
+
+                if (alreadyReturned + thisReturnAmount > originalTotal)
+                {
+                    var remaining = originalTotal - alreadyReturned;
+                    return BadRequest(string.Format(_localizer["SalesReturnExceedsRemainingOriginalAmount"], thisReturnAmount, remaining));
+                }
             }
 
             // S0.1: numbering happens here, after Post() already succeeded, inside the same
