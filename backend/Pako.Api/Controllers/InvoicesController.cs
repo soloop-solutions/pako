@@ -94,21 +94,16 @@ public class InvoicesController : ControllerBase
         return NoContent();
     }
 
-    [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
-    [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]
-    public async Task<ActionResult<InvoiceResponse>> Create(Guid companyId, CreateInvoiceRequest request)
+    // A5 (v2 release): extracted from Create() so Update()'s Draft-full-replace path can reuse
+    // the identical validation — pure extraction, no behavior change (covered by Create()'s own
+    // existing tests, re-run after this refactor to confirm). Returns either the built lines +
+    // total, or a ready-to-return ActionResult (BadRequest) the caller should return immediately.
+    private async Task<(List<InvoiceLine>? Lines, decimal Total, ActionResult? Error)> BuildAndValidateLinesAsync(
+        Guid companyId, List<CreateInvoiceLineRequest> requestLines, DocumentType documentType)
     {
-        var partner = await _db.Partners.AsNoTracking()
-            .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
-        if (partner is null || !partner.IsCustomer)
+        if (requestLines.Count == 0)
         {
-            return BadRequest(_localizer["InvalidCustomerPartner"].Value);
-        }
-
-        if (request.Lines.Count == 0)
-        {
-            return BadRequest(_localizer["InvoiceMustHaveLines"].Value);
+            return (null, 0m, BadRequest(_localizer["InvoiceMustHaveLines"].Value));
         }
 
         var validAccountIds = (await _db.Accounts.AsNoTracking()
@@ -119,7 +114,7 @@ public class InvoicesController : ControllerBase
         var defaults = await GetAccountDefaultsAsync(companyId);
         if (defaults is null)
         {
-            return BadRequest(_localizer["NoAccountDefaults"].Value);
+            return (null, 0m, BadRequest(_localizer["NoAccountDefaults"].Value));
         }
 
         var defaultRevenueAccountId = defaults.RevenueAccountId;
@@ -131,30 +126,30 @@ public class InvoicesController : ControllerBase
 
         var lines = new List<InvoiceLine>();
         var total = 0m;
-        foreach (var line in request.Lines)
+        foreach (var line in requestLines)
         {
             if (line.Quantity <= 0)
             {
-                return BadRequest(_localizer["LineQuantityMustBePositive"].Value);
+                return (null, 0m, BadRequest(_localizer["LineQuantityMustBePositive"].Value));
             }
 
             if (line.UnitPrice < 0)
             {
-                return BadRequest(_localizer["LineUnitPriceNonNegative"].Value);
+                return (null, 0m, BadRequest(_localizer["LineUnitPriceNonNegative"].Value));
             }
 
             var discountPercent = line.DiscountPercent ?? 0m;
             if (discountPercent < 0 || discountPercent > 100)
             {
-                return BadRequest(_localizer["LineDiscountOutOfRange"].Value);
+                return (null, 0m, BadRequest(_localizer["LineDiscountOutOfRange"].Value));
             }
 
-            var revenueAccountId = request.DocumentType == DocumentType.DownPayment
+            var revenueAccountId = documentType == DocumentType.DownPayment
                 ? depositsAccountId
                 : line.RevenueAccountId ?? defaultRevenueAccountId;
             if (!validAccountIds.Contains(revenueAccountId))
             {
-                return BadRequest(string.Format(_localizer["RevenueAccountNotBelongToCompany"], revenueAccountId));
+                return (null, 0m, BadRequest(string.Format(_localizer["RevenueAccountNotBelongToCompany"], revenueAccountId)));
             }
 
             total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
@@ -173,24 +168,57 @@ public class InvoicesController : ControllerBase
 
         if (total <= 0)
         {
-            return BadRequest(_localizer["InvoiceMustBePositiveTotal"].Value);
+            return (null, 0m, BadRequest(_localizer["InvoiceMustBePositiveTotal"].Value));
         }
 
-        // Track A (v2 release): a SalesReturn is a correction of a specific prior invoice, unlike
-        // CreditNote/DebitNote/DownPayment where OriginalInvoiceId stays optional.
-        if (request.DocumentType == DocumentType.SalesReturn && request.OriginalInvoiceId is null)
+        return (lines, total, null);
+    }
+
+    // Track A (v2 release): a SalesReturn is a correction of a specific prior invoice, unlike
+    // CreditNote/DebitNote/DownPayment where OriginalInvoiceId stays optional. Extracted
+    // alongside BuildAndValidateLinesAsync for the same reason — Update()'s Draft path reuses it.
+    private async Task<ActionResult?> ValidateOriginalInvoiceAsync(Guid companyId, DocumentType documentType, Guid? originalInvoiceId)
+    {
+        if (documentType == DocumentType.SalesReturn && originalInvoiceId is null)
         {
             return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
         }
 
-        if (request.OriginalInvoiceId is { } originalInvoiceId)
+        if (originalInvoiceId is { } id)
         {
             var originalExists = await _db.Invoices.AsNoTracking()
-                .AnyAsync(i => i.Id == originalInvoiceId && i.CompanyId == companyId);
+                .AnyAsync(i => i.Id == id && i.CompanyId == companyId);
             if (!originalExists)
             {
                 return BadRequest(_localizer["OriginalInvoiceNotBelongToCompany"].Value);
             }
+        }
+
+        return null;
+    }
+
+    [HttpPost]
+    [RequireCompanyAccess(writeAccess: true)]
+    [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<InvoiceResponse>> Create(Guid companyId, CreateInvoiceRequest request)
+    {
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
+        if (partner is null || !partner.IsCustomer)
+        {
+            return BadRequest(_localizer["InvalidCustomerPartner"].Value);
+        }
+
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType);
+        if (linesError is not null)
+        {
+            return linesError;
+        }
+
+        var originalInvoiceError = await ValidateOriginalInvoiceAsync(companyId, request.DocumentType, request.OriginalInvoiceId);
+        if (originalInvoiceError is not null)
+        {
+            return originalInvoiceError;
         }
 
         var invoice = new Invoice
@@ -202,7 +230,7 @@ public class InvoicesController : ControllerBase
             DueDate = request.DueDate,
             DocumentType = request.DocumentType,
             OriginalInvoiceId = request.OriginalInvoiceId,
-            Lines = lines
+            Lines = lines!
         };
 
         // A3 (v2 release): a proforma never posts (see Post()'s rejection below), so unlike every
@@ -254,6 +282,125 @@ public class InvoicesController : ControllerBase
         await _db.SaveChangesAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+    }
+
+    // A5 (v2 release): Draft = fully editable — full replace, reusing Create()'s own validation
+    // (BuildAndValidateLinesAsync/ValidateOriginalInvoiceAsync) applied to the existing tracked
+    // entity instead of a new one. Old lines are explicitly removed and replaced rather than
+    // relying on EF's implicit orphan-delete for a cleared collection nav. No audit row — Draft
+    // carries no accounting weight yet, so there's nothing to audit (see EditPosted below for the
+    // Posted-only, audited path, which this endpoint deliberately cannot reach: a Posted document
+    // 400s here with a message pointing at the right endpoint, rather than silently no-opping).
+    [HttpPut("{id:guid}")]
+    [RequireCompanyAccess(writeAccess: true)]
+    public async Task<ActionResult<InvoiceResponse>> Update(Guid companyId, Guid id, UpdateInvoiceRequest request)
+    {
+        var invoice = await _db.Invoices.Include(i => i.Lines)
+            .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        if (invoice.State == InvoiceState.Cancelled)
+        {
+            return BadRequest(_localizer["InvoiceNotEditableWhenCancelled"].Value);
+        }
+
+        if (invoice.State == InvoiceState.Posted)
+        {
+            return BadRequest(_localizer["InvoiceOnlyDueDateOrNotesEditableAfterPosting"].Value);
+        }
+
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
+        if (partner is null || !partner.IsCustomer)
+        {
+            return BadRequest(_localizer["InvalidCustomerPartner"].Value);
+        }
+
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType);
+        if (linesError is not null)
+        {
+            return linesError;
+        }
+
+        var originalInvoiceError = await ValidateOriginalInvoiceAsync(companyId, request.DocumentType, request.OriginalInvoiceId);
+        if (originalInvoiceError is not null)
+        {
+            return originalInvoiceError;
+        }
+
+        // Managed directly via the InvoiceLines DbSet rather than through the Lines collection
+        // navigation — explicit Remove for the old rows, explicit InvoiceId assignment + Add for
+        // the new ones. Relying on collection-navigation fixup (Clear/replace + EF's implicit
+        // required-FK orphan deletion) hit a DbUpdateConcurrencyException on the InMemory
+        // provider; this sidesteps that ambiguity entirely.
+        _db.InvoiceLines.RemoveRange(invoice.Lines);
+        foreach (var line in lines!)
+        {
+            line.InvoiceId = invoice.Id;
+        }
+        _db.InvoiceLines.AddRange(lines);
+
+        invoice.PartnerId = request.PartnerId;
+        invoice.IssueDate = request.IssueDate;
+        invoice.DueDate = request.DueDate;
+        invoice.DocumentType = request.DocumentType;
+        invoice.OriginalInvoiceId = request.OriginalInvoiceId;
+        invoice.InternalNotes = request.InternalNotes;
+
+        await _db.SaveChangesAsync();
+
+        invoice.Lines = lines;
+        return Ok(ToResponse(invoice));
+    }
+
+    // A5 (v2 release): the entire editable surface of a Posted invoice — see
+    // EditPostedInvoiceRequest's doc comment. Writes one DocumentEditAudit row per call, whichever
+    // of DueDate/InternalNotes actually changed. Reaches PakoDbContext's
+    // OnlyDueDateOrInternalNotesChanged carve-out on SaveChangesAsync — the backstop half of this
+    // guard, since this action itself never touches any other field to begin with.
+    [HttpPatch("{id:guid}")]
+    [RequireCompanyAccess(writeAccess: true)]
+    public async Task<ActionResult<InvoiceResponse>> EditPosted(Guid companyId, Guid id, EditPostedInvoiceRequest request)
+    {
+        var invoice = await _db.Invoices.Include(i => i.Lines)
+            .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        if (invoice.State != InvoiceState.Posted)
+        {
+            return BadRequest(_localizer["InvoiceOnlyDueDateOrNotesEditableAfterPosting"].Value);
+        }
+
+        var dueDateChanged = invoice.DueDate != request.DueDate;
+        var notesChanged = invoice.InternalNotes != request.InternalNotes;
+
+        if (dueDateChanged || notesChanged)
+        {
+            _db.DocumentEditAudits.Add(new DocumentEditAudit
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                DocumentId = invoice.Id,
+                UserId = CurrentUserId,
+                OldDueDate = dueDateChanged ? invoice.DueDate : null,
+                NewDueDate = dueDateChanged ? request.DueDate : null,
+                OldInternalNotes = notesChanged ? invoice.InternalNotes : null,
+                NewInternalNotes = notesChanged ? request.InternalNotes : null
+            });
+
+            invoice.DueDate = request.DueDate;
+            invoice.InternalNotes = request.InternalNotes;
+
+            await _db.SaveChangesAsync();
+        }
+
+        return Ok(ToResponse(invoice));
     }
 
     [HttpGet("{id:guid}/balance")]
@@ -921,5 +1068,6 @@ public class InvoicesController : ControllerBase
         i.DocumentType,
         i.OriginalInvoiceId,
         i.JournalEntryId,
-        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent)).ToList());
+        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent)).ToList(),
+        i.InternalNotes);
 }

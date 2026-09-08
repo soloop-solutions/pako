@@ -594,4 +594,158 @@ public class InvoicesControllerTests
         Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
     }
+
+    // A5 (v2 release): Draft = fully editable — a full replace, same validation as Create().
+    [Fact]
+    public async Task Update_DraftInvoice_ReplacesLinesAndFields()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), newDueDate,
+            new List<CreateInvoiceLineRequest> { new("Updated consulting", 3m, 200m, null, null) },
+            DocumentType.Invoice, null, "Draft note"));
+
+        var updated = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+        Assert.Equal("Draft note", updated.InternalNotes);
+        var line = Assert.Single(updated.Lines);
+        Assert.Equal("Updated consulting", line.Description);
+        Assert.Equal(3m, line.Quantity);
+        Assert.Equal(200m, line.UnitPrice);
+
+        // The old line is actually gone, not just orphaned.
+        Assert.Equal(1, await db.InvoiceLines.CountAsync(l => l.InvoiceId == invoice.Id));
+    }
+
+    [Fact]
+    public async Task Update_DraftInvoice_ZeroTotal_RejectedSameAsCreate()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Zero", 1m, 0m, null, null) },
+            DocumentType.Invoice, null, null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Update_PostedInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, null, null) },
+            DocumentType.Invoice, null, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("due date and internal notes", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Update_CancelledInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        // No API path sets Cancelled today (JournalEntry.Reverse() doesn't sync Invoice.State —
+        // a documented pre-existing gap), and PakoDbContext's immutability guard would itself
+        // reject flipping an already-Posted invoice's State via a direct mutation (State isn't in
+        // the DueDate/InternalNotes whitelist either) — so a Cancelled invoice is seeded directly
+        // as a brand-new Added entity instead, which bypasses the guard entirely (it only fires
+        // on Modified/Deleted, never Added).
+        var cancelledId = Guid.NewGuid();
+        db.Invoices.Add(new Invoice
+        {
+            Id = cancelledId,
+            CompanyId = companyId,
+            PartnerId = partnerId,
+            InvoiceNumber = "INV-9998",
+            IssueDate = new DateOnly(2026, 8, 26),
+            DueDate = new DateOnly(2026, 9, 25),
+            State = InvoiceState.Cancelled,
+            Lines = { new InvoiceLine { Id = Guid.NewGuid(), Description = "Consulting", Quantity = 1m, UnitPrice = 100m, RevenueAccountId = Guid.NewGuid() } }
+        });
+        await db.SaveChangesAsync();
+
+        var result = await controller.Update(companyId, cancelledId, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, null, null) },
+            DocumentType.Invoice, null, null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task EditPosted_DueDateOnly_SucceedsAndWritesOneAuditRowWithOnlyDueDateSet()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.EditPosted(companyId, invoice.Id, new EditPostedInvoiceRequest(newDueDate, null));
+
+        var updated = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+
+        var audit = Assert.Single(await db.DocumentEditAudits.Where(a => a.DocumentId == invoice.Id).ToListAsync());
+        Assert.Equal(newDueDate, audit.NewDueDate);
+        Assert.Null(audit.NewInternalNotes);
+        Assert.Null(audit.OldInternalNotes);
+    }
+
+    [Fact]
+    public async Task EditPosted_BothFields_WritesOneAuditRowWithBothSet()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        await controller.EditPosted(companyId, invoice.Id, new EditPostedInvoiceRequest(newDueDate, "Called customer"));
+
+        var audit = Assert.Single(await db.DocumentEditAudits.Where(a => a.DocumentId == invoice.Id).ToListAsync());
+        Assert.Equal(newDueDate, audit.NewDueDate);
+        Assert.Equal("Called customer", audit.NewInternalNotes);
+        Assert.Equal(1, await db.DocumentEditAudits.CountAsync(a => a.DocumentId == invoice.Id));
+    }
+
+    [Fact]
+    public async Task EditPosted_OnDraftInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.EditPosted(companyId, invoice.Id, new EditPostedInvoiceRequest(new DateOnly(2026, 12, 1), null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(0, await db.DocumentEditAudits.CountAsync());
+    }
 }

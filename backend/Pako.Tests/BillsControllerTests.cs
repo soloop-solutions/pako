@@ -355,4 +355,87 @@ public class BillsControllerTests
         Assert.IsType<BadRequestObjectResult>(result);
         Assert.Equal(1, await db.Bills.CountAsync(b => b.Id == bill.Id));
     }
+
+    // A5 (v2 release): mirror of InvoicesControllerTests' Update/EditPosted coverage.
+    [Fact]
+    public async Task Update_DraftBill_ReplacesLinesAndFields()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.Update(companyId, bill.Id, new UpdateBillRequest(
+            partnerId, "VEND-002", new DateOnly(2026, 8, 26), newDueDate,
+            new List<CreateBillLineRequest> { new("Updated supplies", 3m, 200m, null, null) },
+            DocumentType.Bill, null, "Draft note"));
+
+        var updated = Assert.IsType<BillResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+        Assert.Equal("Draft note", updated.InternalNotes);
+        Assert.Equal("VEND-002", updated.VendorReference);
+        var line = Assert.Single(updated.Lines);
+        Assert.Equal("Updated supplies", line.Description);
+        Assert.Equal(3m, line.Quantity);
+
+        Assert.Equal(1, await db.BillLines.CountAsync(l => l.BillId == bill.Id));
+    }
+
+    [Fact]
+    public async Task Update_PostedBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var result = await controller.Update(companyId, bill.Id, new UpdateBillRequest(
+            partnerId, "VEND-001", new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
+            new List<CreateBillLineRequest> { new("Supplies", 1m, 100m, null, null) },
+            DocumentType.Bill, null, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("due date and internal notes", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task EditPosted_DueDateOnly_SucceedsAndWritesOneAuditRow()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.EditPosted(companyId, bill.Id, new EditPostedBillRequest(newDueDate, "Called vendor"));
+
+        var updated = Assert.IsType<BillResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+        Assert.Equal("Called vendor", updated.InternalNotes);
+
+        var audit = Assert.Single(await db.DocumentEditAudits.Where(a => a.DocumentId == bill.Id).ToListAsync());
+        Assert.Equal(newDueDate, audit.NewDueDate);
+        Assert.Equal("Called vendor", audit.NewInternalNotes);
+    }
+
+    [Fact]
+    public async Task EditPosted_OnDraftBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.EditPosted(companyId, bill.Id, new EditPostedBillRequest(new DateOnly(2026, 12, 1), null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(0, await db.DocumentEditAudits.CountAsync());
+    }
 }

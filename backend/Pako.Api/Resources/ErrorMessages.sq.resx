@@ -59,6 +59,8 @@
   <data name="ProformaCannotBePosted" xml:space="preserve"><value>Faturat proforma nuk mund të postohen; konvertoni në faturë të vërtetë së pari.</value></data>
   <data name="InvalidProformaForConversion" xml:space="preserve"><value>id duhet të referencojë një dokument proforma për këtë kompani.</value></data>
   <data name="InvoiceNotDraftForDiscard" xml:space="preserve"><value>Vetëm një faturë skicë (Draft) pa numër dhe pa regjistrim ditari të postuar mund të hidhet.</value></data>
+  <data name="InvoiceNotEditableWhenCancelled" xml:space="preserve"><value>Një faturë e anuluar nuk mund të redaktohet.</value></data>
+  <data name="InvoiceOnlyDueDateOrNotesEditableAfterPosting" xml:space="preserve"><value>Vetëm data e maturimit dhe shënimet e brendshme mund të ndryshohen pas postimit; përdorni një kthim ose storno për çdo gjë tjetër.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Partner furnitor i pavlefshëm për këtë kompani.</value></data>
@@ -73,6 +75,8 @@
   <data name="OriginalBillMustBePostedForReturn" xml:space="preserve"><value>Fatura e blerjes origjinale duhet të jetë e postuar para se një kthim blerjeje të mund të postohet kundër saj.</value></data>
   <data name="PurchaseReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>Ky kthim prej {0} do ta kalonte shumën e mbetur të pakthyer të faturës së blerjes origjinale prej {1}.</value></data>
   <data name="BillNotDraftForDiscard" xml:space="preserve"><value>Vetëm një faturë blerjeje skicë (Draft) pa regjistrim ditari të postuar mund të hidhet.</value></data>
+  <data name="BillNotEditableWhenCancelled" xml:space="preserve"><value>Një faturë blerjeje e anuluar nuk mund të redaktohet.</value></data>
+  <data name="BillOnlyDueDateOrNotesEditableAfterPosting" xml:space="preserve"><value>Vetëm data e maturimit dhe shënimet e brendshme mund të ndryshohen pas postimit; përdorni një kthim ose storno për çdo gjë tjetër.</value></data>
 
   <!-- Payroll -->
   <data name="PeriodEndBeforeStart" xml:space="preserve"><value>Data e përfundimit duhet të jetë në ose pas datës së fillimit.</value></data>

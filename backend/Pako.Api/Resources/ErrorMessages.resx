@@ -59,6 +59,8 @@
   <data name="ProformaCannotBePosted" xml:space="preserve"><value>Proforma invoices cannot be posted; convert to a real invoice first.</value></data>
   <data name="InvalidProformaForConversion" xml:space="preserve"><value>id must reference a Proforma document for this company.</value></data>
   <data name="InvoiceNotDraftForDiscard" xml:space="preserve"><value>Only a Draft invoice with no number and no posted journal entry can be discarded.</value></data>
+  <data name="InvoiceNotEditableWhenCancelled" xml:space="preserve"><value>A cancelled invoice cannot be edited.</value></data>
+  <data name="InvoiceOnlyDueDateOrNotesEditableAfterPosting" xml:space="preserve"><value>Only the due date and internal notes can be changed after posting; use a return or a storno for anything else.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Invalid vendor partner for this company.</value></data>
@@ -73,6 +75,8 @@
   <data name="OriginalBillMustBePostedForReturn" xml:space="preserve"><value>The original bill must be Posted before a purchase return can be posted against it.</value></data>
   <data name="PurchaseReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>This return of {0} would exceed the original bill's remaining un-returned amount of {1}.</value></data>
   <data name="BillNotDraftForDiscard" xml:space="preserve"><value>Only a Draft bill with no posted journal entry can be discarded.</value></data>
+  <data name="BillNotEditableWhenCancelled" xml:space="preserve"><value>A cancelled bill cannot be edited.</value></data>
+  <data name="BillOnlyDueDateOrNotesEditableAfterPosting" xml:space="preserve"><value>Only the due date and internal notes can be changed after posting; use a return or a storno for anything else.</value></data>
 
   <!-- Payroll -->
   <data name="PeriodEndBeforeStart" xml:space="preserve"><value>periodEnd must be on or after periodStart.</value></data>

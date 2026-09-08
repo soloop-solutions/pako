@@ -54,6 +54,11 @@ public class Invoice
     public int? PaymentTermDays { get; set; }
     public int? GraceDays { get; set; }
 
+    // A5 (v2 release): the one field, alongside DueDate, still editable after posting — every
+    // other change to a Posted invoice goes through a return or a storno. See
+    // InvoicesController.Update for the actual editability policy enforcement.
+    public string? InternalNotes { get; set; }
+
     public List<InvoiceLine> Lines { get; set; } = new();
 
     public JournalEntry Post(
