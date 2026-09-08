@@ -86,6 +86,15 @@
   <!-- Reconciliation -->
   <data name="ExactlyOneDocumentRequired" xml:space="preserve"><value>Duhet të vendoset saktësisht një nga invoiceId ose billId.</value></data>
 
+  <!-- Payment methods (Track C) -->
+  <data name="PaymentMethodNameRequired" xml:space="preserve"><value>Emri është i domosdoshëm.</value></data>
+  <data name="InvalidPaymentMethodAccount" xml:space="preserve"><value>ledgerAccountId duhet të jetë llogari e arkës ose bankës për këtë kompani.</value></data>
+  <data name="InvalidPaymentMethod" xml:space="preserve"><value>paymentMethodId duhet t'i referohet një metode pagese për këtë kompani.</value></data>
+  <data name="BankPaymentNotAllowedAtBillCreation" xml:space="preserve"><value>Pagesat bankare mund të regjistrohen vetëm pasi fatura e blerjes të krijohet — regjistrojeni përmes pikës së pagesës kur të shfaqet në ekstraktin bankar.</value></data>
+
+  <!-- Tax code required (Track C) -->
+  <data name="TaxCodeRequired" xml:space="preserve"><value>Kodi i tatimit është i domosdoshëm për çdo rresht.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>
