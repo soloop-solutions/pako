@@ -22,7 +22,7 @@ public class InvoicesControllerTests
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
 
-        return new InvoicesController(db, TaxService, new NullStringLocalizer<ErrorMessages>())
+        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NullStringLocalizer<ErrorMessages>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };
@@ -112,6 +112,28 @@ public class InvoicesControllerTests
         Assert.Contains("positive total", message);
         Assert.Contains("credit note", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("not yet supported", message);
+    }
+
+    // S0.1: since numbering moved out of Invoice.Post() into IDocumentNumberService, called by
+    // this controller only after Post() succeeds, the "a failed post never burns a number"
+    // guarantee now lives here rather than in Invoice.Post() itself — see
+    // InvoicePostingTests.Post_FailedPost_DoesNotBurnAnInvoiceNumber's updated comment.
+    [Fact]
+    public async Task Post_UnknownTaxDefinition_LeavesInvoiceNumberCounterUntouched()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, new CreateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, Guid.NewGuid(), null) }));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Post(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        var company = await db.Companies.FindAsync(companyId);
+        Assert.Equal(1, company!.NextInvoiceNumber);
     }
 
     [Fact]

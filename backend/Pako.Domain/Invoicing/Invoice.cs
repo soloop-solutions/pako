@@ -158,14 +158,9 @@ public class Invoice
 
         journalEntry.Post(company);
 
-        InvoiceNumber = DocumentType switch
-        {
-            DocumentType.CreditNote => company.ReserveNextCreditNoteNumber(),
-            DocumentType.DebitNote => company.ReserveNextDebitNoteNumber(),
-            DocumentType.DownPayment => company.ReserveNextDownPaymentNumber(),
-            _ => company.ReserveNextInvoiceNumber()
-        };
-        journalEntry.Reference = InvoiceNumber;
+        // S0.1: numbering (InvoiceNumber/journalEntry.Reference) is minted by the caller via
+        // IDocumentNumberService, after this method returns successfully — see that interface's
+        // doc comment for why it moved out of here.
         JournalEntryId = journalEntry.Id;
         State = InvoiceState.Posted;
 

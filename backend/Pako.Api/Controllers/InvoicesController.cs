@@ -22,12 +22,18 @@ public class InvoicesController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly ITaxComputationService _taxComputationService;
+    private readonly IDocumentNumberService _documentNumberService;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public InvoicesController(PakoDbContext db, ITaxComputationService taxComputationService, IStringLocalizer<ErrorMessages> localizer)
+    public InvoicesController(
+        PakoDbContext db,
+        ITaxComputationService taxComputationService,
+        IDocumentNumberService documentNumberService,
+        IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _taxComputationService = taxComputationService;
+        _documentNumberService = documentNumberService;
         _localizer = localizer;
     }
 
@@ -685,6 +691,11 @@ public class InvoicesController : ControllerBase
             {
                 return BadRequest(ex.Message);
             }
+
+            // S0.1: numbering happens here, after Post() already succeeded, inside the same
+            // row-locked transaction — a failed Post() returns 400 above and never reaches this.
+            invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
+            journalEntry.Reference = invoice.InvoiceNumber;
 
             journalEntry.PostedByUserId = CurrentUserId;
             journalEntry.SourceDocumentId = invoice.Id;

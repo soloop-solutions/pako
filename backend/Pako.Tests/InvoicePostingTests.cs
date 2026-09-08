@@ -7,6 +7,7 @@ namespace Pako.Tests;
 public class InvoicePostingTests
 {
     private readonly TaxComputationService _taxComputationService = new();
+    private readonly IDocumentNumberService _documentNumberService = new DocumentNumberService();
 
     private static Invoice InvoiceWithLine(Guid revenueAccountId, Guid? taxDefinitionId = null) => new()
     {
@@ -49,6 +50,11 @@ public class InvoicePostingTests
 
         var journalEntry = invoice.Post(company, journalId, receivableAccountId, _taxComputationService,
             new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
+        // S0.1: numbering moved out of Invoice.Post() into IDocumentNumberService, called by the
+        // controller after a successful Post() — mirrored here so this test still exercises the
+        // same end state.
+        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
+        journalEntry.Reference = invoice.InvoiceNumber;
 
         Assert.Equal(invoice.JournalEntryId, journalEntry.Id);
         Assert.Equal(InvoiceState.Posted, invoice.State);
@@ -113,12 +119,18 @@ public class InvoicePostingTests
             var invoice = InvoiceWithLine(revenueAccountId);
             invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService,
                 new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+            invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
             numbers.Add(invoice.InvoiceNumber!);
         }
 
         Assert.Equal(new[] { "INV-0001", "INV-0002", "INV-0003" }, numbers);
     }
 
+    // S0.1: Invoice.Post() itself no longer touches numbering at all (success or failure), so at
+    // this domain level the only thing left to prove is that a failed Post() has zero numbering
+    // side effects. The full "a failed post never burns a number" guarantee now depends on the
+    // caller only invoking IDocumentNumberService after a successful Post() — that's exercised at
+    // the controller level by InvoicesControllerTests.Post_UnknownTaxDefinition_LeavesInvoiceNumberCounterUntouched.
     [Fact]
     public void Post_FailedPost_DoesNotBurnAnInvoiceNumber()
     {
@@ -195,13 +207,16 @@ public class InvoicePostingTests
 
         var invoice = InvoiceWithLine(revenueAccountId);
         invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
 
         var creditNote = InvoiceWithLine(revenueAccountId);
         creditNote.DocumentType = DocumentType.CreditNote;
         creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        creditNote.InvoiceNumber = _documentNumberService.ReserveNext(company, creditNote.DocumentType);
 
         var secondInvoice = InvoiceWithLine(revenueAccountId);
         secondInvoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        secondInvoice.InvoiceNumber = _documentNumberService.ReserveNext(company, secondInvoice.DocumentType);
 
         Assert.Equal("INV-0001", invoice.InvoiceNumber);
         Assert.Equal("CN-0001", creditNote.InvoiceNumber);
@@ -217,14 +232,17 @@ public class InvoicePostingTests
 
         var invoice = InvoiceWithLine(revenueAccountId);
         invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
 
         var creditNote = InvoiceWithLine(revenueAccountId);
         creditNote.DocumentType = DocumentType.CreditNote;
         creditNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        creditNote.InvoiceNumber = _documentNumberService.ReserveNext(company, creditNote.DocumentType);
 
         var debitNote = InvoiceWithLine(revenueAccountId);
         debitNote.DocumentType = DocumentType.DebitNote;
         var journalEntry = debitNote.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        debitNote.InvoiceNumber = _documentNumberService.ReserveNext(company, debitNote.DocumentType);
 
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
         Assert.Equal(100m, receivableLine.Debit);
@@ -309,10 +327,12 @@ public class InvoicePostingTests
 
         var invoice = InvoiceWithLine(Guid.NewGuid());
         invoice.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
 
         var downPayment = InvoiceWithLine(depositsAccountId);
         downPayment.DocumentType = DocumentType.DownPayment;
         var journalEntry = downPayment.Post(company, Guid.NewGuid(), receivableAccountId, _taxComputationService, new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        downPayment.InvoiceNumber = _documentNumberService.ReserveNext(company, downPayment.DocumentType);
 
         var receivableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == receivableAccountId);
         Assert.Equal(100m, receivableLine.Debit);
