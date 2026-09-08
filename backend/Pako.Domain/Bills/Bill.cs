@@ -15,7 +15,11 @@ public enum BillState
 public enum DocumentType
 {
     Bill,
-    CreditNote
+    CreditNote,
+    // S0.3 (Sprint 0 registers, additive/inert): appended, never inserted — same no-string-
+    // conversion/no-CHECK-constraint reasoning as Invoicing.DocumentType. Posting/numbering logic
+    // is Track A's job, not Sprint 0's.
+    PurchaseReturn
 }
 
 public class Bill

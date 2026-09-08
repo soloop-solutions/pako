@@ -12,6 +12,7 @@ public class InvoiceConfiguration : IEntityTypeConfiguration<Invoice>
         builder.HasKey(i => i.Id);
         builder.Property(i => i.State).HasConversion<string>().HasMaxLength(16);
         builder.Property(i => i.InvoiceNumber).HasMaxLength(64);
+        builder.Property(i => i.PriceMode).HasDefaultValue(PriceMode.GrossInclusive);
         builder.HasMany(i => i.Lines)
             .WithOne(l => l.Invoice)
             .HasForeignKey(l => l.InvoiceId)

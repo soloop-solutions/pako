@@ -11,5 +11,8 @@ public class InvoiceLine
     public Guid? TaxDefinitionId { get; set; }
     public Guid RevenueAccountId { get; set; }
 
+    // S0.3 (Sprint 0 registers, additive/inert): nullable so free-text lines keep working.
+    public Guid? ItemId { get; set; }
+
     public Invoice? Invoice { get; set; }
 }

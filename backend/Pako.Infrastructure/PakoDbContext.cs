@@ -23,6 +23,11 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Firm> Firms => Set<Firm>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<Item> Items => Set<Item>();
+    public DbSet<ItemBarcode> ItemBarcodes => Set<ItemBarcode>();
+    public DbSet<NumberSeries> NumberSeriesSet => Set<NumberSeries>();
+    public DbSet<DocumentNumberAudit> DocumentNumberAudits => Set<DocumentNumberAudit>();
+    public DbSet<PaymentMethod> PaymentMethods => Set<PaymentMethod>();
     public DbSet<Account> Accounts => Set<Account>();
     public DbSet<Journal> Journals => Set<Journal>();
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();

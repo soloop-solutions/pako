@@ -17,7 +17,21 @@ public enum DocumentType
     Invoice,
     CreditNote,
     DebitNote,
-    DownPayment
+    DownPayment,
+    // S0.3 (Sprint 0 registers, additive/inert): appended, never inserted — DocumentType has no
+    // string conversion/DB CHECK constraint, so ordinal order matters for existing stored rows.
+    // Posting/numbering logic for these two is Track A's job, not Sprint 0's.
+    SalesReturn,
+    Proforma
+}
+
+// S0.3 (Sprint 0 registers, additive/inert): GrossInclusive matches how line entry already works
+// today (see DocumentLineCalculator) — default GrossInclusive so nothing changes for existing
+// callers until Track C wires NetExclusive up.
+public enum PriceMode
+{
+    GrossInclusive,
+    NetExclusive
 }
 
 public class Invoice
@@ -33,6 +47,12 @@ public class Invoice
     public Guid? OriginalInvoiceId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    // S0.3 (Sprint 0 registers, additive/inert): not read by Post()/DocumentLineCalculator yet —
+    // Track C wires PriceMode up; PaymentTermDays/GraceDays feed Track C6's aging report.
+    public PriceMode PriceMode { get; set; } = PriceMode.GrossInclusive;
+    public int? PaymentTermDays { get; set; }
+    public int? GraceDays { get; set; }
 
     public List<InvoiceLine> Lines { get; set; } = new();
 
