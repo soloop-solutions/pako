@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
-import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -24,6 +24,7 @@ export function SalesReturns() {
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -31,14 +32,16 @@ export function SalesReturns() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, invoicesResult, taxesResult] = await Promise.all([
+      const [partnersResult, invoicesResult, taxesResult, paymentMethodsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
         apiClient.invoicesAll(companyId),
         apiClient.taxes(companyId),
+        apiClient.paymentMethodsAll(companyId),
       ]);
       setPartners(partnersResult);
       setInvoices(invoicesResult);
       setTaxes(taxesResult);
+      setPaymentMethods(paymentMethodsResult);
 
       const returns = invoicesResult.filter((invoice) => invoice.documentType === InvoiceDocumentType.SalesReturn);
       const balanceEntries = await Promise.all(
@@ -91,6 +94,8 @@ export function SalesReturns() {
             customers={customers}
             taxes={taxesForSale(taxes)}
             invoices={invoices}
+            paymentMethods={paymentMethods}
+            isVatRegistered={activeCompany.isVatRegistered}
             onCreated={refresh}
             fixedDocumentType={InvoiceDocumentType.SalesReturn}
           />

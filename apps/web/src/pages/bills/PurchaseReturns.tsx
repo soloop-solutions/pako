@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
-import type { BillResponse, DocumentBalanceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,6 +23,7 @@ export function PurchaseReturns() {
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [bills, setBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -30,14 +31,16 @@ export function PurchaseReturns() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, billsResult, taxesResult] = await Promise.all([
+      const [partnersResult, billsResult, taxesResult, paymentMethodsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
         apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
+        apiClient.paymentMethodsAll(companyId),
       ]);
       setPartners(partnersResult);
       setBills(billsResult);
       setTaxes(taxesResult);
+      setPaymentMethods(paymentMethodsResult);
 
       const returns = billsResult.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn);
       const balanceEntries = await Promise.all(
@@ -90,6 +93,8 @@ export function PurchaseReturns() {
             vendors={vendors}
             taxes={taxesForPurchase(taxes)}
             bills={bills}
+            paymentMethods={paymentMethods}
+            isVatRegistered={activeCompany.isVatRegistered}
             onCreated={refresh}
             fixedDocumentType={BillDocumentType.PurchaseReturn}
           />

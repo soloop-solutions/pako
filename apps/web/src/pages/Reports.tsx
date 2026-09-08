@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import type { BalanceSheetResponse, ProfitAndLossResponse, VatReturnResponse } from "@pako/shared";
+import type { BalanceSheetResponse, DebtAgingResponse, PartnerResponse, ProfitAndLossResponse, VatReturnResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -12,7 +12,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 
-type Tab = "pnl" | "balance-sheet" | "vat";
+type Tab = "pnl" | "balance-sheet" | "vat" | "debt";
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -32,6 +32,7 @@ export function Reports() {
     { key: "pnl", labelKey: "reports.profitAndLoss" },
     { key: "balance-sheet", labelKey: "reports.balanceSheet" },
     { key: "vat", labelKey: "reports.vatReturn" },
+    { key: "debt", labelKey: "reports.debtAging" },
   ];
 
   const [tab, setTab] = useState<Tab>("pnl");
@@ -52,6 +53,12 @@ export function Reports() {
   const [vatReturn, setVatReturn] = useState<VatReturnResponse | null>(null);
   const [vatError, setVatError] = useState<string | null>(null);
   const [vatLoading, setVatLoading] = useState(false);
+
+  const [debtAsOf, setDebtAsOf] = useState(today);
+  const [debtAging, setDebtAging] = useState<DebtAgingResponse | null>(null);
+  const [debtPartners, setDebtPartners] = useState<PartnerResponse[]>([]);
+  const [debtError, setDebtError] = useState<string | null>(null);
+  const [debtLoading, setDebtLoading] = useState(false);
 
   async function loadPnl() {
     if (!companyId) return;
@@ -90,6 +97,28 @@ export function Reports() {
     } finally {
       setVatLoading(false);
     }
+  }
+
+  async function loadDebtAging() {
+    if (!companyId) return;
+    setDebtError(null);
+    setDebtLoading(true);
+    try {
+      const [debtAgingResult, partnersResult] = await Promise.all([
+        apiClient.debtAging(companyId, debtAsOf),
+        apiClient.partnersAll(companyId),
+      ]);
+      setDebtAging(debtAgingResult);
+      setDebtPartners(partnersResult);
+    } catch (err) {
+      setDebtError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.debtAgingLoadError" })));
+    } finally {
+      setDebtLoading(false);
+    }
+  }
+
+  function debtPartnerName(partnerId: string) {
+    return debtPartners.find((p) => p.id === partnerId)?.name ?? partnerId;
   }
 
   if (!activeCompany) {
@@ -360,6 +389,80 @@ export function Reports() {
                   <p>{intl.formatMessage({ id: "reports.totalInputVat" }, { amount: vatReturn.totalInputVat.toFixed(2) })}</p>
                   <p className="font-medium">{intl.formatMessage({ id: "reports.netVatDue" }, { amount: vatReturn.netVatDue.toFixed(2) })}</p>
                 </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === "debt" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "reports.debtAging" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "reports.debtAgingDescription" })}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="debt-as-of">{intl.formatMessage({ id: "reports.asOf" })}</Label>
+                <Input id="debt-as-of" type="date" value={debtAsOf} onChange={(event) => setDebtAsOf(event.target.value)} />
+              </div>
+              <Button onClick={loadDebtAging} disabled={debtLoading}>
+                {debtLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
+              </Button>
+            </div>
+
+            {debtError && (
+              <Alert variant="destructive">
+                <AlertDescription>{debtError}</AlertDescription>
+              </Alert>
+            )}
+
+            {debtAging && (
+              <>
+                {(
+                  [
+                    ["reports.debtCurrent", "Current", debtAging.totalCurrent, "reports.totalCurrent"],
+                    ["reports.debtWithinGrace", "WithinGrace", debtAging.totalWithinGrace, "reports.totalWithinGrace"],
+                    ["reports.debtOverdue", "Overdue", debtAging.totalOverdue, "reports.totalOverdue"],
+                  ] as const
+                ).map(([titleKey, bucket, total, totalKey]) => {
+                  const lines = debtAging.lines.filter((line) => line.bucket === bucket);
+                  return (
+                    <div key={bucket}>
+                      <h3 className={cn("mb-2 text-sm font-medium", bucket === "Overdue" && "text-destructive")}>
+                        {intl.formatMessage({ id: titleKey })}
+                      </h3>
+                      {lines.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "reports.debtNone" })}</p>
+                      ) : (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>{intl.formatMessage({ id: "reports.debtInvoiceNumber" })}</TableHead>
+                              <TableHead>{intl.formatMessage({ id: "reports.debtCustomer" })}</TableHead>
+                              <TableHead>{intl.formatMessage({ id: "reports.debtDueDate" })}</TableHead>
+                              <TableHead className="text-right">{intl.formatMessage({ id: "reports.debtOutstanding" })}</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {lines.map((line) => (
+                              <TableRow key={line.invoiceId}>
+                                <TableCell>{line.invoiceNumber ?? "-"}</TableCell>
+                                <TableCell>{debtPartnerName(line.partnerId)}</TableCell>
+                                <TableCell>{line.dueDate}</TableCell>
+                                <TableCell className="text-right">{line.outstanding.toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      )}
+                      <p className="mt-1 text-right text-sm font-medium">
+                        {intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })}
+                      </p>
+                    </div>
+                  );
+                })}
               </>
             )}
           </CardContent>

@@ -1,19 +1,19 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse } from "@pako/shared";
+import type { PaymentMethodResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
 type RecordPaymentFormProps = {
   companyId: string;
   documentKind: "invoice" | "bill";
   documentId: string;
-  cashAccounts: AccountResponse[];
+  paymentMethods: PaymentMethodResponse[];
   outstanding: number;
   onRecorded: () => void;
 };
@@ -22,13 +22,13 @@ export function RecordPaymentForm({
   companyId,
   documentKind,
   documentId,
-  cashAccounts,
+  paymentMethods,
   outstanding,
   onRecorded,
 }: RecordPaymentFormProps) {
   const intl = useIntl();
   const [amount, setAmount] = useState(() => outstanding.toFixed(2));
-  const [cashAccountId, setCashAccountId] = useState(cashAccounts[0]?.id ?? "");
+  const [paymentMethodId, setPaymentMethodId] = useState(paymentMethods[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -41,7 +41,13 @@ export function RecordPaymentForm({
       setError(intl.formatMessage({ id: "recordPayment.amountError" }));
       return;
     }
-    if (!cashAccountId) {
+    if (!paymentMethodId) {
+      setError(intl.formatMessage({ id: "recordPayment.accountError" }));
+      return;
+    }
+
+    const paymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
+    if (!paymentMethod) {
       setError(intl.formatMessage({ id: "recordPayment.accountError" }));
       return;
     }
@@ -50,7 +56,7 @@ export function RecordPaymentForm({
     try {
       const body = {
         amount: parsedAmount,
-        cashOrBankAccountId: cashAccountId,
+        cashOrBankAccountId: paymentMethod.ledgerAccountId,
         date: new Date().toISOString().slice(0, 10),
       };
 
@@ -90,17 +96,10 @@ export function RecordPaymentForm({
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="payment-account">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
-          <Select id="payment-account" value={cashAccountId} onChange={(event) => setCashAccountId(event.target.value)}>
-            {cashAccounts.length === 0 && <option value="">{intl.formatMessage({ id: "recordPayment.noCashBankAccount" })}</option>}
-            {cashAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} - {account.name}
-              </option>
-            ))}
-          </Select>
+          <PaymentMethodSelect id="payment-account" paymentMethods={paymentMethods} value={paymentMethodId} onChange={setPaymentMethodId} />
         </div>
         <div className="flex items-end">
-          <Button type="submit" disabled={submitting || cashAccounts.length === 0}>
+          <Button type="submit" disabled={submitting || paymentMethods.length === 0}>
             {submitting ? intl.formatMessage({ id: "recordPayment.recording" }) : intl.formatMessage({ id: "recordPayment.recordPayment" })}
           </Button>
         </div>
