@@ -62,7 +62,8 @@ public class CompaniesController : ControllerBase
             Id = Guid.NewGuid(),
             Name = request.Name,
             FirmId = request.FirmId,
-            EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core
+            EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core,
+            IsVatRegistered = request.IsVatRegistered ?? true
         };
         _db.Companies.Add(company);
 
@@ -205,5 +206,5 @@ public class CompaniesController : ControllerBase
     }
 
     private static CompanyResponse ToResponse(Company c) =>
-        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles);
+        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered);
 }

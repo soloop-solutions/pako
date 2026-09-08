@@ -31,7 +31,8 @@ public class BillsControllerTests
     private static async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
     {
         var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        // IsVatRegistered = false — same reasoning as InvoicesControllerTests.SeedAsync's comment.
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co", IsVatRegistered = false };
         var partnerId = Guid.NewGuid();
         var cashAccountId = Guid.NewGuid();
 
@@ -97,6 +98,32 @@ public class BillsControllerTests
         Assert.Contains("positive total", message);
         Assert.Contains("credit note", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("not yet supported", message);
+    }
+
+    // C2: same rule as InvoicesControllerTests — see its comment.
+    [Fact]
+    public async Task Create_NoTaxCodeOnVatRegisteredCompany_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        (await db.Companies.FindAsync(companyId))!.IsVatRegistered = true;
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal("A tax code is required for every line.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task Create_NoTaxCodeOnNonVatRegisteredCompany_Allowed()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+
+        Assert.IsType<ObjectResult>(result.Result);
     }
 
     [Fact]

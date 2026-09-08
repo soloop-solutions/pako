@@ -99,7 +99,7 @@ public class InvoicesController : ControllerBase
     // existing tests, re-run after this refactor to confirm). Returns either the built lines +
     // total, or a ready-to-return ActionResult (BadRequest) the caller should return immediately.
     private async Task<(List<InvoiceLine>? Lines, decimal Total, ActionResult? Error)> BuildAndValidateLinesAsync(
-        Guid companyId, List<CreateInvoiceLineRequest> requestLines, DocumentType documentType)
+        Guid companyId, List<CreateInvoiceLineRequest> requestLines, DocumentType documentType, bool isVatRegistered)
     {
         if (requestLines.Count == 0)
         {
@@ -142,6 +142,15 @@ public class InvoicesController : ControllerBase
             if (discountPercent < 0 || discountPercent > 100)
             {
                 return (null, 0m, BadRequest(_localizer["LineDiscountOutOfRange"].Value));
+            }
+
+            // C2: a VAT-registered company must tag every line with a real tax code — the old
+            // empty "no tax" option silently posted with no VAT code at all, invisible to the
+            // VAT return and the ATK books. A company that isn't VAT-registered still has no
+            // VAT mechanics to speak of, so a null TaxDefinitionId stays valid for it.
+            if (isVatRegistered && line.TaxDefinitionId is null)
+            {
+                return (null, 0m, BadRequest(_localizer["TaxCodeRequired"].Value));
             }
 
             var revenueAccountId = documentType == DocumentType.DownPayment
@@ -202,6 +211,12 @@ public class InvoicesController : ControllerBase
     [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<InvoiceResponse>> Create(Guid companyId, CreateInvoiceRequest request)
     {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+        {
+            return NotFound();
+        }
+
         var partner = await _db.Partners.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
         if (partner is null || !partner.IsCustomer)
@@ -209,7 +224,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvalidCustomerPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType, company.IsVatRegistered);
         if (linesError is not null)
         {
             return linesError;
@@ -254,13 +269,13 @@ public class InvoicesController : ControllerBase
                         $"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
                 }
 
-                var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
-                if (company is null)
+                var trackedCompany = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+                if (trackedCompany is null)
                 {
                     return NotFound();
                 }
 
-                invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, DocumentType.Proforma);
+                invoice.InvoiceNumber = _documentNumberService.ReserveNext(trackedCompany, DocumentType.Proforma);
 
                 _db.Invoices.Add(invoice);
                 await _db.SaveChangesAsync();
@@ -315,6 +330,12 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvoiceOnlyDueDateOrNotesEditableAfterPosting"].Value);
         }
 
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+        {
+            return NotFound();
+        }
+
         var partner = await _db.Partners.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
         if (partner is null || !partner.IsCustomer)
@@ -322,7 +343,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvalidCustomerPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType, company.IsVatRegistered);
         if (linesError is not null)
         {
             return linesError;

@@ -92,7 +92,7 @@ public class BillsController : ControllerBase
     // the identical validation — pure extraction, no behavior change. Mirror of
     // InvoicesController.BuildAndValidateLinesAsync.
     private async Task<(List<BillLine>? Lines, decimal Total, ActionResult? Error)> BuildAndValidateLinesAsync(
-        Guid companyId, List<CreateBillLineRequest> requestLines)
+        Guid companyId, List<CreateBillLineRequest> requestLines, bool isVatRegistered)
     {
         if (requestLines.Count == 0)
         {
@@ -130,6 +130,12 @@ public class BillsController : ControllerBase
             if (discountPercent < 0 || discountPercent > 100)
             {
                 return (null, 0m, BadRequest(_localizer["LineDiscountOutOfRange"].Value));
+            }
+
+            // C2: same rule as InvoicesController.Create — see its comment.
+            if (isVatRegistered && line.TaxDefinitionId is null)
+            {
+                return (null, 0m, BadRequest(_localizer["TaxCodeRequired"].Value));
             }
 
             var expenseAccountId = line.ExpenseAccountId ?? defaultExpenseAccountId;
@@ -186,6 +192,12 @@ public class BillsController : ControllerBase
     [ProducesResponseType(typeof(BillResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<BillResponse>> Create(Guid companyId, CreateBillRequest request)
     {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+        {
+            return NotFound();
+        }
+
         var partner = await _db.Partners.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
         if (partner is null || !partner.IsVendor)
@@ -193,7 +205,7 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["InvalidVendorPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, company.IsVatRegistered);
         if (linesError is not null)
         {
             return linesError;
@@ -247,6 +259,12 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["BillOnlyDueDateOrNotesEditableAfterPosting"].Value);
         }
 
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+        {
+            return NotFound();
+        }
+
         var partner = await _db.Partners.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == request.PartnerId && p.CompanyId == companyId);
         if (partner is null || !partner.IsVendor)
@@ -254,7 +272,7 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["InvalidVendorPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, company.IsVatRegistered);
         if (linesError is not null)
         {
             return linesError;
