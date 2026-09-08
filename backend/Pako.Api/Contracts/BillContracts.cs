@@ -1,4 +1,5 @@
 using Pako.Domain.Bills;
+using PriceMode = Pako.Domain.Invoicing.PriceMode;
 
 namespace Pako.Api.Contracts;
 
@@ -17,7 +18,14 @@ public record CreateBillRequest(
     DateOnly DueDate,
     List<CreateBillLineRequest> Lines,
     DocumentType DocumentType = DocumentType.Bill,
-    Guid? OriginalBillId = null);
+    Guid? OriginalBillId = null,
+    PriceMode PriceMode = PriceMode.GrossInclusive,
+    CreateBillPaymentRequest? Payment = null);
+
+// C5: cash-only at bill-create time — BillsController.Create rejects a non-Cash PaymentMethod
+// here; a bank payment is only ever recorded later, once it appears on the bank statement,
+// through the existing .../record-payment route.
+public record CreateBillPaymentRequest(decimal Amount, Guid PaymentMethodId, DateOnly? Date = null);
 
 // A5 (v2 release): mirror of UpdateInvoiceRequest — see its doc comment for the full rationale.
 public record UpdateBillRequest(
@@ -53,4 +61,5 @@ public record BillResponse(
     Guid? OriginalBillId,
     Guid? JournalEntryId,
     List<BillLineResponse> Lines,
-    string? InternalNotes);
+    string? InternalNotes,
+    PriceMode PriceMode);

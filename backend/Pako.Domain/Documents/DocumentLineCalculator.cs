@@ -1,3 +1,4 @@
+using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
 
@@ -29,17 +30,29 @@ public static class DocumentLineCalculator
         bool creditsOnNormalSide,
         ITaxComputationService taxComputationService,
         Guid reverseChargeInputVatAccountId,
-        Guid reverseChargeOutputVatAccountId)
+        Guid reverseChargeOutputVatAccountId,
+        PriceMode priceMode = PriceMode.GrossInclusive)
     {
-        var gross = Math.Round(quantity * unitPrice * (1 - discountPercent / 100m), 2, MidpointRounding.AwayFromZero);
-        var netAmount = gross;
+        // C1: unitPrice is VAT-inclusive (GrossInclusive, the existing/default convention) or
+        // VAT-exclusive (NetExclusive) depending on the document's own PriceMode — the entered
+        // amount itself is just "whatever the line's own unit says", VAT direction is resolved
+        // below by picking which TaxComputationService method backs it out of vs. adds it on top
+        // of. `gross`/`netAmount` below always end up meaning the same thing regardless of mode
+        // (the true VAT-inclusive/exclusive totals), so the rest of this method — and every
+        // caller — is unaffected by which mode produced them.
+        var enteredAmount = Math.Round(quantity * unitPrice * (1 - discountPercent / 100m), 2, MidpointRounding.AwayFromZero);
+        var gross = enteredAmount;
+        var netAmount = enteredAmount;
         var lines = new List<JournalEntryLine>();
         var creditTheLine = creditsOnNormalSide != isCreditNote;
 
         if (taxDefinition is not null)
         {
-            var computation = taxComputationService.ComputeFromGross(gross, taxDefinition);
+            var computation = priceMode == PriceMode.NetExclusive
+                ? taxComputationService.Compute(enteredAmount, taxDefinition)
+                : taxComputationService.ComputeFromGross(enteredAmount, taxDefinition);
             netAmount = computation.NetAmount;
+            gross = computation.TotalAmount;
 
             foreach (var postingLine in computation.PostingLines)
             {
@@ -57,10 +70,12 @@ public static class DocumentLineCalculator
             // R10 (AUTO): a reverse-charge code (RC18) has no ordinary repartition lines — it
             // self-assesses VAT that's neither owed to nor by the counterparty, so it can't flow
             // through the normal posting-line loop above. Books Dr input / Cr output on the full
-            // entered amount, the same regardless of isCreditNote/creditsOnNormalSide.
+            // entered amount (which is already fully net regardless of PriceMode — the foreign
+            // vendor never charged VAT, see ComputeFromGross's own reverse-charge bypass), the
+            // same regardless of isCreditNote/creditsOnNormalSide.
             if (taxDefinition.IsReverseCharge)
             {
-                var reverseChargeAmount = Math.Round(gross * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero);
+                var reverseChargeAmount = Math.Round(enteredAmount * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero);
                 lines.Add(new JournalEntryLine
                 {
                     Id = Guid.NewGuid(),

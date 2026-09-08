@@ -215,6 +215,7 @@ public class BillsController : ControllerBase
             DueDate = request.DueDate,
             DocumentType = request.DocumentType,
             OriginalBillId = request.OriginalBillId,
+            PriceMode = request.PriceMode,
             Lines = lines!
         };
 
@@ -768,5 +769,6 @@ public class BillsController : ControllerBase
         b.OriginalBillId,
         b.JournalEntryId,
         b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent)).ToList(),
-        b.InternalNotes);
+        b.InternalNotes,
+        b.PriceMode);
 }

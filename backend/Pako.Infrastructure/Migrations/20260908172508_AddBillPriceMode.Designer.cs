@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pako.Infrastructure;
@@ -11,9 +12,11 @@ using Pako.Infrastructure;
 namespace Pako.Infrastructure.Migrations
 {
     [DbContext(typeof(PakoDbContext))]
-    partial class PakoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260908172508_AddBillPriceMode")]
+    partial class AddBillPriceMode
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -103,10 +106,6 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<DateOnly>("DueDate")
                         .HasColumnType("date");
-
-                    b.Property<string>("InternalNotes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
 
                     b.Property<DateOnly>("IssueDate")
                         .HasColumnType("date");
@@ -225,12 +224,6 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int>("NextInvoiceNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NextProformaNumber")
-                        .HasColumnType("integer");
-
-                    b.Property<int>("NextSalesReturnNumber")
                         .HasColumnType("integer");
 
                     b.Property<DateOnly?>("TaxLockDate")
@@ -543,45 +536,6 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("payment_methods", (string)null);
                 });
 
-            modelBuilder.Entity("Pako.Domain.Invoicing.DocumentEditAudit", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("DocumentId")
-                        .HasColumnType("uuid");
-
-                    b.Property<DateOnly?>("NewDueDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("NewInternalNotes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<DateOnly?>("OldDueDate")
-                        .HasColumnType("date");
-
-                    b.Property<string>("OldInternalNotes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<DateTime>("Timestamp")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CompanyId", "DocumentId");
-
-                    b.ToTable("document_edit_audits", (string)null);
-                });
-
             modelBuilder.Entity("Pako.Domain.Invoicing.Invoice", b =>
                 {
                     b.Property<Guid>("Id")
@@ -602,10 +556,6 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<int?>("GraceDays")
                         .HasColumnType("integer");
-
-                    b.Property<string>("InternalNotes")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
 
                     b.Property<string>("InvoiceNumber")
                         .HasMaxLength(64)

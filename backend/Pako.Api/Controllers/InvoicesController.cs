@@ -230,6 +230,9 @@ public class InvoicesController : ControllerBase
             DueDate = request.DueDate,
             DocumentType = request.DocumentType,
             OriginalInvoiceId = request.OriginalInvoiceId,
+            PriceMode = request.PriceMode,
+            PaymentTermDays = request.PaymentTermDays,
+            GraceDays = request.GraceDays,
             Lines = lines!
         };
 
@@ -1069,5 +1072,8 @@ public class InvoicesController : ControllerBase
         i.OriginalInvoiceId,
         i.JournalEntryId,
         i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent)).ToList(),
-        i.InternalNotes);
+        i.InternalNotes,
+        i.PriceMode,
+        i.PaymentTermDays,
+        i.GraceDays);
 }
