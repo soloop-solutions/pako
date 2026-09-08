@@ -56,6 +56,8 @@
   <data name="OriginalInvoiceRequiredForSalesReturn" xml:space="preserve"><value>originalInvoiceId është i detyrueshëm për një kthim shitjeje.</value></data>
   <data name="OriginalInvoiceMustBePostedForReturn" xml:space="preserve"><value>Fatura origjinale duhet të jetë e postuar para se një kthim shitjeje të mund të postohet kundër saj.</value></data>
   <data name="SalesReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>Ky kthim prej {0} do ta kalonte shumën e mbetur të pakthyer të faturës origjinale prej {1}.</value></data>
+  <data name="ProformaCannotBePosted" xml:space="preserve"><value>Faturat proforma nuk mund të postohen; konvertoni në faturë të vërtetë së pari.</value></data>
+  <data name="InvalidProformaForConversion" xml:space="preserve"><value>id duhet të referencojë një dokument proforma për këtë kompani.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Partner furnitor i pavlefshëm për këtë kompani.</value></data>

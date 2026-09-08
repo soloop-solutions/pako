@@ -82,6 +82,11 @@ public class InvoicesControllerTests
             new List<CreateInvoiceLineRequest> { new("Returned goods", quantity, unitPrice, null, null) },
             DocumentType.SalesReturn, originalInvoiceId);
 
+    private static CreateInvoiceRequest ProformaRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice) =>
+        new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Consulting (proforma)", quantity, unitPrice, null, null) },
+            DocumentType.Proforma);
+
     [Fact]
     public async Task Create_ZeroQuantity_Rejected()
     {
@@ -434,5 +439,103 @@ public class InvoicesControllerTests
         var thirdReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(thirdReturnCreated.Result).Value);
         var thirdResult = await controller.Post(companyId, thirdReturn.Id);
         Assert.Equal(200, ((ObjectResult)thirdResult.Result!).StatusCode);
+    }
+
+    // A3 (v2 release): a proforma is an offer, not a legal invoice — most of the work here is
+    // what it's forbidden to do, so that's what's tested, per the task's own framing.
+    [Fact]
+    public async Task Create_Proforma_ProducesZeroJournalEntriesAndLeavesInvoiceCounterUntouched()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
+
+        var proforma = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(InvoiceState.Draft.ToString(), proforma.State);
+        Assert.Equal("PRO-0001", proforma.InvoiceNumber);
+        Assert.Equal(0, await db.JournalEntries.CountAsync());
+
+        var company = await db.Companies.AsNoTracking().SingleAsync(c => c.Id == companyId);
+        Assert.Equal(1, company.NextInvoiceNumber);
+    }
+
+    [Fact]
+    public async Task Post_Proforma_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
+        var proforma = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Post(companyId, proforma.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("cannot be posted", badRequest.Value!.ToString());
+        Assert.Equal(0, await db.JournalEntries.CountAsync());
+    }
+
+    [Fact]
+    public async Task ConvertToInvoice_CopiesLinesAndLinksBackToProforma()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, ProformaRequestWithLine(partnerId, 2m, 250m));
+        var proforma = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.ConvertToInvoice(companyId, proforma.Id);
+
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(DocumentType.Invoice, invoice.DocumentType);
+        Assert.Equal(InvoiceState.Draft.ToString(), invoice.State);
+        Assert.Equal(proforma.Id, invoice.OriginalInvoiceId);
+        Assert.Equal(partnerId, invoice.PartnerId);
+        var line = Assert.Single(invoice.Lines);
+        Assert.Equal(2m, line.Quantity);
+        Assert.Equal(250m, line.UnitPrice);
+
+        // Posting the converted invoice works normally and consumes a real invoice number — the
+        // proforma's own PRO-#### number was never touched by this.
+        var postResult = await controller.Post(companyId, invoice.Id);
+        Assert.Equal(200, ((ObjectResult)postResult.Result!).StatusCode);
+
+        // The proforma itself is untouched — still Draft, still has its own number, still exists.
+        var proformaAfter = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == proforma.Id);
+        Assert.Equal(InvoiceState.Draft, proformaAfter.State);
+        Assert.Equal("PRO-0001", proformaAfter.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task ConvertToInvoice_OnNonProformaDocument_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.ConvertToInvoice(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task VatReturn_OverPeriodContainingOnlyAProforma_ReturnsAllZeros()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
+
+        var reportsController = new ReportsController(db);
+        var result = await reportsController.VatReturn(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var vatReturn = Assert.IsType<VatReturnResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(0m, vatReturn.TotalOutputVat);
+        Assert.Equal(0m, vatReturn.TotalInputVat);
+        Assert.Empty(vatReturn.OutputVat);
+        Assert.Empty(vatReturn.InputVat);
     }
 }

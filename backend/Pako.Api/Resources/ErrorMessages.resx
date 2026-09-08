@@ -56,6 +56,8 @@
   <data name="OriginalInvoiceRequiredForSalesReturn" xml:space="preserve"><value>originalInvoiceId is required for a sales return.</value></data>
   <data name="OriginalInvoiceMustBePostedForReturn" xml:space="preserve"><value>The original invoice must be Posted before a sales return can be posted against it.</value></data>
   <data name="SalesReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>This return of {0} would exceed the original invoice's remaining un-returned amount of {1}.</value></data>
+  <data name="ProformaCannotBePosted" xml:space="preserve"><value>Proforma invoices cannot be posted; convert to a real invoice first.</value></data>
+  <data name="InvalidProformaForConversion" xml:space="preserve"><value>id must reference a Proforma document for this company.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Invalid vendor partner for this company.</value></data>

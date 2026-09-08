@@ -179,6 +179,51 @@ public class InvoicesController : ControllerBase
             Lines = lines
         };
 
+        // A3 (v2 release): a proforma never posts (see Post()'s rejection below), so unlike every
+        // other document type — which numbers only on a successful post — a proforma is numbered
+        // right here at creation, off its own PRO-#### series, since creation is the only moment
+        // it will ever exist to be numbered. Row-locked the same way posting numbers everything
+        // else, to keep the series gapless under concurrent creates.
+        if (request.DocumentType == DocumentType.Proforma)
+        {
+            var transaction = _db.Database.SupportsRowLocking()
+                ? await _db.Database.BeginTransactionAsync()
+                : null;
+            try
+            {
+                if (transaction is not null)
+                {
+                    await _db.Database.ExecuteSqlInterpolatedAsync(
+                        $"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+                }
+
+                var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+                if (company is null)
+                {
+                    return NotFound();
+                }
+
+                invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, DocumentType.Proforma);
+
+                _db.Invoices.Add(invoice);
+                await _db.SaveChangesAsync();
+
+                if (transaction is not null)
+                {
+                    await transaction.CommitAsync();
+                }
+
+                return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+            }
+            finally
+            {
+                if (transaction is not null)
+                {
+                    await transaction.DisposeAsync();
+                }
+            }
+        }
+
         _db.Invoices.Add(invoice);
         await _db.SaveChangesAsync();
 
@@ -789,6 +834,55 @@ public class InvoicesController : ControllerBase
                 await transaction.DisposeAsync();
             }
         }
+    }
+
+    // A3 (v2 release): a proforma is an offer, never posted (see Post()'s rejection above) —
+    // converting creates a new, independent Draft invoice copying the proforma's partner and
+    // every line verbatim. The link back reuses OriginalInvoiceId (already means "the other
+    // document this one relates to") rather than a dedicated column, to avoid a migration for
+    // this alone; the proforma itself is left as-is, untouched, still available for reference.
+    [HttpPost("{id:guid}/convert-to-invoice")]
+    [RequireCompanyAccess(writeAccess: true)]
+    [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<InvoiceResponse>> ConvertToInvoice(Guid companyId, Guid id)
+    {
+        var proforma = await _db.Invoices.AsNoTracking().Include(i => i.Lines)
+            .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (proforma is null)
+        {
+            return NotFound();
+        }
+
+        if (proforma.DocumentType != DocumentType.Proforma)
+        {
+            return BadRequest(_localizer["InvalidProformaForConversion"].Value);
+        }
+
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            PartnerId = proforma.PartnerId,
+            IssueDate = DateOnly.FromDateTime(DateTime.UtcNow),
+            DueDate = proforma.DueDate,
+            DocumentType = DocumentType.Invoice,
+            OriginalInvoiceId = proforma.Id,
+            Lines = proforma.Lines.Select(l => new InvoiceLine
+            {
+                Id = Guid.NewGuid(),
+                Description = l.Description,
+                Quantity = l.Quantity,
+                UnitPrice = l.UnitPrice,
+                DiscountPercent = l.DiscountPercent,
+                TaxDefinitionId = l.TaxDefinitionId,
+                RevenueAccountId = l.RevenueAccountId
+            }).ToList()
+        };
+
+        _db.Invoices.Add(invoice);
+        await _db.SaveChangesAsync();
+
+        return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
     }
 
     private static InvoiceResponse ToResponse(Invoice i) => new(
