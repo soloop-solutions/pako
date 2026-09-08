@@ -58,6 +58,7 @@
   <data name="SalesReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>Ky kthim prej {0} do ta kalonte shumën e mbetur të pakthyer të faturës origjinale prej {1}.</value></data>
   <data name="ProformaCannotBePosted" xml:space="preserve"><value>Faturat proforma nuk mund të postohen; konvertoni në faturë të vërtetë së pari.</value></data>
   <data name="InvalidProformaForConversion" xml:space="preserve"><value>id duhet të referencojë një dokument proforma për këtë kompani.</value></data>
+  <data name="InvoiceNotDraftForDiscard" xml:space="preserve"><value>Vetëm një faturë skicë (Draft) pa numër dhe pa regjistrim ditari të postuar mund të hidhet.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Partner furnitor i pavlefshëm për këtë kompani.</value></data>
@@ -71,6 +72,7 @@
   <data name="OriginalBillRequiredForPurchaseReturn" xml:space="preserve"><value>originalBillId është i detyrueshëm për një kthim blerjeje.</value></data>
   <data name="OriginalBillMustBePostedForReturn" xml:space="preserve"><value>Fatura e blerjes origjinale duhet të jetë e postuar para se një kthim blerjeje të mund të postohet kundër saj.</value></data>
   <data name="PurchaseReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>Ky kthim prej {0} do ta kalonte shumën e mbetur të pakthyer të faturës së blerjes origjinale prej {1}.</value></data>
+  <data name="BillNotDraftForDiscard" xml:space="preserve"><value>Vetëm një faturë blerjeje skicë (Draft) pa regjistrim ditari të postuar mund të hidhet.</value></data>
 
   <!-- Payroll -->
   <data name="PeriodEndBeforeStart" xml:space="preserve"><value>Data e përfundimit duhet të jetë në ose pas datës së fillimit.</value></data>

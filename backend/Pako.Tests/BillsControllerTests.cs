@@ -323,4 +323,36 @@ public class BillsControllerTests
         var thirdResult = await controller.Post(companyId, thirdReturn.Id);
         Assert.Equal(200, ((ObjectResult)thirdResult.Result!).StatusCode);
     }
+
+    // A4 (v2 release): mirror of InvoicesControllerTests' discard coverage.
+    [Fact]
+    public async Task Discard_BlankDraft_RemovesIt()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Discard(companyId, bill.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(0, await db.Bills.CountAsync(b => b.Id == bill.Id));
+    }
+
+    [Fact]
+    public async Task Discard_PostedBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var result = await controller.Discard(companyId, bill.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(1, await db.Bills.CountAsync(b => b.Id == bill.Id));
+    }
 }

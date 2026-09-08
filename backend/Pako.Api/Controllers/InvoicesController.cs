@@ -68,6 +68,32 @@ public class InvoicesController : ControllerBase
         return Ok(ToResponse(invoice));
     }
 
+    // A4 (v2 release): there is deliberately no DELETE route on this controller — a posted
+    // document can only be corrected by a return or a storno (JournalEntry.Reverse()), never
+    // deleted. A genuinely blank Draft (never posted, no number, no journal entry) is the one
+    // exception, and even that goes through this dedicated POST action rather than a DELETE verb,
+    // so InvoicesControllerTests' "no delete route exists" guarantee stays literally true.
+    [HttpPost("{id:guid}/discard")]
+    [RequireCompanyAccess(writeAccess: true)]
+    public async Task<IActionResult> Discard(Guid companyId, Guid id)
+    {
+        var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (invoice is null)
+        {
+            return NotFound();
+        }
+
+        if (invoice.State != InvoiceState.Draft || invoice.InvoiceNumber is not null || invoice.JournalEntryId is not null)
+        {
+            return BadRequest(_localizer["InvoiceNotDraftForDiscard"].Value);
+        }
+
+        _db.Invoices.Remove(invoice);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpPost]
     [RequireCompanyAccess(writeAccess: true)]
     [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]

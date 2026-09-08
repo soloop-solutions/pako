@@ -538,4 +538,60 @@ public class InvoicesControllerTests
         Assert.Empty(vatReturn.OutputVat);
         Assert.Empty(vatReturn.InputVat);
     }
+
+    // A4 (v2 release): a genuinely blank Draft (never posted, no number, no journal entry) may
+    // be discarded — via this dedicated POST action, never a DELETE verb (see
+    // NoDeletionGuaranteeTests for the "no delete route exists" half of this guarantee).
+    [Fact]
+    public async Task Discard_BlankDraft_RemovesIt()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Discard(companyId, invoice.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(0, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
+    }
+
+    [Fact]
+    public async Task Discard_PostedInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var result = await controller.Discard(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
+    }
+
+    [Fact]
+    public async Task Discard_DraftWithNumberSomehowSet_Rejected()
+    {
+        // Defensive coverage: a Draft should never have InvoiceNumber/JournalEntryId set (only
+        // Post() sets either, and it also flips State to Posted in the same operation) — but the
+        // discard guard checks all three explicitly rather than trusting that invariant silently.
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var tracked = await db.Invoices.SingleAsync(i => i.Id == invoice.Id);
+        tracked.InvoiceNumber = "INV-9999";
+        await db.SaveChangesAsync();
+
+        var result = await controller.Discard(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
+    }
 }

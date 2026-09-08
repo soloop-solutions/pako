@@ -62,6 +62,32 @@ public class BillsController : ControllerBase
         return Ok(ToResponse(bill));
     }
 
+    // A4 (v2 release): mirror of InvoicesController.Discard — no DELETE route exists on this
+    // controller either; a genuinely blank Draft (never posted, no journal entry) may be
+    // discarded via this dedicated POST action instead. Bill has no numbering field to check
+    // (VendorReference is free vendor-supplied text, not PAKO-minted), so the guard is just
+    // State/JournalEntryId, unlike Invoice's three-field check.
+    [HttpPost("{id:guid}/discard")]
+    [RequireCompanyAccess(writeAccess: true)]
+    public async Task<IActionResult> Discard(Guid companyId, Guid id)
+    {
+        var bill = await _db.Bills.FirstOrDefaultAsync(b => b.Id == id && b.CompanyId == companyId);
+        if (bill is null)
+        {
+            return NotFound();
+        }
+
+        if (bill.State != BillState.Draft || bill.JournalEntryId is not null)
+        {
+            return BadRequest(_localizer["BillNotDraftForDiscard"].Value);
+        }
+
+        _db.Bills.Remove(bill);
+        await _db.SaveChangesAsync();
+
+        return NoContent();
+    }
+
     [HttpPost]
     [RequireCompanyAccess(writeAccess: true)]
     [ProducesResponseType(typeof(BillResponse), StatusCodes.Status201Created)]
