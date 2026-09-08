@@ -39,16 +39,32 @@ type InvoiceFormProps = {
   // deliberately still lists only Invoice/CreditNote/DebitNote/DownPayment, unchanged, so that
   // dropdown never grows the new types).
   fixedDocumentType?: number;
+  // A5 (v2 release): when set, this form edits an existing Draft invoice (PUT, full replace) in
+  // place instead of creating a new one (POST) — every field pre-fills from it, submit calls
+  // onSaved instead of onCreated. Only reachable from InvoiceDetail.tsx for a Draft document.
+  editingInvoice?: InvoiceResponse;
+  onSaved?: () => void;
 };
 
-export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, fixedDocumentType }: InvoiceFormProps) {
+export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, fixedDocumentType, editingInvoice, onSaved }: InvoiceFormProps) {
   const intl = useIntl();
-  const [partnerId, setPartnerId] = useState("");
-  const [documentType, setDocumentType] = useState<number>(fixedDocumentType ?? InvoiceDocumentType.Invoice);
-  const [originalInvoiceId, setOriginalInvoiceId] = useState("");
-  const [issueDate, setIssueDate] = useState(today);
-  const [dueDate, setDueDate] = useState(today);
-  const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
+  const [partnerId, setPartnerId] = useState(editingInvoice?.partnerId ?? "");
+  const [documentType, setDocumentType] = useState<number>(editingInvoice?.documentType ?? fixedDocumentType ?? InvoiceDocumentType.Invoice);
+  const [originalInvoiceId, setOriginalInvoiceId] = useState(editingInvoice?.originalInvoiceId ?? "");
+  const [issueDate, setIssueDate] = useState(editingInvoice?.issueDate ?? today);
+  const [dueDate, setDueDate] = useState(editingInvoice?.dueDate ?? today);
+  const [internalNotes, setInternalNotes] = useState(editingInvoice?.internalNotes ?? "");
+  const [lines, setLines] = useState<Line[]>(
+    editingInvoice
+      ? editingInvoice.lines.map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity),
+          unitPrice: String(l.unitPrice),
+          discountPercent: String(l.discountPercent),
+          taxDefinitionId: l.taxDefinitionId ?? "",
+        }))
+      : [{ ...EMPTY_LINE }],
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -95,28 +111,43 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
 
     setSubmitting(true);
     try {
-      await apiClient.invoicesPOST(companyId, {
-        partnerId,
-        issueDate,
-        dueDate,
-        documentType,
-        originalInvoiceId: originalInvoiceId || undefined,
-        lines: validLines.map((line) => ({
-          description: line.description,
-          quantity: parseFloat(line.quantity) || 0,
-          unitPrice: parseFloat(line.unitPrice) || 0,
-          discountPercent: parseFloat(line.discountPercent) || 0,
-          taxDefinitionId: line.taxDefinitionId || undefined,
-          revenueAccountId: undefined,
-        })),
-      });
-      setPartnerId("");
-      setDocumentType(fixedDocumentType ?? InvoiceDocumentType.Invoice);
-      setOriginalInvoiceId("");
-      setLines([{ ...EMPTY_LINE }]);
-      onCreated();
+      const lineRequests = validLines.map((line) => ({
+        description: line.description,
+        quantity: parseFloat(line.quantity) || 0,
+        unitPrice: parseFloat(line.unitPrice) || 0,
+        discountPercent: parseFloat(line.discountPercent) || 0,
+        taxDefinitionId: line.taxDefinitionId || undefined,
+        revenueAccountId: undefined,
+      }));
+
+      if (editingInvoice) {
+        await apiClient.invoicesPUT(companyId, editingInvoice.id, {
+          partnerId,
+          issueDate,
+          dueDate,
+          documentType,
+          originalInvoiceId: originalInvoiceId || undefined,
+          lines: lineRequests,
+          internalNotes: internalNotes.trim() || undefined,
+        });
+        onSaved?.();
+      } else {
+        await apiClient.invoicesPOST(companyId, {
+          partnerId,
+          issueDate,
+          dueDate,
+          documentType,
+          originalInvoiceId: originalInvoiceId || undefined,
+          lines: lineRequests,
+        });
+        setPartnerId("");
+        setDocumentType(fixedDocumentType ?? InvoiceDocumentType.Invoice);
+        setOriginalInvoiceId("");
+        setLines([{ ...EMPTY_LINE }]);
+        onCreated();
+      }
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceForm.createError" })));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: editingInvoice ? "invoiceForm.saveError" : "invoiceForm.createError" })));
     } finally {
       setSubmitting(false);
     }
@@ -182,6 +213,13 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
           />
         </div>
       </div>
+
+      {editingInvoice && (
+        <div className="flex flex-col gap-2 sm:w-1/2">
+          <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
+          <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+        </div>
+      )}
 
       {needsOriginalInvoice && (
         <div className="flex flex-col gap-2 sm:w-1/2">
@@ -281,7 +319,13 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
       </div>
 
       <Button type="submit" className="w-fit" disabled={submitting}>
-        {submitting ? intl.formatMessage({ id: "invoiceForm.creating" }) : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
+        {editingInvoice
+          ? submitting
+            ? intl.formatMessage({ id: "invoiceForm.saving" })
+            : intl.formatMessage({ id: "invoiceForm.saveChanges" })
+          : submitting
+            ? intl.formatMessage({ id: "invoiceForm.creating" })
+            : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
       </Button>
     </form>
   );

@@ -21,8 +21,10 @@ import { useCompany } from "@/context/CompanyContext";
 import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
 import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
 import { computeFromGross } from "@/lib/tax-enums";
+import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
+import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
 export function InvoiceDetail() {
@@ -34,6 +36,7 @@ export function InvoiceDetail() {
 
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
+  const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
@@ -44,27 +47,30 @@ export function InvoiceDetail() {
   const [posting, setPosting] = useState(false);
   const [converting, setConverting] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
+  const [editing, setEditing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [invoiceResult, partnersResult, taxesResult, accountsResult] = await Promise.all([
+      const [invoiceResult, partnersResult, taxesResult, accountsResult, allInvoicesResult] = await Promise.all([
         apiClient.invoicesGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.accounts(companyId),
+        apiClient.invoicesAll(companyId),
       ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAccounts(accountsResult);
+      setAllInvoices(allInvoicesResult);
 
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
 
-        const allInvoices = await apiClient.invoicesAll(companyId);
-        const partnerPostedInvoices = allInvoices.filter(
+        const partnerPostedInvoices = allInvoicesResult.filter(
           (candidate) => candidate.id !== id && candidate.partnerId === invoiceResult.partnerId && candidate.state === "Posted",
         );
 
@@ -204,10 +210,32 @@ export function InvoiceDetail() {
               </div>
               <CardDescription>{partner?.name ?? invoice.partnerId}</CardDescription>
             </div>
-            <Badge variant={invoice.state === "Posted" ? "default" : "secondary"}>{invoice.state}</Badge>
+            <div className="flex items-center gap-2">
+              {invoice.state === "Draft" && !editing && (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  {intl.formatMessage({ id: "common.edit" })}
+                </Button>
+              )}
+              <Badge variant={invoice.state === "Posted" ? "default" : "secondary"}>{invoice.state}</Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {editing ? (
+            <InvoiceForm
+              companyId={activeCompany.id}
+              customers={partners.filter((p) => p.isCustomer)}
+              taxes={taxes}
+              invoices={allInvoices}
+              editingInvoice={invoice}
+              onCreated={() => {}}
+              onSaved={() => {
+                setEditing(false);
+                void refresh();
+              }}
+            />
+          ) : (
+            <>
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
               <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.issueDate" })}</span> {invoice.issueDate}
@@ -215,6 +243,11 @@ export function InvoiceDetail() {
             <p>
               <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.dueDate" })}</span> {invoice.dueDate}
             </p>
+            {invoice.internalNotes && (
+              <p className="sm:col-span-2">
+                <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.internalNotes" })}</span> {invoice.internalNotes}
+              </p>
+            )}
           </div>
 
           <Table>
@@ -281,8 +314,28 @@ export function InvoiceDetail() {
               <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.outstanding" }, { amount: balance.outstanding.toFixed(2) })}</p>
             </div>
           )}
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {invoice.state === "Posted" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "editPostedFields.title" })}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EditPostedFieldsForm
+              companyId={activeCompany.id}
+              documentKind="invoice"
+              documentId={invoice.id}
+              initialDueDate={invoice.dueDate}
+              initialInternalNotes={invoice.internalNotes ?? undefined}
+              onSaved={() => void refresh()}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {invoice.state === "Posted" && balance && balance.outstanding > 0 && (
         <Card>

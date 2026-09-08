@@ -20,7 +20,9 @@ import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
 import { computeFromGross } from "@/lib/tax-enums";
+import { BillForm } from "@/pages/bills/BillForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
+import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
 export function BillDetail() {
@@ -31,6 +33,7 @@ export function BillDetail() {
 
   const [bill, setBill] = useState<BillResponse | null>(null);
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
+  const [allBills, setAllBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
@@ -39,27 +42,30 @@ export function BillDetail() {
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
+  const [editing, setEditing] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [billResult, partnersResult, taxesResult, accountsResult] = await Promise.all([
+      const [billResult, partnersResult, taxesResult, accountsResult, allBillsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.accounts(companyId),
+        apiClient.billsAll(companyId),
       ]);
       setBill(billResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAccounts(accountsResult);
+      setAllBills(allBillsResult);
 
       if (billResult.state === "Posted") {
         setBalance(await apiClient.balance(companyId, id));
 
-        const allBills = await apiClient.billsAll(companyId);
-        const creditNoteCandidates = allBills.filter(
+        const creditNoteCandidates = allBillsResult.filter(
           (candidate) =>
             candidate.id !== id &&
             candidate.partnerId === billResult.partnerId &&
@@ -171,10 +177,32 @@ export function BillDetail() {
               </div>
               <CardDescription>{partner?.name ?? bill.partnerId}</CardDescription>
             </div>
-            <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
+            <div className="flex items-center gap-2">
+              {bill.state === "Draft" && !editing && (
+                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                  {intl.formatMessage({ id: "common.edit" })}
+                </Button>
+              )}
+              <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
+          {editing ? (
+            <BillForm
+              companyId={activeCompany.id}
+              vendors={partners.filter((p) => p.isVendor)}
+              taxes={taxes}
+              bills={allBills}
+              editingBill={bill}
+              onCreated={() => {}}
+              onSaved={() => {
+                setEditing(false);
+                void refresh();
+              }}
+            />
+          ) : (
+            <>
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
               <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.issueDate" })}</span> {bill.issueDate}
@@ -182,6 +210,11 @@ export function BillDetail() {
             <p>
               <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.dueDate" })}</span> {bill.dueDate}
             </p>
+            {bill.internalNotes && (
+              <p className="sm:col-span-2">
+                <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.internalNotes" })}</span> {bill.internalNotes}
+              </p>
+            )}
           </div>
 
           <Table>
@@ -239,8 +272,28 @@ export function BillDetail() {
               <p className="font-medium">{intl.formatMessage({ id: "billDetail.outstanding" }, { amount: balance.outstanding.toFixed(2) })}</p>
             </div>
           )}
+            </>
+          )}
         </CardContent>
       </Card>
+
+      {bill.state === "Posted" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "editPostedFields.title" })}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EditPostedFieldsForm
+              companyId={activeCompany.id}
+              documentKind="bill"
+              documentId={bill.id}
+              initialDueDate={bill.dueDate}
+              initialInternalNotes={bill.internalNotes ?? undefined}
+              onSaved={() => void refresh()}
+            />
+          </CardContent>
+        </Card>
+      )}
 
       {bill.state === "Posted" && balance && balance.outstanding > 0 && (
         <Card>
