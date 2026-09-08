@@ -778,4 +778,74 @@ public class InvoicesControllerTests
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Equal(0, await db.DocumentEditAudits.CountAsync());
     }
+
+    // C3: take the payment while writing the invoice.
+    [Fact]
+    public async Task Create_WithInlinePayment_PostsInvoiceAndRecordsPaymentAtomically()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var paymentMethod = new PaymentMethod { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Cash", Kind = PaymentMethodKind.Cash, LedgerAccountId = cashAccountId };
+        db.PaymentMethods.Add(paymentMethod);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = RequestWithLine(partnerId, 1m, 300m) with
+        {
+            Payment = new CreateInvoicePaymentRequest(200m, paymentMethod.Id, new DateOnly(2026, 8, 26))
+        };
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal("Posted", created.State);
+        Assert.NotNull(created.InvoiceNumber);
+
+        var balanceResult = await controller.Balance(companyId, created.Id);
+        var balance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(balanceResult.Result).Value);
+        Assert.Equal(300m, balance.Total);
+        Assert.Equal(200m, balance.Reconciled);
+        Assert.Equal(100m, balance.Outstanding);
+    }
+
+    [Fact]
+    public async Task Create_WithInlinePayment_InvalidPaymentMethod_RejectedAndNothingPersisted()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var request = RequestWithLine(partnerId, 1m, 300m) with
+        {
+            Payment = new CreateInvoicePaymentRequest(200m, Guid.NewGuid(), null)
+        };
+
+        var result = await controller.Create(companyId, request);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Empty(db.Invoices);
+        Assert.Empty(db.JournalEntries);
+    }
+
+    // Note: the InMemory provider used by this fixture has no real transactions (see
+    // SupportsRowLocking), so this can only prove the over-reconciliation check itself fires
+    // correctly — it cannot prove the rollback leaves nothing persisted (that guarantee is only
+    // provable against a real Postgres container, same as every other atomic endpoint in this
+    // codebase — see CLAUDE.md's RecordPayment/ApplyCreditNote verification history).
+    [Fact]
+    public async Task Create_WithInlinePayment_ExceedingTotal_Rejected()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var paymentMethod = new PaymentMethod { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Cash", Kind = PaymentMethodKind.Cash, LedgerAccountId = cashAccountId };
+        db.PaymentMethods.Add(paymentMethod);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = RequestWithLine(partnerId, 1m, 300m) with
+        {
+            Payment = new CreateInvoicePaymentRequest(301m, paymentMethod.Id, null)
+        };
+
+        var result = await controller.Create(companyId, request);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
 }

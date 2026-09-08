@@ -255,15 +255,17 @@ public class InvoicesController : ControllerBase
         // other document type — which numbers only on a successful post — a proforma is numbered
         // right here at creation, off its own PRO-#### series, since creation is the only moment
         // it will ever exist to be numbered. Row-locked the same way posting numbers everything
-        // else, to keep the series gapless under concurrent creates.
+        // else, to keep the series gapless under concurrent creates. A proforma never posts, so
+        // C3's inline-payment request field is meaningless for it — this branch returns before
+        // that logic is ever reached.
         if (request.DocumentType == DocumentType.Proforma)
         {
-            var transaction = _db.Database.SupportsRowLocking()
+            var proformaTransaction = _db.Database.SupportsRowLocking()
                 ? await _db.Database.BeginTransactionAsync()
                 : null;
             try
             {
-                if (transaction is not null)
+                if (proformaTransaction is not null)
                 {
                     await _db.Database.ExecuteSqlInterpolatedAsync(
                         $"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
@@ -280,26 +282,93 @@ public class InvoicesController : ControllerBase
                 _db.Invoices.Add(invoice);
                 await _db.SaveChangesAsync();
 
-                if (transaction is not null)
+                if (proformaTransaction is not null)
                 {
-                    await transaction.CommitAsync();
+                    await proformaTransaction.CommitAsync();
                 }
 
                 return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
             }
             finally
             {
-                if (transaction is not null)
+                if (proformaTransaction is not null)
                 {
-                    await transaction.DisposeAsync();
+                    await proformaTransaction.DisposeAsync();
                 }
             }
         }
 
-        _db.Invoices.Add(invoice);
-        await _db.SaveChangesAsync();
+        if (request.Payment is null)
+        {
+            _db.Invoices.Add(invoice);
+            await _db.SaveChangesAsync();
 
-        return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+            return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+        }
+
+        // C3: "the €300 invoice paid €200 in cash on the spot... the document is never briefly
+        // unpaid." Posts the invoice and records the payment in one transaction — the Draft
+        // invoice built above never gets its own SaveChanges; either everything below succeeds
+        // (invoice + its journal entry + the settlement entry + the reconciliation all land
+        // together) or nothing does, including the invoice row itself.
+        var paymentMethod = await _db.PaymentMethods.AsNoTracking()
+            .FirstOrDefaultAsync(m => m.Id == request.Payment.PaymentMethodId && m.CompanyId == companyId);
+        if (paymentMethod is null)
+        {
+            return BadRequest(_localizer["InvalidPaymentMethod"].Value);
+        }
+
+        var transaction = _db.Database.SupportsRowLocking()
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
+        try
+        {
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+            }
+
+            var trackedCompany = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+            if (trackedCompany is null)
+            {
+                return NotFound();
+            }
+
+            _db.Invoices.Add(invoice);
+
+            var postError = await PostDraftInvoiceAsync(trackedCompany, invoice);
+            if (postError is not null)
+            {
+                return postError;
+            }
+
+            await _db.SaveChangesAsync();
+
+            var outcome = await TryRecordPaymentAsync(
+                trackedCompany, invoice, request.Payment.Amount, paymentMethod.LedgerAccountId,
+                request.Payment.Date ?? request.IssueDate);
+            if (outcome.Error is not null)
+            {
+                return outcome.Error;
+            }
+
+            await _db.SaveChangesAsync();
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
+        }
     }
 
     // A5 (v2 release): Draft = fully editable — full replace, reusing Create()'s own validation
@@ -479,63 +548,15 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvalidCashOrBankAccount"].Value);
         }
 
-        var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
-        if (receivableAccountId == Guid.Empty)
-        {
-            return BadRequest(_localizer["NoReceivableAccount"].Value);
-        }
-
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
-        if (journal is null)
-        {
-            return BadRequest(_localizer["NoJournalToPost"].Value);
-        }
-
         var transaction = _db.Database.SupportsRowLocking()
             ? await _db.Database.BeginTransactionAsync()
             : null;
         try
         {
-            var settlementEntry = new JournalEntry
+            var outcome = await TryRecordPaymentAsync(company, invoice, request.Amount, cashOrBankAccount.Id, request.Date);
+            if (outcome.Error is not null)
             {
-                Id = Guid.NewGuid(),
-                CompanyId = companyId,
-                JournalId = journal.Id,
-                Date = request.Date,
-                Reference = $"Payment for {invoice.InvoiceNumber}",
-                Lines =
-                {
-                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccount.Id, Debit = request.Amount, Credit = 0m },
-                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivableAccountId, PartnerId = invoice.PartnerId, Debit = 0m, Credit = request.Amount }
-                }
-            };
-
-            try
-            {
-                settlementEntry.Post(company);
-            }
-            catch (Exception ex) when (
-                ex is InvalidOperationException or
-                UnbalancedJournalEntryException or
-                AccountingLockDateViolationException or
-                TaxLockDateViolationException)
-            {
-                return BadRequest(ex.Message);
-            }
-
-            _db.JournalEntries.Add(settlementEntry);
-            await _db.SaveChangesAsync();
-
-            var settlementLineId = settlementEntry.Lines.Single(l => l.AccountId == receivableAccountId).Id;
-            var result = await ReconciliationCreator.TryCreateAsync(_db, companyId, id, null, settlementLineId, request.Amount);
-            if (result.Status == ReconciliationCreationStatus.NotFound)
-            {
-                return NotFound();
-            }
-
-            if (result.Status == ReconciliationCreationStatus.ValidationFailed)
-            {
-                return BadRequest(result.Error);
+                return outcome.Error;
             }
 
             await _db.SaveChangesAsync();
@@ -546,7 +567,7 @@ public class InvoicesController : ControllerBase
             }
 
             var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType);
-            return StatusCode(StatusCodes.Status201Created, new RecordPaymentResponse(ToReconciliationResponse(result.Reconciliation!), balance));
+            return StatusCode(StatusCodes.Status201Created, new RecordPaymentResponse(ToReconciliationResponse(outcome.Reconciliation!), balance));
         }
         finally
         {
@@ -555,6 +576,74 @@ public class InvoicesController : ControllerBase
                 await transaction.DisposeAsync();
             }
         }
+    }
+
+    private readonly record struct RecordPaymentOutcome(ActionResult? Error, Reconciliation? Reconciliation);
+
+    // C3: the settlement-entry-plus-reconcile half of "record a payment," shared by RecordPayment
+    // above and Create's optional inline-payment branch below (which posts the invoice itself via
+    // PostDraftInvoiceAsync first, then calls this against the freshly-posted invoice). Does its
+    // own intermediate SaveChanges after the settlement entry (ReconciliationCreator.TryCreateAsync
+    // needs the settlement line to actually exist in the database to query it) but leaves the
+    // final SaveChanges/transaction commit to the caller.
+    private async Task<RecordPaymentOutcome> TryRecordPaymentAsync(
+        Company company, Invoice invoice, decimal amount, Guid cashOrBankAccountId, DateOnly date)
+    {
+        var receivableAccountId = await GetReceivableAccountIdAsync(company.Id);
+        if (receivableAccountId == Guid.Empty)
+        {
+            return new RecordPaymentOutcome(BadRequest(_localizer["NoReceivableAccount"].Value), null);
+        }
+
+        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        if (journal is null)
+        {
+            return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
+        }
+
+        var settlementEntry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            JournalId = journal.Id,
+            Date = date,
+            Reference = $"Payment for {invoice.InvoiceNumber}",
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccountId, Debit = amount, Credit = 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivableAccountId, PartnerId = invoice.PartnerId, Debit = 0m, Credit = amount }
+            }
+        };
+
+        try
+        {
+            settlementEntry.Post(company);
+        }
+        catch (Exception ex) when (
+            ex is InvalidOperationException or
+            UnbalancedJournalEntryException or
+            AccountingLockDateViolationException or
+            TaxLockDateViolationException)
+        {
+            return new RecordPaymentOutcome(BadRequest(ex.Message), null);
+        }
+
+        _db.JournalEntries.Add(settlementEntry);
+        await _db.SaveChangesAsync();
+
+        var settlementLineId = settlementEntry.Lines.Single(l => l.AccountId == receivableAccountId).Id;
+        var result = await ReconciliationCreator.TryCreateAsync(_db, company.Id, invoice.Id, null, settlementLineId, amount);
+        if (result.Status == ReconciliationCreationStatus.NotFound)
+        {
+            return new RecordPaymentOutcome(NotFound(), null);
+        }
+
+        if (result.Status == ReconciliationCreationStatus.ValidationFailed)
+        {
+            return new RecordPaymentOutcome(BadRequest(result.Error), null);
+        }
+
+        return new RecordPaymentOutcome(null, result.Reconciliation);
     }
 
     // Applies a Posted credit note against this invoice by feeding the credit note's own AR line
@@ -878,143 +967,12 @@ public class InvoicesController : ControllerBase
                 return NotFound();
             }
 
-            // A3 (v2 release): a proforma is an offer, not a legal invoice — it must never post a
-            // journal entry, consume a fiscal invoice number, or appear in the VAT return. Checked
-            // as early as possible (right after we know the document type) so nothing further
-            // below ever runs for a proforma.
-            if (invoice.DocumentType == DocumentType.Proforma)
+            var postError = await PostDraftInvoiceAsync(company, invoice);
+            if (postError is not null)
             {
-                return BadRequest(_localizer["ProformaCannotBePosted"].Value);
+                return postError;
             }
 
-            var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
-
-            var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
-            if (journal is null)
-            {
-                return BadRequest(_localizer["NoJournalToPost"].Value);
-            }
-
-            var defaults = await GetAccountDefaultsAsync(companyId);
-            if (defaults is null || defaults.ReceivableAccountId == Guid.Empty)
-            {
-                return BadRequest(_localizer["NoReceivableAccount"].Value);
-            }
-
-            var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-                .Include(t => t.RepartitionLines)
-                .Where(t => t.CompanyId == companyId)
-                .ToDictionaryAsync(t => t.Id);
-
-            // 60_Posting_Rules R07/R08/R09 (BLOCK) — checked here, not at Create, for the same
-            // reason tax-definition existence itself is only checked at post time: a Draft can
-            // reference a not-yet-final tax choice, per this codebase's established pattern.
-            var lineAccountsById = await _db.Accounts.AsNoTracking()
-                .Where(a => invoice.Lines.Select(l => l.RevenueAccountId).Contains(a.Id))
-                .ToDictionaryAsync(a => a.Id);
-            foreach (var line in invoice.Lines)
-            {
-                if (line.TaxDefinitionId is not { } taxDefId || !taxDefinitionsById.TryGetValue(taxDefId, out var taxDef) || taxDef.Code is null)
-                {
-                    continue;
-                }
-
-                var account = lineAccountsById[line.RevenueAccountId];
-                try
-                {
-                    PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, invoice.PartnerId, partner?.TaxNumber);
-                    if (taxDef.Direction is { } direction && account.Class is { } accountClass)
-                    {
-                        PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
-                    }
-                    PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
-                }
-                catch (Exception ex) when (
-                    ex is MissingCounterpartyTaxNumberException or
-                    VatDirectionAccountClassMismatchException or
-                    VatOnControlAccountException)
-                {
-                    return BadRequest(ex.Message);
-                }
-            }
-
-            JournalEntry journalEntry;
-            try
-            {
-                journalEntry = invoice.Post(
-                    company, journal.Id, defaults.ReceivableAccountId, _taxComputationService, taxDefinitionsById,
-                    defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
-            }
-            catch (Exception ex) when (
-                ex is InvalidOperationException or
-                UnbalancedJournalEntryException or
-                AccountingLockDateViolationException or
-                TaxLockDateViolationException or
-                InconsistentForeignCurrencyDataException)
-            {
-                return BadRequest(ex.Message);
-            }
-
-            // A1 (v2 release): a sales return may be partial but must never exceed what the
-            // original invoice still has un-returned. Checked here, after invoice.Post() already
-            // succeeded, before numbering/SaveChangesAsync — nothing is persisted if this fails,
-            // same "deferred to post time" discipline as tax-definition validity and lock dates.
-            if (invoice.DocumentType == DocumentType.SalesReturn)
-            {
-                if (invoice.OriginalInvoiceId is not { } originalInvoiceId)
-                {
-                    return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
-                }
-
-                if (transaction is not null)
-                {
-                    await _db.Database.ExecuteSqlInterpolatedAsync(
-                        $"SELECT \"Id\" FROM invoices WHERE \"Id\" = {originalInvoiceId} FOR UPDATE");
-                }
-
-                var original = await _db.Invoices.AsNoTracking()
-                    .FirstOrDefaultAsync(i => i.Id == originalInvoiceId && i.CompanyId == companyId);
-                if (original is null || original.State != InvoiceState.Posted)
-                {
-                    return BadRequest(_localizer["OriginalInvoiceMustBePostedForReturn"].Value);
-                }
-
-                var originalTotal = original.JournalEntryId is { } originalJournalEntryId
-                    ? await _db.JournalEntryLines.AsNoTracking()
-                        .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == defaults.ReceivableAccountId)
-                        .SumAsync(l => l.Debit)
-                    : 0m;
-
-                var otherReturnJournalEntryIds = await _db.Invoices.AsNoTracking()
-                    .Where(i => i.CompanyId == companyId && i.OriginalInvoiceId == originalInvoiceId &&
-                        i.DocumentType == DocumentType.SalesReturn && i.State == InvoiceState.Posted && i.Id != invoice.Id)
-                    .Select(i => i.JournalEntryId)
-                    .ToListAsync();
-                var alreadyReturned = otherReturnJournalEntryIds.Count == 0
-                    ? 0m
-                    : await _db.JournalEntryLines.AsNoTracking()
-                        .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == defaults.ReceivableAccountId)
-                        .SumAsync(l => l.Credit);
-
-                var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == defaults.ReceivableAccountId).Credit;
-
-                if (alreadyReturned + thisReturnAmount > originalTotal)
-                {
-                    var remaining = originalTotal - alreadyReturned;
-                    return BadRequest(string.Format(_localizer["SalesReturnExceedsRemainingOriginalAmount"], thisReturnAmount, remaining));
-                }
-            }
-
-            // S0.1: numbering happens here, after Post() already succeeded, inside the same
-            // row-locked transaction — a failed Post() returns 400 above and never reaches this.
-            invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
-            journalEntry.Reference = invoice.InvoiceNumber;
-
-            journalEntry.PostedByUserId = CurrentUserId;
-            journalEntry.SourceDocumentId = invoice.Id;
-            journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
-
-            _db.JournalEntries.Add(journalEntry);
             await _db.SaveChangesAsync();
 
             if (transaction is not null)
@@ -1033,9 +991,9 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    // A3 (v2 release): a proforma is an offer, never posted (see Post()'s rejection above) —
-    // converting creates a new, independent Draft invoice copying the proforma's partner and
-    // every line verbatim. The link back reuses OriginalInvoiceId (already means "the other
+    // A3 (v2 release): a proforma is an offer, never posted (see PostDraftInvoiceAsync's rejection
+    // below) — converting creates a new, independent Draft invoice copying the proforma's partner
+    // and every line verbatim. The link back reuses OriginalInvoiceId (already means "the other
     // document this one relates to") rather than a dedicated column, to avoid a migration for
     // this alone; the proforma itself is left as-is, untouched, still available for reference.
     [HttpPost("{id:guid}/convert-to-invoice")]
@@ -1080,6 +1038,156 @@ public class InvoicesController : ControllerBase
         await _db.SaveChangesAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+    }
+
+    // C3: the actual "turn a Draft invoice into a Posted one" logic, shared by Post above and
+    // Create's optional inline-payment branch below — extracted so this repo's most dangerous
+    // code path (numbering, the R07/R08/R09 posting-rule checks, JournalEntry.Post itself) exists
+    // exactly once. Adds the resulting JournalEntry to the context but does not SaveChanges or
+    // manage a transaction — the caller owns both, since Post's own row-lock scope differs from
+    // Create's (Create locks before the invoice even exists as a row). Also absorbs Track A's
+    // Proforma-rejection and SalesReturn-amount checks, which were originally inline in Post()
+    // before this extraction existed — both apply regardless of which caller reaches this method.
+    private async Task<ActionResult?> PostDraftInvoiceAsync(Company company, Invoice invoice)
+    {
+        // A3 (v2 release): a proforma is an offer, not a legal invoice — it must never post a
+        // journal entry, consume a fiscal invoice number, or appear in the VAT return. Checked
+        // as early as possible (right after we know the document type) so nothing further below
+        // ever runs for a proforma.
+        if (invoice.DocumentType == DocumentType.Proforma)
+        {
+            return BadRequest(_localizer["ProformaCannotBePosted"].Value);
+        }
+
+        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
+
+        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        if (journal is null)
+        {
+            return BadRequest(_localizer["NoJournalToPost"].Value);
+        }
+
+        var defaults = await GetAccountDefaultsAsync(company.Id);
+        if (defaults is null || defaults.ReceivableAccountId == Guid.Empty)
+        {
+            return BadRequest(_localizer["NoReceivableAccount"].Value);
+        }
+
+        var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
+            .Include(t => t.RepartitionLines)
+            .Where(t => t.CompanyId == company.Id)
+            .ToDictionaryAsync(t => t.Id);
+
+        // 60_Posting_Rules R07/R08/R09 (BLOCK) — checked here, not at Create, for the same
+        // reason tax-definition existence itself is only checked at post time: a Draft can
+        // reference a not-yet-final tax choice, per this codebase's established pattern.
+        var lineAccountsById = await _db.Accounts.AsNoTracking()
+            .Where(a => invoice.Lines.Select(l => l.RevenueAccountId).Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id);
+        foreach (var line in invoice.Lines)
+        {
+            if (line.TaxDefinitionId is not { } taxDefId || !taxDefinitionsById.TryGetValue(taxDefId, out var taxDef) || taxDef.Code is null)
+            {
+                continue;
+            }
+
+            var account = lineAccountsById[line.RevenueAccountId];
+            try
+            {
+                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, invoice.PartnerId, partner?.TaxNumber);
+                if (taxDef.Direction is { } direction && account.Class is { } accountClass)
+                {
+                    PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
+                }
+                PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
+            }
+            catch (Exception ex) when (
+                ex is MissingCounterpartyTaxNumberException or
+                VatDirectionAccountClassMismatchException or
+                VatOnControlAccountException)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        JournalEntry journalEntry;
+        try
+        {
+            journalEntry = invoice.Post(
+                company, journal.Id, defaults.ReceivableAccountId, _taxComputationService, taxDefinitionsById,
+                defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
+        }
+        catch (Exception ex) when (
+            ex is InvalidOperationException or
+            UnbalancedJournalEntryException or
+            AccountingLockDateViolationException or
+            TaxLockDateViolationException or
+            InconsistentForeignCurrencyDataException)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        // A1 (v2 release): a sales return may be partial but must never exceed what the
+        // original invoice still has un-returned. Checked here, after invoice.Post() already
+        // succeeded, before numbering/SaveChangesAsync — nothing is persisted if this fails,
+        // same "deferred to post time" discipline as tax-definition validity and lock dates.
+        if (invoice.DocumentType == DocumentType.SalesReturn)
+        {
+            if (invoice.OriginalInvoiceId is not { } originalInvoiceId)
+            {
+                return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
+            }
+
+            if (_db.Database.SupportsRowLocking())
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM invoices WHERE \"Id\" = {originalInvoiceId} FOR UPDATE");
+            }
+
+            var original = await _db.Invoices.AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == originalInvoiceId && i.CompanyId == company.Id);
+            if (original is null || original.State != InvoiceState.Posted)
+            {
+                return BadRequest(_localizer["OriginalInvoiceMustBePostedForReturn"].Value);
+            }
+
+            var originalTotal = original.JournalEntryId is { } originalJournalEntryId
+                ? await _db.JournalEntryLines.AsNoTracking()
+                    .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == defaults.ReceivableAccountId)
+                    .SumAsync(l => l.Debit)
+                : 0m;
+
+            var otherReturnJournalEntryIds = await _db.Invoices.AsNoTracking()
+                .Where(i => i.CompanyId == company.Id && i.OriginalInvoiceId == originalInvoiceId &&
+                    i.DocumentType == DocumentType.SalesReturn && i.State == InvoiceState.Posted && i.Id != invoice.Id)
+                .Select(i => i.JournalEntryId)
+                .ToListAsync();
+            var alreadyReturned = otherReturnJournalEntryIds.Count == 0
+                ? 0m
+                : await _db.JournalEntryLines.AsNoTracking()
+                    .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == defaults.ReceivableAccountId)
+                    .SumAsync(l => l.Credit);
+
+            var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == defaults.ReceivableAccountId).Credit;
+
+            if (alreadyReturned + thisReturnAmount > originalTotal)
+            {
+                var remaining = originalTotal - alreadyReturned;
+                return BadRequest(string.Format(_localizer["SalesReturnExceedsRemainingOriginalAmount"], thisReturnAmount, remaining));
+            }
+        }
+
+        // S0.1: numbering happens here, after Post() already succeeded, inside the caller's
+        // row-locked transaction — a failed Post() returns 400 above and never reaches this.
+        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
+        journalEntry.Reference = invoice.InvoiceNumber;
+
+        journalEntry.PostedByUserId = CurrentUserId;
+        journalEntry.SourceDocumentId = invoice.Id;
+        journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
+
+        _db.JournalEntries.Add(journalEntry);
+        return null;
     }
 
     private static InvoiceResponse ToResponse(Invoice i) => new(
