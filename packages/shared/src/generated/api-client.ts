@@ -263,6 +263,45 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    discard(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bills/{id}/discard";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDiscard(_response);
+        });
+    }
+
+    protected processDiscard(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     balance(companyId: string, id: string): Promise<DocumentBalanceResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/bills/{id}/balance";
         if (companyId === undefined || companyId === null)
@@ -961,6 +1000,45 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    discard2(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/discard";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDiscard2(_response);
+        });
+    }
+
+    protected processDiscard2(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     balance2(companyId: string, id: string): Promise<DocumentBalanceResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/balance";
         if (companyId === undefined || companyId === null)
@@ -1171,6 +1249,48 @@ export class PakoApiClient {
             let result200: any = null;
             result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceResponse;
             return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<InvoiceResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    convertToInvoice(companyId: string, id: string): Promise<InvoiceResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/convert-to-invoice";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConvertToInvoice(_response);
+        });
+    }
+
+    protected processConvertToInvoice(response: Response): Promise<InvoiceResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
