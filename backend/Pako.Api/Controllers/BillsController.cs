@@ -137,6 +137,13 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["BillMustBePositiveTotal"].Value);
         }
 
+        // Track A (v2 release): a PurchaseReturn is a correction of a specific prior bill, unlike
+        // CreditNote where OriginalBillId stays optional.
+        if (request.DocumentType == DocumentType.PurchaseReturn && request.OriginalBillId is null)
+        {
+            return BadRequest(_localizer["OriginalBillRequiredForPurchaseReturn"].Value);
+        }
+
         if (request.OriginalBillId is { } originalBillId)
         {
             var originalExists = await _db.Bills.AsNoTracking()
@@ -378,7 +385,10 @@ public class BillsController : ControllerBase
 
     private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid billId, Guid? journalEntryId, DocumentType documentType)
     {
-        var isSourceDocument = documentType == DocumentType.CreditNote;
+        // A2 (v2 release): PurchaseReturn posts through the same isCreditNote mechanics as
+        // CreditNote — its own AP control line is Debit-sided too, so it needs no separate
+        // ternary the way Invoicing's CreditNote-vs-DownPayment split does.
+        var isSourceDocument = documentType is DocumentType.CreditNote or DocumentType.PurchaseReturn;
 
         var total = 0m;
         Guid? controlLineId = null;
@@ -426,93 +436,166 @@ public class BillsController : ControllerBase
     [RequireCompanyAccess(writeAccess: true)]
     public async Task<ActionResult<BillResponse>> Post(Guid companyId, Guid id)
     {
-        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
-        if (company is null)
+        // Track A (v2 release): Bill never had a numbering counter to protect (VendorReference is
+        // free text), so this method had no transaction before now. A PurchaseReturn needs one to
+        // serialize the exceeds-check below against concurrent partial returns on the same
+        // original bill — row-locks the original bill's row, not the company row, since there's
+        // nothing company-wide to protect on the Bill side (mirrors InvoicesController.Post's
+        // company-row lock, scoped to what actually needs protecting here).
+        var transaction = _db.Database.SupportsRowLocking()
+            ? await _db.Database.BeginTransactionAsync()
+            : null;
+        try
         {
-            return NotFound();
-        }
-
-        var bill = await _db.Bills.Include(b => b.Lines)
-            .FirstOrDefaultAsync(b => b.Id == id && b.CompanyId == companyId);
-        if (bill is null)
-        {
-            return NotFound();
-        }
-
-        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == bill.PartnerId);
-
-        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
-        if (journal is null)
-        {
-            return BadRequest(_localizer["NoJournalToPost"].Value);
-        }
-
-        var defaults = await GetAccountDefaultsAsync(companyId);
-        if (defaults is null || defaults.PayableAccountId == Guid.Empty)
-        {
-            return BadRequest(_localizer["NoPayableAccount"].Value);
-        }
-
-        var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-            .Include(t => t.RepartitionLines)
-            .Where(t => t.CompanyId == companyId)
-            .ToDictionaryAsync(t => t.Id);
-
-        // 60_Posting_Rules R07/R08/R09 (BLOCK) — see InvoicesController.Post's identical comment.
-        var lineAccountsById = await _db.Accounts.AsNoTracking()
-            .Where(a => bill.Lines.Select(l => l.ExpenseAccountId).Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id);
-        foreach (var line in bill.Lines)
-        {
-            if (line.TaxDefinitionId is not { } taxDefId || !taxDefinitionsById.TryGetValue(taxDefId, out var taxDef) || taxDef.Code is null)
+            var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+            if (company is null)
             {
-                continue;
+                return NotFound();
             }
 
-            var account = lineAccountsById[line.ExpenseAccountId];
+            var bill = await _db.Bills.Include(b => b.Lines)
+                .FirstOrDefaultAsync(b => b.Id == id && b.CompanyId == companyId);
+            if (bill is null)
+            {
+                return NotFound();
+            }
+
+            var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == bill.PartnerId);
+
+            var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
+            if (journal is null)
+            {
+                return BadRequest(_localizer["NoJournalToPost"].Value);
+            }
+
+            var defaults = await GetAccountDefaultsAsync(companyId);
+            if (defaults is null || defaults.PayableAccountId == Guid.Empty)
+            {
+                return BadRequest(_localizer["NoPayableAccount"].Value);
+            }
+
+            var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
+                .Include(t => t.RepartitionLines)
+                .Where(t => t.CompanyId == companyId)
+                .ToDictionaryAsync(t => t.Id);
+
+            // 60_Posting_Rules R07/R08/R09 (BLOCK) — see InvoicesController.Post's identical comment.
+            var lineAccountsById = await _db.Accounts.AsNoTracking()
+                .Where(a => bill.Lines.Select(l => l.ExpenseAccountId).Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id);
+            foreach (var line in bill.Lines)
+            {
+                if (line.TaxDefinitionId is not { } taxDefId || !taxDefinitionsById.TryGetValue(taxDefId, out var taxDef) || taxDef.Code is null)
+                {
+                    continue;
+                }
+
+                var account = lineAccountsById[line.ExpenseAccountId];
+                try
+                {
+                    PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, bill.PartnerId, partner?.TaxNumber);
+                    if (taxDef.Direction is { } direction && account.Class is { } accountClass)
+                    {
+                        PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
+                    }
+                    PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
+                }
+                catch (Exception ex) when (
+                    ex is MissingCounterpartyTaxNumberException or
+                    VatDirectionAccountClassMismatchException or
+                    VatOnControlAccountException)
+                {
+                    return BadRequest(ex.Message);
+                }
+            }
+
+            JournalEntry journalEntry;
             try
             {
-                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, bill.PartnerId, partner?.TaxNumber);
-                if (taxDef.Direction is { } direction && account.Class is { } accountClass)
-                {
-                    PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
-                }
-                PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
+                journalEntry = bill.Post(
+                    company, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
+                    defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
             }
             catch (Exception ex) when (
-                ex is MissingCounterpartyTaxNumberException or
-                VatDirectionAccountClassMismatchException or
-                VatOnControlAccountException)
+                ex is InvalidOperationException or
+                UnbalancedJournalEntryException or
+                AccountingLockDateViolationException or
+                TaxLockDateViolationException or
+                InconsistentForeignCurrencyDataException)
             {
                 return BadRequest(ex.Message);
             }
-        }
 
-        JournalEntry journalEntry;
-        try
+            // A2 (v2 release): mirror of InvoicesController.Post's identical SalesReturn check —
+            // goods returned to a supplier must not exceed what the original bill still has
+            // un-returned. Checked after bill.Post() succeeded, before SaveChangesAsync.
+            if (bill.DocumentType == DocumentType.PurchaseReturn)
+            {
+                if (bill.OriginalBillId is not { } originalBillId)
+                {
+                    return BadRequest(_localizer["OriginalBillRequiredForPurchaseReturn"].Value);
+                }
+
+                if (transaction is not null)
+                {
+                    await _db.Database.ExecuteSqlInterpolatedAsync(
+                        $"SELECT \"Id\" FROM bills WHERE \"Id\" = {originalBillId} FOR UPDATE");
+                }
+
+                var original = await _db.Bills.AsNoTracking()
+                    .FirstOrDefaultAsync(b => b.Id == originalBillId && b.CompanyId == companyId);
+                if (original is null || original.State != BillState.Posted)
+                {
+                    return BadRequest(_localizer["OriginalBillMustBePostedForReturn"].Value);
+                }
+
+                var originalTotal = original.JournalEntryId is { } originalJournalEntryId
+                    ? await _db.JournalEntryLines.AsNoTracking()
+                        .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == defaults.PayableAccountId)
+                        .SumAsync(l => l.Credit)
+                    : 0m;
+
+                var otherReturnJournalEntryIds = await _db.Bills.AsNoTracking()
+                    .Where(b => b.CompanyId == companyId && b.OriginalBillId == originalBillId &&
+                        b.DocumentType == DocumentType.PurchaseReturn && b.State == BillState.Posted && b.Id != bill.Id)
+                    .Select(b => b.JournalEntryId)
+                    .ToListAsync();
+                var alreadyReturned = otherReturnJournalEntryIds.Count == 0
+                    ? 0m
+                    : await _db.JournalEntryLines.AsNoTracking()
+                        .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == defaults.PayableAccountId)
+                        .SumAsync(l => l.Debit);
+
+                var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == defaults.PayableAccountId).Debit;
+
+                if (alreadyReturned + thisReturnAmount > originalTotal)
+                {
+                    var remaining = originalTotal - alreadyReturned;
+                    return BadRequest(string.Format(_localizer["PurchaseReturnExceedsRemainingOriginalAmount"], thisReturnAmount, remaining));
+                }
+            }
+
+            journalEntry.PostedByUserId = CurrentUserId;
+            journalEntry.SourceDocumentId = bill.Id;
+            journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
+
+            _db.JournalEntries.Add(journalEntry);
+            await _db.SaveChangesAsync();
+
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync();
+            }
+
+            return Ok(ToResponse(bill));
+        }
+        finally
         {
-            journalEntry = bill.Post(
-                company, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
-                defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
         }
-        catch (Exception ex) when (
-            ex is InvalidOperationException or
-            UnbalancedJournalEntryException or
-            AccountingLockDateViolationException or
-            TaxLockDateViolationException or
-            InconsistentForeignCurrencyDataException)
-        {
-            return BadRequest(ex.Message);
-        }
-
-        journalEntry.PostedByUserId = CurrentUserId;
-        journalEntry.SourceDocumentId = bill.Id;
-        journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
-
-        _db.JournalEntries.Add(journalEntry);
-        await _db.SaveChangesAsync();
-
-        return Ok(ToResponse(bill));
     }
 
     private static BillResponse ToResponse(Bill b) => new(

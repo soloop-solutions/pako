@@ -59,8 +59,11 @@ public class Bill
         }
 
         // Same reversal shape as Invoice.Post: a vendor credit note keeps positive line
-        // quantities/prices, only which side of each line gets the amount reverses.
-        var isCreditNote = DocumentType == DocumentType.CreditNote;
+        // quantities/prices, only which side of each line gets the amount reverses. A
+        // PurchaseReturn (Track A, v2 release) posts through the identical mechanics — goods
+        // returned to a supplier reduce the payable and input VAT, the mirror image of a sales
+        // return, same shape as a vendor credit note.
+        var isCreditNote = DocumentType is DocumentType.CreditNote or DocumentType.PurchaseReturn;
         var journalEntryLines = new List<JournalEntryLine>();
         var totalWithTax = 0m;
 
