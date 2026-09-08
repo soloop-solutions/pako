@@ -145,7 +145,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
           </Select>
         </div>
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorReference" })}</Label>
+          <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorInvoiceNumber" })}</Label>
           <Input
             id="bill-vendor-reference"
             value={vendorReference}

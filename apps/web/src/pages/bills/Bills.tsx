@@ -121,7 +121,7 @@ export function Bills() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{intl.formatMessage({ id: "bills.vendorReference" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "bills.vendorInvoiceNumber" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "common.vendor" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
