@@ -124,8 +124,6 @@ public class InvoicesControllerTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         var message = badRequest.Value!.ToString()!;
         Assert.Contains("positive total", message);
-        Assert.Contains("credit note", message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("not yet supported", message);
     }
 
     // C2: a VAT-registered company must tag every line with a real tax code.

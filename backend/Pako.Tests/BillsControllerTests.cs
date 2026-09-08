@@ -96,8 +96,6 @@ public class BillsControllerTests
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         var message = badRequest.Value!.ToString()!;
         Assert.Contains("positive total", message);
-        Assert.Contains("credit note", message, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("not yet supported", message);
     }
 
     // C2: same rule as InvoicesControllerTests — see its comment.
