@@ -26,17 +26,16 @@ Reasoning:
 **What IS reused, deliberately, not rebuilt:**
 
 1. **`kudofatura-fiscal-bridge`** (Windows-local fiscal printer bridge, Datecs/Tremol serial
-   integration, offline queue) — extraction target for `fiscal-bridge/` (Phase 1, not yet
-   extracted). Working, hardware-tested code with no relationship to the security gaps above.
+   integration, offline queue) — ported essentially unchanged into `fiscal-bridge/` (built).
+   Working, hardware-tested code with no relationship to the security gaps above.
 2. **`kudofatura-be/services/fiscal-providers/`** strategy interface
    (`BaseFiscalProvider.issueReceipt/voidReceipt/xReport/zReport/getStatus`) — the shape is
-   already right. Ports into `backend/Pako.Domain/Fiscal/` as the plug-in contract (C#
-   reimplementation of the same interface shape, not a literal JS port); `sef-provider` gets a
-   real implementation now that ATK's SEF API is live (Phase 2).
+   already right. Ported into `backend/Pako.Domain/Fiscal/` as the plug-in contract (C#
+   reimplementation of the same interface shape, not a literal JS port); `PefBridgeProvider` is
+   real, `SefProvider` is still a stub — see `Fiscal` below.
 3. **Payroll + withholding-tax business logic** (`payroll-export-service.js`,
-   `tatimi-ne-burim-router.js`) — Kosovo-specific rules already built. Reused as the starting
-   point for `backend/Pako.Domain/Payroll/`'s GL-posting logic (Phase 4), not rebuilt from a
-   tax-code reading.
+   `tatimi-ne-burim-router.js`) — turned out to hold no gross-to-net calculator to reuse (see
+   `Payroll` below); `backend/Pako.Domain/Payroll/`'s GL-posting logic is independent work.
 4. **Frontend stack choices**: React + Vite + TS + Tailwind, matching kudofatura-panel — same
    language/stack family, team already has the muscle memory.
 
@@ -64,7 +63,7 @@ PAKO's invoicing module has reached feature parity.
 ## Module breakdown
 
 Backend modules live under `backend/Pako.Domain/<Module>/` (C#, EF Core-agnostic — persistence
-lives in `Pako.Infrastructure`). Status as of 2026-08-26 noted per module.
+lives in `Pako.Infrastructure`). Status as of 2026-09-08 noted per module.
 
 ### `Ledger` — the GL core (Odoo `account.move` reference pattern) — **built, not just spec'd**
 
@@ -91,16 +90,17 @@ lives in `Pako.Infrastructure`). Status as of 2026-08-26 noted per module.
   whose persisted `State` was `Posted`, throwing `PostedJournalEntryImmutableException`. Reversal
   entries only, never edits/deletes, once posted.
 - **No discrete fiscal-period table** — lock-date fields (`AccountingLockDate`, `TaxLockDate`) on
-  `Company`, validated in `JournalEntry.Post()`. Minimal `Company` entity exists now (lock dates
-  only); the full multi-tenant/firm model is still to build (see Companies below).
+  `Company`, validated in `JournalEntry.Post()` (currently unreachable through the API — nothing
+  sets a lock date yet, see `Companies` below).
 - Not yet implemented: numbering-sequence generation (gapless/monotonic per journal), hash
   computation. Reserved, inert, per below.
 
 **Plani Kontabel v2.0 (Kosovo standard chart of accounts, 233 accounts) — all four stages landed
 2026-09-01 (schema; chart seeding + account-role resolution; VAT/withholding codes; posting
-rules).** See `downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan (this
-repo's copy: not yet moved into `docs/`, still in the user's Downloads folder alongside the two
-source files it names — the workbook and CSV that are its actual source of truth). `Account`
+rules).** See `docs/COA_V2_IMPLEMENTATION_BRIEF.md` for the full staged plan, and `docs/coa-v2/`
+for its two source files (`PAKO_Plani_Kontabel_v2.xlsx`, `PAKO_COA_v2_seed.csv`) — the workbook
+and CSV that are the actual source of truth for every account/code value referenced below.
+`Account`
 gained `NameSq`, `Class`/`Group` (6-digit-code class/group, with a DB CHECK constraint enforcing
 `Code`'s first digit/two digits match them — NULL-tolerant, since the old 16-account legacy
 template has none of this data), `Statement`, `NormalBalance`, `Subledger`, `IsControl`,
@@ -177,81 +177,109 @@ of already-posted entries later is far more painful than reserving three columns
 Immutability of posted entries (the actual enforcement) is already live, independent of whether
 the hash itself is ever activated.
 
-### `Tax` — tax engine — **placeholder folder, data source now available**
+### `Tax` — tax engine — **built, real**
 
-- Will hold `TaxDefinition` (`account.tax` pattern: name, rate, type — VAT
-  standard/reduced/exempt/withholding, scope sale/purchase) and `TaxRepartitionLine` (how a tax
-  amount splits across GL accounts).
-- **Entirely data-driven, by design.** No Kosovo VAT/withholding number will live in this
-  module's code — it reads from `Pako.Localization.Xk`, which is already built and seeded (VAT
-  18%/8%, CIT 10%, withholding rates, pension 5%/5%, PIT brackets, default IFRS-category chart of
-  accounts template) with each figure tagged `SourceConfidence.PrimarySource` or
-  `.NeedsLegalVerification`. Phase 2 build target.
+- `TaxDefinition` (`account.tax` pattern: name, rate, type — VAT standard/reduced/exempt/
+  withholding, scope sale/purchase, plus v2.0's `Direction`/`DeductiblePercent`/`IsReverseCharge`/
+  `AtkBook`/`Code`) and `TaxRepartitionLine` (how a tax amount splits across GL accounts, multi-
+  line capable — e.g. the dual-use-vehicle `BV50` code's 50/50 deductible/non-deductible split).
+- **Entirely data-driven, by design.** No Kosovo VAT/withholding number lives in this module's
+  code — it reads from `Pako.Localization.Xk`, seeded per company at creation time (the real 20
+  VAT codes + 6 withholding codes as of the Plani Kontabel v2.0 Stage 3 migration, profile-gated —
+  an Import-scoped code is only seeded if the company has the Import profile enabled). Each figure
+  is tagged `SourceConfidence.PrimarySource` or `.NeedsLegalVerification`.
+- `ITaxComputationService`/`TaxComputationService` compute both from a net amount and (the
+  actually-used path, since line entry is gross/brutto) from a gross amount, backing VAT out as an
+  exact remainder so posting lines always sum back to what was entered, to the cent.
 
-### `Invoicing` (AR) and `Bills` (AP) — **placeholder, Phase 2/3**
+### `Invoicing` (AR) and `Bills` (AP) — **built, real**
 
-- Customer-facing/vendor-facing document tables (due dates, line items) stay separate from the
-  ledger tables — the ledger is the single source of financial truth. On confirm/post, each
-  generates its corresponding balanced `JournalEntry` via `Tax` for line splitting.
-- `Invoicing` calls into `Fiscal` at the point a customer invoice needs a fiscal receipt issued
-  (POS-style) or SEF-reported (B2B e-invoicing).
+- `Invoice`/`InvoiceLine` and `Bill`/`BillLine` stay separate from the ledger tables — the ledger
+  is the single source of financial truth. `Post()` builds a balanced `JournalEntry` (via the
+  shared `DocumentLineCalculator` for the per-line gross/discount/VAT/net math, and `Tax` for the
+  computation itself) and hands it to the Ledger's own `JournalEntry.Post()` for the actual
+  balance/lock-date invariant — no second balance check is hand-rolled.
+- Beyond a plain invoice/bill: credit notes and debit notes (own legal numbering series per
+  Kosovo VAT Law Article 47), down-payment invoices (post to a deposits liability, later
+  reclassified to revenue on application), per-line discounts, and reverse-charge (RC18)
+  self-assessment posting (R10). Settlement is a single atomic `record-payment` endpoint
+  (draft + post + reconcile in one transaction, replacing an earlier 3-call sequence that could
+  orphan a posted journal entry on a mid-sequence failure).
+- `Invoicing` will call into `Fiscal` at the point a customer invoice needs a fiscal receipt
+  issued (POS-style) or SEF-reported (B2B e-invoicing) — not wired yet, see `Fiscal` below.
 
-### `Reconciliation` — **placeholder, Phase 3**
+### `Reconciliation` — **built, real**
 
-- Links `JournalEntryLine`s (a payment line to an invoice/bill line), partial or full — same
-  shape as Odoo's reconciliation model.
+- Links a settlement `JournalEntryLine` to an invoice/bill, partial or full, with a hard cap on
+  over-consuming a single settlement line across multiple documents (enforced twice: app-level row
+  lock + a Postgres trigger as defense-in-depth, same discipline as the Ledger balance invariant).
+  A credit note/down payment settling *another* document reuses the same mechanism — its own AR/AP
+  control line is just another settlement source.
 
-### `Reporting` — **placeholder, Phase 3**
+### `Reporting` — **built, real**
 
-- Balance sheet, P&L, VAT return: computed queries over `JournalEntryLine` grouped by
-  AccountType and date range. No stored/duplicated report tables until there's a proven
-  performance reason to.
+- `ReportsController`: P&L, balance sheet (with a synthetic "Current Earnings" line so
+  Assets == Liabilities + Equity always holds, proven not just asserted), VAT return (output vs.
+  input VAT), and a CIT add-back report (non-deductible/limited expense accounts). All computed
+  queries over `JournalEntryLine` grouped by `AccountType`/`TaxDefinition` and date range — no
+  stored/duplicated report tables, no separate `Pako.Domain/Reporting/` folder was needed.
 
-### `Fiscal` — **built, Phase 1** (`SefProvider` real implementation deferred to Phase 2)
+### `Fiscal` — **plug-in point built, `SefProvider` still a stub**
 
 - `IFiscalProvider` carries the same `BaseFiscalProvider`-shaped contract as kudofatura
   (`IssueReceiptAsync/VoidReceiptAsync/XReportAsync/ZReportAsync/GetStatusAsync`), reimplemented
   in idiomatic C# (records for the DTOs, not a literal JS port). Two implementations:
   `PefBridgeProvider` (real — talks to the local `fiscal-bridge/` service over HTTP,
   `http://127.0.0.1:7878` by default) and `SefProvider` (stub — throws `NotImplementedException`
-  stating the SEF integration is Phase 2 scope, not that ATK's API is unavailable; that claim is
-  now false, ATK's SEF API/portal has been open since June 2026).
+  stating the real SEF integration isn't built yet, not that ATK's API is unavailable; ATK's SEF
+  API/portal has been open since June 2026, so that's the accurate reason to give). The real SEF
+  integration is the main remaining item on the path to certification.
 - Fiscal receipt issuance is the trigger point that will post the corresponding `JournalEntry`
   and advance that journal's hash chain once the hash chain is activated.
 
-### `Companies` — **minimal `Company` entity built (lock dates only), multi-tenant/firm model
-not yet built**
+### `Companies` — **built, real**: multi-tenant + firm model, self-hosted JWT auth
 
-- Will hold: one row per client business (SME or firm's client), each with its own chart of
-  accounts/journals/ledger instance — matches kudofatura's `X-Company-ID` scoping pattern.
-- New vs. kudofatura: a `Firm` concept — an accounting/bookkeeping firm has staff who need access
-  to many client `Company` records. Plan: a nullable `FirmId` on `Company` (an SME using the
-  product directly has no firm) plus a role table spanning firm_admin/firm_accountant/
-  client_admin/client_viewer, so a firm's bookkeeper can be granted access to N clients without N
-  separate logins. Not yet built — Phase 1 remaining work.
-- All ledger-writing endpoints are backend-mediated (`Pako.Api` controllers), no
-  direct-frontend-to-database writes for anything under Ledger/Invoicing/Bills/
-  Reconciliation/Payroll. This is the actual mechanism that fixes kudofatura's frontend-only role
-  enforcement problem.
+- `Company` (one row per client business, its own chart of accounts/journals/ledger instance),
+  `Firm` (an accounting/bookkeeping firm), `Membership` (`{ UserId, FirmId? XOR CompanyId?, Role }`
+  where `Role` is `FirmAdmin | FirmAccountant | ClientAdmin | ClientViewer`) — a firm-scoped
+  membership cascades access to every company under that firm, so a bookkeeper doesn't need N
+  separate logins for N clients. Enforced twice: `Membership.ForFirm`/`ForCompany` factory methods
+  in C#, a Postgres CHECK constraint at the DB layer.
+- `CompanyAccessFilter`/`RequireCompanyAccessAttribute` is the server-side enforcement — every
+  ledger-writing endpoint is backend-mediated (`Pako.Api` controllers), no
+  direct-frontend-to-database writes anywhere. This is the actual mechanism that fixes
+  kudofatura's frontend-only role enforcement problem.
+- Auth is ASP.NET Core Identity issuing JWT bearer tokens — no Supabase, no cookies. See
+  "Database" below for why.
 
-### `Payroll` — **placeholder, deferred to Phase 4, scope call**
+### `Payroll` — **built, real** (bundled at launch, matching ProData/Kubit/Bilanci)
 
-Competitors (ProData, Kubit, Bilanci) all bundle payroll. Full HR/payroll (contracts, leave
-management, benefits) is a large scope addition and is **deferred**, not committed to for v1.
-What's reused early: kudofatura's existing payroll-export and tatimi-në-burim (withholding tax)
-logic, repositioned as "payroll run posts a journal entry" (salary expense debit, withholding tax
-payable credit, net pay payable credit) rather than a ground-up HR system.
+`Employee`/`PayrollRun`/`PayslipLine`: a payroll run aggregates active employees' payslip lines
+into one balanced `JournalEntry` (salary expense debit, PIT/pension payable credit, net pay
+payable credit). `IPayrollCalculationService` is country-agnostic C# (annualize-then-divide-by-12
+gross-to-net, Kosovo's progressive PIT brackets applied via `Pako.Localization.Xk`) — kudofatura's
+own payroll code turned out to hold no gross-to-net algorithm to reuse (its `payroll_employees`
+table stores manually-entered figures, only formatting them into ATK `.xlsx` exports), so this is
+independent work, not a port. Full HR (contracts, leave, benefits) beyond payroll-to-GL stays out
+of scope unless market demand justifies it.
 
 ## Frontend / mobile
 
 `apps/web` (`@pako/web`, Vite+React+TS+Tailwind v4+shadcn/ui) and `apps/mobile` (`@pako/mobile`,
-Expo Router+RN+TS) both exist as app-shell scaffolds — routed/tabbed navigation with "Coming
-soon" placeholders per module, no API wiring yet (`Pako.Api` isn't feature-complete enough to
-call). `packages/shared` (`@pako/shared`) holds the Zod schemas describing ledger shapes and a
-stub for the NSwag-generated TS API client, to be regenerated once `Pako.Api` is further along.
-See root `CLAUDE.md`'s "Frontend stack" / "Mobile stack" sections for exact versions and the
-non-obvious tooling gotchas hit while scaffolding (dependency pins, lint fixes, etc.) — not
-repeated here since those are implementation details, not architecture.
+Expo Router+RN+TS) are both **wired end-to-end to the live `Pako.Api`** — Auth, Companies/Firms/
+Members, Ledger, Invoicing, Bills, Reconciliation, Reports, and (web only; deliberately out of
+mobile's scope) Payroll and Settings. No "Coming soon" placeholders remain on web; mobile's scope
+is intentionally narrower (no standalone Payroll/Reconciliation screens — invoicing/bills' own
+record-payment flow already covers reconciliation) and Settings is logout-only. `packages/shared`
+(`@pako/shared`) holds a real NSwag-generated TS API client (`src/generated/api-client.ts`,
+regenerated from `Pako.Api`'s live OpenAPI doc after backend contract changes) plus hand-maintained
+enum-order maps for the handful of enums the backend's OpenAPI generator doesn't emit names for.
+`apps/web` additionally has English/Albanian i18n infrastructure (`react-i18next`), with
+translation content filled in incrementally per page. See root `CLAUDE.md`'s "Frontend <-> backend
+wiring" / mobile sections for the full detail and non-obvious gotchas (an NSwag operation-name
+collision across `post`/`post2`/`post3`/`post4`-style methods that reshuffles on regeneration is
+the one worth knowing before touching either app) — not repeated here since those are
+implementation details, not architecture.
 
 ## Database
 
@@ -268,3 +296,18 @@ stateless JWT API also serves the web app and the mobile app identically, which 
 Supabase Auth sessions don't do as cleanly. See root `CLAUDE.md`'s "Auth, Companies, Firms, and Membership" section for the concrete schema
 (`AppUser`, `Company`, `Firm`, `Membership`) and the authorization mechanism that enforces it
 server-side.
+
+### Migration rule (from `docs/V2_PARALLEL_TRACKS.md`'s Sprint 0, in force for the v2 release)
+
+With three tracks branching in parallel off the same schema, EF migrations are the one artifact
+that can't be reconciled by an ordinary merge conflict once two people have generated one against
+a stale model. The rule:
+
+- **One migration per day, announced** — say in the team channel before generating one, so nobody
+  else is mid-generation against the same base.
+- **Rebase on `main` before generating** — never generate a migration against a branch that's
+  behind; `dotnet ef migrations add` bakes in whatever the model looked like at that moment,
+  including anyone else's already-merged columns.
+- **Never edit a migration that has already merged.** If it's wrong, write a new migration that
+  corrects it — editing history that another branch may have already applied breaks that branch's
+  `__EFMigrationsHistory` bookkeeping.

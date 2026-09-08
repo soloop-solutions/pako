@@ -1,95 +1,49 @@
 # Roadmap
 
-Realistic pace for a solo founder + AI dev team, not a big-company timeline. Sequencing is
-driven by three constraints: (1) kudofatura's existing security/architecture gaps are cheapest to
-fix at extraction time, before new code depends on the old patterns; (2) SEF certification is a
-live, time-limited opportunity — the sooner PAKO can actually issue/report through SEF, the
-sooner it has a real compliance story to sell against ProData/Kubit/Bilanci; (3) a full GL is
-inherently a multi-month build even scoped tightly — sequencing can't shortcut that, only avoid
-wasting the months.
+**2026-09-08: this doc's original Phase 0-4 plan is complete — every phase below landed, several
+built ahead of their originally planned slot at Erion's direction.** The live plan going forward is
+`docs/V2_PARALLEL_TRACKS.md` (Sprint 0 + Tracks A/B/C for the v2 release); this file now exists as
+a historical record of the build-up to v1, not an open plan.
 
-**2026-09-01 note**: this doc's phasing predates `Tax`/`Invoicing`/`Bills`/`Reconciliation`/
-`Payroll` all being built ahead of their Phase 2-4 slots (see `CLAUDE.md`) — treat phase numbers
-as historical, not current status. A new, unphased workstream is now in progress: migrating the
-`Ledger` module's `Account`/`JournalEntryLine`/`Company`/`TaxDefinition` schema and seed data to
-Kosovo's Plani Kontabel v2.0 (233 accounts, replacing the 16-account placeholder chart below) —
-see `docs/ARCHITECTURE.md`'s "Plani Kontabel v2.0" note and
-`downloads/COA_V2_IMPLEMENTATION_BRIEF.md` for the staged plan. All four stages are done: Stage 1
-(additive schema), Stage 2 (seed the real 233-account chart, replace the hardcoded-account-code
-lookups with `CompanyAccountDefaults`), Stage 3 (seed the real 20 VAT + 6 withholding codes), and
-Stage 4 (the posting rules the brief marked implementable now — storno, audit-trail columns, VAT
-posting-rule enforcement, RC18's reverse-charge posting). Rules whose prerequisite doesn't exist
-yet (fiscal periods, import documents, landed cost, fixed assets, bank reconciliation) are
-documented TODOs in CLAUDE.md's Stage 4 section, not built.
+## What's built (as of 2026-09-08)
 
-## Phase 0 — done (2026-08-26)
+- **Backend** (ASP.NET Core/.NET 10 + EF Core + Npgsql): `Ledger` (GL core — chart of accounts,
+  journals, journal entries, debit=credit invariant, posted-entry immutability), Kosovo Plani
+  Kontabel v2.0 (233-account standard chart, profile-filtered per company, VAT/withholding codes,
+  the posting rules from `60_Posting_Rules` that had a buildable prerequisite), `Tax`,
+  `Invoicing` (AR, incl. credit/debit notes, down payments, per-line discounts, reverse charge),
+  `Bills` (AP), `Reconciliation`, `Payroll`-to-GL, `Reports` (P&L/balance sheet/VAT return/CIT
+  add-back), `Companies`/`Firm`/`Membership` multi-tenant auth (self-hosted JWT, not Supabase).
+  See `docs/ARCHITECTURE.md`'s "Module breakdown" for the real per-module detail.
+- **Frontend**: `apps/web` and `apps/mobile` both wired end-to-end to the live API across every
+  module above (mobile's scope is narrower by design — no standalone Payroll/Reconciliation
+  screens). `apps/web` has English/Albanian i18n infrastructure, translations filled in
+  incrementally.
+- **Not yet built**: stock/inventory (deliberately out of the v2 release too — see
+  `docs/V2_PARALLEL_TRACKS.md`'s scope note), OCR capture, the real SEF e-invoicing integration
+  (`SefProvider` is still a documented stub — ATK's SEF API/portal has been open since June 2026,
+  but the integration itself hasn't been built), ATK book exports.
 
-- Repo scaffolded, renamed Kudo Books -> **PAKO** (final name, matches kudofatura-mobile's
-  existing "Pako" brand).
-- Stack finalized: ASP.NET Core (.NET) + EF Core + Npgsql backend (pivoted from the original
-  Node/Express plan — see `ARCHITECTURE.md`), Vite+React+TS+Tailwind+shadcn/ui web, Expo
-  Router+RN+TS mobile, Turborepo+pnpm for the JS/TS side.
-- Kosovo tax-law research landed and is seeded in `backend/Pako.Localization.Xk/` (VAT, CIT,
-  withholding, pension, PIT brackets, default chart-of-accounts template), each figure tagged
-  primary-source or needs-legal-verification.
-- **`Ledger` module built for real** (not just scaffolded): `Account`/`Journal`/`JournalEntry`/
-  `JournalEntryLine`, the debit=credit invariant (app-level + Postgres trigger), posted-entry
-  immutability (EF Core `SaveChanges` override), hash-chain columns reserved/inert. 8 passing
-  xUnit tests. Verified against a real Postgres container.
-- `apps/web`, `apps/mobile`, `packages/shared` scaffolded — app shells with placeholder
-  navigation, no business logic/API wiring yet.
+## What's next: the v2 release
 
-Still open from Phase 0: SEF certification legal-entity decision (business/legal, doesn't block
-engineering), and the Postgres-hosting/auth-provider question flagged in `ARCHITECTURE.md`'s
-Database section.
+`docs/V2_PARALLEL_TRACKS.md` is the plan of record. Shape, briefly:
 
-## Phase 1 — remaining: fiscal extraction + multi-tenant auth (next)
+- **Sprint 0** (one day, one developer, three reviewers) — remove the file-level collisions
+  (`Invoice.cs`/`Bill.cs`) that would otherwise block three tracks from branching in parallel:
+  extract document numbering into `IDocumentNumberService`, extract the per-line VAT math into
+  `DocumentLineCalculator`, land one additive migration with everything all three tracks need,
+  move the test suite onto Testcontainers, and fix this doc's staleness (this rewrite).
+- **Track A — Documents & corrections**: sales/purchase returns, proforma invoices, an explicit
+  no-deletion guarantee, a posted-document editability policy, sale/purchase split in the UI.
+- **Track B — Registers & numbering**: configurable per-company number series (replacing the flat
+  `Next*Number` counters), a next-number preview, gapless/strictly-increasing numbering under
+  concurrency, manual number override with an audit trail, partner fiscal number/VAT status, the
+  item register (code/name/unit/barcodes/defaults, no stock).
+- **Track C — Price, payment & debt**: VAT-inclusive vs. VAT-exclusive price entry, a real
+  "no tax" code instead of a silent empty option, payment recorded at invoice-creation time,
+  payment methods split cash vs. bank, and payment-terms/grace-days-driven debt aging.
 
-- Extract `kudofatura-fiscal-bridge` into `fiscal-bridge/`, and reimplement the
-  `BaseFiscalProvider` contract in C# under `backend/Pako.Domain/Fiscal/` — fix the
-  security-audit findings that apply to this code path *during* extraction, not after.
-- Build the `Companies`/`Firm` multi-tenant model for real (currently just a minimal `Company`
-  entity with lock dates) — firm-manages-many-clients roles, backend-mediated auth end to end.
-- Resolve the Postgres hosting + auth-provider question (Supabase Auth reused vs. fully
-  self-hosted auth behind `Pako.Api`) before building on top of it.
-- Wire `apps/web`'s `Ledger` pages to real `Pako.Api` endpoints (currently placeholder-only) —
-  first real vertical slice: create a company, post a manual journal entry, see it on a trial
-  balance.
-
-## Phase 2 — Tax engine + AR + real SEF
-
-- `Tax` module wired to `Ledger`, reading from the already-seeded `Pako.Localization.Xk` data.
-- `Invoicing` (AR) module, posting into the ledger.
-- Real `SefProvider` implementation — this is the actual path to SEF certification and a
-  sellable compliance story.
-
-## Phase 3 — AP + reconciliation + reporting
-
-- `Bills` (AP) module.
-- `Reconciliation` module.
-- `Reporting`: trial balance, P&L, balance sheet, VAT return export.
-
-## Phase 4 — Payroll-to-GL + firm UX polish
-
-- `Payroll` module: reuse kudofatura's payroll-export/tatimi-në-burim logic, wire to ledger
-  postings.
-- Firm-facing UX: multi-client switching, firm dashboard, mobile app filled in beyond placeholder
-  screens.
-- Mobile stays placeholder-scope until this phase — a GL/accounting platform's primary users
-  (bookkeepers, accounting firms) work desktop-first; mobile is a convenience feature (expense
-  capture, approvals), not core.
-
-## Later, not scheduled
-
-- Kudofatura customer-data ETL into PAKO, only if/when Erion decides to sunset or merge the
-  product lines.
-- Full HR/payroll (contracts, leave, benefits) beyond payroll-to-GL, only if market demand
-  justifies the scope.
-
-## Estimate
-
-Roughly 4-5 months from Phase 0 to a v1 that is SEF-certifiable and covers GL + tax + AR + AP +
-reporting + payroll-lite. Phase 0 landed the highest-risk piece (the ledger core's correctness
-model) on day one, slightly ahead of the original Node-based estimate for that slice — but
-Phase 1's remaining scope (fiscal extraction, real multi-tenant auth) is still substantial, so
-the overall timeline holds rather than shrinks.
+See that file for the full item list, the decisions still needed before certain tracks can start
+(`D1`-`D5`), and the working agreements (nobody branches before Sprint 0 merges; the migration rule
+now documented in `docs/ARCHITECTURE.md`'s Database section; `messages.ts` keys are added, never
+renamed).
