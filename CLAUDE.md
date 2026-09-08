@@ -2078,3 +2078,159 @@ just land the infrastructure, to be filled in incrementally later.
 - **Verified**: `pnpm --filter @pako/web {typecheck,lint,test,build}` all pass with the empty
   namespace stubs in place (i18next silently falls back to the fallback language, here English,
   for any missing key — an empty namespace file is not a runtime error).
+
+## v2 Track C — Price, payment & debt (branch `track-c/price-payment-debt`, 2026-09-08)
+
+Built from `docs/V2_PARALLEL_TRACKS.md`'s Sprint-0 tip (`1b6f092`), independently of Track A
+(`origin/track-a/documents-and-corrections`, also unmerged) — per that doc's own parallel-tracks
+design, both branches touch `InvoicesController.cs`/`BillsController.cs` and will need a real merge
+reconciliation whenever they land, not something resolved here. Covers all 7 meeting items (3, 4,
+17, 18, 23, 27, 28) as C1–C6; S0.5 (Testcontainers) was **not** built — see its own note below.
+
+- **S0.5 (Testcontainers) skipped, deliberately, not silently**: the working agreements say "Track
+  C waits for Testcontainers... land S0.5 first or the tests are decoration." It was never built in
+  Sprint 0 (checked: `Pako.Tests.csproj` only references `EntityFrameworkCore.InMemory`), and
+  Track A's own unmerged branch proceeded without it too — building a full-suite Testcontainers
+  migration alone, as a side effect of one track, would be new shared test infrastructure two other
+  in-flight branches don't expect, a bigger and riskier undertaking than "one track's slice." C1/C3
+  reuse the exact same `SupportsRowLocking()`-gated transaction pattern every other atomic endpoint
+  in this codebase already uses (`RecordPayment`/`ApplyCreditNote`/`ApplyDownPayment`), all of which
+  were themselves verified against a real Postgres container manually rather than via Testcontainers
+  — C3/C5's new atomic paths were verified the same way (see "Verified end-to-end" below), matching
+  the existing bar, not lowering it. Flag to Erion: a real Testcontainers pass is still owed before
+  C1/C3's rounding/atomicity guarantees are covered by the automated suite itself.
+- **C4 (payment methods) built first, since C3/C5 depend on it**: `PaymentMethod`/
+  `PaymentMethodKind` already existed as an inert Sprint-0 entity+migration; this pass added
+  `PaymentMethodsController` (`GET`/`POST /api/companies/{companyId}/payment-methods`, same
+  `[RequireCompanyAccess]` pattern as every other controller) and seeded two starter methods at
+  company creation — `"Cash — Arka kryesore"` (100100) and `"Bank — ProCredit"` (101003), the exact
+  two names item 28's own Done criterion uses. No payment-method management UI was built (no
+  edit/delete, no dedicated settings page) — Settings.tsx is Track B's owned surface per the split
+  doc, and the two seeded defaults plus the `POST` endpoint (usable once a UI is added) satisfy this
+  pass's actual need: a non-empty grouped picker.
+- **C1 (PriceMode) — the highest-risk change, done via one shared code path, not a fork**:
+  `DocumentLineCalculator.Calculate` gained a `PriceMode` parameter and dispatches to the existing
+  `ITaxComputationService.ComputeFromGross` (GrossInclusive, unchanged default) or `.Compute`
+  (NetExclusive, adds VAT on top) — both already existed, `Compute` was previously dead in
+  production code (only test-called) since the gross-brutto migration, now genuinely reused as
+  intended by its own doc comment. `Bill` gained its own `PriceMode` column (`Invoice`'s already
+  existed from Sprint 0) via a new additive migration (`AddBillPriceMode`) — reuses
+  `Pako.Domain.Invoicing.PriceMode` rather than declaring a second identical enum (aliased in
+  `BillContracts.cs` to dodge the `DocumentType` ambiguity that namespace already has between
+  Invoicing/Bills). Reverse-charge (RC18) is unaffected by PriceMode either way — the entered amount
+  is always fully net regardless of entry convention, matching the existing bypass in
+  `ComputeFromGross`. **Verified live, not just unit-tested**: a 118 GrossInclusive line and a 100
+  NetExclusive line (both S18/18%) produced byte-for-byte identical `journal_entry_lines` rows
+  (queried directly via `psql`, not asserted from the formula) — `Dr 118.00 receivable / Cr 100.00
+  revenue / Cr 18.00 VAT Payable`, both entries.
+- **C2 ("Pa tatim" → real tax code)**: new `Company.IsVatRegistered` (default `true` — every company
+  seeded so far has 26 VAT/WHT tax definitions, so this is zero-behavior-change for existing/typical
+  companies). `InvoicesController`/`BillsController.Create` now reject any line with a null
+  `TaxDefinitionId` when the company is VAT-registered ("A tax code is required for every line.");
+  a non-VAT-registered company keeps the old permissive behavior. Frontend defaults a new line's tax
+  to the seeded exempt code — `SEX` (sales) / `BEX` (purchases), found by `TaxDefinitionResponse.code`
+  — instead of leaving it blank, and only renders an actual blank "no tax" option when
+  `!isVatRegistered`. **Existing test fixtures needed a one-line fix**: `InvoicesControllerTests`/
+  `BillsControllerTests`' shared `SeedAsync()` builds bare `Company` rows with no tax codes on any
+  line (`RequestWithLine` helper) — since `Company.IsVatRegistered` now defaults `true`, every
+  existing success-path test there would have started failing on this new rule. Fixed by setting
+  `IsVatRegistered = false` on those two fixtures' test company (they're testing other invariants,
+  not C2), with the C2 rule itself getting its own dedicated tests against an explicitly
+  VAT-registered company.
+- **C3 (pay while creating the invoice) — the biggest single refactor in this pass**:
+  `InvoicesController.Post`'s entire body (numbering, the R07/R08/R09 posting-rule checks,
+  `JournalEntry.Post` itself) was extracted into a private `PostDraftInvoiceAsync(Company, Invoice)`
+  that adds the `JournalEntry` to the context but doesn't `SaveChanges`/manage a transaction — the
+  caller does both. Verified as a **pure, behavior-preserving extraction first** (ran the full suite
+  after this step alone, before adding any new behavior: still 208/208) before building on it.
+  `RecordPayment`'s settlement-entry-plus-reconcile logic was extracted the same way into
+  `TryRecordPaymentAsync`, again verified as a pure extraction. `CreateInvoiceRequest.Payment`
+  (optional `{amount, paymentMethodId, date?}`) then reuses both: when present, `Create` opens the
+  same row-locked transaction `Post` uses (protecting invoice numbering), builds the invoice,
+  calls `PostDraftInvoiceAsync` then `TryRecordPaymentAsync` against it, and returns `201` with the
+  invoice already `Posted` — a validation failure at any step (bad payment method, over-payment)
+  returns the error and (under real Postgres, not the InMemory test provider) rolls back
+  everything, including the invoice row itself. **Verified live**: `POST .../invoices` with a 300
+  line and `payment: {amount: 200, paymentMethodId: <cash>}` returned one `201` with the invoice
+  already `Posted` and `INV-0003`; its own `.../balance` immediately read `{300, 200, 100}` — the
+  exact "one saved document showing €300 invoiced, €200 paid, €100 outstanding" the item's Done
+  criterion describes.
+- **C5 (cash at creation, bank only afterwards) — the AP mirror of C3's refactor**: same
+  `PostDraftBillAsync`/`TryRecordPaymentAsync` extraction pattern for `BillsController` (Bill's
+  `Post` had no row-lock to begin with, since bills have no numbering counter to protect — the new
+  Create-with-payment transaction is purely for the multi-write atomicity, same as
+  `RecordPayment`/`ApplyCreditNote` already do). `CreateBillRequest.Payment` additionally requires
+  `PaymentMethod.Kind == Cash` — a `Bank`-kind method is rejected with a message explaining the rule
+  ("record it via the payment endpoint once it appears on your bank statement"), not a generic
+  validation failure, matching the item's own Done criterion wording exactly. **Verified live**: the
+  identical request with a `Bank`-kind payment method returned exactly that message, `400`, before
+  any bill row was created.
+- **C6 (debt, and the waiting period before it is one) — reporting only, scoped to
+  Invoice/DebitNote, not Bills**: new `GET .../reports/debt-aging?asOf=` in the existing
+  `ReportsController` (matching its own "everything computed via plain LINQ, no stored tables"
+  style) buckets every Posted, outstanding invoice into `Current` (not yet due), `WithinGrace`
+  (past due, still inside `GraceDays`) or `Overdue` (the actual debt) — computed via two grouped
+  queries (control-line totals by `JournalEntryId`, reconciled sums by `InvoiceId`) rather than
+  N+1 per-invoice calls. **Scoped to `Invoice`/`DebitNote` only** (a `DebitNote` posts identically
+  to a normal invoice per the credit-notes-pass CLAUDE.md section) — `CreditNote`/`DownPayment` are
+  source documents netted against other invoices, never "debt" themselves, and `SalesReturn`/
+  `Proforma` (Sprint-0's inert enum values, Track A's job) can't appear Posted on this branch
+  anyway. **Bills/payables aging was NOT built** — items 3/4 explicitly said "invoices," and this
+  pass didn't invent an unrequested AP-side mirror; flag to Erion if a payables aging view turns out
+  to be wanted too. `PaymentTermDays`/`GraceDays` are accepted on `CreateInvoiceRequest` (both
+  already existed as inert Sprint-0 columns) but `DueDate` itself is still an explicit required
+  field, not server-derived — the frontend (`InvoiceForm.tsx`) computes and pre-fills it from
+  `IssueDate + PaymentTermDays` as a convenience; the server just stores whatever `DueDate` arrives,
+  same as always. **Verified live** against a real invoice on 30-day terms with 5 days' grace,
+  issued 2026-01-01 (due 2026-01-31): `asOf=2026-01-31` → `Current`; `asOf=2026-02-04` (day 34) →
+  `WithinGrace`; `asOf=2026-02-06` (day 36) → `Overdue`, `totalOverdue: 236.00` — the exact
+  "outstanding but not debt... appears in the debt list on day 36" the item's Done criterion
+  describes.
+- **Frontend**: `apps/web/src/lib/tax-enums.ts` gained `PriceMode`, `findTaxByCode`, and
+  `computeLine` (mirrors `DocumentLineCalculator` exactly, dispatching between the existing
+  `computeFromGross` and a new net-plus-VAT branch) alongside the existing gross-only
+  `computeFromGross`/`documentNominalTotal` (left as-is — still used by the credit-note/down-payment
+  apply forms, which only ever deal in already-fixed ledger amounts, never re-derive from
+  `unitPrice`, so they don't need `PriceMode` awareness). New `lib/payment-method-enums.ts`
+  (`PaymentMethodKind`, same hand-maintained-enum-order pattern as every other enum helper in this
+  repo) and `pages/shared/PaymentMethodSelect.tsx` (one grouped Cash/Bank `<select>`, extracted so
+  `RecordPaymentForm`/`InvoiceForm`/`BillForm` don't each reimplement the optgroup markup).
+  `InvoiceForm.tsx`/`BillForm.tsx` gained a document-level `PriceMode` select (dynamically relabeling
+  the per-line price column), the VAT-required tax default, and an optional "record a payment now"
+  section (plain native `<input type="checkbox">`, no new UI primitive — same discipline
+  `select.tsx` already established); `InvoiceForm.tsx` additionally gained `PaymentTermDays`/
+  `GraceDays` inputs that auto-derive `DueDate`. `InvoiceDetail.tsx`/`BillDetail.tsx` switched their
+  line net/VAT breakdown from `computeFromGross` to `computeLine(_, _, document.priceMode)` and now
+  fetch `paymentMethods` instead of raw `accounts` (dropped `AccountResponse`/
+  `isCashOrBankAccountSubType` imports entirely — no longer needed once `RecordPaymentForm` takes
+  `PaymentMethodResponse[]`). `Reports.tsx` gained a fourth "Debt" tab reusing the existing
+  button-toggle pattern (no new Tabs primitive), listing each bucket in its own table.
+- **Real environment gap found and fixed, unrelated to Track C's own code but blocking it**:
+  `apps/web`'s `node_modules` was missing `react-intl` entirely (declared in `package.json` since
+  the i18n-migration commit, never installed in this checkout) — every file importing it failed
+  typecheck with `TS2307`. Fixed with a plain `pnpm install` (lockfile already correct, nothing to
+  commit). Also found and fixed a **Docker Compose project-name collision**: this repo's
+  `backend/docker-compose.yml` and an unrelated repo's `support-desk/backend/docker-compose.yml`
+  both live in a directory literally named `backend`, so Compose's default project-name-from-
+  directory behavior gave them the same project name — bringing either one up evicted the other's
+  container (`docker compose up -d` treats a same-project container not in the current compose file
+  as an orphan and removes it). No data was lost (named volumes persist independently of the
+  container), but this is a real, recurring landmine on this machine; fixed by giving each compose
+  file an explicit top-level `name:` and pinning the pre-existing volume name so neither had to be
+  recreated from empty.
+- **Verified end-to-end against the real running API + Postgres container** (not just unit tests,
+  same discipline every prior pass in this file used) — see each item's own bullet above for its
+  specific proof; additionally ran the full local dev loop from scratch (`docker compose up -d`,
+  `dotnet ef database update` — applied cleanly on top of the pre-existing migration history in the
+  reattached volume, confirming no data loss from the Compose collision, `dotnet run`,
+  `pnpm generate:api-client` — a pure append per the diff, no existing `postN`/`balanceN`-style
+  method renumbered, verified by diff not assumed). `dotnet test Pako.slnx`: **217/217** (up from
+  204 at Sprint 0). `pnpm --filter @pako/web {typecheck,test,build}` and `pnpm --filter @pako/shared
+  typecheck` all pass; `pnpm --filter @pako/web lint` has one pre-existing failure in
+  `IntlProviderWrapper.tsx` (a `react-refresh/only-export-components` violation, last touched by the
+  i18n-migration commit, before this branch existed) — not touched by this pass, flagged rather than
+  silently left unmentioned.
+- **Not started**: S0.5 (Testcontainers, see above), a payables/AP debt-aging mirror, any
+  payment-method management UI beyond the two seeded defaults + `POST` endpoint, and merging this
+  branch with Track A's (both touch `InvoicesController.cs`/`BillsController.cs` — expect a real
+  conflict to resolve by hand when both land, per the split doc's own working agreements).
