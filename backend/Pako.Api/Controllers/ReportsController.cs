@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
@@ -153,6 +154,68 @@ public class ReportsController : ControllerBase
         return Ok(new CitAddBackResponse(
             from, to, nonDeductible, limitFlagged,
             nonDeductible.Sum(l => l.Amount), limitFlagged.Sum(l => l.Amount)));
+    }
+
+    // C6: reporting only — no journal entries here, just bucketing the outstanding balance the
+    // reconciliation data already supports. Scoped to Invoice/DebitNote only (a DebitNote posts
+    // identically to a normal invoice, see CLAUDE.md's Debit notes section) — CreditNote/
+    // DownPayment are source documents netted against other invoices, never "debt" themselves.
+    [HttpGet("debt-aging")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<DebtAgingResponse>> DebtAging(Guid companyId, [FromQuery] DateOnly? asOf = null)
+    {
+        var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var receivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;
+
+        var invoices = await _db.Invoices.AsNoTracking()
+            .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted
+                && (i.DocumentType == DocumentType.Invoice || i.DocumentType == DocumentType.DebitNote))
+            .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
+            .ToListAsync();
+
+        var journalEntryIds = invoices.Where(i => i.JournalEntryId != null).Select(i => i.JournalEntryId!.Value).ToList();
+        var totalsByJournalEntryId = await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.AccountId == receivableAccountId)
+            .GroupBy(l => l.JournalEntryId)
+            .Select(g => new { JournalEntryId = g.Key, Total = g.Sum(l => l.Debit) })
+            .ToDictionaryAsync(g => g.JournalEntryId, g => g.Total);
+
+        var invoiceIds = invoices.Select(i => i.Id).ToList();
+        var reconciledByInvoiceId = await _db.Reconciliations.AsNoTracking()
+            .Where(r => r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value))
+            .GroupBy(r => r.InvoiceId!.Value)
+            .Select(g => new { InvoiceId = g.Key, Reconciled = g.Sum(r => r.Amount) })
+            .ToDictionaryAsync(g => g.InvoiceId, g => g.Reconciled);
+
+        var lines = new List<DebtAgingLine>();
+        foreach (var invoice in invoices)
+        {
+            var total = invoice.JournalEntryId is { } jeId && totalsByJournalEntryId.TryGetValue(jeId, out var t) ? t : 0m;
+            var reconciled = reconciledByInvoiceId.GetValueOrDefault(invoice.Id);
+            var outstanding = total - reconciled;
+            if (outstanding <= 0.01m)
+            {
+                continue;
+            }
+
+            var graceDeadline = invoice.DueDate.AddDays(invoice.GraceDays ?? 0);
+            var bucket = today <= invoice.DueDate ? "Current" : today <= graceDeadline ? "WithinGrace" : "Overdue";
+
+            lines.Add(new DebtAgingLine(
+                invoice.Id, invoice.InvoiceNumber, invoice.PartnerId, invoice.IssueDate, invoice.DueDate,
+                invoice.GraceDays, outstanding, bucket));
+        }
+
+        lines = lines.OrderBy(l => l.DueDate).ToList();
+
+        return Ok(new DebtAgingResponse(
+            today,
+            lines,
+            lines.Where(l => l.Bucket == "Current").Sum(l => l.Outstanding),
+            lines.Where(l => l.Bucket == "WithinGrace").Sum(l => l.Outstanding),
+            lines.Where(l => l.Bucket == "Overdue").Sum(l => l.Outstanding)));
     }
 
     private async Task<List<(Account Account, decimal Debit, decimal Credit)>> SumsByAccountAsync(

@@ -6,6 +6,7 @@ using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reconciliation;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 using Pako.Localization.Xk;
@@ -209,5 +210,125 @@ public class ReportsControllerTests
         Assert.Equal(152.54m, response.TotalOutputVat);
         Assert.Equal(61.02m, response.TotalInputVat);
         Assert.Equal(91.52m, response.NetVatDue);
+    }
+
+    // C6: an invoice issued on 30-day terms with 5 days' grace — current up to the due date,
+    // within grace until the due date plus 5, and only "debt" (the Overdue bucket) from day 36.
+    private static async Task<(PakoDbContext Db, Guid CompanyId, Guid InvoiceId)> SeedUnpaidInvoiceWithTerms(
+        DateOnly issueDate, int paymentTermDays, int graceDays)
+    {
+        var db = NewContext();
+        var company = new Company { Id = Guid.NewGuid(), Name = "Debt Co" };
+        var receivableAccountId = Guid.NewGuid();
+        var revenueAccountId = Guid.NewGuid();
+        var customer = new Partner { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "Customer Co", IsCustomer = true };
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+
+        db.Companies.Add(company);
+        db.Partners.Add(customer);
+        db.Journals.Add(journal);
+        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
+        db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            ReceivableAccountId = receivableAccountId,
+            PayableAccountId = Guid.NewGuid(),
+            RevenueAccountId = revenueAccountId,
+            ExpenseAccountId = Guid.NewGuid(),
+            CustomerDepositsAccountId = Guid.NewGuid()
+        });
+
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            PartnerId = customer.Id,
+            IssueDate = issueDate,
+            DueDate = issueDate.AddDays(paymentTermDays),
+            PaymentTermDays = paymentTermDays,
+            GraceDays = graceDays,
+            Lines = { new InvoiceLine { Id = Guid.NewGuid(), Description = "Consulting", Quantity = 1m, UnitPrice = 500m, RevenueAccountId = revenueAccountId } }
+        };
+        var invoiceEntry = invoice.Post(
+            company, journal.Id, receivableAccountId, new TaxComputationService(),
+            new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        db.Invoices.Add(invoice);
+        db.JournalEntries.Add(invoiceEntry);
+
+        await db.SaveChangesAsync();
+
+        return (db, company.Id, invoice.Id);
+    }
+
+    [Fact]
+    public async Task DebtAging_BeforeDueDate_IsCurrentNotDebt()
+    {
+        var issueDate = new DateOnly(2026, 1, 1);
+        var (db, companyId, invoiceId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db);
+
+        // Due date is 2026-01-31; asOf here is the due date itself, still Current.
+        var result = await controller.DebtAging(companyId, new DateOnly(2026, 1, 31));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(invoiceId, line.InvoiceId);
+        Assert.Equal("Current", line.Bucket);
+        Assert.Equal(500m, line.Outstanding);
+        Assert.Equal(500m, response.TotalCurrent);
+        Assert.Equal(0m, response.TotalOverdue);
+    }
+
+    [Fact]
+    public async Task DebtAging_PastDueButWithinGrace_IsNotYetDebt()
+    {
+        var issueDate = new DateOnly(2026, 1, 1);
+        var (db, companyId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db);
+
+        // Day 34 (2026-02-04): 4 days past the 2026-01-31 due date, still inside the 5-day grace.
+        var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 4));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal("WithinGrace", line.Bucket);
+        Assert.Equal(500m, response.TotalWithinGrace);
+        Assert.Equal(0m, response.TotalOverdue);
+    }
+
+    [Fact]
+    public async Task DebtAging_Day36_BecomesOverdueDebt()
+    {
+        var issueDate = new DateOnly(2026, 1, 1);
+        var (db, companyId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db);
+
+        // Day 36 (2026-02-06): due date + grace (2026-02-05) has passed — now real debt.
+        var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 6));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal("Overdue", line.Bucket);
+        Assert.Equal(500m, response.TotalOverdue);
+        Assert.Equal(0m, response.TotalCurrent);
+        Assert.Equal(0m, response.TotalWithinGrace);
+    }
+
+    [Fact]
+    public async Task DebtAging_FullyPaidInvoice_ExcludedEntirely()
+    {
+        var issueDate = new DateOnly(2026, 1, 1);
+        var (db, companyId, invoiceId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, Guid.NewGuid(), 500m));
+        await db.SaveChangesAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 6));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Empty(response.Lines);
+        Assert.Equal(0m, response.TotalOverdue);
     }
 }
