@@ -15,11 +15,15 @@ public interface IDocumentNumberService
 
 public class DocumentNumberService : IDocumentNumberService
 {
+    // Track A (v2 release) added the SalesReturn/Proforma arms as a flagged one-time exception —
+    // see Company.cs's identical note. Mechanically identical to Sprint 0's existing three arms.
     public string ReserveNext(Company company, DocumentType documentType) => documentType switch
     {
         DocumentType.CreditNote => company.ReserveNextCreditNoteNumber(),
         DocumentType.DebitNote => company.ReserveNextDebitNoteNumber(),
         DocumentType.DownPayment => company.ReserveNextDownPaymentNumber(),
+        DocumentType.SalesReturn => company.ReserveNextSalesReturnNumber(),
+        DocumentType.Proforma => company.ReserveNextProformaNumber(),
         _ => company.ReserveNextInvoiceNumber()
     };
 }

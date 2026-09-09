@@ -9,12 +9,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
-import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
+import { BillDocumentType } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
-import { PartnerForm } from "@/pages/shared/PartnerForm";
 
-export function Bills() {
+// A6 (v2 release): AP mirror of SalesReturns.tsx — form fixed to PurchaseReturn with a required
+// original-bill picker, table only ever shows PurchaseReturn rows.
+export function PurchaseReturns() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
@@ -38,12 +39,13 @@ export function Bills() {
       setBills(billsResult);
       setTaxes(taxesResult);
 
+      const returns = billsResult.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn);
       const balanceEntries = await Promise.all(
-        billsResult.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const),
+        returns.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const),
       );
       setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "bills.loadError" })));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "purchaseReturns.loadError" })));
     }
   }, [companyId, intl]);
 
@@ -55,8 +57,8 @@ export function Bills() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "bills.description" })}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "purchaseReturns.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "purchaseReturns.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
@@ -67,9 +69,7 @@ export function Bills() {
 
   const vendors = partners.filter((p) => p.isVendor);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  // A6 (v2 release): Purchase returns have their own page now — see Invoicing.tsx's identical
-  // displayedInvoices comment for the full rationale.
-  const displayedBills = bills.filter((bill) => bill.documentType !== BillDocumentType.PurchaseReturn);
+  const returns = bills.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn);
 
   return (
     <div className="flex flex-col gap-6">
@@ -81,29 +81,8 @@ export function Bills() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.vendors" })}</CardTitle>
-          <CardDescription>{activeCompany.name}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <PartnerForm companyId={activeCompany.id} role="vendor" onCreated={refresh} />
-          {vendors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.noVendors" })}</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {vendors.map((vendor) => (
-                <Badge key={vendor.id} variant="secondary">
-                  {vendor.name}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.newBill" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "bills.newBillDescription" })}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "purchaseReturns.newReturn" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "purchaseReturns.newReturnDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <BillForm
@@ -112,54 +91,54 @@ export function Bills() {
             taxes={taxesForPurchase(taxes)}
             bills={bills}
             onCreated={refresh}
+            fixedDocumentType={BillDocumentType.PurchaseReturn}
           />
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.billsTable" })}</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "purchaseReturns.returnsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>{intl.formatMessage({ id: "bills.vendorInvoiceNumber" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "common.vendor" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "purchaseReturns.originalBill" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.dueDate" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "invoicing.state" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "invoicing.outstanding" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "purchaseReturns.returnedAmount" })}</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {displayedBills.map((bill) => (
-                <TableRow key={bill.id}>
-                  <TableCell>{bill.vendorReference ?? "-"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{billDocumentTypeLabel(bill.documentType, intl)}</Badge>
-                  </TableCell>
-                  <TableCell>{partnerName(bill.partnerId)}</TableCell>
-                  <TableCell>{bill.issueDate}</TableCell>
-                  <TableCell>{bill.dueDate}</TableCell>
-                  <TableCell>
-                    <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {bill.state === "Posted" ? (balances[bill.id]?.outstanding.toFixed(2) ?? "...") : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${bill.id}`}>
-                      {intl.formatMessage({ id: "common.view" })}
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {returns.map((bill) => {
+                const original = bills.find((candidate) => candidate.id === bill.originalBillId);
+                return (
+                  <TableRow key={bill.id}>
+                    <TableCell>{bill.vendorReference ?? "-"}</TableCell>
+                    <TableCell>{partnerName(bill.partnerId)}</TableCell>
+                    <TableCell>{original?.vendorReference ?? bill.originalBillId ?? "-"}</TableCell>
+                    <TableCell>{bill.issueDate}</TableCell>
+                    <TableCell>
+                      <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {bill.state === "Posted" ? (balances[bill.id]?.total.toFixed(2) ?? "...") : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${bill.id}`}>
+                        {intl.formatMessage({ id: "common.view" })}
+                      </Link>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
-          {displayedBills.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.noBills" })}</p>}
+          {returns.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "purchaseReturns.noReturns" })}</p>}
         </CardContent>
       </Card>
     </div>

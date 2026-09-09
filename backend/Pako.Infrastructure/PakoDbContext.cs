@@ -37,6 +37,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<TaxRepartitionLine> TaxRepartitionLines => Set<TaxRepartitionLine>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
     public DbSet<InvoiceLine> InvoiceLines => Set<InvoiceLine>();
+    public DbSet<DocumentEditAudit> DocumentEditAudits => Set<DocumentEditAudit>();
     public DbSet<Bill> Bills => Set<Bill>();
     public DbSet<BillLine> BillLines => Set<BillLine>();
     public DbSet<Reconciliation> Reconciliations => Set<Reconciliation>();
@@ -79,6 +80,21 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         entry.Properties.Where(p => p.IsModified).All(p => p.Metadata.Name == nameof(JournalEntry.State)) &&
         entry.CurrentValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Cancelled;
 
+    // A5 (v2 release): DueDate/InternalNotes are the one whitelist of fields a Posted Invoice/Bill
+    // may still change — everything else (amounts, VAT, partner, lines) goes through a return or
+    // a storno. This is the backstop half of a two-layer guard; InvoicesController.Update/
+    // BillsController.Update do the primary check (compare every field, reject with a clean 400
+    // before ever touching the tracked entity if anything else differs) — this only fires if that
+    // check were ever bypassed or buggy, same relationship every other invariant in this repo has
+    // between its controller-level check and its DB/EF-level backstop.
+    private static bool OnlyDueDateOrInternalNotesChanged(EntityEntry<Invoice> entry) =>
+        entry.Properties.Where(p => p.IsModified).All(p =>
+            p.Metadata.Name is nameof(Invoice.DueDate) or nameof(Invoice.InternalNotes));
+
+    private static bool OnlyDueDateOrInternalNotesChanged(EntityEntry<Bill> entry) =>
+        entry.Properties.Where(p => p.IsModified).All(p =>
+            p.Metadata.Name is nameof(Bill.DueDate) or nameof(Bill.InternalNotes));
+
     private void ValidateImmutability()
     {
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
@@ -110,10 +126,13 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<Invoice>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted)
+            if (entry.State == EntityState.Deleted ||
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
             {
-                throw new PostedInvoiceImmutableException(entry.Entity.Id);
+                if (entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted)
+                {
+                    throw new PostedInvoiceImmutableException(entry.Entity.Id);
+                }
             }
         }
 
@@ -134,10 +153,13 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<Bill>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted)
+            if (entry.State == EntityState.Deleted ||
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
             {
-                throw new PostedBillImmutableException(entry.Entity.Id);
+                if (entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted)
+                {
+                    throw new PostedBillImmutableException(entry.Entity.Id);
+                }
             }
         }
 
@@ -212,10 +234,13 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<Invoice>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted)
+            if (entry.State == EntityState.Deleted ||
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
             {
-                throw new PostedInvoiceImmutableException(entry.Entity.Id);
+                if (entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted)
+                {
+                    throw new PostedInvoiceImmutableException(entry.Entity.Id);
+                }
             }
         }
 
@@ -236,10 +261,13 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<Bill>())
         {
-            if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted)
+            if (entry.State == EntityState.Deleted ||
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
             {
-                throw new PostedBillImmutableException(entry.Entity.Id);
+                if (entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted)
+                {
+                    throw new PostedBillImmutableException(entry.Entity.Id);
+                }
             }
         }
 

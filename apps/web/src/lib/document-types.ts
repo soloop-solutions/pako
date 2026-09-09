@@ -1,5 +1,7 @@
 // Pako.Api doesn't emit enum member names (see ledger-enums.ts) - order must match
 // backend/Pako.Domain/Invoicing/DocumentType.cs and backend/Pako.Domain/Bills/DocumentType.cs by hand.
+// Track A (v2 release) appended SalesReturn/Proforma to Invoicing.DocumentType and PurchaseReturn
+// to Bills.DocumentType, in that exact append order — matched here.
 
 import type { IntlShape } from "react-intl";
 
@@ -8,11 +10,14 @@ export const InvoiceDocumentType = {
   CreditNote: 1,
   DebitNote: 2,
   DownPayment: 3,
+  SalesReturn: 4,
+  Proforma: 5,
 } as const;
 
 export const BillDocumentType = {
   Bill: 0,
   CreditNote: 1,
+  PurchaseReturn: 2,
 } as const;
 
 const INVOICE_DOCUMENT_TYPE_KEYS = [
@@ -20,11 +25,14 @@ const INVOICE_DOCUMENT_TYPE_KEYS = [
   "enum.invoiceDocumentType.creditNote",
   "enum.invoiceDocumentType.debitNote",
   "enum.invoiceDocumentType.downPayment",
+  "enum.invoiceDocumentType.salesReturn",
+  "enum.invoiceDocumentType.proforma",
 ];
 
 const BILL_DOCUMENT_TYPE_KEYS = [
   "enum.billDocumentType.bill",
   "enum.billDocumentType.creditNote",
+  "enum.billDocumentType.purchaseReturn",
 ];
 
 export function invoiceDocumentTypeLabel(documentType: number, intl: IntlShape): string {

@@ -68,6 +68,11 @@ public class BillsControllerTests
             new List<CreateBillLineRequest> { new("Credit", quantity, unitPrice, null, null) },
             DocumentType.CreditNote);
 
+    private static CreateBillRequest PurchaseReturnRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice, Guid? originalBillId) =>
+        new(partnerId, "VEND-RET-001", new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateBillLineRequest> { new("Returned goods", quantity, unitPrice, null, null) },
+            DocumentType.PurchaseReturn, originalBillId);
+
     [Fact]
     public async Task Create_NegativeUnitPrice_Rejected()
     {
@@ -224,5 +229,213 @@ public class BillsControllerTests
         Assert.Equal(400m, balance.Total);
         Assert.Equal(150m, balance.Reconciled);
         Assert.Equal(250m, balance.Outstanding);
+    }
+
+    // A2 (v2 release): AP mirror of InvoicesControllerTests' SalesReturn coverage — goods
+    // returned to a supplier reduce the payable, the mirror image of the sales-return journal.
+    [Fact]
+    public async Task Create_PurchaseReturn_WithoutOriginalBillId_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 400m, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("originalBillId", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Post_PurchaseReturn_AgainstDraftOriginal_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var billCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 400m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(billCreated.Result).Value);
+        // Deliberately not posted.
+
+        var returnCreated = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 400m, bill.Id));
+        var purchaseReturn = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(returnCreated.Result).Value);
+
+        var result = await controller.Post(companyId, purchaseReturn.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("must be Posted", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Post_PurchaseReturn_FullAmount_NetsToZeroOnPayableAccount()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var billCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 400m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(billCreated.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var returnCreated = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 400m, bill.Id));
+        var purchaseReturn = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(returnCreated.Result).Value);
+
+        var result = await controller.Post(companyId, purchaseReturn.Id);
+        Assert.Equal(200, ((ObjectResult)result.Result!).StatusCode);
+
+        var originalStillPosted = await db.Bills.AsNoTracking().SingleAsync(b => b.Id == bill.Id);
+        Assert.Equal(BillState.Posted, originalStillPosted.State);
+
+        var payableAccountId = (await db.CompanyAccountDefaults.AsNoTracking()
+            .SingleAsync(d => d.CompanyId == companyId)).PayableAccountId;
+        var netPayable = await db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.AccountId == payableAccountId && l.JournalEntry!.CompanyId == companyId && l.JournalEntry.State == JournalEntryState.Posted)
+            .SumAsync(l => l.Credit - l.Debit);
+        Assert.Equal(0m, netPayable);
+    }
+
+    [Fact]
+    public async Task Post_PurchaseReturn_Partial_ThenSecondReturnExceedingRemainder_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var billCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 400m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(billCreated.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var firstReturnCreated = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 250m, bill.Id));
+        var firstReturn = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(firstReturnCreated.Result).Value);
+        var firstResult = await controller.Post(companyId, firstReturn.Id);
+        Assert.Equal(200, ((ObjectResult)firstResult.Result!).StatusCode);
+
+        // Remaining un-returned amount is now 400 - 250 = 150; a second return of 200 exceeds it.
+        var secondReturnCreated = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 200m, bill.Id));
+        var secondReturn = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(secondReturnCreated.Result).Value);
+
+        var secondResult = await controller.Post(companyId, secondReturn.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(secondResult.Result);
+        var message = badRequest.Value!.ToString()!;
+        Assert.Contains("200", message);
+        Assert.Contains("150", message);
+
+        // A return of exactly the 150 remainder succeeds.
+        var thirdReturnCreated = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 150m, bill.Id));
+        var thirdReturn = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(thirdReturnCreated.Result).Value);
+        var thirdResult = await controller.Post(companyId, thirdReturn.Id);
+        Assert.Equal(200, ((ObjectResult)thirdResult.Result!).StatusCode);
+    }
+
+    // A4 (v2 release): mirror of InvoicesControllerTests' discard coverage.
+    [Fact]
+    public async Task Discard_BlankDraft_RemovesIt()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Discard(companyId, bill.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(0, await db.Bills.CountAsync(b => b.Id == bill.Id));
+    }
+
+    [Fact]
+    public async Task Discard_PostedBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var result = await controller.Discard(companyId, bill.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(1, await db.Bills.CountAsync(b => b.Id == bill.Id));
+    }
+
+    // A5 (v2 release): mirror of InvoicesControllerTests' Update/EditPosted coverage.
+    [Fact]
+    public async Task Update_DraftBill_ReplacesLinesAndFields()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.Update(companyId, bill.Id, new UpdateBillRequest(
+            partnerId, "VEND-002", new DateOnly(2026, 8, 26), newDueDate,
+            new List<CreateBillLineRequest> { new("Updated supplies", 3m, 200m, null, null) },
+            DocumentType.Bill, null, "Draft note"));
+
+        var updated = Assert.IsType<BillResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+        Assert.Equal("Draft note", updated.InternalNotes);
+        Assert.Equal("VEND-002", updated.VendorReference);
+        var line = Assert.Single(updated.Lines);
+        Assert.Equal("Updated supplies", line.Description);
+        Assert.Equal(3m, line.Quantity);
+
+        Assert.Equal(1, await db.BillLines.CountAsync(l => l.BillId == bill.Id));
+    }
+
+    [Fact]
+    public async Task Update_PostedBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var result = await controller.Update(companyId, bill.Id, new UpdateBillRequest(
+            partnerId, "VEND-001", new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
+            new List<CreateBillLineRequest> { new("Supplies", 1m, 100m, null, null) },
+            DocumentType.Bill, null, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("due date and internal notes", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task EditPosted_DueDateOnly_SucceedsAndWritesOneAuditRow()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.EditPosted(companyId, bill.Id, new EditPostedBillRequest(newDueDate, "Called vendor"));
+
+        var updated = Assert.IsType<BillResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+        Assert.Equal("Called vendor", updated.InternalNotes);
+
+        var audit = Assert.Single(await db.DocumentEditAudits.Where(a => a.DocumentId == bill.Id).ToListAsync());
+        Assert.Equal(newDueDate, audit.NewDueDate);
+        Assert.Equal("Called vendor", audit.NewInternalNotes);
+    }
+
+    [Fact]
+    public async Task EditPosted_OnDraftBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.EditPosted(companyId, bill.Id, new EditPostedBillRequest(new DateOnly(2026, 12, 1), null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(0, await db.DocumentEditAudits.CountAsync());
     }
 }

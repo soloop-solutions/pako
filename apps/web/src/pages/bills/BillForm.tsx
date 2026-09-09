@@ -33,21 +33,42 @@ type BillFormProps = {
   taxes: TaxDefinitionResponse[];
   bills: BillResponse[];
   onCreated: () => void;
+  // A6 (v2 release): see InvoiceForm.tsx's identical prop for the full rationale — used by the
+  // Purchase returns page to fix this form to PurchaseReturn with no type selector shown.
+  fixedDocumentType?: number;
+  // A5 (v2 release): mirror of InvoiceForm.tsx's identical props — edits an existing Draft bill
+  // (PUT, full replace) in place instead of creating a new one (POST).
+  editingBill?: BillResponse;
+  onSaved?: () => void;
 };
 
-export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFormProps) {
+export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDocumentType, editingBill, onSaved }: BillFormProps) {
   const intl = useIntl();
-  const [partnerId, setPartnerId] = useState("");
-  const [documentType, setDocumentType] = useState<number>(BillDocumentType.Bill);
-  const [originalBillId, setOriginalBillId] = useState("");
-  const [vendorReference, setVendorReference] = useState("");
-  const [issueDate, setIssueDate] = useState(today);
-  const [dueDate, setDueDate] = useState(today);
-  const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
+  const [partnerId, setPartnerId] = useState(editingBill?.partnerId ?? "");
+  const [documentType, setDocumentType] = useState<number>(editingBill?.documentType ?? fixedDocumentType ?? BillDocumentType.Bill);
+  const [originalBillId, setOriginalBillId] = useState(editingBill?.originalBillId ?? "");
+  const [vendorReference, setVendorReference] = useState(editingBill?.vendorReference ?? "");
+  const [issueDate, setIssueDate] = useState(editingBill?.issueDate ?? today);
+  const [dueDate, setDueDate] = useState(editingBill?.dueDate ?? today);
+  const [internalNotes, setInternalNotes] = useState(editingBill?.internalNotes ?? "");
+  const [lines, setLines] = useState<Line[]>(
+    editingBill
+      ? editingBill.lines.map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity),
+          unitPrice: String(l.unitPrice),
+          discountPercent: String(l.discountPercent),
+          taxDefinitionId: l.taxDefinitionId ?? "",
+        }))
+      : [{ ...EMPTY_LINE }],
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const needsOriginalBill = documentType === BillDocumentType.CreditNote;
+  // A2 (v2 release): PurchaseReturn joins CreditNote in needing an original-bill picker, but
+  // unlike CreditNote it's REQUIRED, not optional — see requiresOriginalBill below.
+  const needsOriginalBill = documentType === BillDocumentType.CreditNote || documentType === BillDocumentType.PurchaseReturn;
+  const requiresOriginalBill = documentType === BillDocumentType.PurchaseReturn;
   const originalBillCandidates = bills.filter((bill) => bill.partnerId === partnerId && bill.state === "Posted");
 
   function updateLine(index: number, patch: Partial<Line>) {
@@ -70,6 +91,10 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
       setError(intl.formatMessage({ id: "billForm.selectVendorError" }));
       return;
     }
+    if (requiresOriginalBill && !originalBillId) {
+      setError(intl.formatMessage({ id: "billForm.originalBillRequiredError" }));
+      return;
+    }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
       setError(intl.formatMessage({ id: "billForm.atLeastOneLine" }));
@@ -78,30 +103,46 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
 
     setSubmitting(true);
     try {
-      await apiClient.billsPOST(companyId, {
-        partnerId,
-        vendorReference: vendorReference.trim() || undefined,
-        issueDate,
-        dueDate,
-        documentType,
-        originalBillId: originalBillId || undefined,
-        lines: validLines.map((line) => ({
-          description: line.description,
-          quantity: parseFloat(line.quantity) || 0,
-          unitPrice: parseFloat(line.unitPrice) || 0,
-          discountPercent: parseFloat(line.discountPercent) || 0,
-          taxDefinitionId: line.taxDefinitionId || undefined,
-          expenseAccountId: undefined,
-        })),
-      });
-      setPartnerId("");
-      setDocumentType(BillDocumentType.Bill);
-      setOriginalBillId("");
-      setVendorReference("");
-      setLines([{ ...EMPTY_LINE }]);
-      onCreated();
+      const lineRequests = validLines.map((line) => ({
+        description: line.description,
+        quantity: parseFloat(line.quantity) || 0,
+        unitPrice: parseFloat(line.unitPrice) || 0,
+        discountPercent: parseFloat(line.discountPercent) || 0,
+        taxDefinitionId: line.taxDefinitionId || undefined,
+        expenseAccountId: undefined,
+      }));
+
+      if (editingBill) {
+        await apiClient.billsPUT(companyId, editingBill.id, {
+          partnerId,
+          vendorReference: vendorReference.trim() || undefined,
+          issueDate,
+          dueDate,
+          documentType,
+          originalBillId: originalBillId || undefined,
+          lines: lineRequests,
+          internalNotes: internalNotes.trim() || undefined,
+        });
+        onSaved?.();
+      } else {
+        await apiClient.billsPOST(companyId, {
+          partnerId,
+          vendorReference: vendorReference.trim() || undefined,
+          issueDate,
+          dueDate,
+          documentType,
+          originalBillId: originalBillId || undefined,
+          lines: lineRequests,
+        });
+        setPartnerId("");
+        setDocumentType(fixedDocumentType ?? BillDocumentType.Bill);
+        setOriginalBillId("");
+        setVendorReference("");
+        setLines([{ ...EMPTY_LINE }]);
+        onCreated();
+      }
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "billForm.createError" })));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: editingBill ? "billForm.saveError" : "billForm.createError" })));
     } finally {
       setSubmitting(false);
     }
@@ -127,25 +168,27 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
             ))}
           </Select>
         </div>
+        {fixedDocumentType === undefined && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
+            <Select
+              id="bill-document-type"
+              value={documentType}
+              onChange={(event) => {
+                setDocumentType(Number(event.target.value));
+                setOriginalBillId("");
+              }}
+            >
+              {BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {intl.formatMessage({ id: option.labelKey })}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
-          <Select
-            id="bill-document-type"
-            value={documentType}
-            onChange={(event) => {
-              setDocumentType(Number(event.target.value));
-              setOriginalBillId("");
-            }}
-          >
-            {BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {intl.formatMessage({ id: option.labelKey })}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorReference" })}</Label>
+          <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorInvoiceNumber" })}</Label>
           <Input
             id="bill-vendor-reference"
             value={vendorReference}
@@ -168,11 +211,23 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
         </div>
       </div>
 
+      {editingBill && (
+        <div className="flex flex-col gap-2 sm:w-1/2">
+          <Label htmlFor="bill-internal-notes">{intl.formatMessage({ id: "billForm.internalNotes" })}</Label>
+          <Input id="bill-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+        </div>
+      )}
+
       {needsOriginalBill && (
         <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="bill-original">{intl.formatMessage({ id: "billForm.originalBill" })}</Label>
+          <Label htmlFor="bill-original">
+            {intl.formatMessage({ id: requiresOriginalBill ? "billForm.originalBillRequired" : "billForm.originalBill" })}
+          </Label>
           <Select id="bill-original" value={originalBillId} onChange={(event) => setOriginalBillId(event.target.value)}>
-            <option value="">{intl.formatMessage({ id: "billForm.noOriginalBill" })}</option>
+            {!requiresOriginalBill && <option value="">{intl.formatMessage({ id: "billForm.noOriginalBill" })}</option>}
+            {requiresOriginalBill && originalBillCandidates.length === 0 && (
+              <option value="">{intl.formatMessage({ id: "billForm.selectOriginalBill" })}</option>
+            )}
             {originalBillCandidates.map((bill) => (
               <option key={bill.id} value={bill.id}>
                 {bill.vendorReference ?? bill.id}
@@ -257,7 +312,13 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated }: BillFo
       </div>
 
       <Button type="submit" className="w-fit" disabled={submitting}>
-        {submitting ? intl.formatMessage({ id: "billForm.creating" }) : intl.formatMessage({ id: "billForm.createBill" })}
+        {editingBill
+          ? submitting
+            ? intl.formatMessage({ id: "billForm.saving" })
+            : intl.formatMessage({ id: "billForm.saveChanges" })
+          : submitting
+            ? intl.formatMessage({ id: "billForm.creating" })
+            : intl.formatMessage({ id: "billForm.createBill" })}
       </Button>
     </form>
   );

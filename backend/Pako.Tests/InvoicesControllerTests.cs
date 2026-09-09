@@ -77,6 +77,16 @@ public class InvoicesControllerTests
             new List<CreateInvoiceLineRequest> { new("Deposit", quantity, unitPrice, null, null) },
             DocumentType.DownPayment);
 
+    private static CreateInvoiceRequest SalesReturnRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice, Guid? originalInvoiceId) =>
+        new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Returned goods", quantity, unitPrice, null, null) },
+            DocumentType.SalesReturn, originalInvoiceId);
+
+    private static CreateInvoiceRequest ProformaRequestWithLine(Guid partnerId, decimal quantity, decimal unitPrice) =>
+        new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Consulting (proforma)", quantity, unitPrice, null, null) },
+            DocumentType.Proforma);
+
     [Fact]
     public async Task Create_ZeroQuantity_Rejected()
     {
@@ -329,5 +339,413 @@ public class InvoicesControllerTests
         Assert.Equal(500m, balance.Total);
         Assert.Equal(200m, balance.Reconciled);
         Assert.Equal(300m, balance.Outstanding);
+    }
+
+    // A1 (v2 release): the meeting's business case — a customer is invoiced 1000 EUR, refuses the
+    // goods, seller issues a 1000 EUR return. Two documents exist afterwards, original untouched.
+    [Fact]
+    public async Task Create_SalesReturn_WithoutOriginalInvoiceId_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("originalInvoiceId", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Post_SalesReturn_AgainstDraftOriginal_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 1000m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        // Deliberately not posted — a return against a never-posted invoice has nothing to return.
+
+        var returnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, invoice.Id));
+        var salesReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(returnCreated.Result).Value);
+
+        var result = await controller.Post(companyId, salesReturn.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("must be Posted", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Post_SalesReturn_FullAmount_NetsToZeroOnReceivableAccount()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 1000m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var returnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, invoice.Id));
+        var salesReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(returnCreated.Result).Value);
+
+        var result = await controller.Post(companyId, salesReturn.Id);
+        Assert.Equal(200, ((ObjectResult)result.Result!).StatusCode);
+
+        // Original invoice is untouched — still Posted, its own balance unaffected by the return
+        // (they're independent postings that net out on the shared AR control account only).
+        var originalStillPosted = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        Assert.Equal(InvoiceState.Posted, originalStillPosted.State);
+
+        var receivableAccountId = (await db.CompanyAccountDefaults.AsNoTracking()
+            .SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        var netReceivable = await db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.AccountId == receivableAccountId && l.JournalEntry!.CompanyId == companyId && l.JournalEntry.State == JournalEntryState.Posted)
+            .SumAsync(l => l.Debit - l.Credit);
+        Assert.Equal(0m, netReceivable);
+    }
+
+    [Fact]
+    public async Task Post_SalesReturn_Partial_ThenSecondReturnExceedingRemainder_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var invoiceCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 1000m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreated.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var firstReturnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 600m, invoice.Id));
+        var firstReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(firstReturnCreated.Result).Value);
+        var firstResult = await controller.Post(companyId, firstReturn.Id);
+        Assert.Equal(200, ((ObjectResult)firstResult.Result!).StatusCode);
+
+        // Remaining un-returned amount is now 1000 - 600 = 400; a second return of 500 exceeds it.
+        var secondReturnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 500m, invoice.Id));
+        var secondReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(secondReturnCreated.Result).Value);
+
+        var secondResult = await controller.Post(companyId, secondReturn.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(secondResult.Result);
+        var message = badRequest.Value!.ToString()!;
+        Assert.Contains("500", message);
+        Assert.Contains("400", message);
+
+        // The rejected return never got a number and never posted (no number/journal-entry burn).
+        var secondReturnAfter = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == secondReturn.Id);
+        Assert.Null(secondReturnAfter.InvoiceNumber);
+        Assert.Null(secondReturnAfter.JournalEntryId);
+
+        // A return of exactly the 400 remainder succeeds.
+        var thirdReturnCreated = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 400m, invoice.Id));
+        var thirdReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(thirdReturnCreated.Result).Value);
+        var thirdResult = await controller.Post(companyId, thirdReturn.Id);
+        Assert.Equal(200, ((ObjectResult)thirdResult.Result!).StatusCode);
+    }
+
+    // A3 (v2 release): a proforma is an offer, not a legal invoice — most of the work here is
+    // what it's forbidden to do, so that's what's tested, per the task's own framing.
+    [Fact]
+    public async Task Create_Proforma_ProducesZeroJournalEntriesAndLeavesInvoiceCounterUntouched()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
+
+        var proforma = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(InvoiceState.Draft.ToString(), proforma.State);
+        Assert.Equal("PRO-0001", proforma.InvoiceNumber);
+        Assert.Equal(0, await db.JournalEntries.CountAsync());
+
+        var company = await db.Companies.AsNoTracking().SingleAsync(c => c.Id == companyId);
+        Assert.Equal(1, company.NextInvoiceNumber);
+    }
+
+    [Fact]
+    public async Task Post_Proforma_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
+        var proforma = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Post(companyId, proforma.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("cannot be posted", badRequest.Value!.ToString());
+        Assert.Equal(0, await db.JournalEntries.CountAsync());
+    }
+
+    [Fact]
+    public async Task ConvertToInvoice_CopiesLinesAndLinksBackToProforma()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, ProformaRequestWithLine(partnerId, 2m, 250m));
+        var proforma = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.ConvertToInvoice(companyId, proforma.Id);
+
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(DocumentType.Invoice, invoice.DocumentType);
+        Assert.Equal(InvoiceState.Draft.ToString(), invoice.State);
+        Assert.Equal(proforma.Id, invoice.OriginalInvoiceId);
+        Assert.Equal(partnerId, invoice.PartnerId);
+        var line = Assert.Single(invoice.Lines);
+        Assert.Equal(2m, line.Quantity);
+        Assert.Equal(250m, line.UnitPrice);
+
+        // Posting the converted invoice works normally and consumes a real invoice number — the
+        // proforma's own PRO-#### number was never touched by this.
+        var postResult = await controller.Post(companyId, invoice.Id);
+        Assert.Equal(200, ((ObjectResult)postResult.Result!).StatusCode);
+
+        // The proforma itself is untouched — still Draft, still has its own number, still exists.
+        var proformaAfter = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == proforma.Id);
+        Assert.Equal(InvoiceState.Draft, proformaAfter.State);
+        Assert.Equal("PRO-0001", proformaAfter.InvoiceNumber);
+    }
+
+    [Fact]
+    public async Task ConvertToInvoice_OnNonProformaDocument_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 500m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.ConvertToInvoice(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task VatReturn_OverPeriodContainingOnlyAProforma_ReturnsAllZeros()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
+
+        var reportsController = new ReportsController(db);
+        var result = await reportsController.VatReturn(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var vatReturn = Assert.IsType<VatReturnResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(0m, vatReturn.TotalOutputVat);
+        Assert.Equal(0m, vatReturn.TotalInputVat);
+        Assert.Empty(vatReturn.OutputVat);
+        Assert.Empty(vatReturn.InputVat);
+    }
+
+    // A4 (v2 release): a genuinely blank Draft (never posted, no number, no journal entry) may
+    // be discarded — via this dedicated POST action, never a DELETE verb (see
+    // NoDeletionGuaranteeTests for the "no delete route exists" half of this guarantee).
+    [Fact]
+    public async Task Discard_BlankDraft_RemovesIt()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Discard(companyId, invoice.Id);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(0, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
+    }
+
+    [Fact]
+    public async Task Discard_PostedInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var result = await controller.Discard(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
+    }
+
+    [Fact]
+    public async Task Discard_DraftWithNumberSomehowSet_Rejected()
+    {
+        // Defensive coverage: a Draft should never have InvoiceNumber/JournalEntryId set (only
+        // Post() sets either, and it also flips State to Posted in the same operation) — but the
+        // discard guard checks all three explicitly rather than trusting that invariant silently.
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var tracked = await db.Invoices.SingleAsync(i => i.Id == invoice.Id);
+        tracked.InvoiceNumber = "INV-9999";
+        await db.SaveChangesAsync();
+
+        var result = await controller.Discard(companyId, invoice.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result);
+        Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
+    }
+
+    // A5 (v2 release): Draft = fully editable — a full replace, same validation as Create().
+    [Fact]
+    public async Task Update_DraftInvoice_ReplacesLinesAndFields()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), newDueDate,
+            new List<CreateInvoiceLineRequest> { new("Updated consulting", 3m, 200m, null, null) },
+            DocumentType.Invoice, null, "Draft note"));
+
+        var updated = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+        Assert.Equal("Draft note", updated.InternalNotes);
+        var line = Assert.Single(updated.Lines);
+        Assert.Equal("Updated consulting", line.Description);
+        Assert.Equal(3m, line.Quantity);
+        Assert.Equal(200m, line.UnitPrice);
+
+        // The old line is actually gone, not just orphaned.
+        Assert.Equal(1, await db.InvoiceLines.CountAsync(l => l.InvoiceId == invoice.Id));
+    }
+
+    [Fact]
+    public async Task Update_DraftInvoice_ZeroTotal_RejectedSameAsCreate()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Zero", 1m, 0m, null, null) },
+            DocumentType.Invoice, null, null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Update_PostedInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, null, null) },
+            DocumentType.Invoice, null, null));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("due date and internal notes", badRequest.Value!.ToString());
+    }
+
+    [Fact]
+    public async Task Update_CancelledInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        // No API path sets Cancelled today (JournalEntry.Reverse() doesn't sync Invoice.State —
+        // a documented pre-existing gap), and PakoDbContext's immutability guard would itself
+        // reject flipping an already-Posted invoice's State via a direct mutation (State isn't in
+        // the DueDate/InternalNotes whitelist either) — so a Cancelled invoice is seeded directly
+        // as a brand-new Added entity instead, which bypasses the guard entirely (it only fires
+        // on Modified/Deleted, never Added).
+        var cancelledId = Guid.NewGuid();
+        db.Invoices.Add(new Invoice
+        {
+            Id = cancelledId,
+            CompanyId = companyId,
+            PartnerId = partnerId,
+            InvoiceNumber = "INV-9998",
+            IssueDate = new DateOnly(2026, 8, 26),
+            DueDate = new DateOnly(2026, 9, 25),
+            State = InvoiceState.Cancelled,
+            Lines = { new InvoiceLine { Id = Guid.NewGuid(), Description = "Consulting", Quantity = 1m, UnitPrice = 100m, RevenueAccountId = Guid.NewGuid() } }
+        });
+        await db.SaveChangesAsync();
+
+        var result = await controller.Update(companyId, cancelledId, new UpdateInvoiceRequest(
+            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, null, null) },
+            DocumentType.Invoice, null, null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task EditPosted_DueDateOnly_SucceedsAndWritesOneAuditRowWithOnlyDueDateSet()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        var result = await controller.EditPosted(companyId, invoice.Id, new EditPostedInvoiceRequest(newDueDate, null));
+
+        var updated = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal(newDueDate, updated.DueDate);
+
+        var audit = Assert.Single(await db.DocumentEditAudits.Where(a => a.DocumentId == invoice.Id).ToListAsync());
+        Assert.Equal(newDueDate, audit.NewDueDate);
+        Assert.Null(audit.NewInternalNotes);
+        Assert.Null(audit.OldInternalNotes);
+    }
+
+    [Fact]
+    public async Task EditPosted_BothFields_WritesOneAuditRowWithBothSet()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var newDueDate = new DateOnly(2026, 12, 1);
+        await controller.EditPosted(companyId, invoice.Id, new EditPostedInvoiceRequest(newDueDate, "Called customer"));
+
+        var audit = Assert.Single(await db.DocumentEditAudits.Where(a => a.DocumentId == invoice.Id).ToListAsync());
+        Assert.Equal(newDueDate, audit.NewDueDate);
+        Assert.Equal("Called customer", audit.NewInternalNotes);
+        Assert.Equal(1, await db.DocumentEditAudits.CountAsync(a => a.DocumentId == invoice.Id));
+    }
+
+    [Fact]
+    public async Task EditPosted_OnDraftInvoice_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.EditPosted(companyId, invoice.Id, new EditPostedInvoiceRequest(new DateOnly(2026, 12, 1), null));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(0, await db.DocumentEditAudits.CountAsync());
     }
 }

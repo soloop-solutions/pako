@@ -33,21 +33,48 @@ type InvoiceFormProps = {
   taxes: TaxDefinitionResponse[];
   invoices: InvoiceResponse[];
   onCreated: () => void;
+  // A6 (v2 release): when set, this form is dedicated to a single document type (Sales returns,
+  // Proforma) — the type selector is hidden entirely and every reset returns to this value,
+  // rather than the free <Select> Sales/Purchase invoices still uses (INVOICE_DOCUMENT_TYPE_OPTION_KEYS
+  // deliberately still lists only Invoice/CreditNote/DebitNote/DownPayment, unchanged, so that
+  // dropdown never grows the new types).
+  fixedDocumentType?: number;
+  // A5 (v2 release): when set, this form edits an existing Draft invoice (PUT, full replace) in
+  // place instead of creating a new one (POST) — every field pre-fills from it, submit calls
+  // onSaved instead of onCreated. Only reachable from InvoiceDetail.tsx for a Draft document.
+  editingInvoice?: InvoiceResponse;
+  onSaved?: () => void;
 };
 
-export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }: InvoiceFormProps) {
+export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, fixedDocumentType, editingInvoice, onSaved }: InvoiceFormProps) {
   const intl = useIntl();
-  const [partnerId, setPartnerId] = useState("");
-  const [documentType, setDocumentType] = useState<number>(InvoiceDocumentType.Invoice);
-  const [originalInvoiceId, setOriginalInvoiceId] = useState("");
-  const [issueDate, setIssueDate] = useState(today);
-  const [dueDate, setDueDate] = useState(today);
-  const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }]);
+  const [partnerId, setPartnerId] = useState(editingInvoice?.partnerId ?? "");
+  const [documentType, setDocumentType] = useState<number>(editingInvoice?.documentType ?? fixedDocumentType ?? InvoiceDocumentType.Invoice);
+  const [originalInvoiceId, setOriginalInvoiceId] = useState(editingInvoice?.originalInvoiceId ?? "");
+  const [issueDate, setIssueDate] = useState(editingInvoice?.issueDate ?? today);
+  const [dueDate, setDueDate] = useState(editingInvoice?.dueDate ?? today);
+  const [internalNotes, setInternalNotes] = useState(editingInvoice?.internalNotes ?? "");
+  const [lines, setLines] = useState<Line[]>(
+    editingInvoice
+      ? editingInvoice.lines.map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity),
+          unitPrice: String(l.unitPrice),
+          discountPercent: String(l.discountPercent),
+          taxDefinitionId: l.taxDefinitionId ?? "",
+        }))
+      : [{ ...EMPTY_LINE }],
+  );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
+  // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
   const needsOriginalInvoice =
-    documentType === InvoiceDocumentType.CreditNote || documentType === InvoiceDocumentType.DebitNote;
+    documentType === InvoiceDocumentType.CreditNote ||
+    documentType === InvoiceDocumentType.DebitNote ||
+    documentType === InvoiceDocumentType.SalesReturn;
+  const requiresOriginalInvoice = documentType === InvoiceDocumentType.SalesReturn;
   const originalInvoiceCandidates = invoices.filter(
     (invoice) => invoice.partnerId === partnerId && invoice.state === "Posted",
   );
@@ -72,6 +99,10 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
       setError(intl.formatMessage({ id: "invoiceForm.selectCustomerError" }));
       return;
     }
+    if (requiresOriginalInvoice && !originalInvoiceId) {
+      setError(intl.formatMessage({ id: "invoiceForm.originalInvoiceRequiredError" }));
+      return;
+    }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
       setError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
@@ -80,28 +111,43 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
 
     setSubmitting(true);
     try {
-      await apiClient.invoicesPOST(companyId, {
-        partnerId,
-        issueDate,
-        dueDate,
-        documentType,
-        originalInvoiceId: originalInvoiceId || undefined,
-        lines: validLines.map((line) => ({
-          description: line.description,
-          quantity: parseFloat(line.quantity) || 0,
-          unitPrice: parseFloat(line.unitPrice) || 0,
-          discountPercent: parseFloat(line.discountPercent) || 0,
-          taxDefinitionId: line.taxDefinitionId || undefined,
-          revenueAccountId: undefined,
-        })),
-      });
-      setPartnerId("");
-      setDocumentType(InvoiceDocumentType.Invoice);
-      setOriginalInvoiceId("");
-      setLines([{ ...EMPTY_LINE }]);
-      onCreated();
+      const lineRequests = validLines.map((line) => ({
+        description: line.description,
+        quantity: parseFloat(line.quantity) || 0,
+        unitPrice: parseFloat(line.unitPrice) || 0,
+        discountPercent: parseFloat(line.discountPercent) || 0,
+        taxDefinitionId: line.taxDefinitionId || undefined,
+        revenueAccountId: undefined,
+      }));
+
+      if (editingInvoice) {
+        await apiClient.invoicesPUT(companyId, editingInvoice.id, {
+          partnerId,
+          issueDate,
+          dueDate,
+          documentType,
+          originalInvoiceId: originalInvoiceId || undefined,
+          lines: lineRequests,
+          internalNotes: internalNotes.trim() || undefined,
+        });
+        onSaved?.();
+      } else {
+        await apiClient.invoicesPOST(companyId, {
+          partnerId,
+          issueDate,
+          dueDate,
+          documentType,
+          originalInvoiceId: originalInvoiceId || undefined,
+          lines: lineRequests,
+        });
+        setPartnerId("");
+        setDocumentType(fixedDocumentType ?? InvoiceDocumentType.Invoice);
+        setOriginalInvoiceId("");
+        setLines([{ ...EMPTY_LINE }]);
+        onCreated();
+      }
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceForm.createError" })));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: editingInvoice ? "invoiceForm.saveError" : "invoiceForm.createError" })));
     } finally {
       setSubmitting(false);
     }
@@ -127,23 +173,25 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
             ))}
           </Select>
         </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
-          <Select
-            id="invoice-document-type"
-            value={documentType}
-            onChange={(event) => {
-              setDocumentType(Number(event.target.value));
-              setOriginalInvoiceId("");
-            }}
-          >
-            {INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {intl.formatMessage({ id: option.labelKey })}
-              </option>
-            ))}
-          </Select>
-        </div>
+        {fixedDocumentType === undefined && (
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
+            <Select
+              id="invoice-document-type"
+              value={documentType}
+              onChange={(event) => {
+                setDocumentType(Number(event.target.value));
+                setOriginalInvoiceId("");
+              }}
+            >
+              {INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {intl.formatMessage({ id: option.labelKey })}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="flex flex-col gap-2">
           <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
           <Input
@@ -166,15 +214,27 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
         </div>
       </div>
 
+      {editingInvoice && (
+        <div className="flex flex-col gap-2 sm:w-1/2">
+          <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
+          <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+        </div>
+      )}
+
       {needsOriginalInvoice && (
         <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="invoice-original">{intl.formatMessage({ id: "invoiceForm.originalInvoice" })}</Label>
+          <Label htmlFor="invoice-original">
+            {intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
+          </Label>
           <Select
             id="invoice-original"
             value={originalInvoiceId}
             onChange={(event) => setOriginalInvoiceId(event.target.value)}
           >
-            <option value="">{intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}</option>
+            {!requiresOriginalInvoice && <option value="">{intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}</option>}
+            {requiresOriginalInvoice && originalInvoiceCandidates.length === 0 && (
+              <option value="">{intl.formatMessage({ id: "invoiceForm.selectOriginalInvoice" })}</option>
+            )}
             {originalInvoiceCandidates.map((invoice) => (
               <option key={invoice.id} value={invoice.id}>
                 {invoice.invoiceNumber ?? invoice.id}
@@ -259,7 +319,13 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated }
       </div>
 
       <Button type="submit" className="w-fit" disabled={submitting}>
-        {submitting ? intl.formatMessage({ id: "invoiceForm.creating" }) : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
+        {editingInvoice
+          ? submitting
+            ? intl.formatMessage({ id: "invoiceForm.saving" })
+            : intl.formatMessage({ id: "invoiceForm.saveChanges" })
+          : submitting
+            ? intl.formatMessage({ id: "invoiceForm.creating" })
+            : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
       </Button>
     </form>
   );

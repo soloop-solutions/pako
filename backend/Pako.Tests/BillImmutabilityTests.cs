@@ -49,14 +49,37 @@ public class BillImmutabilityTests
         return (db, bill);
     }
 
+    // A5 (v2 release): DueDate is no longer a valid "any field" example — it's the one field,
+    // alongside InternalNotes, deliberately still editable on a Posted bill. PartnerId stands in
+    // as a field that's genuinely still locked.
     [Fact]
     public async Task ModifyingPostedBill_Throws()
     {
         var (db, bill) = await SeedPostedBill();
 
-        bill.DueDate = bill.DueDate.AddDays(30);
+        bill.PartnerId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<PostedBillImmutableException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task DueDateChange_Succeeds()
+    {
+        var (db, bill) = await SeedPostedBill();
+
+        bill.DueDate = bill.DueDate.AddDays(30);
+
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task InternalNotesChange_Succeeds()
+    {
+        var (db, bill) = await SeedPostedBill();
+
+        bill.InternalNotes = "Called vendor, confirmed delivery.";
+
+        await db.SaveChangesAsync();
     }
 
     [Fact]

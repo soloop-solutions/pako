@@ -199,6 +199,47 @@ public class BillPostingTests
         Assert.Equal(150m, payableLine.Credit);
     }
 
+    // Track A (v2 release) — PurchaseReturn is the AP mirror of Invoice's SalesReturn: goods
+    // returned to a supplier reduce the payable and the input VAT, the mirror image of the
+    // sales-return journal.
+    [Fact]
+    public void Post_PurchaseReturn_ProducesEntryReversedFromANormalBill()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var expenseAccountId = Guid.NewGuid();
+        var payableAccountId = Guid.NewGuid();
+        var vatReceivableAccountId = Guid.NewGuid();
+        var taxDefinition = new TaxDefinition
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Rate = 0.18m,
+            IsActive = true,
+            RepartitionLines = { new TaxRepartitionLine { AccountId = vatReceivableAccountId, Percentage = 100m } }
+        };
+        var purchaseReturn = BillWithLine(expenseAccountId, taxDefinition.Id);
+        purchaseReturn.DocumentType = DocumentType.PurchaseReturn;
+
+        var journalEntry = purchaseReturn.Post(company, Guid.NewGuid(), payableAccountId, _taxComputationService,
+            new Dictionary<Guid, TaxDefinition> { [taxDefinition.Id] = taxDefinition }, Guid.NewGuid(), Guid.NewGuid());
+
+        Assert.Equal(journalEntry.Lines.Sum(l => l.Debit), journalEntry.Lines.Sum(l => l.Credit));
+
+        // Payable reduces (debit, opposite of a normal bill's credit) and input VAT reduces too
+        // (credit, opposite of a normal bill's debit) — the mirror of Invoice's SalesReturn.
+        var payableLine = Assert.Single(journalEntry.Lines, l => l.AccountId == payableAccountId);
+        Assert.Equal(100m, payableLine.Debit);
+        Assert.Equal(0m, payableLine.Credit);
+
+        var expenseLine = Assert.Single(journalEntry.Lines, l => l.AccountId == expenseAccountId);
+        Assert.Equal(84.75m, expenseLine.Credit);
+        Assert.Equal(0m, expenseLine.Debit);
+
+        var taxLine = Assert.Single(journalEntry.Lines, l => l.AccountId == vatReceivableAccountId);
+        Assert.Equal(15.25m, taxLine.Credit);
+        Assert.Equal(0m, taxLine.Debit);
+    }
+
     // 60_Posting_Rules R10 (AUTO) — the realistic case, an imported service bill (Google Ads,
     // Microsoft 365, hosting). See InvoicePostingTests' identical test for the full rationale.
     [Fact]

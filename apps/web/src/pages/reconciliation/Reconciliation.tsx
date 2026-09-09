@@ -131,7 +131,7 @@ export function Reconciliation() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>{intl.formatMessage({ id: "reconciliation.vendorReference" })}</TableHead>
+                <TableHead>{intl.formatMessage({ id: "reconciliation.vendorInvoiceNumber" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "reconciliation.vendor" })}</TableHead>
                 <TableHead>{intl.formatMessage({ id: "reconciliation.dueDate" })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "reconciliation.outstanding" })}</TableHead>

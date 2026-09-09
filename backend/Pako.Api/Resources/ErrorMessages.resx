@@ -53,6 +53,14 @@
   <data name="CreditNoteNoReceivableLine" xml:space="preserve"><value>Credit note has no receivable line to apply.</value></data>
   <data name="InvalidDownPayment" xml:space="preserve"><value>downPaymentInvoiceId must reference a Posted down-payment invoice for this company.</value></data>
   <data name="DownPaymentNoReceivableLine" xml:space="preserve"><value>Down payment invoice has no receivable line to apply.</value></data>
+  <data name="OriginalInvoiceRequiredForSalesReturn" xml:space="preserve"><value>originalInvoiceId is required for a sales return.</value></data>
+  <data name="OriginalInvoiceMustBePostedForReturn" xml:space="preserve"><value>The original invoice must be Posted before a sales return can be posted against it.</value></data>
+  <data name="SalesReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>This return of {0} would exceed the original invoice's remaining un-returned amount of {1}.</value></data>
+  <data name="ProformaCannotBePosted" xml:space="preserve"><value>Proforma invoices cannot be posted; convert to a real invoice first.</value></data>
+  <data name="InvalidProformaForConversion" xml:space="preserve"><value>id must reference a Proforma document for this company.</value></data>
+  <data name="InvoiceNotDraftForDiscard" xml:space="preserve"><value>Only a Draft invoice with no number and no posted journal entry can be discarded.</value></data>
+  <data name="InvoiceNotEditableWhenCancelled" xml:space="preserve"><value>A cancelled invoice cannot be edited.</value></data>
+  <data name="InvoiceOnlyDueDateOrNotesEditableAfterPosting" xml:space="preserve"><value>Only the due date and internal notes can be changed after posting; use a return or a storno for anything else.</value></data>
 
   <!-- Bills -->
   <data name="InvalidVendorPartner" xml:space="preserve"><value>Invalid vendor partner for this company.</value></data>
@@ -63,6 +71,12 @@
   <data name="BillMustBePostedForPayment" xml:space="preserve"><value>Bill must be Posted before a payment can be recorded against it.</value></data>
   <data name="NoPayableAccount" xml:space="preserve"><value>Company has no Accounts Payable account seeded.</value></data>
   <data name="CreditNoteNoPayableLine" xml:space="preserve"><value>Credit note has no payable line to apply.</value></data>
+  <data name="OriginalBillRequiredForPurchaseReturn" xml:space="preserve"><value>originalBillId is required for a purchase return.</value></data>
+  <data name="OriginalBillMustBePostedForReturn" xml:space="preserve"><value>The original bill must be Posted before a purchase return can be posted against it.</value></data>
+  <data name="PurchaseReturnExceedsRemainingOriginalAmount" xml:space="preserve"><value>This return of {0} would exceed the original bill's remaining un-returned amount of {1}.</value></data>
+  <data name="BillNotDraftForDiscard" xml:space="preserve"><value>Only a Draft bill with no posted journal entry can be discarded.</value></data>
+  <data name="BillNotEditableWhenCancelled" xml:space="preserve"><value>A cancelled bill cannot be edited.</value></data>
+  <data name="BillOnlyDueDateOrNotesEditableAfterPosting" xml:space="preserve"><value>Only the due date and internal notes can be changed after posting; use a return or a storno for anything else.</value></data>
 
   <!-- Payroll -->
   <data name="PeriodEndBeforeStart" xml:space="preserve"><value>periodEnd must be on or after periodStart.</value></data>

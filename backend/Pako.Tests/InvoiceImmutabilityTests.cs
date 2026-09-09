@@ -48,14 +48,38 @@ public class InvoiceImmutabilityTests
         return (db, invoice);
     }
 
+    // A5 (v2 release): DueDate is no longer a valid "any field" example — it's the one field,
+    // alongside InternalNotes, deliberately still editable on a Posted invoice (see
+    // DueDateChange_Succeeds/OnlyDueDateOrInternalNotesChanged below). PartnerId stands in as a
+    // field that's genuinely still locked.
     [Fact]
     public async Task ModifyingPostedInvoice_Throws()
     {
         var (db, invoice) = await SeedPostedInvoice();
 
-        invoice.DueDate = invoice.DueDate.AddDays(30);
+        invoice.PartnerId = Guid.NewGuid();
 
         await Assert.ThrowsAsync<PostedInvoiceImmutableException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
+    public async Task DueDateChange_Succeeds()
+    {
+        var (db, invoice) = await SeedPostedInvoice();
+
+        invoice.DueDate = invoice.DueDate.AddDays(30);
+
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task InternalNotesChange_Succeeds()
+    {
+        var (db, invoice) = await SeedPostedInvoice();
+
+        invoice.InternalNotes = "Called customer, confirmed delivery.";
+
+        await db.SaveChangesAsync();
     }
 
     [Fact]

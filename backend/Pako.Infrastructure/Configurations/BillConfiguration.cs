@@ -12,6 +12,7 @@ public class BillConfiguration : IEntityTypeConfiguration<Bill>
         builder.HasKey(b => b.Id);
         builder.Property(b => b.State).HasConversion<string>().HasMaxLength(16);
         builder.Property(b => b.VendorReference).HasMaxLength(128);
+        builder.Property(b => b.InternalNotes).HasMaxLength(1000);
         builder.HasMany(b => b.Lines)
             .WithOne(l => l.Bill)
             .HasForeignKey(l => l.BillId)

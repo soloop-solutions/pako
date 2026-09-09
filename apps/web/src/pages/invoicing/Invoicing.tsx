@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
-import { invoiceDocumentTypeLabel } from "@/lib/document-types";
+import { InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
@@ -67,6 +67,13 @@ export function Invoicing() {
 
   const customers = partners.filter((p) => p.isCustomer);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  // A6 (v2 release): Sales returns and Proforma now have their own pages — this table stays
+  // scoped to what this page's create form can actually produce (Invoice/CreditNote/DebitNote/
+  // DownPayment). The full `invoices` array (unfiltered) still passes through to InvoiceForm so
+  // its original-invoice picker for CreditNote/DebitNote is unaffected.
+  const displayedInvoices = invoices.filter(
+    (invoice) => invoice.documentType !== InvoiceDocumentType.SalesReturn && invoice.documentType !== InvoiceDocumentType.Proforma,
+  );
 
   return (
     <div className="flex flex-col gap-6">
@@ -132,7 +139,7 @@ export function Invoicing() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoices.map((invoice) => (
+              {displayedInvoices.map((invoice) => (
                 <TableRow key={invoice.id}>
                   <TableCell>{invoice.invoiceNumber ?? "-"}</TableCell>
                   <TableCell>
@@ -156,7 +163,7 @@ export function Invoicing() {
               ))}
             </TableBody>
           </Table>
-          {invoices.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.noInvoices" })}</p>}
+          {displayedInvoices.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.noInvoices" })}</p>}
         </CardContent>
       </Card>
     </div>
