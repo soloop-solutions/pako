@@ -8,7 +8,8 @@ public record CreateInvoiceLineRequest(
     decimal UnitPrice,
     Guid? TaxDefinitionId,
     Guid? RevenueAccountId,
-    decimal? DiscountPercent = null);
+    decimal? DiscountPercent = null,
+    Guid? ItemId = null);
 
 public record CreateInvoiceRequest(
     Guid PartnerId,
@@ -52,7 +53,8 @@ public record InvoiceLineResponse(
     decimal UnitPrice,
     Guid? TaxDefinitionId,
     Guid RevenueAccountId,
-    decimal DiscountPercent);
+    decimal DiscountPercent,
+    Guid? ItemId);
 
 public record InvoiceResponse(
     Guid Id,

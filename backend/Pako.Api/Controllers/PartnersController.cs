@@ -37,6 +37,9 @@ public class PartnersController : ControllerBase
     [ProducesResponseType(typeof(PartnerResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
+        if (request.FiscalNumber is { Length: > 64 })
+            return BadRequest("Fiscal number must be 64 characters or fewer.");
+
         var partner = new Partner
         {
             Id = Guid.NewGuid(),
@@ -44,7 +47,9 @@ public class PartnersController : ControllerBase
             Name = request.Name,
             TaxNumber = request.TaxNumber,
             IsCustomer = request.IsCustomer,
-            IsVendor = request.IsVendor
+            IsVendor = request.IsVendor,
+            FiscalNumber = request.FiscalNumber,
+            IsVatRegistered = request.IsVatRegistered
         };
 
         _db.Partners.Add(partner);
@@ -53,5 +58,5 @@ public class PartnersController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, ToResponse(partner));
     }
 
-    private static PartnerResponse ToResponse(Partner p) => new(p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor);
+    private static PartnerResponse ToResponse(Partner p) => new(p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered);
 }

@@ -12,6 +12,7 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.HasKey(i => i.Id);
         builder.Property(i => i.Name).IsRequired().HasMaxLength(256);
         builder.Property(i => i.Unit).IsRequired().HasMaxLength(32);
+        builder.Property(i => i.DefaultUnitPrice).HasColumnType("numeric(18,2)");
         builder.HasMany(i => i.Barcodes)
             .WithOne(b => b.Item)
             .HasForeignKey(b => b.ItemId)

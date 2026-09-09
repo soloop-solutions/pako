@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
@@ -22,7 +23,7 @@ public class InvoicesControllerTests
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
 
-        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NullStringLocalizer<ErrorMessages>())
+        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };

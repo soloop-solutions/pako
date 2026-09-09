@@ -206,5 +206,5 @@ public class CompaniesController : ControllerBase
     }
 
     private static CompanyResponse ToResponse(Company c) =>
-        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered);
+        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride);
 }

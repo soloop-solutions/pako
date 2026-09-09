@@ -13,6 +13,7 @@ public class Item
     public Guid? DefaultTaxDefinitionId { get; set; }
     public Guid? DefaultRevenueAccountId { get; set; }
     public Guid? DefaultExpenseAccountId { get; set; }
+    public decimal? DefaultUnitPrice { get; set; }
 
     public List<ItemBarcode> Barcodes { get; set; } = new();
 }

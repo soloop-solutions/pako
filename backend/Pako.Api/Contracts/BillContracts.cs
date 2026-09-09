@@ -9,7 +9,8 @@ public record CreateBillLineRequest(
     decimal UnitPrice,
     Guid? TaxDefinitionId,
     Guid? ExpenseAccountId,
-    decimal? DiscountPercent = null);
+    decimal? DiscountPercent = null,
+    Guid? ItemId = null);
 
 public record CreateBillRequest(
     Guid PartnerId,
@@ -48,7 +49,8 @@ public record BillLineResponse(
     decimal UnitPrice,
     Guid? TaxDefinitionId,
     Guid ExpenseAccountId,
-    decimal DiscountPercent);
+    decimal DiscountPercent,
+    Guid? ItemId);
 
 public record BillResponse(
     Guid Id,

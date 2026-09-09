@@ -45,6 +45,10 @@ public class Company
     // companies — a genuinely-empty "no tax" line is only ever valid once this is false.
     public bool IsVatRegistered { get; set; } = true;
 
+    // B4: off by default. When true, ClientAdmin/FirmAdmin may override a posted document's number
+    // via the /override-number endpoint; FirmAccountant may not (adminOnly on that route).
+    public bool AllowNumberOverride { get; set; }
+
     // Kosovo VAT Law Article 45/56 requires invoice numbering to be gapless and strictly
     // monotonic per company. This mints the number and advances the counter together so a
     // failed Invoice.Post (e.g. a lock-date violation) never burns a number.

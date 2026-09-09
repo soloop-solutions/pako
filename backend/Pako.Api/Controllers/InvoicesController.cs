@@ -23,17 +23,20 @@ public class InvoicesController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly ITaxComputationService _taxComputationService;
     private readonly IDocumentNumberService _documentNumberService;
+    private readonly NumberSeriesService _numberSeries;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
     public InvoicesController(
         PakoDbContext db,
         ITaxComputationService taxComputationService,
         IDocumentNumberService documentNumberService,
+        NumberSeriesService numberSeries,
         IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _taxComputationService = taxComputationService;
         _documentNumberService = documentNumberService;
+        _numberSeries = numberSeries;
         _localizer = localizer;
     }
 
@@ -171,7 +174,8 @@ public class InvoicesController : ControllerBase
                 UnitPrice = line.UnitPrice,
                 DiscountPercent = discountPercent,
                 TaxDefinitionId = line.TaxDefinitionId,
-                RevenueAccountId = revenueAccountId
+                RevenueAccountId = revenueAccountId,
+                ItemId = line.ItemId
             });
         }
 
@@ -277,7 +281,7 @@ public class InvoicesController : ControllerBase
                     return NotFound();
                 }
 
-                invoice.InvoiceNumber = _documentNumberService.ReserveNext(trackedCompany, DocumentType.Proforma);
+                invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(companyId, "Proforma", invoice.IssueDate.Year);
 
                 _db.Invoices.Add(invoice);
                 await _db.SaveChangesAsync();
@@ -1030,7 +1034,8 @@ public class InvoicesController : ControllerBase
                 UnitPrice = l.UnitPrice,
                 DiscountPercent = l.DiscountPercent,
                 TaxDefinitionId = l.TaxDefinitionId,
-                RevenueAccountId = l.RevenueAccountId
+                RevenueAccountId = l.RevenueAccountId,
+                ItemId = l.ItemId
             }).ToList()
         };
 
@@ -1177,9 +1182,10 @@ public class InvoicesController : ControllerBase
             }
         }
 
-        // S0.1: numbering happens here, after Post() already succeeded, inside the caller's
-        // row-locked transaction — a failed Post() returns 400 above and never reaches this.
-        invoice.InvoiceNumber = _documentNumberService.ReserveNext(company, invoice.DocumentType);
+        // B1: numbering from NumberSeries table, row-locked (gapless). Falls back to the old
+        // Company counter via IDocumentNumberService on InMemory (tests).
+        var docTypeKey = NumberSeriesService.DocumentTypeKey(invoice.DocumentType);
+        invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(company.Id, docTypeKey, invoice.IssueDate.Year);
         journalEntry.Reference = invoice.InvoiceNumber;
 
         journalEntry.PostedByUserId = CurrentUserId;
@@ -1200,7 +1206,7 @@ public class InvoicesController : ControllerBase
         i.DocumentType,
         i.OriginalInvoiceId,
         i.JournalEntryId,
-        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent)).ToList(),
+        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId)).ToList(),
         i.InternalNotes,
         i.PriceMode,
         i.PaymentTermDays,

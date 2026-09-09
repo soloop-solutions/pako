@@ -49,6 +49,7 @@ builder.Services.AddSingleton(new JwtOptions
     ExpiryMinutes = jwtExpiryMinutes
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

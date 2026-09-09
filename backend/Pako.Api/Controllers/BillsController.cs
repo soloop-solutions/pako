@@ -154,7 +154,8 @@ public class BillsController : ControllerBase
                 UnitPrice = line.UnitPrice,
                 DiscountPercent = discountPercent,
                 TaxDefinitionId = line.TaxDefinitionId,
-                ExpenseAccountId = expenseAccountId
+                ExpenseAccountId = expenseAccountId,
+                ItemId = line.ItemId
             });
         }
 
@@ -888,7 +889,7 @@ public class BillsController : ControllerBase
         b.DocumentType,
         b.OriginalBillId,
         b.JournalEntryId,
-        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent)).ToList(),
+        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId)).ToList(),
         b.InternalNotes,
         b.PriceMode);
 }

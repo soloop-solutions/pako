@@ -7,4 +7,4 @@ namespace Pako.Api.Contracts;
 // defaults to true (Company.IsVatRegistered's own default) — see C2 (tax-enums.ts / CLAUDE.md)
 // for why a genuinely-empty "no tax" choice is only ever valid once this is false.
 public record CreateCompanyRequest(string Name, Guid? FirmId = null, CompanyProfile? EnabledProfiles = null, bool? IsVatRegistered = null);
-public record CompanyResponse(Guid Id, string Name, Guid? FirmId, DateOnly? AccountingLockDate, DateOnly? TaxLockDate, CompanyProfile EnabledProfiles, bool IsVatRegistered);
+public record CompanyResponse(Guid Id, string Name, Guid? FirmId, DateOnly? AccountingLockDate, DateOnly? TaxLockDate, CompanyProfile EnabledProfiles, bool IsVatRegistered, bool AllowNumberOverride);
