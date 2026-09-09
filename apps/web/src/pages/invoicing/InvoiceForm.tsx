@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { InvoiceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -9,18 +9,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType } from "@/lib/document-types";
-import { computeFromGross, taxRatePercentLabel } from "@/lib/tax-enums";
+import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
+import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
 
-const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: "" };
+function emptyLine(defaultTaxId: string): Line {
+  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId };
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Price is gross (brutto) — what the customer actually pays per unit, VAT included.
-function lineGross(line: Line): number {
+function addDays(dateString: string, days: number): string {
+  const date = new Date(dateString);
+  date.setDate(date.getDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+// Price is either gross (VAT-inclusive) or net (VAT-exclusive), per the document's own PriceMode.
+function lineEnteredAmount(line: Line): number {
   const quantity = parseFloat(line.quantity) || 0;
   const unitPrice = parseFloat(line.unitPrice) || 0;
   const discountPercent = parseFloat(line.discountPercent) || 0;
@@ -32,6 +41,8 @@ type InvoiceFormProps = {
   customers: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
   invoices: InvoiceResponse[];
+  paymentMethods: PaymentMethodResponse[];
+  isVatRegistered: boolean;
   onCreated: () => void;
   // A6 (v2 release): when set, this form is dedicated to a single document type (Sales returns,
   // Proforma) — the type selector is hidden entirely and every reset returns to this value,
@@ -46,14 +57,38 @@ type InvoiceFormProps = {
   onSaved?: () => void;
 };
 
-export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, fixedDocumentType, editingInvoice, onSaved }: InvoiceFormProps) {
+export function InvoiceForm({
+  companyId,
+  customers,
+  taxes,
+  invoices,
+  paymentMethods,
+  isVatRegistered,
+  onCreated,
+  fixedDocumentType,
+  editingInvoice,
+  onSaved,
+}: InvoiceFormProps) {
   const intl = useIntl();
+  // C2: a VAT-registered company can never leave a line without a real tax code — default new
+  // lines to the exempt sales code (SEX) instead of the old silent empty "no tax" option.
+  const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "SEX")?.id ?? "") : "";
+
   const [partnerId, setPartnerId] = useState(editingInvoice?.partnerId ?? "");
   const [documentType, setDocumentType] = useState<number>(editingInvoice?.documentType ?? fixedDocumentType ?? InvoiceDocumentType.Invoice);
   const [originalInvoiceId, setOriginalInvoiceId] = useState(editingInvoice?.originalInvoiceId ?? "");
   const [issueDate, setIssueDate] = useState(editingInvoice?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(editingInvoice?.dueDate ?? today);
   const [internalNotes, setInternalNotes] = useState(editingInvoice?.internalNotes ?? "");
+  // C1/C3: PriceMode/PaymentTermDays/GraceDays/inline-payment are Create-only features —
+  // UpdateInvoiceRequest (the Draft-edit path) doesn't carry any of these fields, so this state
+  // is only read from the Create branch of handleSubmit and its inputs are hidden while editing.
+  const [priceMode, setPriceMode] = useState<number>(PriceMode.GrossInclusive);
+  const [paymentTermDays, setPaymentTermDays] = useState("");
+  const [graceDays, setGraceDays] = useState("");
+  const [takePaymentNow, setTakePaymentNow] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const [lines, setLines] = useState<Line[]>(
     editingInvoice
       ? editingInvoice.lines.map((l) => ({
@@ -63,7 +98,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? "",
         }))
-      : [{ ...EMPTY_LINE }],
+      : [emptyLine(defaultTaxId)],
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -84,11 +119,19 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { ...EMPTY_LINE }]);
+    setLines((prev) => [...prev, emptyLine(defaultTaxId)]);
   }
 
   function removeLine(index: number) {
     setLines((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function handlePaymentTermDaysChange(value: string) {
+    setPaymentTermDays(value);
+    const days = parseInt(value, 10);
+    if (Number.isFinite(days) && days >= 0) {
+      setDueDate(addDays(issueDate, days));
+    }
   }
 
   async function handleSubmit(event: FormEvent) {
@@ -107,6 +150,18 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
     if (validLines.length === 0) {
       setError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
       return;
+    }
+
+    if (takePaymentNow) {
+      const parsedPaymentAmount = parseFloat(paymentAmount);
+      if (!parsedPaymentAmount || parsedPaymentAmount <= 0) {
+        setError(intl.formatMessage({ id: "invoiceForm.paymentAmountError" }));
+        return;
+      }
+      if (!paymentMethodId) {
+        setError(intl.formatMessage({ id: "invoiceForm.paymentMethodError" }));
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -138,12 +193,24 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
           dueDate,
           documentType,
           originalInvoiceId: originalInvoiceId || undefined,
+          priceMode,
+          paymentTermDays: paymentTermDays ? parseInt(paymentTermDays, 10) : undefined,
+          graceDays: graceDays ? parseInt(graceDays, 10) : undefined,
           lines: lineRequests,
+          payment: takePaymentNow
+            ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
+            : undefined,
         });
         setPartnerId("");
         setDocumentType(fixedDocumentType ?? InvoiceDocumentType.Invoice);
         setOriginalInvoiceId("");
-        setLines([{ ...EMPTY_LINE }]);
+        setPriceMode(PriceMode.GrossInclusive);
+        setPaymentTermDays("");
+        setGraceDays("");
+        setLines([emptyLine(defaultTaxId)]);
+        setTakePaymentNow(false);
+        setPaymentAmount("");
+        setPaymentMethodId("");
         onCreated();
       }
     } catch (err) {
@@ -198,7 +265,13 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
             id="invoice-issue-date"
             type="date"
             value={issueDate}
-            onChange={(event) => setIssueDate(event.target.value)}
+            onChange={(event) => {
+              setIssueDate(event.target.value);
+              const days = parseInt(paymentTermDays, 10);
+              if (Number.isFinite(days) && days >= 0) {
+                setDueDate(addDays(event.target.value, days));
+              }
+            }}
             required
           />
         </div>
@@ -218,6 +291,40 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
         <div className="flex flex-col gap-2 sm:w-1/2">
           <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
           <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+        </div>
+      )}
+
+      {!editingInvoice && (
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
+            <Select id="invoice-price-mode" value={priceMode} onChange={(event) => setPriceMode(Number(event.target.value))}>
+              <option value={PriceMode.GrossInclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeGross" })}</option>
+              <option value={PriceMode.NetExclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeNet" })}</option>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
+            <Input
+              id="invoice-payment-term-days"
+              type="number"
+              step="1"
+              min="0"
+              value={paymentTermDays}
+              onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="invoice-grace-days">{intl.formatMessage({ id: "invoiceForm.graceDays" })}</Label>
+            <Input
+              id="invoice-grace-days"
+              type="number"
+              step="1"
+              min="0"
+              value={graceDays}
+              onChange={(event) => setGraceDays(event.target.value)}
+            />
+          </div>
         </div>
       )}
 
@@ -246,8 +353,8 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
 
       <div className="flex flex-col gap-2">
         {lines.map((line, index) => {
-          const gross = lineGross(line);
-          const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+          const enteredAmount = lineEnteredAmount(line);
+          const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
           return (
           <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
@@ -265,7 +372,11 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.priceInclVat" })}</Label>}
+              {index === 0 && (
+                <Label>
+                  {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat" })}
+                </Label>
+              )}
               <Input
                 type="number"
                 step="0.01"
@@ -291,7 +402,7 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
                 value={line.taxDefinitionId}
                 onChange={(event) => updateLine(index, { taxDefinitionId: event.target.value })}
               >
-                <option value="">{intl.formatMessage({ id: "invoiceForm.noTax" })}</option>
+                {!isVatRegistered && <option value="">{intl.formatMessage({ id: "invoiceForm.noTax" })}</option>}
                 {taxes.map((tax) => (
                   <option key={tax.id} value={tax.id}>
                     {taxRatePercentLabel(tax)}
@@ -317,6 +428,40 @@ export function InvoiceForm({ companyId, customers, taxes, invoices, onCreated, 
           {intl.formatMessage({ id: "invoiceForm.addLine" })}
         </Button>
       </div>
+
+      {!editingInvoice && (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
+            {intl.formatMessage({ id: "invoiceForm.takePaymentNow" })}
+          </label>
+          {takePaymentNow && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="invoice-payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+                <Input
+                  id="invoice-payment-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentAmount}
+                  onChange={(event) => setPaymentAmount(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="invoice-payment-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
+                <PaymentMethodSelect
+                  id="invoice-payment-method"
+                  paymentMethods={paymentMethods}
+                  value={paymentMethodId}
+                  onChange={setPaymentMethodId}
+                  emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Button type="submit" className="w-fit" disabled={submitting}>
         {editingInvoice

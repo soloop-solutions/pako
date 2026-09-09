@@ -45,3 +45,23 @@ public record CitAddBackResponse(
     List<CitLimitFlaggedLine> LimitFlagged,
     decimal TotalNonDeductible,
     decimal TotalLimitFlagged);
+
+// C6: an unpaid invoice is outstanding the moment it posts, but it isn't "debt" (borxh) until the
+// agreed due date plus its own grace period has passed — Bucket is "Current" (not yet due),
+// "WithinGrace" (past due, still within grace) or "Overdue" (the actual debt list).
+public record DebtAgingLine(
+    Guid InvoiceId,
+    string? InvoiceNumber,
+    Guid PartnerId,
+    DateOnly IssueDate,
+    DateOnly DueDate,
+    int? GraceDays,
+    decimal Outstanding,
+    string Bucket);
+
+public record DebtAgingResponse(
+    DateOnly AsOf,
+    List<DebtAgingLine> Lines,
+    decimal TotalCurrent,
+    decimal TotalWithinGrace,
+    decimal TotalOverdue);

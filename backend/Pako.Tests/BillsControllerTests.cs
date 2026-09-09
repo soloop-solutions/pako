@@ -31,7 +31,8 @@ public class BillsControllerTests
     private static async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
     {
         var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
-        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        // IsVatRegistered = false — same reasoning as InvoicesControllerTests.SeedAsync's comment.
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co", IsVatRegistered = false };
         var partnerId = Guid.NewGuid();
         var cashAccountId = Guid.NewGuid();
 
@@ -97,6 +98,32 @@ public class BillsControllerTests
         Assert.Contains("positive total", message);
         Assert.Contains("credit note", message, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("not yet supported", message);
+    }
+
+    // C2: same rule as InvoicesControllerTests — see its comment.
+    [Fact]
+    public async Task Create_NoTaxCodeOnVatRegisteredCompany_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        (await db.Companies.FindAsync(companyId))!.IsVatRegistered = true;
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal("A tax code is required for every line.", badRequest.Value);
+    }
+
+    [Fact]
+    public async Task Create_NoTaxCodeOnNonVatRegisteredCompany_Allowed()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+
+        Assert.IsType<ObjectResult>(result.Result);
     }
 
     [Fact]
@@ -437,5 +464,55 @@ public class BillsControllerTests
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Equal(0, await db.DocumentEditAudits.CountAsync());
+    }
+
+    // C5: cash at creation, bank only afterwards.
+    [Fact]
+    public async Task Create_WithInlineCashPayment_PostsBillAndRecordsPaymentAtomically()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var paymentMethod = new PaymentMethod { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Cash", Kind = PaymentMethodKind.Cash, LedgerAccountId = cashAccountId };
+        db.PaymentMethods.Add(paymentMethod);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = RequestWithLine(partnerId, 1m, 400m) with
+        {
+            Payment = new CreateBillPaymentRequest(150m, paymentMethod.Id, new DateOnly(2026, 8, 26))
+        };
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal("Posted", created.State);
+
+        var balanceResult = await controller.Balance(companyId, created.Id);
+        var balance = Assert.IsType<DocumentBalanceResponse>(Assert.IsType<OkObjectResult>(balanceResult.Result).Value);
+        Assert.Equal(400m, balance.Total);
+        Assert.Equal(150m, balance.Reconciled);
+        Assert.Equal(250m, balance.Outstanding);
+    }
+
+    [Fact]
+    public async Task Create_WithInlineBankPayment_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var bankAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = bankAccountId, CompanyId = companyId, Code = "1010", Name = "Bank", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Bank });
+        var paymentMethod = new PaymentMethod { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Bank", Kind = PaymentMethodKind.Bank, LedgerAccountId = bankAccountId };
+        db.PaymentMethods.Add(paymentMethod);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = RequestWithLine(partnerId, 1m, 400m) with
+        {
+            Payment = new CreateBillPaymentRequest(150m, paymentMethod.Id, null)
+        };
+
+        var result = await controller.Create(companyId, request);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("bank statement", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Empty(db.Bills);
     }
 }

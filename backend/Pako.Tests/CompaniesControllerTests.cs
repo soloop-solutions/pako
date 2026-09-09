@@ -137,4 +137,21 @@ public class CompaniesControllerTests
 
         Assert.Equal(new[] { "110100", "110200", "200100", "200200" }, controlCodes.OrderBy(c => c));
     }
+
+    // Track C4: a fresh company needs at least one Cash and one Bank payment method so the
+    // record-payment/pay-at-creation pickers aren't empty out of the box.
+    [Fact]
+    public async Task Create_SeedsOneCashAndOneBankPaymentMethod()
+    {
+        var db = NewContext();
+        var controller = NewController(db, Guid.NewGuid());
+
+        var result = await controller.Create(new CreateCompanyRequest("Payment Co"));
+        var created = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+
+        var methods = await db.PaymentMethods.Where(m => m.CompanyId == created.Id).ToListAsync();
+
+        Assert.Contains(methods, m => m.Kind == PaymentMethodKind.Cash);
+        Assert.Contains(methods, m => m.Kind == PaymentMethodKind.Bank);
+    }
 }

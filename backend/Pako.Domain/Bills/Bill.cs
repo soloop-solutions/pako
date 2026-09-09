@@ -1,5 +1,6 @@
 using Pako.Domain.Companies;
 using Pako.Domain.Documents;
+using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
 
@@ -38,6 +39,11 @@ public class Bill
 
     // A5 (v2 release): mirror of Invoice.InternalNotes — see BillsController.Update.
     public string? InternalNotes { get; set; }
+
+    // C1: reuses Invoicing.PriceMode rather than declaring a second identical enum — see decision
+    // D5 (per-document, not per-line) and Invoice.PriceMode's own doc comment for why
+    // GrossInclusive is the default (matches the pre-existing gross line-entry convention).
+    public PriceMode PriceMode { get; set; } = PriceMode.GrossInclusive;
 
     public List<BillLine> Lines { get; set; } = new();
 
@@ -85,7 +91,7 @@ public class Bill
             var result = DocumentLineCalculator.Calculate(
                 line.Quantity, line.UnitPrice, line.DiscountPercent, line.ExpenseAccountId, line.Description,
                 taxDefinition, isCreditNote, creditsOnNormalSide: false,
-                taxComputationService, reverseChargeInputVatAccountId, reverseChargeOutputVatAccountId);
+                taxComputationService, reverseChargeInputVatAccountId, reverseChargeOutputVatAccountId, PriceMode);
 
             totalWithTax += result.Gross;
             journalEntryLines.AddRange(result.Lines);

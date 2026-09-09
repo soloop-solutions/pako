@@ -39,9 +39,11 @@ a historical record of the build-up to v1, not an open plan.
   `Next*Number` counters), a next-number preview, gapless/strictly-increasing numbering under
   concurrency, manual number override with an audit trail, partner fiscal number/VAT status, the
   item register (code/name/unit/barcodes/defaults, no stock).
-- **Track C — Price, payment & debt**: VAT-inclusive vs. VAT-exclusive price entry, a real
-  "no tax" code instead of a silent empty option, payment recorded at invoice-creation time,
-  payment methods split cash vs. bank, and payment-terms/grace-days-driven debt aging.
+- **Track C — Price, payment & debt** (built on branch `track-c/price-payment-debt`, not yet
+  merged to main — see CLAUDE.md's "v2 Track C" section for the full detail and verification):
+  VAT-inclusive vs. VAT-exclusive price entry, a real "no tax" code instead of a silent empty
+  option, payment recorded at invoice-creation time, payment methods split cash vs. bank, and
+  payment-terms/grace-days-driven debt aging. S0.5 (Testcontainers) was not built by any track yet.
 
 See that file for the full item list, the decisions still needed before certain tracks can start
 (`D1`-`D5`), and the working agreements (nobody branches before Sprint 0 merges; the migration rule

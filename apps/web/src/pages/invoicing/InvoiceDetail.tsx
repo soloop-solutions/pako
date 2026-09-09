@@ -2,12 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
-  AccountResponse,
   ApplyCreditNoteResponse,
   ApplyDownPaymentResponse,
   DocumentBalanceResponse,
   InvoiceResponse,
   PartnerResponse,
+  PaymentMethodResponse,
   TaxDefinitionResponse,
 } from "@pako/shared";
 
@@ -19,8 +19,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
 import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
-import { isCashOrBankAccountSubType } from "@/lib/ledger-enums";
-import { computeFromGross } from "@/lib/tax-enums";
+import { computeLine } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
@@ -38,7 +37,7 @@ export function InvoiceDetail() {
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
-  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
   const [downPaymentOptions, setDownPaymentOptions] = useState<DownPaymentOption[]>([]);
@@ -54,18 +53,18 @@ export function InvoiceDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [invoiceResult, partnersResult, taxesResult, accountsResult, allInvoicesResult] = await Promise.all([
+      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult] = await Promise.all([
         apiClient.invoicesGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
-        apiClient.accounts(companyId),
         apiClient.invoicesAll(companyId),
+        apiClient.paymentMethodsAll(companyId),
       ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
-      setAccounts(accountsResult);
       setAllInvoices(allInvoicesResult);
+      setPaymentMethods(paymentMethodsResult);
 
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
@@ -169,15 +168,14 @@ export function InvoiceDetail() {
   }
 
   const partner = partners.find((p) => p.id === invoice.partnerId);
-  const cashAccounts = accounts.filter((a) => isCashOrBankAccountSubType(a.accountSubType));
 
   let total = 0;
   let estimatedNet = 0;
   let estimatedTax = 0;
   for (const line of invoice.lines) {
-    const gross = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
+    const enteredAmount = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
+    const { net, tax, gross } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), invoice.priceMode);
     total += gross;
-    const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
     estimatedNet += net;
     estimatedTax += tax;
   }
@@ -227,6 +225,8 @@ export function InvoiceDetail() {
               customers={partners.filter((p) => p.isCustomer)}
               taxes={taxes}
               invoices={allInvoices}
+              paymentMethods={paymentMethods}
+              isVatRegistered={activeCompany.isVatRegistered}
               editingInvoice={invoice}
               onCreated={() => {}}
               onSaved={() => {
@@ -265,8 +265,8 @@ export function InvoiceDetail() {
             </TableHeader>
             <TableBody>
               {invoice.lines.map((line) => {
-                const gross = line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
-                const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+                const enteredAmount = line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
+                const { net, tax, gross } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), invoice.priceMode);
                 return (
                   <TableRow key={line.id}>
                     <TableCell>{line.description}</TableCell>
@@ -348,7 +348,7 @@ export function InvoiceDetail() {
               companyId={activeCompany.id}
               documentKind="invoice"
               documentId={invoice.id}
-              cashAccounts={cashAccounts}
+              paymentMethods={paymentMethods}
               outstanding={balance.outstanding}
               onRecorded={refresh}
             />

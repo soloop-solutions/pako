@@ -62,7 +62,8 @@ public class CompaniesController : ControllerBase
             Id = Guid.NewGuid(),
             Name = request.Name,
             FirmId = request.FirmId,
-            EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core
+            EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core,
+            IsVatRegistered = request.IsVatRegistered ?? true
         };
         _db.Companies.Add(company);
 
@@ -143,6 +144,35 @@ public class CompaniesController : ControllerBase
             SequencePadding = 4
         });
 
+        // Track C4: two starter payment methods so the record-payment/pay-at-creation pickers
+        // aren't empty out of the box — "100100 Arka kryesore"/"101003 Banka ProCredit" are both
+        // CORE-profile accounts, always seeded, matching the exact example item 28's Done
+        // criterion names ("Cash — arka kryesore" / "Bank — ProCredit"). More can be added later
+        // via POST .../payment-methods for companies that use a different bank.
+        if (accountIdsByCode.TryGetValue("100100", out var cashAccountId))
+        {
+            _db.PaymentMethods.Add(new PaymentMethod
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = company.Id,
+                Name = "Cash — Arka kryesore",
+                Kind = PaymentMethodKind.Cash,
+                LedgerAccountId = cashAccountId
+            });
+        }
+
+        if (accountIdsByCode.TryGetValue("101003", out var bankAccountId))
+        {
+            _db.PaymentMethods.Add(new PaymentMethod
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = company.Id,
+                Name = "Bank — ProCredit",
+                Kind = PaymentMethodKind.Bank,
+                LedgerAccountId = bankAccountId
+            });
+        }
+
         if (request.FirmId is null)
         {
             _db.Memberships.Add(Membership.ForCompany(CurrentUserId, company.Id, MembershipRole.ClientAdmin));
@@ -176,5 +206,5 @@ public class CompaniesController : ControllerBase
     }
 
     private static CompanyResponse ToResponse(Company c) =>
-        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles);
+        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered);
 }

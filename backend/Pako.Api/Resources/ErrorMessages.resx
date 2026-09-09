@@ -86,6 +86,15 @@
   <!-- Reconciliation -->
   <data name="ExactlyOneDocumentRequired" xml:space="preserve"><value>Exactly one of invoiceId or billId must be set.</value></data>
 
+  <!-- Payment methods (Track C) -->
+  <data name="PaymentMethodNameRequired" xml:space="preserve"><value>Name is required.</value></data>
+  <data name="InvalidPaymentMethodAccount" xml:space="preserve"><value>ledgerAccountId must be a Cash or Bank account for this company.</value></data>
+  <data name="InvalidPaymentMethod" xml:space="preserve"><value>paymentMethodId must reference a payment method for this company.</value></data>
+  <data name="BankPaymentNotAllowedAtBillCreation" xml:space="preserve"><value>Bank payments can only be recorded after the bill is created — record it via the payment endpoint once it appears on your bank statement.</value></data>
+
+  <!-- Tax code required (Track C) -->
+  <data name="TaxCodeRequired" xml:space="preserve"><value>A tax code is required for every line.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>

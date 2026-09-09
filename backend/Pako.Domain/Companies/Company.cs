@@ -40,6 +40,11 @@ public class Company
     public string FunctionalCurrency { get; set; } = "EUR";
     public CompanyProfile EnabledProfiles { get; set; } = CompanyProfile.Core;
 
+    // C2: every company seeded so far is VAT-registered (the 26 VAT/WHT tax definitions are
+    // always seeded), so this defaults true for zero behavior change on existing/typical
+    // companies — a genuinely-empty "no tax" line is only ever valid once this is false.
+    public bool IsVatRegistered { get; set; } = true;
+
     // Kosovo VAT Law Article 45/56 requires invoice numbering to be gapless and strictly
     // monotonic per company. This mints the number and advances the counter together so a
     // failed Invoice.Post (e.g. a lock-date violation) never burns a number.

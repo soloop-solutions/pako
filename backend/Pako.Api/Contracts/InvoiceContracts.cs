@@ -16,7 +16,15 @@ public record CreateInvoiceRequest(
     DateOnly DueDate,
     List<CreateInvoiceLineRequest> Lines,
     DocumentType DocumentType = DocumentType.Invoice,
-    Guid? OriginalInvoiceId = null);
+    Guid? OriginalInvoiceId = null,
+    PriceMode PriceMode = PriceMode.GrossInclusive,
+    int? PaymentTermDays = null,
+    int? GraceDays = null,
+    CreateInvoicePaymentRequest? Payment = null);
+
+// C3: optional inline payment recorded atomically with the invoice's own creation+posting — see
+// InvoicesController.Create's comment for why this must post the invoice (not leave it Draft).
+public record CreateInvoicePaymentRequest(decimal Amount, Guid PaymentMethodId, DateOnly? Date = null);
 
 // A5 (v2 release): same shape as CreateInvoiceRequest plus InternalNotes — full replace, Draft
 // documents only (InvoicesController.Update, PUT). A Posted document can't reach this at all;
@@ -57,4 +65,7 @@ public record InvoiceResponse(
     Guid? OriginalInvoiceId,
     Guid? JournalEntryId,
     List<InvoiceLineResponse> Lines,
-    string? InternalNotes);
+    string? InternalNotes,
+    PriceMode PriceMode,
+    int? PaymentTermDays,
+    int? GraceDays);

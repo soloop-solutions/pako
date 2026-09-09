@@ -15,5 +15,6 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
 
         builder.Property(c => c.FunctionalCurrency).IsRequired().HasMaxLength(3).HasDefaultValue("EUR");
         builder.Property(c => c.EnabledProfiles).HasDefaultValue(CompanyProfile.Core);
+        builder.Property(c => c.IsVatRegistered).HasDefaultValue(true);
     }
 }

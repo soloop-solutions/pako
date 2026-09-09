@@ -107,7 +107,7 @@ public class Invoice
             var result = DocumentLineCalculator.Calculate(
                 line.Quantity, line.UnitPrice, line.DiscountPercent, line.RevenueAccountId, line.Description,
                 taxDefinition, isCreditNote, creditsOnNormalSide: true,
-                taxComputationService, reverseChargeInputVatAccountId, reverseChargeOutputVatAccountId);
+                taxComputationService, reverseChargeInputVatAccountId, reverseChargeOutputVatAccountId, PriceMode);
 
             totalWithTax += result.Gross;
             journalEntryLines.AddRange(result.Lines);

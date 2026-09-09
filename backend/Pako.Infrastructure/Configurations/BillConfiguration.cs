@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using Pako.Domain.Bills;
+using Pako.Domain.Invoicing;
 
 namespace Pako.Infrastructure.Configurations;
 
@@ -13,6 +14,7 @@ public class BillConfiguration : IEntityTypeConfiguration<Bill>
         builder.Property(b => b.State).HasConversion<string>().HasMaxLength(16);
         builder.Property(b => b.VendorReference).HasMaxLength(128);
         builder.Property(b => b.InternalNotes).HasMaxLength(1000);
+        builder.Property(b => b.PriceMode).HasDefaultValue(PriceMode.GrossInclusive);
         builder.HasMany(b => b.Lines)
             .WithOne(l => l.Bill)
             .HasForeignKey(l => l.BillId)

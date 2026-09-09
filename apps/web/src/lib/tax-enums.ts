@@ -6,6 +6,16 @@ const TAX_SCOPE_SALE = 0;
 const TAX_SCOPE_PURCHASE = 1;
 const TAX_SCOPE_BOTH = 2;
 
+// C1 — order must match backend/Pako.Domain/Invoicing/Invoice.cs's PriceMode enum by hand.
+export const PriceMode = { GrossInclusive: 0, NetExclusive: 1 } as const;
+
+// C2: the exempt VAT codes already seeded by VatWithholdingTemplate.cs — SEX on the sales side,
+// BEX on the purchase side. Used as the default line tax for a VAT-registered company instead of
+// the old silent "no tax" option (see defaultLineTaxId below).
+export function findTaxByCode(taxes: TaxDefinitionResponse[], code: string): TaxDefinitionResponse | undefined {
+  return taxes.find((t) => t.code === code);
+}
+
 export function taxesForSale(taxes: TaxDefinitionResponse[]): TaxDefinitionResponse[] {
   return taxes.filter((t) => t.scope === TAX_SCOPE_SALE || t.scope === TAX_SCOPE_BOTH);
 }
@@ -34,6 +44,26 @@ export function computeFromGross(
   const net = Math.round((grossAmount / (1 + taxDefinition.rate)) * 100) / 100;
   const tax = Math.round((grossAmount - net) * 100) / 100;
   return { net, tax };
+}
+
+// C1: mirrors backend/Pako.Domain/Documents/DocumentLineCalculator.cs exactly — the entered
+// amount is VAT-inclusive (GrossInclusive, backs VAT out via computeFromGross above) or
+// VAT-exclusive (NetExclusive, adds VAT on top), decided by the document's own PriceMode. Both
+// paths converge on the same net/tax/gross figures for the same underlying amount.
+export function computeLine(
+  enteredAmount: number,
+  taxDefinition: TaxDefinitionResponse | undefined,
+  priceMode: number,
+): { net: number; tax: number; gross: number } {
+  if (!taxDefinition || taxDefinition.isReverseCharge) {
+    return { net: enteredAmount, tax: 0, gross: enteredAmount };
+  }
+  if (priceMode === PriceMode.NetExclusive) {
+    const tax = Math.round(enteredAmount * taxDefinition.rate * 100) / 100;
+    return { net: enteredAmount, tax, gross: enteredAmount + tax };
+  }
+  const { net, tax } = computeFromGross(enteredAmount, taxDefinition);
+  return { net, tax, gross: enteredAmount };
 }
 
 type DiscountedTaxedLine = { quantity: number; unitPrice: number; discountPercent: number; taxDefinitionId: string | undefined };

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { BillResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { BillResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -9,18 +9,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
-import { computeFromGross, taxRatePercentLabel } from "@/lib/tax-enums";
+import { PaymentMethodKind } from "@/lib/payment-method-enums";
+import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
+import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
 type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
 
-const EMPTY_LINE: Line = { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: "" };
+function emptyLine(defaultTaxId: string): Line {
+  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId };
+}
 
 function today() {
   return new Date().toISOString().slice(0, 10);
 }
 
-// Price is gross (brutto) — the vendor's actual per-unit price, VAT included.
-function lineGross(line: Line): number {
+// Price is either gross (VAT-inclusive) or net (VAT-exclusive), per the document's own PriceMode.
+function lineEnteredAmount(line: Line): number {
   const quantity = parseFloat(line.quantity) || 0;
   const unitPrice = parseFloat(line.unitPrice) || 0;
   const discountPercent = parseFloat(line.discountPercent) || 0;
@@ -32,6 +36,8 @@ type BillFormProps = {
   vendors: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
   bills: BillResponse[];
+  paymentMethods: PaymentMethodResponse[];
+  isVatRegistered: boolean;
   onCreated: () => void;
   // A6 (v2 release): see InvoiceForm.tsx's identical prop for the full rationale — used by the
   // Purchase returns page to fix this form to PurchaseReturn with no type selector shown.
@@ -42,8 +48,25 @@ type BillFormProps = {
   onSaved?: () => void;
 };
 
-export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDocumentType, editingBill, onSaved }: BillFormProps) {
+export function BillForm({
+  companyId,
+  vendors,
+  taxes,
+  bills,
+  paymentMethods,
+  isVatRegistered,
+  onCreated,
+  fixedDocumentType,
+  editingBill,
+  onSaved,
+}: BillFormProps) {
   const intl = useIntl();
+  // C2: same rule as InvoiceForm — default new lines to the exempt purchase code (BEX).
+  const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "BEX")?.id ?? "") : "";
+  // C5: a bill can only take cash inline at creation — a bank payment is only ever known once it
+  // clears the statement, recorded later through the ordinary payment route.
+  const cashPaymentMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Cash);
+
   const [partnerId, setPartnerId] = useState(editingBill?.partnerId ?? "");
   const [documentType, setDocumentType] = useState<number>(editingBill?.documentType ?? fixedDocumentType ?? BillDocumentType.Bill);
   const [originalBillId, setOriginalBillId] = useState(editingBill?.originalBillId ?? "");
@@ -51,6 +74,13 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
   const [issueDate, setIssueDate] = useState(editingBill?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(editingBill?.dueDate ?? today);
   const [internalNotes, setInternalNotes] = useState(editingBill?.internalNotes ?? "");
+  // C1/C5: PriceMode/inline-payment are Create-only features — UpdateBillRequest (the Draft-edit
+  // path) doesn't carry either field, so this state is only read from the Create branch of
+  // handleSubmit and its inputs are hidden while editing.
+  const [priceMode, setPriceMode] = useState<number>(PriceMode.GrossInclusive);
+  const [takePaymentNow, setTakePaymentNow] = useState(false);
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentMethodId, setPaymentMethodId] = useState("");
   const [lines, setLines] = useState<Line[]>(
     editingBill
       ? editingBill.lines.map((l) => ({
@@ -60,7 +90,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? "",
         }))
-      : [{ ...EMPTY_LINE }],
+      : [emptyLine(defaultTaxId)],
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -76,7 +106,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
   }
 
   function addLine() {
-    setLines((prev) => [...prev, { ...EMPTY_LINE }]);
+    setLines((prev) => [...prev, emptyLine(defaultTaxId)]);
   }
 
   function removeLine(index: number) {
@@ -99,6 +129,18 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
     if (validLines.length === 0) {
       setError(intl.formatMessage({ id: "billForm.atLeastOneLine" }));
       return;
+    }
+
+    if (takePaymentNow) {
+      const parsedPaymentAmount = parseFloat(paymentAmount);
+      if (!parsedPaymentAmount || parsedPaymentAmount <= 0) {
+        setError(intl.formatMessage({ id: "invoiceForm.paymentAmountError" }));
+        return;
+      }
+      if (!paymentMethodId) {
+        setError(intl.formatMessage({ id: "invoiceForm.paymentMethodError" }));
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -132,13 +174,21 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
           dueDate,
           documentType,
           originalBillId: originalBillId || undefined,
+          priceMode,
           lines: lineRequests,
+          payment: takePaymentNow
+            ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
+            : undefined,
         });
         setPartnerId("");
         setDocumentType(fixedDocumentType ?? BillDocumentType.Bill);
         setOriginalBillId("");
         setVendorReference("");
-        setLines([{ ...EMPTY_LINE }]);
+        setPriceMode(PriceMode.GrossInclusive);
+        setLines([emptyLine(defaultTaxId)]);
+        setTakePaymentNow(false);
+        setPaymentAmount("");
+        setPaymentMethodId("");
         onCreated();
       }
     } catch (err) {
@@ -218,6 +268,16 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
         </div>
       )}
 
+      {!editingBill && (
+        <div className="flex flex-col gap-2 sm:w-1/4">
+          <Label htmlFor="bill-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
+          <Select id="bill-price-mode" value={priceMode} onChange={(event) => setPriceMode(Number(event.target.value))}>
+            <option value={PriceMode.GrossInclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeGross" })}</option>
+            <option value={PriceMode.NetExclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeNet" })}</option>
+          </Select>
+        </div>
+      )}
+
       {needsOriginalBill && (
         <div className="flex flex-col gap-2 sm:w-1/2">
           <Label htmlFor="bill-original">
@@ -239,8 +299,8 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
 
       <div className="flex flex-col gap-2">
         {lines.map((line, index) => {
-          const gross = lineGross(line);
-          const { net, tax } = computeFromGross(gross, taxes.find((t) => t.id === line.taxDefinitionId));
+          const enteredAmount = lineEnteredAmount(line);
+          const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
           return (
           <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
@@ -258,7 +318,11 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
               />
             </div>
             <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.priceInclVat" })}</Label>}
+              {index === 0 && (
+                <Label>
+                  {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat" })}
+                </Label>
+              )}
               <Input
                 type="number"
                 step="0.01"
@@ -284,7 +348,7 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
                 value={line.taxDefinitionId}
                 onChange={(event) => updateLine(index, { taxDefinitionId: event.target.value })}
               >
-                <option value="">{intl.formatMessage({ id: "billForm.noTax" })}</option>
+                {!isVatRegistered && <option value="">{intl.formatMessage({ id: "billForm.noTax" })}</option>}
                 {taxes.map((tax) => (
                   <option key={tax.id} value={tax.id}>
                     {taxRatePercentLabel(tax)}
@@ -310,6 +374,40 @@ export function BillForm({ companyId, vendors, taxes, bills, onCreated, fixedDoc
           {intl.formatMessage({ id: "billForm.addLine" })}
         </Button>
       </div>
+
+      {!editingBill && (
+        <div className="flex flex-col gap-2 rounded-md border p-3">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
+            {intl.formatMessage({ id: "billForm.takeCashPaymentNow" })}
+          </label>
+          {takePaymentNow && (
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="bill-payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+                <Input
+                  id="bill-payment-amount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={paymentAmount}
+                  onChange={(event) => setPaymentAmount(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="bill-payment-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
+                <PaymentMethodSelect
+                  id="bill-payment-method"
+                  paymentMethods={cashPaymentMethods}
+                  value={paymentMethodId}
+                  onChange={setPaymentMethodId}
+                  emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       <Button type="submit" className="w-fit" disabled={submitting}>
         {editingBill

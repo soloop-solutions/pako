@@ -219,6 +219,16 @@ export const en: Record<string, string> = {
   "invoiceForm.atLeastOneLine": "Add at least one line.",
   "invoiceForm.createError": "Could not create the invoice.",
   "invoiceForm.saveError": "Could not save the invoice.",
+  "invoiceForm.priceMode": "Price entry",
+  "invoiceForm.priceModeGross": "Price includes VAT",
+  "invoiceForm.priceModeNet": "Price excludes VAT",
+  "invoiceForm.priceExclVat": "Price (excl. VAT)",
+  "invoiceForm.paymentTermDays": "Payment terms (days)",
+  "invoiceForm.graceDays": "Grace period (days)",
+  "invoiceForm.takePaymentNow": "Record a payment now",
+  "invoiceForm.paymentAmountError": "Enter a payment amount greater than zero.",
+  "invoiceForm.paymentMethodError": "Select a payment method.",
+  "invoiceForm.selectPaymentMethod": "Select payment method",
 
   // Invoice detail
   "invoiceDetail.title": "Invoice",
@@ -294,6 +304,8 @@ export const en: Record<string, string> = {
   "billForm.atLeastOneLine": "Add at least one line.",
   "billForm.createError": "Could not create the bill.",
   "billForm.saveError": "Could not save the bill.",
+  "billForm.priceExclVat": "Price (excl. VAT)",
+  "billForm.takeCashPaymentNow": "Record a cash payment now",
 
   // Bill detail
   "billDetail.title": "Bill",
@@ -408,6 +420,20 @@ export const en: Record<string, string> = {
   "reports.pnlLoadError": "Could not load the P&L report.",
   "reports.balanceSheetLoadError": "Could not load the balance sheet.",
   "reports.vatLoadError": "Could not load the VAT return.",
+  "reports.debtAging": "Debt",
+  "reports.debtAgingDescription": "Unpaid invoices, bucketed by how overdue they are.",
+  "reports.debtAgingLoadError": "Could not load the debt aging report.",
+  "reports.debtCurrent": "Current",
+  "reports.debtWithinGrace": "Within grace",
+  "reports.debtOverdue": "Overdue (debt)",
+  "reports.debtInvoiceNumber": "Invoice",
+  "reports.debtCustomer": "Customer",
+  "reports.debtDueDate": "Due date",
+  "reports.debtOutstanding": "Outstanding",
+  "reports.debtNone": "Nothing in this bucket.",
+  "reports.totalCurrent": "Total current: {amount}",
+  "reports.totalWithinGrace": "Total within grace: {amount}",
+  "reports.totalOverdue": "Total overdue: {amount}",
 
   // Shared forms
   "partnerForm.name": "Name",
@@ -433,6 +459,10 @@ export const en: Record<string, string> = {
   "recordPayment.amountError": "Enter a payment amount greater than zero.",
   "recordPayment.accountError": "Select a cash or bank account.",
   "recordPayment.error": "Could not record the payment \u2014 nothing was changed.",
+
+  // Payment methods
+  "paymentMethods.cash": "Cash",
+  "paymentMethods.bank": "Bank",
 
   "applyCreditNote.creditNote": "Credit note",
   "applyCreditNote.available": "available",
@@ -761,6 +791,16 @@ export const sq: Record<string, string> = {
   "invoiceForm.atLeastOneLine": "Shtoni t\u00eb pakt\u00ebn nj\u00eb rresht.",
   "invoiceForm.createError": "Nuk u krijua fatura.",
   "invoiceForm.saveError": "Nuk u ruajt fatura.",
+  "invoiceForm.priceMode": "Mënyra e çmimit",
+  "invoiceForm.priceModeGross": "Çmimi përfshin TVSH-në",
+  "invoiceForm.priceModeNet": "Çmimi pa TVSH",
+  "invoiceForm.priceExclVat": "Çmimi (pa TVSH)",
+  "invoiceForm.paymentTermDays": "Afati i pagesës (ditë)",
+  "invoiceForm.graceDays": "Periudha e faljes (ditë)",
+  "invoiceForm.takePaymentNow": "Regjistro pagesën tani",
+  "invoiceForm.paymentAmountError": "Vendosni një shumë pagese më të madhe se zero.",
+  "invoiceForm.paymentMethodError": "Zgjidhni mënyrën e pagesës.",
+  "invoiceForm.selectPaymentMethod": "Zgjidh mënyrën e pagesës",
 
   // Invoice detail
   "invoiceDetail.title": "Fatura",
@@ -836,6 +876,8 @@ export const sq: Record<string, string> = {
   "billForm.atLeastOneLine": "Shtoni t\u00eb pakt\u00ebn nj\u00eb rresht.",
   "billForm.createError": "Nuk u krijua fatura e blerjes.",
   "billForm.saveError": "Nuk u ruajt fatura e blerjes.",
+  "billForm.priceExclVat": "Çmimi (pa TVSH)",
+  "billForm.takeCashPaymentNow": "Regjistro pagesën me para në dorë tani",
 
   // Bill detail
   "billDetail.title": "Fatura e blerjes",
@@ -950,6 +992,20 @@ export const sq: Record<string, string> = {
   "reports.pnlLoadError": "Nuk u ngarkua raporti F&H.",
   "reports.balanceSheetLoadError": "Nuk u ngarkua bilanci.",
   "reports.vatLoadError": "Nuk u ngarkua kthimi i TVSH-s\u00eb.",
+  "reports.debtAging": "Borxhi",
+  "reports.debtAgingDescription": "Faturat e papaguara, t\u00eb ndara sipas koh\u00ebs s\u00eb vones\u00ebs.",
+  "reports.debtAgingLoadError": "Nuk u ngarkua raporti i borxhit.",
+  "reports.debtCurrent": "Aktuale",
+  "reports.debtWithinGrace": "Brenda periudh\u00ebs s\u00eb faljes",
+  "reports.debtOverdue": "T\u00eb vonuara (borxh)",
+  "reports.debtInvoiceNumber": "Fatura",
+  "reports.debtCustomer": "Klienti",
+  "reports.debtDueDate": "Data e maturimit",
+  "reports.debtOutstanding": "T\u00eb papaguara",
+  "reports.debtNone": "Asgj\u00eb n\u00eb k\u00ebt\u00eb grup.",
+  "reports.totalCurrent": "Totali aktual: {amount}",
+  "reports.totalWithinGrace": "Totali brenda periudh\u00ebs s\u00eb faljes: {amount}",
+  "reports.totalOverdue": "Totali i vonuar: {amount}",
 
   // Shared forms
   "partnerForm.name": "Emri",
@@ -975,6 +1031,10 @@ export const sq: Record<string, string> = {
   "recordPayment.amountError": "Vendosni nj\u00eb shum\u00eb pagese m\u00eb t\u00eb madhe se zero.",
   "recordPayment.accountError": "Zgjidhni nj\u00eb llogari ark\u00eb ose bank\u00eb.",
   "recordPayment.error": "Nuk u regjistrua pagesa \u2014 asgj\u00eb nuk u ndryshua.",
+
+  // Payment methods
+  "paymentMethods.cash": "Para n\u00eb dor\u00eb",
+  "paymentMethods.bank": "Bank\u00eb",
 
   "applyCreditNote.creditNote": "Nota e kreditimit",
   "applyCreditNote.available": "e disponueshme",

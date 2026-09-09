@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
-import type { BillResponse, DocumentBalanceResponse, PartnerResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -22,6 +22,7 @@ export function Bills() {
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [bills, setBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -29,14 +30,16 @@ export function Bills() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, billsResult, taxesResult] = await Promise.all([
+      const [partnersResult, billsResult, taxesResult, paymentMethodsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
         apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
+        apiClient.paymentMethodsAll(companyId),
       ]);
       setPartners(partnersResult);
       setBills(billsResult);
       setTaxes(taxesResult);
+      setPaymentMethods(paymentMethodsResult);
 
       const balanceEntries = await Promise.all(
         billsResult.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const),
@@ -111,6 +114,8 @@ export function Bills() {
             vendors={vendors}
             taxes={taxesForPurchase(taxes)}
             bills={bills}
+            paymentMethods={paymentMethods}
+            isVatRegistered={activeCompany.isVatRegistered}
             onCreated={refresh}
           />
         </CardContent>
