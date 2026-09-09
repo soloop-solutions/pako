@@ -1485,6 +1485,279 @@ export class PakoApiClient {
     }
 
     /**
+     * @param skip (optional) 
+     * @param take (optional) 
+     * @param search (optional) 
+     * @return OK
+     */
+    itemsGET(companyId: string, skip: number | undefined, take: number | undefined, search: string | undefined): Promise<PaginatedResponseOfItemResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (skip === null)
+            throw new globalThis.Error("The parameter 'skip' cannot be null.");
+        else if (skip !== undefined)
+            url_ += "skip=" + encodeURIComponent("" + skip) + "&";
+        if (take === null)
+            throw new globalThis.Error("The parameter 'take' cannot be null.");
+        else if (take !== undefined)
+            url_ += "take=" + encodeURIComponent("" + take) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processItemsGET(_response);
+        });
+    }
+
+    protected processItemsGET(response: Response): Promise<PaginatedResponseOfItemResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfItemResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfItemResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    itemsPOST(companyId: string, body: CreateItemRequest): Promise<ItemResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processItemsPOST(_response);
+        });
+    }
+
+    protected processItemsPOST(response: Response): Promise<ItemResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    itemsGET2(companyId: string, itemId: string): Promise<ItemResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/{itemId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemId === undefined || itemId === null)
+            throw new globalThis.Error("The parameter 'itemId' must be defined.");
+        url_ = url_.replace("{itemId}", encodeURIComponent("" + itemId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processItemsGET2(_response);
+        });
+    }
+
+    protected processItemsGET2(response: Response): Promise<ItemResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    itemsPUT(companyId: string, itemId: string, body: UpdateItemRequest): Promise<ItemResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/{itemId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemId === undefined || itemId === null)
+            throw new globalThis.Error("The parameter 'itemId' must be defined.");
+        url_ = url_.replace("{itemId}", encodeURIComponent("" + itemId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processItemsPUT(_response);
+        });
+    }
+
+    protected processItemsPUT(response: Response): Promise<ItemResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    barcodesPOST(companyId: string, itemId: string, body: AddBarcodeRequest): Promise<ItemBarcodeResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/{itemId}/barcodes";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemId === undefined || itemId === null)
+            throw new globalThis.Error("The parameter 'itemId' must be defined.");
+        url_ = url_.replace("{itemId}", encodeURIComponent("" + itemId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBarcodesPOST(_response);
+        });
+    }
+
+    protected processBarcodesPOST(response: Response): Promise<ItemBarcodeResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemBarcodeResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemBarcodeResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    barcodesDELETE(companyId: string, itemId: string, barcodeId: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/{itemId}/barcodes/{barcodeId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemId === undefined || itemId === null)
+            throw new globalThis.Error("The parameter 'itemId' must be defined.");
+        url_ = url_.replace("{itemId}", encodeURIComponent("" + itemId));
+        if (barcodeId === undefined || barcodeId === null)
+            throw new globalThis.Error("The parameter 'barcodeId' must be defined.");
+        url_ = url_.replace("{barcodeId}", encodeURIComponent("" + barcodeId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBarcodesDELETE(_response);
+        });
+    }
+
+    protected processBarcodesDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
      * @return OK
      */
     journalEntriesAll(companyId: string): Promise<JournalEntryResponse[]> {
@@ -1773,6 +2046,227 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<TrialBalanceLine[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    numberSeriesAll(companyId: string): Promise<NumberSeriesResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/number-series";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processNumberSeriesAll(_response);
+        });
+    }
+
+    protected processNumberSeriesAll(response: Response): Promise<NumberSeriesResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as NumberSeriesResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<NumberSeriesResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    numberSeries(companyId: string, seriesId: string, body: UpdateNumberSeriesPatternRequest): Promise<NumberSeriesResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/number-series/{seriesId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (seriesId === undefined || seriesId === null)
+            throw new globalThis.Error("The parameter 'seriesId' must be defined.");
+        url_ = url_.replace("{seriesId}", encodeURIComponent("" + seriesId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processNumberSeries(_response);
+        });
+    }
+
+    protected processNumberSeries(response: Response): Promise<NumberSeriesResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as NumberSeriesResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<NumberSeriesResponse>(null as any);
+    }
+
+    /**
+     * @param documentType (optional) 
+     * @return OK
+     */
+    preview(companyId: string, documentType: string | undefined): Promise<NumberPreviewResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/number-series/preview?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            url_ += "documentType=" + encodeURIComponent("" + documentType) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPreview(_response);
+        });
+    }
+
+    protected processPreview(response: Response): Promise<NumberPreviewResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as NumberPreviewResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<NumberPreviewResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    overrideNumber(companyId: string, invoiceId: string, body: OverrideNumberRequest): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{invoiceId}/override-number";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (invoiceId === undefined || invoiceId === null)
+            throw new globalThis.Error("The parameter 'invoiceId' must be defined.");
+        url_ = url_.replace("{invoiceId}", encodeURIComponent("" + invoiceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processOverrideNumber(_response);
+        });
+    }
+
+    protected processOverrideNumber(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @param documentType (optional) 
+     * @param year (optional) 
+     * @return OK
+     */
+    gaps(companyId: string, documentType: string | undefined, year: number | undefined): Promise<GapReportResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/number-series/gaps?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            url_ += "documentType=" + encodeURIComponent("" + documentType) + "&";
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGaps(_response);
+        });
+    }
+
+    protected processGaps(response: Response): Promise<GapReportResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as GapReportResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<GapReportResponse>(null as any);
     }
 
     /**
@@ -2519,6 +3013,12 @@ export interface AccountResponse {
     [key: string]: any;
 }
 
+export interface AddBarcodeRequest {
+    barcode: string;
+
+    [key: string]: any;
+}
+
 export interface AddMemberRequest {
     email: string;
     role: number;
@@ -2585,6 +3085,7 @@ export interface BillLineResponse {
     taxDefinitionId: string | undefined;
     expenseAccountId: string;
     discountPercent: number;
+    itemId: string | undefined;
 
     [key: string]: any;
 }
@@ -2635,6 +3136,7 @@ export interface CompanyResponse {
     taxLockDate: string | undefined;
     enabledProfiles: number;
     isVatRegistered: boolean;
+    allowNumberOverride: boolean;
 
     [key: string]: any;
 }
@@ -2646,6 +3148,7 @@ export interface CreateBillLineRequest {
     taxDefinitionId: string | undefined;
     expenseAccountId: string | undefined;
     discountPercent?: number | undefined;
+    itemId?: string | undefined;
 
     [key: string]: any;
 }
@@ -2701,6 +3204,7 @@ export interface CreateInvoiceLineRequest {
     taxDefinitionId: string | undefined;
     revenueAccountId: string | undefined;
     discountPercent?: number | undefined;
+    itemId?: string | undefined;
 
     [key: string]: any;
 }
@@ -2724,6 +3228,17 @@ export interface CreateInvoiceRequest {
     paymentTermDays?: number | undefined;
     graceDays?: number | undefined;
     payment?: CreateInvoicePaymentRequest | undefined;
+
+    [key: string]: any;
+}
+
+export interface CreateItemRequest {
+    name: string;
+    unit: string;
+    defaultTaxDefinitionId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultUnitPrice?: number | undefined;
 
     [key: string]: any;
 }
@@ -2760,6 +3275,8 @@ export interface CreatePartnerRequest {
     taxNumber: string | undefined;
     isCustomer: boolean;
     isVendor: boolean;
+    fiscalNumber?: string | undefined;
+    isVatRegistered?: boolean;
 
     [key: string]: any;
 }
@@ -2849,6 +3366,21 @@ export interface FirmResponse {
     [key: string]: any;
 }
 
+export interface GapReportEntry {
+    missingSequenceValue: number;
+    formattedNumber: string;
+
+    [key: string]: any;
+}
+
+export interface GapReportResponse {
+    documentType: string;
+    year: number;
+    gaps: GapReportEntry[];
+
+    [key: string]: any;
+}
+
 export interface InvoiceLineResponse {
     id: string;
     description: string;
@@ -2857,6 +3389,7 @@ export interface InvoiceLineResponse {
     taxDefinitionId: string | undefined;
     revenueAccountId: string;
     discountPercent: number;
+    itemId: string | undefined;
 
     [key: string]: any;
 }
@@ -2876,6 +3409,27 @@ export interface InvoiceResponse {
     priceMode: number;
     paymentTermDays: number | undefined;
     graceDays: number | undefined;
+
+    [key: string]: any;
+}
+
+export interface ItemBarcodeResponse {
+    id: string;
+    barcode: string;
+
+    [key: string]: any;
+}
+
+export interface ItemResponse {
+    id: string;
+    code: number;
+    name: string;
+    unit: string;
+    defaultTaxDefinitionId: string | undefined;
+    defaultRevenueAccountId: string | undefined;
+    defaultExpenseAccountId: string | undefined;
+    defaultUnitPrice: number | undefined;
+    barcodes: ItemBarcodeResponse[];
 
     [key: string]: any;
 }
@@ -2932,12 +3486,44 @@ export interface MemberResponse {
     [key: string]: any;
 }
 
+export interface NumberPreviewResponse {
+    number: string;
+    provisional: boolean;
+
+    [key: string]: any;
+}
+
+export interface NumberSeriesResponse {
+    id: string;
+    documentType: string;
+    year: number;
+    pattern: string;
+    nextValue: number;
+
+    [key: string]: any;
+}
+
+export interface OverrideNumberRequest {
+    newNumber: string;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfItemResponse {
+    items: ItemResponse[];
+    total: number;
+
+    [key: string]: any;
+}
+
 export interface PartnerResponse {
     id: string;
     name: string;
     taxNumber: string | undefined;
     isCustomer: boolean;
     isVendor: boolean;
+    fiscalNumber: string | undefined;
+    isVatRegistered: boolean;
 
     [key: string]: any;
 }
@@ -3081,6 +3667,23 @@ export interface UpdateInvoiceRequest {
     documentType: number;
     originalInvoiceId: string | undefined;
     internalNotes: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface UpdateItemRequest {
+    name: string;
+    unit: string;
+    defaultTaxDefinitionId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultUnitPrice?: number | undefined;
+
+    [key: string]: any;
+}
+
+export interface UpdateNumberSeriesPatternRequest {
+    pattern: string;
 
     [key: string]: any;
 }

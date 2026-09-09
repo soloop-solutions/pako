@@ -497,6 +497,40 @@ export const en: Record<string, string> = {
   "language.english": "English",
   "language.albanian": "Albanian",
 
+  // Items (B6)
+  "nav.items": "Items",
+  "nav.items.description": "Product and service register with barcodes.",
+  "items.title": "Items",
+  "items.description": "Register of products and services used on invoices and bills.",
+  "items.newItem": "New item",
+  "items.name": "Name",
+  "items.unit": "Unit",
+  "items.defaultPrice": "Default price",
+  "items.addItem": "Add item",
+  "items.creating": "Creating...",
+  "items.createError": "Could not create item.",
+  "items.loadError": "Could not load items.",
+  "items.noItems": "No items yet.",
+  "items.totalItems": "items",
+  "items.searchPlaceholder": "Search by name, code, or barcode...",
+  "items.barcodes": "Barcodes",
+  "items.addBarcode": "barcode",
+  "items.barcodeError": "Could not add barcode.",
+
+  // Partner (B5)
+  "partnerForm.fiscalNumber": "Fiscal number",
+  "partnerForm.vatRegistered": "VAT registered",
+
+  // Number series (B1/B2/B4)
+  "numberSeries.title": "Number series",
+  "numberSeries.description": "Invoice and document numbering patterns.",
+  "numberSeries.pattern": "Pattern",
+  "numberSeries.nextValue": "Next value",
+  "numberSeries.preview": "Preview",
+  "numberSeries.save": "Save",
+  "numberSeries.loadError": "Could not load number series.",
+  "numberSeries.saveError": "Could not save pattern.",
+
   // Enum labels - Account types
   "enum.accountType.asset": "Asset",
   "enum.accountType.liability": "Liability",
@@ -1068,6 +1102,40 @@ export const sq: Record<string, string> = {
   "language.label": "Gjuha",
   "language.english": "Anglisht",
   "language.albanian": "Shqip",
+
+  // Items (B6)
+  "nav.items": "Artikujt",
+  "nav.items.description": "Regjistri i produkteve dhe sh\u00ebrbimeve me barkode.",
+  "items.title": "Artikujt",
+  "items.description": "Regjistri i produkteve dhe sh\u00ebrbimeve q\u00eb p\u00ebrdoren n\u00eb fatura.",
+  "items.newItem": "Artikull i ri",
+  "items.name": "Emri",
+  "items.unit": "Nj\u00ebsia",
+  "items.defaultPrice": "\u00c7mimi fillestar",
+  "items.addItem": "Shto artikull",
+  "items.creating": "Duke krijuar...",
+  "items.createError": "Nuk u krijua artikulli.",
+  "items.loadError": "Nuk u ngarkuan artikujt.",
+  "items.noItems": "Ende nuk ka artikuj.",
+  "items.totalItems": "artikuj",
+  "items.searchPlaceholder": "K\u00ebrko sipas emrit, kodit ose barkodit...",
+  "items.barcodes": "Barkodet",
+  "items.addBarcode": "barkod",
+  "items.barcodeError": "Nuk u shtua barkodi.",
+
+  // Partner (B5)
+  "partnerForm.fiscalNumber": "Numri personal",
+  "partnerForm.vatRegistered": "I regjistruar n\u00eb TVSH",
+
+  // Number series (B1/B2/B4)
+  "numberSeries.title": "Serit\u00eb e numrave",
+  "numberSeries.description": "Formati i numerimit t\u00eb faturave dhe dokumenteve.",
+  "numberSeries.pattern": "Formati",
+  "numberSeries.nextValue": "Vlera e ardhshme",
+  "numberSeries.preview": "Paraparje",
+  "numberSeries.save": "Ruaj",
+  "numberSeries.loadError": "Nuk u ngarkuan serit\u00eb e numrave.",
+  "numberSeries.saveError": "Nuk u ruajt formati.",
 
   // Enum labels - Account types
   "enum.accountType.asset": "Aset",

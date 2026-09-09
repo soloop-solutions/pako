@@ -13,6 +13,7 @@ import {
   Building2,
   Settings as SettingsIcon,
   Users,
+  Package,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -26,6 +27,7 @@ import { Ledger } from "@/pages/ledger/Ledger";
 import { Payroll } from "@/pages/payroll/Payroll";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
+import { Items } from "@/pages/items/Items";
 import { Settings } from "@/pages/Settings";
 
 export type NavItem = {
@@ -90,6 +92,13 @@ export const navItems: NavItem[] = [
     icon: FileClock,
     descriptionKey: "nav.proforma.description",
     Element: Proforma,
+  },
+  {
+    titleKey: "nav.items",
+    path: "/items",
+    icon: Package,
+    descriptionKey: "nav.items.description",
+    Element: Items,
   },
   {
     titleKey: "nav.reconciliation",
