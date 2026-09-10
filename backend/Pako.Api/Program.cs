@@ -21,11 +21,14 @@ builder.Services.AddPakoInfrastructure(builder.Configuration);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
-const string WebDevCorsPolicy = "WebDevCorsPolicy";
+const string CorsPolicy = "CorsPolicy";
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(WebDevCorsPolicy, policy =>
-        policy.WithOrigins("http://localhost:5173", "http://127.0.0.1:5173")
+    options.AddPolicy(CorsPolicy, policy =>
+        policy.WithOrigins(
+                "http://localhost:5173",
+                "http://127.0.0.1:5173",
+                "https://pakoerp.netlify.app")
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -89,7 +92,7 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 
 app.UseHttpsRedirection();
 
-app.UseCors(WebDevCorsPolicy);
+app.UseCors(CorsPolicy);
 
 app.UseAuthentication();
 app.UseAuthorization();
