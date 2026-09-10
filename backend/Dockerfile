@@ -6,6 +6,7 @@ COPY backend/Pako.Api/Pako.Api.csproj Pako.Api/
 COPY backend/Pako.Domain/Pako.Domain.csproj Pako.Domain/
 COPY backend/Pako.Infrastructure/Pako.Infrastructure.csproj Pako.Infrastructure/
 COPY backend/Pako.Localization.Xk/Pako.Localization.Xk.csproj Pako.Localization.Xk/
+COPY backend/Pako.Tests/Pako.Tests.csproj Pako.Tests/
 RUN dotnet restore
 
 COPY backend/ .
