@@ -1,0 +1,43 @@
+{
+  "items": [
+    {
+      "id": "5f6a4b8e-9d3c-4a2f-8e1b-1a2b3c4d5e6f",
+      "code": 1,
+      "name": "Laptop HP ProBook 450",
+      "unit": "copë",
+      "defaultTaxDefinitionId": "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e",
+      "defaultRevenueAccountId": "400100-0000-4000-8000-000000000001",
+      "defaultExpenseAccountId": null,
+      "defaultUnitPrice": 799.99,
+      "barcodes": [
+        { "id": "a1b2c3d4-0001-4000-8000-000000000001", "barcode": "5901234123457" }
+      ]
+    },
+    {
+      "id": "6a7b5c9f-0e4d-4b3a-9f2c-2b3c4d5e6f70",
+      "code": 2,
+      "name": "Konsultim kontabël (orë)",
+      "unit": "orë",
+      "defaultTaxDefinitionId": "b1c2d3e4-f5a6-4b7c-8d9e-0f1a2b3c4d5e",
+      "defaultRevenueAccountId": "400100-0000-4000-8000-000000000001",
+      "defaultExpenseAccountId": null,
+      "defaultUnitPrice": 35,
+      "barcodes": []
+    },
+    {
+      "id": "7b8c6d0a-1f5e-4c4b-a03d-3c4d5e6f7081",
+      "code": 3,
+      "name": "Letër A4 (top)",
+      "unit": "top",
+      "defaultTaxDefinitionId": null,
+      "defaultRevenueAccountId": null,
+      "defaultExpenseAccountId": "661200-0000-4000-8000-000000000002",
+      "defaultUnitPrice": null,
+      "barcodes": [
+        { "id": "a1b2c3d4-0002-4000-8000-000000000002", "barcode": "4006381333931" },
+        { "id": "a1b2c3d4-0003-4000-8000-000000000003", "barcode": "4006381333948" }
+      ]
+    }
+  ],
+  "total": 3
+}

@@ -602,6 +602,27 @@ export const en: Record<string, string> = {
   "proforma.converting": "Converting...",
   "proforma.convertError": "Could not convert this proforma.",
   "proforma.convertedMessage": "Converted to invoice {number}.",
+
+  // Data grid
+  "dataGrid.search": "Search...",
+  "dataGrid.filterPlaceholder": "Filter...",
+  "dataGrid.groupBy": "Group by",
+  "dataGrid.noGrouping": "No grouping",
+  "dataGrid.groupByColumn": "Group by {column}",
+  "dataGrid.columns": "Columns",
+  "dataGrid.export": "Export",
+  "dataGrid.noResults": "No rows to show.",
+  "dataGrid.selectAll": "Select all rows",
+  "dataGrid.selectRow": "Select row",
+  "dataGrid.selectedCount": "{count} selected",
+  "dataGrid.total": "Total",
+  "dataGrid.pageTotal": "Page total",
+  "dataGrid.range": "{from}–{to} of {total}",
+  "dataGrid.rowsPerPage": "Rows per page",
+  "dataGrid.rowsPerPageOption": "{count} / page",
+  "dataGrid.previous": "Previous",
+  "dataGrid.next": "Next",
+  "dataGrid.pageOf": "{current} / {total}",
 };
 
 export const sq: Record<string, string> = {
@@ -1208,6 +1229,27 @@ export const sq: Record<string, string> = {
   "proforma.converting": "Duke konvertuar...",
   "proforma.convertError": "Nuk u konvertua kjo proformë.",
   "proforma.convertedMessage": "U konvertua në faturën {number}.",
+
+  // Data grid
+  "dataGrid.search": "Kërko...",
+  "dataGrid.filterPlaceholder": "Filtro...",
+  "dataGrid.groupBy": "Grupo sipas",
+  "dataGrid.noGrouping": "Pa grupim",
+  "dataGrid.groupByColumn": "Grupo sipas {column}",
+  "dataGrid.columns": "Kolonat",
+  "dataGrid.export": "Eksporto",
+  "dataGrid.noResults": "Nuk ka rreshta për të shfaqur.",
+  "dataGrid.selectAll": "Zgjidh të gjitha rreshtat",
+  "dataGrid.selectRow": "Zgjidh rreshtin",
+  "dataGrid.selectedCount": "{count} të zgjedhura",
+  "dataGrid.total": "Totali",
+  "dataGrid.pageTotal": "Nëntotali i faqes",
+  "dataGrid.range": "{from}–{to} nga {total}",
+  "dataGrid.rowsPerPage": "Rreshta për faqe",
+  "dataGrid.rowsPerPageOption": "{count} / faqe",
+  "dataGrid.previous": "Mbrapa",
+  "dataGrid.next": "Përpara",
+  "dataGrid.pageOf": "{current} / {total}",
 };
 
 export const messages: Record<string, Record<string, string>> = { en, sq };
