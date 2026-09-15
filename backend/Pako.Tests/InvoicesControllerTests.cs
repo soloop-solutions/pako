@@ -994,4 +994,74 @@ public class InvoicesControllerTests : IAsyncLifetime
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
+
+    // B5: the headline proof — numbering is derived from max(existing), not a stored counter,
+    // and the company-row FOR UPDATE lock InvoicesController.Post already takes fully serializes
+    // concurrent posts for the same company, so 50 genuinely concurrent posts (each its own
+    // PakoDbContext/connection, since a single DbContext isn't thread-safe) still produce exactly
+    // 50 consecutive, gapless numbers — no two colliding, none skipped.
+    [Fact]
+    public async Task Post_50ParallelPostsForSameCompany_Produce50ConsecutiveNumbers()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var draftIds = new List<Guid>();
+        for (var i = 0; i < 50; i++)
+        {
+            var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 10m));
+            var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+            draftIds.Add(created.Id);
+        }
+
+        var postTasks = draftIds.Select(async draftId =>
+        {
+            var postDb = PostgresTestDatabase.CreateAdditionalContext(db);
+            _dbContexts.Add(postDb);
+            var postController = new InvoicesController(postDb, TaxService, new DocumentNumberService(), new NumberSeriesService(postDb), new NullStringLocalizer<ErrorMessages>())
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext
+                    {
+                        User = new ClaimsPrincipal(new ClaimsIdentity(
+                            new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"))
+                    }
+                }
+            };
+            return await postController.Post(companyId, draftId);
+        });
+
+        var results = await Task.WhenAll(postTasks);
+
+        Assert.All(results, r => Assert.IsType<OkObjectResult>(r.Result));
+
+        var numbers = results
+            .Select(r => ((InvoiceResponse)((OkObjectResult)r.Result!).Value!).InvoiceNumber!)
+            .ToList();
+        var sequenceValues = numbers.Select(n => int.Parse(n.Split('/')[0])).OrderBy(v => v).ToList();
+
+        Assert.Equal(50, numbers.Distinct().Count());
+        Assert.Equal(Enumerable.Range(1, 50), sequenceValues);
+    }
+
+    // B5: a discarded draft never had a number reserved (numbering happens only at Post), so
+    // discarding one and then posting a different draft mints the FIRST number, not the second —
+    // proving there's no stray counter anywhere that a discard could leave incremented.
+    [Fact]
+    public async Task Discard_DraftThenPostAnother_DoesNotSkipNumbers()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+        var discardedResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 10m));
+        var discarded = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(discardedResult.Result).Value);
+        await controller.Discard(companyId, discarded.Id);
+
+        var keptResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 20m));
+        var kept = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(keptResult.Result).Value);
+        var postResult = await controller.Post(companyId, kept.Id);
+
+        var posted = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(postResult.Result).Value);
+        Assert.StartsWith("01/", posted.InvoiceNumber);
+    }
 }
