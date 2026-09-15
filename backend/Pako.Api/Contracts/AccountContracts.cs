@@ -32,7 +32,8 @@ public record AccountResponse(
     DateOnly? ValidTo,
     // B2: computed by matching Code against the company's AccountGroup prefix ranges — never a
     // stored column, so this is never stale and never needs a backfill.
-    Guid? GroupId);
+    Guid? GroupId,
+    CashFlowCategory CashFlowCategory);
 
 // B2: one row per AccountGroup — a Class-level row has ParentGroupId null, a Group-level row
 // points to its Class-level row.

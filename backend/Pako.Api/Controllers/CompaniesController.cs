@@ -93,7 +93,8 @@ public class CompaniesController : ControllerBase
                 DefaultVatCode = entry.DefaultVatCode,
                 CitDeductibility = entry.CitDeductibility,
                 CitLimitRule = entry.CitLimitRule,
-                Profiles = entry.Profile
+                Profiles = entry.Profile,
+                CashFlowCategory = AccountTypeDerivation.DeriveCashFlowCategory(entry.Class, entry.Group)
             });
         }
 

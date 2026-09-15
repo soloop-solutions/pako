@@ -263,4 +263,18 @@ public class AccountsControllerTests : IAsyncLifetime
         Assert.Equal("Cash and Cash Equivalents", groups[cash.GroupId!.Value].Name);
         Assert.Equal("Income Tax", groups[incomeTax.GroupId!.Value].Name);
     }
+
+    // B3: CashFlowCategory round-trips through Create — CreateRequest() defaults to Class 6/
+    // Group 60 (Personnel-range opex), which derives to Operating.
+    [Fact]
+    public async Task Create_DerivesCashFlowCategoryFromClassAndGroup()
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, CreateRequest());
+
+        var created = Assert.IsType<AccountResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(CashFlowCategory.Operating, created.CashFlowCategory);
+    }
 }

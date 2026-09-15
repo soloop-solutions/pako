@@ -22,5 +22,6 @@
   "isActive": true,
   "validFrom": null,
   "validTo": null,
-  "groupId": "3f7a1c2e-1111-4a1a-9b1a-000000000011"
+  "groupId": "3f7a1c2e-1111-4a1a-9b1a-000000000011",
+  "cashFlowCategory": 1
 }

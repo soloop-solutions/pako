@@ -59,6 +59,16 @@ public enum CitDeductibility
     Na
 }
 
+// B3: standard indirect-method cash-flow-statement classification. See
+// AccountTypeDerivation.DeriveCashFlowCategory for how each seeded account gets one.
+public enum CashFlowCategory
+{
+    None,
+    Operating,
+    Investing,
+    Financing
+}
+
 public class Account
 {
     public Guid Id { get; set; }
@@ -118,4 +128,9 @@ public class Account
     // never by editing Code in place. ValidFrom/ValidTo record the date range a code was in effect.
     public DateOnly? ValidFrom { get; set; }
     public DateOnly? ValidTo { get; set; }
+
+    // B3: defaulted per account type in the seed (AccountTypeDerivation.DeriveCashFlowCategory);
+    // non-nullable like Profiles above, since "None" (not a cash flow line at all — this is what
+    // cash/cash-equivalent accounts get) is itself meaningful, not a missing-data sentinel.
+    public CashFlowCategory CashFlowCategory { get; set; } = CashFlowCategory.None;
 }

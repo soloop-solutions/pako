@@ -84,7 +84,13 @@ public class AccountsController : ControllerBase
             CitLimitRule = request.CitLimitRule,
             Profiles = request.Profiles,
             ValidFrom = request.ValidFrom,
-            ValidTo = request.ValidTo
+            ValidTo = request.ValidTo,
+            // B3: derived from Class/Group like the seed does, not a raw request field — a
+            // client that doesn't set Class (free-text/manual accounts) gets None, same as the
+            // domain default.
+            CashFlowCategory = request.Class is int accountClass
+                ? AccountTypeDerivation.DeriveCashFlowCategory(accountClass, request.Group)
+                : Domain.Ledger.CashFlowCategory.None
         };
 
         _db.Accounts.Add(account);
@@ -134,6 +140,9 @@ public class AccountsController : ControllerBase
         account.Profiles = request.Profiles;
         account.ValidFrom = request.ValidFrom;
         account.ValidTo = request.ValidTo;
+        account.CashFlowCategory = request.Class is int accountClass
+            ? AccountTypeDerivation.DeriveCashFlowCategory(accountClass, request.Group)
+            : Domain.Ledger.CashFlowCategory.None;
 
         await _db.SaveChangesAsync();
         var groups = await GetGroupsAsync(companyId);
@@ -168,5 +177,5 @@ public class AccountsController : ControllerBase
         a.Id, a.Code, a.Name, a.AccountType, a.AccountSubType, a.ParentAccountId, a.IsReconcilable,
         a.CreatedAt, a.NameSq, a.Class, a.Group, a.Statement, a.NormalBalance, a.Subledger,
         a.IsControl, a.IsPostable, a.DefaultVatCode, a.CitDeductibility, a.CitLimitRule, a.Profiles,
-        a.IsActive, a.ValidFrom, a.ValidTo, AccountGroupResolver.Resolve(a.Code, groups)?.Id);
+        a.IsActive, a.ValidFrom, a.ValidTo, AccountGroupResolver.Resolve(a.Code, groups)?.Id, a.CashFlowCategory);
 }
