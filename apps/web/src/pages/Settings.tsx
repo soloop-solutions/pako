@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
+import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
 
 export function Settings() {
@@ -44,6 +45,8 @@ export function Settings() {
           )}
         </CardContent>
       </Card>
+
+      {activeCompany && <LockDatesSettings companyId={activeCompany.id} />}
     </div>
   );
 }
