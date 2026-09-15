@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Ledger;
@@ -14,10 +15,12 @@ namespace Pako.Api.Controllers;
 public class AccountsController : ControllerBase
 {
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public AccountsController(PakoDbContext db)
+    public AccountsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _localizer = localizer;
     }
 
     [HttpGet]
@@ -32,43 +35,126 @@ public class AccountsController : ControllerBase
         return Ok(accounts.Select(ToResponse).ToList());
     }
 
-    // CONTRACT STUB — replaced in B1
     [HttpPost]
     [RequireCompanyAccess(writeAccess: true)]
     [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status201Created)]
-    public ActionResult<AccountResponse> Create(Guid companyId, CreateAccountRequest request)
+    public async Task<ActionResult<AccountResponse>> Create(Guid companyId, CreateAccountRequest request)
     {
-        return StatusCode(StatusCodes.Status201Created, new AccountResponse(
-            Guid.NewGuid(), request.Code, request.Name, request.AccountType, request.AccountSubType,
-            request.ParentAccountId, request.IsReconcilable, DateTime.UtcNow, request.NameSq,
-            request.Class, request.Group, request.Statement, request.NormalBalance, request.Subledger,
-            request.IsControl, request.IsPostable, request.DefaultVatCode, request.CitDeductibility,
-            request.CitLimitRule, request.Profiles, true, request.ValidFrom, request.ValidTo));
+        var code = request.Code?.Trim() ?? string.Empty;
+        var name = request.Name?.Trim() ?? string.Empty;
+
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            return BadRequest(_localizer["AccountCodeRequired"].Value);
+        }
+
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(_localizer["AccountNameRequired"].Value);
+        }
+
+        var codeTaken = await _db.Accounts.AsNoTracking()
+            .AnyAsync(a => a.CompanyId == companyId && a.Code == code);
+        if (codeTaken)
+        {
+            return BadRequest(_localizer["AccountCodeAlreadyExists"].Value);
+        }
+
+        var account = new Account
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            Code = code,
+            Name = name,
+            AccountType = request.AccountType,
+            AccountSubType = request.AccountSubType,
+            ParentAccountId = request.ParentAccountId,
+            IsReconcilable = request.IsReconcilable,
+            NameSq = request.NameSq,
+            Class = request.Class,
+            Group = request.Group,
+            Statement = request.Statement,
+            NormalBalance = request.NormalBalance,
+            Subledger = request.Subledger,
+            IsControl = request.IsControl,
+            IsPostable = request.IsPostable,
+            DefaultVatCode = request.DefaultVatCode,
+            CitDeductibility = request.CitDeductibility,
+            CitLimitRule = request.CitLimitRule,
+            Profiles = request.Profiles,
+            ValidFrom = request.ValidFrom,
+            ValidTo = request.ValidTo
+        };
+
+        _db.Accounts.Add(account);
+        await _db.SaveChangesAsync();
+
+        return StatusCode(StatusCodes.Status201Created, ToResponse(account));
     }
 
-    // CONTRACT STUB — replaced in B1
     [HttpPut("{accountId:guid}")]
     [RequireCompanyAccess(writeAccess: true)]
-    public ActionResult<AccountResponse> Update(Guid companyId, Guid accountId, UpdateAccountRequest request)
+    public async Task<ActionResult<AccountResponse>> Update(Guid companyId, Guid accountId, UpdateAccountRequest request)
     {
-        return Ok(new AccountResponse(
-            accountId, request.Code, request.Name, request.AccountType, request.AccountSubType,
-            request.ParentAccountId, request.IsReconcilable, DateTime.UtcNow, request.NameSq,
-            request.Class, request.Group, request.Statement, request.NormalBalance, request.Subledger,
-            request.IsControl, request.IsPostable, request.DefaultVatCode, request.CitDeductibility,
-            request.CitLimitRule, request.Profiles, true, request.ValidFrom, request.ValidTo));
+        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.CompanyId == companyId);
+        if (account == null) return NotFound();
+
+        var name = request.Name?.Trim() ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return BadRequest(_localizer["AccountNameRequired"].Value);
+        }
+
+        // R25: the code is immutable once the account exists — renumbering goes through a
+        // versioned mapping (90_Migration), never an in-place edit.
+        var requestedCode = request.Code?.Trim() ?? string.Empty;
+        if (requestedCode != account.Code)
+        {
+            return BadRequest(_localizer["AccountCodeCannotBeChanged"].Value);
+        }
+
+        account.Name = name;
+        account.AccountType = request.AccountType;
+        account.AccountSubType = request.AccountSubType;
+        account.ParentAccountId = request.ParentAccountId;
+        account.IsReconcilable = request.IsReconcilable;
+        account.NameSq = request.NameSq;
+        account.Class = request.Class;
+        account.Group = request.Group;
+        account.Statement = request.Statement;
+        account.NormalBalance = request.NormalBalance;
+        account.Subledger = request.Subledger;
+        account.IsControl = request.IsControl;
+        account.IsPostable = request.IsPostable;
+        account.DefaultVatCode = request.DefaultVatCode;
+        account.CitDeductibility = request.CitDeductibility;
+        account.CitLimitRule = request.CitLimitRule;
+        account.Profiles = request.Profiles;
+        account.ValidFrom = request.ValidFrom;
+        account.ValidTo = request.ValidTo;
+
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(account));
     }
 
-    // CONTRACT STUB — replaced in B1
+    // R26: accounts are deactivated, never deleted — there is deliberately no DELETE action on
+    // this controller at all (see NoDeletionGuaranteeTests.AccountsController_HasNoDeleteRoute).
     [HttpPost("{accountId:guid}/deactivate")]
     [RequireCompanyAccess(writeAccess: true)]
-    public ActionResult<AccountResponse> Deactivate(Guid companyId, Guid accountId)
+    public async Task<ActionResult<AccountResponse>> Deactivate(Guid companyId, Guid accountId)
     {
-        return Ok(new AccountResponse(
-            accountId, "110100", "Cash", AccountType.Asset, AccountSubType.Cash,
-            null, false, DateTime.UtcNow, "Arka", 1, 1, AccountStatement.BalanceSheet, Domain.Ledger.NormalBalance.Debit,
-            SubledgerType.Cash, false, true, null, CitDeductibility.Na, null, Domain.Companies.CompanyProfile.Core,
-            false, null, null));
+        var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.CompanyId == companyId);
+        if (account == null) return NotFound();
+
+        if (!account.IsActive)
+        {
+            return BadRequest(_localizer["AccountAlreadyInactive"].Value);
+        }
+
+        account.IsActive = false;
+        await _db.SaveChangesAsync();
+
+        return Ok(ToResponse(account));
     }
 
     private static AccountResponse ToResponse(Account a) => new(

@@ -95,6 +95,13 @@
   <!-- Tax code required (Track C) -->
   <data name="TaxCodeRequired" xml:space="preserve"><value>A tax code is required for every line.</value></data>
 
+  <!-- Accounts (B1) -->
+  <data name="AccountCodeRequired" xml:space="preserve"><value>Account code is required.</value></data>
+  <data name="AccountNameRequired" xml:space="preserve"><value>Account name is required.</value></data>
+  <data name="AccountCodeAlreadyExists" xml:space="preserve"><value>An account with this code already exists in this company.</value></data>
+  <data name="AccountCodeCannotBeChanged" xml:space="preserve"><value>An account's code cannot be changed once created; deactivate it and create a new one instead.</value></data>
+  <data name="AccountAlreadyInactive" xml:space="preserve"><value>This account is already deactivated.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>

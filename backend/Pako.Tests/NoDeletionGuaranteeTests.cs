@@ -24,6 +24,13 @@ public class NoDeletionGuaranteeTests
         AssertNoHttpDeleteAction(typeof(BillsController));
     }
 
+    // B1/R26: accounts are deactivated (AccountsController.Deactivate), never deleted.
+    [Fact]
+    public void AccountsController_HasNoDeleteRoute()
+    {
+        AssertNoHttpDeleteAction(typeof(AccountsController));
+    }
+
     private static void AssertNoHttpDeleteAction(Type controllerType)
     {
         var hasDeleteAction = controllerType

@@ -95,6 +95,13 @@
   <!-- Tax code required (Track C) -->
   <data name="TaxCodeRequired" xml:space="preserve"><value>Kodi i tatimit është i domosdoshëm për çdo rresht.</value></data>
 
+  <!-- Accounts (B1) -->
+  <data name="AccountCodeRequired" xml:space="preserve"><value>Kodi i llogarisë është i domosdoshëm.</value></data>
+  <data name="AccountNameRequired" xml:space="preserve"><value>Emri i llogarisë është i domosdoshëm.</value></data>
+  <data name="AccountCodeAlreadyExists" xml:space="preserve"><value>Ekziston tashmë një llogari me këtë kod në këtë kompani.</value></data>
+  <data name="AccountCodeCannotBeChanged" xml:space="preserve"><value>Kodi i një llogarie nuk mund të ndryshohet pas krijimit; çaktivizojeni dhe krijoni një të re në vend të kësaj.</value></data>
+  <data name="AccountAlreadyInactive" xml:space="preserve"><value>Kjo llogari është tashmë e çaktivizuar.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>
