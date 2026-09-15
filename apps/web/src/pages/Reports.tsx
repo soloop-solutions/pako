@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
+import { Download, Lock } from "lucide-react";
 import type { BalanceSheetResponse, DebtAgingResponse, PartnerResponse, ProfitAndLossResponse, VatReturnResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,6 +15,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 
 type Tab = "pnl" | "balance-sheet" | "vat" | "debt";
+type ExcelRow = (string | number)[];
 
 function today() {
   return new Date().toISOString().slice(0, 10);
@@ -21,6 +24,46 @@ function today() {
 function startOfMonth() {
   const now = new Date();
   return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+}
+
+// F10 lock-awareness is scoped to the two real, backend-enforced lock fields on `Company`
+// (accountingLockDate/taxLockDate — see JournalEntry.Post()'s lock-date checks). The other three
+// lock types in LockDatesSettings.tsx (sale/purchase/hard) are a self-contained mock with zero
+// server enforcement and their own independent in-memory state, not synced with these real fields
+// — surfacing them here as "locked" would risk an accountant thinking a real period is closed when
+// nothing on the backend actually blocks it. Dates are plain ISO (YYYY-MM-DD) strings throughout
+// this file already, so a lexicographic comparison is a correct "on or before" check.
+function isOnOrBeforeLock(date: string, lockDate: string | undefined): boolean {
+  return !!lockDate && date <= lockDate;
+}
+
+// Dynamically imported, same as DataGrid.tsx's own export button — keeps the xlsx library out of
+// the main bundle until someone actually exports something.
+function downloadRows(rows: (string | number)[][], fileName: string): void {
+  void import("@/components/data-grid/exportToExcel").then(({ exportRowsToExcel }) => exportRowsToExcel(rows, fileName));
+}
+
+function LockNotice({ lockDate, messageId }: { lockDate: string; messageId: "reports.periodLockedAccounting" | "reports.periodLockedTax" }) {
+  const intl = useIntl();
+  return (
+    <div className="flex items-center gap-2">
+      <Badge variant="outline" className="w-fit gap-1 text-amber-600">
+        <Lock className="size-3" />
+        {intl.formatMessage({ id: "reports.lockBadge" })}
+      </Badge>
+      <span className="text-xs text-amber-600">{intl.formatMessage({ id: messageId }, { date: lockDate })}</span>
+    </div>
+  );
+}
+
+function ExportButton({ onClick }: { onClick: () => void }) {
+  const intl = useIntl();
+  return (
+    <Button type="button" variant="outline" size="sm" onClick={onClick}>
+      <Download className="size-3.5" />
+      {intl.formatMessage({ id: "reports.exportToExcel" })}
+    </Button>
+  );
 }
 
 export function Reports() {
@@ -40,22 +83,30 @@ export function Reports() {
   const [pnlFrom, setPnlFrom] = useState(startOfMonth);
   const [pnlTo, setPnlTo] = useState(today);
   const [pnl, setPnl] = useState<ProfitAndLossResponse | null>(null);
+  // The period the currently-displayed `pnl` was actually loaded for — set only on a successful
+  // load, never from the live `pnlFrom`/`pnlTo` inputs. The lock badge and the exported file must
+  // describe what's on screen, not an edited-but-not-yet-submitted date range; see the same pattern
+  // on balanceSheetPeriod/vatPeriod/debtPeriod below.
+  const [pnlPeriod, setPnlPeriod] = useState<{ from: string; to: string } | null>(null);
   const [pnlError, setPnlError] = useState<string | null>(null);
   const [pnlLoading, setPnlLoading] = useState(false);
 
   const [asOf, setAsOf] = useState(today);
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetResponse | null>(null);
+  const [balanceSheetAsOf, setBalanceSheetAsOf] = useState<string | null>(null);
   const [balanceSheetError, setBalanceSheetError] = useState<string | null>(null);
   const [balanceSheetLoading, setBalanceSheetLoading] = useState(false);
 
   const [vatFrom, setVatFrom] = useState(startOfMonth);
   const [vatTo, setVatTo] = useState(today);
   const [vatReturn, setVatReturn] = useState<VatReturnResponse | null>(null);
+  const [vatPeriod, setVatPeriod] = useState<{ from: string; to: string } | null>(null);
   const [vatError, setVatError] = useState<string | null>(null);
   const [vatLoading, setVatLoading] = useState(false);
 
   const [debtAsOf, setDebtAsOf] = useState(today);
   const [debtAging, setDebtAging] = useState<DebtAgingResponse | null>(null);
+  const [debtAsOfLoaded, setDebtAsOfLoaded] = useState<string | null>(null);
   const [debtPartners, setDebtPartners] = useState<PartnerResponse[]>([]);
   const [debtError, setDebtError] = useState<string | null>(null);
   const [debtLoading, setDebtLoading] = useState(false);
@@ -65,7 +116,9 @@ export function Reports() {
     setPnlError(null);
     setPnlLoading(true);
     try {
-      setPnl(await apiClient.profitAndLoss(companyId, pnlFrom, pnlTo));
+      const result = await apiClient.profitAndLoss(companyId, pnlFrom, pnlTo);
+      setPnl(result);
+      setPnlPeriod({ from: pnlFrom, to: pnlTo });
     } catch (err) {
       setPnlError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.pnlLoadError" })));
     } finally {
@@ -78,7 +131,9 @@ export function Reports() {
     setBalanceSheetError(null);
     setBalanceSheetLoading(true);
     try {
-      setBalanceSheet(await apiClient.balanceSheet(companyId, asOf));
+      const result = await apiClient.balanceSheet(companyId, asOf);
+      setBalanceSheet(result);
+      setBalanceSheetAsOf(asOf);
     } catch (err) {
       setBalanceSheetError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.balanceSheetLoadError" })));
     } finally {
@@ -91,7 +146,9 @@ export function Reports() {
     setVatError(null);
     setVatLoading(true);
     try {
-      setVatReturn(await apiClient.vatReturn(companyId, vatFrom, vatTo));
+      const result = await apiClient.vatReturn(companyId, vatFrom, vatTo);
+      setVatReturn(result);
+      setVatPeriod({ from: vatFrom, to: vatTo });
     } catch (err) {
       setVatError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.vatLoadError" })));
     } finally {
@@ -109,6 +166,7 @@ export function Reports() {
         apiClient.partnersAll(companyId),
       ]);
       setDebtAging(debtAgingResult);
+      setDebtAsOfLoaded(debtAsOf);
       setDebtPartners(partnersResult);
     } catch (err) {
       setDebtError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.debtAgingLoadError" })));
@@ -133,6 +191,115 @@ export function Reports() {
         </CardContent>
       </Card>
     );
+  }
+
+  const accountingLockDate = activeCompany.accountingLockDate;
+  const taxLockDate = activeCompany.taxLockDate;
+  // Locked-ness is derived from the *loaded* period snapshot, not the live date inputs — otherwise
+  // editing a date field without re-running would silently change the badge (and the export's
+  // lock notice) while the table underneath kept showing the previously-loaded, still-current data.
+  const pnlLocked = !!pnlPeriod && isOnOrBeforeLock(pnlPeriod.to, accountingLockDate);
+  const balanceSheetLocked = !!balanceSheetAsOf && isOnOrBeforeLock(balanceSheetAsOf, accountingLockDate);
+  const vatLocked = !!vatPeriod && isOnOrBeforeLock(vatPeriod.to, taxLockDate);
+  const debtLocked = !!debtAsOfLoaded && isOnOrBeforeLock(debtAsOfLoaded, accountingLockDate);
+
+  function exportPnl() {
+    if (!pnl || !pnlPeriod) return;
+    const rows: ExcelRow[] = [
+      [intl.formatMessage({ id: "reports.profitAndLoss" }), `${pnlPeriod.from} – ${pnlPeriod.to}`],
+      [],
+      [intl.formatMessage({ id: "reports.income" })],
+      [intl.formatMessage({ id: "common.code" }), intl.formatMessage({ id: "ledger.account" }), intl.formatMessage({ id: "common.amount" })],
+      ...pnl.income.map((line): ExcelRow => [line.accountCode, line.accountName, line.amount]),
+      [],
+      [intl.formatMessage({ id: "reports.expenses" })],
+      [intl.formatMessage({ id: "common.code" }), intl.formatMessage({ id: "ledger.account" }), intl.formatMessage({ id: "common.amount" })],
+      ...pnl.expenses.map((line): ExcelRow => [line.accountCode, line.accountName, line.amount]),
+      [],
+      [intl.formatMessage({ id: "reports.totalIncome" }, { amount: pnl.totalIncome.toFixed(2) })],
+      [intl.formatMessage({ id: "reports.totalExpenses" }, { amount: pnl.totalExpenses.toFixed(2) })],
+      [intl.formatMessage({ id: "reports.netIncome" }, { amount: pnl.netIncome.toFixed(2) })],
+    ];
+    if (pnlLocked) rows.push([], [intl.formatMessage({ id: "reports.periodLockedAccounting" }, { date: accountingLockDate ?? "" })]);
+    downloadRows(rows, `profit-and-loss_${pnlPeriod.from}_${pnlPeriod.to}`);
+  }
+
+  function exportBalanceSheet() {
+    if (!balanceSheet || !balanceSheetAsOf) return;
+    const sections: [string, BalanceSheetResponse["assets"], number, string][] = [
+      ["reports.assets", balanceSheet.assets, balanceSheet.totalAssets, "reports.totalAssets"],
+      ["reports.liabilities", balanceSheet.liabilities, balanceSheet.totalLiabilities, "reports.totalLiabilities"],
+      ["reports.equity", balanceSheet.equity, balanceSheet.totalEquity, "reports.totalEquity"],
+    ];
+    const rows: ExcelRow[] = [[intl.formatMessage({ id: "reports.balanceSheet" }), balanceSheetAsOf], []];
+    for (const [titleKey, lines, total, totalKey] of sections) {
+      rows.push(
+        [intl.formatMessage({ id: titleKey })],
+        [intl.formatMessage({ id: "common.code" }), intl.formatMessage({ id: "ledger.account" }), intl.formatMessage({ id: "common.amount" })],
+        ...lines.map((line): ExcelRow => [line.accountCode, line.accountName, line.amount]),
+        [intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })],
+        [],
+      );
+    }
+    rows.push([
+      intl.formatMessage(
+        { id: "reports.balanceEquation" },
+        {
+          assets: balanceSheet.totalAssets.toFixed(2),
+          liabilitiesPlusEquity: (balanceSheet.totalLiabilities + balanceSheet.totalEquity).toFixed(2),
+        },
+      ),
+    ]);
+    if (balanceSheetLocked) rows.push([], [intl.formatMessage({ id: "reports.periodLockedAccounting" }, { date: accountingLockDate ?? "" })]);
+    downloadRows(rows, `balance-sheet_${balanceSheetAsOf}`);
+  }
+
+  function exportVatReturn() {
+    if (!vatReturn || !vatPeriod) return;
+    const rows: ExcelRow[] = [
+      [intl.formatMessage({ id: "reports.vatReturn" }), `${vatPeriod.from} – ${vatPeriod.to}`],
+      [],
+      [intl.formatMessage({ id: "reports.outputVat" })],
+      [intl.formatMessage({ id: "reports.tax" }), intl.formatMessage({ id: "reports.rate" }), intl.formatMessage({ id: "common.amount" })],
+      ...vatReturn.outputVat.map((line): ExcelRow => [line.name, `${(line.rate * 100).toFixed(0)}%`, line.amount]),
+      [],
+      [intl.formatMessage({ id: "reports.inputVat" })],
+      [intl.formatMessage({ id: "reports.tax" }), intl.formatMessage({ id: "reports.rate" }), intl.formatMessage({ id: "common.amount" })],
+      ...vatReturn.inputVat.map((line): ExcelRow => [line.name, `${(line.rate * 100).toFixed(0)}%`, line.amount]),
+      [],
+      [intl.formatMessage({ id: "reports.totalOutputVat" }, { amount: vatReturn.totalOutputVat.toFixed(2) })],
+      [intl.formatMessage({ id: "reports.totalInputVat" }, { amount: vatReturn.totalInputVat.toFixed(2) })],
+      [intl.formatMessage({ id: "reports.netVatDue" }, { amount: vatReturn.netVatDue.toFixed(2) })],
+    ];
+    if (vatLocked) rows.push([], [intl.formatMessage({ id: "reports.periodLockedTax" }, { date: taxLockDate ?? "" })]);
+    downloadRows(rows, `vat-return_${vatPeriod.from}_${vatPeriod.to}`);
+  }
+
+  function exportDebtAging() {
+    if (!debtAging || !debtAsOfLoaded) return;
+    const buckets: [string, DebtAgingResponse["lines"][number]["bucket"], number, string][] = [
+      ["reports.debtCurrent", "Current", debtAging.totalCurrent, "reports.totalCurrent"],
+      ["reports.debtWithinGrace", "WithinGrace", debtAging.totalWithinGrace, "reports.totalWithinGrace"],
+      ["reports.debtOverdue", "Overdue", debtAging.totalOverdue, "reports.totalOverdue"],
+    ];
+    const rows: ExcelRow[] = [[intl.formatMessage({ id: "reports.debtAging" }), debtAsOfLoaded], []];
+    for (const [titleKey, bucket, total, totalKey] of buckets) {
+      const lines = debtAging.lines.filter((line) => line.bucket === bucket);
+      rows.push(
+        [intl.formatMessage({ id: titleKey })],
+        [
+          intl.formatMessage({ id: "reports.debtInvoiceNumber" }),
+          intl.formatMessage({ id: "reports.debtCustomer" }),
+          intl.formatMessage({ id: "reports.debtDueDate" }),
+          intl.formatMessage({ id: "reports.debtOutstanding" }),
+        ],
+        ...lines.map((line): ExcelRow => [line.invoiceNumber ?? "-", debtPartnerName(line.partnerId), line.dueDate, line.outstanding]),
+        [intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })],
+        [],
+      );
+    }
+    if (debtLocked) rows.push([intl.formatMessage({ id: "reports.periodLockedAccounting" }, { date: accountingLockDate ?? "" })]);
+    downloadRows(rows, `debt-aging_${debtAsOfLoaded}`);
   }
 
   return (
@@ -170,7 +337,10 @@ export function Reports() {
               <Button onClick={loadPnl} disabled={pnlLoading}>
                 {pnlLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
+              {pnl && <ExportButton onClick={exportPnl} />}
             </div>
+
+            {pnlLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
 
             {pnlError && (
               <Alert variant="destructive">
@@ -248,7 +418,10 @@ export function Reports() {
               <Button onClick={loadBalanceSheet} disabled={balanceSheetLoading}>
                 {balanceSheetLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
+              {balanceSheet && <ExportButton onClick={exportBalanceSheet} />}
             </div>
+
+            {balanceSheetLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
 
             {balanceSheetError && (
               <Alert variant="destructive">
@@ -332,7 +505,10 @@ export function Reports() {
               <Button onClick={loadVatReturn} disabled={vatLoading}>
                 {vatLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
+              {vatReturn && <ExportButton onClick={exportVatReturn} />}
             </div>
+
+            {vatLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
 
             {vatError && (
               <Alert variant="destructive">
@@ -410,7 +586,10 @@ export function Reports() {
               <Button onClick={loadDebtAging} disabled={debtLoading}>
                 {debtLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
+              {debtAging && <ExportButton onClick={exportDebtAging} />}
             </div>
+
+            {debtLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
 
             {debtError && (
               <Alert variant="destructive">

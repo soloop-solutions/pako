@@ -517,6 +517,10 @@ export const en: Record<string, string> = {
   "reports.totalCurrent": "Total current: {amount}",
   "reports.totalWithinGrace": "Total within grace: {amount}",
   "reports.totalOverdue": "Total overdue: {amount}",
+  "reports.exportToExcel": "Export to Excel",
+  "reports.periodLockedAccounting": "This period is locked (accounting lock: {date}).",
+  "reports.periodLockedTax": "This period is locked (tax lock: {date}).",
+  "reports.lockBadge": "Locked",
 
   // Shared forms
   "partnerForm.name": "Name",
@@ -1347,6 +1351,10 @@ export const sq: Record<string, string> = {
   "reports.totalCurrent": "Totali aktual: {amount}",
   "reports.totalWithinGrace": "Totali brenda periudh\u00ebs s\u00eb faljes: {amount}",
   "reports.totalOverdue": "Totali i vonuar: {amount}",
+  "reports.exportToExcel": "Eksporto n\u00eb Excel",
+  "reports.periodLockedAccounting": "Kjo periudh\u00eb \u00ebsht\u00eb e mbyllur (ky\u00e7ja kontabile: {date}).",
+  "reports.periodLockedTax": "Kjo periudh\u00eb \u00ebsht\u00eb e mbyllur (ky\u00e7ja tatimore: {date}).",
+  "reports.lockBadge": "E mbyllur",
 
   // Shared forms
   "partnerForm.name": "Emri",
