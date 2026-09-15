@@ -92,9 +92,11 @@ public class ItemsController : ControllerBase
             Code = code,
             Name = request.Name.Trim(),
             Unit = request.Unit.Trim(),
+            Type = request.Type,
             DefaultTaxDefinitionId = request.DefaultTaxDefinitionId,
             DefaultRevenueAccountId = request.DefaultRevenueAccountId,
             DefaultExpenseAccountId = request.DefaultExpenseAccountId,
+            DefaultInventoryAccountId = request.DefaultInventoryAccountId,
             DefaultUnitPrice = request.DefaultUnitPrice
         };
 
@@ -121,9 +123,11 @@ public class ItemsController : ControllerBase
 
         item.Name = request.Name.Trim();
         item.Unit = request.Unit.Trim();
+        item.Type = request.Type;
         item.DefaultTaxDefinitionId = request.DefaultTaxDefinitionId;
         item.DefaultRevenueAccountId = request.DefaultRevenueAccountId;
         item.DefaultExpenseAccountId = request.DefaultExpenseAccountId;
+        item.DefaultInventoryAccountId = request.DefaultInventoryAccountId;
         item.DefaultUnitPrice = request.DefaultUnitPrice;
 
         await _db.SaveChangesAsync();
@@ -179,8 +183,8 @@ public class ItemsController : ControllerBase
     }
 
     private static ItemResponse ToResponse(Item i) => new(
-        i.Id, i.Code, i.Name, i.Unit,
-        i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId,
+        i.Id, i.Code, i.Name, i.Unit, i.Type,
+        i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
         i.Barcodes.Select(b => new ItemBarcodeResponse(b.Id, b.Barcode)).ToList());
 }

@@ -3688,9 +3688,11 @@ export interface CreateInvoiceRequest {
 export interface CreateItemRequest {
     name: string;
     unit: string;
+    type?: number;
     defaultTaxDefinitionId?: string | undefined;
     defaultRevenueAccountId?: string | undefined;
     defaultExpenseAccountId?: string | undefined;
+    defaultInventoryAccountId?: string | undefined;
     defaultUnitPrice?: number | undefined;
 
     [key: string]: any;
@@ -3888,9 +3890,11 @@ export interface ItemResponse {
     code: number;
     name: string;
     unit: string;
+    type: number;
     defaultTaxDefinitionId: string | undefined;
     defaultRevenueAccountId: string | undefined;
     defaultExpenseAccountId: string | undefined;
+    defaultInventoryAccountId: string | undefined;
     defaultUnitPrice: number | undefined;
     barcodes: ItemBarcodeResponse[];
 
@@ -4175,9 +4179,11 @@ export interface UpdateInvoiceRequest {
 export interface UpdateItemRequest {
     name: string;
     unit: string;
+    type?: number;
     defaultTaxDefinitionId?: string | undefined;
     defaultRevenueAccountId?: string | undefined;
     defaultExpenseAccountId?: string | undefined;
+    defaultInventoryAccountId?: string | undefined;
     defaultUnitPrice?: number | undefined;
 
     [key: string]: any;

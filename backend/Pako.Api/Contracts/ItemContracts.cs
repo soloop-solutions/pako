@@ -1,19 +1,25 @@
+using Pako.Domain.Companies;
+
 namespace Pako.Api.Contracts;
 
 public record CreateItemRequest(
     string Name,
     string Unit,
+    ItemType Type = ItemType.Goods,
     Guid? DefaultTaxDefinitionId = null,
     Guid? DefaultRevenueAccountId = null,
     Guid? DefaultExpenseAccountId = null,
+    Guid? DefaultInventoryAccountId = null,
     decimal? DefaultUnitPrice = null);
 
 public record UpdateItemRequest(
     string Name,
     string Unit,
+    ItemType Type = ItemType.Goods,
     Guid? DefaultTaxDefinitionId = null,
     Guid? DefaultRevenueAccountId = null,
     Guid? DefaultExpenseAccountId = null,
+    Guid? DefaultInventoryAccountId = null,
     decimal? DefaultUnitPrice = null);
 
 public record AddBarcodeRequest(string Barcode);
@@ -25,9 +31,11 @@ public record ItemResponse(
     int Code,
     string Name,
     string Unit,
+    ItemType Type,
     Guid? DefaultTaxDefinitionId,
     Guid? DefaultRevenueAccountId,
     Guid? DefaultExpenseAccountId,
+    Guid? DefaultInventoryAccountId,
     decimal? DefaultUnitPrice,
     List<ItemBarcodeResponse> Barcodes);
 

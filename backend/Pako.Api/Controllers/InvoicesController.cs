@@ -127,10 +127,21 @@ public class InvoicesController : ControllerBase
         // the caller supplies per line, so the accounting can't be steered wrong.
         var depositsAccountId = defaults.CustomerDepositsAccountId;
 
+        // B6: an item with no default of its own falls back to the company's default — chosen
+        // over refusing the save, since an item-level override is an optional convenience, not a
+        // requirement, and most companies are fine posting every sales line to one revenue
+        // account regardless of which item it was.
+        var itemIds = requestLines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).ToHashSet();
+        var itemsById = itemIds.Count == 0
+            ? new Dictionary<Guid, Item>()
+            : await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id) && i.CompanyId == companyId).ToDictionaryAsync(i => i.Id);
+
         var lines = new List<InvoiceLine>();
         var total = 0m;
         foreach (var line in requestLines)
         {
+            var item = line.ItemId is { } itemId && itemsById.TryGetValue(itemId, out var foundItem) ? foundItem : null;
+
             if (line.Quantity <= 0)
             {
                 return (null, 0m, BadRequest(_localizer["LineQuantityMustBePositive"].Value));
@@ -147,18 +158,24 @@ public class InvoicesController : ControllerBase
                 return (null, 0m, BadRequest(_localizer["LineDiscountOutOfRange"].Value));
             }
 
+            // B6: an explicit line tax code wins; otherwise the referenced item's own default,
+            // if it has one and set one.
+            var taxDefinitionId = line.TaxDefinitionId ?? item?.DefaultTaxDefinitionId;
+
             // C2: a VAT-registered company must tag every line with a real tax code — the old
             // empty "no tax" option silently posted with no VAT code at all, invisible to the
             // VAT return and the ATK books. A company that isn't VAT-registered still has no
             // VAT mechanics to speak of, so a null TaxDefinitionId stays valid for it.
-            if (isVatRegistered && line.TaxDefinitionId is null)
+            if (isVatRegistered && taxDefinitionId is null)
             {
                 return (null, 0m, BadRequest(_localizer["TaxCodeRequired"].Value));
             }
 
+            // B6: line's own account wins, then the item's default, then the company's —
+            // "company fallback, not refuse the save" for an item with no default of its own.
             var revenueAccountId = documentType == DocumentType.DownPayment
                 ? depositsAccountId
-                : line.RevenueAccountId ?? defaultRevenueAccountId;
+                : line.RevenueAccountId ?? item?.DefaultRevenueAccountId ?? defaultRevenueAccountId;
             if (!validAccountIds.Contains(revenueAccountId))
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["RevenueAccountNotBelongToCompany"], revenueAccountId)));
@@ -173,7 +190,7 @@ public class InvoicesController : ControllerBase
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
                 DiscountPercent = discountPercent,
-                TaxDefinitionId = line.TaxDefinitionId,
+                TaxDefinitionId = taxDefinitionId,
                 RevenueAccountId = revenueAccountId,
                 ItemId = line.ItemId
             });

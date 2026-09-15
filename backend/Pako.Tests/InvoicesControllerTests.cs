@@ -1064,4 +1064,47 @@ public class InvoicesControllerTests : IAsyncLifetime
         var posted = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(postResult.Result).Value);
         Assert.StartsWith("01/", posted.InvoiceNumber);
     }
+
+    // B6: a line referencing an item with its own default revenue account uses that account,
+    // not the company's, when the line doesn't specify one explicitly.
+    [Fact]
+    public async Task Create_LineWithItemHavingDefaultRevenueAccount_UsesItemDefault()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var itemRevenueAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = itemRevenueAccountId, CompanyId = companyId, Code = "4002", Name = "Widget Revenue", AccountType = AccountType.Income });
+        var item = new Item { Id = Guid.NewGuid(), CompanyId = companyId, Code = 1, Name = "Widget", Unit = "pcs", DefaultRevenueAccountId = itemRevenueAccountId };
+        db.Items.Add(item);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = new CreateInvoiceRequest(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Widget", 1m, 50m, null, null, null, item.Id) });
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(itemRevenueAccountId, created.Lines[0].RevenueAccountId);
+    }
+
+    // B6: a line referencing an item with NO default revenue account falls back to the
+    // company's default — the resolved "company fallback, not refuse the save" decision.
+    [Fact]
+    public async Task Create_LineWithItemHavingNoDefaultRevenueAccount_FallsBackToCompanyDefault()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var item = new Item { Id = Guid.NewGuid(), CompanyId = companyId, Code = 1, Name = "Widget", Unit = "pcs" };
+        db.Items.Add(item);
+        await db.SaveChangesAsync();
+        var companyRevenueAccountId = (await db.CompanyAccountDefaults.SingleAsync(d => d.CompanyId == companyId)).RevenueAccountId;
+        var controller = NewController(db);
+
+        var request = new CreateInvoiceRequest(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Widget", 1m, 50m, null, null, null, item.Id) });
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(companyRevenueAccountId, created.Lines[0].RevenueAccountId);
+    }
 }
