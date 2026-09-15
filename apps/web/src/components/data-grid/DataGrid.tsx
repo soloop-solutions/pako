@@ -168,6 +168,7 @@ export function DataGrid<TData extends object>({
     state: {
       sorting,
       columnFilters,
+      globalFilter: urlState.globalFilter,
       columnVisibility,
       rowSelection,
       grouping,
@@ -177,7 +178,12 @@ export function DataGrid<TData extends object>({
     pageCount: Math.max(1, Math.ceil(rowCount / urlState.pageSize)),
     enableRowSelection,
     getRowId: getRowId ? (row, index) => getRowId(row, index) : undefined,
+    globalFilterFn: "includesString",
     onColumnVisibilityChange: setColumnVisibility,
+    onGlobalFilterChange: (updater) => {
+      const next = typeof updater === "function" ? updater(urlState.globalFilter) : updater;
+      urlState.setGlobalFilter(next ?? "");
+    },
     onRowSelectionChange: (updater) => {
       setRowSelection((old) => {
         const next = typeof updater === "function" ? updater(old) : updater;

@@ -389,7 +389,7 @@ export function Items() {
         emptyMessage={intl.formatMessage({ id: "items.noItems" })}
         exportFileName="items"
         getRowClassName={(item) => (item.defaultUnitPrice == null ? "text-muted-foreground/70" : undefined)}
-        manualFiltering={!isFullyLoaded}
+        manualFiltering
         manualSorting={!isFullyLoaded}
         manualGrouping={!isFullyLoaded}
       />
