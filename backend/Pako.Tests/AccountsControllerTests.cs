@@ -1,10 +1,14 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Localization.Xk;
 
 namespace Pako.Tests;
 
@@ -200,5 +204,63 @@ public class AccountsControllerTests : IAsyncLifetime
         var result = await controller.Deactivate(companyId, Guid.NewGuid());
 
         Assert.IsType<NotFoundResult>(result.Result);
+    }
+
+    // B2: group membership is computed from Code against the company's AccountGroup prefix
+    // ranges — deliberately NOT from Account.Class/Account.Group (those are the raw source-CSV
+    // columns, kept for reference; a manually-created account here leaves both null on purpose,
+    // to prove the resolver never reads them).
+    [Fact]
+    public async Task Create_NewAccountInARange_ResolvesGroupWithNoExtraInput()
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        db.AccountGroups.AddRange(AccountGroupTemplate.BuildForCompany(companyId));
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        // 651000 falls inside Group 65 (Depreciation & Amortization, 650000-659999) — Class/Group
+        // are left null on the request itself.
+        var request = new CreateAccountRequest(
+            "651000", "Equipment Depreciation", AccountType.Expense, AccountSubType.None, null, false,
+            null, null, null, null, null, null, false, true, null, null, null, CompanyProfile.Core, null, null);
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<AccountResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.NotNull(created.GroupId);
+
+        var expectedGroup = await db.AccountGroups.SingleAsync(g => g.CompanyId == companyId && g.Name == "Depreciation & Amortization");
+        Assert.Equal(expectedGroup.Id, created.GroupId);
+    }
+
+    // Full end-to-end through CompaniesController.Create (real 233-row v2 chart + 35 groups),
+    // not the lightweight SeedCompanyAsync() this file otherwise uses — this is the one place
+    // that actually exercises "every seeded account resolves a group with no backfill."
+    [Fact]
+    public async Task List_EveryChartAccount_HasAComputedGroup_WithNoBackfill()
+    {
+        var db = await NewContextAsync();
+        var user = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
+        var companiesController = new CompaniesController(db, new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+        };
+        var companyResult = await companiesController.Create(new CreateCompanyRequest("Full Chart Co"));
+        var company = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(companyResult.Result).Value);
+
+        var accountsController = NewController(db);
+        var listResult = await accountsController.List(company.Id);
+        var accounts = Assert.IsType<List<AccountResponse>>(Assert.IsType<OkObjectResult>(listResult.Result).Value);
+
+        Assert.NotEmpty(accounts);
+        Assert.All(accounts, a => Assert.NotNull(a.GroupId));
+
+        var cash = Assert.Single(accounts, a => a.Code == "100100");
+        var incomeTax = Assert.Single(accounts, a => a.Code == "720100");
+
+        var groups = await db.AccountGroups.Where(g => g.CompanyId == company.Id).ToDictionaryAsync(g => g.Id);
+        Assert.Equal("Cash and Cash Equivalents", groups[cash.GroupId!.Value].Name);
+        Assert.Equal("Income Tax", groups[incomeTax.GroupId!.Value].Name);
     }
 }

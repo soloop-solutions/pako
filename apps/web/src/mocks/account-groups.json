@@ -1,0 +1,23 @@
+[
+  {
+    "id": "3f7a1c2e-1111-4a1a-9b1a-000000000001",
+    "name": "Assets",
+    "codePrefixStart": "100000",
+    "codePrefixEnd": "199999",
+    "parentGroupId": null
+  },
+  {
+    "id": "3f7a1c2e-1111-4a1a-9b1a-000000000010",
+    "name": "Cash and Cash Equivalents",
+    "codePrefixStart": "100000",
+    "codePrefixEnd": "109999",
+    "parentGroupId": "3f7a1c2e-1111-4a1a-9b1a-000000000001"
+  },
+  {
+    "id": "3f7a1c2e-1111-4a1a-9b1a-000000000011",
+    "name": "Receivables",
+    "codePrefixStart": "110000",
+    "codePrefixEnd": "119999",
+    "parentGroupId": "3f7a1c2e-1111-4a1a-9b1a-000000000001"
+  }
+]

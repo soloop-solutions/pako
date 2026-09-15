@@ -31,8 +31,9 @@ public class AccountsController : ControllerBase
             .Where(a => a.CompanyId == companyId)
             .OrderBy(a => a.Code)
             .ToListAsync();
+        var groups = await GetGroupsAsync(companyId);
 
-        return Ok(accounts.Select(ToResponse).ToList());
+        return Ok(accounts.Select(a => ToResponse(a, groups)).ToList());
     }
 
     [HttpPost]
@@ -89,7 +90,8 @@ public class AccountsController : ControllerBase
         _db.Accounts.Add(account);
         await _db.SaveChangesAsync();
 
-        return StatusCode(StatusCodes.Status201Created, ToResponse(account));
+        var groups = await GetGroupsAsync(companyId);
+        return StatusCode(StatusCodes.Status201Created, ToResponse(account, groups));
     }
 
     [HttpPut("{accountId:guid}")]
@@ -134,7 +136,8 @@ public class AccountsController : ControllerBase
         account.ValidTo = request.ValidTo;
 
         await _db.SaveChangesAsync();
-        return Ok(ToResponse(account));
+        var groups = await GetGroupsAsync(companyId);
+        return Ok(ToResponse(account, groups));
     }
 
     // R26: accounts are deactivated, never deleted — there is deliberately no DELETE action on
@@ -154,12 +157,16 @@ public class AccountsController : ControllerBase
         account.IsActive = false;
         await _db.SaveChangesAsync();
 
-        return Ok(ToResponse(account));
+        var groups = await GetGroupsAsync(companyId);
+        return Ok(ToResponse(account, groups));
     }
 
-    private static AccountResponse ToResponse(Account a) => new(
+    private async Task<List<AccountGroup>> GetGroupsAsync(Guid companyId) =>
+        await _db.AccountGroups.AsNoTracking().Where(g => g.CompanyId == companyId).ToListAsync();
+
+    private static AccountResponse ToResponse(Account a, IReadOnlyCollection<AccountGroup> groups) => new(
         a.Id, a.Code, a.Name, a.AccountType, a.AccountSubType, a.ParentAccountId, a.IsReconcilable,
         a.CreatedAt, a.NameSq, a.Class, a.Group, a.Statement, a.NormalBalance, a.Subledger,
         a.IsControl, a.IsPostable, a.DefaultVatCode, a.CitDeductibility, a.CitLimitRule, a.Profiles,
-        a.IsActive, a.ValidFrom, a.ValidTo);
+        a.IsActive, a.ValidFrom, a.ValidTo, AccountGroupResolver.Resolve(a.Code, groups)?.Id);
 }

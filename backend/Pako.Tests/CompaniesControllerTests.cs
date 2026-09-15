@@ -165,4 +165,26 @@ public class CompaniesControllerTests : IAsyncLifetime
         Assert.Contains(methods, m => m.Kind == PaymentMethodKind.Cash);
         Assert.Contains(methods, m => m.Kind == PaymentMethodKind.Bank);
     }
+
+    // B2: 7 Class-level groups (1-7) + 28 Group-level groups (10-15, 20-24, 30, 40-42, 50-52,
+    // 60-66, 70-72) — one row per distinct (Class, Group) pair in PAKO_COA_v2_seed.csv, seeded
+    // regardless of which profiles are enabled since the hierarchy itself doesn't vary by profile.
+    [Fact]
+    public async Task Create_Seeds35AccountGroups_SevenClassLevelAndTwentyEightGroupLevel()
+    {
+        var db = await NewContextAsync();
+        var controller = NewController(db, Guid.NewGuid());
+
+        var result = await controller.Create(new CreateCompanyRequest("Group Co"));
+        var created = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+
+        var groups = await db.AccountGroups.Where(g => g.CompanyId == created.Id).ToListAsync();
+
+        Assert.Equal(35, groups.Count);
+        Assert.Equal(7, groups.Count(g => g.ParentGroupId == null));
+        Assert.Equal(28, groups.Count(g => g.ParentGroupId != null));
+        // Every Group-level row's parent must actually exist among this same company's rows.
+        var ids = groups.Select(g => g.Id).ToHashSet();
+        Assert.All(groups.Where(g => g.ParentGroupId != null), g => Assert.Contains(g.ParentGroupId!.Value, ids));
+    }
 }

@@ -29,7 +29,19 @@ public record AccountResponse(
     CompanyProfile Profiles,
     bool IsActive,
     DateOnly? ValidFrom,
-    DateOnly? ValidTo);
+    DateOnly? ValidTo,
+    // B2: computed by matching Code against the company's AccountGroup prefix ranges — never a
+    // stored column, so this is never stale and never needs a backfill.
+    Guid? GroupId);
+
+// B2: one row per AccountGroup — a Class-level row has ParentGroupId null, a Group-level row
+// points to its Class-level row.
+public record AccountGroupResponse(
+    Guid Id,
+    string Name,
+    string CodePrefixStart,
+    string CodePrefixEnd,
+    Guid? ParentGroupId);
 
 // R25: Code is accepted here but is refused if it differs from the account's current Code — it's
 // on the request so a client can echo the account back unchanged, not because it's editable.
