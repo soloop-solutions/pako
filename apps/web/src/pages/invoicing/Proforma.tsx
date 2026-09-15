@@ -1,17 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import type { InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { InvoiceDocumentType } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
+
+const GRID_ID = "proforma";
 
 // A3/A6 (v2 release): a proforma is an offer, not a legal invoice — it never posts, so this page
 // is purely list + create + "Convert to invoice" (no Post action anywhere). The create form is
@@ -70,6 +73,68 @@ export function Proforma() {
     }
   }
 
+  const customers = partners.filter((p) => p.isCustomer);
+  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  const proformas = useMemo(
+    () => invoices.filter((invoice) => invoice.documentType === InvoiceDocumentType.Proforma),
+    [invoices],
+  );
+
+  const columns = useMemo<ColumnDef<InvoiceResponse>[]>(
+    () => [
+      {
+        accessorKey: "invoiceNumber",
+        header: intl.formatMessage({ id: "invoicing.number" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
+      },
+      {
+        id: "customer",
+        header: intl.formatMessage({ id: "common.customer" }),
+        accessorFn: (row) => partnerName(row.partnerId),
+      },
+      {
+        accessorKey: "issueDate",
+        header: intl.formatMessage({ id: "invoicing.issueDate" }),
+      },
+      {
+        id: "view",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${row.original.id}`}>
+            {intl.formatMessage({ id: "common.view" })}
+          </Link>
+        ),
+      },
+      {
+        id: "convert",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            disabled={convertingId === row.original.id}
+            onClick={() => handleConvert(row.original.id)}
+          >
+            {convertingId === row.original.id
+              ? intl.formatMessage({ id: "proforma.converting" })
+              : intl.formatMessage({ id: "proforma.convert" })}
+          </Button>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, partners, convertingId],
+  );
+
   if (!activeCompany) {
     return (
       <Card>
@@ -83,10 +148,6 @@ export function Proforma() {
       </Card>
     );
   }
-
-  const customers = partners.filter((p) => p.isCustomer);
-  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  const proformas = invoices.filter((invoice) => invoice.documentType === InvoiceDocumentType.Proforma);
 
   return (
     <div className="flex flex-col gap-6">
@@ -131,45 +192,21 @@ export function Proforma() {
           <CardTitle>{intl.formatMessage({ id: "proforma.proformasTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "invoicing.number" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.customer" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
-                <TableHead />
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {proformas.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell>{invoice.invoiceNumber ?? "-"}</TableCell>
-                  <TableCell>{partnerName(invoice.partnerId)}</TableCell>
-                  <TableCell>{invoice.issueDate}</TableCell>
-                  <TableCell>
-                    <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${invoice.id}`}>
-                      {intl.formatMessage({ id: "common.view" })}
-                    </Link>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={convertingId === invoice.id}
-                      onClick={() => handleConvert(invoice.id)}
-                    >
-                      {convertingId === invoice.id
-                        ? intl.formatMessage({ id: "proforma.converting" })
-                        : intl.formatMessage({ id: "proforma.convert" })}
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {proformas.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "proforma.noProformas" })}</p>}
+          <DataGrid
+            gridId={GRID_ID}
+            columns={columns}
+            data={proformas}
+            rowCount={proformas.length}
+            getRowId={(row) => row.id}
+            enableGlobalFilter
+            emptyMessage={intl.formatMessage({ id: "proforma.noProformas" })}
+            exportFileName="proforma"
+            manualFiltering={false}
+            manualSorting={false}
+            manualGrouping={false}
+            defaultPageSize={100}
+            pageSizeOptions={[50, 100, 200]}
+          />
         </CardContent>
       </Card>
     </div>

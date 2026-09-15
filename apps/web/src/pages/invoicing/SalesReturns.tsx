@@ -1,21 +1,24 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { InvoiceDocumentType } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 
+const GRID_ID = "salesReturns";
+
 // A6 (v2 release): sales returns get their own nav entry/page rather than being one option in
 // the Sales invoices dropdown — the form is fixed to SalesReturn (InvoiceForm's fixedDocumentType
-// prop) with a required original-invoice picker, and the table only ever shows SalesReturn rows.
+// prop) with a required original-invoice picker, and the grid only ever shows SalesReturn rows.
 export function SalesReturns() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
@@ -57,6 +60,78 @@ export function SalesReturns() {
     void refresh();
   }, [refresh]);
 
+  const customers = partners.filter((p) => p.isCustomer);
+  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  // `balances` is a dependency here too — see Invoicing.tsx's identical comment for why a
+  // balance-dependent column needs the `data` array reference to change when balances update.
+  const returns = useMemo(
+    () => invoices.filter((invoice) => invoice.documentType === InvoiceDocumentType.SalesReturn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [invoices, balances],
+  );
+
+  const columns = useMemo<ColumnDef<InvoiceResponse>[]>(
+    () => [
+      {
+        accessorKey: "invoiceNumber",
+        header: intl.formatMessage({ id: "invoicing.number" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
+      },
+      {
+        id: "customer",
+        header: intl.formatMessage({ id: "common.customer" }),
+        accessorFn: (row) => partnerName(row.partnerId),
+      },
+      {
+        id: "originalInvoice",
+        header: intl.formatMessage({ id: "salesReturns.originalInvoice" }),
+        accessorFn: (row) => {
+          const original = invoices.find((candidate) => candidate.id === row.originalInvoiceId);
+          return original?.invoiceNumber ?? row.originalInvoiceId ?? "-";
+        },
+      },
+      {
+        accessorKey: "issueDate",
+        header: intl.formatMessage({ id: "invoicing.issueDate" }),
+      },
+      {
+        accessorKey: "state",
+        header: intl.formatMessage({ id: "invoicing.state" }),
+        cell: ({ getValue }) => {
+          const state = getValue() as string;
+          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+        },
+      },
+      {
+        id: "returnedAmount",
+        header: intl.formatMessage({ id: "salesReturns.returnedAmount" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.total : undefined),
+        cell: ({ getValue, row }) => {
+          const value = getValue() as number | undefined;
+          if (row.original.state !== "Posted") return "-";
+          return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${row.original.id}`}>
+            {intl.formatMessage({ id: "common.view" })}
+          </Link>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, partners, invoices, balances],
+  );
+
   if (!activeCompany) {
     return (
       <Card>
@@ -70,10 +145,6 @@ export function SalesReturns() {
       </Card>
     );
   }
-
-  const customers = partners.filter((p) => p.isCustomer);
-  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  const returns = invoices.filter((invoice) => invoice.documentType === InvoiceDocumentType.SalesReturn);
 
   return (
     <div className="flex flex-col gap-6">
@@ -107,44 +178,21 @@ export function SalesReturns() {
           <CardTitle>{intl.formatMessage({ id: "salesReturns.returnsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "invoicing.number" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.customer" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "salesReturns.originalInvoice" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.state" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "salesReturns.returnedAmount" })}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {returns.map((invoice) => {
-                const original = invoices.find((candidate) => candidate.id === invoice.originalInvoiceId);
-                return (
-                  <TableRow key={invoice.id}>
-                    <TableCell>{invoice.invoiceNumber ?? "-"}</TableCell>
-                    <TableCell>{partnerName(invoice.partnerId)}</TableCell>
-                    <TableCell>{original?.invoiceNumber ?? invoice.originalInvoiceId ?? "-"}</TableCell>
-                    <TableCell>{invoice.issueDate}</TableCell>
-                    <TableCell>
-                      <Badge variant={invoice.state === "Posted" ? "default" : "secondary"}>{invoice.state}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {invoice.state === "Posted" ? (balances[invoice.id]?.total.toFixed(2) ?? "...") : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${invoice.id}`}>
-                        {intl.formatMessage({ id: "common.view" })}
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          {returns.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "salesReturns.noReturns" })}</p>}
+          <DataGrid
+            gridId={GRID_ID}
+            columns={columns}
+            data={returns}
+            rowCount={returns.length}
+            getRowId={(row) => row.id}
+            enableGlobalFilter
+            emptyMessage={intl.formatMessage({ id: "salesReturns.noReturns" })}
+            exportFileName="sales-returns"
+            manualFiltering={false}
+            manualSorting={false}
+            manualGrouping={false}
+            defaultPageSize={100}
+            pageSizeOptions={[50, 100, 200]}
+          />
         </CardContent>
       </Card>
     </div>

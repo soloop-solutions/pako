@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import type { AccountResponse, JournalEntryResponse, JournalResponse, TrialBalanceLine } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
 import { JournalEntryForm } from "@/pages/ledger/JournalEntryForm";
+
+const TRIAL_BALANCE_GRID_ID = "trialBalance";
 
 export function Ledger() {
   const intl = useIntl();
@@ -49,6 +52,41 @@ export function Ledger() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  const trialBalanceColumns = useMemo<ColumnDef<TrialBalanceLine>[]>(
+    () => [
+      {
+        accessorKey: "accountCode",
+        header: intl.formatMessage({ id: "common.code" }),
+      },
+      {
+        accessorKey: "accountName",
+        header: intl.formatMessage({ id: "ledger.account" }),
+      },
+      {
+        accessorKey: "debit",
+        header: intl.formatMessage({ id: "ledger.debit" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        cell: ({ getValue }) => (getValue() as number).toFixed(2),
+      },
+      {
+        accessorKey: "credit",
+        header: intl.formatMessage({ id: "ledger.credit" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        cell: ({ getValue }) => (getValue() as number).toFixed(2),
+      },
+      {
+        accessorKey: "balance",
+        header: intl.formatMessage({ id: "ledger.balance" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        cell: ({ getValue }) => (getValue() as number).toFixed(2),
+      },
+    ],
+    [intl],
+  );
 
   if (!activeCompany) {
     return (
@@ -102,8 +140,7 @@ export function Ledger() {
           <CardTitle>{intl.formatMessage({ id: "ledger.journalEntries" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <JournalEntriesTable companyId={activeCompany.id} entries={entries} journals={journals} onPosted={refresh} />
-          {!loading && entries.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "ledger.noJournalEntries" })}</p>}
+          <JournalEntriesTable companyId={activeCompany.id} entries={entries} journals={journals} onPosted={refresh} isLoading={loading} />
         </CardContent>
       </Card>
 
@@ -113,31 +150,22 @@ export function Ledger() {
           <CardDescription>{intl.formatMessage({ id: "ledger.trialBalanceDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "ledger.account" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "ledger.debit" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "ledger.credit" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "ledger.balance" })}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {trialBalance.map((line) => (
-                <TableRow key={line.accountId}>
-                  <TableCell>{line.accountCode}</TableCell>
-                  <TableCell>{line.accountName}</TableCell>
-                  <TableCell className="text-right">{line.debit.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">{line.credit.toFixed(2)}</TableCell>
-                  <TableCell className="text-right">{line.balance.toFixed(2)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {!loading && trialBalance.length === 0 && (
-            <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "ledger.noPostedEntries" })}</p>
-          )}
+          <DataGrid
+            gridId={TRIAL_BALANCE_GRID_ID}
+            columns={trialBalanceColumns}
+            data={trialBalance}
+            rowCount={trialBalance.length}
+            isLoading={loading}
+            getRowId={(row) => row.accountId}
+            enableGlobalFilter
+            emptyMessage={intl.formatMessage({ id: "ledger.noPostedEntries" })}
+            exportFileName="trial-balance"
+            manualFiltering={false}
+            manualSorting={false}
+            manualGrouping={false}
+            defaultPageSize={200}
+            pageSizeOptions={[50, 100, 200, 500]}
+          />
         </CardContent>
       </Card>
     </div>

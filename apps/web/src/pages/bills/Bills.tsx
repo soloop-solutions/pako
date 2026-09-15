@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import type {
   AccountResponse,
   BillResponse,
@@ -15,12 +16,14 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
+
+const GRID_ID = "bills";
 
 export function Bills() {
   const intl = useIntl();
@@ -69,6 +72,82 @@ export function Bills() {
     void refresh();
   }, [refresh]);
 
+  const vendors = partners.filter((p) => p.isVendor);
+  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  // A6 (v2 release): Purchase returns have their own page now — see Invoicing.tsx's identical
+  // displayedInvoices comment for the full rationale.
+  // `balances` is a dependency here too — see Invoicing.tsx's identical comment for why a
+  // balance-dependent column needs the `data` array reference to change when balances update.
+  const displayedBills = useMemo(
+    () => bills.filter((bill) => bill.documentType !== BillDocumentType.PurchaseReturn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bills, balances],
+  );
+
+  const columns = useMemo<ColumnDef<BillResponse>[]>(
+    () => [
+      {
+        accessorKey: "vendorReference",
+        header: intl.formatMessage({ id: "bills.vendorInvoiceNumber" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
+      },
+      {
+        id: "type",
+        header: intl.formatMessage({ id: "common.type" }),
+        accessorFn: (row) => billDocumentTypeLabel(row.documentType, intl),
+        cell: ({ getValue }) => <Badge variant="outline">{getValue() as string}</Badge>,
+      },
+      {
+        id: "vendor",
+        header: intl.formatMessage({ id: "common.vendor" }),
+        accessorFn: (row) => partnerName(row.partnerId),
+      },
+      {
+        accessorKey: "issueDate",
+        header: intl.formatMessage({ id: "invoicing.issueDate" }),
+      },
+      {
+        accessorKey: "dueDate",
+        header: intl.formatMessage({ id: "invoicing.dueDate" }),
+      },
+      {
+        accessorKey: "state",
+        header: intl.formatMessage({ id: "invoicing.state" }),
+        cell: ({ getValue }) => {
+          const state = getValue() as string;
+          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+        },
+      },
+      {
+        id: "outstanding",
+        header: intl.formatMessage({ id: "invoicing.outstanding" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.outstanding : undefined),
+        cell: ({ getValue, row }) => {
+          const value = getValue() as number | undefined;
+          if (row.original.state !== "Posted") return "-";
+          return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${row.original.id}`}>
+            {intl.formatMessage({ id: "common.view" })}
+          </Link>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, partners, balances],
+  );
+
   if (!activeCompany) {
     return (
       <Card>
@@ -82,12 +161,6 @@ export function Bills() {
       </Card>
     );
   }
-
-  const vendors = partners.filter((p) => p.isVendor);
-  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  // A6 (v2 release): Purchase returns have their own page now — see Invoicing.tsx's identical
-  // displayedInvoices comment for the full rationale.
-  const displayedBills = bills.filter((bill) => bill.documentType !== BillDocumentType.PurchaseReturn);
 
   return (
     <div className="flex flex-col gap-6">
@@ -143,45 +216,21 @@ export function Bills() {
           <CardTitle>{intl.formatMessage({ id: "bills.billsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "bills.vendorInvoiceNumber" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.vendor" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.dueDate" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.state" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "invoicing.outstanding" })}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {displayedBills.map((bill) => (
-                <TableRow key={bill.id}>
-                  <TableCell>{bill.vendorReference ?? "-"}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{billDocumentTypeLabel(bill.documentType, intl)}</Badge>
-                  </TableCell>
-                  <TableCell>{partnerName(bill.partnerId)}</TableCell>
-                  <TableCell>{bill.issueDate}</TableCell>
-                  <TableCell>{bill.dueDate}</TableCell>
-                  <TableCell>
-                    <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {bill.state === "Posted" ? (balances[bill.id]?.outstanding.toFixed(2) ?? "...") : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${bill.id}`}>
-                      {intl.formatMessage({ id: "common.view" })}
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {displayedBills.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.noBills" })}</p>}
+          <DataGrid
+            gridId={GRID_ID}
+            columns={columns}
+            data={displayedBills}
+            rowCount={displayedBills.length}
+            getRowId={(row) => row.id}
+            enableGlobalFilter
+            emptyMessage={intl.formatMessage({ id: "bills.noBills" })}
+            exportFileName="bills"
+            manualFiltering={false}
+            manualSorting={false}
+            manualGrouping={false}
+            defaultPageSize={100}
+            pageSizeOptions={[50, 100, 200]}
+          />
         </CardContent>
       </Card>
     </div>

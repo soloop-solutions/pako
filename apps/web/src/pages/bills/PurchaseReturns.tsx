@@ -1,20 +1,23 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
+import type { ColumnDef } from "@tanstack/react-table";
 import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 
+const GRID_ID = "purchaseReturns";
+
 // A6 (v2 release): AP mirror of SalesReturns.tsx — form fixed to PurchaseReturn with a required
-// original-bill picker, table only ever shows PurchaseReturn rows.
+// original-bill picker, grid only ever shows PurchaseReturn rows.
 export function PurchaseReturns() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
@@ -56,6 +59,78 @@ export function PurchaseReturns() {
     void refresh();
   }, [refresh]);
 
+  const vendors = partners.filter((p) => p.isVendor);
+  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  // `balances` is a dependency here too — see Invoicing.tsx's identical comment for why a
+  // balance-dependent column needs the `data` array reference to change when balances update.
+  const returns = useMemo(
+    () => bills.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [bills, balances],
+  );
+
+  const columns = useMemo<ColumnDef<BillResponse>[]>(
+    () => [
+      {
+        accessorKey: "vendorReference",
+        header: intl.formatMessage({ id: "bills.vendorInvoiceNumber" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
+      },
+      {
+        id: "vendor",
+        header: intl.formatMessage({ id: "common.vendor" }),
+        accessorFn: (row) => partnerName(row.partnerId),
+      },
+      {
+        id: "originalBill",
+        header: intl.formatMessage({ id: "purchaseReturns.originalBill" }),
+        accessorFn: (row) => {
+          const original = bills.find((candidate) => candidate.id === row.originalBillId);
+          return original?.vendorReference ?? row.originalBillId ?? "-";
+        },
+      },
+      {
+        accessorKey: "issueDate",
+        header: intl.formatMessage({ id: "invoicing.issueDate" }),
+      },
+      {
+        accessorKey: "state",
+        header: intl.formatMessage({ id: "invoicing.state" }),
+        cell: ({ getValue }) => {
+          const state = getValue() as string;
+          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+        },
+      },
+      {
+        id: "returnedAmount",
+        header: intl.formatMessage({ id: "purchaseReturns.returnedAmount" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.total : undefined),
+        cell: ({ getValue, row }) => {
+          const value = getValue() as number | undefined;
+          if (row.original.state !== "Posted") return "-";
+          return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${row.original.id}`}>
+            {intl.formatMessage({ id: "common.view" })}
+          </Link>
+        ),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [intl, partners, bills, balances],
+  );
+
   if (!activeCompany) {
     return (
       <Card>
@@ -69,10 +144,6 @@ export function PurchaseReturns() {
       </Card>
     );
   }
-
-  const vendors = partners.filter((p) => p.isVendor);
-  const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  const returns = bills.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn);
 
   return (
     <div className="flex flex-col gap-6">
@@ -106,44 +177,21 @@ export function PurchaseReturns() {
           <CardTitle>{intl.formatMessage({ id: "purchaseReturns.returnsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "bills.vendorInvoiceNumber" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.vendor" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "purchaseReturns.originalBill" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.issueDate" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "invoicing.state" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "purchaseReturns.returnedAmount" })}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {returns.map((bill) => {
-                const original = bills.find((candidate) => candidate.id === bill.originalBillId);
-                return (
-                  <TableRow key={bill.id}>
-                    <TableCell>{bill.vendorReference ?? "-"}</TableCell>
-                    <TableCell>{partnerName(bill.partnerId)}</TableCell>
-                    <TableCell>{original?.vendorReference ?? bill.originalBillId ?? "-"}</TableCell>
-                    <TableCell>{bill.issueDate}</TableCell>
-                    <TableCell>
-                      <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {bill.state === "Posted" ? (balances[bill.id]?.total.toFixed(2) ?? "...") : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${bill.id}`}>
-                        {intl.formatMessage({ id: "common.view" })}
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-          {returns.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "purchaseReturns.noReturns" })}</p>}
+          <DataGrid
+            gridId={GRID_ID}
+            columns={columns}
+            data={returns}
+            rowCount={returns.length}
+            getRowId={(row) => row.id}
+            enableGlobalFilter
+            emptyMessage={intl.formatMessage({ id: "purchaseReturns.noReturns" })}
+            exportFileName="purchase-returns"
+            manualFiltering={false}
+            manualSorting={false}
+            manualGrouping={false}
+            defaultPageSize={100}
+            pageSizeOptions={[50, 100, 200]}
+          />
         </CardContent>
       </Card>
     </div>
