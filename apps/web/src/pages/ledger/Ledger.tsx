@@ -33,7 +33,7 @@ export function Ledger() {
     setError(null);
     try {
       const [accountsResult, journalsResult, entriesResult, trialBalanceResult] = await Promise.all([
-        apiClient.accounts(companyId),
+        apiClient.accountsAll(companyId),
         apiClient.journalsAll(companyId),
         apiClient.journalEntriesAll(companyId),
         apiClient.trialBalance(companyId),

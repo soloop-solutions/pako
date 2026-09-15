@@ -36,4 +36,21 @@ public static class AccountTypeDerivation
         SubledgerType.Cash => AccountSubType.Cash,
         _ => AccountSubType.None
     };
+
+    // B3: standard indirect-method cash-flow-statement categorization, from the same v2 Class/
+    // Group the account is already seeded with — nothing new to source.
+    // - Group 10 (Cash and Cash Equivalents) is the balance a cash-flow statement reconciles TO,
+    //   not a flow itself, so it's None rather than Operating.
+    // - Group 14 (Investments) and 15 (Fixed Assets) are Investing.
+    // - Group 23 (Short-term Loans) and the whole of Class 3 (Share Capital & Reserves) are
+    //   Financing.
+    // - Everything else — receivables, payables, VAT, payroll liabilities, accrued expenses,
+    //   revenue, cost of sales, opex, financial income/expense, tax — is Operating.
+    public static CashFlowCategory DeriveCashFlowCategory(int accountClass, int? group) => (accountClass, group) switch
+    {
+        (_, 10) => CashFlowCategory.None,
+        (_, 14 or 15) => CashFlowCategory.Investing,
+        (3, _) or (_, 23) => CashFlowCategory.Financing,
+        _ => CashFlowCategory.Operating
+    };
 }

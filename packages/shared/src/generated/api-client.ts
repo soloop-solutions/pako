@@ -20,7 +20,46 @@ export class PakoApiClient {
     /**
      * @return OK
      */
-    accounts(companyId: string): Promise<AccountResponse[]> {
+    accountGroups(companyId: string): Promise<AccountGroupResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/account-groups";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAccountGroups(_response);
+        });
+    }
+
+    protected processAccountGroups(response: Response): Promise<AccountGroupResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountGroupResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountGroupResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    accountsAll(companyId: string): Promise<AccountResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/accounts";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -35,11 +74,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processAccounts(_response);
+            return this.processAccountsAll(_response);
         });
     }
 
-    protected processAccounts(response: Response): Promise<AccountResponse[]> {
+    protected processAccountsAll(response: Response): Promise<AccountResponse[]> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -54,6 +93,137 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<AccountResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    accountsPOST(companyId: string, body: CreateAccountRequest): Promise<AccountResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounts";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAccountsPOST(_response);
+        });
+    }
+
+    protected processAccountsPOST(response: Response): Promise<AccountResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    accountsPUT(companyId: string, accountId: string, body: UpdateAccountRequest): Promise<AccountResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounts/{accountId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (accountId === undefined || accountId === null)
+            throw new globalThis.Error("The parameter 'accountId' must be defined.");
+        url_ = url_.replace("{accountId}", encodeURIComponent("" + accountId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAccountsPUT(_response);
+        });
+    }
+
+    protected processAccountsPUT(response: Response): Promise<AccountResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    deactivate(companyId: string, accountId: string): Promise<AccountResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounts/{accountId}/deactivate";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (accountId === undefined || accountId === null)
+            throw new globalThis.Error("The parameter 'accountId' must be defined.");
+        url_ = url_.replace("{accountId}", encodeURIComponent("" + accountId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeactivate(_response);
+        });
+    }
+
+    protected processDeactivate(response: Response): Promise<AccountResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountResponse>(null as any);
     }
 
     /**
@@ -3001,6 +3171,16 @@ export class PakoApiClient {
     }
 }
 
+export interface AccountGroupResponse {
+    id: string;
+    name: string;
+    codePrefixStart: string;
+    codePrefixEnd: string;
+    parentGroupId: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface AccountResponse {
     id: string;
     code: string;
@@ -3009,6 +3189,24 @@ export interface AccountResponse {
     accountSubType: number;
     parentAccountId: string | undefined;
     isReconcilable: boolean;
+    createdAt: string;
+    nameSq: string | undefined;
+    class: number | undefined;
+    group: number | undefined;
+    statement: number | undefined;
+    normalBalance: number | undefined;
+    subledger: number | undefined;
+    isControl: boolean;
+    isPostable: boolean;
+    defaultVatCode: string | undefined;
+    citDeductibility: number | undefined;
+    citLimitRule: string | undefined;
+    profiles: number;
+    isActive: boolean;
+    validFrom: string | undefined;
+    validTo: string | undefined;
+    groupId: string | undefined;
+    cashFlowCategory: number;
 
     [key: string]: any;
 }
@@ -3137,6 +3335,31 @@ export interface CompanyResponse {
     enabledProfiles: number;
     isVatRegistered: boolean;
     allowNumberOverride: boolean;
+
+    [key: string]: any;
+}
+
+export interface CreateAccountRequest {
+    code: string;
+    name: string;
+    accountType: number;
+    accountSubType: number;
+    parentAccountId: string | undefined;
+    isReconcilable: boolean;
+    nameSq: string | undefined;
+    class: number | undefined;
+    group: number | undefined;
+    statement: number | undefined;
+    normalBalance: number | undefined;
+    subledger: number | undefined;
+    isControl: boolean;
+    isPostable: boolean;
+    defaultVatCode: string | undefined;
+    citDeductibility: number | undefined;
+    citLimitRule: string | undefined;
+    profiles: number;
+    validFrom: string | undefined;
+    validTo: string | undefined;
 
     [key: string]: any;
 }
@@ -3642,6 +3865,31 @@ export interface TrialBalanceLine {
     debit: number;
     credit: number;
     balance: number;
+
+    [key: string]: any;
+}
+
+export interface UpdateAccountRequest {
+    code: string;
+    name: string;
+    accountType: number;
+    accountSubType: number;
+    parentAccountId: string | undefined;
+    isReconcilable: boolean;
+    nameSq: string | undefined;
+    class: number | undefined;
+    group: number | undefined;
+    statement: number | undefined;
+    normalBalance: number | undefined;
+    subledger: number | undefined;
+    isControl: boolean;
+    isPostable: boolean;
+    defaultVatCode: string | undefined;
+    citDeductibility: number | undefined;
+    citLimitRule: string | undefined;
+    profiles: number;
+    validFrom: string | undefined;
+    validTo: string | undefined;
 
     [key: string]: any;
 }

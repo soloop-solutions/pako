@@ -81,7 +81,7 @@ export function ChartOfAccounts() {
       // GET .../accounts is the real generated client method — the F2 mock intercepts this exact
       // URL and returns the full v2 field set instead of the real (today: 7-field) response. See
       // src/mocks/handlers.ts.
-      const result = await apiClient.accounts(activeCompanyId as string);
+      const result = await apiClient.accountsAll(activeCompanyId as string);
       return result as unknown as AccountV2[];
     },
     enabled: !!activeCompanyId && mockReady,

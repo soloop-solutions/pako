@@ -17,7 +17,7 @@ import { Partners } from "@/pages/partners/Partners";
 // call — that request genuinely round-trips through msw, nothing about the edit path is faked at
 // the React level.
 const partnersAll = vi.fn();
-const accounts = vi.fn();
+const accountsAll = vi.fn();
 const partnersCreate = vi.fn();
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -27,7 +27,7 @@ vi.mock("@/api/client", async (importOriginal) => {
     apiClient: {
       ...actual.apiClient,
       partnersAll: (...args: unknown[]) => partnersAll(...args),
-      accounts: (...args: unknown[]) => accounts(...args),
+      accountsAll: (...args: unknown[]) => accountsAll(...args),
       partners: (...args: unknown[]) => partnersCreate(...args),
     },
   };
@@ -84,10 +84,10 @@ function renderPageInStrictMode() {
 describe("Partners", () => {
   beforeEach(() => {
     partnersAll.mockReset();
-    accounts.mockReset();
+    accountsAll.mockReset();
     partnersCreate.mockReset();
     partnersAll.mockResolvedValue([ACME]);
-    accounts.mockResolvedValue([RECEIVABLE_ACCOUNT, PAYABLE_ACCOUNT]);
+    accountsAll.mockResolvedValue([RECEIVABLE_ACCOUNT, PAYABLE_ACCOUNT]);
   });
 
   it("lists a partner with its real and mocked (control account/terms/credit limit) fields", async () => {

@@ -62,7 +62,7 @@ export function BillDetail() {
         apiClient.billsAll(companyId),
         apiClient.paymentMethodsAll(companyId),
         apiClient.itemsGET(companyId, 0, 200, undefined),
-        apiClient.accounts(companyId),
+        apiClient.accountsAll(companyId),
       ]);
       setBill(billResult);
       setPartners(partnersResult);

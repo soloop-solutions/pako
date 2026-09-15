@@ -11,17 +11,32 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-// Controller-level tests (real ReconciliationsController against an InMemory PakoDbContext, same
-// pattern as ReportsControllerTests/FirmsAndMembershipTests) rather than only ReconciliationValidatorTests,
+// Controller-level tests (real ReconciliationsController against a real-Postgres PakoDbContext,
+// same pattern as ReportsControllerTests/FirmsAndMembershipTests) rather than only ReconciliationValidatorTests,
 // because the double-spend bug lived in how the controller summed "already reconciled for this
 // line" from real Reconciliation rows across two different documents — a pure unit test of the
 // validator alone can't reproduce that.
-public class ReconciliationsControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class ReconciliationsControllerTests : IAsyncLifetime
 {
     private static readonly TaxComputationService TaxService = new();
+    private readonly List<PakoDbContext> _dbContexts = new();
 
-    private static PakoDbContext NewContext() =>
-        new(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
+    private async Task<PakoDbContext> NewContextAsync()
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        return db;
+    }
 
     private static (Invoice Invoice, JournalEntry JournalEntry) PostedInvoice(
         Company company, Guid partnerId, Guid revenueAccountId, Guid receivableAccountId, decimal unitPrice)
@@ -57,9 +72,9 @@ public class ReconciliationsControllerTests
         return entry;
     }
 
-    private static async Task<(PakoDbContext Db, Company Company, Guid PartnerId, Guid RevenueAccountId, Guid ReceivableAccountId, Guid CashAccountId)> SeedAsync()
+    private async Task<(PakoDbContext Db, Company Company, Guid PartnerId, Guid RevenueAccountId, Guid ReceivableAccountId, Guid CashAccountId)> SeedAsync()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var partnerId = Guid.NewGuid();
         var revenueAccountId = Guid.NewGuid();

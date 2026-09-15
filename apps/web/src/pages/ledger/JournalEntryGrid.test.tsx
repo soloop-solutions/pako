@@ -26,9 +26,35 @@ vi.mock("@/api/client", async (importOriginal) => {
   };
 });
 
+function testAccount(overrides: Partial<AccountResponse> & Pick<AccountResponse, "id" | "code" | "name" | "accountType" | "accountSubType">): AccountResponse {
+  return {
+    parentAccountId: undefined,
+    isReconcilable: false,
+    createdAt: "2026-01-01T00:00:00Z",
+    nameSq: undefined,
+    class: undefined,
+    group: undefined,
+    statement: undefined,
+    normalBalance: undefined,
+    subledger: undefined,
+    isControl: false,
+    isPostable: true,
+    defaultVatCode: undefined,
+    citDeductibility: undefined,
+    citLimitRule: undefined,
+    profiles: 0,
+    isActive: true,
+    validFrom: undefined,
+    validTo: undefined,
+    groupId: undefined,
+    cashFlowCategory: 0,
+    ...overrides,
+  };
+}
+
 const ACCOUNTS: AccountResponse[] = [
-  { id: "acc-cash", code: "100100", name: "Cash", accountType: 0, accountSubType: 4, parentAccountId: undefined, isReconcilable: false },
-  { id: "acc-rev", code: "400100", name: "Sales Revenue", accountType: 3, accountSubType: 0, parentAccountId: undefined, isReconcilable: false },
+  testAccount({ id: "acc-cash", code: "100100", name: "Cash", accountType: 0, accountSubType: 4 }),
+  testAccount({ id: "acc-rev", code: "400100", name: "Sales Revenue", accountType: 3, accountSubType: 0 }),
 ];
 
 const JOURNALS: JournalResponse[] = [

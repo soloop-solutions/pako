@@ -61,7 +61,7 @@ export function Partners() {
 
   const accountsQuery = useQuery({
     queryKey: ["accounts", activeCompanyId],
-    queryFn: () => apiClient.accounts(activeCompanyId as string),
+    queryFn: () => apiClient.accountsAll(activeCompanyId as string),
     enabled: !!activeCompanyId,
   });
 

@@ -17,14 +17,25 @@ using Pako.Infrastructure.Identity;
 
 namespace Pako.Tests;
 
-public class FirmsAndMembershipTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class FirmsAndMembershipTests : IAsyncLifetime
 {
-    private static PakoDbContext NewContext()
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        var options = new DbContextOptionsBuilder<PakoDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new PakoDbContext(options);
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
+    private async Task<PakoDbContext> NewContextAsync()
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        return db;
     }
 
     private static UserManager<AppUser> NewUserManager(PakoDbContext db)
@@ -68,7 +79,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task CreateFirm_GrantsCreatorFirmAdmin()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var userId = Guid.NewGuid();
         var controller = WithUser(new FirmsController(db, new NullStringLocalizer<ErrorMessages>()), userId);
 
@@ -83,7 +94,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task CompaniesList_ShowsFirmCompanyToEveryFirmMember()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var firmAdmin = Guid.NewGuid();
         var firmAccountant = Guid.NewGuid();
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
@@ -109,7 +120,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task CreateCompany_UnderFirm_RejectsNonFirmAdmin()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var firmAccountant = Guid.NewGuid();
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
         db.Firms.Add(firm);
@@ -125,7 +136,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task FirmAccessFilter_AdminOnly_ForbidsNonAdminFirmMember()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var accountant = Guid.NewGuid();
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
         db.Firms.Add(firm);
@@ -140,7 +151,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task FirmAccessFilter_AdminOnly_AllowsFirmAdmin()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var admin = Guid.NewGuid();
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
         db.Firms.Add(firm);
@@ -155,7 +166,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task CompanyAccessFilter_AdminOnly_ForbidsClientViewer()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var viewer = Guid.NewGuid();
         var company = new Company { Id = Guid.NewGuid(), Name = "Client Co" };
         db.Companies.Add(company);
@@ -171,7 +182,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task CompanyAccessFilter_FirmCascadedMember_HasAccessWithoutDirectCompanyMembership()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var firmAdmin = Guid.NewGuid();
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
         var company = new Company { Id = Guid.NewGuid(), Name = "Client Co", FirmId = firm.Id };
@@ -194,7 +205,7 @@ public class FirmsAndMembershipTests
         // AND a direct ClientViewer (read-only) on the same company must get write access — the
         // union of what either membership grants, not whichever row an unordered query happened
         // to pick first (the bug this fix closes).
-        var db = NewContext();
+        var db = await NewContextAsync();
         var userId = Guid.NewGuid();
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
         var company = new Company { Id = Guid.NewGuid(), Name = "Client Co", FirmId = firm.Id };
@@ -212,7 +223,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task AddCompanyMember_NonexistentEmail_ReturnsNotFound()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var userManager = NewUserManager(db);
         var company = new Company { Id = Guid.NewGuid(), Name = "Client Co" };
         db.Companies.Add(company);
@@ -227,7 +238,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task AddFirmMember_NonexistentEmail_ReturnsNotFound()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var userManager = NewUserManager(db);
         var firm = new Firm { Id = Guid.NewGuid(), Name = "Acme Accounting" };
         db.Firms.Add(firm);
@@ -242,7 +253,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task AddCompanyMember_ValidEmail_CreatesMembership()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var userManager = NewUserManager(db);
         var newUser = new AppUser { UserName = "member@example.com", Email = "member@example.com" };
         await userManager.CreateAsync(newUser, "Passw0rd!123");
@@ -263,7 +274,7 @@ public class FirmsAndMembershipTests
     [Fact]
     public async Task AddCompanyMember_RejectsFirmScopedRole()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var userManager = NewUserManager(db);
         var company = new Company { Id = Guid.NewGuid(), Name = "Client Co" };
         db.Companies.Add(company);

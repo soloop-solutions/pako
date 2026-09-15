@@ -11,9 +11,20 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class JournalEntriesControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class JournalEntriesControllerTests : IAsyncLifetime
 {
     private static readonly Guid TestUserId = Guid.NewGuid();
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
 
     private static JournalEntriesController NewController(PakoDbContext db)
     {
@@ -26,9 +37,10 @@ public class JournalEntriesControllerTests
         };
     }
 
-    private static async Task<(PakoDbContext Db, Guid CompanyId, Guid JournalId, Guid AccountAId, Guid AccountBId)> SeedAsync()
+    private async Task<(PakoDbContext Db, Guid CompanyId, Guid JournalId, Guid AccountAId, Guid AccountBId)> SeedAsync()
     {
-        var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 };
         var accountA = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Asset, IsPostable = true };

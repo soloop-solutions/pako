@@ -5,19 +5,24 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class PayrollImmutabilityTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class PayrollImmutabilityTests : IAsyncLifetime
 {
-    private static PakoDbContext NewContext()
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        var options = new DbContextOptionsBuilder<PakoDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new PakoDbContext(options);
+        foreach (var db in _dbContexts) await db.DisposeAsync();
     }
 
-    private static async Task<(PakoDbContext Db, PayrollRun Run)> SeedPostedRun()
+    private async Task<(PakoDbContext Db, PayrollRun Run)> SeedPostedRun()
     {
-        var db = NewContext();
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var run = new PayrollRun
         {

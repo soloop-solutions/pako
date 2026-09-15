@@ -93,9 +93,16 @@ public class CompaniesController : ControllerBase
                 DefaultVatCode = entry.DefaultVatCode,
                 CitDeductibility = entry.CitDeductibility,
                 CitLimitRule = entry.CitLimitRule,
-                Profiles = entry.Profile
+                Profiles = entry.Profile,
+                CashFlowCategory = AccountTypeDerivation.DeriveCashFlowCategory(entry.Class, entry.Group)
             });
         }
+
+        // B2: hierarchy by code prefix, not a stored parent — every company gets the same 35
+        // groups (7 Class-level + 28 Group-level) regardless of which profiles are enabled, since
+        // an account's group is resolved by matching its Code against a prefix range at read
+        // time, never backfilled.
+        _db.AccountGroups.AddRange(AccountGroupTemplate.BuildForCompany(company.Id));
 
         // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 3): the real 20 VAT codes +
         // 6 withholding codes from 20_VAT_Codes/21_WHT_Codes, replacing the old 5-entry

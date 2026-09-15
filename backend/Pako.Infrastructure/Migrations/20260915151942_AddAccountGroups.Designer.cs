@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pako.Infrastructure;
@@ -11,9 +12,11 @@ using Pako.Infrastructure;
 namespace Pako.Infrastructure.Migrations
 {
     [DbContext(typeof(PakoDbContext))]
-    partial class PakoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260915151942_AddAccountGroups")]
+    partial class AddAccountGroups
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -714,11 +717,6 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<int>("AccountType")
                         .HasColumnType("integer");
-
-                    b.Property<int>("CashFlowCategory")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(0);
 
                     b.Property<int?>("CitDeductibility")
                         .HasColumnType("integer");

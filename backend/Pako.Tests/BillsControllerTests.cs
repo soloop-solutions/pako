@@ -13,9 +13,20 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class BillsControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class BillsControllerTests : IAsyncLifetime
 {
     private static readonly TaxComputationService TaxService = new();
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
 
     private static BillsController NewController(PakoDbContext db)
     {
@@ -28,9 +39,10 @@ public class BillsControllerTests
         };
     }
 
-    private static async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
+    private async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
     {
-        var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
         // IsVatRegistered = false — same reasoning as InvoicesControllerTests.SeedAsync's comment.
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co", IsVatRegistered = false };
         var partnerId = Guid.NewGuid();

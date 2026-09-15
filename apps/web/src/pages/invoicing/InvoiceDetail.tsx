@@ -75,7 +75,7 @@ export function InvoiceDetail() {
           apiClient.paymentMethodsAll(companyId),
           apiClient.membersAll(companyId),
           apiClient.itemsGET(companyId, 0, 200, undefined),
-          apiClient.accounts(companyId),
+          apiClient.accountsAll(companyId),
         ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);

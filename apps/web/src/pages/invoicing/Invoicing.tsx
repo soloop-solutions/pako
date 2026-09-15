@@ -53,7 +53,7 @@ export function Invoicing() {
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
         apiClient.itemsGET(companyId, 0, 200, undefined),
-        apiClient.accounts(companyId),
+        apiClient.accountsAll(companyId),
       ]);
       setPartners(partnersResult);
       setInvoices(invoicesResult);

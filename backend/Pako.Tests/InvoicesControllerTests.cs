@@ -14,9 +14,20 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class InvoicesControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class InvoicesControllerTests : IAsyncLifetime
 {
     private static readonly TaxComputationService TaxService = new();
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
 
     private static InvoicesController NewController(PakoDbContext db)
     {
@@ -29,9 +40,10 @@ public class InvoicesControllerTests
         };
     }
 
-    private static async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
+    private async Task<(PakoDbContext Db, Guid CompanyId, Guid PartnerId, Guid CashAccountId)> SeedAsync()
     {
-        var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
         // IsVatRegistered = false: this fixture's own RequestWithLine helper builds lines with no
         // TaxDefinitionId, and most tests here are about other invariants (quantity/price/total),
         // not C2's "VAT-registered companies require a tax code per line" rule — that rule gets

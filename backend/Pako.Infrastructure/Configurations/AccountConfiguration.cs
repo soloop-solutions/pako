@@ -22,5 +22,6 @@ public class AccountConfiguration : IEntityTypeConfiguration<Account>
         builder.Property(a => a.IsPostable).HasDefaultValue(true);
         builder.Property(a => a.IsControl).HasDefaultValue(false);
         builder.Property(a => a.IsActive).HasDefaultValue(true);
+        builder.Property(a => a.CashFlowCategory).HasDefaultValue(CashFlowCategory.None);
     }
 }

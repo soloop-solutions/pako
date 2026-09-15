@@ -11,8 +11,20 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class PaymentMethodsControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class PaymentMethodsControllerTests : IAsyncLifetime
 {
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
     private static PaymentMethodsController NewController(PakoDbContext db)
     {
         var user = new ClaimsPrincipal(new ClaimsIdentity(
@@ -24,9 +36,10 @@ public class PaymentMethodsControllerTests
         };
     }
 
-    private static async Task<(PakoDbContext Db, Guid CompanyId, Guid CashAccountId, Guid BankAccountId, Guid RevenueAccountId)> SeedAsync()
+    private async Task<(PakoDbContext Db, Guid CompanyId, Guid CashAccountId, Guid BankAccountId, Guid RevenueAccountId)> SeedAsync()
     {
-        var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var cashAccountId = Guid.NewGuid();
         var bankAccountId = Guid.NewGuid();

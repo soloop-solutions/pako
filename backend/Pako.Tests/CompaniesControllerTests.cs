@@ -6,18 +6,30 @@ using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
+using Pako.Domain.Ledger;
 using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class CompaniesControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class CompaniesControllerTests : IAsyncLifetime
 {
-    private static PakoDbContext NewContext()
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        var options = new DbContextOptionsBuilder<PakoDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new PakoDbContext(options);
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
+    private async Task<PakoDbContext> NewContextAsync()
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        return db;
     }
 
     private static CompaniesController NewController(PakoDbContext db, Guid userId)
@@ -34,7 +46,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_RejectsNameOver256Characters()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest(new string('A', 257)));
@@ -47,7 +59,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_RejectsWhitespaceOnlyName()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("   "));
@@ -60,7 +72,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_AcceptsUnicodeAlbanianCharacters()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Shoqëria Çelniku Sh.p.k."));
@@ -76,7 +88,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_WithNoProfiles_SeedsExactlyCoreAccountsAndCoreOnlyDefaults()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Core Only Co"));
@@ -102,7 +114,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_WithImportAndPayrollProfiles_SeedsCoreImportPayrollAccountsAndFullDefaults()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest(
@@ -124,7 +136,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_SeedsExactlyFourControlAccounts()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Control Co"));
@@ -143,7 +155,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_SeedsOneCashAndOneBankPaymentMethod()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Payment Co"));
@@ -153,5 +165,56 @@ public class CompaniesControllerTests
 
         Assert.Contains(methods, m => m.Kind == PaymentMethodKind.Cash);
         Assert.Contains(methods, m => m.Kind == PaymentMethodKind.Bank);
+    }
+
+    // B2: 7 Class-level groups (1-7) + 28 Group-level groups (10-15, 20-24, 30, 40-42, 50-52,
+    // 60-66, 70-72) — one row per distinct (Class, Group) pair in PAKO_COA_v2_seed.csv, seeded
+    // regardless of which profiles are enabled since the hierarchy itself doesn't vary by profile.
+    [Fact]
+    public async Task Create_Seeds35AccountGroups_SevenClassLevelAndTwentyEightGroupLevel()
+    {
+        var db = await NewContextAsync();
+        var controller = NewController(db, Guid.NewGuid());
+
+        var result = await controller.Create(new CreateCompanyRequest("Group Co"));
+        var created = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+
+        var groups = await db.AccountGroups.Where(g => g.CompanyId == created.Id).ToListAsync();
+
+        Assert.Equal(35, groups.Count);
+        Assert.Equal(7, groups.Count(g => g.ParentGroupId == null));
+        Assert.Equal(28, groups.Count(g => g.ParentGroupId != null));
+        // Every Group-level row's parent must actually exist among this same company's rows.
+        var ids = groups.Select(g => g.Id).ToHashSet();
+        Assert.All(groups.Where(g => g.ParentGroupId != null), g => Assert.Contains(g.ParentGroupId!.Value, ids));
+    }
+
+    // B3: every seeded account gets a CashFlowCategory derived from its Class/Group — spot-check
+    // one account from each category, plus prove no seeded account is left at the domain default
+    // by accident (None is a real, meaningful category here — Cash and Cash Equivalents — so the
+    // assertion below counts Operating/Investing/Financing accounts explicitly rather than just
+    // checking "not None" on everything).
+    [Fact]
+    public async Task Create_SeedsCashFlowCategoryOnEveryAccount()
+    {
+        var db = await NewContextAsync();
+        var controller = NewController(db, Guid.NewGuid());
+
+        var result = await controller.Create(new CreateCompanyRequest("Cash Flow Co"));
+        var created = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+
+        var accounts = await db.Accounts.Where(a => a.CompanyId == created.Id).ToListAsync();
+
+        Assert.NotEmpty(accounts);
+        Assert.Equal(CashFlowCategory.None, accounts.Single(a => a.Code == "100100").CashFlowCategory); // Cash
+        Assert.Equal(CashFlowCategory.Investing, accounts.Single(a => a.Code == "150100").CashFlowCategory); // Land
+        Assert.Equal(CashFlowCategory.Financing, accounts.Single(a => a.Code == "300100").CashFlowCategory); // Share Capital
+        Assert.Equal(CashFlowCategory.Financing, accounts.Single(a => a.Code == "230100").CashFlowCategory); // Short-term Bank Loans
+        Assert.Equal(CashFlowCategory.Operating, accounts.Single(a => a.Code == "400100").CashFlowCategory); // Goods Sales
+        Assert.Equal(CashFlowCategory.Operating, accounts.Single(a => a.Code == "610100").CashFlowCategory); // Rent
+
+        Assert.Contains(accounts, a => a.CashFlowCategory == CashFlowCategory.Operating);
+        Assert.Contains(accounts, a => a.CashFlowCategory == CashFlowCategory.Investing);
+        Assert.Contains(accounts, a => a.CashFlowCategory == CashFlowCategory.Financing);
     }
 }

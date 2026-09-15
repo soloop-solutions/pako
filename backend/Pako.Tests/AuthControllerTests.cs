@@ -11,11 +11,24 @@ using Pako.Infrastructure.Identity;
 
 namespace Pako.Tests;
 
-public class AuthControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class AuthControllerTests : IAsyncLifetime
 {
-    private static (PakoDbContext Db, UserManager<AppUser> UserManager) NewContext()
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
+    private async Task<(PakoDbContext Db, UserManager<AppUser> UserManager)> NewContextAsync()
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(db);
@@ -34,7 +47,7 @@ public class AuthControllerTests
     [Fact]
     public async Task Register_DuplicateEmail_DoesNotRevealEmailWasTaken()
     {
-        var (_, userManager) = NewContext();
+        var (_, userManager) = await NewContextAsync();
         var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>());
 
         var first = await controller.Register(new RegisterRequest("dup@example.com", "Passw0rd!123"));
@@ -54,7 +67,7 @@ public class AuthControllerTests
         // Password strength rules aren't secret information the way "this email is taken" is -
         // hiding them behind the same generic message just breaks registration for anyone who
         // trips a real, fixable validation rule (a very real bug this test used to enshrine).
-        var (_, userManager) = NewContext();
+        var (_, userManager) = await NewContextAsync();
         var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>());
 
         var result = await controller.Register(new RegisterRequest("weak@example.com", "abc"));
