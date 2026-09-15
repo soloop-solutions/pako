@@ -1,0 +1,234 @@
+code,name_sq,name_en,class,group,statement,normal_balance,subledger,default_vat_code,cit_deductibility,profile,status,note
+100100,Arka kryesore,Main Cash,1,10,BS,D,CASH,NA,NA,CORE,CHG,VAT was EXEMPT -> NA
+100200,Arka valutore,Foreign Currency Cash,1,10,BS,D,CASH,NA,NA,CORE,CHG,Multi-currency; revalue at period end
+100300,Para në rrugë,Cash in Transit,1,10,BS,D,CASH,NA,NA,CORE,KEEP,
+100900,Diferenca në arkë,Cash Over / Short,1,10,BS,D,-,NA,NON,CORE,NEW,Shortages generally non-deductible
+101001,Banka Raiffeisen,Raiffeisen Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+101002,Banka TEB,TEB Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+101003,Banka ProCredit,ProCredit Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+101004,Banka NLB,NLB Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+101005,Banka BKT,BKT Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+101006,Banka BPB,BPB Bank,1,10,BS,D,BANK,NA,NA,CORE,NEW,Common in KS; add per company
+101100,Llogari valutore (USD),Foreign Currency Account (USD),1,10,BS,D,BANK,NA,NA,CORE,CHG,
+102100,Depozita afatshkurtra,Short-term Deposits,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+103100,PayPal / Portë pagesë,PayPal / Payment Gateway,1,10,BS,D,BANK,NA,NA,CORE,CHG,
+103200,Klering i terminalit POS,Card Acquirer Clearing,1,10,BS,D,BANK,NA,NA,CORE,NEW,Card sale -> settlement lag; must reconcile
+104100,Transfere ndërmjet llogarive,Internal Transfer Clearing,1,10,BS,D,-,NA,NA,CORE,NEW,Prevents double-count in bank rec; must be zero at close
+109900,Konto kalimtare (suspense),Suspense Account,1,10,BS,D,-,NA,NA,CORE,NEW,Blocked from period close if non-zero
+110100,Klientë vendas,Domestic Customers,1,11,BS,D,PARTNER,NA,NA,CORE,CHG,Control account; subledger only
+110200,Klientë të huaj,Foreign Customers,1,11,BS,D,PARTNER,NA,NA,CORE,CHG,Control account; FX revaluation
+110300,Klientë - palë të lidhura,Related Party Receivables,1,11,BS,D,PARTNER,NA,NA,CORE,NEW,Transfer pricing disclosure
+110900,Provizion për klientë të dyshimtë,Allowance for Doubtful Accounts,1,11,BS,C,-,NA,NA,CORE,CHG,Contra-asset
+111100,Të arkëtueshme nga punonjësit,Employee Receivables,1,11,BS,D,EMPLOYEE,NA,NA,CORE,CHG,
+112100,Paradhënie furnitorëve,Advances to Suppliers,1,11,BS,D,PARTNER,NA,NA,CORE,CHG,
+113100,TVSH e zbritshme - kontroll,Input VAT - Control,1,11,BS,D,TAX,NA,NA,CORE,CHG,Was VAT18 - now NA. Summary/control only
+113110,TVSH e zbritshme - blerje vendore 18%,Input VAT - Domestic 18%,1,11,BS,D,TAX,NA,NA,CORE,NEW,
+113120,TVSH e zbritshme - blerje vendore 8%,Input VAT - Domestic 8%,1,11,BS,D,TAX,NA,NA,CORE,NEW,
+113200,TVSH e zbritshme - import (doganë),Input VAT - Import (paid at customs),1,11,BS,D,CUSTOMS,NA,NA,IMPORT,NEW,"Deduction evidence = DUD/SAD, not supplier invoice"
+113300,TVSH e zbritshme - ngarkesë e kundërt,Input VAT - Reverse Charge,1,11,BS,D,TAX,NA,NA,CORE,NEW,Mirror of 210300
+113400,Kredi e TVSH-së e bartur,VAT Credit Carried Forward,1,11,BS,D,TAX,NA,NA,CORE,NEW,"Refund only if >EUR 3,000 over 3 months"
+113900,TVSH e pazbritshme,Non-deductible Input VAT,1,11,BS,D,TAX,NA,NON,CORE,NEW,Clearing acct; charged to expense/asset in same entry
+114100,Tatim në burim i parapaguar,Prepaid Withholding Tax,1,11,BS,D,TAX,NA,NA,CORE,CHG,Tax withheld from us by customers
+114200,Kësti i tatimit në fitim (paradhënie),CIT Advance Instalments,1,11,BS,D,TAX,NA,NA,CORE,NEW,Quarterly advances; offsets 211100 at year end
+115100,Të arkëtueshme të tjera,Other Receivables,1,11,BS,D,PARTNER,NA,NA,CORE,CHG,
+116100,Garanci doganore / depozitë,Customs Guarantee / Deposit,1,11,BS,D,CUSTOMS,NA,NA,IMPORT,NEW,"Bond lodged with Dogana; asset, not expense"
+116200,Llogari paradhënie në Doganë,Customs Prepayment Account,1,11,BS,D,CUSTOMS,NA,NA,IMPORT,NEW,Balance held at customs to settle DUDs
+117100,Kaucione dhe garanci të tjera,Other Deposits and Guarantees,1,11,BS,D,PARTNER,NA,NA,CORE,NEW,"Rent deposits, tender bonds"
+120100,Mallra për shitje,Goods for Sale,1,12,BS,D,ITEM,NA,NA,CORE,CHG,Was VAT18 - now NA; VAT belongs on the document line
+120200,Lëndë të para,Raw Materials,1,12,BS,D,ITEM,NA,NA,MFG,CHG,
+120300,Prodhim në proces,Work in Progress,1,12,BS,D,ITEM,NA,NA,MFG,KEEP,
+120400,Produkte të gatshme,Finished Goods,1,12,BS,D,ITEM,NA,NA,MFG,KEEP,
+120500,Materiale konsumi,Consumables,1,12,BS,D,ITEM,NA,NA,CORE,CHG,
+120600,Mallra në transit,Goods in Transit,1,12,BS,D,ITEM,NA,NA,IMPORT,NEW,"Booked on supplier invoice, before clearance"
+120700,Mallra në depo doganore,Goods in Customs Warehouse,1,12,BS,D,ITEM,NA,NA,IMPORT,NEW,Regime 71xx; duty not yet due
+120800,Klering i kostos së blerjes (GRNI),Goods Received Not Invoiced,1,12,BS,C,ITEM,NA,NA,CORE,NEW,Receipt before invoice; must age to zero
+120900,Zhvlerësim inventari,Inventory Write-down,1,12,BS,C,-,NA,LIMIT,CORE,CHG,Contra-asset; deductibility needs ATK evidence
+121100,Mallra te palët e treta / konsignacion,Goods at Third Parties,1,12,BS,D,ITEM,NA,NA,CORE,NEW,
+121200,Ambalazh dhe paketim,Packaging Materials,1,12,BS,D,ITEM,NA,NA,CORE,NEW,
+130100,Shpenzime të parapaguara,Prepaid Expenses,1,13,BS,D,PARTNER,NA,NA,CORE,CHG,
+130200,Qira e parapaguar,Prepaid Rent,1,13,BS,D,PARTNER,NA,NA,CORE,CHG,
+130300,Sigurime të parapaguara,Prepaid Insurance,1,13,BS,D,PARTNER,NA,NA,CORE,CHG,
+130400,Të ardhura të përllogaritura,Accrued Income (Unbilled),1,13,BS,D,PARTNER,NA,NA,CORE,CHG,
+130500,Abonime dhe licenca të parapaguara,Prepaid Subscriptions and Licenses,1,13,BS,D,PARTNER,NA,NA,CORE,NEW,Annual SaaS paid up front
+140100,Investime në filiale,Investments in Subsidiaries,1,14,BS,D,PARTNER,NA,NA,IFRS+,NEW,Group 14 was empty in source file
+140200,Investime të tjera afatgjata,Other Long-term Investments,1,14,BS,D,PARTNER,NA,NA,IFRS+,NEW,
+141100,Të arkëtueshme afatgjata,Long-term Receivables,1,14,BS,D,PARTNER,NA,NA,IFRS+,NEW,
+142100,Aktiv tatimor i shtyrë,Deferred Tax Asset,1,14,BS,D,TAX,NA,NA,IFRS+,NEW,Only if IAS 12 applied; flag below
+150100,Toka,Land,1,15,BS,D,ASSET,NA,NA,CORE,KEEP,Not depreciated
+151100,Ndërtesa,Buildings,1,15,BS,D,ASSET,NA,NA,CORE,CHG,Tax cat. 1 - 5%
+152100,Makineri dhe pajisje,Machinery and Equipment,1,15,BS,D,ASSET,NA,NA,CORE,CHG,Tax cat. 3 - 10% (verify)
+153100,Mobilje dhe orendi,Furniture and Fixtures,1,15,BS,D,ASSET,NA,NA,CORE,CHG,Tax cat. 2 - 20%
+154100,Automjete,Vehicles,1,15,BS,D,ASSET,NA,LIMIT,CORE,CHG,Input VAT capped at 50% for dual-use
+155100,Kompjuterë,Computers,1,15,BS,D,ASSET,NA,NA,CORE,CHG,IT equipment may be 8% VAT on purchase
+155200,Pajisje zyre,Office Equipment,1,15,BS,D,ASSET,NA,NA,CORE,CHG,
+156100,Aktive me të drejtë përdorimi - ndërtesa,Right-of-use Asset - Buildings,1,15,BS,D,ASSET,NA,NA,IFRS+,NEW,IFRS 16; missing in source despite lease liability
+156200,Aktive me të drejtë përdorimi - automjete,Right-of-use Asset - Vehicles,1,15,BS,D,ASSET,NA,NA,IFRS+,NEW,
+157100,Aktive në ndërtim / investime në vazhdim,Assets under Construction,1,15,BS,D,ASSET,NA,NA,CORE,NEW,No depreciation until in use
+158100,Licenca software,Software Licenses,1,15,BS,D,ASSET,NA,NA,CORE,CHG,
+158200,Emri i mirë,Goodwill,1,15,BS,D,ASSET,NA,NA,IFRS+,KEEP,"Impaired, not amortised, under IFRS"
+158300,Marka tregtare,Trademarks,1,15,BS,D,ASSET,NA,NA,IFRS+,KEEP,
+158900,Zhvlerësim i akumuluar - emri i mirë,Accumulated Impairment - Goodwill,1,15,BS,C,-,NA,NA,IFRS+,NEW,
+159100,Amortizim i akumuluar - ndërtesa,Accumulated Depreciation - Buildings,1,15,BS,C,ASSET,NA,NA,CORE,KEEP,
+159200,Amortizim i akumuluar - makineri dhe pajisje,Accumulated Depreciation - Machinery,1,15,BS,C,ASSET,NA,NA,CORE,KEEP,
+159300,Amortizim i akumuluar - automjete,Accumulated Depreciation - Vehicles,1,15,BS,C,ASSET,NA,NA,CORE,KEEP,
+159400,Amortizim i akumuluar - software,Accumulated Amortization - Software,1,15,BS,C,ASSET,NA,NA,CORE,KEEP,
+159500,Amortizim i akumuluar - mobilje,Accumulated Depreciation - Furniture,1,15,BS,C,ASSET,NA,NA,CORE,NEW,Asset existed with no contra account
+159600,Amortizim i akumuluar - kompjuterë,Accumulated Depreciation - Computers,1,15,BS,C,ASSET,NA,NA,CORE,NEW,Asset existed with no contra account
+159700,Amortizim i akumuluar - pajisje zyre,Accumulated Depreciation - Office Equipment,1,15,BS,C,ASSET,NA,NA,CORE,NEW,Asset existed with no contra account
+159800,Amortizim i akumuluar - aktive me të drejtë përdorimi,Accumulated Depreciation - Right-of-use,1,15,BS,C,ASSET,NA,NA,IFRS+,NEW,
+200100,Furnitorë vendas,Domestic Suppliers,2,20,BS,C,PARTNER,NA,NA,CORE,KEEP,Control account
+200200,Furnitorë të huaj,Foreign Suppliers,2,20,BS,C,PARTNER,NA,NA,CORE,KEEP,FX revaluation
+200300,Fatura të paarritura (GRNI),Accrued Purchases (GRNI),2,20,BS,C,PARTNER,NA,NA,CORE,KEEP,See also 120800
+200400,Furnitorë - palë të lidhura,Related Party Payables,2,20,BS,C,PARTNER,NA,NA,CORE,NEW,
+200500,Detyrime ndaj agjentit doganor,Customs Broker Payable,2,20,BS,C,PARTNER,NA,NA,IMPORT,NEW,Broker often pays duty on your behalf
+201100,Detyrime të tjera tregtare,Other Trade Payables,2,20,BS,C,PARTNER,NA,NA,CORE,KEEP,
+210100,TVSH e llogaritur - kontroll,Output VAT - Control,2,21,BS,C,TAX,NA,NA,CORE,CHG,Was VAT18 - double-VAT risk. Now NA
+210110,TVSH e llogaritur - shitje 18%,Output VAT - Sales 18%,2,21,BS,C,TAX,NA,NA,CORE,NEW,
+210120,TVSH e llogaritur - shitje 8%,Output VAT - Sales 8%,2,21,BS,C,TAX,NA,NA,CORE,NEW,
+210200,TVSH neto për t'u paguar,Net VAT Due,2,21,BS,C,TAX,NA,NA,CORE,KEEP,"Settlement account, filled at VAT close"
+210300,TVSH e ngarkeses së kundërt për t'u paguar,Reverse Charge VAT Payable,2,21,BS,C,TAX,NA,NA,CORE,NEW,Self-charged VAT on imported services
+210400,TVSH e importit për t'u paguar,Import VAT Payable,2,21,BS,C,CUSTOMS,NA,NA,IMPORT,NEW,Only where payment is deferred
+211100,Tatimi në fitim,Corporate Income Tax Payable,2,21,BS,C,TAX,NA,NA,CORE,KEEP,10% CIT; offset by 114200
+212100,Tatimi në burim,Withholding Tax Payable,2,21,BS,C,TAX,NA,NA,CORE,KEEP,Due by 15th of following month
+213100,Tatimi mbi pagat,Wage Tax Payable,2,21,BS,C,TAX,NA,NA,PAYROLL,KEEP,PIT 0-10% progressive
+214100,Tatimi në qira,Rent Withholding Tax Payable,2,21,BS,C,TAX,NA,NA,CORE,KEEP,9%
+215100,Detyrime doganore,Customs Duty Payable,2,21,BS,C,CUSTOMS,NA,NA,IMPORT,NEW,Per DUD/MRN
+215200,Akciza për t'u paguar,Excise Payable,2,21,BS,C,CUSTOMS,NA,NA,IMPORT,NEW,"Fuel, tobacco, alcohol, coffee, vehicles"
+215300,Detyrime nga rivleresimi / kontrolli pas zhdoganimit,Post-clearance Assessment Payable,2,21,BS,C,CUSTOMS,NA,NA,IMPORT,NEW,Customs revaluation raised after release
+216100,Tatimi në pronë,Property Tax Payable,2,21,BS,C,TAX,NA,NA,CORE,NEW,"Municipal, 0.10-0.50%"
+217100,Gjoba dhe interesa tatimore,Tax Penalties and Interest Payable,2,21,BS,C,TAX,NA,NON,CORE,NEW,Non-deductible for CIT
+220100,Paga neto për t'u paguar,Net Salaries Payable,2,22,BS,C,EMPLOYEE,NA,NA,PAYROLL,KEEP,
+220200,Klering i listës së pagave,Payroll Clearing,2,22,BS,C,-,NA,NA,PAYROLL,CHG,Was 'Gross Salaries' in liabilities - double-count risk. Repurposed as clearing; must be zero after each run
+221100,Kontribute pensionale (punonjës),Pension Contributions - Employee,2,22,BS,C,EMPLOYEE,NA,NA,PAYROLL,KEEP,5%
+221200,Kontribut pensional (punëdhënës),Pension Contribution - Employer,2,22,BS,C,EMPLOYEE,NA,NA,PAYROLL,CHG,5%; AL name duplicated 600200 - renamed
+222100,Detyrime të tjera ndaj punonjësve,Other Employee Liabilities,2,22,BS,C,EMPLOYEE,NA,NA,PAYROLL,KEEP,
+223100,Detyrime për pushime të papërdorura,Accrued Vacation Liability,2,22,BS,C,-,NA,LIMIT,PAYROLL,NEW,
+230100,Hua afatshkurtra bankare,Short-term Bank Loans,2,23,BS,C,PARTNER,NA,NA,CORE,KEEP,
+231100,Hua afatgjata bankare,Long-term Bank Loans,2,23,BS,C,PARTNER,NA,NA,CORE,KEEP,Split current portion at close
+232100,Detyrime nga qira financiare,Finance Lease Liabilities,2,23,BS,C,PARTNER,NA,NA,CORE,KEEP,
+233100,Hua nga pronarët,Loans from Owners,2,23,BS,C,PARTNER,NA,NA,CORE,KEEP,Interest may be deemed - transfer pricing
+234100,Detyrime nga qiraja - IFRS 16,Lease Liability - IFRS 16,2,23,BS,C,PARTNER,NA,NA,IFRS+,NEW,Pairs with 156100/156200
+235100,Mbitërheqje bankare (overdraft),Bank Overdraft,2,23,BS,C,BANK,NA,NA,CORE,NEW,
+240100,Shpenzime të përllogaritura,Accrued Expenses,2,24,BS,C,PARTNER,NA,NA,CORE,KEEP,
+240200,Të ardhura të shtyra,Deferred Revenue,2,24,BS,C,PARTNER,NA,NA,CORE,KEEP,
+240300,Paradhënie nga klientet,Customer Advances,2,24,BS,C,PARTNER,NA,NA,CORE,CHG,VAT may be due on advance - verify
+240400,Dividendë për t'u paguar,Dividends Payable,2,24,BS,C,PARTNER,NA,NA,CORE,KEEP,0% WHT in Kosovo
+240500,Provizione,Provisions,2,24,BS,C,-,NA,LIMIT,IFRS+,NEW,IAS 37; generally non-deductible until incurred
+240600,Detyrim tatimor i shtyrë,Deferred Tax Liability,2,24,BS,C,TAX,NA,NA,IFRS+,NEW,
+300100,Kapitali themelor,Share Capital,3,30,BS,C,-,NA,NA,CORE,KEEP,
+301100,Primi i aksioneve,Share Premium,3,30,BS,C,-,NA,NA,CORE,KEEP,
+302100,Rezerva ligjore,Legal Reserve,3,30,BS,C,-,NA,NA,CORE,KEEP,
+303100,Fitimi i mbartur,Retained Earnings,3,30,BS,C,-,NA,NA,CORE,KEEP,Year-end close target
+304100,Fitimi/Humbja e vitit,Current Year Profit / Loss,3,30,BS,C,-,NA,NA,CORE,KEEP,System-computed; block manual posting
+305100,Distribuim pronarit,Owner Distribution,3,30,BS,D,PARTNER,NA,NA,CORE,KEEP,
+306100,Rezerva nga rivleresimi,Revaluation Reserve,3,30,BS,C,-,NA,NA,IFRS+,NEW,"Asset revaluation, not customs"
+307100,Korrigjime të periudhave të kaluara,Prior Period Adjustments,3,30,BS,C,-,NA,NA,CORE,NEW,Restricted; audit-logged
+400100,Shitje mallrash 18%,Goods Sales 18%,4,40,IS,C,PARTNER,S18,NA,CORE,CHG,
+400200,Shitje mallrash 8%,Goods Sales 8%,4,40,IS,C,PARTNER,S08,NA,CORE,CHG,
+400300,Shitje mallrash 0%,Goods Sales 0%,4,40,IS,C,PARTNER,S00,NA,CORE,CHG,
+400400,Shitje eksporti,Export Sales,4,40,IS,C,PARTNER,SEXP,NA,CORE,CHG,Exempt with credit; needs export DUD evidence
+400500,Shitje me ngarkesë të kundërt,Sales under Reverse Charge,4,40,IS,C,PARTNER,SRC,NA,CORE,NEW,e.g. construction services - verify scope
+400600,Shitje të liruara pa të drejtë zbritje,Exempt Supplies (no credit),4,40,IS,C,PARTNER,SEX,NA,CORE,NEW,Drives input VAT pro-rata
+400900,Zbritje dhe kthime shitjesh,Sales Discounts and Returns,4,40,IS,D,PARTNER,S18,NA,CORE,CHG,Contra-revenue; credit note required
+410100,Kontabilitet,Accounting Services,4,41,IS,C,PARTNER,S18,NA,SERV,RENUM,was 401100
+410110,Auditim,Audit Services,4,41,IS,C,PARTNER,S18,NA,SERV,RENUM,was 401110
+410120,Konsulencë tatimore,Tax Consulting,4,41,IS,C,PARTNER,S18,NA,SERV,RENUM,was 401120
+410130,Përpunim page,Payroll Services,4,41,IS,C,PARTNER,S18,NA,SERV,RENUM,was 401130
+410140,Konsulencë biznesi,Business Consulting,4,41,IS,C,PARTNER,S18,NA,SERV,RENUM,was 401140
+410150,Shërbime IT,IT Services,4,41,IS,C,PARTNER,S18,NA,SERV,RENUM,was 401150
+410160,Shërbime abonimi (SaaS),Subscription Revenue (SaaS),4,41,IS,C,PARTNER,S18,NA,SERV,NEW,Pairs with 240200 deferred revenue
+420100,Të hyra nga qiraja,Rental Income,4,42,IS,C,PARTNER,S18,NA,CORE,CHG,Counterparty may withhold 9%
+420200,Të hyra të tjera operative,Other Operating Income,4,42,IS,C,PARTNER,SEX,NA,CORE,CHG,
+420300,Fitim nga shitja e aktiveve,Gain on Sale of Assets,4,42,IS,C,ASSET,S18,NA,CORE,CHG,Asset disposal is a taxable supply
+420400,Rabate dhe zbritje nga furnitorët,Supplier Rebates and Discounts,4,42,IS,C,PARTNER,B18,NA,CORE,NEW,Credit note reduces input VAT
+500100,Kosto e mallrave të shitura,Cost of Goods Sold,5,50,IS,D,ITEM,NA,FULL,CORE,KEEP,
+500200,Kosto e lendeve të para,Cost of Raw Materials,5,50,IS,D,ITEM,NA,FULL,MFG,KEEP,
+500300,Kosto direkte e punës,Direct Labour Cost,5,50,IS,D,-,NA,FULL,MFG,KEEP,
+500400,Kosto direkte e shërbimeve,Direct Service Cost,5,50,IS,D,PARTNER,B18,FULL,SERV,CHG,
+500500,Nënkontraktorë,Subcontractors,5,50,IS,D,PARTNER,B18,FULL,CORE,CHG,Was 'Freight and Customs' - split to group 51
+500600,Kosto të tjera direkte,Other Direct Costs,5,50,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+510100,Detyrime doganore (dogana),Customs Duty,5,51,IS,D,CUSTOMS,NA,FULL,IMPORT,NEW,Duty on DECLARED customs value
+510200,Akciza në import,Excise on Imports,5,51,IS,D,CUSTOMS,NA,FULL,IMPORT,NEW,
+510300,Rivlerësim doganor - diferencë,Customs Revaluation Difference,5,51,IS,D,CUSTOMS,NA,FULL,IMPORT,NEW,"*** Duty/excise arising from customs uplift over invoice value. Capitalised into inventory, tracked separately for appeals"
+510400,Tarifa të agjentit doganor,Customs Broker Fees,5,51,IS,D,PARTNER,B18,FULL,IMPORT,NEW,
+510500,Transport ndërkombëtar dhe sigurim,International Freight and Insurance,5,51,IS,D,PARTNER,B00,FULL,IMPORT,NEW,Part of CIF customs value
+510600,Transport vendor pas zhdoganimit,Inland Freight after Clearance,5,51,IS,D,PARTNER,B18,FULL,IMPORT,NEW,NOT part of customs value
+510700,Magazinim doganor dhe demurrage,Customs Storage and Demurrage,5,51,IS,D,PARTNER,B18,FULL,IMPORT,NEW,
+510800,"Inspektime, analiza dhe certifikata","Inspection, Testing and Certificates",5,51,IS,D,PARTNER,B18,FULL,IMPORT,NEW,
+510900,Klering i kostos së zhdoganimit,Landed Cost Absorbed (contra),5,51,IS,C,-,NA,NA,IMPORT,NEW,Credit side when 51x costs are capitalised to inventory. Group 51 must net to ~0
+511100,Detyrime shtesë nga kontrolli pas zhdoganimit,Post-clearance Assessment Expense,5,51,IS,D,CUSTOMS,NA,LIMIT,IMPORT,NEW,"Raised after goods sold - expense, not inventory. Penalty portion non-deductible"
+511200,TVSH e importit e pazbritshme,Non-deductible Import VAT,5,51,IS,D,CUSTOMS,NA,NON,IMPORT,NEW,
+520100,Diferenca inventari - mungesa,Inventory Shortages,5,52,IS,D,ITEM,NA,LIMIT,CORE,NEW,VAT clawback may apply on unexplained shortages
+520200,Diferenca inventari - teprica,Inventory Overages,5,52,IS,C,ITEM,NA,NA,CORE,NEW,
+520300,Zhvlerësim dhe skrap,Write-offs and Scrap,5,52,IS,D,ITEM,NA,LIMIT,CORE,NEW,Needs ATK-acceptable destruction evidence
+520400,Diferenca kursi në blerje/doganë,Purchase and Customs FX Differences,5,52,IS,D,-,NA,FULL,IMPORT,NEW,Customs uses its own exchange rate - verify
+600100,Pagat,Salaries,6,60,IS,D,EMPLOYEE,NA,FULL,PAYROLL,KEEP,
+600200,Kontribut pensional - punëdhënës,Employer Pension Contribution,6,60,IS,D,EMPLOYEE,NA,LIMIT,PAYROLL,CHG,Deductible up to 15% of gross salary
+600300,Shpërblime dhe bonuse,Bonuses,6,60,IS,D,EMPLOYEE,NA,FULL,PAYROLL,KEEP,
+600400,Shpenzime trajnimi,Training Expenses,6,60,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+600500,Mëditje udhetimi,Travel Per Diem,6,60,IS,D,EMPLOYEE,NA,LIMIT,CORE,CHG,Capped rates - verify current AI
+600600,Përfitime të tjera punonjesish,Other Employee Benefits,6,60,IS,D,EMPLOYEE,NA,LIMIT,PAYROLL,KEEP,May be taxable benefit in kind
+600700,Provizion për pushime,Vacation Accrual Expense,6,60,IS,D,-,NA,LIMIT,PAYROLL,NEW,
+600800,Sigurime shëndetësore private,Private Health Insurance,6,60,IS,D,PARTNER,BEX,LIMIT,PAYROLL,NEW,Benefit in kind - verify treatment
+610100,Qira,Rent,6,61,IS,D,PARTNER,BEX,FULL,CORE,CHG,9% WHT if landlord is an individual
+610200,Rrymë elektrike,Electricity,6,61,IS,D,PARTNER,B08,FULL,CORE,CHG,*** Was EXEMPT - electricity is on the 8% list
+610300,Ujë,Water,6,61,IS,D,PARTNER,B08,FULL,CORE,CHG,*** Was EXEMPT - water is on the 8% list
+610400,Ngrohje,Heating,6,61,IS,D,PARTNER,B08,FULL,CORE,CHG,*** Verify district heating rate
+610500,Mirëmbajtje lokali,Premises Maintenance,6,61,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+610600,Pastrim,Cleaning,6,61,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+610700,Mbeturina dhe higjienë,Waste Collection,6,61,IS,D,PARTNER,B08,FULL,CORE,NEW,
+610800,Siguri fizike,Security Services,6,61,IS,D,PARTNER,B18,FULL,CORE,NEW,
+624110,Dropbox,Dropbox Subscription,6,62,IS,D,PARTNER,RC18,FULL,CORE,CHG,"*** Foreign supplier - reverse charge, not EXEMPT"
+624120,Microsoft 365,Microsoft 365,6,62,IS,D,PARTNER,RC18,FULL,CORE,CHG,*** Reverse charge
+624130,Google Workspace,Google Workspace,6,62,IS,D,PARTNER,RC18,FULL,CORE,CHG,*** Reverse charge
+624140,Software kontabiliteti,Accounting Software,6,62,IS,D,PARTNER,B18,FULL,CORE,CHG,"B18 if local vendor, RC18 if foreign"
+624150,Hosting dhe domain,Hosting and Domain,6,62,IS,D,PARTNER,RC18,FULL,CORE,CHG,*** Usually foreign - reverse charge
+624160,Abonime të tjera,Other Subscriptions,6,62,IS,D,PARTNER,RC18,FULL,CORE,CHG,
+624170,Shërbime softuerike nga jashtë,Foreign Software Services,6,62,IS,D,PARTNER,RC18,FULL,CORE,NEW,Explicit reverse-charge bucket
+631100,Facebook Ads,Facebook Ads,6,63,IS,D,PARTNER,RC18,FULL,CORE,CHG,*** Meta Ireland - reverse charge
+631200,Google Ads,Google Ads,6,63,IS,D,PARTNER,RC18,FULL,CORE,CHG,*** Google Ireland - reverse charge
+631300,Materiale promovuese,Promotional Materials,6,63,IS,D,PARTNER,B18,FULL,CORE,KEEP,Giveaways may trigger deemed supply
+631400,Website dhe dizajn,Website and Design,6,63,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+631500,Sponsorizime,Sponsorships,6,63,IS,D,PARTNER,B18,LIMIT,CORE,CHG,"Sport up to 30% of CIT, youth/culture 20% - verify"
+631600,Panaire dhe evente,Trade Fairs and Events,6,63,IS,D,PARTNER,B18,FULL,CORE,NEW,
+640100,Karburant,Fuel,6,64,IS,D,PARTNER,BV50,LIMIT,CORE,CHG,*** Input VAT limited for dual-use vehicles
+640200,Mirëmbajtje automjetesh,Vehicle Maintenance,6,64,IS,D,PARTNER,BV50,LIMIT,CORE,CHG,
+640300,Sigurim automjetesh,Vehicle Insurance,6,64,IS,D,PARTNER,BEX,FULL,CORE,CHG,Insurance is VAT-exempt
+640400,Regjistrim automjetesh,Vehicle Registration,6,64,IS,D,PARTNER,BEX,FULL,CORE,KEEP,
+640500,Transport dhe parkim,Transport and Parking,6,64,IS,D,PARTNER,B18,FULL,CORE,CHG,
+640600,Qira e automjeteve,Vehicle Rental,6,64,IS,D,PARTNER,BV50,LIMIT,CORE,NEW,
+650100,Amortizim ndërtesash,Building Depreciation,6,65,IS,D,ASSET,NA,FULL,CORE,KEEP,Tax 5%
+650200,Amortizim makinerish dhe pajisjesh,Machinery Depreciation,6,65,IS,D,ASSET,NA,FULL,CORE,KEEP,Tax 10% (verify method)
+650300,Amortizim automjetesh,Vehicle Depreciation,6,65,IS,D,ASSET,NA,FULL,CORE,KEEP,Tax 20%
+650400,Amortizim mobiljesh,Furniture Depreciation,6,65,IS,D,ASSET,NA,FULL,CORE,NEW,Tax 20%
+650500,Amortizim kompjuterash,Computer Depreciation,6,65,IS,D,ASSET,NA,FULL,CORE,NEW,Tax 20%
+650600,Amortizim pajisjesh zyre,Office Equipment Depreciation,6,65,IS,D,ASSET,NA,FULL,CORE,NEW,Tax 20%
+651100,Amortizim i aktiveve me të drejtë përdorimi,Right-of-use Asset Depreciation,6,65,IS,D,ASSET,NA,LIMIT,IFRS+,NEW,IFRS 16; tax treatment differs
+653100,Amortizim software,Software Amortization,6,65,IS,D,ASSET,NA,FULL,CORE,KEEP,Max 20 years
+653200,Zhvlerësim i emrit të mirë,Goodwill Impairment,6,65,IS,D,ASSET,NA,NON,IFRS+,NEW,
+660100,Komisione bankare,Bank Charges,6,66,IS,D,PARTNER,BEX,FULL,CORE,CHG,Financial services are VAT-exempt
+660200,Shpenzime ligjore,Legal Fees,6,66,IS,D,PARTNER,B18,FULL,CORE,KEEP,5% WHT if non-resident provider
+660300,Shpenzime kontabiliteti (të jashtme),External Accounting Fees,6,66,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+660400,Materiale zyre,Office Supplies,6,66,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+660500,Telefon dhe internet,Phone and Internet,6,66,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+660600,Postë dhe korrier,Postage and Courier,6,66,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+660700,Sigurime,Insurance,6,66,IS,D,PARTNER,BEX,FULL,CORE,CHG,VAT-exempt
+660800,Anëtarësi dhe licenca,Memberships and Licenses,6,66,IS,D,PARTNER,BEX,FULL,CORE,KEEP,
+660900,Përfaqësim dhe pritje,Entertainment and Representation,6,66,IS,D,PARTNER,BND,LIMIT,CORE,CHG,*** Deductible up to 1% of gross income; input VAT non-deductible
+661100,Borxhe të këqija,Bad Debt Expense,6,66,IS,D,PARTNER,NA,LIMIT,CORE,CHG,Strict ATK evidence; <EUR 500 easier
+661200,Shpenzime të tjera,Other Expenses,6,66,IS,D,PARTNER,B18,FULL,CORE,KEEP,
+661300,Gjoba dhe penalitete,Fines and Penalties,6,66,IS,D,PARTNER,NA,NON,CORE,NEW,*** Explicitly non-deductible
+661400,Donacione dhe kontribute bamirësie,Donations and Charitable Contributions,6,66,IS,D,PARTNER,BEX,LIMIT,CORE,NEW,Up to 10% of taxable income - verify
+661500,Humbje nga shitja e aktiveve,Loss on Sale of Assets,6,66,IS,D,ASSET,NA,FULL,CORE,NEW,
+661600,Tatimi në pronë,Property Tax,6,66,IS,D,TAX,NA,FULL,CORE,NEW,
+661700,Taksa komunale dhe tarifa,Municipal Fees and Charges,6,66,IS,D,PARTNER,BEX,FULL,CORE,NEW,
+661900,Shpenzime të tjera të pazbritshme,Other Non-deductible Expenses,6,66,IS,D,PARTNER,NA,NON,CORE,NEW,Catch-all for CIT add-backs
+700100,Të hyra nga interesi,Interest Income,7,70,IS,C,BANK,BEX,NA,CORE,CHG,
+700200,Fitim nga këmbimi valutor,Foreign Exchange Gain,7,70,IS,C,-,NA,NA,CORE,KEEP,Realised vs unrealised - split if needed
+700300,Të hyra nga dividendë,Dividend Income,7,70,IS,C,PARTNER,BEX,NA,CORE,CHG,Dividends exempt in Kosovo
+710100,Shpenzim interesi,Interest Expense,7,71,IS,D,PARTNER,BEX,LIMIT,CORE,CHG,Thin-cap / related party limits - verify
+710200,Humbje nga këmbimi valutor,Foreign Exchange Loss,7,71,IS,D,-,NA,FULL,CORE,KEEP,
+710300,Shpenzime të tjera financiare,Other Financial Expenses,7,71,IS,D,PARTNER,BEX,FULL,CORE,KEEP,
+710400,Interes i qirasë - IFRS 16,Lease Interest - IFRS 16,7,71,IS,D,PARTNER,NA,LIMIT,IFRS+,NEW,
+720100,Tatimi në fitim (shpenzim),Corporate Income Tax Expense,7,72,IS,D,TAX,NA,NON,CORE,KEEP,Tax itself is non-deductible
+720200,Tatimi i shtyrë (shpenzim/të hyre),Deferred Tax Expense / Income,7,72,IS,D,TAX,NA,NON,IFRS+,NEW,
