@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
-import { JournalEntryForm } from "@/pages/ledger/JournalEntryForm";
+import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
 
 const TRIAL_BALANCE_GRID_ID = "trialBalance";
 
@@ -127,11 +127,10 @@ export function Ledger() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "ledger.newJournalEntry" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "ledger.newJournalEntryDescription" })}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "journalGrid.title" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <JournalEntryForm companyId={activeCompany.id} journals={journals} accounts={accounts} onCreated={refresh} />
+          <JournalEntryGrid companyId={activeCompany.id} journals={journals} accounts={accounts} onCreated={refresh} />
         </CardContent>
       </Card>
 

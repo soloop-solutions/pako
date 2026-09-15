@@ -3,8 +3,10 @@ import { afterAll, afterEach, beforeAll } from "vitest";
 
 // PROVISIONAL — F2's mock accounts contract (src/mocks/handlers.ts), F3's mock lock-dates
 // contract (src/mocks/lockDatesHandlers.ts), F5's mock item-type contract
-// (src/mocks/itemTypesHandlers.ts) and F6's mock partner contract
-// (src/mocks/partnersHandlers.ts); remove each alongside its own mock.
+// (src/mocks/itemTypesHandlers.ts), F6's mock partner contract
+// (src/mocks/partnersHandlers.ts) and F9's mock cost-center contract
+// (src/mocks/costCentersHandlers.ts); remove each alongside its own mock.
+import { resetCostCentersMock } from "@/mocks/costCentersMockFlag";
 import { resetAccountsMock } from "@/mocks/handlers";
 import { resetItemTypesMock } from "@/mocks/itemTypesMockFlag";
 import { resetLockDatesMock } from "@/mocks/lockDatesHandlers";
@@ -18,5 +20,6 @@ afterEach(() => {
   resetLockDatesMock();
   resetItemTypesMock();
   resetPartnersMock();
+  resetCostCentersMock();
 });
 afterAll(() => server.close());

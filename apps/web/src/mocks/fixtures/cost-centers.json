@@ -1,0 +1,8 @@
+[
+  { "id": "cc-mock-admin", "code": "CC-ADM", "name": "Administratë", "nameEn": "Administration" },
+  { "id": "cc-mock-sales", "code": "CC-SHT", "name": "Shitje", "nameEn": "Sales" },
+  { "id": "cc-mock-ops", "code": "CC-OPR", "name": "Operacione", "nameEn": "Operations" },
+  { "id": "cc-mock-it", "code": "CC-IT", "name": "Teknologji", "nameEn": "IT" },
+  { "id": "cc-mock-hr", "code": "CC-HR", "name": "Burime Njerëzore", "nameEn": "Human Resources" },
+  { "id": "cc-mock-mkt", "code": "CC-MKT", "name": "Marketing", "nameEn": "Marketing" }
+]
