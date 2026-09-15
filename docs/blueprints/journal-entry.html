@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAKO wireframe — 3 - Manual journal entry</title>
+<!--
+  PAKO — WIREFRAME BLUEPRINT: 3 - Manual journal entry
+  The spreadsheet archetype: Excel keyboard model, live debit/credit difference, inline account picker that flags control accounts before selection.
+
+  THIS IS STRUCTURE, NOT A PROPOSED LOOK.
+  Every colour here is a placeholder. The greys, the single slate-blue accent and the
+  inline styles exist only to make the anatomy legible — they are NOT a design system
+  and must not be treated as PAKO's palette.
+
+  What IS intentional and must be preserved:
+    · ~30px table rows, 28px controls  (density is the product requirement)
+    · right-aligned figures with tabular-nums
+    · the order and presence of every structural element
+    · Albanian labels (they run 15-25% longer than English)
+
+  Target stack: Vite 7 · React 19 · Tailwind v4 (CSS-first) · shadcn/ui.
+  The theme is delivered as oklch() tokens for apps/web/src/index.css — see docs/THEME_BRIEF.md.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; background: #F0F0EC; color: #1C1C1A; }
+    a { color: #3A5A7A; } a:hover { color: #27405A; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .fld { height: 28px; border: 1px solid #DEDED9; border-radius: 4px; background: #FFFFFF; display: flex; align-items: center; padding: 0 9px; font-size: 12.5px; }
+    .lbl { font-size: 11px; font-weight: 600; color: #6B6B66; letter-spacing: .02em; margin-bottom: 4px; }
+    .cell { padding: 0 8px; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+<div style="width: 1440px; height: 976px; display: flex; flex-direction: column; background: #F0F0EC; overflow: hidden;">
+
+  <div style="height: 40px; display: flex; align-items: center; gap: 16px; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #D9D9D4; font-size: 12.5px;">
+    <span style="font-weight: 700;">PAKO</span>
+    <span style="font-weight: 600;">MARLETTE SH.P.K. ▾</span>
+    <span style="color: #9A9A94;">Libri kryesor › Urdhëresat ›</span><span class="mono" style="font-weight: 600;">UR-091026-001</span>
+    <span style="margin-left: auto; color: #6B6B66;">Shtator 2026 · e hapur</span>
+  </div>
+
+  <!-- TAB STRIP -->
+  <div style="height: 36px; display: flex; align-items: stretch; background: #EBEBE6; border-bottom: 1px solid #D9D9D4;">
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #4A4A45;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 13h7M9 17h5"/></svg>
+      <span>Faturat e shitjes</span><span style="color:#C4C4BE; font-size:13px;">×</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; background: #FFFFFF; border-right: 1px solid #D9D9D4; box-shadow: inset 0 2px 0 #3A5A7A; font-size: 12.5px; font-weight: 600;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3A5A7A" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M11 10v10"/></svg>
+      <span class="mono">UR-091026-001</span>
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: #B8842E;"></span>
+      <span style="color:#A8A8A2; font-size:13px;">×</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #4A4A45;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/></svg>
+      <span class="mono">Faturë 42/2026</span>
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: #B8842E;"></span>
+      <span style="color:#C4C4BE; font-size:13px;">×</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #4A4A45;">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="1.8"><path d="M4 6h16M8 11h12M8 16h12M4 11h1M4 16h1"/></svg>
+      <span>Plani kontabël</span><span style="color:#C4C4BE; font-size:13px;">×</span>
+    </div>
+    <div style="display: flex; align-items: center; padding: 0 11px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #8A8A84;">+</div>
+    <div style="margin-left: auto; display: flex; align-items: center; gap: 10px; padding: 0 13px; font-size: 11.5px; color: #8A8A84;">
+      <span class="mono" style="padding: 1px 6px; border: 1px solid #DEDED9; border-radius: 3px; background: #FFFFFF;">Ctrl+W</span><span>mbyll</span>
+    </div>
+  </div>
+
+  <!-- header bar -->
+  <div style="display: flex; align-items: center; gap: 8px; padding: 9px 18px; background: #FFFFFF; border-bottom: 1px solid #D9D9D4;">
+    <div style="padding: 6px 14px; background: #3A5A7A; color: #FFFFFF; border-radius: 5px; font-size: 12.5px; font-weight: 600;">Posto <span style="opacity:.6; font-size:10.5px;">P</span></div>
+    <div style="padding: 6px 12px; border: 1px solid #D9D9D4; border-radius: 5px; font-size: 12.5px;">Ruaj draftin</div>
+    <div style="padding: 6px 12px; border: 1px solid #D9D9D4; border-radius: 5px; font-size: 12.5px;">Barazo rreshtin e fundit</div>
+    <div style="padding: 6px 12px; border: 1px solid #D9D9D4; border-radius: 5px; font-size: 12.5px;">Importo nga Excel</div>
+    <div style="padding: 6px 12px; border: 1px solid #D9D9D4; border-radius: 5px; font-size: 12.5px;">Eksporto</div>
+    <div style="margin-left: auto; display: flex; align-items: center; border: 1px solid #D9D9D4; border-radius: 14px; overflow: hidden;">
+      <span style="padding: 5px 15px; font-size: 12px; background: #3A5A7A; color: #FFFFFF; font-weight: 600;">Draft</span>
+      <span style="padding: 5px 15px; font-size: 12px; color: #8A8A84;">Postuar</span>
+      <span style="padding: 5px 15px; font-size: 12px; color: #8A8A84;">Stornuar</span>
+    </div>
+  </div>
+
+  <div style="flex-grow: 1; margin: 12px 18px 0; background: #FFFFFF; border: 1px solid #D9D9D4; border-radius: 6px; display: flex; flex-direction: column; min-height: 0; overflow: hidden;">
+
+    <!-- compact header block -->
+    <div style="display: grid; grid-template-columns: 150px 170px 1fr 220px; gap: 18px; padding: 15px 20px; border-bottom: 1px solid #E8E8E3;">
+      <div><div class="lbl">Data *</div><div class="fld mono">10.09.2026</div></div>
+      <div><div class="lbl">Numri</div><div class="fld mono" style="color:#6B6B66;">UR-091026-001</div></div>
+      <div><div class="lbl">Përshkrimi</div><div class="fld">Rregullim i amortizimit — shtator</div></div>
+      <div>
+        <div class="lbl">Ditari</div>
+        <div class="fld">Të përgjithshme</div>
+      </div>
+    </div>
+
+    <div style="display: flex; align-items: center; gap: 22px; padding: 9px 20px; border-bottom: 1px solid #E8E8E3; background: #FBFBFA;">
+      <label style="display: flex; align-items: center; gap: 7px; font-size: 12.5px;">
+        <span style="width: 13px; height: 13px; border: 1px solid #A8A8A2; border-radius: 3px; background:#FFFFFF;"></span>
+        Gjendje fillestare
+      </label>
+      <label style="display: flex; align-items: center; gap: 7px; font-size: 12.5px;">
+        <span style="width: 13px; height: 13px; border: 1px solid #3A5A7A; border-radius: 3px; background:#3A5A7A; display:flex; align-items:center; justify-content:center;">
+          <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3"><path d="M5 12.5 10 17.5 19 7"/></svg>
+        </span>
+        Barazo automatikisht rreshtin e fundit
+      </label>
+      <span style="margin-left: auto; font-size: 11.5px; color: #8A8A84;">Dimensionet: partneri, projekti, punëtori — sipas rregullave të llogarisë</span>
+    </div>
+
+    <!-- grid header -->
+    <div style="display: grid; grid-template-columns: 34px 112px 1fr 106px 106px 168px 128px 128px 28px; align-items: center; height: 28px; background: #F2F2EE; border-bottom: 1px solid #C9C9C3; font-size: 11px; font-weight: 600; color: #4A4A45;">
+      <div></div>
+      <div class="cell">Llogaria</div>
+      <div class="cell">Përshkrimi</div>
+      <div class="cell" style="text-align:right;">Debi <span style="color:#9A9A94;">Σ</span></div>
+      <div class="cell" style="text-align:right;">Kredi <span style="color:#9A9A94;">Σ</span></div>
+      <div class="cell">Partneri</div>
+      <div class="cell">Projekti</div>
+      <div class="cell">Punëtori</div>
+      <div></div>
+    </div>
+
+    <div style="flex-grow: 1; min-height: 0;">
+
+      <div style="display: grid; grid-template-columns: 34px 112px 1fr 106px 106px 168px 128px 128px 28px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB;">
+        <div class="mono" style="text-align:center; font-size:10.5px; color:#A8A8A2; border-right:1px solid #EFEFEB; height:100%; display:flex; align-items:center; justify-content:center;">1</div>
+        <div class="cell mono">550400</div>
+        <div class="cell">Shpenzimet e amortizimit</div>
+        <div class="cell mono" style="text-align:right;">1,250.00</div>
+        <div class="cell mono" style="text-align:right; color:#C4C4BE;">—</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div class="cell">Zyra Prishtinë</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div style="text-align:center; color:#C4C4BE; font-size:13px;">×</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 34px 112px 1fr 106px 106px 168px 128px 128px 28px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; background:#FBFBFA;">
+        <div class="mono" style="text-align:center; font-size:10.5px; color:#A8A8A2; border-right:1px solid #EFEFEB; height:100%; display:flex; align-items:center; justify-content:center;">2</div>
+        <div class="cell mono">120900</div>
+        <div class="cell">Amortizimi i akumuluar — pajisje</div>
+        <div class="cell mono" style="text-align:right; color:#C4C4BE;">—</div>
+        <div class="cell mono" style="text-align:right;">1,250.00</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div class="cell">Zyra Prishtinë</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div style="text-align:center; color:#C4C4BE; font-size:13px;">×</div>
+      </div>
+
+      <!-- active row being typed, with the account picker open -->
+      <div style="display: grid; grid-template-columns: 34px 112px 1fr 106px 106px 168px 128px 128px 28px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; background:#EDF1F5; box-shadow: inset 2px 0 0 #3A5A7A; position: relative;">
+        <div class="mono" style="text-align:center; font-size:10.5px; color:#27405A; border-right:1px solid #DCE3EA; height:100%; display:flex; align-items:center; justify-content:center;">3</div>
+        <div class="cell mono" style="background:#FFFFFF; border:1px solid #3A5A7A; height:24px; display:flex; align-items:center; border-radius:3px; margin:0 3px;">2101|</div>
+        <div class="cell" style="color:#A8A8A2;">autoplotësohet nga llogaria</div>
+        <div class="cell mono" style="text-align:right; color:#C4C4BE;">—</div>
+        <div class="cell mono" style="text-align:right; color:#C4C4BE;">—</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div class="cell" style="color:#C4C4BE;">—</div>
+        <div></div>
+      </div>
+
+      <!-- inline picker -->
+      <div style="margin: 0 0 0 34px; width: 420px; border: 1px solid #3A5A7A; border-top: none; border-radius: 0 0 5px 5px; background: #FFFFFF; box-shadow: 0 6px 14px rgba(28,28,26,.10);">
+        <div style="display:flex; align-items:center; gap:9px; padding: 6px 10px; border-bottom: 1px solid #EFEFEB; background:#FBFBFA;">
+          <span class="mono" style="font-size:11px; color:#6B6B66;">2101</span>
+          <span style="font-size:11px; color:#9A9A94;">3 përputhje</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding: 6px 10px; background:#EDF1F5;">
+          <span class="mono" style="font-size:12px; font-weight:600; width:58px;">210100</span>
+          <span style="font-size:12.5px;">TVSH e llogaritur — kontroll</span>
+          <span style="margin-left:auto; font-size:10px; padding:1px 5px; border-radius:3px; background:#F5EAE6; color:#8C4A3A;">kontroll</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding: 6px 10px;">
+          <span class="mono" style="font-size:12px; font-weight:600; width:58px;">210110</span>
+          <span style="font-size:12.5px;">TVSH e llogaritur — shitje 18%</span>
+          <span style="margin-left:auto; font-size:10px; padding:1px 5px; border-radius:3px; background:#EFEFEB; color:#6B6B66;">S18</span>
+        </div>
+        <div style="display:flex; align-items:center; gap:10px; padding: 6px 10px;">
+          <span class="mono" style="font-size:12px; font-weight:600; width:58px;">210120</span>
+          <span style="font-size:12.5px;">TVSH e llogaritur — shitje 8%</span>
+          <span style="margin-left:auto; font-size:10px; padding:1px 5px; border-radius:3px; background:#EFEFEB; color:#6B6B66;">S08</span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- pinned totals, column-aligned -->
+    <div style="display: grid; grid-template-columns: 34px 112px 1fr 106px 106px 168px 128px 128px 28px; align-items: center; height: 34px; border-top: 1px solid #C9C9C3; background: #F7F4E9; font-weight: 700;">
+      <div></div>
+      <div class="cell" style="grid-column: span 2; font-size: 11.5px; font-weight: 600; color:#6B6B66;">Totali</div>
+      <div class="cell mono" style="text-align:right; font-size:13px;">1,250.00</div>
+      <div class="cell mono" style="text-align:right; font-size:13px;">1,250.00</div>
+      <div class="cell" style="grid-column: span 3; font-size: 12px;">
+        <span style="color:#6B6B66; font-weight:600;">Diferenca</span>
+        <span class="mono" style="margin-left:9px; padding:2px 8px; border-radius:3px; background:#E7EFE8; color:#3E6B46;">0.00</span>
+      </div>
+      <div></div>
+    </div>
+  </div>
+
+  <!-- keyboard contract -->
+  <div style="display: flex; align-items: center; gap: 18px; padding: 10px 18px; font-size: 11.5px; color: #6B6B66;">
+    <span class="mono" style="padding:2px 6px; border:1px solid #DEDED9; border-radius:3px; background:#FFFFFF;">↑ ↓</span><span>lëviz</span>
+    <span class="mono" style="padding:2px 6px; border:1px solid #DEDED9; border-radius:3px; background:#FFFFFF;">Enter</span><span>konfirmo dhe zbrit</span>
+    <span class="mono" style="padding:2px 6px; border:1px solid #DEDED9; border-radius:3px; background:#FFFFFF;">Tab</span><span>djathtas, mbështjell</span>
+    <span class="mono" style="padding:2px 6px; border:1px solid #DEDED9; border-radius:3px; background:#FFFFFF;">Esc</span><span>kthe qelizën</span>
+    <span class="mono" style="padding:2px 6px; border:1px solid #DEDED9; border-radius:3px; background:#FFFFFF;">Ctrl+V</span><span>ngjit bllok nga Excel</span>
+    <span style="margin-left:auto; color:#9A9A94;">Postimi refuzohet derisa diferenca të jetë 0.00</span>
+  </div>
+</div>
+</body>
+</html>
