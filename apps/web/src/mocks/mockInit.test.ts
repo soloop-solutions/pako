@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// PROVISIONAL — see src/mocks/handlers.ts for why this exists and how to remove it.
+// PROVISIONAL — see src/mocks/mockInit.ts's own header for why this shared worker-bootstrap
+// exists and what still uses it (partners/item-types/lock-dates/cost-centers/attachments mocks —
+// F2's original accounts mock that introduced this file was removed once the real backend landed).
 //
 // mockInit.ts no longer owns any mount-scoped start/stop lifecycle (see its header for why a
 // reference-counted start/stop pair was tried and replaced) — it now only has to be idempotent:
 // safe to call from every mount, including React 18/19 StrictMode's extra one, without
 // registering the worker more than once. That's what this test proves. The actual mount-scoped
-// gating (setAccountsMockActive) is covered in ChartOfAccounts.test.tsx instead, since it only
+// gating (e.g. setPartnersMockActive) is covered in each domain's own test instead, since it only
 // means anything in the context of a real handler resolving a real request.
 
 const workerStart = vi.fn(async () => {});

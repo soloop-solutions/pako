@@ -1,31 +1,18 @@
-// F2 (chart of accounts) — types and enum labels for the "Plani Kontabel v2.0" Account fields
-// that are not yet on the real generated AccountResponse (see backend/Pako.Domain/Ledger/Account.cs
-// and CLAUDE.md's "Plani Kontabel v2.0 migration — Stage 1: schema" section). Field names/order
-// below are copied verbatim from that entity, not guessed — keep them in sync by hand the same way
-// ledger-enums.ts already does for AccountType/AccountSubType, until the backend contract for these
-// fields is real and packages/shared is regenerated. See src/mocks/handlers.ts for the mock that
-// currently serves this shape.
+// Chart of accounts (F2) — enum labels and derivation helpers for the "Plani Kontabel v2.0"
+// Account fields. `AccountResponse`/`AccountGroupResponse` (from @pako/shared) now carry every
+// field for real (see backend/Pako.Domain/Ledger/Account.cs, AccountGroup.cs,
+// AccountGroupResolver.cs, AccountTypeDerivation.cs, and CLAUDE.md's "Plani Kontabel v2.0
+// migration" sections) — this file only keeps what still has to live client-side: enum label
+// maps (the OpenAPI doc doesn't emit enum names, same hand-maintained-enum-order convention as
+// every other *-enums.ts file in this repo) and the AccountType/AccountSubType/Statement
+// derivation `AccountsController.Create`/`Update` still require the client to compute and send
+// (confirmed by reading the controller — it takes `request.AccountType` directly, no server
+// derivation for that field). CashFlowCategory is genuinely server-derived now
+// (`AccountTypeDerivation.DeriveCashFlowCategory`, from Class/Group) — this file never computes
+// it, only labels whatever value the server's response already carries.
 
 import type { IntlShape } from "react-intl";
-import type { AccountResponse } from "@pako/shared";
-
-export interface AccountV2 extends Omit<AccountResponse, "parentAccountId"> {
-  parentAccountId: string | null;
-  nameSq: string | null;
-  class: number | null;
-  group: number | null;
-  statement: number | null;
-  normalBalance: number | null;
-  subledger: number | null;
-  isControl: boolean;
-  isPostable: boolean;
-  defaultVatCode: string | null;
-  citDeductibility: number | null;
-  citLimitRule: string | null;
-  profiles: number;
-  isActive: boolean;
-  createdAt: string;
-}
+import type { AccountGroupResponse } from "@pako/shared";
 
 export const AccountStatement = { BalanceSheet: 0, IncomeStatement: 1 } as const;
 export const NormalBalance = { Debit: 0, Credit: 1 } as const;
@@ -41,6 +28,9 @@ export const SubledgerType = {
   Customs: 8,
 } as const;
 export const CitDeductibility = { Full: 0, Limit: 1, Non: 2, Na: 3 } as const;
+
+// backend/Pako.Domain/Ledger/Account.cs's CashFlowCategory enum.
+export const CashFlowCategory = { None: 0, Operating: 1, Investing: 2, Financing: 3 } as const;
 
 // [Flags] CompanyProfile, backend/Pako.Domain/Companies/Company.cs.
 export const CompanyProfile = {
@@ -71,6 +61,12 @@ const CIT_DEDUCTIBILITY_KEYS = [
   "enum.citDeductibility.limit",
   "enum.citDeductibility.non",
   "enum.citDeductibility.na",
+];
+const CASH_FLOW_CATEGORY_KEYS = [
+  "enum.cashFlowCategory.none",
+  "enum.cashFlowCategory.operating",
+  "enum.cashFlowCategory.investing",
+  "enum.cashFlowCategory.financing",
 ];
 
 const PROFILE_KEYS: Array<{ bit: number; labelKey: string }> = [
@@ -104,6 +100,10 @@ export function citDeductibilityLabel(value: number | null | undefined, intl: In
   return labelFor(CIT_DEDUCTIBILITY_KEYS, value, intl);
 }
 
+export function cashFlowCategoryLabel(value: number | null | undefined, intl: IntlShape): string {
+  return labelFor(CASH_FLOW_CATEGORY_KEYS, value, intl);
+}
+
 export const SUBLEDGER_TYPE_OPTIONS = SUBLEDGER_TYPE_KEYS.map((labelKey, value) => ({ value, labelKey }));
 export const CIT_DEDUCTIBILITY_OPTIONS = CIT_DEDUCTIBILITY_KEYS.map((labelKey, value) => ({ value, labelKey }));
 export const NORMAL_BALANCE_OPTIONS = NORMAL_BALANCE_KEYS.map((labelKey, value) => ({ value, labelKey }));
@@ -119,7 +119,7 @@ export function toggleProfileBit(profiles: number, bit: number): number {
 // Class 1/2/3/4/5/6 map directly; Class 7 is the one genuine split, by NormalBalance alone
 // (Credit -> Income, Debit -> Expense) — mirrors backend/Pako.Domain/Ledger/AccountTypeDerivation.cs
 // exactly (see CLAUDE.md's Stage 2 section), so a newly-created account's derived AccountType/
-// Statement match what the real backend will compute once it seeds this data for real.
+// Statement match what the real backend computes for the same Class/NormalBalance.
 export function deriveAccountType(accountClass: number, normalBalance: number): number {
   if (accountClass === 1) return 0; // Asset
   if (accountClass === 2) return 1; // Liability
@@ -141,6 +141,12 @@ export function deriveStatement(accountType: number): number {
   return accountType === 3 || accountType === 4 ? AccountStatement.IncomeStatement : AccountStatement.BalanceSheet;
 }
 
+// Account codes in this chart are always the same 6-digit shape as AccountGroup's own
+// CodePrefixStart/CodePrefixEnd (backend/Pako.Domain/Ledger/AccountGroupResolver.cs compares them
+// ordinally as plain strings, not numerically — a shorter or longer code would silently fail to
+// match any group's range and come back with no groupId at all). Both helpers below read the
+// first 1/2 digits of a 6-digit code string, whether that code belongs to an account or to a
+// group's own CodePrefixStart.
 export function accountClassFromCode(code: string): number | null {
   const digit = code.trim().charAt(0);
   return digit ? Number(digit) : null;
@@ -151,29 +157,28 @@ export function accountGroupFromCode(code: string): number | null {
   return prefix.length === 2 ? Number(prefix) : null;
 }
 
-export function groupLabel(accountClass: number | null, group: number | null, intl: IntlShape): string {
-  if (accountClass == null || group == null) return intl.formatMessage({ id: "common.notSet" });
-  const groupCode = String(group).padStart(2, "0");
-  const typeLabel = accountTypeLabelForClass(accountClass, intl);
-  return `${groupCode} · ${typeLabel}`;
+// The real hierarchy (backend/Pako.Localization.Xk/AccountGroupTemplate.cs) is genuinely two
+// levels: 7 Class-level groups (ParentGroupId null) each with 1+ Group-level children
+// (ParentGroupId set to their class). An account's own GroupId always resolves to the narrowest
+// (Group-level) match — see AccountGroupResolver.cs — so this only ever needs to walk up one
+// level, not an arbitrary tree depth.
+export function leafAccountGroups(groups: AccountGroupResponse[]): AccountGroupResponse[] {
+  return groups.filter((g) => g.parentGroupId != null).slice().sort((a, b) => a.codePrefixStart.localeCompare(b.codePrefixStart));
 }
 
-// Only used to label a group header row — Class 7 has no single AccountType (it splits per
-// account by NormalBalance, see deriveAccountType above), so its group label says "Income /
-// Expense" rather than picking one arbitrarily.
-function accountTypeLabelForClass(accountClass: number, intl: IntlShape): string {
-  const keys = [
-    "enum.accountType.asset",
-    "enum.accountType.liability",
-    "enum.accountType.equity",
-    "enum.accountType.income",
-    "enum.accountType.expense",
-  ];
-  // Class -> AccountType index: 1=Asset,2=Liability,3=Equity,4=Income,5&6=Expense.
-  const classToTypeIndex: Record<number, number> = { 1: 0, 2: 1, 3: 2, 4: 3, 5: 4, 6: 4 };
-  const typeIndex = classToTypeIndex[accountClass];
-  if (typeIndex != null) {
-    return intl.formatMessage({ id: keys[typeIndex] });
-  }
-  return `${intl.formatMessage({ id: keys[3] })} / ${intl.formatMessage({ id: keys[4] })}`;
+export function accountGroupsById(groups: AccountGroupResponse[]): Map<string, AccountGroupResponse> {
+  return new Map(groups.map((g) => [g.id, g]));
+}
+
+// "Parent name · Group name" for a Group-level group, just "Name" for a Class-level one (or if its
+// parent can't be found for some reason) — used both for the grid's group-by column and the
+// create-account group picker.
+export function accountGroupLabel(
+  group: AccountGroupResponse | undefined,
+  groupsById: Map<string, AccountGroupResponse>,
+  intl: IntlShape,
+): string {
+  if (!group) return intl.formatMessage({ id: "common.notSet" });
+  const parent = group.parentGroupId ? groupsById.get(group.parentGroupId) : undefined;
+  return parent ? `${parent.name} · ${group.name}` : group.name;
 }

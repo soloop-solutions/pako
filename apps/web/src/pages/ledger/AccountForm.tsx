@@ -1,41 +1,60 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
+import type { AccountGroupResponse, AccountResponse } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import type { AccountV2WriteFields } from "@/api/accounts-v2-client";
 import {
   CIT_DEDUCTIBILITY_OPTIONS,
   CitDeductibility,
   CompanyProfile,
   NORMAL_BALANCE_OPTIONS,
   SUBLEDGER_TYPE_OPTIONS,
+  SubledgerType,
+  accountClassFromCode,
+  accountGroupFromCode,
+  accountGroupLabel,
   accountStatementLabel,
   companyProfileLabels,
+  deriveAccountSubType,
   deriveAccountType,
   deriveStatement,
-  groupLabel,
   toggleProfileBit,
-  type AccountV2,
 } from "@/lib/account-v2";
 import { accountSubTypeLabel, accountTypeLabel } from "@/lib/ledger-enums";
 
-export interface GroupOption {
-  accountClass: number;
+export interface AccountFormFields {
+  code: string;
+  name: string;
+  nameSq: string | undefined;
+  accountType: number;
+  accountSubType: number;
+  isReconcilable: boolean;
+  class: number;
   group: number;
+  statement: number;
+  normalBalance: number;
+  subledger: number;
+  isControl: boolean;
+  isPostable: boolean;
+  defaultVatCode: string | undefined;
+  citDeductibility: number;
+  citLimitRule: string | undefined;
+  profiles: number;
 }
 
 interface AccountFormProps {
   mode: "create" | "edit";
-  groupOptions: GroupOption[];
-  initial?: AccountV2;
-  defaultGroup?: GroupOption;
+  groupOptions: AccountGroupResponse[];
+  groupsById: Map<string, AccountGroupResponse>;
+  initial?: AccountResponse;
+  defaultGroup?: AccountGroupResponse;
   submitting: boolean;
   error: string | null;
-  onSubmit: (fields: AccountV2WriteFields & { code?: string }) => void;
+  onSubmit: (fields: AccountFormFields) => void;
   onCancel: () => void;
 }
 
@@ -47,11 +66,16 @@ const PROFILE_TOGGLES = [
   { bit: CompanyProfile.IfrsPlus, labelKey: "chartOfAccounts.profile.ifrsPlus" },
 ];
 
-export function AccountForm({ mode, groupOptions, initial, defaultGroup, submitting, error, onSubmit, onCancel }: AccountFormProps) {
+function findInitialGroup(initial: AccountResponse | undefined, groupOptions: AccountGroupResponse[]): AccountGroupResponse | undefined {
+  if (!initial?.groupId) return undefined;
+  return groupOptions.find((g) => g.id === initial.groupId);
+}
+
+export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGroup, submitting, error, onSubmit, onCancel }: AccountFormProps) {
   const intl = useIntl();
 
-  const [group, setGroup] = useState<GroupOption | undefined>(
-    initial ? { accountClass: initial.class ?? 0, group: initial.group ?? 0 } : defaultGroup ?? groupOptions[0],
+  const [group, setGroup] = useState<AccountGroupResponse | undefined>(
+    findInitialGroup(initial, groupOptions) ?? defaultGroup ?? groupOptions[0],
   );
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
@@ -70,16 +94,23 @@ export function AccountForm({ mode, groupOptions, initial, defaultGroup, submitt
     if (!group && groupOptions.length > 0) setGroup(defaultGroup ?? groupOptions[0]);
   }, [group, groupOptions, defaultGroup]);
 
-  const derivedAccountType = group ? deriveAccountType(group.accountClass, normalBalance) : null;
+  const groupClass = group ? accountClassFromCode(group.codePrefixStart) : null;
+  const derivedAccountType = groupClass != null ? deriveAccountType(groupClass, normalBalance) : null;
   const derivedStatement = derivedAccountType != null ? deriveStatement(derivedAccountType) : null;
 
+  // Account codes are always 6 digits in this chart, matching AccountGroup's own CodePrefixStart/
+  // CodePrefixEnd (backend/Pako.Domain/Ledger/AccountGroupResolver.cs compares them ordinally as
+  // plain strings) — a code of any other length would come back with no groupId at all, so this
+  // is checked here rather than letting an account silently land outside every group's tree.
   function validateCode(value: string): string | null {
     if (mode === "edit") return null;
     if (!group) return intl.formatMessage({ id: "chartOfAccounts.form.groupRequired" });
-    if (!/^\d{3,10}$/.test(value)) return intl.formatMessage({ id: "chartOfAccounts.form.codeFormat" });
-    const prefix = String(group.group).padStart(2, "0");
-    if (!value.startsWith(prefix)) {
-      return intl.formatMessage({ id: "chartOfAccounts.form.codePrefixMismatch" }, { prefix });
+    if (!/^\d{6}$/.test(value)) return intl.formatMessage({ id: "chartOfAccounts.form.codeFormat" });
+    if (value < group.codePrefixStart || value > group.codePrefixEnd) {
+      return intl.formatMessage(
+        { id: "chartOfAccounts.form.codePrefixMismatch" },
+        { start: group.codePrefixStart, end: group.codePrefixEnd },
+      );
     }
     return null;
   }
@@ -90,17 +121,29 @@ export function AccountForm({ mode, groupOptions, initial, defaultGroup, submitt
     setCodeError(err);
     if (err) return;
 
+    const accountClass = group ? accountClassFromCode(group.codePrefixStart) : null;
+    const accountGroup = group ? accountGroupFromCode(group.codePrefixStart) : null;
+    if (accountClass == null || accountGroup == null) return;
+
+    const accountType = deriveAccountType(accountClass, normalBalance);
+
     onSubmit({
-      code: mode === "create" ? code.trim() : undefined,
+      code: code.trim(),
       name,
-      nameSq: nameSq.trim() || null,
+      nameSq: nameSq.trim() || undefined,
+      accountType,
+      accountSubType: deriveAccountSubType(subledger),
+      isReconcilable: subledger === SubledgerType.Partner,
+      class: accountClass,
+      group: accountGroup,
+      statement: deriveStatement(accountType),
       normalBalance,
       subledger,
-      isPostable,
       isControl,
-      defaultVatCode: defaultVatCode.trim() || null,
+      isPostable,
+      defaultVatCode: defaultVatCode.trim() || undefined,
       citDeductibility,
-      citLimitRule: citDeductibility === CitDeductibility.Limit ? citLimitRule.trim() || null : null,
+      citLimitRule: citDeductibility === CitDeductibility.Limit ? citLimitRule.trim() || undefined : undefined,
       profiles,
     });
   }
@@ -118,21 +161,18 @@ export function AccountForm({ mode, groupOptions, initial, defaultGroup, submitt
           <Label>{intl.formatMessage({ id: "chartOfAccounts.form.group" })}</Label>
           {mode === "create" ? (
             <Select
-              value={group ? `${group.accountClass}.${group.group}` : ""}
-              onChange={(e) => {
-                const [cls, grp] = e.target.value.split(".").map(Number);
-                setGroup({ accountClass: cls, group: grp });
-              }}
+              value={group?.id ?? ""}
+              onChange={(e) => setGroup(groupOptions.find((g) => g.id === e.target.value))}
               required
             >
               {groupOptions.map((g) => (
-                <option key={`${g.accountClass}.${g.group}`} value={`${g.accountClass}.${g.group}`}>
-                  {groupLabel(g.accountClass, g.group, intl)}
+                <option key={g.id} value={g.id}>
+                  {accountGroupLabel(g, groupsById, intl)}
                 </option>
               ))}
             </Select>
           ) : (
-            <Input readOnly disabled value={group ? groupLabel(group.accountClass, group.group, intl) : ""} />
+            <Input readOnly disabled value={group ? accountGroupLabel(group, groupsById, intl) : ""} />
           )}
           <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "chartOfAccounts.form.groupHint" })}</p>
         </div>
@@ -144,7 +184,7 @@ export function AccountForm({ mode, groupOptions, initial, defaultGroup, submitt
             value={code}
             disabled={mode === "edit"}
             required
-            placeholder={group ? `${String(group.group).padStart(2, "0")}0100` : undefined}
+            placeholder={group ? group.codePrefixStart : undefined}
             onChange={(e) => {
               setCode(e.target.value);
               setCodeError(null);
@@ -259,7 +299,7 @@ export function AccountForm({ mode, groupOptions, initial, defaultGroup, submitt
             {intl.formatMessage({ id: "common.type" })}: {derivedAccountType != null ? accountTypeLabel(derivedAccountType, intl) : "—"} ·{" "}
             {intl.formatMessage({ id: "chartOfAccounts.statement" })}: {derivedStatement != null ? accountStatementLabel(derivedStatement, intl) : "—"} ·{" "}
             {intl.formatMessage({ id: "chartOfAccounts.subType" })}:{" "}
-            {accountSubTypeLabel(subledger === 5 ? 3 : subledger === 6 ? 4 : 0, intl)}
+            {accountSubTypeLabel(deriveAccountSubType(subledger), intl)}
           </p>
           <p className="mt-1">{companyProfileLabels(profiles, intl).join(" · ")}</p>
         </div>

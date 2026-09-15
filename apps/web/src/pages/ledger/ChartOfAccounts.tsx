@@ -2,9 +2,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
+import type { AccountResponse } from "@pako/shared";
 
-import { apiClient } from "@/api/client";
-import { createAccountV2, deactivateAccountV2, updateAccountV2, type AccountV2WriteFields } from "@/api/accounts-v2-client";
+import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,21 +14,21 @@ import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState"
 import { useCompany } from "@/context/CompanyContext";
 import {
   CitDeductibility,
+  accountGroupLabel,
+  accountGroupsById,
+  cashFlowCategoryLabel,
   citDeductibilityLabel,
   companyProfileLabels,
-  groupLabel,
+  leafAccountGroups,
   normalBalanceLabel,
   subledgerTypeLabel,
-  type AccountV2,
 } from "@/lib/account-v2";
 import { accountTypeLabel } from "@/lib/ledger-enums";
-import { setAccountsMockActive } from "@/mocks/accountsMockFlag";
-import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
-import { AccountForm, type GroupOption } from "@/pages/ledger/AccountForm";
+import { AccountForm, type AccountFormFields } from "@/pages/ledger/AccountForm";
 
 const GRID_ID = "chartOfAccounts";
 
-interface AccountRow extends AccountV2 {
+interface AccountRow extends AccountResponse {
   groupLabelText: string;
 }
 
@@ -42,66 +42,38 @@ export function ChartOfAccounts() {
   const [confirmingDeactivateId, setConfirmingDeactivateId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  // Mount-scoped mock — the F2 mock only answers real accounts requests while this screen is
-  // actually on screen, not for the whole app session. See src/mocks/handlers.ts (the
-  // setAccountsMockActive flag this toggles) and src/mocks/mockInit.ts for why this is a
-  // synchronous flag rather than starting/stopping the worker itself around mount/unmount: a
-  // stop/start race around a route transition (this screen unmounting while e.g. Ledger mounts
-  // in the same commit) can't be closed by promise timing alone, only by a flag read fresh at
-  // request-resolution time. The flag flip itself must stay perfectly synchronous with the
-  // effect (no async work before it) for that guarantee to hold.
-  const [mockReady, setMockReady] = useState(false);
-  useEffect(() => {
-    setAccountsMockActive(true);
-    let cancelled = false;
-    void ensureAccountsMockWorkerStarted().then(() => {
-      if (!cancelled) setMockReady(true);
-    });
-    return () => {
-      cancelled = true;
-      setMockReady(false);
-      setAccountsMockActive(false);
-    };
-  }, []);
-
-  // Default the grid's grouping to the code-prefix group column the first time this screen is
-  // opened — F2 asks for a tree grouped by the code-prefix groups by default, not an opt-in the
-  // accountant has to discover via the grid's own "Group by" control.
+  // Default the grid's grouping to the group column the first time this screen is opened — F2
+  // asks for a tree grouped by the account groups by default, not an opt-in the accountant has to
+  // discover via the grid's own "Group by" control.
   const gridUrlState = useDataGridUrlState(GRID_ID);
   useEffect(() => {
     if (!gridUrlState.groupBy) gridUrlState.setGroupBy("groupLabelText");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const accountsQueryKey = ["chartOfAccountsV2", activeCompanyId] as const;
+  const accountsQueryKey = ["chartOfAccounts", activeCompanyId] as const;
+  const accountGroupsQueryKey = ["accountGroups", activeCompanyId] as const;
 
   const accountsQuery = useQuery({
     queryKey: accountsQueryKey,
-    queryFn: async () => {
-      // GET .../accounts is the real generated client method — the F2 mock intercepts this exact
-      // URL and returns the full v2 field set instead of the real (today: 7-field) response. See
-      // src/mocks/handlers.ts.
-      const result = await apiClient.accountsAll(activeCompanyId as string);
-      return result as unknown as AccountV2[];
-    },
-    enabled: !!activeCompanyId && mockReady,
+    queryFn: () => apiClient.accountsAll(activeCompanyId as string),
+    enabled: !!activeCompanyId,
+  });
+
+  const accountGroupsQuery = useQuery({
+    queryKey: accountGroupsQueryKey,
+    queryFn: () => apiClient.accountGroups(activeCompanyId as string),
+    enabled: !!activeCompanyId,
   });
 
   const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
-
-  const groupOptions = useMemo<GroupOption[]>(() => {
-    const seen = new Map<string, GroupOption>();
-    for (const a of accounts) {
-      if (a.class == null || a.group == null) continue;
-      const key = `${a.class}.${a.group}`;
-      if (!seen.has(key)) seen.set(key, { accountClass: a.class, group: a.group });
-    }
-    return Array.from(seen.values()).sort((a, b) => a.group - b.group);
-  }, [accounts]);
+  const groups = useMemo(() => accountGroupsQuery.data ?? [], [accountGroupsQuery.data]);
+  const groupsById = useMemo(() => accountGroupsById(groups), [groups]);
+  const groupOptions = useMemo(() => leafAccountGroups(groups), [groups]);
 
   const rows = useMemo<AccountRow[]>(
-    () => accounts.map((a) => ({ ...a, groupLabelText: groupLabel(a.class, a.group, intl) })),
-    [accounts, intl],
+    () => accounts.map((a) => ({ ...a, groupLabelText: accountGroupLabel(groupsById.get(a.groupId ?? ""), groupsById, intl) })),
+    [accounts, groupsById, intl],
   );
 
   const editingAccount = editingId ? accounts.find((a) => a.id === editingId) ?? null : null;
@@ -111,33 +83,44 @@ export function ChartOfAccounts() {
   }
 
   const createMutation = useMutation({
-    mutationFn: (fields: AccountV2WriteFields & { code: string }) => createAccountV2(activeCompanyId as string, fields),
+    mutationFn: (fields: AccountFormFields) =>
+      apiClient.accountsPOST(activeCompanyId as string, {
+        ...fields,
+        parentAccountId: undefined,
+        validFrom: undefined,
+        validTo: undefined,
+      }),
     onSuccess: async () => {
       setMutationError(null);
       setFormOpen(false);
       await refresh();
     },
-    onError: (err: Error) => setMutationError(err.message),
+    onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.createError" }))),
   });
 
   const updateMutation = useMutation({
-    mutationFn: (vars: { id: string; fields: AccountV2WriteFields }) =>
-      updateAccountV2(activeCompanyId as string, vars.id, vars.fields),
+    mutationFn: (vars: { id: string; fields: AccountFormFields }) =>
+      apiClient.accountsPUT(activeCompanyId as string, vars.id, {
+        ...vars.fields,
+        parentAccountId: undefined,
+        validFrom: undefined,
+        validTo: undefined,
+      }),
     onSuccess: async () => {
       setMutationError(null);
       setEditingId(null);
       await refresh();
     },
-    onError: (err: Error) => setMutationError(err.message),
+    onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.saveError" }))),
   });
 
   const deactivateMutation = useMutation({
-    mutationFn: (id: string) => deactivateAccountV2(activeCompanyId as string, id),
+    mutationFn: (id: string) => apiClient.deactivate(activeCompanyId as string, id),
     onSuccess: async () => {
       setConfirmingDeactivateId(null);
       await refresh();
     },
-    onError: (err: Error) => setMutationError(err.message),
+    onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.deactivateError" }))),
   });
 
   const columns = useMemo<ColumnDef<AccountRow>[]>(
@@ -212,6 +195,13 @@ export function ChartOfAccounts() {
             <span className="text-muted-foreground">{label}</span>
           );
         },
+      },
+      {
+        id: "cashFlowCategory",
+        accessorFn: (row) => cashFlowCategoryLabel(row.cashFlowCategory, intl),
+        header: intl.formatMessage({ id: "chartOfAccounts.cashFlowCategory" }),
+        enableGrouping: false,
+        meta: { headerLabel: intl.formatMessage({ id: "chartOfAccounts.cashFlowCategory" }) },
       },
       {
         id: "flags",
@@ -304,7 +294,7 @@ export function ChartOfAccounts() {
     return <p className="text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>;
   }
 
-  const loadError = accountsQuery.isError
+  const loadError = accountsQuery.isError || accountGroupsQuery.isError
     ? intl.formatMessage({ id: "chartOfAccounts.loadError" })
     : null;
 
@@ -342,9 +332,10 @@ export function ChartOfAccounts() {
             <AccountForm
               mode="create"
               groupOptions={groupOptions}
+              groupsById={groupsById}
               submitting={createMutation.isPending}
               error={mutationError}
-              onSubmit={(fields) => createMutation.mutate(fields as AccountV2WriteFields & { code: string })}
+              onSubmit={(fields) => createMutation.mutate(fields)}
               onCancel={() => {
                 setFormOpen(false);
                 setMutationError(null);
@@ -366,10 +357,11 @@ export function ChartOfAccounts() {
             <AccountForm
               mode="edit"
               groupOptions={groupOptions}
+              groupsById={groupsById}
               initial={editingAccount}
               submitting={updateMutation.isPending}
               error={mutationError}
-              onSubmit={(fields) => updateMutation.mutate({ id: editingAccount.id, fields: fields as AccountV2WriteFields })}
+              onSubmit={(fields) => updateMutation.mutate({ id: editingAccount.id, fields })}
               onCancel={() => {
                 setEditingId(null);
                 setMutationError(null);
@@ -384,7 +376,7 @@ export function ChartOfAccounts() {
         columns={columns}
         data={rows}
         rowCount={rows.length}
-        isLoading={accountsQuery.isPending}
+        isLoading={accountsQuery.isPending || accountGroupsQuery.isPending}
         getRowId={(row) => row.id}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: "chartOfAccounts.searchPlaceholder" })}

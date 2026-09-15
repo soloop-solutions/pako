@@ -7,12 +7,67 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { ChartOfAccounts } from "@/pages/ledger/ChartOfAccounts";
 
-// F2's real screen is exercised against the PROVISIONAL mock (src/mocks/handlers.ts) via
-// src/test/setup.ts's msw/node server — this test proves the plumbing (grid, group-by, add/edit/
-// deactivate) works end to end against that mock, the same contract the dev server uses.
+// F2's screen now calls the real generated client directly (accountsAll/accountsPOST/
+// accountsPUT/deactivate/accountGroups — B1/B2/B3 landed the real backend for all of these). This
+// test mocks apiClient itself, same pattern as Partners.test.tsx — there is no msw mock layer left
+// for this screen to exercise.
+const accountsAll = vi.fn();
+const accountGroups = vi.fn();
+const accountsPOST = vi.fn();
+const accountsPUT = vi.fn();
+const deactivate = vi.fn();
+
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    apiClient: {
+      ...actual.apiClient,
+      accountsAll: (...args: unknown[]) => accountsAll(...args),
+      accountGroups: (...args: unknown[]) => accountGroups(...args),
+      accountsPOST: (...args: unknown[]) => accountsPOST(...args),
+      accountsPUT: (...args: unknown[]) => accountsPUT(...args),
+      deactivate: (...args: unknown[]) => deactivate(...args),
+    },
+  };
+});
+
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({ activeCompanyId: "11111111-1111-1111-1111-111111111111" }),
 }));
+
+// Mirrors the real two-level hierarchy AccountGroupTemplate.cs seeds: one Class-level parent
+// (ParentGroupId null) and one Group-level child nested under it.
+const ASSETS_GROUP = { id: "group-1", name: "Assets", codePrefixStart: "100000", codePrefixEnd: "199999", parentGroupId: undefined };
+const CASH_GROUP = { id: "group-10", name: "Cash and Cash Equivalents", codePrefixStart: "100000", codePrefixEnd: "109999", parentGroupId: "group-1" };
+
+const MAIN_CASH: Record<string, unknown> = {
+  id: "acc-1",
+  code: "100100",
+  name: "Main Cash",
+  nameSq: "Arka kryesore",
+  accountType: 0,
+  accountSubType: 4,
+  parentAccountId: undefined,
+  isReconcilable: false,
+  createdAt: "2026-08-26T00:00:00Z",
+  class: 1,
+  group: 10,
+  statement: 0,
+  normalBalance: 0,
+  subledger: 6,
+  isControl: false,
+  isPostable: true,
+  defaultVatCode: undefined,
+  citDeductibility: 3,
+  citLimitRule: undefined,
+  profiles: 1,
+  isActive: true,
+  validFrom: undefined,
+  validTo: undefined,
+  groupId: "group-10",
+  cashFlowCategory: 0,
+};
 
 function renderPage() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -52,48 +107,92 @@ function findRow(text: string): HTMLElement {
 describe("ChartOfAccounts", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    accountsAll.mockReset();
+    accountGroups.mockReset();
+    accountsPOST.mockReset();
+    accountsPUT.mockReset();
+    deactivate.mockReset();
+    accountsAll.mockResolvedValue([MAIN_CASH]);
+    accountGroups.mockResolvedValue([ASSETS_GROUP, CASH_GROUP]);
   });
 
-  it("loads the mocked v2 accounts and groups them by code prefix", async () => {
+  it("loads real accounts and groups them by the real two-level group hierarchy", async () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText("Main Cash")).toBeInTheDocument());
     expect(screen.getByText("Arka kryesore")).toBeInTheDocument();
-    // Group header for class 1 / group 10 accounts, e.g. "10 · Asset".
-    expect(screen.getByText(/10 · Asset/)).toBeInTheDocument();
+    // Group header combines the Class-level parent's name with the account's own Group-level
+    // (leaf) group name — "Assets · Cash and Cash Equivalents" — not a client-derived code prefix.
+    expect(screen.getByText(/Assets · Cash and Cash Equivalents/)).toBeInTheDocument();
   });
 
-  it("adds a new account under a chosen group", async () => {
+  it("adds a new account under a chosen (leaf-only) group", async () => {
+    accountsPOST.mockResolvedValue({ ...MAIN_CASH, id: "acc-2", code: "100200", name: "Test Cash Drawer", groupId: "group-10" });
+
     renderPage();
     await waitFor(() => expect(screen.getByText("Main Cash")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Add account" }));
 
-    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "109950" } });
+    // Only the Group-level (leaf) group is offered — the Class-level parent is never a valid
+    // creation target on its own.
+    expect(screen.queryByRole("option", { name: "Assets" })).not.toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Assets · Cash and Cash Equivalents" })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "100200" } });
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Test Cash Drawer" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
-    await waitFor(() => expect(screen.getByText("Test Cash Drawer")).toBeInTheDocument());
-    expect(screen.getByText("109950")).toBeInTheDocument();
+    await waitFor(() => expect(accountsPOST).toHaveBeenCalled());
+    const [companyId, body] = accountsPOST.mock.calls[0];
+    expect(companyId).toBe("11111111-1111-1111-1111-111111111111");
+    expect(body).toMatchObject({ code: "100200", name: "Test Cash Drawer", class: 1, group: 10, accountType: 0 });
   });
 
-  it("edits an existing account's name", async () => {
+  it("rejects a code outside the selected group's range before submitting", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Main Cash")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Add account" }));
+    fireEvent.change(screen.getByLabelText("Code"), { target: { value: "200100" } });
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Bad Code" } });
+    fireEvent.click(screen.getByRole("button", { name: "Create account" }));
+
+    expect(await screen.findByText(/100000.*109999/)).toBeInTheDocument();
+    expect(accountsPOST).not.toHaveBeenCalled();
+  });
+
+  it("edits an existing account's name, sending the unchanged code back (R25)", async () => {
+    accountsPUT.mockResolvedValue({ ...MAIN_CASH, name: "Main Cash (Renamed)" });
+    // The edit's onSuccess invalidates and refetches the accounts list — queue what that refetch
+    // should return, since accountsPUT's own response isn't what repopulates the grid.
+    accountsAll.mockResolvedValueOnce([MAIN_CASH]).mockResolvedValueOnce([{ ...MAIN_CASH, name: "Main Cash (Renamed)" }]);
+
     renderPage();
     await waitFor(() => expect(screen.getByText("Main Cash")).toBeInTheDocument());
 
     const row = findRow("Main Cash");
     fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
 
-    const nameInput = await screen.findByDisplayValue("Main Cash");
+    const codeInput = await screen.findByLabelText("Code");
+    expect(codeInput).toBeDisabled();
+
+    const nameInput = screen.getByDisplayValue("Main Cash");
     fireEvent.change(nameInput, { target: { value: "Main Cash (Renamed)" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
+    await waitFor(() => expect(accountsPUT).toHaveBeenCalled());
+    const [, accountId, body] = accountsPUT.mock.calls[0];
+    expect(accountId).toBe("acc-1");
+    expect(body).toMatchObject({ code: "100100", name: "Main Cash (Renamed)" });
     await waitFor(() => expect(screen.getByText("Main Cash (Renamed)")).toBeInTheDocument());
   });
 
   it("deactivates an account after confirmation", async () => {
+    deactivate.mockResolvedValue({ ...MAIN_CASH, isActive: false });
+
     renderPage();
     await waitFor(() => expect(screen.getByText("Main Cash")).toBeInTheDocument());
 
@@ -101,20 +200,13 @@ describe("ChartOfAccounts", () => {
     fireEvent.click(within(row).getByRole("button", { name: "Deactivate" }));
     fireEvent.click(within(row).getByRole("button", { name: "Confirm" }));
 
-    await waitFor(() => expect(within(row).getByText("Inactive")).toBeInTheDocument());
-    expect(row.className).toContain("text-muted-foreground");
+    await waitFor(() => expect(deactivate).toHaveBeenCalledWith("11111111-1111-1111-1111-111111111111", "acc-1"));
   });
 
-  // Real jsdom has no Service Worker API, so mockInit.ts's browser-worker code path never runs
-  // here regardless — src/mocks/mockInit.test.ts is what actually proves the StrictMode
-  // ref-counting race is closed. This test instead guards the surrounding piece: that mounting
-  // this screen under StrictMode's mount1 -> cleanup1 -> mount2 double-invoke doesn't leave the
-  // surviving instance in a broken state (stuck loading, unhandled rejection, query never
-  // enabled) — it settles and shows the same mocked data a plain single mount would.
   it("still loads correctly after a StrictMode double-mount", async () => {
     renderPageInStrictMode();
 
     await waitFor(() => expect(screen.getByText("Main Cash")).toBeInTheDocument());
-    expect(screen.getByText(/10 · Asset/)).toBeInTheDocument();
+    expect(screen.getByText(/Assets · Cash and Cash Equivalents/)).toBeInTheDocument();
   });
 });
