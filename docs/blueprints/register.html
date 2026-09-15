@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAKO wireframe — 1 - Sales invoice register</title>
+<!--
+  PAKO — WIREFRAME BLUEPRINT: 1 - Sales invoice register
+  The register archetype: action row, group-by zone, sigma headers, permanent filter row, number gutter, page totals, filtered/total count. Repeated by every list in the app.
+
+  THIS IS STRUCTURE, NOT A PROPOSED LOOK.
+  Every colour here is a placeholder. The greys, the single slate-blue accent and the
+  inline styles exist only to make the anatomy legible — they are NOT a design system
+  and must not be treated as PAKO's palette.
+
+  What IS intentional and must be preserved:
+    · ~30px table rows, 28px controls  (density is the product requirement)
+    · right-aligned figures with tabular-nums
+    · the order and presence of every structural element
+    · Albanian labels (they run 15-25% longer than English)
+
+  Target stack: Vite 7 · React 19 · Tailwind v4 (CSS-first) · shadcn/ui.
+  The theme is delivered as oklch() tokens for apps/web/src/index.css — see docs/THEME_BRIEF.md.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; background: #F7F7F5; color: #1C1C1A; }
+    a { color: #3A5A7A; } a:hover { color: #27405A; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+  </style>
+</head>
+<body>
+<div style="width: 1440px; height: 936px; display: flex; flex-direction: column; background: #F7F7F5; overflow: hidden;">
+
+  <!-- TOP BAR -->
+  <div style="height: 48px; display: flex; align-items: center; gap: 18px; padding: 0 16px; background: #FFFFFF; border-bottom: 1px solid #D9D9D4;">
+    <div style="display: flex; align-items: center; gap: 9px;">
+      <div style="width: 22px; height: 22px; border: 1.5px solid #3A5A7A; border-radius: 4px;"></div>
+      <span style="font-size: 14px; font-weight: 700; letter-spacing: -0.01em;">PAKO</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 7px; padding: 5px 10px; border: 1px solid #D9D9D4; border-radius: 5px; background: #FBFBFA;">
+      <span style="font-size: 12.5px; font-weight: 600;">MARLETTE SH.P.K.</span>
+      <span style="font-size: 10px; color: #8A8A84;">▾</span>
+    </div>
+    <div style="flex-grow: 1; display: flex; justify-content: center;">
+      <div style="width: 380px; display: flex; align-items: center; gap: 8px; padding: 6px 12px; border: 1px solid #D9D9D4; border-radius: 16px; background: #FBFBFA;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+        <span style="font-size: 12.5px; color: #8A8A84;">Kërko partner, faturë, llogari…</span>
+        <span class="mono" style="margin-left: auto; font-size: 10.5px; color: #A8A8A2; border: 1px solid #E3E3DE; border-radius: 3px; padding: 1px 5px;">⌘K</span>
+      </div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 7px; padding: 5px 10px; border: 1px solid #D9D9D4; border-radius: 5px;">
+      <span style="width: 6px; height: 6px; border-radius: 50%; background: #4A7A52;"></span>
+      <span style="font-size: 12px;">Shtator 2026 · e hapur</span>
+    </div>
+    <div style="width: 28px; height: 28px; border-radius: 50%; border: 1px solid #D9D9D4; background: #EFEFEC;"></div>
+  </div>
+
+  <div style="flex-grow: 1; display: flex; min-height: 0;">
+
+    <!-- SIDEBAR — always visible, scrolls independently -->
+    <div style="width: 236px; background: #FFFFFF; border-right: 1px solid #D9D9D4; display: flex; flex-direction: column; min-height: 0; position: relative;">
+
+      <div style="padding: 10px 12px 8px;">
+        <div style="display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 9px; border: 1px solid #DEDED9; border-radius: 5px; background: #FBFBFA;">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9A94" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+          <span style="font-size: 12px; color: #9A9A94;">Filtro menynë</span>
+        </div>
+      </div>
+
+      <div style="flex-grow: 1; overflow: hidden; padding-bottom: 8px;">
+
+        <!-- FAVOURITES -->
+        <div style="display: flex; align-items: center; gap: 6px; padding: 4px 12px 3px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="#B8842E" stroke="none"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8z"/></svg>
+          <span style="font-size: 10.5px; font-weight: 700; letter-spacing: .09em; color: #6B6B66;">TË PREFERUARAT</span>
+          <span style="margin-left: auto; font-size: 12px; color: #B4B4AE;">✎</span>
+        </div>
+        <div style="padding: 0 12px 0 27px; height: 26px; display: flex; align-items: center; font-size: 12.5px; color: #27405A; font-weight: 600;">+ Faturë e re</div>
+        <div style="padding: 0 12px 0 27px; height: 26px; display: flex; align-items: center; font-size: 12.5px;">Urdhëresë e re</div>
+        <div style="padding: 0 12px 0 27px; height: 26px; display: flex; align-items: center; font-size: 12.5px;">Plani kontabël</div>
+        <div style="padding: 0 12px 0 27px; height: 26px; display: flex; align-items: center; font-size: 12.5px;">Deklarata e TVSH-së</div>
+
+        <div style="height: 1px; background: #E8E8E3; margin: 8px 12px;"></div>
+
+        <!-- SHITJE -->
+        <div style="display: flex; align-items: center; padding: 4px 12px 3px;">
+          <span style="font-size: 10.5px; font-weight: 700; letter-spacing: .09em; color: #6B6B66;">SHITJE</span>
+          <span style="margin-left: auto; font-size: 13px; color: #B4B4AE;">⋯</span>
+        </div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px; font-weight: 600; color: #27405A; background: #EDF1F5; box-shadow: inset 2px 0 0 #3A5A7A;">
+          Faturat e shitjes
+          <span style="margin-left: auto; font-size: 9px; color: #5A7A9A;">▾</span>
+        </div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Kthimet e shitjes</div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Profaturat</div>
+        <div style="height: 24px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 11.5px; color: #7A93AC;">Shfaq më shumë (5)</div>
+
+        <div style="height: 1px; background: #E8E8E3; margin: 8px 12px;"></div>
+
+        <!-- BLERJE -->
+        <div style="display: flex; align-items: center; padding: 4px 12px 3px;">
+          <span style="font-size: 10.5px; font-weight: 700; letter-spacing: .09em; color: #6B6B66;">BLERJE</span>
+          <span style="margin-left: auto; font-size: 13px; color: #B4B4AE;">⋯</span>
+        </div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Faturat e blerjes<span style="margin-left:auto; font-size:9px; color:#B4B4AE;">▾</span></div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Kthimet e blerjes</div>
+        <div style="height: 24px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 11.5px; color: #7A93AC;">Shfaq më shumë (6)</div>
+
+        <div style="height: 1px; background: #E8E8E3; margin: 8px 12px;"></div>
+
+        <!-- KONTABILITETI -->
+        <div style="display: flex; align-items: center; padding: 4px 12px 3px;">
+          <span style="font-size: 10.5px; font-weight: 700; letter-spacing: .09em; color: #6B6B66;">KONTABILITETI</span>
+          <span style="margin-left: auto; font-size: 13px; color: #B4B4AE;">⋯</span>
+        </div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Libri kryesor</div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Urdhëresat</div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Plani kontabël</div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Barazimi</div>
+        <div style="height: 24px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 11.5px; color: #7A93AC;">Shfaq më shumë (3)</div>
+
+        <div style="height: 1px; background: #E8E8E3; margin: 8px 12px;"></div>
+
+        <!-- REGJISTRAT -->
+        <div style="display: flex; align-items: center; padding: 4px 12px 3px;">
+          <span style="font-size: 10.5px; font-weight: 700; letter-spacing: .09em; color: #6B6B66;">REGJISTRAT</span>
+          <span style="margin-left: auto; font-size: 13px; color: #B4B4AE;">⋯</span>
+        </div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Partnerët</div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Artikujt</div>
+        <div style="height: 24px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 11.5px; color: #7A93AC;">Shfaq më shumë (4)</div>
+
+        <div style="height: 1px; background: #E8E8E3; margin: 8px 12px;"></div>
+
+        <!-- RAPORTET (cut off — the sidebar scrolls) -->
+        <div style="display: flex; align-items: center; padding: 4px 12px 3px;">
+          <span style="font-size: 10.5px; font-weight: 700; letter-spacing: .09em; color: #6B6B66;">RAPORTET</span>
+          <span style="margin-left: auto; font-size: 13px; color: #B4B4AE;">⋯</span>
+        </div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px;">Deklarata e TVSH-së</div>
+        <div style="height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px; color: #9A9A94;">Bilanci i suksesit</div>
+      </div>
+
+      <!-- scroll affordance -->
+      <div style="position: absolute; right: 2px; top: 300px; width: 3px; height: 220px; border-radius: 2px; background: #D4D4CE;"></div>
+      <div style="height: 26px; border-top: 1px solid #E8E8E3; display: flex; align-items: center; padding: 0 12px; font-size: 11.5px; color: #9A9A94; background: #FBFBFA;">
+        Rregullimet · Ndihma
+      </div>
+    </div>
+
+    <!-- CONTENT -->
+    <div style="flex-grow: 1; display: flex; flex-direction: column; min-width: 0; background: #FFFFFF;">
+
+      <!-- TAB STRIP — each tab is a route -->
+      <div style="height: 36px; display: flex; align-items: stretch; background: #EBEBE6; border-bottom: 1px solid #D9D9D4;">
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; background: #FFFFFF; border-right: 1px solid #D9D9D4; box-shadow: inset 0 2px 0 #3A5A7A; font-size: 12.5px; font-weight: 600;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#3A5A7A" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/><path d="M9 13h7M9 17h5"/></svg>
+          <span>Faturat e shitjes</span>
+          <span style="color: #A8A8A2; font-size: 13px; margin-left: 3px;">×</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #4A4A45;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M11 10v10"/></svg>
+          <span class="mono">UR-091026-001</span>
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: #B8842E;" title="ruajtur jo"></span>
+          <span style="color: #C4C4BE; font-size: 13px; margin-left: 1px;">×</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #4A4A45;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="1.8"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4"/></svg>
+          <span class="mono">Faturë 42/2026</span>
+          <span style="color: #C4C4BE; font-size: 13px;">×</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px; padding: 0 13px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #4A4A45;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#8A8A84" stroke-width="1.8"><path d="M4 6h16M8 11h12M8 16h12M4 11h1M4 16h1"/></svg>
+          <span>Plani kontabël</span>
+          <span style="color: #C4C4BE; font-size: 13px;">×</span>
+        </div>
+        <div style="display: flex; align-items: center; padding: 0 11px; border-right: 1px solid #D9D9D4; font-size: 12.5px; color: #8A8A84;">+</div>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 12px; padding: 0 13px; font-size: 11.5px; color: #8A8A84;">
+          <span class="mono" style="padding: 1px 6px; border: 1px solid #DEDED9; border-radius: 3px; background: #FFFFFF;">Ctrl+Tab</span>
+          <span>4 skeda</span>
+        </div>
+      </div>
+
+      <!-- page title + primary action -->
+      <div style="display: flex; align-items: baseline; gap: 12px; padding: 16px 18px 12px;">
+        <h1 style="margin: 0; font-size: 19px; font-weight: 700; letter-spacing: -0.015em;">Faturat e shitjes</h1>
+        <span class="mono" style="font-size: 11.5px; color: #8A8A84;">1,208 dokumente</span>
+        <div style="margin-left: auto; display: flex; gap: 8px;">
+          <div style="padding: 6px 13px; border: 1px solid #D9D9D4; border-radius: 5px; font-size: 12.5px;">Eksporto</div>
+          <div style="padding: 6px 14px; background: #3A5A7A; color: #FFFFFF; border-radius: 5px; font-size: 12.5px; font-weight: 600;">+ Faturë e re</div>
+        </div>
+      </div>
+
+      <!-- ① action row -->
+      <div style="display: flex; align-items: center; gap: 16px; padding: 0 18px 10px; border-bottom: 1px solid #E8E8E3;">
+        <div style="display: flex; gap: 14px; font-size: 12.5px; color: #4A4A45;">
+          <span>Edito</span><span>Shiko</span><span>Dyfisho</span><span>Printo</span><span>Importo nga Excel</span><span>Barazo</span>
+        </div>
+        <div style="margin-left: auto; display: flex; gap: 12px; font-size: 12.5px; color: #4A4A45;">
+          <span>Kolonat</span><span>Ruaj filtrin</span>
+        </div>
+      </div>
+
+      <!-- ② group-by zone -->
+      <div style="padding: 8px 18px; border-bottom: 1px dashed #D9D9D4; background: #FBFBFA;">
+        <span style="font-size: 11.5px; color: #9A9A94;">Tërhiqe një kolonë këtu për ta grupuar sipas saj</span>
+      </div>
+
+      <!-- ③ header + Σ -->
+      <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #C9C9C3; background: #F2F2EE; font-size: 11.5px; font-weight: 600; color: #4A4A45;">
+        <div style="padding-left: 10px;"></div>
+        <div style="padding: 0 8px;">Numri</div>
+        <div style="padding: 0 8px;">Data</div>
+        <div style="padding: 0 8px;">Partneri</div>
+        <div style="padding: 0 8px; text-align: right;">Neto <span style="color:#9A9A94;">Σ</span></div>
+        <div style="padding: 0 8px; text-align: right;">TVSH <span style="color:#9A9A94;">Σ</span></div>
+        <div style="padding: 0 8px; text-align: right;">Bruto <span style="color:#9A9A94;">Σ</span></div>
+        <div style="padding: 0 8px; text-align: right;">Paguar <span style="color:#9A9A94;">Σ</span></div>
+        <div style="padding: 0 8px; text-align: right;">Mbetur <span style="color:#9A9A94;">Σ</span></div>
+        <div style="padding: 0 8px;">Statusi</div>
+      </div>
+
+      <!-- ④ filter row -->
+      <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 28px; border-bottom: 1px solid #D9D9D4; background: #FFFFFF;">
+        <div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #3A5A7A; border-radius: 3px; background: #FFFFFF; display: flex; align-items: center; padding: 0 6px;"><span class="mono" style="font-size: 10.5px; color: #27405A;">A|</span></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+        <div style="padding: 0 6px;"><div style="height: 18px; border: 1px solid #DEDED9; border-radius: 3px; background: #FBFBFA;"></div></div>
+      </div>
+
+      <!-- ⑤ rows -->
+      <div style="flex-grow: 1; overflow: hidden;">
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #A8A8A2; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center;">1</div>
+          <div class="mono" style="padding: 0 8px;">42/2026</div>
+          <div class="mono" style="padding: 0 8px; color: #6B6B66;">14.09.26</div>
+          <div style="padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ARJAN PACK SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">1,240.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">223.20</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; font-weight: 600;">1,463.20</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #6B6B66;">1,463.20</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #A8A8A2;">0.00</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #E7EFE8; color: #3E6B46;">Paguar</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px; background: #FBFBFA;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #A8A8A2; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center;">2</div>
+          <div class="mono" style="padding: 0 8px;">41/2026</div>
+          <div class="mono" style="padding: 0 8px; color: #6B6B66;">13.09.26</div>
+          <div style="padding: 0 8px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">AROMA SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">860.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">154.80</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; font-weight: 600;">1,014.80</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #6B6B66;">500.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #8C4A3A;">514.80</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #F5EAE6; color: #8C4A3A;">Vonesë 4d</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px; background: #EDF1F5; box-shadow: inset 2px 0 0 #3A5A7A;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #27405A; border-right: 1px solid #DCE3EA; height: 100%; display: flex; align-items: center;">3</div>
+          <div class="mono" style="padding: 0 8px; font-weight: 600;">40/2026</div>
+          <div class="mono" style="padding: 0 8px; color: #4A4A45;">12.09.26</div>
+          <div style="padding: 0 8px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">ARRBI SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">3,100.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">558.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; font-weight: 600;">3,658.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #6B6B66;">0.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">3,658.00</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #E9E9E4; color: #4A4A45;">Postuar</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px; color: #9A9A94;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #C4C4BE; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center;">4</div>
+          <div class="mono" style="padding: 0 8px; font-style: italic;">— draft —</div>
+          <div class="mono" style="padding: 0 8px;">12.09.26</div>
+          <div style="padding: 0 8px;">ART - NET SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">420.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">75.60</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">495.60</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">—</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">—</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; border: 1px dashed #C4C4BE;">Draft</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px; background: #FBFBFA;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #A8A8A2; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center;">5</div>
+          <div class="mono" style="padding: 0 8px;">39/2026</div>
+          <div class="mono" style="padding: 0 8px; color: #6B6B66;">11.09.26</div>
+          <div style="padding: 0 8px;">ARTA TEX GROUP SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">2,050.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">164.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; font-weight: 600;">2,214.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #6B6B66;">2,214.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #A8A8A2;">0.00</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #E7EFE8; color: #3E6B46;">Paguar</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px; text-decoration: line-through; color: #A8A8A2;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #C4C4BE; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center; text-decoration: none;">6</div>
+          <div class="mono" style="padding: 0 8px;">38/2026</div>
+          <div class="mono" style="padding: 0 8px;">10.09.26</div>
+          <div style="padding: 0 8px;">ARTEG SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">700.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">126.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">826.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">—</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">—</div>
+          <div style="padding: 0 8px; text-decoration: none;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #EFEFEB; color: #8A8A84;">Anuluar</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px; background: #FBFBFA;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #A8A8A2; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center;">7</div>
+          <div class="mono" style="padding: 0 8px;">37/2026</div>
+          <div class="mono" style="padding: 0 8px; color: #6B6B66;">09.09.26</div>
+          <div style="padding: 0 8px;">AS-1 GROUP SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">1,880.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">338.40</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; font-weight: 600;">2,218.40</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #6B6B66;">1,000.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">1,218.40</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #E9E9E4; color: #4A4A45;">Postuar</span></div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 30px; border-bottom: 1px solid #EFEFEB; font-size: 12.5px;">
+          <div class="mono" style="padding-left: 10px; font-size: 10.5px; color: #A8A8A2; border-right: 1px solid #EFEFEB; height: 100%; display: flex; align-items: center;">8</div>
+          <div class="mono" style="padding: 0 8px;">36/2026</div>
+          <div class="mono" style="padding: 0 8px; color: #6B6B66;">08.09.26</div>
+          <div style="padding: 0 8px;">ASTRONIK SH.P.K.</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">540.00</div>
+          <div class="mono" style="padding: 0 8px; text-align: right;">97.20</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; font-weight: 600;">637.20</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #6B6B66;">637.20</div>
+          <div class="mono" style="padding: 0 8px; text-align: right; color: #A8A8A2;">0.00</div>
+          <div style="padding: 0 8px;"><span style="font-size: 10.5px; padding: 2px 7px; border-radius: 3px; background: #E7EFE8; color: #3E6B46;">Paguar</span></div>
+        </div>
+
+      </div>
+
+      <!-- ⑥ totals + count footer -->
+      <div style="display: grid; grid-template-columns: 34px 88px 78px 1fr 96px 84px 96px 96px 96px 92px; align-items: center; height: 32px; border-top: 1px solid #C9C9C3; background: #F7F4E9; font-size: 12.5px; font-weight: 600;">
+        <div></div>
+        <div style="padding: 0 8px; grid-column: span 2; font-size: 11.5px; color: #6B6B66;">Totali i faqes</div>
+        <div></div>
+        <div class="mono" style="padding: 0 8px; text-align: right;">10,790.00</div>
+        <div class="mono" style="padding: 0 8px; text-align: right;">1,737.20</div>
+        <div class="mono" style="padding: 0 8px; text-align: right;">12,527.20</div>
+        <div class="mono" style="padding: 0 8px; text-align: right;">5,814.40</div>
+        <div class="mono" style="padding: 0 8px; text-align: right;">6,712.80</div>
+        <div></div>
+      </div>
+
+      <div style="display: flex; align-items: center; padding: 9px 18px; border-top: 1px solid #E8E8E3; background: #FFFFFF;">
+        <span class="mono" style="font-size: 12px; font-weight: 600;">142 / 1,208</span>
+        <span style="font-size: 11.5px; color: #9A9A94; margin-left: 9px;">të filtruara / gjithsej · filtri: partneri fillon me “A”</span>
+        <div style="margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 12px; color: #4A4A45;">
+          <span>‹</span>
+          <span class="mono" style="padding: 2px 7px; border: 1px solid #3A5A7A; border-radius: 3px; color: #27405A;">1</span>
+          <span class="mono">2</span><span class="mono">3</span><span class="mono" style="color:#9A9A94;">…</span><span class="mono">15</span>
+          <span>›</span>
+          <span style="color: #9A9A94; margin-left: 6px;">100 / faqe</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

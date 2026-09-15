@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PAKO wireframe — 4 - Sidebar states</title>
+<!--
+  PAKO — WIREFRAME BLUEPRINT: 4 - Sidebar states
+  Always-visible menu. Three states: default, category expanded with an item dropdown open, and the per-category customise panel.
+
+  THIS IS STRUCTURE, NOT A PROPOSED LOOK.
+  Every colour here is a placeholder. The greys, the single slate-blue accent and the
+  inline styles exist only to make the anatomy legible — they are NOT a design system
+  and must not be treated as PAKO's palette.
+
+  What IS intentional and must be preserved:
+    · ~30px table rows, 28px controls  (density is the product requirement)
+    · right-aligned figures with tabular-nums
+    · the order and presence of every structural element
+    · Albanian labels (they run 15-25% longer than English)
+
+  Target stack: Vite 7 · React 19 · Tailwind v4 (CSS-first) · shadcn/ui.
+  The theme is delivered as oklch() tokens for apps/web/src/index.css — see docs/THEME_BRIEF.md.
+-->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: "IBM Plex Sans", system-ui, sans-serif; background: #F0F0EC; color: #1C1C1A; }
+    a { color: #3A5A7A; } a:hover { color: #27405A; }
+    .mono { font-family: "IBM Plex Mono", ui-monospace, monospace; font-variant-numeric: tabular-nums; }
+    .cap { font-size: 11px; font-weight: 700; letter-spacing: .09em; color: #6B6B66; }
+    .it { height: 26px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 12.5px; }
+    .sec { display: flex; align-items: center; padding: 5px 12px 3px; }
+    .more { height: 24px; display: flex; align-items: center; padding: 0 12px 0 20px; font-size: 11.5px; color: #7A93AC; }
+    .rule { height: 1px; background: #E8E8E3; margin: 8px 12px; }
+    .panel { width: 236px; background: #FFFFFF; border: 1px solid #D9D9D4; border-radius: 6px; overflow: hidden; }
+    .ttl { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+    .sub { font-size: 12px; color: #6B6B66; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<div style="width: 1180px; padding: 32px; background: #F0F0EC; box-sizing: border-box;">
+
+  <div style="margin-bottom: 26px;">
+    <div style="font-size: 19px; font-weight: 700; letter-spacing: -0.015em;">Menyja anësore — gjithmonë e dukshme</div>
+    <div class="sub" style="max-width: 62ch; margin-top: 5px;">Dy mekanizma të ndryshëm: <b>“Shfaq më shumë”</b> zbulon destinacione të fshehura brenda një kategorie (çfarë shihet, e zgjedh përdoruesi). <b>Shigjeta ▾</b> hap pamje të ruajtura të po atij destinacioni — filtra, jo faqe të reja.</div>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 236px 236px 300px; gap: 56px; align-items: start;">
+
+    <!-- STATE 1 — default -->
+    <div>
+      <div class="ttl">1 · Gjendja e parazgjedhur</div>
+      <div class="sub" style="margin-bottom: 11px;">4–5 zëra për kategori. Të tjerët fshihen pas “Shfaq më shumë”.</div>
+      <div class="panel">
+        <div style="padding: 10px 12px 8px;">
+          <div style="display: flex; align-items: center; gap: 7px; height: 28px; padding: 0 9px; border: 1px solid #DEDED9; border-radius: 5px; background: #FBFBFA;">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#9A9A94" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+            <span style="font-size: 12px; color: #9A9A94;">Filtro menynë</span>
+          </div>
+        </div>
+        <div class="sec">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="#B8842E" stroke="none" style="margin-right:6px;"><path d="M12 3l2.6 5.6 6.1.8-4.5 4.2 1.2 6.1L12 16.8 6.6 19.7l1.2-6.1L3.3 9.4l6.1-.8z"/></svg>
+          <span class="cap">TË PREFERUARAT</span><span style="margin-left:auto; font-size:12px; color:#B4B4AE;">✎</span>
+        </div>
+        <div class="it" style="padding-left: 27px; color:#27405A; font-weight:600;">+ Faturë e re</div>
+        <div class="it" style="padding-left: 27px;">Urdhëresë e re</div>
+        <div class="it" style="padding-left: 27px;">Plani kontabël</div>
+        <div class="it" style="padding-left: 27px;">Deklarata e TVSH-së</div>
+        <div class="rule"></div>
+        <div class="sec"><span class="cap">SHITJE</span><span style="margin-left:auto; font-size:13px; color:#B4B4AE;">⋯</span></div>
+        <div class="it" style="font-weight:600; color:#27405A; background:#EDF1F5; box-shadow: inset 2px 0 0 #3A5A7A;">Faturat e shitjes<span style="margin-left:auto; font-size:9px; color:#5A7A9A;">▾</span></div>
+        <div class="it">Kthimet e shitjes</div>
+        <div class="it">Profaturat</div>
+        <div class="more">Shfaq më shumë (5)</div>
+        <div class="rule"></div>
+        <div class="sec"><span class="cap">BLERJE</span><span style="margin-left:auto; font-size:13px; color:#B4B4AE;">⋯</span></div>
+        <div class="it">Faturat e blerjes<span style="margin-left:auto; font-size:9px; color:#B4B4AE;">▾</span></div>
+        <div class="it">Kthimet e blerjes</div>
+        <div class="more">Shfaq më shumë (6)</div>
+        <div class="rule"></div>
+        <div class="sec"><span class="cap">KONTABILITETI</span><span style="margin-left:auto; font-size:13px; color:#B4B4AE;">⋯</span></div>
+        <div class="it">Libri kryesor</div>
+        <div class="it">Urdhëresat</div>
+        <div class="it">Plani kontabël</div>
+        <div class="more">Shfaq më shumë (4)</div>
+        <div style="height: 8px;"></div>
+      </div>
+    </div>
+
+    <!-- STATE 2 — expanded + dropdown -->
+    <div>
+      <div class="ttl">2 · “Shfaq më shumë” + nënopsionet</div>
+      <div class="sub" style="margin-bottom: 11px;">Kategoria e zgjeruar tregon gjithçka. Shigjeta te “Faturat e shitjes” hap pamjet e ruajtura.</div>
+      <div class="panel">
+        <div class="sec" style="padding-top: 10px;"><span class="cap">SHITJE</span><span style="margin-left:auto; font-size:13px; color:#B4B4AE;">⋯</span></div>
+        <div class="it" style="font-weight:600; color:#27405A; background:#EDF1F5; box-shadow: inset 2px 0 0 #3A5A7A;">Faturat e shitjes<span style="margin-left:auto; font-size:9px; color:#5A7A9A;">▴</span></div>
+
+        <div style="background: #F7F9FB; border-top: 1px solid #E2E8EE; border-bottom: 1px solid #E2E8EE;">
+          <div class="it" style="padding-left: 34px; height: 24px; font-size: 12px; font-weight: 600; color:#27405A;">Të gjitha<span class="mono" style="margin-left:auto; font-size:10.5px; color:#8A9AAA;">1,208</span></div>
+          <div class="it" style="padding-left: 34px; height: 24px; font-size: 12px;">Draftet<span class="mono" style="margin-left:auto; font-size:10.5px; color:#8A9AAA;">6</span></div>
+          <div class="it" style="padding-left: 34px; height: 24px; font-size: 12px;">Të papaguara<span class="mono" style="margin-left:auto; font-size:10.5px; color:#8A9AAA;">184</span></div>
+          <div class="it" style="padding-left: 34px; height: 24px; font-size: 12px;">Vonesa mbi 60 ditë<span class="mono" style="margin-left:auto; font-size:10.5px; color:#8C4A3A;">23</span></div>
+          <div class="it" style="padding-left: 34px; height: 24px; font-size: 11.5px; color: #7A93AC;">+ Ruaj filtrin aktual</div>
+        </div>
+
+        <div class="it">Kthimet e shitjes</div>
+        <div class="it">Profaturat</div>
+        <div class="it">Fletëdaljet</div>
+        <div class="it">Fletëporositë</div>
+        <div class="it">Ofertat</div>
+        <div class="it">Notat kreditore</div>
+        <div class="it">Kontratat</div>
+        <div class="more">Shfaq më pak</div>
+        <div class="rule"></div>
+        <div class="sec"><span class="cap">BLERJE</span><span style="margin-left:auto; font-size:13px; color:#B4B4AE;">⋯</span></div>
+        <div class="it">Faturat e blerjes<span style="margin-left:auto; font-size:9px; color:#B4B4AE;">▾</span></div>
+        <div class="it">Kthimet e blerjes</div>
+        <div class="more">Shfaq më shumë (6)</div>
+        <div style="height: 8px;"></div>
+      </div>
+    </div>
+
+    <!-- STATE 3 — customise -->
+    <div>
+      <div class="ttl">3 · Përshtatja e kategorisë</div>
+      <div class="sub" style="margin-bottom: 11px;">Nga “⋯”. Përdoruesi zgjedh çfarë shihet kur kategoria është e mbyllur, dhe rendin.</div>
+      <div style="width: 300px; background: #FFFFFF; border: 1px solid #C9C9C3; border-radius: 6px; box-shadow: 0 8px 20px rgba(28,28,26,.12); overflow: hidden;">
+        <div style="padding: 12px 14px; border-bottom: 1px solid #E8E8E3;">
+          <div style="font-size: 13px; font-weight: 700;">Përshtat “Shitje”</div>
+          <div style="font-size: 11.5px; color: #8A8A84; margin-top: 2px;">Zgjidh çfarë shfaqet pa “Shfaq më shumë”.</div>
+        </div>
+        <div style="max-height: 300px;">
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; border-bottom:1px solid #F2F2EE;">
+            <span style="color:#C4C4BE; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border-radius:3px; background:#3A5A7A; display:flex; align-items:center; justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3"><path d="M5 12.5 10 17.5 19 7"/></svg></span>
+            <span style="font-size:12.5px;">Faturat e shitjes</span>
+            <span style="margin-left:auto; color:#B8842E; font-size:12px;">★</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; border-bottom:1px solid #F2F2EE;">
+            <span style="color:#C4C4BE; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border-radius:3px; background:#3A5A7A; display:flex; align-items:center; justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3"><path d="M5 12.5 10 17.5 19 7"/></svg></span>
+            <span style="font-size:12.5px;">Kthimet e shitjes</span>
+            <span style="margin-left:auto; color:#D4D4CE; font-size:12px;">☆</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; border-bottom:1px solid #F2F2EE;">
+            <span style="color:#C4C4BE; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border-radius:3px; background:#3A5A7A; display:flex; align-items:center; justify-content:center;"><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="#FFF" stroke-width="3"><path d="M5 12.5 10 17.5 19 7"/></svg></span>
+            <span style="font-size:12.5px;">Profaturat</span>
+            <span style="margin-left:auto; color:#D4D4CE; font-size:12px;">☆</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; border-bottom:1px solid #F2F2EE; color:#8A8A84;">
+            <span style="color:#E0E0DA; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border:1px solid #C4C4BE; border-radius:3px;"></span>
+            <span style="font-size:12.5px;">Fletëdaljet</span>
+            <span style="margin-left:auto; color:#D4D4CE; font-size:12px;">☆</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; border-bottom:1px solid #F2F2EE; color:#8A8A84;">
+            <span style="color:#E0E0DA; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border:1px solid #C4C4BE; border-radius:3px;"></span>
+            <span style="font-size:12.5px;">Fletëporositë</span>
+            <span style="margin-left:auto; color:#D4D4CE; font-size:12px;">☆</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; border-bottom:1px solid #F2F2EE; color:#8A8A84;">
+            <span style="color:#E0E0DA; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border:1px solid #C4C4BE; border-radius:3px;"></span>
+            <span style="font-size:12.5px;">Ofertat</span>
+            <span style="margin-left:auto; color:#D4D4CE; font-size:12px;">☆</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:9px; height:30px; padding:0 14px; color:#8A8A84;">
+            <span style="color:#E0E0DA; font-size:12px;">⠿</span>
+            <span style="width:13px; height:13px; border:1px solid #C4C4BE; border-radius:3px;"></span>
+            <span style="font-size:12.5px;">Kontratat</span>
+            <span style="margin-left:auto; color:#D4D4CE; font-size:12px;">☆</span>
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:9px; padding: 11px 14px; border-top:1px solid #E8E8E3; background:#FBFBFA;">
+          <span style="font-size:11.5px; color:#8A8A84;">★ = shto te Të preferuarat</span>
+          <div style="margin-left:auto; display:flex; gap:8px;">
+            <div style="padding:5px 11px; border:1px solid #D9D9D4; border-radius:4px; font-size:12px; background:#FFF;">Rikthe</div>
+            <div style="padding:5px 12px; background:#3A5A7A; color:#FFF; border-radius:4px; font-size:12px; font-weight:600;">Ruaj</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 20px; padding: 13px 15px; border: 1px solid #DFC9A8; background: #FBF4E7; border-radius: 6px;">
+        <div style="font-size: 12px; font-weight: 700; color: #6B5320; margin-bottom: 5px;">Rregulla</div>
+        <div style="font-size: 11.5px; color: #6B5320; line-height: 1.55;">
+          Zgjedhja ruhet <b>për përdorues, jo për kompani</b> — një kontabilist e mban të njëjtën meny në të gjithë klientët.<br>
+          Kategoritë vetë nuk fshihen — vetëm zërat brenda tyre.<br>
+          “Filtro menynë” lart kërkon <b>në të gjitha</b>, edhe te zërat e fshehur.
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
