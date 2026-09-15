@@ -14,10 +14,12 @@ import {
   Settings as SettingsIcon,
   Users,
   Package,
+  ListTree,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
 import { PurchaseReturns } from "@/pages/bills/PurchaseReturns";
+import { ChartOfAccounts } from "@/pages/ledger/ChartOfAccounts";
 import { Companies } from "@/pages/Companies";
 import { Dashboard } from "@/pages/Dashboard";
 import { Invoicing } from "@/pages/invoicing/Invoicing";
@@ -46,7 +48,7 @@ export type NavItem = {
 export const navItems: NavItem[] = [
   {
     titleKey: "nav.dashboard",
-    path: "/",
+    path: "/dashboard",
     icon: LayoutDashboard,
     descriptionKey: "nav.dashboard.description",
     Element: Dashboard,
@@ -57,6 +59,13 @@ export const navItems: NavItem[] = [
     icon: BookOpen,
     descriptionKey: "nav.ledger.description",
     Element: Ledger,
+  },
+  {
+    titleKey: "nav.chartOfAccounts",
+    path: "/chart-of-accounts",
+    icon: ListTree,
+    descriptionKey: "nav.chartOfAccounts.description",
+    Element: ChartOfAccounts,
   },
   {
     titleKey: "nav.salesInvoices",

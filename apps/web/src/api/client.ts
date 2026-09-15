@@ -3,7 +3,7 @@ import { ApiException, PakoApiClient } from "@pako/shared";
 import { en, sq } from "@/i18n/messages";
 import { getStoredAuth } from "@/lib/auth-storage";
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
 const LANGUAGE_STORAGE_KEY = "pako.language";
 
 function currentLocale(): string {
@@ -16,7 +16,7 @@ function currentLocale(): string {
   return "en";
 }
 
-async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
+export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
   const auth = getStoredAuth();
   const headers = new Headers(init?.headers);
   if (auth) {

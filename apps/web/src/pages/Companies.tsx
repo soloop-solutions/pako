@@ -4,18 +4,18 @@ import type { FirmResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
+import { CompanyList } from "@/pages/shared/CompanyList";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
 
 export function Companies() {
   const intl = useIntl();
-  const { companies, activeCompanyId, loading, error, setActiveCompanyId, createCompany } = useCompany();
+  const { createCompany } = useCompany();
   const [name, setName] = useState("");
   const [firmId, setFirmId] = useState("");
   const [createError, setCreateError] = useState<string | null>(null);
@@ -91,56 +91,7 @@ export function Companies() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "companies.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "companies.description" })}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          {loading && companies.length === 0 && (
-            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "companies.loadingCompanies" })}</p>
-          )}
-          {!loading && companies.length === 0 && !error && (
-            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "companies.noCompanies" })}</p>
-          )}
-          {companies.map((company) => {
-            const key = `company:${company.id}`;
-            return (
-              <div key={company.id} className="flex flex-col gap-3 rounded-md border px-4 py-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{company.name}</span>
-                    {company.id === activeCompanyId && <Badge>{intl.formatMessage({ id: "common.active" })}</Badge>}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => toggleExpanded(key)}>
-                      {expanded.has(key)
-                        ? intl.formatMessage({ id: "companies.hideMembers" })
-                        : intl.formatMessage({ id: "companies.members" })}
-                    </Button>
-                    <Button
-                      variant={company.id === activeCompanyId ? "secondary" : "outline"}
-                      size="sm"
-                      onClick={() => setActiveCompanyId(company.id)}
-                      disabled={company.id === activeCompanyId}
-                    >
-                      {company.id === activeCompanyId
-                        ? intl.formatMessage({ id: "common.active" })
-                        : intl.formatMessage({ id: "companies.setActive" })}
-                    </Button>
-                  </div>
-                </div>
-                {expanded.has(key) && <MembersPanel scope="company" scopeId={company.id} />}
-              </div>
-            );
-          })}
-        </CardContent>
-      </Card>
+      <CompanyList />
 
       <Card>
         <CardHeader>

@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
+import { Link } from "react-router-dom";
 import type { AccountResponse, JournalEntryResponse, JournalResponse, TrialBalanceLine } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
-import { accountSubTypeLabel, accountTypeLabel } from "@/lib/ledger-enums";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
 import { JournalEntryForm } from "@/pages/ledger/JournalEntryForm";
 
@@ -76,28 +77,13 @@ export function Ledger() {
           <CardTitle>{intl.formatMessage({ id: "ledger.chartOfAccounts" })}</CardTitle>
           <CardDescription>{activeCompany.name}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.name" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.type" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "ledger.subType" })}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {accounts.map((account) => (
-                <TableRow key={account.id}>
-                  <TableCell>{account.code}</TableCell>
-                  <TableCell>{account.name}</TableCell>
-                  <TableCell>{accountTypeLabel(account.accountType, intl)}</TableCell>
-                  <TableCell>{accountSubTypeLabel(account.accountSubType, intl)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {!loading && accounts.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "ledger.noAccounts" })}</p>}
+        <CardContent className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm text-muted-foreground">
+            {intl.formatMessage({ id: "ledger.chartOfAccountsSummary" }, { count: accounts.length })}
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/chart-of-accounts">{intl.formatMessage({ id: "ledger.openChartOfAccounts" })}</Link>
+          </Button>
         </CardContent>
       </Card>
 

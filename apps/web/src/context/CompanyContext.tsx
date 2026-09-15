@@ -3,6 +3,7 @@ import type { CompanyResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
+import { recordCompanyOpened } from "@/lib/company-last-opened";
 
 const ACTIVE_COMPANY_KEY = "pako.activeCompanyId";
 
@@ -62,6 +63,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   function setActiveCompanyId(id: string) {
     setActiveCompanyIdState(id);
     sessionStorage.setItem(ACTIVE_COMPANY_KEY, id);
+    if (auth) recordCompanyOpened(auth.userId, id);
   }
 
   async function createCompany(name: string, firmId?: string) {

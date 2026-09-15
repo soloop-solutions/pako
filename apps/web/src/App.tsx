@@ -9,6 +9,7 @@ import { CompanyProvider } from "@/context/CompanyContext";
 import { BillDetail } from "@/pages/bills/BillDetail";
 import { ComingSoon } from "@/pages/ComingSoon";
 import { InvoiceDetail } from "@/pages/invoicing/InvoiceDetail";
+import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
 import { PayrollRunDetail } from "@/pages/payroll/PayrollRunDetail";
 import { Register } from "@/pages/Register";
@@ -33,6 +34,7 @@ export function App() {
               <Route path="/register" element={<Register />} />
               <Route element={<RequireAuth />}>
                 <Route element={<AppLayout />}>
+                  <Route path="/" element={<Landing />} />
                   {navItems.map(({ path, titleKey, descriptionKey, Element }) => (
                     <Route
                       key={path}
