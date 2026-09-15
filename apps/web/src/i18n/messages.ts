@@ -830,6 +830,25 @@ export const en: Record<string, string> = {
   "dataGrid.previous": "Previous",
   "dataGrid.next": "Next",
   "dataGrid.pageOf": "{current} / {total}",
+
+  // F11 — attachments (fully mocked, see src/mocks/attachmentsHandlers.ts).
+  "attachments.title": "Attachments",
+  "attachments.description": "Drop a scan or photo of the original document here.",
+  "attachments.dropZoneHint": "Drag and drop a file here",
+  "attachments.browseFiles": "Or choose a file",
+  "attachments.uploading": "Uploading...",
+  "attachments.empty": "No attachments yet.",
+  "attachments.select": "Preview {fileName}",
+  "attachments.delete": "Delete {fileName}",
+  "attachments.previewTitle": "Preview",
+  "attachments.openOriginal": "Open original",
+  "attachments.extractedFieldsTitle": "Extracted fields",
+  "attachments.extractedFieldsPlaceholder": "OCR is not available yet — extracted fields will appear here once it is.",
+  "attachments.loadError": "Could not load attachments.",
+  "attachments.uploadError": "Could not upload this file.",
+  "attachments.deleteError": "Could not delete this attachment.",
+  "attachments.unsupportedType": "“{fileName}” is not an image or PDF and was not uploaded.",
+  "attachments.tooLarge": "“{fileName}” is larger than 10 MB and was not uploaded.",
 };
 
 export const sq: Record<string, string> = {
@@ -1664,6 +1683,25 @@ export const sq: Record<string, string> = {
   "dataGrid.previous": "Mbrapa",
   "dataGrid.next": "Përpara",
   "dataGrid.pageOf": "{current} / {total}",
+
+  // F11 — attachments (fully mocked, see src/mocks/attachmentsHandlers.ts).
+  "attachments.title": "Bashkëngjitje",
+  "attachments.description": "Vendosni këtu një skanim ose foto të dokumentit origjinal.",
+  "attachments.dropZoneHint": "Tërhiqni dhe lëshoni një skedar këtu",
+  "attachments.browseFiles": "Ose zgjidhni një skedar",
+  "attachments.uploading": "Duke ngarkuar...",
+  "attachments.empty": "Ende pa bashkëngjitje.",
+  "attachments.select": "Shiko {fileName}",
+  "attachments.delete": "Fshi {fileName}",
+  "attachments.previewTitle": "Pamja paraprake",
+  "attachments.openOriginal": "Hap origjinalin",
+  "attachments.extractedFieldsTitle": "Fushat e nxjerra",
+  "attachments.extractedFieldsPlaceholder": "OCR-ja nuk është ende e disponueshme — fushat e nxjerra do të shfaqen këtu kur të jetë.",
+  "attachments.loadError": "Bashkëngjitjet nuk u ngarkuan dot.",
+  "attachments.uploadError": "Ky skedar nuk u ngarkua dot.",
+  "attachments.deleteError": "Kjo bashkëngjitje nuk u fshi dot.",
+  "attachments.unsupportedType": "“{fileName}” nuk është imazh apo PDF dhe nuk u ngarkua.",
+  "attachments.tooLarge": "“{fileName}” është më e madhe se 10 MB dhe nuk u ngarkua.",
 };
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

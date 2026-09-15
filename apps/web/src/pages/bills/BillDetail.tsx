@@ -23,6 +23,7 @@ import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { computeLine } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
+import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
@@ -344,6 +345,16 @@ export function BillDetail() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{intl.formatMessage({ id: "attachments.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "attachments.description" })}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AttachmentsPanel companyId={activeCompany.id} documentKind="bill" documentId={bill.id} />
+        </CardContent>
+      </Card>
     </div>
   );
 }

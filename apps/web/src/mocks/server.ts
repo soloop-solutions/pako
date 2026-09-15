@@ -1,9 +1,11 @@
 // PROVISIONAL — see src/mocks/handlers.ts, src/mocks/lockDatesHandlers.ts,
-// src/mocks/itemTypesHandlers.ts, src/mocks/partnersHandlers.ts and
-// src/mocks/costCentersHandlers.ts for why these exist and how to remove them. Used by
-// src/test/setup.ts so vitest exercises the same F2/F3/F5/F6/F9 mock contracts as the dev browser.
+// src/mocks/itemTypesHandlers.ts, src/mocks/partnersHandlers.ts, src/mocks/costCentersHandlers.ts
+// and src/mocks/attachmentsHandlers.ts for why these exist and how to remove them. Used by
+// src/test/setup.ts so vitest exercises the same F2/F3/F5/F6/F9/F11 mock contracts as the dev
+// browser.
 import { setupServer } from "msw/node";
 
+import { attachmentsHandlers } from "@/mocks/attachmentsHandlers";
 import { costCentersHandlers } from "@/mocks/costCentersHandlers";
 import { handlers } from "@/mocks/handlers";
 import { itemTypesHandlers } from "@/mocks/itemTypesHandlers";
@@ -16,4 +18,5 @@ export const server = setupServer(
   ...itemTypesHandlers,
   ...partnersHandlers,
   ...costCentersHandlers,
+  ...attachmentsHandlers,
 );

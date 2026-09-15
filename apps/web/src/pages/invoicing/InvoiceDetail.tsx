@@ -28,6 +28,7 @@ import { computeLine } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
+import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
@@ -435,6 +436,16 @@ export function InvoiceDetail() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{intl.formatMessage({ id: "attachments.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "attachments.description" })}</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AttachmentsPanel companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} />
+        </CardContent>
+      </Card>
     </div>
   );
 }
