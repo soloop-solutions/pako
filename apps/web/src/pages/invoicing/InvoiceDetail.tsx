@@ -2,10 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
+  AccountResponse,
   ApplyCreditNoteResponse,
   ApplyDownPaymentResponse,
   DocumentBalanceResponse,
   InvoiceResponse,
+  ItemResponse,
   MemberResponse,
   PartnerResponse,
   PaymentMethodResponse,
@@ -43,6 +45,10 @@ export function InvoiceDetail() {
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
+  // F5 — see Invoicing.tsx's identical fields; needed here so editing a Draft invoice also gets
+  // the item picker/account override.
+  const [items, setItems] = useState<ItemResponse[]>([]);
+  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [members, setMembers] = useState<MemberResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
@@ -59,20 +65,25 @@ export function InvoiceDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult] = await Promise.all([
-        apiClient.invoicesGET(companyId, id),
-        apiClient.partnersAll(companyId),
-        apiClient.taxes(companyId),
-        apiClient.invoicesAll(companyId),
-        apiClient.paymentMethodsAll(companyId),
-        apiClient.membersAll(companyId),
-      ]);
+      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult, itemsResult, accountsResult] =
+        await Promise.all([
+          apiClient.invoicesGET(companyId, id),
+          apiClient.partnersAll(companyId),
+          apiClient.taxes(companyId),
+          apiClient.invoicesAll(companyId),
+          apiClient.paymentMethodsAll(companyId),
+          apiClient.membersAll(companyId),
+          apiClient.itemsGET(companyId, 0, 200, undefined),
+          apiClient.accounts(companyId),
+        ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAllInvoices(allInvoicesResult);
       setPaymentMethods(paymentMethodsResult);
       setMembers(membersResult);
+      setItems(itemsResult.items);
+      setAccounts(accountsResult);
 
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
@@ -236,6 +247,8 @@ export function InvoiceDetail() {
               taxes={taxes}
               invoices={allInvoices}
               paymentMethods={paymentMethods}
+              items={items}
+              accounts={accounts}
               isVatRegistered={activeCompany.isVatRegistered}
               editingInvoice={invoice}
               onCreated={() => {}}

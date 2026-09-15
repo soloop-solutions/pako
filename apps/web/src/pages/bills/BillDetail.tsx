@@ -2,9 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useParams } from "react-router-dom";
 import type {
+  AccountResponse,
   ApplyCreditNoteResponse,
   BillResponse,
   DocumentBalanceResponse,
+  ItemResponse,
   PartnerResponse,
   PaymentMethodResponse,
   TaxDefinitionResponse,
@@ -35,6 +37,10 @@ export function BillDetail() {
   const [allBills, setAllBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
+  // F5 — see Invoicing.tsx's identical fields; needed here so editing a Draft bill also gets the
+  // item picker/account override.
+  const [items, setItems] = useState<ItemResponse[]>([]);
+  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -48,18 +54,22 @@ export function BillDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [billResult, partnersResult, taxesResult, allBillsResult, paymentMethodsResult] = await Promise.all([
+      const [billResult, partnersResult, taxesResult, allBillsResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.billsAll(companyId),
         apiClient.paymentMethodsAll(companyId),
+        apiClient.itemsGET(companyId, 0, 200, undefined),
+        apiClient.accounts(companyId),
       ]);
       setBill(billResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAllBills(allBillsResult);
       setPaymentMethods(paymentMethodsResult);
+      setItems(itemsResult.items);
+      setAccounts(accountsResult);
 
       if (billResult.state === "Posted") {
         setBalance(await apiClient.balance(companyId, id));
@@ -193,6 +203,8 @@ export function BillDetail() {
               taxes={taxes}
               bills={allBills}
               paymentMethods={paymentMethods}
+              items={items}
+              accounts={accounts}
               isVatRegistered={activeCompany.isVatRegistered}
               editingBill={bill}
               onCreated={() => {}}

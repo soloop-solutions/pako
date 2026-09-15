@@ -1,21 +1,70 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType, invoiceDocumentTypeName } from "@/lib/document-types";
+import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
+import { AccountType } from "@/lib/ledger-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
-type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
+type Line = {
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discountPercent: string;
+  taxDefinitionId: string;
+  itemId: string;
+  revenueAccountId: string;
+};
 
 function emptyLine(defaultTaxId: string): Line {
-  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId };
+  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", revenueAccountId: "" };
+}
+
+// F5 — thin adapters onto the shared, unit-tested item-defaults/override logic in
+// src/lib/item-line-defaults.ts (identical to BillForm.tsx's pair except for the account field
+// name). See that module for the full rationale, including the switch-between-items fix: a field
+// the newly selected item leaves unset resets to the form's own baseline, never to whatever value
+// was left over from a previously selected item on this line.
+function itemDefaultsSource(item: ItemResponse): ItemDefaultsSource {
+  return {
+    name: item.name,
+    defaultUnitPrice: item.defaultUnitPrice,
+    defaultTaxDefinitionId: item.defaultTaxDefinitionId,
+    defaultAccountId: item.defaultRevenueAccountId,
+  };
+}
+
+function applyItemDefaults(line: Line, item: ItemResponse | undefined, baselineTaxId: string): Line {
+  if (!item) return { ...line, itemId: "" };
+  const applied = applyItemDefaultsToLine(
+    { description: line.description, unitPrice: line.unitPrice, taxDefinitionId: line.taxDefinitionId, accountId: line.revenueAccountId },
+    itemDefaultsSource(item),
+    baselineTaxId,
+  );
+  return {
+    ...line,
+    itemId: item.id,
+    description: applied.description,
+    unitPrice: applied.unitPrice,
+    taxDefinitionId: applied.taxDefinitionId,
+    revenueAccountId: applied.accountId,
+  };
+}
+
+function overriddenFields(line: Line, item: ItemResponse | undefined): { price: boolean; tax: boolean; account: boolean } {
+  return overriddenItemLineFields(
+    { description: line.description, unitPrice: line.unitPrice, taxDefinitionId: line.taxDefinitionId, accountId: line.revenueAccountId },
+    item ? itemDefaultsSource(item) : undefined,
+  );
 }
 
 function today() {
@@ -43,6 +92,11 @@ type InvoiceFormProps = {
   invoices: InvoiceResponse[];
   paymentMethods: PaymentMethodResponse[];
   isVatRegistered: boolean;
+  // F5 — item picker on the line editor, and the accounts its default revenue account is picked
+  // from. Optional and defaulted to empty so the other pages that already render this form
+  // (Proforma.tsx, SalesReturns.tsx) keep compiling unchanged until they're wired up too.
+  items?: ItemResponse[];
+  accounts?: AccountResponse[];
   onCreated: () => void;
   // A6 (v2 release): when set, this form is dedicated to a single document type (Sales returns,
   // Proforma) — the type selector is hidden entirely and every reset returns to this value,
@@ -64,12 +118,15 @@ export function InvoiceForm({
   invoices,
   paymentMethods,
   isVatRegistered,
+  items = [],
+  accounts = [],
   onCreated,
   fixedDocumentType,
   editingInvoice,
   onSaved,
 }: InvoiceFormProps) {
   const intl = useIntl();
+  const revenueAccounts = accounts.filter((a) => a.accountType === AccountType.Income);
   // C2: a VAT-registered company can never leave a line without a real tax code — default new
   // lines to the exempt sales code (SEX) instead of the old silent empty "no tax" option.
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "SEX")?.id ?? "") : "";
@@ -97,6 +154,8 @@ export function InvoiceForm({
           unitPrice: String(l.unitPrice),
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? "",
+          itemId: l.itemId ?? "",
+          revenueAccountId: l.revenueAccountId ?? "",
         }))
       : [emptyLine(defaultTaxId)],
   );
@@ -143,6 +202,11 @@ export function InvoiceForm({
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  function selectLineItem(index: number, itemId: string) {
+    const item = items.find((i) => i.id === itemId);
+    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, defaultTaxId) : line)));
   }
 
   function addLine() {
@@ -199,7 +263,8 @@ export function InvoiceForm({
         unitPrice: parseFloat(line.unitPrice) || 0,
         discountPercent: parseFloat(line.discountPercent) || 0,
         taxDefinitionId: line.taxDefinitionId || undefined,
-        revenueAccountId: undefined,
+        revenueAccountId: line.revenueAccountId || undefined,
+        itemId: line.itemId || undefined,
       }));
 
       if (editingInvoice) {
@@ -388,8 +453,21 @@ export function InvoiceForm({
         {lines.map((line, index) => {
           const enteredAmount = lineEnteredAmount(line);
           const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
+          const selectedItem = items.find((i) => i.id === line.itemId);
+          const overridden = overriddenFields(line, selectedItem);
           return (
-          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
+          <div key={index} className="grid grid-cols-[1fr_2fr_5rem_6rem_5rem_1fr_1fr_5rem_5rem_auto] items-end gap-2">
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
+              <Select value={line.itemId} onChange={(event) => selectLineItem(index, event.target.value)}>
+                <option value="">{intl.formatMessage({ id: "invoiceForm.noItem" })}</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
@@ -417,6 +495,11 @@ export function InvoiceForm({
                 value={line.unitPrice}
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
+              {overridden.price && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
@@ -442,6 +525,27 @@ export function InvoiceForm({
                   </option>
                 ))}
               </Select>
+              {overridden.tax && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
+              <Select value={line.revenueAccountId} onChange={(event) => updateLine(index, { revenueAccountId: event.target.value })}>
+                <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
+                {revenueAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.code}
+                  </option>
+                ))}
+              </Select>
+              {overridden.account && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}

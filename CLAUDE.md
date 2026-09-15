@@ -2287,3 +2287,121 @@ and reproduced two real backend facts worth knowing before touching this area ag
   accepts a valid one, and confirmed the new pattern immediately changes the next preview.
   `pnpm --filter web {typecheck,lint,test,build}` and `pnpm --filter @pako/shared typecheck` all
   pass; `lint`'s one pre-existing `IntlProviderWrapper.tsx` failure is unrelated and unchanged.
+
+## F5 — item register, three account/tax pickers, and the invoice/bill line item picker (`apps/web`, on `feat/fe-mvp`)
+
+Real `Item` fields (`defaultTaxDefinitionId`/`defaultRevenueAccountId`/`defaultExpenseAccountId`)
+were already in the generated client but never exposed in `Items.tsx`'s create form, and there
+was no edit form at all — both fixed for real (`apps/web/src/pages/items/ItemForm.tsx`, shared by
+create/edit, mirrors `AccountForm.tsx`'s mode prop). The brief's `type` (goods/service/normative)
+field and "three account pickers" don't exist on the real `Item` entity
+(`backend/Pako.Domain/Companies/Item.cs` has exactly 2: revenue/expense) — `type` is mocked, a
+third account was deliberately not invented (no CIT/COGS-valuation role exists in this
+no-stock-tracking release; flag to Erion if one turns up a real need).
+
+- **New mock pattern, not the F2/F3 one — a real, already-working endpoint wrapped, not a missing
+  one replaced.** `src/mocks/itemTypesMockFlag.ts` (msw-free, holds a synchronous `mockActive`
+  flag AND an in-memory `Map<itemId, type>` — unlike accountsMockFlag.ts/lockDatesMockFlag.ts,
+  which only hold the flag, this one also holds the store, because Items.tsx needs to *write* into
+  it directly after a real `apiClient.itemsPOST`/`itemsPUT` call, not through an intercepted URL)
+  + `src/mocks/itemTypesHandlers.ts` (msw handlers for `GET .../items` and `GET .../items/:id`
+  only — no POST/PUT interception at all, since `type` is never sent to the real backend; those
+  calls go straight through). The GET handlers use `msw`'s `bypass(request)` + `fetch(...)` to
+  issue the *real* request and read the *real* response, then splice `type` from the map onto it
+  before returning — a genuinely new technique in this repo's mock layer (F2/F3 never call the
+  real backend at all, they fully replace the response). Registered in `browser.ts`/`server.ts`
+  alongside the other two; reset in `src/test/setup.ts`.
+- **Verified live (not just unit tests) that the in-memory store survives normal SPA navigation
+  but not a hard reload** — clicking Dashboard → Items via the sidebar `<Link>`s preserves a
+  freshly-set mocked `type`; navigating with a full `page.goto()` (equivalent to a browser hard
+  refresh) wipes it, since a full navigation tears down the whole JS heap the `Map` lives in. This
+  is expected and matches the mock's own "provisional, reset-per-session" design — don't read a
+  hard-refresh data loss as a bug in a future QA pass on this mock.
+- **`items.form.type`/`items.editItem` are the item-scoped labels** (repo convention: separate
+  per-screen i18n keys even when text is identical across screens, e.g. `invoiceForm.tax` vs
+  `billForm.tax` already did this).
+- **Item picker on invoice/bill lines** (`InvoiceForm.tsx`/`BillForm.tsx`): `Line` gained
+  `itemId`/`revenueAccountId` (invoice) or `expenseAccountId` (bill) — previously these forms
+  always sent `revenueAccountId: undefined`/`expenseAccountId: undefined` on every line (no
+  per-line account override existed in the UI at all before this pass). Selecting an item pulls
+  `defaultUnitPrice`/`defaultTaxDefinitionId`/`defaultRevenueAccountId`(or `Expense`) onto the line
+  **only for fields the item actually has a default for** — an unset item field leaves the line at
+  whatever the form's own existing fallback already is (empty account = company default 400100/
+  661200 server-side, per `CompanyAccountDefaults`; empty tax = the form's own VAT-registered
+  default). This is also the "no default accounts" call for F5's open question: item-has-no-default
+  is treated identically to no-item-selected for that one field, never a hard refusal — same
+  reasoning as this file's Stage-2 `CompanyAccountDefaults` fallback design elsewhere.
+- **"Shows clearly when it has overridden something"**: `overriddenFields(line, selectedItem)` in
+  both forms compares the line's current price/tax/account against the *selected item's own*
+  default for that field — only when the item actually has a default for it, never flags "any
+  edit" as a false positive. Rendered as a small amber "Modified" `Badge` under the diverging
+  field. `items` (`ItemResponse[]`) and `accounts` (`AccountResponse[]`) are optional props on both
+  forms, defaulted to `[]`, wired in `Invoicing.tsx`/`Bills.tsx` (create) and
+  `InvoiceDetail.tsx`/`BillDetail.tsx` (Draft edit) — **deliberately NOT wired into
+  `Proforma.tsx`/`SalesReturns.tsx`/`PurchaseReturns.tsx`**, which also render these forms; they
+  keep compiling and working unchanged (no item picker, no account override) since the props
+  default to empty. Flag to Erion/whoever picks this up next if item-picker coverage on those three
+  document types becomes a real ask — it's the same few lines of wiring `Invoicing.tsx` already
+  has, just not done here to bound this pass's scope.
+- **`AccountType` numeric consts added to `src/lib/ledger-enums.ts`** (`{ Asset:0, Liability:1,
+  Equity:2, Income:3, Expense:4 }`, order matches the existing `ACCOUNT_TYPE_KEYS` array/backend
+  enum) — used to filter the plain `apiClient.accounts()` list down to Income-only/Expense-only
+  options for these pickers. First real consumer of `apiClient.accounts()` outside
+  `ChartOfAccounts.tsx` (which uses the F2-mocked version, not the real 7-field one) in this repo.
+- **Verified end-to-end against the real running API** (not just curl replicating payloads — a
+  real Playwright browser session): created an item with real VAT/revenue/expense defaults,
+  confirmed all three persist and reload correctly through `GET .../items` and `GET
+  .../items/{id}`; created and edited items with a mocked `type` through the actual UI form,
+  confirmed the grid shows it and it survives SPA navigation within the session; selected that item
+  on an invoice line, confirmed its defaults (price/tax/revenue account) populated the line,
+  changed the price and confirmed the "Modified" badge appeared, then posted the invoice through
+  the real API and confirmed via the trial balance that it landed on the item's own default revenue
+  account (400100), not the company fallback — the full contract this task's own line pulls
+  through, not a subset.  `pnpm --filter web {typecheck,lint,test,build}` all pass; `lint`'s one
+  pre-existing `IntlProviderWrapper.tsx` failure is unrelated and unchanged.
+
+### F5 code review fix-up (same branch, same day)
+
+Code review on the above found two real bugs, both fixed, plus a small type tightening. No change
+to what's real vs. mocked, no scope change — see the F5 section above for that.
+
+- **Bug: `Items.tsx`'s edit form had no `key`, so switching which item you're editing without
+  saving/cancelling first could silently overwrite the wrong item.** `ItemForm` seeds its fields
+  from `initial` via plain `useState`, which only runs on first mount — with no `key`, clicking
+  Edit on item A then Edit on item B (without saving/cancelling A) kept the same React element in
+  the tree, so it never remounted and kept showing A's stale values; saving then sent B's id with
+  A's data. Fixed two ways: `key={editingItem.id}` on `<ItemForm mode="edit" .../>` (the actual
+  fix — forces a remount whenever the edited item changes) and the per-row Edit button is now
+  `disabled` while a different row is already being edited (closes the gap from the UI side too,
+  so the stale-element state is no longer reachable in the first place). Verified live: opened
+  Edit on item A, confirmed other rows' Edit buttons show disabled, cancelled, opened Edit on item
+  B, confirmed the form immediately showed B's own name/price (not A's leftover values), saved,
+  confirmed B updated correctly and A was untouched.
+- **Bug, money-relevant: the invoice/bill item picker left stale, unflagged account/tax/price
+  values when switching between two items.** `applyItemDefaults` used to fall back to
+  `line.<field>` (the line's current/previous value) for any field the newly selected item didn't
+  specify a default for — so selecting item A (revenue account X) then switching to item B (no
+  default account) left the line silently showing X, and `overriddenFields` never flagged it
+  because it only compares against the *currently selected* item's own default (null for B), which
+  is vacuously satisfied. A real, silent mis-posting risk: the account shown had nothing to do with
+  either item or the company default, and looked like an ordinary unmodified value. Fixed by
+  extracting the shared logic (previously near-duplicated between `InvoiceForm.tsx`/`BillForm.tsx`)
+  into `src/lib/item-line-defaults.ts` (`applyItemDefaultsToLine`/`overriddenItemLineFields`,
+  operating on a small adapter shape so it's unit-testable without either page) — a field the new
+  item doesn't specify now resets to the form's own neutral baseline (empty price, the form's
+  baseline VAT default, empty/company-default account), never to whatever the previous item left
+  behind. The "no item ever selected" case (a fresh free-text line) is untouched — only the
+  switch-between-two-items transition changes. `src/lib/item-line-defaults.test.ts` (new, 8 tests)
+  pins this exact scenario as a regression test, plus the surrounding override/no-override cases.
+  Verified live: selected item A (Laptop, revenue account 400100) on an invoice line, confirmed it
+  pulled in; switched to item C (no defaults at all), confirmed the account reset to "Company
+  default" and the tax reset to the form's own exempt baseline — not leftover from A — and that no
+  "Modified" badge appeared anywhere; created the invoice successfully afterward to confirm the fix
+  doesn't break the submit path.
+- **Nit fixed**: `ItemWithType.type` in `src/lib/item-types.ts` is now `number | null | undefined`
+  — `itemTypesHandlers.ts`'s `withMockType` always sets it via `getMockItemType(item.id) ?? null`,
+  so the real runtime value for an item with no mocked type is `null`, not just `undefined`; both
+  were already handled identically by `itemTypeLabel`/`ItemForm`, this only tightens the type.
+- `pnpm --filter web {typecheck,lint,test,build}` all pass (28 tests now, up from 20 — the 8 new
+  ones above); `lint`'s one pre-existing `IntlProviderWrapper.tsx` failure is unrelated and
+  unchanged.

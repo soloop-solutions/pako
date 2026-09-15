@@ -1,22 +1,33 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { BillResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, BillResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
+import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
+import { AccountType } from "@/lib/ledger-enums";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
-type Line = { description: string; quantity: string; unitPrice: string; discountPercent: string; taxDefinitionId: string };
+type Line = {
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  discountPercent: string;
+  taxDefinitionId: string;
+  itemId: string;
+  expenseAccountId: string;
+};
 
 function emptyLine(defaultTaxId: string): Line {
-  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId };
+  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", expenseAccountId: "" };
 }
 
 function today() {
@@ -31,6 +42,44 @@ function lineEnteredAmount(line: Line): number {
   return quantity * unitPrice * (1 - discountPercent / 100);
 }
 
+// F5 — thin adapters onto the shared, unit-tested item-defaults/override logic in
+// src/lib/item-line-defaults.ts (mirror of InvoiceForm.tsx's identical pair, only the account
+// field name differs). See that module for the full rationale, including the switch-between-items
+// fix: a field the newly selected item leaves unset resets to the form's own baseline, never to
+// whatever value was left over from a previously selected item on this line.
+function itemDefaultsSource(item: ItemResponse): ItemDefaultsSource {
+  return {
+    name: item.name,
+    defaultUnitPrice: item.defaultUnitPrice,
+    defaultTaxDefinitionId: item.defaultTaxDefinitionId,
+    defaultAccountId: item.defaultExpenseAccountId,
+  };
+}
+
+function applyItemDefaults(line: Line, item: ItemResponse | undefined, baselineTaxId: string): Line {
+  if (!item) return { ...line, itemId: "" };
+  const applied = applyItemDefaultsToLine(
+    { description: line.description, unitPrice: line.unitPrice, taxDefinitionId: line.taxDefinitionId, accountId: line.expenseAccountId },
+    itemDefaultsSource(item),
+    baselineTaxId,
+  );
+  return {
+    ...line,
+    itemId: item.id,
+    description: applied.description,
+    unitPrice: applied.unitPrice,
+    taxDefinitionId: applied.taxDefinitionId,
+    expenseAccountId: applied.accountId,
+  };
+}
+
+function overriddenFields(line: Line, item: ItemResponse | undefined): { price: boolean; tax: boolean; account: boolean } {
+  return overriddenItemLineFields(
+    { description: line.description, unitPrice: line.unitPrice, taxDefinitionId: line.taxDefinitionId, accountId: line.expenseAccountId },
+    item ? itemDefaultsSource(item) : undefined,
+  );
+}
+
 type BillFormProps = {
   companyId: string;
   vendors: PartnerResponse[];
@@ -38,6 +87,10 @@ type BillFormProps = {
   bills: BillResponse[];
   paymentMethods: PaymentMethodResponse[];
   isVatRegistered: boolean;
+  // F5 — see InvoiceForm.tsx's identical props for the full rationale. Optional/defaulted so
+  // PurchaseReturns.tsx keeps compiling unchanged until it's wired up too.
+  items?: ItemResponse[];
+  accounts?: AccountResponse[];
   onCreated: () => void;
   // A6 (v2 release): see InvoiceForm.tsx's identical prop for the full rationale — used by the
   // Purchase returns page to fix this form to PurchaseReturn with no type selector shown.
@@ -55,6 +108,8 @@ export function BillForm({
   bills,
   paymentMethods,
   isVatRegistered,
+  items = [],
+  accounts = [],
   onCreated,
   fixedDocumentType,
   editingBill,
@@ -63,6 +118,7 @@ export function BillForm({
   const intl = useIntl();
   // C2: same rule as InvoiceForm — default new lines to the exempt purchase code (BEX).
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "BEX")?.id ?? "") : "";
+  const expenseAccounts = accounts.filter((a) => a.accountType === AccountType.Expense);
   // C5: a bill can only take cash inline at creation — a bank payment is only ever known once it
   // clears the statement, recorded later through the ordinary payment route.
   const cashPaymentMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Cash);
@@ -89,6 +145,8 @@ export function BillForm({
           unitPrice: String(l.unitPrice),
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? "",
+          itemId: l.itemId ?? "",
+          expenseAccountId: l.expenseAccountId ?? "",
         }))
       : [emptyLine(defaultTaxId)],
   );
@@ -103,6 +161,11 @@ export function BillForm({
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
+  }
+
+  function selectLineItem(index: number, itemId: string) {
+    const item = items.find((i) => i.id === itemId);
+    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, defaultTaxId) : line)));
   }
 
   function addLine() {
@@ -151,7 +214,8 @@ export function BillForm({
         unitPrice: parseFloat(line.unitPrice) || 0,
         discountPercent: parseFloat(line.discountPercent) || 0,
         taxDefinitionId: line.taxDefinitionId || undefined,
-        expenseAccountId: undefined,
+        expenseAccountId: line.expenseAccountId || undefined,
+        itemId: line.itemId || undefined,
       }));
 
       if (editingBill) {
@@ -301,8 +365,21 @@ export function BillForm({
         {lines.map((line, index) => {
           const enteredAmount = lineEnteredAmount(line);
           const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
+          const selectedItem = items.find((i) => i.id === line.itemId);
+          const overridden = overriddenFields(line, selectedItem);
           return (
-          <div key={index} className="grid grid-cols-[2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
+          <div key={index} className="grid grid-cols-[1fr_2fr_5rem_6rem_5rem_1fr_1fr_5rem_5rem_auto] items-end gap-2">
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.item" })}</Label>}
+              <Select value={line.itemId} onChange={(event) => selectLineItem(index, event.target.value)}>
+                <option value="">{intl.formatMessage({ id: "billForm.noItem" })}</option>
+                {items.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                ))}
+              </Select>
+            </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
@@ -330,6 +407,11 @@ export function BillForm({
                 value={line.unitPrice}
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
+              {overridden.price && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.discountPercent" })}</Label>}
@@ -355,6 +437,27 @@ export function BillForm({
                   </option>
                 ))}
               </Select>
+              {overridden.tax && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.expenseAccount" })}</Label>}
+              <Select value={line.expenseAccountId} onChange={(event) => updateLine(index, { expenseAccountId: event.target.value })}>
+                <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
+                {expenseAccounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.code}
+                  </option>
+                ))}
+              </Select>
+              {overridden.account && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}

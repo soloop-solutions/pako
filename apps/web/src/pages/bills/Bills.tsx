@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
-import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type {
+  AccountResponse,
+  BillResponse,
+  DocumentBalanceResponse,
+  ItemResponse,
+  PartnerResponse,
+  PaymentMethodResponse,
+  TaxDefinitionResponse,
+} from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,6 +31,9 @@ export function Bills() {
   const [bills, setBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
+  // F5 — see Invoicing.tsx's identical fields for the full rationale.
+  const [items, setItems] = useState<ItemResponse[]>([]);
+  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -30,16 +41,20 @@ export function Bills() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, billsResult, taxesResult, paymentMethodsResult] = await Promise.all([
+      const [partnersResult, billsResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
         apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
+        apiClient.itemsGET(companyId, 0, 200, undefined),
+        apiClient.accounts(companyId),
       ]);
       setPartners(partnersResult);
       setBills(billsResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
+      setItems(itemsResult.items);
+      setAccounts(accountsResult);
 
       const balanceEntries = await Promise.all(
         billsResult.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const),
@@ -115,6 +130,8 @@ export function Bills() {
             taxes={taxesForPurchase(taxes)}
             bills={bills}
             paymentMethods={paymentMethods}
+            items={items}
+            accounts={accounts}
             isVatRegistered={activeCompany.isVatRegistered}
             onCreated={refresh}
           />

@@ -12,6 +12,12 @@ const ACCOUNT_TYPE_KEYS = [
   "enum.accountType.expense",
 ] as const;
 
+// F5 — order matches ACCOUNT_TYPE_KEYS above (and backend/Pako.Domain/Ledger/Account.cs's
+// AccountType enum) by hand. Used to filter the plain account picker (apiClient.accounts) down to
+// Income/Expense accounts for an item's default revenue/expense account fields and for the
+// invoice/bill line account override.
+export const AccountType = { Asset: 0, Liability: 1, Equity: 2, Income: 3, Expense: 4 } as const;
+
 const ACCOUNT_SUB_TYPE_KEYS = [
   "enum.accountSubType.none",
   "enum.accountSubType.receivable",

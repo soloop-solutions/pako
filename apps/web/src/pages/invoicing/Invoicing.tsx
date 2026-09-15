@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
-import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type {
+  AccountResponse,
+  DocumentBalanceResponse,
+  InvoiceResponse,
+  ItemResponse,
+  PartnerResponse,
+  PaymentMethodResponse,
+  TaxDefinitionResponse,
+} from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -23,6 +31,12 @@ export function Invoicing() {
   const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
+  // F5 — item picker on the line editor and the accounts its default revenue account is picked
+  // from. `itemsGET`'s `take` is capped at 200 server-side (see Items.tsx's own comment) — a
+  // plain <select> stays usable up to that many, per docs/FRONTEND_BRIEF.md's F5 instruction to
+  // only reach for a searchable combobox if a plain select is genuinely unusable.
+  const [items, setItems] = useState<ItemResponse[]>([]);
+  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
 
@@ -30,16 +44,20 @@ export function Invoicing() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, invoicesResult, taxesResult, paymentMethodsResult] = await Promise.all([
+      const [partnersResult, invoicesResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
         apiClient.invoicesAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
+        apiClient.itemsGET(companyId, 0, 200, undefined),
+        apiClient.accounts(companyId),
       ]);
       setPartners(partnersResult);
       setInvoices(invoicesResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
+      setItems(itemsResult.items);
+      setAccounts(accountsResult);
 
       const balanceEntries = await Promise.all(
         invoicesResult.map(async (invoice) => [invoice.id, await apiClient.balance2(companyId, invoice.id)] as const),
@@ -119,6 +137,8 @@ export function Invoicing() {
             taxes={taxesForSale(taxes)}
             invoices={invoices}
             paymentMethods={paymentMethods}
+            items={items}
+            accounts={accounts}
             isVatRegistered={activeCompany.isVatRegistered}
             onCreated={refresh}
           />

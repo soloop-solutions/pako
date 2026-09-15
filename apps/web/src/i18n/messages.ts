@@ -91,6 +91,8 @@ export const en: Record<string, string> = {
   "common.selectCompany": "Select company",
   "common.comingSoon": "Coming soon.",
   "common.noData": "No data",
+  "common.companyDefault": "Company default",
+  "common.modified": "Modified",
 
   // Errors
   "errors.somethingWentWrong": "Something went wrong.",
@@ -292,6 +294,9 @@ export const en: Record<string, string> = {
   "invoiceForm.paymentAmountError": "Enter a payment amount greater than zero.",
   "invoiceForm.paymentMethodError": "Select a payment method.",
   "invoiceForm.selectPaymentMethod": "Select payment method",
+  "invoiceForm.item": "Item",
+  "invoiceForm.noItem": "No item (free text)",
+  "invoiceForm.revenueAccount": "Revenue account",
 
   // Invoice detail
   "invoiceDetail.title": "Invoice",
@@ -369,6 +374,9 @@ export const en: Record<string, string> = {
   "billForm.saveError": "Could not save the bill.",
   "billForm.priceExclVat": "Price (excl. VAT)",
   "billForm.takeCashPaymentNow": "Record a cash payment now",
+  "billForm.item": "Item",
+  "billForm.noItem": "No item (free text)",
+  "billForm.expenseAccount": "Expense account",
 
   // Bill detail
   "billDetail.title": "Bill",
@@ -588,6 +596,17 @@ export const en: Record<string, string> = {
   "items.barcodes": "Barcodes",
   "items.addBarcode": "barcode",
   "items.barcodeError": "Could not add barcode.",
+  "items.editItem": "Edit {name}",
+  "items.saveError": "Could not save item.",
+  "items.form.type": "Type",
+  "items.form.typeGoods": "Goods",
+  "items.form.typeService": "Service",
+  "items.form.typeNormative": "Normative",
+  "items.form.typeHint": "Informational only for now — no stock or valuation logic reads this yet.",
+  "items.form.vatCode": "VAT code",
+  "items.form.noVatCode": "No default",
+  "items.form.revenueAccount": "Default revenue account",
+  "items.form.expenseAccount": "Default expense account",
 
   // Partner (B5)
   "partnerForm.fiscalNumber": "Fiscal number",
@@ -861,6 +880,8 @@ export const sq: Record<string, string> = {
   "common.selectCompany": "Zgjidh kompanin\u00eb",
   "common.comingSoon": "S\u00eb shpejti.",
   "common.noData": "Nuk ka t\u00eb dh\u00ebna",
+  "common.companyDefault": "Parazgjedhja e kompanis\u00eb",
+  "common.modified": "Ndryshuar",
 
   // Errors
   "errors.somethingWentWrong": "Diçka shkoi keq.",
@@ -1062,6 +1083,9 @@ export const sq: Record<string, string> = {
   "invoiceForm.paymentAmountError": "Vendosni një shumë pagese më të madhe se zero.",
   "invoiceForm.paymentMethodError": "Zgjidhni mënyrën e pagesës.",
   "invoiceForm.selectPaymentMethod": "Zgjidh mënyrën e pagesës",
+  "invoiceForm.item": "Artikulli",
+  "invoiceForm.noItem": "Pa artikull (tekst i lirë)",
+  "invoiceForm.revenueAccount": "Llogaria e të ardhurave",
 
   // Invoice detail
   "invoiceDetail.title": "Fatura",
@@ -1139,6 +1163,9 @@ export const sq: Record<string, string> = {
   "billForm.saveError": "Nuk u ruajt fatura e blerjes.",
   "billForm.priceExclVat": "Çmimi (pa TVSH)",
   "billForm.takeCashPaymentNow": "Regjistro pagesën me para në dorë tani",
+  "billForm.item": "Artikulli",
+  "billForm.noItem": "Pa artikull (tekst i lirë)",
+  "billForm.expenseAccount": "Llogaria e shpenzimeve",
 
   // Bill detail
   "billDetail.title": "Fatura e blerjes",
@@ -1358,6 +1385,17 @@ export const sq: Record<string, string> = {
   "items.barcodes": "Barkodet",
   "items.addBarcode": "barkod",
   "items.barcodeError": "Nuk u shtua barkodi.",
+  "items.editItem": "Ndrysho {name}",
+  "items.saveError": "Artikulli nuk u ruajt.",
+  "items.form.type": "Lloji",
+  "items.form.typeGoods": "Mall",
+  "items.form.typeService": "Shërbim",
+  "items.form.typeNormative": "Normativ",
+  "items.form.typeHint": "Vetëm informues për tani — asnjë logjikë stoku apo vlerësimi nuk e lexon ende.",
+  "items.form.vatCode": "Kodi i TVSH-së",
+  "items.form.noVatCode": "Pa parazgjedhje",
+  "items.form.revenueAccount": "Llogaria e parazgjedhur e të ardhurave",
+  "items.form.expenseAccount": "Llogaria e parazgjedhur e shpenzimeve",
 
   // Partner (B5)
   "partnerForm.fiscalNumber": "Numri personal",
