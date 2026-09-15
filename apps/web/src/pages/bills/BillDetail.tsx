@@ -61,7 +61,7 @@ export function BillDetail() {
         apiClient.taxes(companyId),
         apiClient.billsAll(companyId),
         apiClient.paymentMethodsAll(companyId),
-        apiClient.itemsGET(companyId, 0, 200, undefined),
+        apiClient.itemsGET(companyId, 1, 200, undefined, undefined),
         apiClient.accountsAll(companyId),
       ]);
       setBill(billResult);

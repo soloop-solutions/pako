@@ -53,8 +53,8 @@ public class BillsControllerTests : IAsyncLifetime
 
         db.Companies.Add(company);
         db.Partners.Add(new Partner { Id = partnerId, CompanyId = company.Id, Name = "Vendor Inc", IsVendor = true });
-        db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Cash });
-        db.Accounts.Add(new Account { Id = payableAccountId, CompanyId = company.Id, Code = "2000", Name = "Accounts Payable", AccountType = AccountType.Liability, AccountSubType = AccountSubType.Payable });
+        db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Cash });
+        db.Accounts.Add(new Account { Id = payableAccountId, CompanyId = company.Id, Code = "2000", Name = "Accounts Payable", AccountType = AccountType.Payable, AccountSubType = AccountSubType.Payable });
         db.Accounts.Add(new Account { Id = expenseAccountId, CompanyId = company.Id, Code = "6000", Name = "Expenses", AccountType = AccountType.Expense });
         db.Journals.Add(new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
         db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
@@ -508,7 +508,7 @@ public class BillsControllerTests : IAsyncLifetime
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
         var bankAccountId = Guid.NewGuid();
-        db.Accounts.Add(new Account { Id = bankAccountId, CompanyId = companyId, Code = "1010", Name = "Bank", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Bank });
+        db.Accounts.Add(new Account { Id = bankAccountId, CompanyId = companyId, Code = "1010", Name = "Bank", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Bank });
         var paymentMethod = new PaymentMethod { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Bank", Kind = PaymentMethodKind.Bank, LedgerAccountId = bankAccountId };
         db.PaymentMethods.Add(paymentMethod);
         await db.SaveChangesAsync();

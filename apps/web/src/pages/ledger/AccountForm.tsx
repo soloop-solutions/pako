@@ -95,7 +95,8 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
   }, [group, groupOptions, defaultGroup]);
 
   const groupClass = group ? accountClassFromCode(group.codePrefixStart) : null;
-  const derivedAccountType = groupClass != null ? deriveAccountType(groupClass, normalBalance) : null;
+  const previewGroup = group ? accountGroupFromCode(group.codePrefixStart) : null;
+  const derivedAccountType = groupClass != null ? deriveAccountType(code.trim(), groupClass, previewGroup, normalBalance) : null;
   const derivedStatement = derivedAccountType != null ? deriveStatement(derivedAccountType) : null;
 
   // Account codes are always 6 digits in this chart, matching AccountGroup's own CodePrefixStart/
@@ -125,7 +126,7 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
     const accountGroup = group ? accountGroupFromCode(group.codePrefixStart) : null;
     if (accountClass == null || accountGroup == null) return;
 
-    const accountType = deriveAccountType(accountClass, normalBalance);
+    const accountType = deriveAccountType(code.trim(), accountClass, accountGroup, normalBalance);
 
     onSubmit({
       code: code.trim(),

@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -11,12 +11,10 @@ import { Input } from "@/components/ui/input";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { useCompany } from "@/context/CompanyContext";
-import { AccountType } from "@/lib/ledger-enums";
-import { itemTypeLabel, type ItemWithType } from "@/lib/item-types";
-import { setItemTypesMockActive, setMockItemType } from "@/mocks/itemTypesMockFlag";
-import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
+import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
+import { itemTypeLabel } from "@/lib/item-types";
 import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
-import type { AccountResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
 const ITEMS_GRID_ID = "items";
 
@@ -34,32 +32,16 @@ export function Items() {
   const [newBarcode, setNewBarcode] = useState("");
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
 
-  // F5 — the mocked `type` field only answers while this screen is actually on screen, same
-  // synchronous-flag discipline as the F2 (chart of accounts) and F3 (lock dates) mocks — see
-  // src/mocks/itemTypesMockFlag.ts / src/mocks/itemTypesHandlers.ts.
-  const [mockReady, setMockReady] = useState(false);
-  useEffect(() => {
-    setItemTypesMockActive(true);
-    let cancelled = false;
-    void ensureAccountsMockWorkerStarted().then(() => {
-      if (!cancelled) setMockReady(true);
-    });
-    return () => {
-      cancelled = true;
-      setMockReady(false);
-      setItemTypesMockActive(false);
-    };
-  }, []);
-
   const itemsQueryKey = ["items", activeCompanyId, urlState.skip, urlState.take, urlState.globalFilter] as const;
 
   const itemsQuery = useQuery({
     queryKey: itemsQueryKey,
     queryFn: async () => {
-      const result = await apiClient.itemsGET(activeCompanyId as string, urlState.skip, urlState.take, urlState.globalFilter || undefined);
-      return result as unknown as { items: ItemWithType[]; total: number };
+      // B7: itemsGET is now page-based (1-indexed page, pageSize), not skip/take — convert.
+      const page = Math.floor(urlState.skip / urlState.take) + 1;
+      return apiClient.itemsGET(activeCompanyId as string, page, urlState.take, urlState.globalFilter || undefined, undefined);
     },
-    enabled: !!activeCompanyId && mockReady,
+    enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
 
@@ -77,8 +59,15 @@ export function Items() {
 
   const taxes = useMemo<TaxDefinitionResponse[]>(() => taxesQuery.data ?? [], [taxesQuery.data]);
   const accounts = useMemo<AccountResponse[]>(() => accountsQuery.data ?? [], [accountsQuery.data]);
-  const incomeAccounts = useMemo(() => accounts.filter((a) => a.accountType === AccountType.Income), [accounts]);
-  const expenseAccounts = useMemo(() => accounts.filter((a) => a.accountType === AccountType.Expense), [accounts]);
+  // B13: AccountType widened to Odoo's real 19 values — Income/Expense are each now a family of
+  // types (e.g. Expense/OtherExpense/Depreciation/CostOfRevenue), not one bucket.
+  const incomeAccounts = useMemo(() => accounts.filter((a) => isIncomeAccountType(a.accountType)), [accounts]);
+  const expenseAccounts = useMemo(() => accounts.filter((a) => isExpenseAccountType(a.accountType)), [accounts]);
+  // B6: the real third default account (inventory) — no dedicated "Inventory" AccountType exists
+  // in the real 19-value set, so this matches the backend's own fallback classification for a
+  // general Class-1/Group-12 asset (AccountTypeDerivation.DeriveAccountType's `(1, _) =>
+  // CurrentAsset` case, which is what a company's inventory-holding account lands on).
+  const inventoryAccounts = useMemo(() => accounts.filter((a) => a.accountType === AccountType.CurrentAsset), [accounts]);
 
   async function refreshItems() {
     await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
@@ -87,18 +76,16 @@ export function Items() {
   const createMutation = useMutation({
     mutationFn: async (fields: ItemFormFields) => {
       if (!activeCompanyId) throw new Error("no active company");
-      const created = await apiClient.itemsPOST(activeCompanyId, {
+      return apiClient.itemsPOST(activeCompanyId, {
         name: fields.name,
         unit: fields.unit,
+        type: fields.type,
         defaultUnitPrice: fields.defaultUnitPrice,
         defaultTaxDefinitionId: fields.defaultTaxDefinitionId,
         defaultRevenueAccountId: fields.defaultRevenueAccountId,
         defaultExpenseAccountId: fields.defaultExpenseAccountId,
+        defaultInventoryAccountId: fields.defaultInventoryAccountId,
       });
-      // F5 — MOCKED type, stored separately from the real create call. See
-      // src/mocks/itemTypesMockFlag.ts.
-      setMockItemType(created.id, fields.type);
-      return created;
     },
     onSuccess: async () => {
       setCreateError(null);
@@ -111,16 +98,16 @@ export function Items() {
   const updateMutation = useMutation({
     mutationFn: async (vars: { id: string; fields: ItemFormFields }) => {
       if (!activeCompanyId) throw new Error("no active company");
-      const updated = await apiClient.itemsPUT(activeCompanyId, vars.id, {
+      return apiClient.itemsPUT(activeCompanyId, vars.id, {
         name: vars.fields.name,
         unit: vars.fields.unit,
+        type: vars.fields.type,
         defaultUnitPrice: vars.fields.defaultUnitPrice,
         defaultTaxDefinitionId: vars.fields.defaultTaxDefinitionId,
         defaultRevenueAccountId: vars.fields.defaultRevenueAccountId,
         defaultExpenseAccountId: vars.fields.defaultExpenseAccountId,
+        defaultInventoryAccountId: vars.fields.defaultInventoryAccountId,
       });
-      setMockItemType(updated.id, vars.fields.type);
-      return updated;
     },
     onSuccess: async () => {
       setEditError(null);
@@ -163,7 +150,7 @@ export function Items() {
   const total = itemsQuery.data?.total ?? 0;
   const editingItem = editingId ? items.find((i) => i.id === editingId) : undefined;
 
-  const columns = useMemo<ColumnDef<ItemWithType>[]>(
+  const columns = useMemo<ColumnDef<ItemResponse>[]>(
     () => [
       {
         accessorKey: "code",
@@ -223,6 +210,12 @@ export function Items() {
         header: intl.formatMessage({ id: "items.form.expenseAccount" }),
         enableSorting: false,
         accessorFn: (row) => accounts.find((a) => a.id === row.defaultExpenseAccountId)?.code ?? "—",
+      },
+      {
+        id: "inventoryAccount",
+        header: intl.formatMessage({ id: "items.form.inventoryAccount" }),
+        enableSorting: false,
+        accessorFn: (row) => accounts.find((a) => a.id === row.defaultInventoryAccountId)?.code ?? "—",
       },
       {
         id: "barcodes",
@@ -344,6 +337,7 @@ export function Items() {
           taxes={taxes}
           incomeAccounts={incomeAccounts}
           expenseAccounts={expenseAccounts}
+          inventoryAccounts={inventoryAccounts}
           submitting={createMutation.isPending}
           error={createError}
           onSubmit={(fields) => createMutation.mutate(fields)}
@@ -365,6 +359,7 @@ export function Items() {
             taxes={taxes}
             incomeAccounts={incomeAccounts}
             expenseAccounts={expenseAccounts}
+            inventoryAccounts={inventoryAccounts}
             initial={editingItem}
             submitting={updateMutation.isPending}
             error={editError}

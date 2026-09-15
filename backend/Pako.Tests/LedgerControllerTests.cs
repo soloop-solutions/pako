@@ -21,8 +21,8 @@ public class LedgerControllerTests
 
         // Code order would be 1000 < 2000 < 3000; creation order is deliberately the reverse.
         var accountA = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "3000", Name = "Third", AccountType = AccountType.Equity, CreatedAt = DateTime.UtcNow.AddMinutes(-3) };
-        var accountB = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2000", Name = "Second", AccountType = AccountType.Liability, CreatedAt = DateTime.UtcNow.AddMinutes(-2) };
-        var accountC = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "First", AccountType = AccountType.Asset, CreatedAt = DateTime.UtcNow.AddMinutes(-1) };
+        var accountB = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2000", Name = "Second", AccountType = AccountType.CurrentLiability, CreatedAt = DateTime.UtcNow.AddMinutes(-2) };
+        var accountC = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "First", AccountType = AccountType.CurrentAsset, CreatedAt = DateTime.UtcNow.AddMinutes(-1) };
 
         db.Companies.Add(company);
         db.Journals.Add(journal);

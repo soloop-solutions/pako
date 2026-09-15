@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType, invoiceDocumentTypeName } from "@/lib/document-types";
 import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
-import { AccountType } from "@/lib/ledger-enums";
+import { isIncomeAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
@@ -127,7 +127,9 @@ export function InvoiceForm({
   onSaved,
 }: InvoiceFormProps) {
   const intl = useIntl();
-  const revenueAccounts = accounts.filter((a) => a.accountType === AccountType.Income);
+  // B13: AccountType widened to Odoo's real 19 values — Income is now a family of types
+  // (Income/OtherIncome), not one bucket.
+  const revenueAccounts = accounts.filter((a) => isIncomeAccountType(a.accountType));
   // C2: a VAT-registered company can never leave a line without a real tax code — default new
   // lines to the exempt sales code (SEX) instead of the old silent empty "no tax" option.
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "SEX")?.id ?? "") : "";

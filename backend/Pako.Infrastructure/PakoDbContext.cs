@@ -20,6 +20,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
     public DbSet<Company> Companies => Set<Company>();
     public DbSet<CompanyAccountDefaults> CompanyAccountDefaults => Set<CompanyAccountDefaults>();
+    public DbSet<AccountLockException> AccountLockExceptions => Set<AccountLockException>();
     public DbSet<Firm> Firms => Set<Firm>();
     public DbSet<Membership> Memberships => Set<Membership>();
     public DbSet<Partner> Partners => Set<Partner>();
@@ -88,9 +89,15 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     // before ever touching the tracked entity if anything else differs) — this only fires if that
     // check were ever bypassed or buggy, same relationship every other invariant in this repo has
     // between its controller-level check and its DB/EF-level backstop.
+    //
+    // B5: InvoiceNumber joins the Invoice-only whitelist — NumberSeriesController.OverrideInvoiceNumber
+    // is the one legitimate way a Posted invoice's number ever changes (behind
+    // Company.AllowNumberOverride, a uniqueness check, and a DocumentNumberAudit row), and until
+    // this was added, that endpoint's own SaveChangesAsync threw PostedInvoiceImmutableException
+    // every time — a real, previously-untested bug this fix closes.
     private static bool OnlyDueDateOrInternalNotesChanged(EntityEntry<Invoice> entry) =>
         entry.Properties.Where(p => p.IsModified).All(p =>
-            p.Metadata.Name is nameof(Invoice.DueDate) or nameof(Invoice.InternalNotes));
+            p.Metadata.Name is nameof(Invoice.DueDate) or nameof(Invoice.InternalNotes) or nameof(Invoice.InvoiceNumber));
 
     private static bool OnlyDueDateOrInternalNotesChanged(EntityEntry<Bill> entry) =>
         entry.Properties.Where(p => p.IsModified).All(p =>

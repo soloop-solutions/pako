@@ -35,7 +35,14 @@ public class NumberSeriesController : ControllerBase
             .OrderBy(s => s.DocumentType).ThenByDescending(s => s.Year)
             .ToListAsync();
 
-        return Ok(series.Select(s => new NumberSeriesResponse(s.Id, s.DocumentType, s.Year, s.Pattern, s.NextValue)).ToList());
+        var responses = new List<NumberSeriesResponse>();
+        foreach (var s in series)
+        {
+            var nextNumber = await _numberSeries.PreviewNextAsync(companyId, s.DocumentType, s.Year);
+            responses.Add(new NumberSeriesResponse(s.Id, s.DocumentType, s.Year, s.Pattern, ExtractSequenceValue(nextNumber) ?? 1));
+        }
+
+        return Ok(responses);
     }
 
     // B1: update the pattern for a series (settings page). Only the pattern changes — NextValue
@@ -61,7 +68,8 @@ public class NumberSeriesController : ControllerBase
         series.Pattern = request.Pattern.Trim();
         await _db.SaveChangesAsync();
 
-        return Ok(new NumberSeriesResponse(series.Id, series.DocumentType, series.Year, series.Pattern, series.NextValue));
+        var nextNumber = await _numberSeries.PreviewNextAsync(companyId, series.DocumentType, series.Year);
+        return Ok(new NumberSeriesResponse(series.Id, series.DocumentType, series.Year, series.Pattern, ExtractSequenceValue(nextNumber) ?? 1));
     }
 
     // B2: preview the next number without reserving it.

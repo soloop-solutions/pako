@@ -58,12 +58,12 @@ public class InvoicesControllerTests : IAsyncLifetime
 
         db.Companies.Add(company);
         db.Partners.Add(new Partner { Id = partnerId, CompanyId = company.Id, Name = "Acme", IsCustomer = true });
-        db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Cash });
-        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Cash });
+        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
         db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4001", Name = "Other Revenue", AccountType = AccountType.Income });
-        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2100", Name = "VAT Payable", AccountType = AccountType.Liability });
-        db.Accounts.Add(new Account { Id = depositsAccountId, CompanyId = company.Id, Code = "2500", Name = "Customer Deposits", AccountType = AccountType.Liability });
+        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2100", Name = "VAT Payable", AccountType = AccountType.CurrentLiability });
+        db.Accounts.Add(new Account { Id = depositsAccountId, CompanyId = company.Id, Code = "2500", Name = "Customer Deposits", AccountType = AccountType.CurrentLiability });
         db.Journals.Add(new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
         db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
         {
@@ -858,5 +858,253 @@ public class InvoicesControllerTests : IAsyncLifetime
         var result = await controller.Create(companyId, request);
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    private static InvoicesController NewControllerAs(PakoDbContext db, Guid userId)
+    {
+        var user = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "TestAuth"));
+
+        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+        };
+    }
+
+    // B4: posting into a locked period is refused with a message naming the lock.
+    [Fact]
+    public async Task Post_WithAccountingLockDateOnOrBeforeIssueDate_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("accounting lock date", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    // B4: SaleLockDate freezes new sales-document posting specifically.
+    [Fact]
+    public async Task Post_WithSaleLockDateOnOrBeforeIssueDate_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.SaleLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("sale lock date", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    // B4: a user with a live exception can post despite the company-wide lock.
+    [Fact]
+    public async Task Post_WithLiveExceptionForAccountingLockDate_Succeeds()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        db.AccountLockExceptions.Add(new AccountLockException
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            UserId = userId,
+            LockDateField = LockDateField.AccountingLockDate,
+            LockDate = new DateOnly(2026, 8, 1),
+            Reason = "Fixing August close",
+            EndsAt = DateTime.UtcNow.AddDays(1)
+        });
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, userId);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    // B4: an expired exception cannot let a user post into a locked period.
+    [Fact]
+    public async Task Post_WithExpiredExceptionForAccountingLockDate_StillRejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        db.AccountLockExceptions.Add(new AccountLockException
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            UserId = userId,
+            LockDateField = LockDateField.AccountingLockDate,
+            LockDate = new DateOnly(2026, 8, 1),
+            Reason = "Fixing August close",
+            EndsAt = DateTime.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, userId);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    // B4: a revoked exception cannot let a user post either, even before its EndsAt.
+    [Fact]
+    public async Task Post_WithRevokedExceptionForAccountingLockDate_StillRejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        db.AccountLockExceptions.Add(new AccountLockException
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            UserId = userId,
+            LockDateField = LockDateField.AccountingLockDate,
+            LockDate = new DateOnly(2026, 8, 1),
+            Reason = "Fixing August close",
+            EndsAt = DateTime.UtcNow.AddDays(1),
+            RevokedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, userId);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    // B5: the headline proof — numbering is derived from max(existing), not a stored counter,
+    // and the company-row FOR UPDATE lock InvoicesController.Post already takes fully serializes
+    // concurrent posts for the same company, so 50 genuinely concurrent posts (each its own
+    // PakoDbContext/connection, since a single DbContext isn't thread-safe) still produce exactly
+    // 50 consecutive, gapless numbers — no two colliding, none skipped.
+    [Fact]
+    public async Task Post_50ParallelPostsForSameCompany_Produce50ConsecutiveNumbers()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var draftIds = new List<Guid>();
+        for (var i = 0; i < 50; i++)
+        {
+            var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 10m));
+            var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+            draftIds.Add(created.Id);
+        }
+
+        var postTasks = draftIds.Select(async draftId =>
+        {
+            var postDb = PostgresTestDatabase.CreateAdditionalContext(db);
+            _dbContexts.Add(postDb);
+            var postController = new InvoicesController(postDb, TaxService, new DocumentNumberService(), new NumberSeriesService(postDb), new NullStringLocalizer<ErrorMessages>())
+            {
+                ControllerContext = new ControllerContext
+                {
+                    HttpContext = new DefaultHttpContext
+                    {
+                        User = new ClaimsPrincipal(new ClaimsIdentity(
+                            new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"))
+                    }
+                }
+            };
+            return await postController.Post(companyId, draftId);
+        });
+
+        var results = await Task.WhenAll(postTasks);
+
+        Assert.All(results, r => Assert.IsType<OkObjectResult>(r.Result));
+
+        var numbers = results
+            .Select(r => ((InvoiceResponse)((OkObjectResult)r.Result!).Value!).InvoiceNumber!)
+            .ToList();
+        var sequenceValues = numbers.Select(n => int.Parse(n.Split('/')[0])).OrderBy(v => v).ToList();
+
+        Assert.Equal(50, numbers.Distinct().Count());
+        Assert.Equal(Enumerable.Range(1, 50), sequenceValues);
+    }
+
+    // B5: a discarded draft never had a number reserved (numbering happens only at Post), so
+    // discarding one and then posting a different draft mints the FIRST number, not the second —
+    // proving there's no stray counter anywhere that a discard could leave incremented.
+    [Fact]
+    public async Task Discard_DraftThenPostAnother_DoesNotSkipNumbers()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+        var discardedResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 10m));
+        var discarded = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(discardedResult.Result).Value);
+        await controller.Discard(companyId, discarded.Id);
+
+        var keptResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 20m));
+        var kept = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(keptResult.Result).Value);
+        var postResult = await controller.Post(companyId, kept.Id);
+
+        var posted = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(postResult.Result).Value);
+        Assert.StartsWith("01/", posted.InvoiceNumber);
+    }
+
+    // B6: a line referencing an item with its own default revenue account uses that account,
+    // not the company's, when the line doesn't specify one explicitly.
+    [Fact]
+    public async Task Create_LineWithItemHavingDefaultRevenueAccount_UsesItemDefault()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var itemRevenueAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = itemRevenueAccountId, CompanyId = companyId, Code = "4002", Name = "Widget Revenue", AccountType = AccountType.Income });
+        var item = new Item { Id = Guid.NewGuid(), CompanyId = companyId, Code = 1, Name = "Widget", Unit = "pcs", DefaultRevenueAccountId = itemRevenueAccountId };
+        db.Items.Add(item);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = new CreateInvoiceRequest(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Widget", 1m, 50m, null, null, null, item.Id) });
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(itemRevenueAccountId, created.Lines[0].RevenueAccountId);
+    }
+
+    // B6: a line referencing an item with NO default revenue account falls back to the
+    // company's default — the resolved "company fallback, not refuse the save" decision.
+    [Fact]
+    public async Task Create_LineWithItemHavingNoDefaultRevenueAccount_FallsBackToCompanyDefault()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var item = new Item { Id = Guid.NewGuid(), CompanyId = companyId, Code = 1, Name = "Widget", Unit = "pcs" };
+        db.Items.Add(item);
+        await db.SaveChangesAsync();
+        var companyRevenueAccountId = (await db.CompanyAccountDefaults.SingleAsync(d => d.CompanyId == companyId)).RevenueAccountId;
+        var controller = NewController(db);
+
+        var request = new CreateInvoiceRequest(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Widget", 1m, 50m, null, null, null, item.Id) });
+
+        var result = await controller.Create(companyId, request);
+
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(companyRevenueAccountId, created.Lines[0].RevenueAccountId);
     }
 }

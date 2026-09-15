@@ -186,6 +186,51 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("bill_lines", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Companies.AccountLockException", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GrantedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("LockDate")
+                        .HasColumnType("date");
+
+                    b.Property<int>("LockDateField")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "UserId", "LockDateField");
+
+                    b.ToTable("account_lock_exceptions", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Companies.Company", b =>
                 {
                     b.Property<Guid>("Id")
@@ -212,6 +257,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(3)
                         .HasColumnType("character varying(3)")
                         .HasDefaultValue("EUR");
+
+                    b.Property<DateOnly?>("HardLockDate")
+                        .HasColumnType("date");
 
                     b.Property<bool>("IsVatRegistered")
                         .ValueGeneratedOnAdd()
@@ -240,6 +288,12 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<int>("NextSalesReturnNumber")
                         .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("PurchaseLockDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("SaleLockDate")
+                        .HasColumnType("date");
 
                     b.Property<DateOnly?>("TaxLockDate")
                         .HasColumnType("date");
@@ -365,6 +419,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid?>("DefaultExpenseAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("DefaultInventoryAccountId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("DefaultRevenueAccountId")
                         .HasColumnType("uuid");
 
@@ -378,6 +435,9 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Unit")
                         .IsRequired()
@@ -465,11 +525,6 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
-
-                    b.Property<int>("NextValue")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasDefaultValue(1);
 
                     b.Property<string>("Pattern")
                         .IsRequired()

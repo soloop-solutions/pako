@@ -1,24 +1,24 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { ITEM_TYPE_OPTION_KEYS, ItemType, type ItemWithType } from "@/lib/item-types";
+import { ITEM_TYPE_OPTION_KEYS, ItemType } from "@/lib/item-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
 
 export interface ItemFormFields {
   name: string;
   unit: string;
+  type: number;
   defaultUnitPrice?: number;
   defaultTaxDefinitionId?: string;
   defaultRevenueAccountId?: string;
   defaultExpenseAccountId?: string;
-  // F5 — MOCKED, see src/lib/item-types.ts. Not sent to the real backend.
-  type: number;
+  defaultInventoryAccountId?: string;
 }
 
 interface ItemFormProps {
@@ -26,14 +26,26 @@ interface ItemFormProps {
   taxes: TaxDefinitionResponse[];
   incomeAccounts: AccountResponse[];
   expenseAccounts: AccountResponse[];
-  initial?: ItemWithType;
+  inventoryAccounts: AccountResponse[];
+  initial?: ItemResponse;
   submitting: boolean;
   error: string | null;
   onSubmit: (fields: ItemFormFields) => void;
   onCancel?: () => void;
 }
 
-export function ItemForm({ mode, taxes, incomeAccounts, expenseAccounts, initial, submitting, error, onSubmit, onCancel }: ItemFormProps) {
+export function ItemForm({
+  mode,
+  taxes,
+  incomeAccounts,
+  expenseAccounts,
+  inventoryAccounts,
+  initial,
+  submitting,
+  error,
+  onSubmit,
+  onCancel,
+}: ItemFormProps) {
   const intl = useIntl();
 
   const [name, setName] = useState(initial?.name ?? "");
@@ -43,17 +55,19 @@ export function ItemForm({ mode, taxes, incomeAccounts, expenseAccounts, initial
   const [taxId, setTaxId] = useState(initial?.defaultTaxDefinitionId ?? "");
   const [revenueAccountId, setRevenueAccountId] = useState(initial?.defaultRevenueAccountId ?? "");
   const [expenseAccountId, setExpenseAccountId] = useState(initial?.defaultExpenseAccountId ?? "");
+  const [inventoryAccountId, setInventoryAccountId] = useState(initial?.defaultInventoryAccountId ?? "");
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     onSubmit({
       name: name.trim(),
       unit: unit.trim(),
+      type,
       defaultUnitPrice: price ? parseFloat(price) : undefined,
       defaultTaxDefinitionId: taxId || undefined,
       defaultRevenueAccountId: revenueAccountId || undefined,
       defaultExpenseAccountId: expenseAccountId || undefined,
-      type,
+      defaultInventoryAccountId: inventoryAccountId || undefined,
     });
   }
 
@@ -118,6 +132,17 @@ export function ItemForm({ mode, taxes, incomeAccounts, expenseAccounts, initial
           <Select id="item-expense-account" value={expenseAccountId} onChange={(e) => setExpenseAccountId(e.target.value)}>
             <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
             {expenseAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.code} — {account.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="item-inventory-account">{intl.formatMessage({ id: "items.form.inventoryAccount" })}</Label>
+          <Select id="item-inventory-account" value={inventoryAccountId} onChange={(e) => setInventoryAccountId(e.target.value)}>
+            <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
+            {inventoryAccounts.map((account) => (
               <option key={account.id} value={account.id}>
                 {account.code} — {account.name}
               </option>

@@ -49,7 +49,7 @@ export function Bills() {
         apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
-        apiClient.itemsGET(companyId, 0, 200, undefined),
+        apiClient.itemsGET(companyId, 1, 200, undefined, undefined),
         apiClient.accountsAll(companyId),
       ]);
       setPartners(partnersResult);

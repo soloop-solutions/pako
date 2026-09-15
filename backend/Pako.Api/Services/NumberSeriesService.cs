@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
@@ -6,11 +7,15 @@ using Pako.Infrastructure;
 namespace Pako.Api.Services;
 
 /// <summary>
-/// B1/B3: mints the next document number from the NumberSeries table with a FOR UPDATE row lock
-/// (gapless, same approach as Odoo's ir.sequence no_gap mode). Falls back gracefully on InMemory
-/// (no lock, still increments — safe for single-threaded test runs).
-///
-/// Stages the increment on the DbContext — callers must call SaveChangesAsync themselves.
+/// B5: derives the next number from the highest existing number matching the series' pattern —
+/// never a stored counter. A counter drifts from reality after a manual override
+/// (NumberSeriesController.OverrideInvoiceNumber) or a discarded-and-reissued draft; max(existing)
+/// cannot. Concurrent posts for the same company are already serialized by the company-row
+/// FOR UPDATE lock InvoicesController.Post takes before calling here — this class additionally
+/// takes its own FOR UPDATE lock on the series config row (unchanged from before B5) so callers
+/// that don't lock the company row first (ItemsController.Create, the Proforma branch of
+/// InvoicesController.Create) still get the same per-series serialization the old counter design
+/// relied on, even though the row's own content no longer changes.
 /// </summary>
 public class NumberSeriesService
 {
@@ -19,9 +24,9 @@ public class NumberSeriesService
     public NumberSeriesService(PakoDbContext db) => _db = db;
 
     /// <summary>
-    /// Reserves the next number for the given company, document type, and year.
-    /// On Postgres: takes FOR UPDATE lock on the series row for gapless concurrency.
-    /// On InMemory (tests): no lock, just increments — safe for single-threaded runs.
+    /// Reserves the next number for the given company, document type, and year. "Reserve" here
+    /// means "compute, under a serializing lock" — nothing is persisted by this call itself; the
+    /// number becomes real only once the caller saves the document that carries it.
     /// </summary>
     public async Task<string> ReserveNextAsync(Guid companyId, string documentType, int year)
     {
@@ -29,42 +34,90 @@ public class NumberSeriesService
 
         if (_db.Database.SupportsRowLocking())
         {
-            // Postgres path: ensure the row exists (separate SaveChanges so it's visible to
-            // FOR UPDATE), then lock and reload.
             series = await EnsureSeriesExistsPostgresAsync(companyId, documentType, year);
             await _db.Database.ExecuteSqlInterpolatedAsync(
                 $"SELECT \"Id\" FROM number_series WHERE \"Id\" = {series.Id} FOR UPDATE");
-            await _db.Entry(series).ReloadAsync();
         }
         else
         {
-            // InMemory path: just find or create in the tracker, no lock needed.
             series = await GetOrCreateSeriesAsync(companyId, documentType, year);
         }
 
-        var number = FormatNumber(series.Pattern, series.NextValue, year);
-        series.NextValue++;
-        // Caller's SaveChangesAsync flushes the increment.
-
-        return number;
+        var nextSeq = await GetNextSequenceValueAsync(companyId, documentType, year, series.Pattern);
+        return FormatNumber(series.Pattern, nextSeq, year);
     }
 
     /// <summary>
-    /// Returns what the next number would be without reserving it (B2: preview).
+    /// Returns what the next number would be without taking the serializing lock (B2: preview,
+    /// clearly provisional — see NumberPreviewResponse.IsProvisional). Identical computation to
+    /// ReserveNextAsync since neither one persists anything; this one just skips the lock, since a
+    /// preview doesn't need to serialize against anything.
     /// </summary>
     public async Task<string> PreviewNextAsync(Guid companyId, string documentType, int year)
     {
         var series = await _db.NumberSeriesSet.AsNoTracking()
             .FirstOrDefaultAsync(s => s.CompanyId == companyId && s.DocumentType == documentType && s.Year == year);
 
-        if (series == null)
-            return FormatNumber(DefaultPattern(documentType), 1, year);
+        var pattern = series?.Pattern ?? DefaultPattern(documentType);
+        var nextSeq = await GetNextSequenceValueAsync(companyId, documentType, year, pattern);
+        return FormatNumber(pattern, nextSeq, year);
+    }
 
-        return FormatNumber(series.Pattern, series.NextValue, year);
+    // B5: the highest sequence value already issued for this (company, document type), plus one.
+    // Year-scoped patterns (contain {yyyy}, e.g. Invoice's "{seq:D2}/{yyyy}") only look at
+    // documents issued in that same year, so the sequence resets the way the pattern's own display
+    // implies. Patterns without {yyyy} (CN-/DN-/DP-/SR-/PRO-, Item's plain "{seq}") look across
+    // every year the company has ever issued that type — a year-keyed lookup with a
+    // non-year-scoped pattern is exactly how the old NextValue counter design could silently
+    // restart a sequence every January and collide with a prior year's identical-looking number;
+    // deriving from the true historical max avoids that by construction.
+    private async Task<int> GetNextSequenceValueAsync(Guid companyId, string documentType, int year, string pattern)
+    {
+        var isYearScoped = pattern.Contains("{yyyy}");
+
+        if (documentType == "Item")
+        {
+            var maxItemCode = await _db.Items.AsNoTracking()
+                .Where(i => i.CompanyId == companyId)
+                .Select(i => (int?)i.Code)
+                .MaxAsync() ?? 0;
+            return maxItemCode + 1;
+        }
+
+        if (!Enum.TryParse<DocumentType>(documentType, out var docType))
+        {
+            return 1;
+        }
+
+        var query = _db.Invoices.AsNoTracking()
+            .Where(i => i.CompanyId == companyId && i.DocumentType == docType && i.InvoiceNumber != null);
+        if (isYearScoped)
+        {
+            query = query.Where(i => i.IssueDate.Year == year);
+        }
+
+        var issuedNumbers = await query.Select(i => i.InvoiceNumber!).ToListAsync();
+
+        var maxSeq = 0;
+        foreach (var number in issuedNumbers)
+        {
+            if (ExtractSequenceValue(number) is { } seq && seq > maxSeq)
+            {
+                maxSeq = seq;
+            }
+        }
+
+        return maxSeq + 1;
+    }
+
+    private static int? ExtractSequenceValue(string number)
+    {
+        var match = Regex.Match(number, @"\d+");
+        return match.Success && int.TryParse(match.Value, out var val) ? val : null;
     }
 
     /// <summary>
-    /// Postgres-only: ensures the series row exists in the DB (committed, visible to FOR UPDATE).
+    /// Postgres-only: ensures the series config row exists (committed, visible to FOR UPDATE).
     /// Uses a direct SQL UPSERT to avoid triggering EF's change-tracker SaveChangesAsync (which
     /// would fire the immutability validator on any other tracked entities).
     /// </summary>
@@ -78,13 +131,11 @@ public class NumberSeriesService
         var id = Guid.NewGuid();
         var pattern = DefaultPattern(documentType);
 
-        // Raw SQL insert, bypasses EF SaveChangesAsync entirely.
         await _db.Database.ExecuteSqlInterpolatedAsync(
-            $@"INSERT INTO number_series (""Id"", ""CompanyId"", ""DocumentType"", ""Year"", ""Pattern"", ""NextValue"")
-               VALUES ({id}, {companyId}, {documentType}, {year}, {pattern}, 1)
+            $@"INSERT INTO number_series (""Id"", ""CompanyId"", ""DocumentType"", ""Year"", ""Pattern"")
+               VALUES ({id}, {companyId}, {documentType}, {year}, {pattern})
                ON CONFLICT (""CompanyId"", ""DocumentType"", ""Year"") DO NOTHING");
 
-        // Re-fetch the tracked entity (may have been created by the INSERT or by a concurrent caller).
         return await _db.NumberSeriesSet
             .FirstAsync(s => s.CompanyId == companyId && s.DocumentType == documentType && s.Year == year);
     }
@@ -106,8 +157,7 @@ public class NumberSeriesService
             CompanyId = companyId,
             DocumentType = documentType,
             Year = year,
-            Pattern = DefaultPattern(documentType),
-            NextValue = 1
+            Pattern = DefaultPattern(documentType)
         };
         _db.NumberSeriesSet.Add(series);
         return series;

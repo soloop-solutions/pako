@@ -43,7 +43,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         _dbContexts.Add(db);
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 };
-        var accountA = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Asset, IsPostable = true };
+        var accountA = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Cash, IsPostable = true };
         var accountB = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "3000", Name = "Capital", AccountType = AccountType.Equity, IsPostable = true };
 
         db.Companies.Add(company);
@@ -92,7 +92,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Post_ZeroLineEntry_RejectedWithBadRequest()
     {
         var (db, companyId, journalId, _, _) = await SeedAsync();
-        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
+        var controller = NewController(db);
 
         var entry = new JournalEntry { Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journalId, Date = new DateOnly(2026, 8, 26) };
         db.JournalEntries.Add(entry);
@@ -153,7 +153,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Create_LineOnCurrentYearProfitLossAccount_Rejected()
     {
         var (db, companyId, journalId, _, accountBId) = await SeedAsync();
-        var systemComputed = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "304100", Name = "Current Year Profit/Loss", AccountType = AccountType.Equity, IsPostable = true };
+        var systemComputed = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "304100", Name = "Current Year Profit/Loss", AccountType = AccountType.CurrentYearEarnings, IsPostable = true };
         db.Accounts.Add(systemComputed);
         await db.SaveChangesAsync();
         var controller = NewController(db);
@@ -175,7 +175,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Create_PartnerSubledgerAccountWithNoPartnerId_Rejected()
     {
         var (db, companyId, journalId, _, accountBId) = await SeedAsync();
-        var partnerSubledger = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1200", Name = "Receivable", AccountType = AccountType.Asset, IsPostable = true, Subledger = SubledgerType.Partner };
+        var partnerSubledger = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1200", Name = "Receivable", AccountType = AccountType.Receivable, IsPostable = true, Subledger = SubledgerType.Partner };
         db.Accounts.Add(partnerSubledger);
         await db.SaveChangesAsync();
         var controller = NewController(db);
@@ -196,7 +196,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Create_PartnerSubledgerAccountWithPartnerId_Accepted()
     {
         var (db, companyId, journalId, _, accountBId) = await SeedAsync();
-        var partnerSubledger = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1200", Name = "Receivable", AccountType = AccountType.Asset, IsPostable = true, Subledger = SubledgerType.Partner };
+        var partnerSubledger = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1200", Name = "Receivable", AccountType = AccountType.Receivable, IsPostable = true, Subledger = SubledgerType.Partner };
         db.Accounts.Add(partnerSubledger);
         await db.SaveChangesAsync();
         var controller = NewController(db);

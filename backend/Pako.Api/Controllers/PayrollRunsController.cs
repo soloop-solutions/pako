@@ -150,11 +150,15 @@ public class PayrollRunsController : ControllerBase
             return BadRequest(_localizer["NoPayrollAccounts"].Value);
         }
 
+        // B4: the caller's own effective lock dates — company's own value unless CurrentUserId
+        // holds a live exception for that field (AccountLockResolver never touches HardLockDate).
+        var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+
         JournalEntry journalEntry;
         try
         {
             journalEntry = payrollRun.Post(
-                company,
+                effectiveCompany,
                 journal.Id,
                 defaults.SalaryExpenseAccountId.Value,
                 defaults.PitPayableAccountId.Value,
@@ -166,6 +170,7 @@ public class PayrollRunsController : ControllerBase
             UnbalancedJournalEntryException or
             AccountingLockDateViolationException or
             TaxLockDateViolationException or
+            HardLockDateViolationException or
             InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);

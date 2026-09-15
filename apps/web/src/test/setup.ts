@@ -1,17 +1,15 @@
 import "@testing-library/jest-dom/vitest";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
-// PROVISIONAL — F3's mock lock-dates contract (src/mocks/lockDatesHandlers.ts), F5's mock
-// item-type contract (src/mocks/itemTypesHandlers.ts), F6's mock partner contract
-// (src/mocks/partnersHandlers.ts), F9's mock cost-center contract
+// PROVISIONAL — F3's mock lock-dates contract (src/mocks/lockDatesHandlers.ts), F6's mock
+// partner contract (src/mocks/partnersHandlers.ts), F9's mock cost-center contract
 // (src/mocks/costCentersHandlers.ts) and F11's mock attachments contract
 // (src/mocks/attachmentsHandlers.ts); remove each alongside its own mock. F2's mock accounts
-// contract (formerly src/mocks/handlers.ts) was removed once B1/B2/B3 landed the real write/
-// group-hierarchy/cash-flow-category endpoints on AccountsController — ChartOfAccounts.test.tsx
-// mocks apiClient directly now, same as Partners.test.tsx.
+// contract and F5's mock item-type contract were both removed once the real backend landed the
+// fields they stood in for (B1/B2/B3, B6) — ChartOfAccounts.test.tsx/Items.tsx mock apiClient
+// directly now, same as Partners.test.tsx.
 import { resetAttachmentsMock } from "@/mocks/attachmentsMockFlag";
 import { resetCostCentersMock } from "@/mocks/costCentersMockFlag";
-import { resetItemTypesMock } from "@/mocks/itemTypesMockFlag";
 import { resetLockDatesMock } from "@/mocks/lockDatesHandlers";
 import { resetPartnersMock } from "@/mocks/partnersMockFlag";
 import { server } from "@/mocks/server";
@@ -20,7 +18,6 @@ beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
 afterEach(() => {
   server.resetHandlers();
   resetLockDatesMock();
-  resetItemTypesMock();
   resetPartnersMock();
   resetCostCentersMock();
   resetAttachmentsMock();

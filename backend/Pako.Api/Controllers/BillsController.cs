@@ -112,10 +112,19 @@ public class BillsController : ControllerBase
 
         var defaultExpenseAccountId = defaults.ExpenseAccountId;
 
+        // B6: an item with no default of its own falls back to the company's default — see
+        // InvoicesController.BuildAndValidateLinesAsync's identical comment for the reasoning.
+        var itemIds = requestLines.Where(l => l.ItemId.HasValue).Select(l => l.ItemId!.Value).ToHashSet();
+        var itemsById = itemIds.Count == 0
+            ? new Dictionary<Guid, Item>()
+            : await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id) && i.CompanyId == companyId).ToDictionaryAsync(i => i.Id);
+
         var lines = new List<BillLine>();
         var total = 0m;
         foreach (var line in requestLines)
         {
+            var item = line.ItemId is { } itemId && itemsById.TryGetValue(itemId, out var foundItem) ? foundItem : null;
+
             if (line.Quantity <= 0)
             {
                 return (null, 0m, BadRequest(_localizer["LineQuantityMustBePositive"].Value));
@@ -132,13 +141,15 @@ public class BillsController : ControllerBase
                 return (null, 0m, BadRequest(_localizer["LineDiscountOutOfRange"].Value));
             }
 
+            var taxDefinitionId = line.TaxDefinitionId ?? item?.DefaultTaxDefinitionId;
+
             // C2: same rule as InvoicesController.Create — see its comment.
-            if (isVatRegistered && line.TaxDefinitionId is null)
+            if (isVatRegistered && taxDefinitionId is null)
             {
                 return (null, 0m, BadRequest(_localizer["TaxCodeRequired"].Value));
             }
 
-            var expenseAccountId = line.ExpenseAccountId ?? defaultExpenseAccountId;
+            var expenseAccountId = line.ExpenseAccountId ?? item?.DefaultExpenseAccountId ?? defaultExpenseAccountId;
             if (!validAccountIds.Contains(expenseAccountId))
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["ExpenseAccountNotBelongToCompany"], expenseAccountId)));
@@ -153,7 +164,7 @@ public class BillsController : ControllerBase
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
                 DiscountPercent = discountPercent,
-                TaxDefinitionId = line.TaxDefinitionId,
+                TaxDefinitionId = taxDefinitionId,
                 ExpenseAccountId = expenseAccountId,
                 ItemId = line.ItemId
             });
@@ -805,11 +816,15 @@ public class BillsController : ControllerBase
             }
         }
 
+        // B4: the caller's own effective lock dates — company's own value unless CurrentUserId
+        // holds a live exception for that field (AccountLockResolver never touches HardLockDate).
+        var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+
         JournalEntry journalEntry;
         try
         {
             journalEntry = bill.Post(
-                company, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
+                effectiveCompany, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
                 defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
         }
         catch (Exception ex) when (
@@ -817,6 +832,8 @@ public class BillsController : ControllerBase
             UnbalancedJournalEntryException or
             AccountingLockDateViolationException or
             TaxLockDateViolationException or
+            HardLockDateViolationException or
+            PurchaseLockDateViolationException or
             InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);

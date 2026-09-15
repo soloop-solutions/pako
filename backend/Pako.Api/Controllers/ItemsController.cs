@@ -23,17 +23,20 @@ public class ItemsController : ControllerBase
         _numberSeries = numberSeries;
     }
 
-    // B7: paginated list with search. ?skip=0&take=50&search=laptop
+    // B7: the one paginated-list shape. ?page=1&pageSize=50&search=laptop&sort=name — sort takes
+    // a field name (code|name), optionally prefixed "-" for descending (e.g. sort=-code);
+    // unrecognised values fall back to the default (code, ascending).
     [HttpGet]
     [RequireCompanyAccess]
     public async Task<ActionResult<PaginatedResponse<ItemResponse>>> List(
         Guid companyId,
-        [FromQuery] int skip = 0,
-        [FromQuery] int take = 50,
-        [FromQuery] string? search = null)
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] string? sort = null)
     {
-        take = Math.Clamp(take, 1, 200);
-        skip = Math.Max(skip, 0);
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
 
         var query = _db.Items.AsNoTracking()
             .Include(i => i.Barcodes)
@@ -41,21 +44,35 @@ public class ItemsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim().ToLower();
+            // B7 (35,000-row verify criterion): Name search goes through a trigram GIN index
+            // (ix_items_name_trgm, AddItemNameTrigramIndex) rather than a sequential scan —
+            // EF/Npgsql translates ILIKE '%term%' to a form the trigram index can serve. Code and
+            // Barcode search stay Contains() too (both are typically short, low-cardinality-enough
+            // strings that a scan across one company's own items is cheap regardless), but the
+            // (CompanyId, Code) and (CompanyId, Barcode) indexes already narrow to this company
+            // first before either ever has to examine the search term.
+            var term = search.Trim();
             query = query.Where(i =>
-                i.Name.ToLower().Contains(term) ||
+                EF.Functions.ILike(i.Name, $"%{term}%") ||
                 i.Code.ToString().Contains(term) ||
-                i.Barcodes.Any(b => b.Barcode.ToLower().Contains(term)));
+                i.Barcodes.Any(b => b.Barcode.Contains(term)));
         }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = sortField?.ToLowerInvariant() switch
+        {
+            "name" => descending ? query.OrderByDescending(i => i.Name) : query.OrderBy(i => i.Name),
+            _ => descending ? query.OrderByDescending(i => i.Code) : query.OrderBy(i => i.Code)
+        };
 
         var total = await query.CountAsync();
         var items = await query
-            .OrderBy(i => i.Code)
-            .Skip(skip)
-            .Take(take)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
             .ToListAsync();
 
-        return Ok(new PaginatedResponse<ItemResponse>(items.Select(ToResponse).ToList(), total));
+        return Ok(new PaginatedResponse<ItemResponse>(items.Select(ToResponse).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{itemId:guid}")]
@@ -92,9 +109,11 @@ public class ItemsController : ControllerBase
             Code = code,
             Name = request.Name.Trim(),
             Unit = request.Unit.Trim(),
+            Type = request.Type,
             DefaultTaxDefinitionId = request.DefaultTaxDefinitionId,
             DefaultRevenueAccountId = request.DefaultRevenueAccountId,
             DefaultExpenseAccountId = request.DefaultExpenseAccountId,
+            DefaultInventoryAccountId = request.DefaultInventoryAccountId,
             DefaultUnitPrice = request.DefaultUnitPrice
         };
 
@@ -121,9 +140,11 @@ public class ItemsController : ControllerBase
 
         item.Name = request.Name.Trim();
         item.Unit = request.Unit.Trim();
+        item.Type = request.Type;
         item.DefaultTaxDefinitionId = request.DefaultTaxDefinitionId;
         item.DefaultRevenueAccountId = request.DefaultRevenueAccountId;
         item.DefaultExpenseAccountId = request.DefaultExpenseAccountId;
+        item.DefaultInventoryAccountId = request.DefaultInventoryAccountId;
         item.DefaultUnitPrice = request.DefaultUnitPrice;
 
         await _db.SaveChangesAsync();
@@ -179,8 +200,8 @@ public class ItemsController : ControllerBase
     }
 
     private static ItemResponse ToResponse(Item i) => new(
-        i.Id, i.Code, i.Name, i.Unit,
-        i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId,
+        i.Id, i.Code, i.Name, i.Unit, i.Type,
+        i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
         i.Barcodes.Select(b => new ItemBarcodeResponse(b.Id, b.Barcode)).ToList());
 }

@@ -47,6 +47,57 @@ public class TaxLockDateViolationException : Exception
     }
 }
 
+// B4: the one lock date AccountLockException can never exempt — always the company's own value,
+// never a per-user effective override.
+public class HardLockDateViolationException : Exception
+{
+    public Guid JournalEntryId { get; }
+    public DateOnly EntryDate { get; }
+    public DateOnly LockDate { get; }
+
+    public HardLockDateViolationException(Guid journalEntryId, DateOnly entryDate, DateOnly lockDate)
+        : base($"Journal entry {journalEntryId} dated {entryDate} is on or before the company's hard lock date {lockDate}, which cannot be exempted.")
+    {
+        JournalEntryId = journalEntryId;
+        EntryDate = entryDate;
+        LockDate = lockDate;
+    }
+}
+
+// B4: SaleLockDate freezes new sales-invoice posting specifically — narrower than
+// AccountingLockDate, which freezes every document type.
+public class SaleLockDateViolationException : Exception
+{
+    public Guid InvoiceId { get; }
+    public DateOnly IssueDate { get; }
+    public DateOnly LockDate { get; }
+
+    public SaleLockDateViolationException(Guid invoiceId, DateOnly issueDate, DateOnly lockDate)
+        : base($"Invoice {invoiceId} issued {issueDate} is on or before the company's sale lock date {lockDate}.")
+    {
+        InvoiceId = invoiceId;
+        IssueDate = issueDate;
+        LockDate = lockDate;
+    }
+}
+
+// B4: PurchaseLockDate freezes new bill posting specifically — narrower than AccountingLockDate,
+// which freezes every document type.
+public class PurchaseLockDateViolationException : Exception
+{
+    public Guid BillId { get; }
+    public DateOnly IssueDate { get; }
+    public DateOnly LockDate { get; }
+
+    public PurchaseLockDateViolationException(Guid billId, DateOnly issueDate, DateOnly lockDate)
+        : base($"Bill {billId} issued {issueDate} is on or before the company's purchase lock date {lockDate}.")
+    {
+        BillId = billId;
+        IssueDate = issueDate;
+        LockDate = lockDate;
+    }
+}
+
 public class PostedJournalEntryImmutableException : Exception
 {
     public Guid JournalEntryId { get; }

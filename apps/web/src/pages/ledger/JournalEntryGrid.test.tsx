@@ -48,6 +48,7 @@ function testAccount(overrides: Partial<AccountResponse> & Pick<AccountResponse,
     validTo: undefined,
     groupId: undefined,
     cashFlowCategory: 0,
+    includeInitialBalance: true,
     ...overrides,
   };
 }

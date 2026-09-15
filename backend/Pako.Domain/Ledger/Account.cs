@@ -2,13 +2,46 @@ using Pako.Domain.Companies;
 
 namespace Pako.Domain.Ledger;
 
+// B13: widened from the original 5 values toward Odoo's 19 account.type granularity. No
+// production data existed under the old 5-value enum (Asset/Liability), so ordinals were not
+// preserved across the rename — every Account row is reseeded fresh via CompaniesController.Create
+// on the new values; nothing reads a stale AccountType integer from before this change. Equity,
+// Income and Expense keep their names (existing code referencing them by name is unaffected) but
+// each now names a coarser rollup alongside its more specific siblings — see
+// AccountTypeDerivation.IsAsset/IsLiability/IsEquity/IsIncome/IsExpense for the report-bucket
+// groupings this enables.
 public enum AccountType
 {
-    Asset,
-    Liability,
+    // Assets
+    Receivable,
+    Cash,
+    CurrentAsset,
+    NonCurrentAsset,
+    Prepayment,
+    FixedAsset,
+
+    // Liabilities
+    Payable,
+    CreditCard,
+    CurrentLiability,
+    NonCurrentLiability,
+
+    // Equity
     Equity,
+    CurrentYearEarnings,
+
+    // Income
     Income,
-    Expense
+    OtherIncome,
+
+    // Expenses
+    Expense,
+    OtherExpense,
+    Depreciation,
+    CostOfRevenue,
+
+    // Memo-only, excluded from both the P&L and the balance sheet.
+    OffBalance
 }
 
 public enum AccountSubType

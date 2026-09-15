@@ -72,4 +72,16 @@ internal static class PostgresTestDatabase
         await db.Database.MigrateAsync();
         return db;
     }
+
+    // B5: a genuine concurrency test (50 parallel posts) needs 50 independent connections
+    // against the SAME already-migrated schema — a single DbContext isn't thread-safe for
+    // concurrent operations, and CreateAsync() always mints a brand-new empty schema, which is
+    // the opposite of what's needed here. Same connection string as an existing context (same
+    // search_path, same Pooling=false), just no migration — the schema is already there.
+    public static PakoDbContext CreateAdditionalContext(PakoDbContext existing)
+    {
+        var connectionString = existing.Database.GetConnectionString()!;
+        var options = new DbContextOptionsBuilder<PakoDbContext>().UseNpgsql(connectionString).Options;
+        return new PakoDbContext(options);
+    }
 }

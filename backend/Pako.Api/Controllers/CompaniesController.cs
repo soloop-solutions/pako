@@ -81,7 +81,7 @@ public class CompaniesController : ControllerBase
                 CompanyId = company.Id,
                 Code = entry.Code,
                 Name = entry.NameEn,
-                AccountType = AccountTypeDerivation.DeriveAccountType(entry.Class, entry.NormalBalance),
+                AccountType = AccountTypeDerivation.DeriveAccountType(entry.Code, entry.Class, entry.Group, entry.NormalBalance),
                 AccountSubType = AccountTypeDerivation.DeriveAccountSubType(entry.Subledger),
                 NameSq = entry.NameSq,
                 Class = entry.Class,
@@ -213,5 +213,6 @@ public class CompaniesController : ControllerBase
     }
 
     private static CompanyResponse ToResponse(Company c) =>
-        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride);
+        new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,
+            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate);
 }

@@ -1,9 +1,10 @@
-// PROVISIONAL — see src/mocks/partnersHandlers.ts / itemTypesHandlers.ts / lockDatesHandlers.ts /
+// PROVISIONAL — see src/mocks/partnersHandlers.ts / lockDatesHandlers.ts /
 // costCentersHandlers.ts / attachmentsHandlers.ts for why these mocks exist and how to remove
 // them. Originally written for F2's now-removed accounts mock (see git history — the F2 mock was
 // deleted once B1/B2/B3 landed the real write/group-hierarchy/cash-flow-category endpoints on
-// AccountsController), this file is now shared, generic worker-bootstrap infrastructure for every
-// remaining mock domain (each gated by its own flag file, e.g. partnersMockFlag.ts).
+// AccountsController; F5's item-type mock was later removed the same way once B6 landed the real
+// field), this file is now shared, generic worker-bootstrap infrastructure for every remaining
+// mock domain (each gated by its own flag file, e.g. partnersMockFlag.ts).
 //
 // Only responsible for making sure the MSW browser worker is registered, lazily and exactly
 // once per page load — it does NOT decide whether any given mock is currently allowed to answer a

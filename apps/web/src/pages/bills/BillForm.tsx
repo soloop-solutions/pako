@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
 import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
-import { AccountType } from "@/lib/ledger-enums";
+import { isExpenseAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
@@ -119,7 +119,9 @@ export function BillForm({
   const intl = useIntl();
   // C2: same rule as InvoiceForm — default new lines to the exempt purchase code (BEX).
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "BEX")?.id ?? "") : "";
-  const expenseAccounts = accounts.filter((a) => a.accountType === AccountType.Expense);
+  // B13: AccountType widened to Odoo's real 19 values — Expense is now a family of types
+  // (Expense/OtherExpense/Depreciation/CostOfRevenue), not one bucket.
+  const expenseAccounts = accounts.filter((a) => isExpenseAccountType(a.accountType));
   // C5: a bill can only take cash inline at creation — a bank payment is only ever known once it
   // clears the statement, recorded later through the ordinary payment route.
   const cashPaymentMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Cash);

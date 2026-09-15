@@ -102,6 +102,13 @@
   <data name="AccountCodeCannotBeChanged" xml:space="preserve"><value>An account's code cannot be changed once created; deactivate it and create a new one instead.</value></data>
   <data name="AccountAlreadyInactive" xml:space="preserve"><value>This account is already deactivated.</value></data>
 
+  <!-- Lock dates and exceptions (B4) -->
+  <data name="HardLockCannotMoveBackwards" xml:space="preserve"><value>The hard lock date cannot be moved backwards once set.</value></data>
+  <data name="HardLockBlockedByDraftEntries" xml:space="preserve"><value>Cannot set the hard lock: one or more draft journal entries fall on or before this date. Post or discard them first.</value></data>
+  <data name="LockExceptionReasonRequired" xml:space="preserve"><value>A reason is required to grant a lock exception.</value></data>
+  <data name="LockExceptionEndsAtMustBeFuture" xml:space="preserve"><value>The exception's end date/time must be in the future.</value></data>
+  <data name="LockExceptionAlreadyRevoked" xml:space="preserve"><value>This exception has already been revoked.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>

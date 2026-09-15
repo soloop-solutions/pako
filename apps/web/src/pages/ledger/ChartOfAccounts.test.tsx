@@ -147,7 +147,9 @@ describe("ChartOfAccounts", () => {
     await waitFor(() => expect(accountsPOST).toHaveBeenCalled());
     const [companyId, body] = accountsPOST.mock.calls[0];
     expect(companyId).toBe("11111111-1111-1111-1111-111111111111");
-    expect(body).toMatchObject({ code: "100200", name: "Test Cash Drawer", class: 1, group: 10, accountType: 0 });
+    // B13: Class 1/Group 10 derives to AccountType.Cash (1) in the real 19-value scheme, not the
+    // old 5-value scheme's AccountType.Asset (0) this test originally asserted.
+    expect(body).toMatchObject({ code: "100200", name: "Test Cash Drawer", class: 1, group: 10, accountType: 1 });
   });
 
   it("rejects a code outside the selected group's range before submitting", async () => {

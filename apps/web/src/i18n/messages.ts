@@ -647,6 +647,7 @@ export const en: Record<string, string> = {
   "items.form.noVatCode": "No default",
   "items.form.revenueAccount": "Default revenue account",
   "items.form.expenseAccount": "Default expense account",
+  "items.form.inventoryAccount": "Default inventory account",
 
   // Partner (B5)
   "partnerForm.fiscalNumber": "Fiscal number",
@@ -697,6 +698,24 @@ export const en: Record<string, string> = {
   "enum.accountType.equity": "Equity",
   "enum.accountType.income": "Income",
   "enum.accountType.expense": "Expense",
+
+  // Enum labels - Account types (B13, real Odoo-style 19-value set)
+  "enum.accountType.receivable": "Receivable",
+  "enum.accountType.cash": "Cash",
+  "enum.accountType.currentAsset": "Current Asset",
+  "enum.accountType.nonCurrentAsset": "Non-current Asset",
+  "enum.accountType.prepayment": "Prepayment",
+  "enum.accountType.fixedAsset": "Fixed Asset",
+  "enum.accountType.payable": "Payable",
+  "enum.accountType.creditCard": "Credit Card",
+  "enum.accountType.currentLiability": "Current Liability",
+  "enum.accountType.nonCurrentLiability": "Non-current Liability",
+  "enum.accountType.currentYearEarnings": "Current Year Earnings",
+  "enum.accountType.otherIncome": "Other Income",
+  "enum.accountType.otherExpense": "Other Expense",
+  "enum.accountType.depreciation": "Depreciation",
+  "enum.accountType.costOfRevenue": "Cost of Revenue",
+  "enum.accountType.offBalance": "Off-balance",
 
   // Enum labels - Account subtypes
   "enum.accountSubType.none": "None",
@@ -1532,6 +1551,7 @@ export const sq: Record<string, string> = {
   "items.form.noVatCode": "Pa parazgjedhje",
   "items.form.revenueAccount": "Llogaria e parazgjedhur e të ardhurave",
   "items.form.expenseAccount": "Llogaria e parazgjedhur e shpenzimeve",
+  "items.form.inventoryAccount": "Llogaria e parazgjedhur e inventarit",
 
   // Partner (B5)
   "partnerForm.fiscalNumber": "Numri personal",
@@ -1582,6 +1602,24 @@ export const sq: Record<string, string> = {
   "enum.accountType.equity": "Kapital",
   "enum.accountType.income": "T\u00eb ardhur\u00eb",
   "enum.accountType.expense": "Shpenzim",
+
+  // Enum labels - Account types (B13, real Odoo-style 19-value set)
+  "enum.accountType.receivable": "T\u00eb ark\u00ebtueshme",
+  "enum.accountType.cash": "Para n\u00eb dor\u00eb",
+  "enum.accountType.currentAsset": "Aktiv afatshkurt\u00ebr",
+  "enum.accountType.nonCurrentAsset": "Aktiv afatgjat\u00eb",
+  "enum.accountType.prepayment": "Parapagim",
+  "enum.accountType.fixedAsset": "Aktiv fiks",
+  "enum.accountType.payable": "Detyrim i paguesh\u00ebm",
+  "enum.accountType.creditCard": "Kart\u00eb krediti",
+  "enum.accountType.currentLiability": "Detyrim afatshkurt\u00ebr",
+  "enum.accountType.nonCurrentLiability": "Detyrim afatgjat\u00eb",
+  "enum.accountType.currentYearEarnings": "Fitimi i vitit korrent",
+  "enum.accountType.otherIncome": "T\u00eb ardhura t\u00eb tjera",
+  "enum.accountType.otherExpense": "Shpenzime t\u00eb tjera",
+  "enum.accountType.depreciation": "Amortizim",
+  "enum.accountType.costOfRevenue": "Kosto e shitjes",
+  "enum.accountType.offBalance": "Jasht\u00eb bilancit",
 
   // Enum labels - Account subtypes
   "enum.accountSubType.none": "Asnj\u00eb",

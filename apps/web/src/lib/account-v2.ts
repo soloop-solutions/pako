@@ -14,6 +14,8 @@
 import type { IntlShape } from "react-intl";
 import type { AccountGroupResponse } from "@pako/shared";
 
+import { AccountType } from "@/lib/ledger-enums";
+
 export const AccountStatement = { BalanceSheet: 0, IncomeStatement: 1 } as const;
 export const NormalBalance = { Debit: 0, Credit: 1 } as const;
 export const SubledgerType = {
@@ -116,17 +118,35 @@ export function toggleProfileBit(profiles: number, bit: number): number {
   return (profiles & bit) === bit ? profiles & ~bit : profiles | bit;
 }
 
-// Class 1/2/3/4/5/6 map directly; Class 7 is the one genuine split, by NormalBalance alone
-// (Credit -> Income, Debit -> Expense) — mirrors backend/Pako.Domain/Ledger/AccountTypeDerivation.cs
-// exactly (see CLAUDE.md's Stage 2 section), so a newly-created account's derived AccountType/
-// Statement match what the real backend computes for the same Class/NormalBalance.
-export function deriveAccountType(accountClass: number, normalBalance: number): number {
-  if (accountClass === 1) return 0; // Asset
-  if (accountClass === 2) return 1; // Liability
-  if (accountClass === 3) return 2; // Equity
-  if (accountClass === 4) return 3; // Income
-  if (accountClass === 5 || accountClass === 6) return 4; // Expense
-  return normalBalance === NormalBalance.Credit ? 3 : 4; // Class 7
+// B13: mirrors backend/Pako.Domain/Ledger/AccountTypeDerivation.cs's DeriveAccountType exactly —
+// one specific AccountType per (Class, Group), the same group boundaries AccountGroupTemplate
+// already established, so a newly-created account's derived AccountType matches what the real
+// backend computes for the same Code/Class/Group/NormalBalance. `code` carries the one hardcoded
+// exception (304100, the single real CurrentYearEarnings account every company gets); `group` is
+// the 2-digit group number (accountGroupFromCode's return value), not the full 6-digit code.
+export function deriveAccountType(code: string, accountClass: number, group: number | null, normalBalance: number): number {
+  if (code === "304100") return AccountType.CurrentYearEarnings;
+
+  if (accountClass === 1) {
+    if (group === 10) return AccountType.Cash;
+    if (group === 11) return AccountType.Receivable;
+    if (group === 12) return AccountType.CurrentAsset;
+    if (group === 13) return AccountType.Prepayment;
+    if (group === 14) return AccountType.NonCurrentAsset;
+    if (group === 15) return AccountType.FixedAsset;
+    return AccountType.CurrentAsset;
+  }
+  if (accountClass === 2) {
+    return group === 20 ? AccountType.Payable : AccountType.CurrentLiability;
+  }
+  if (accountClass === 3) return AccountType.Equity;
+  if (accountClass === 4) return group === 42 ? AccountType.OtherIncome : AccountType.Income;
+  if (accountClass === 5) return AccountType.CostOfRevenue;
+  if (accountClass === 6) return group === 65 ? AccountType.Depreciation : AccountType.Expense;
+
+  // Class 7: Financial & Tax, the one class still disambiguated by NormalBalance alone —
+  // financial income (credit-normal) vs. financial/tax expense (debit-normal).
+  return normalBalance === NormalBalance.Credit ? AccountType.OtherIncome : AccountType.OtherExpense;
 }
 
 export function deriveAccountSubType(subledger: number): number {
@@ -135,10 +155,19 @@ export function deriveAccountSubType(subledger: number): number {
   return 0; // AccountSubType.None
 }
 
-// Statement follows AccountType 1:1 in this chart (BS for Asset/Liability/Equity, IS for
-// Income/Expense) — not an independent field an accountant chooses, same reasoning as AccountType.
+// Mirrors AccountTypeDerivation's IsIncome(t) || IsExpense(t) check exactly — every account type
+// that lands on the P&L, not the balance sheet. Not an independent field an accountant chooses.
+const INCOME_STATEMENT_TYPES: readonly number[] = [
+  AccountType.Income,
+  AccountType.OtherIncome,
+  AccountType.Expense,
+  AccountType.OtherExpense,
+  AccountType.Depreciation,
+  AccountType.CostOfRevenue,
+];
+
 export function deriveStatement(accountType: number): number {
-  return accountType === 3 || accountType === 4 ? AccountStatement.IncomeStatement : AccountStatement.BalanceSheet;
+  return INCOME_STATEMENT_TYPES.includes(accountType) ? AccountStatement.IncomeStatement : AccountStatement.BalanceSheet;
 }
 
 // Account codes in this chart are always the same 6-digit shape as AccountGroup's own

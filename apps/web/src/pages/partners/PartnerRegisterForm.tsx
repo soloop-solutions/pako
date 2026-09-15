@@ -56,15 +56,15 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit != null ? String(initial.creditLimit) : "");
 
   // A customer's control account is naturally a Receivable-type account, a vendor's a
-  // Payable-type one. The real AccountResponse.accountSubType no longer distinguishes
-  // Receivable/Payable for a v2-seeded chart of accounts (see CLAUDE.md's "Plani Kontabel v2.0
-  // migration — Stage 2": only Bank/Cash are derived on the real entity, since v2 has two control
-  // accounts per side and a single subtype can't identify "the" one) — so this filters by the
-  // always-populated AccountType instead (Asset for receivable-side, Liability for payable-side).
-  // One shared field rather than two separate ones, per FRONTEND_BRIEF's own "or just one general
-  // control account" allowance — a partner that is both customer and vendor sees both groups.
-  const receivableAccounts = accounts.filter((a) => a.accountType === AccountType.Asset);
-  const payableAccounts = accounts.filter((a) => a.accountType === AccountType.Liability);
+  // Payable-type one. B13 widened AccountType to Odoo's real 19 values, which now has exact
+  // Receivable/Payable types — narrower and more correct than the old "any Asset/Liability-class
+  // account" filter this used before (that let someone pick e.g. a Cash account as a customer's
+  // control account, flagged during the earlier F6 review as too broad for lack of a better field
+  // at the time). One shared field rather than two separate ones, per FRONTEND_BRIEF's own "or
+  // just one general control account" allowance — a partner that is both customer and vendor sees
+  // both groups.
+  const receivableAccounts = accounts.filter((a) => a.accountType === AccountType.Receivable);
+  const payableAccounts = accounts.filter((a) => a.accountType === AccountType.Payable);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
