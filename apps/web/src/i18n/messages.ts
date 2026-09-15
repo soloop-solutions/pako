@@ -13,6 +13,7 @@ export const en: Record<string, string> = {
   "nav.reconciliation": "Reconciliation",
   "nav.payroll": "Payroll",
   "nav.reports": "Reports",
+  "nav.yearEnd": "Year-End",
   "nav.companies": "Companies",
   "nav.settings": "Settings",
 
@@ -30,6 +31,7 @@ export const en: Record<string, string> = {
   "nav.reconciliation.description": "Match payments against invoices and bills.",
   "nav.payroll.description": "Employees and payroll runs.",
   "nav.reports.description": "Balance sheet, P&L, and VAT return.",
+  "nav.yearEnd.description": "Roll-forward view of balance-sheet accounts from beginning to end of a fiscal year.",
   "nav.companies.description": "Switch between companies and manage firm-client access.",
   "nav.settings.description": "Company, user, and platform settings.",
 
@@ -226,11 +228,8 @@ export const en: Record<string, string> = {
   "journalGrid.colDebit": "Debit",
   "journalGrid.colCredit": "Credit",
   "journalGrid.colPartner": "Partner",
-  "journalGrid.colCostCenter": "Cost center",
-  "journalGrid.colCostCenterMocked": "Cost center (mocked — not yet saved to the backend)",
   "journalGrid.accountPlaceholder": "Type a code or name...",
   "journalGrid.partnerPlaceholder": "Optional",
-  "journalGrid.costCenterPlaceholder": "Optional",
   "journalGrid.noMatches": "No matches.",
   "journalGrid.addLine": "Add line",
   "journalGrid.removeLine": "Remove line",
@@ -248,6 +247,19 @@ export const en: Record<string, string> = {
   "journalGrid.saveError": "Could not save the journal entry.",
   "journalGrid.postError": "The entry was saved as a draft, but posting it failed. Post it from the journal entries list below once fixed.",
   "journalGrid.lineHasAmountWithoutAccount": "Line {line} has an amount but no account selected.",
+  "journalGrid.colDistributionMocked": "Analytic distribution (mocked — not yet saved to the backend)",
+  "journalGrid.distributionTitle": "Analytic distribution",
+  "journalGrid.distributionEmpty": "Unassigned — no cost centers split for this line.",
+  "journalGrid.distributionUnassigned": "Unassigned",
+  "journalGrid.distributionAdd": "Add allocation",
+  "journalGrid.distributionRemove": "Remove",
+  "journalGrid.distributionSum": "Total",
+  "journalGrid.distributionMustEqual100": "Allocations must sum to exactly 100%, or be left empty.",
+  "journalGrid.distributionDone": "Done",
+  "journalGrid.distributionCostCenterPlaceholder": "Select cost center...",
+  "journalGrid.distributionCostCenterLabel": "Cost center",
+  "journalGrid.distributionPercentageLabel": "Percentage",
+  "journalGrid.lineDistributionNotComplete": "Line {line}'s analytic distribution must total exactly 100% (or be left empty).",
 
   // Invoicing
   "invoicing.title": "Invoicing",
@@ -521,6 +533,18 @@ export const en: Record<string, string> = {
   "reports.periodLockedAccounting": "This period is locked (accounting lock: {date}).",
   "reports.periodLockedTax": "This period is locked (tax lock: {date}).",
   "reports.lockBadge": "Locked",
+
+  // Year-end roll-forward (F12)
+  "yearEnd.title": "Year-end roll-forward",
+  "yearEnd.description": "Beginning balance, net movement and ending balance for every balance-sheet account, computed from two balance sheet snapshots.",
+  "yearEnd.fiscalYear": "Fiscal year",
+  "yearEnd.beginningBalance": "Beginning balance ({date})",
+  "yearEnd.movement": "Movement",
+  "yearEnd.endingBalance": "Ending balance ({date})",
+  "yearEnd.totalMovement": "Total movement: {amount}",
+  "yearEnd.loadError": "Could not load the roll-forward — check that both balance sheet snapshots loaded.",
+  "yearEnd.closingNotAvailableTitle": "Closing entries",
+  "yearEnd.closingNotAvailablePlaceholder": "Not yet available — PAKO does not generate or post year-end closing entries. Nothing on this screen changes what is posted in the ledger.",
 
   // Shared forms
   "partnerForm.name": "Name",
@@ -866,6 +890,7 @@ export const sq: Record<string, string> = {
   "nav.reconciliation": "Rakordimi",
   "nav.payroll": "List\u00ebpagesa",
   "nav.reports": "Raportet",
+  "nav.yearEnd": "Fund viti",
   "nav.companies": "Kompanit\u00eb",
   "nav.settings": "Cil\u00ebsimet",
 
@@ -883,6 +908,7 @@ export const sq: Record<string, string> = {
   "nav.reconciliation.description": "Rakordimi i pagesave me faturat.",
   "nav.payroll.description": "Punonj\u00ebsit dhe list\u00ebpagesat.",
   "nav.reports.description": "Bilanci, fitimi dhe humbja, dhe deklarata e TVSH-s\u00eb.",
+  "nav.yearEnd.description": "Pamje e kalimit t\u00eb llogarive t\u00eb bilancit nga fillimi n\u00eb fund t\u00eb vitit fiskal.",
   "nav.companies.description": "Nd\u00ebrroni nd\u00ebrmjet kompanive dhe menaxhoni qasjen firma-klient.",
   "nav.settings.description": "Cil\u00ebsimet e kompanisë, p\u00ebrdoruesit dhe platform\u00ebs.",
 
@@ -1079,11 +1105,8 @@ export const sq: Record<string, string> = {
   "journalGrid.colDebit": "Debiti",
   "journalGrid.colCredit": "Krediti",
   "journalGrid.colPartner": "Partneri",
-  "journalGrid.colCostCenter": "Qendra e kostos",
-  "journalGrid.colCostCenterMocked": "Qendra e kostos (e simuluar \u2014 ende nuk ruhet n\u00eb backend)",
   "journalGrid.accountPlaceholder": "Shkruani kodin ose emrin...",
   "journalGrid.partnerPlaceholder": "Opsionale",
-  "journalGrid.costCenterPlaceholder": "Opsionale",
   "journalGrid.noMatches": "Nuk ka p\u00ebrputhje.",
   "journalGrid.addLine": "Shto rresht",
   "journalGrid.removeLine": "Hiq rreshtin",
@@ -1101,6 +1124,19 @@ export const sq: Record<string, string> = {
   "journalGrid.saveError": "Nuk u ruajt regjistrimi n\u00eb ditar.",
   "journalGrid.postError": "Regjistrimi u ruajt si draft, por postimi d\u00ebshtoi. Postojeni nga lista e regjistrimeve m\u00eb posht\u00eb pasi ta rregulloni.",
   "journalGrid.lineHasAmountWithoutAccount": "Rreshti {line} ka nj\u00eb shum\u00eb por asnj\u00eb llogari t\u00eb zgjedhur.",
+  "journalGrid.colDistributionMocked": "Shp\u00ebrndarja analitike (e simuluar \u2014 ende nuk ruhet n\u00eb backend)",
+  "journalGrid.distributionTitle": "Shp\u00ebrndarja analitike",
+  "journalGrid.distributionEmpty": "Pa caktuar \u2014 asnj\u00eb ndarje e qendrave t\u00eb kostos p\u00ebr k\u00ebt\u00eb rresht.",
+  "journalGrid.distributionUnassigned": "Pa caktuar",
+  "journalGrid.distributionAdd": "Shto ndarje",
+  "journalGrid.distributionRemove": "Hiq",
+  "journalGrid.distributionSum": "Totali",
+  "journalGrid.distributionMustEqual100": "Ndarjet duhet t\u00eb mblidhen sakt\u00ebsisht n\u00eb 100%, ose t\u00eb lihen bosh.",
+  "journalGrid.distributionDone": "P\u00ebrfundo",
+  "journalGrid.distributionCostCenterPlaceholder": "Zgjidhni qendr\u00ebn e kostos...",
+  "journalGrid.distributionCostCenterLabel": "Qendra e kostos",
+  "journalGrid.distributionPercentageLabel": "P\u00ebrqindja",
+  "journalGrid.lineDistributionNotComplete": "Shp\u00ebrndarja analitike e rreshtit {line} duhet t\u00eb arrij\u00eb sakt\u00ebsisht 100% (ose t\u00eb lihet bosh).",
 
   // Invoicing
   "invoicing.title": "Faturimi",
@@ -1374,6 +1410,18 @@ export const sq: Record<string, string> = {
   "reports.periodLockedAccounting": "Kjo periudh\u00eb \u00ebsht\u00eb e mbyllur (ky\u00e7ja kontabile: {date}).",
   "reports.periodLockedTax": "Kjo periudh\u00eb \u00ebsht\u00eb e mbyllur (ky\u00e7ja tatimore: {date}).",
   "reports.lockBadge": "E mbyllur",
+
+  // Kalimi i fund-vitit (F12)
+  "yearEnd.title": "Kalimi i fund-vitit",
+  "yearEnd.description": "Gjendja fillestare, lëvizja neto dhe gjendja përfundimtare për çdo llogari të bilancit, e llogaritur nga dy pamje të bilancit.",
+  "yearEnd.fiscalYear": "Viti fiskal",
+  "yearEnd.beginningBalance": "Gjendja fillestare ({date})",
+  "yearEnd.movement": "Lëvizja",
+  "yearEnd.endingBalance": "Gjendja përfundimtare ({date})",
+  "yearEnd.totalMovement": "Lëvizja totale: {amount}",
+  "yearEnd.loadError": "Nuk u ngarkua kalimi i fund-vitit — kontrolloni që të dyja pamjet e bilancit u ngarkuan.",
+  "yearEnd.closingNotAvailableTitle": "Regjistrimet e mbylljes",
+  "yearEnd.closingNotAvailablePlaceholder": "Ende nuk ofrohet — PAKO nuk gjeneron apo poston regjistrime mbyllëse të fund-vitit. Asgjë në këtë faqe nuk ndryshon çfarë është postuar në ditar.",
 
   // Shared forms
   "partnerForm.name": "Emri",

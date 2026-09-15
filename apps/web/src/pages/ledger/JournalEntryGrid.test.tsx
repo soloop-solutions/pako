@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountResponse, JournalResponse } from "@pako/shared";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
@@ -111,7 +111,7 @@ describe("JournalEntryGrid keyboard model", () => {
     fireEvent.keyDown(partnerCell, { key: "Tab" });
 
     // Moves right to the mocked cost-center column, same row (not yet a wrap — it's the last column).
-    const costCenterCell = cellInput(1, "Cost center (mocked — not yet saved to the backend)");
+    const costCenterCell = cellInput(1, "Analytic distribution (mocked — not yet saved to the backend)");
     await waitFor(() => expect(costCenterCell).toHaveFocus());
 
     fireEvent.keyDown(costCenterCell, { key: "Tab" });
@@ -286,5 +286,92 @@ describe("JournalEntryGrid keyboard model", () => {
     await waitFor(() => expect(post3).toHaveBeenCalledWith("company-1", "entry-1"));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(cellInput(0, "Account")).toHaveValue("");
+  });
+});
+
+describe("F12 analytic distribution editor", () => {
+  // journalEntriesCreate/post3 are module-scoped vi.fn()s shared with the keyboard-model suite
+  // above, which already exercised them — clear call history so ".not.toHaveBeenCalled()" below
+  // reflects only this test's own actions, not a prior test's.
+  beforeEach(() => {
+    journalEntriesCreate.mockClear();
+    post3.mockClear();
+  });
+
+  function balanceTwoAccountedLines() {
+    const account0 = type(0, "Account", "100100");
+    fireEvent.keyDown(account0, { key: "Tab" });
+    const debit0 = type(0, "Debit", "100.00");
+    fireEvent.keyDown(debit0, { key: "Enter" });
+
+    const account1 = type(1, "Account", "400100");
+    fireEvent.keyDown(account1, { key: "Tab" });
+    const credit1 = type(1, "Credit", "100.00");
+    fireEvent.keyDown(credit1, { key: "Enter" });
+  }
+
+  async function addAllocation(costCenterOptionIndex: number, percentage: string) {
+    fireEvent.click(screen.getByRole("button", { name: "Add allocation" }));
+    const selects = screen.getAllByLabelText("Cost center");
+    const select = selects[selects.length - 1];
+    // Options load asynchronously (fetchCostCenters) — wait until there are enough real options
+    // (index 0 is always the "select..." placeholder) before reading the one we want.
+    await waitFor(() => expect(within(select).getAllByRole("option").length).toBeGreaterThanOrEqual(costCenterOptionIndex + 2));
+    const value = (within(select).getAllByRole("option")[costCenterOptionIndex + 1] as HTMLOptionElement).value;
+    fireEvent.change(select, { target: { value } });
+    const percentageInputs = screen.getAllByLabelText("Percentage");
+    fireEvent.change(percentageInputs[percentageInputs.length - 1], { target: { value: percentage } });
+  }
+
+  it("does not block Save when a line's distribution is left unassigned (zero allocations is valid)", async () => {
+    renderGrid();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    balanceTwoAccountedLines();
+
+    expect(screen.getByRole("button", { name: "Save and post" })).not.toBeDisabled();
+  });
+
+  it("blocks Save with a specific message while a line's distribution is a partial split, and unblocks once it sums to exactly 100%", async () => {
+    journalEntriesCreate.mockResolvedValue({
+      id: "entry-2",
+      journalId: "journal-gen",
+      date: "2026-09-15",
+      reference: undefined,
+      state: "Draft",
+      sequenceNumber: undefined,
+      postedAtUtc: undefined,
+      lines: [
+        { id: "line-1", accountId: "acc-cash", partnerId: undefined, debit: 100, credit: 0, description: undefined },
+        { id: "line-2", accountId: "acc-rev", partnerId: undefined, debit: 0, credit: 100, description: undefined },
+      ],
+    });
+    post3.mockResolvedValue({});
+    renderGrid();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    balanceTwoAccountedLines();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save and post" })).not.toBeDisabled());
+
+    fireEvent.click(cellInput(0, "Analytic distribution (mocked — not yet saved to the backend)"));
+    await addAllocation(0, "60");
+    await addAllocation(1, "20"); // sums to 80, short of 100
+    expect(await screen.findByText("Total: 80.00%")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save and post" }));
+    expect(await screen.findByText("Line 1's analytic distribution must total exactly 100% (or be left empty).")).toBeInTheDocument();
+    expect(journalEntriesCreate).not.toHaveBeenCalled();
+
+    // Reopen and complete the split to exactly 100%.
+    fireEvent.click(cellInput(0, "Analytic distribution (mocked — not yet saved to the backend)"));
+    const percentageInputs = await screen.findAllByLabelText("Percentage");
+    fireEvent.change(percentageInputs[1], { target: { value: "40" } });
+    expect(await screen.findByText("Total: 100.00%")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "Save and post" }));
+    await waitFor(() => expect(journalEntriesCreate).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(post3).toHaveBeenCalledWith("company-1", "entry-2"));
   });
 });

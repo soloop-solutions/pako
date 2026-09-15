@@ -16,6 +16,7 @@ import {
   Package,
   ListTree,
   BookUser,
+  CalendarRange,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -33,6 +34,7 @@ import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
 import { Settings } from "@/pages/Settings";
+import { YearEnd } from "@/pages/YearEnd";
 
 export type NavItem = {
   titleKey: string;
@@ -138,6 +140,13 @@ export const navItems: NavItem[] = [
     icon: BarChart3,
     descriptionKey: "nav.reports.description",
     Element: Reports,
+  },
+  {
+    titleKey: "nav.yearEnd",
+    path: "/year-end",
+    icon: CalendarRange,
+    descriptionKey: "nav.yearEnd.description",
+    Element: YearEnd,
   },
   {
     titleKey: "nav.companies",

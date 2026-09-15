@@ -2405,3 +2405,99 @@ to what's real vs. mocked, no scope change — see the F5 section above for that
 - `pnpm --filter web {typecheck,lint,test,build}` all pass (28 tests now, up from 20 — the 8 new
   ones above); `lint`'s one pre-existing `IntlProviderWrapper.tsx` failure is unrelated and
   unchanged.
+
+## F12 — year-end roll-forward and analytic distribution editor (`apps/web`, `feat/fe-mvp`, 2026-09-15)
+
+The last item on `docs/FRONTEND_BRIEF.md`'s whole checklist. Two unrelated pieces, per the brief.
+
+- **Year-end roll-forward (`src/pages/YearEnd.tsx`, `src/pages/year-end/rollForward.ts`), new
+  `/year-end` nav entry — confirmed by reading `backend/` directly: there is zero fiscal-year/
+  closing/roll-forward concept anywhere in it.** No `FiscalYear`/`YearEnd`/`RollForward`/
+  `ClosingEntry` table, no "close the year" endpoint of any kind. Scoped to a real, read-only VIEW
+  built entirely from the already-shipped `GET .../reports/balance-sheet?asOf=` endpoint, called
+  twice (Dec 31 of the previous year for the beginning balance, Dec 31 of the selected year for the
+  ending balance) — `rollForward.ts`'s `buildRollForwardSection` merges the two `ReportLine[]`
+  arrays by `accountId` (a union of both sides' ids, missing side defaults to 0) and computes
+  `movement = ending - beginning`. **Deliberately did NOT build a "close the year"/"generate
+  closing entries" button or any action implying something happened server-side** — there is
+  nothing on the backend to actually do that, and a client-side simulation of it would be actively
+  misleading (an accountant could believe their year is closed when nothing was posted). The screen
+  instead shows a plain, always-visible "Closing entries — not yet available" note, same
+  dashed-border placeholder style `AttachmentsPanel.tsx`'s extracted-fields panel already
+  established for "not built yet, here's where it'll go."
+  - The synthetic "Current Earnings" equity line (`ReportsController.BalanceSheet`'s
+    `AccountId = Guid.Empty`, same id in every snapshot) merges into one row through the same
+    id-based join as any real account — its movement comes out to exactly the fiscal year's net
+    income, because both snapshots are cumulative-since-inception and the prior years' contribution
+    cancels out in the subtraction. Confirmed by a dedicated test
+    (`rollForward.test.ts`'s "merges the synthetic Current Earnings line...").
+  - `ending - beginning` is the one piece of client-side arithmetic in this feature — a plain
+    subtraction of two numbers the API itself returned, not a derived business figure (no tax, no
+    rounding rule, no invented subtotal). This is what the task's own brief explicitly asked for
+    ("Call it twice ... and show the difference as the year's movement"); flagged here so a future
+    reader doesn't mistake it for a "never compute money in the browser" violation.
+  - Fiscal year is assumed to be the calendar year (Jan 1–Dec 31) — same assumption every other
+    date-range report in this app already makes; there is no per-company fiscal-year-start setting
+    to read instead.
+- **Analytic distribution editor, upgrading F9's single cost-center picker
+  (`src/pages/ledger/journal-grid/DistributionEditor.tsx`, `distribution.ts`) — a real modification
+  to the money-critical `JournalEntryGrid.tsx`.** `GridLine.costCenterId`/`costCenterLabel` (one
+  pick) became `GridLine.costCenterAllocations: CostCenterAllocation[]` (`{ id, costCenterId,
+  costCenterLabel, percentage }`, `percentage` kept as raw typed text like `debit`/`credit` already
+  were). The grid's `costCenter` column cell is now a button showing a live summary (e.g. "60%
+  CC-SHT, 40% CC-OPR") that opens `DistributionEditor`, a popover listing the line's allocations
+  with add/remove/edit, a live running-total percentage, and the exact same red-text-plus-blocked-
+  Save pattern the debit/credit balance check already uses — reused, not reinvented, per the task's
+  own instruction.
+  - **Zero allocations is a valid, deliberate "unassigned" state, not treated as an incomplete
+    0%** — same as the old single-picker version already allowed leaving no cost center selected at
+    all. `isDistributionComplete([])` returns `true`. Any allocation that IS present must have a
+    cost center chosen (not left on the placeholder) and the full set must sum to **exactly** 100%
+    — a partial split (60% with 40% unaccounted for) is invalid, same as leaving one allocation with
+    a percentage but no chosen cost center.
+  - **Not wired into the grid's Excel keyboard model** — Tab/arrows/Enter on the triggering cell
+    behave exactly as they do for every other column (Enter still commits and moves down, Tab still
+    wraps); the popover is a separate DOM subtree whose own selects/inputs never reach the grid's
+    cell-level key handler at all, so nothing inside it can be misinterpreted as a grid navigation
+    key. The one key `DistributionEditor` owns is Escape, to close itself, with `stopPropagation` so
+    the grid's own cell-level Escape handling (revert a text draft) never doubles up. The popover
+    closes automatically when the grid's own `focus` state moves to a different cell (see the
+    `[focus]`-keyed effect in `JournalEntryGrid.tsx`) — interacting inside the popover never touches
+    that state, so it stays open while the user is actually using it.
+  - `lineFields.ts`'s `commitCellValue`/`getCellText` "costCenter" cases became a documented no-op
+    / blank string — there is no free-text commit path into this cell any more (all edits go
+    through `DistributionEditor`'s own `onChange`), and `commitCellValue`'s `options` parameter
+    dropped its now-unused `costCenter: PickerOption[]` entry.
+  - `src/mocks/costCentersMockFlag.ts`/`costCentersHandlers.ts` (still the same "own scoped mock,"
+    per the task's instruction — untouched: `accountsMockFlag.ts`/`lockDatesMockFlag.ts`/
+    `itemTypesMockFlag.ts`/`partnersMockFlag.ts`/`attachmentsMockFlag.ts`) extended from
+    `setLineCostCenter(lineId, costCenterId)`/`getLineCostCenter` to
+    `setLineDistribution(lineId, allocations)`/`getLineDistribution`, and the mocked
+    `GET .../journal-entries` splice now adds `costCenterAllocations: [...]` per line instead of a
+    single `costCenterId`. Still fully inert against the real backend — `CreateJournalEntryLineRequest`
+    still has no cost-center field of any kind, confirmed unchanged.
+  - **Test-isolation gotcha hit while adding the new integration tests**: `JournalEntryGrid.test.tsx`
+    mocks `apiClient.journalEntries`/`post3` as module-scoped `vi.fn()`s with no
+    `beforeEach(vi.clearAllMocks)` anywhere in the file — the pre-existing keyboard-model test suite
+    happened to only assert `.not.toHaveBeenCalled()` in tests that ran *before* its one
+    call-triggering "creates the draft then posts it" test, so the missing reset was invisible until
+    a new test block was appended *after* that one and inherited its stale call count. Fixed with a
+    scoped `beforeEach(() => { journalEntriesCreate.mockClear(); post3.mockClear(); })` inside the
+    new `describe("F12 analytic distribution editor", ...)` block only — the pre-existing suite
+    above it was left untouched rather than adding a file-wide reset that wasn't asked for.
+  - **F9's entire pre-existing test suite passes unmodified in behavior** — only the one cost-center
+    column label string changed (`"Cost center (mocked...)"` → `"Analytic distribution
+    (mocked...)"`, since the column's aria-label key changed) and `lineFields.test.ts`'s shared
+    `OPTIONS` fixture dropped its now-unused `costCenter` key; every keyboard/balance/save assertion
+    is untouched and still passes (66/66 across `journal-grid/*.test.ts` +
+    `JournalEntryGrid.test.tsx`, up from 55 before this pass — 11 new: 8 `distribution.test.ts` pure
+    tests, 2 `JournalEntryGrid.test.tsx` integration tests, 1 `lineFields.test.ts` no-op-commit
+    test).
+- **No Playwright available this session** (the MCP server failed to connect, confirmed before
+  starting, not assumed) — verification is test-only: `rollForward.test.ts` (6 new tests, pure merge
+  logic including the Current-Earnings-merge and missing-side-defaults-to-0 cases) and the two new
+  `JournalEntryGrid.test.tsx` integration tests (zero-allocations doesn't block Save; a partial
+  split blocks Save with the named-line message and unblocks once completed to exactly 100%, then
+  actually saves). `pnpm --filter web {typecheck,lint,test,build}` all pass (136 tests total, up
+  from 119 before this pass); `lint`'s one pre-existing `IntlProviderWrapper.tsx` failure is
+  unrelated and unchanged.

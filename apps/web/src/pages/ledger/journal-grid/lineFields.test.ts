@@ -5,7 +5,7 @@ import type { PickerOption } from "@/pages/ledger/journal-grid/pickerMatch";
 import { emptyLine } from "@/pages/ledger/journal-grid/types";
 
 const ACCOUNTS: PickerOption[] = [{ id: "acc-cash", code: "100100", name: "Cash" }];
-const OPTIONS = { account: ACCOUNTS, partner: [] as PickerOption[], costCenter: [] as PickerOption[] };
+const OPTIONS = { account: ACCOUNTS, partner: [] as PickerOption[] };
 
 describe("sanitizeAmount", () => {
   it("passes through a plain decimal", () => {
@@ -47,5 +47,12 @@ describe("commitCellValue", () => {
   it("round-trips through getCellText", () => {
     const result = commitCellValue(emptyLine("l1"), "debit", "42.00", OPTIONS);
     expect(getCellText(result, "debit")).toBe("42.00");
+  });
+
+  it("F12: the distribution (costCenter) cell has no free-text commit — it is a no-op with blank cell text", () => {
+    const line = { ...emptyLine("l1"), costCenterAllocations: [{ id: "a1", costCenterId: "cc-1", costCenterLabel: "CC-1", percentage: "100" }] };
+    expect(getCellText(line, "costCenter")).toBe("");
+    const result = commitCellValue(line, "costCenter", "anything typed here", OPTIONS);
+    expect(result.costCenterAllocations).toEqual(line.costCenterAllocations);
   });
 });

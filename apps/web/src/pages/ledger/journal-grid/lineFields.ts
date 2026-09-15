@@ -18,7 +18,9 @@ export function getCellText(line: GridLine, column: GridColumn): string {
     case "partner":
       return line.partnerLabel;
     case "costCenter":
-      return line.costCenterLabel;
+      // F12: the distribution cell is a button that opens DistributionEditor, not a free-text
+      // picker — there is no single string to type/commit into it, so it has no draft text.
+      return "";
   }
 }
 
@@ -37,7 +39,7 @@ export function commitCellValue(
   line: GridLine,
   column: GridColumn,
   raw: string,
-  options: { account: PickerOption[]; partner: PickerOption[]; costCenter: PickerOption[] },
+  options: { account: PickerOption[]; partner: PickerOption[] },
 ): GridLine {
   switch (column) {
     case "description":
@@ -56,13 +58,12 @@ export function commitCellValue(
       const resolved = resolvePickerCommit(raw, options.partner, previous);
       return resolved ? { ...line, partnerId: resolved.id, partnerLabel: resolved.label } : { ...line, partnerId: "", partnerLabel: "" };
     }
-    case "costCenter": {
-      const previous = line.costCenterId ? { id: line.costCenterId, label: line.costCenterLabel } : null;
-      const resolved = resolvePickerCommit(raw, options.costCenter, previous);
-      return resolved
-        ? { ...line, costCenterId: resolved.id, costCenterLabel: resolved.label }
-        : { ...line, costCenterId: "", costCenterLabel: "" };
-    }
+    case "costCenter":
+      // F12: no free-text commit for the distribution cell — edits go through
+      // DistributionEditor's own onChange, wired directly in JournalEntryGrid.tsx. Committing
+      // whatever's in `draft` (always "", see getCellText above) when Tab/Enter moves off this
+      // cell is therefore a deliberate no-op, not a missing case.
+      return line;
   }
 }
 

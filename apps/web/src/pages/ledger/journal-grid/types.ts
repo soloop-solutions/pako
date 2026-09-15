@@ -8,6 +8,17 @@ export type GridColumn = (typeof GRID_COLUMNS)[number];
 
 export const COLUMN_COUNT = GRID_COLUMNS.length;
 
+// F12 upgrades the single cost-center picker to a distribution: a line can be split across
+// several cost centers by percentage instead of picking exactly one. `percentage` is kept as raw
+// typed text (same "string, not number" convention as GridLine.debit/credit) so a half-typed value
+// isn't silently coerced while the user is still editing it in the DistributionEditor popover.
+export interface CostCenterAllocation {
+  id: string;
+  costCenterId: string;
+  costCenterLabel: string;
+  percentage: string;
+}
+
 export interface GridLine {
   id: string;
   accountId: string;
@@ -17,8 +28,7 @@ export interface GridLine {
   credit: string;
   partnerId: string;
   partnerLabel: string;
-  costCenterId: string;
-  costCenterLabel: string;
+  costCenterAllocations: CostCenterAllocation[];
 }
 
 export function emptyLine(id: string, description = ""): GridLine {
@@ -31,8 +41,7 @@ export function emptyLine(id: string, description = ""): GridLine {
     credit: "",
     partnerId: "",
     partnerLabel: "",
-    costCenterId: "",
-    costCenterLabel: "",
+    costCenterAllocations: [],
   };
 }
 

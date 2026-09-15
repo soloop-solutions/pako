@@ -11,10 +11,12 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
-import { setCostCentersMockActive, setLineCostCenter } from "@/mocks/costCentersMockFlag";
+import { setCostCentersMockActive, setLineDistribution } from "@/mocks/costCentersMockFlag";
 import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
 import { autoBalanceLastLine, computeTotals, toCents } from "@/pages/ledger/journal-grid/balance";
 import { isMultiCellBlock, parseClipboardBlock } from "@/pages/ledger/journal-grid/clipboard";
+import { DistributionEditor } from "@/pages/ledger/journal-grid/DistributionEditor";
+import { isDistributionComplete } from "@/pages/ledger/journal-grid/distribution";
 import { clampCell, moveArrow, nextForEnter, nextForTab, prevForTab } from "@/pages/ledger/journal-grid/gridNavigation";
 import { commitCellValue, getCellText } from "@/pages/ledger/journal-grid/lineFields";
 import { PickerCell } from "@/pages/ledger/journal-grid/PickerCell";
@@ -50,11 +52,22 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     return `journal-grid-line-${idCounter.current}`;
   }
 
+  const allocIdCounter = useRef(0);
+  function nextAllocId(): string {
+    allocIdCounter.current += 1;
+    return `journal-grid-alloc-${allocIdCounter.current}`;
+  }
+
   const [lines, setLines] = useState<GridLine[]>(() => [emptyLine("journal-grid-line-seed-1"), emptyLine("journal-grid-line-seed-2")]);
   const [focus, setFocus] = useState<CellPosition>({ row: 0, col: 0 });
   const [draft, setDraft] = useState("");
+  // F12 — which line's analytic-distribution popover is open, if any. Deliberately independent of
+  // `focus`: interacting with the popover's own selects/inputs never touches grid `focus` state
+  // (see DistributionEditor.tsx's header), so this only needs to close itself when the grid's
+  // logical focus moves to a DIFFERENT cell (see the [focus]-keyed effect below).
+  const [openDistributionRow, setOpenDistributionRow] = useState<number | null>(null);
 
-  const inputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
+  const inputRefs = useRef<Map<string, HTMLInputElement | HTMLButtonElement>>(new Map());
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterOption[]>([]);
@@ -113,10 +126,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     () => costCenters.map((c) => ({ id: c.id, code: c.code, name: c.name })),
     [costCenters],
   );
-  const optionsByColumn = useMemo(
-    () => ({ account: accountOptions, partner: partnerOptions, costCenter: costCenterOptions }),
-    [accountOptions, partnerOptions, costCenterOptions],
-  );
+  const optionsByColumn = useMemo(() => ({ account: accountOptions, partner: partnerOptions }), [accountOptions, partnerOptions]);
 
   const effectiveJournalId = journalId || journals.find((j) => j.code === "GEN")?.id || journals[0]?.id || "";
 
@@ -136,7 +146,11 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     if (line) setDraft(getCellText(line, column));
     const node = inputRefs.current.get(cellKey(focus.row, focus.col));
     node?.focus();
-    node?.select?.();
+    if (node && "select" in node) node.select();
+    // Close a distribution popover left open on some other cell — see openDistributionRow's own
+    // comment above for why interacting with the popover itself never re-triggers this.
+    const costCenterColIndex = GRID_COLUMNS.indexOf("costCenter");
+    setOpenDistributionRow((current) => (current !== null && !(focus.row === current && focus.col === costCenterColIndex) ? null : current));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus]);
 
@@ -161,7 +175,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     setFocus({ row: target.row, col: target.col });
   }
 
-  function handleKeyDown(event: KeyboardEvent<HTMLInputElement>, row: number, col: number) {
+  function handleKeyDown(event: KeyboardEvent<HTMLInputElement | HTMLButtonElement>, row: number, col: number) {
     switch (event.key) {
       case "Enter": {
         event.preventDefault();
@@ -242,6 +256,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   }
 
   function removeLine(index: number) {
+    setOpenDistributionRow(null);
     setLines((prev) => {
       const next = prev.filter((_, i) => i !== index);
       setFocus((current) => clampCell(current, next.length));
@@ -270,6 +285,18 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     );
     if (orphanAmountIndex !== -1) {
       setError(intl.formatMessage({ id: "journalGrid.lineHasAmountWithoutAccount" }, { line: orphanAmountIndex + 1 }));
+      return;
+    }
+
+    // F12: a line's analytic distribution must be either empty (unassigned, valid) or sum to
+    // exactly 100% across its allocations — same "name the exact line" discipline as the
+    // orphan-amount check above, and the same numbering (1-based over the full grid, not the
+    // filtered set Save actually submits).
+    const invalidDistributionIndex = finalLines.findIndex(
+      (line) => line.accountId && !isDistributionComplete(line.costCenterAllocations),
+    );
+    if (invalidDistributionIndex !== -1) {
+      setError(intl.formatMessage({ id: "journalGrid.lineDistributionNotComplete" }, { line: invalidDistributionIndex + 1 }));
       return;
     }
 
@@ -305,11 +332,19 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         })),
       });
 
-      // Stash the mocked cost-center selections against the newly created lines' real ids — request
-      // and response lines are in the same order (see src/mocks/costCentersMockFlag.ts).
+      // Stash the mocked distribution against the newly created lines' real ids — request and
+      // response lines are in the same order (see src/mocks/costCentersMockFlag.ts).
       validLines.forEach((line, index) => {
         const createdLine = draftEntry.lines[index];
-        if (createdLine && line.costCenterId) setLineCostCenter(createdLine.id, line.costCenterId);
+        if (createdLine && line.costCenterAllocations.length > 0) {
+          setLineDistribution(
+            createdLine.id,
+            line.costCenterAllocations.map((allocation) => ({
+              costCenterId: allocation.costCenterId,
+              percentage: parseFloat(allocation.percentage) || 0,
+            })),
+          );
+        }
       });
 
       try {
@@ -322,6 +357,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
 
       setLines([emptyLine(nextId()), emptyLine(nextId())]);
       setFocus({ row: 0, col: 0 });
+      setOpenDistributionRow(null);
       setReference("");
       onCreated();
     } catch (err) {
@@ -340,23 +376,58 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     debit: "journalGrid.colDebit",
     credit: "journalGrid.colCredit",
     partner: "journalGrid.colPartner",
-    costCenter: "journalGrid.colCostCenterMocked",
+    costCenter: "journalGrid.colDistributionMocked",
   };
 
   function renderCell(line: GridLine, row: number, col: number) {
     const column = GRID_COLUMNS[col];
     const isFocused = focus.row === row && focus.col === col;
     const displayValue = isFocused ? draft : getCellText(line, column);
-    const registerRef = (node: HTMLInputElement | null) => {
+    const registerRef = (node: HTMLInputElement | HTMLButtonElement | null) => {
       const key = cellKey(row, col);
       if (node) inputRefs.current.set(key, node);
       else inputRefs.current.delete(key);
     };
 
-    if (column === "account" || column === "partner" || column === "costCenter") {
-      const options = column === "account" ? accountOptions : column === "partner" ? partnerOptions : costCenterOptions;
-      const placeholderKey =
-        column === "account" ? "journalGrid.accountPlaceholder" : column === "partner" ? "journalGrid.partnerPlaceholder" : "journalGrid.costCenterPlaceholder";
+    if (column === "costCenter") {
+      const allocations = line.costCenterAllocations;
+      const complete = isDistributionComplete(allocations);
+      const summary =
+        allocations.length === 0
+          ? intl.formatMessage({ id: "journalGrid.distributionUnassigned" })
+          : allocations.map((allocation) => `${allocation.percentage || 0}% ${allocation.costCenterLabel || "?"}`).join(", ");
+      return (
+        <div className="relative">
+          <button
+            ref={registerRef}
+            type="button"
+            aria-label={intl.formatMessage({ id: columnHeaderKeys[column] })}
+            onFocus={() => setFocus({ row, col })}
+            onKeyDown={(event) => handleKeyDown(event, row, col)}
+            onClick={() => setOpenDistributionRow((current) => (current === row ? null : row))}
+            className={cn(
+              "h-[26px] w-full truncate rounded border border-input bg-transparent px-1.5 text-left text-[13px] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[2px]",
+              !complete && "border-destructive text-destructive",
+            )}
+          >
+            {summary}
+          </button>
+          {openDistributionRow === row && (
+            <DistributionEditor
+              allocations={allocations}
+              options={costCenterOptions}
+              onAddId={nextAllocId}
+              onChange={(next) => setLines((prev) => prev.map((l, i) => (i === row ? { ...l, costCenterAllocations: next } : l)))}
+              onClose={() => setOpenDistributionRow(null)}
+            />
+          )}
+        </div>
+      );
+    }
+
+    if (column === "account" || column === "partner") {
+      const options = column === "account" ? accountOptions : partnerOptions;
+      const placeholderKey = column === "account" ? "journalGrid.accountPlaceholder" : "journalGrid.partnerPlaceholder";
       return (
         <PickerCell
           value={displayValue}
