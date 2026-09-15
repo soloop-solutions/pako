@@ -36,7 +36,7 @@ export function Items() {
     if (!activeCompanyId) return;
     setLoading(true);
     try {
-      const res = await apiClient.itemsGET(activeCompanyId, skip, take, search || undefined);
+      const res = await apiClient.itemsGET(activeCompanyId, skip / take + 1, take, search || undefined, undefined);
       setItems(res.items as ItemResponse[]);
       setTotal(res.total);
     } catch (err) {

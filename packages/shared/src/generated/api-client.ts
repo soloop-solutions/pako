@@ -1865,28 +1865,33 @@ export class PakoApiClient {
     }
 
     /**
-     * @param skip (optional) 
-     * @param take (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
      * @param search (optional) 
+     * @param sort (optional) 
      * @return OK
      */
-    itemsGET(companyId: string, skip: number | undefined, take: number | undefined, search: string | undefined): Promise<PaginatedResponseOfItemResponse> {
+    itemsGET(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfItemResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/items?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
         url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
-        if (skip === null)
-            throw new globalThis.Error("The parameter 'skip' cannot be null.");
-        else if (skip !== undefined)
-            url_ += "skip=" + encodeURIComponent("" + skip) + "&";
-        if (take === null)
-            throw new globalThis.Error("The parameter 'take' cannot be null.");
-        else if (take !== undefined)
-            url_ += "take=" + encodeURIComponent("" + take) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
         if (search === null)
             throw new globalThis.Error("The parameter 'search' cannot be null.");
         else if (search !== undefined)
             url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -3979,6 +3984,8 @@ export interface OverrideNumberRequest {
 export interface PaginatedResponseOfItemResponse {
     items: ItemResponse[];
     total: number;
+    page: number;
+    pageSize: number;
 
     [key: string]: any;
 }
