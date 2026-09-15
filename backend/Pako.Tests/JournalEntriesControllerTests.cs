@@ -92,7 +92,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Post_ZeroLineEntry_RejectedWithBadRequest()
     {
         var (db, companyId, journalId, _, _) = await SeedAsync();
-        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
+        var controller = NewController(db);
 
         var entry = new JournalEntry { Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journalId, Date = new DateOnly(2026, 8, 26) };
         db.JournalEntries.Add(entry);

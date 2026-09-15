@@ -22,6 +22,17 @@ public class Company
     public Guid? FirmId { get; set; }
     public DateOnly? AccountingLockDate { get; set; }
     public DateOnly? TaxLockDate { get; set; }
+
+    // B4: SaleLockDate/PurchaseLockDate freeze new posting in just one document family (Invoice/
+    // Bill respectively — see Invoice.Post/Bill.Post); AccountingLockDate/TaxLockDate above freeze
+    // everything (JournalEntry.Post, the one chokepoint every document type posts through).
+    // HardLockDate is the one lock AccountLockException can never exempt (see LockDateField):
+    // cannot be removed once set, cannot move backwards, and refuses to be set at all while a
+    // Draft journal entry exists on or before the requested date — enforced in
+    // CompanyLocksController.SetHardLock, not here, since it needs to query other entities.
+    public DateOnly? SaleLockDate { get; set; }
+    public DateOnly? PurchaseLockDate { get; set; }
+    public DateOnly? HardLockDate { get; set; }
     public int NextInvoiceNumber { get; set; } = 1;
     public int NextCreditNoteNumber { get; set; } = 1;
     public int NextDebitNoteNumber { get; set; } = 1;

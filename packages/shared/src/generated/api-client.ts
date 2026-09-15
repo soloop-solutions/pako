@@ -816,6 +816,216 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    soft(companyId: string, body: SetSoftLockRequest): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/locks/soft";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSoft(_response);
+        });
+    }
+
+    protected processSoft(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    hard(companyId: string, body: SetHardLockRequest): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/locks/hard";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processHard(_response);
+        });
+    }
+
+    protected processHard(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    exceptionsAll(companyId: string): Promise<AccountLockExceptionResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/locks/exceptions";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processExceptionsAll(_response);
+        });
+    }
+
+    protected processExceptionsAll(response: Response): Promise<AccountLockExceptionResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountLockExceptionResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountLockExceptionResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    exceptions(companyId: string, body: GrantLockExceptionRequest): Promise<AccountLockExceptionResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/locks/exceptions";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processExceptions(_response);
+        });
+    }
+
+    protected processExceptions(response: Response): Promise<AccountLockExceptionResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountLockExceptionResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountLockExceptionResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    revoke(companyId: string, exceptionId: string): Promise<AccountLockExceptionResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/locks/exceptions/{exceptionId}/revoke";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (exceptionId === undefined || exceptionId === null)
+            throw new globalThis.Error("The parameter 'exceptionId' must be defined.");
+        url_ = url_.replace("{exceptionId}", encodeURIComponent("" + exceptionId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRevoke(_response);
+        });
+    }
+
+    protected processRevoke(response: Response): Promise<AccountLockExceptionResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountLockExceptionResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountLockExceptionResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     membersAll(companyId: string): Promise<MemberResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/members";
         if (companyId === undefined || companyId === null)
@@ -3181,6 +3391,22 @@ export interface AccountGroupResponse {
     [key: string]: any;
 }
 
+export interface AccountLockExceptionResponse {
+    id: string;
+    userId: string;
+    lockDateField: number;
+    lockDate: string;
+    reason: string;
+    endsAt: string;
+    createdAt: string;
+    grantedByUserId: string;
+    revokedAt: string | undefined;
+    revokedByUserId: string | undefined;
+    isLive: boolean;
+
+    [key: string]: any;
+}
+
 export interface AccountResponse {
     id: string;
     code: string;
@@ -3336,6 +3562,9 @@ export interface CompanyResponse {
     enabledProfiles: number;
     isVatRegistered: boolean;
     allowNumberOverride: boolean;
+    saleLockDate: string | undefined;
+    purchaseLockDate: string | undefined;
+    hardLockDate: string | undefined;
 
     [key: string]: any;
 }
@@ -3605,6 +3834,16 @@ export interface GapReportResponse {
     [key: string]: any;
 }
 
+export interface GrantLockExceptionRequest {
+    userId: string;
+    lockDateField: number;
+    lockDate: string;
+    reason: string;
+    endsAt: string;
+
+    [key: string]: any;
+}
+
 export interface InvoiceLineResponse {
     id: string;
     description: string;
@@ -3841,6 +4080,19 @@ export interface ReportLine {
 export interface ReverseJournalEntryRequest {
     date: string;
     reference?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SetHardLockRequest {
+    lockDate: string;
+
+    [key: string]: any;
+}
+
+export interface SetSoftLockRequest {
+    lockDateField: number;
+    lockDate: string | undefined;
 
     [key: string]: any;
 }

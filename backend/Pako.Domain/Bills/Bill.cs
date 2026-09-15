@@ -67,6 +67,14 @@ public class Bill
             throw new InvalidOperationException($"Bill {Id} has no lines.");
         }
 
+        // B4: PurchaseLockDate freezes new purchase-document posting specifically — company here
+        // is already the caller's per-user effective value (AccountLockResolver), same as it is
+        // for the AccountingLockDate/TaxLockDate/HardLockDate checks inside journalEntry.Post below.
+        if (company.PurchaseLockDate is { } purchaseLockDate && IssueDate <= purchaseLockDate)
+        {
+            throw new PurchaseLockDateViolationException(Id, IssueDate, purchaseLockDate);
+        }
+
         // Same reversal shape as Invoice.Post: a vendor credit note keeps positive line
         // quantities/prices, only which side of each line gets the amount reverses. A
         // PurchaseReturn (Track A, v2 release) posts through the identical mechanics — goods

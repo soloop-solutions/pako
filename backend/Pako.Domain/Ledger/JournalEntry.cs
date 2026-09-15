@@ -68,6 +68,13 @@ public class JournalEntry
             throw new TaxLockDateViolationException(Id, Date, taxLockDate);
         }
 
+        // B4: HardLockDate is never resolved through AccountLockResolver — company here is always
+        // the real, unexempted value for this field, by construction.
+        if (company.HardLockDate is { } hardLockDate && Date <= hardLockDate)
+        {
+            throw new HardLockDateViolationException(Id, Date, hardLockDate);
+        }
+
         // R19: OriginalCurrency/OriginalAmount/ExchangeRate must all be set together, or none of
         // them — a partial set can't be reconciled back to the functional-currency Debit/Credit.
         foreach (var line in Lines)

@@ -859,4 +859,139 @@ public class InvoicesControllerTests : IAsyncLifetime
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
+
+    private static InvoicesController NewControllerAs(PakoDbContext db, Guid userId)
+    {
+        var user = new ClaimsPrincipal(new ClaimsIdentity(
+            new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "TestAuth"));
+
+        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
+        };
+    }
+
+    // B4: posting into a locked period is refused with a message naming the lock.
+    [Fact]
+    public async Task Post_WithAccountingLockDateOnOrBeforeIssueDate_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("accounting lock date", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    // B4: SaleLockDate freezes new sales-document posting specifically.
+    [Fact]
+    public async Task Post_WithSaleLockDateOnOrBeforeIssueDate_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.SaleLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("sale lock date", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    // B4: a user with a live exception can post despite the company-wide lock.
+    [Fact]
+    public async Task Post_WithLiveExceptionForAccountingLockDate_Succeeds()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        db.AccountLockExceptions.Add(new AccountLockException
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            UserId = userId,
+            LockDateField = LockDateField.AccountingLockDate,
+            LockDate = new DateOnly(2026, 8, 1),
+            Reason = "Fixing August close",
+            EndsAt = DateTime.UtcNow.AddDays(1)
+        });
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, userId);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        Assert.IsType<OkObjectResult>(result.Result);
+    }
+
+    // B4: an expired exception cannot let a user post into a locked period.
+    [Fact]
+    public async Task Post_WithExpiredExceptionForAccountingLockDate_StillRejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        db.AccountLockExceptions.Add(new AccountLockException
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            UserId = userId,
+            LockDateField = LockDateField.AccountingLockDate,
+            LockDate = new DateOnly(2026, 8, 1),
+            Reason = "Fixing August close",
+            EndsAt = DateTime.UtcNow.AddDays(-1)
+        });
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, userId);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    // B4: a revoked exception cannot let a user post either, even before its EndsAt.
+    [Fact]
+    public async Task Post_WithRevokedExceptionForAccountingLockDate_StillRejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.AccountingLockDate = new DateOnly(2026, 8, 26);
+        await db.SaveChangesAsync();
+        var userId = Guid.NewGuid();
+        db.AccountLockExceptions.Add(new AccountLockException
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            UserId = userId,
+            LockDateField = LockDateField.AccountingLockDate,
+            LockDate = new DateOnly(2026, 8, 1),
+            Reason = "Fixing August close",
+            EndsAt = DateTime.UtcNow.AddDays(1),
+            RevokedAt = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+        var controller = NewControllerAs(db, userId);
+        var createResult = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
+
+        var result = await controller.Post(companyId, created.Id);
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
 }

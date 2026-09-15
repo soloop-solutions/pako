@@ -155,14 +155,19 @@ public class JournalEntriesController : ControllerBase
                 return BadRequest(_localizer["JournalNoLongerExists"].Value);
             }
 
+            // B4: the caller's own effective lock dates — company's own value unless CurrentUserId
+            // holds a live exception for that field (AccountLockResolver never touches HardLockDate).
+            var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+
             try
             {
-                entry.Post(company);
+                entry.Post(effectiveCompany);
             }
             catch (Exception ex) when (
                 ex is UnbalancedJournalEntryException or
                 AccountingLockDateViolationException or
                 TaxLockDateViolationException or
+                HardLockDateViolationException or
                 InconsistentForeignCurrencyDataException or
                 InvalidOperationException)
             {
@@ -217,16 +222,19 @@ public class JournalEntriesController : ControllerBase
             return BadRequest(_localizer["JournalNoLongerExists"].Value);
         }
 
+        var effectiveCompanyForReversal = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+
         JournalEntry reversal;
         try
         {
-            reversal = entry.Reverse(company, request.Date, request.Reference);
+            reversal = entry.Reverse(effectiveCompanyForReversal, request.Date, request.Reference);
         }
         catch (Exception ex) when (
             ex is InvalidOperationException or
             UnbalancedJournalEntryException or
             AccountingLockDateViolationException or
             TaxLockDateViolationException or
+            HardLockDateViolationException or
             InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);

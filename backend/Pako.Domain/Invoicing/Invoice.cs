@@ -81,6 +81,14 @@ public class Invoice
             throw new InvalidOperationException($"Invoice {Id} has no lines.");
         }
 
+        // B4: SaleLockDate freezes new sales-document posting specifically — company here is
+        // already the caller's per-user effective value (AccountLockResolver), same as it is for
+        // the AccountingLockDate/TaxLockDate/HardLockDate checks inside journalEntry.Post below.
+        if (company.SaleLockDate is { } saleLockDate && IssueDate <= saleLockDate)
+        {
+            throw new SaleLockDateViolationException(Id, IssueDate, saleLockDate);
+        }
+
         // A credit note carries the same positive line quantities/prices as a normal invoice —
         // only which side of each line gets the amount (Debit vs Credit) reverses, mirroring
         // Odoo's out_invoice/out_refund move_type distinction rather than negative amounts. A

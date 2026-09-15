@@ -805,11 +805,15 @@ public class BillsController : ControllerBase
             }
         }
 
+        // B4: the caller's own effective lock dates — company's own value unless CurrentUserId
+        // holds a live exception for that field (AccountLockResolver never touches HardLockDate).
+        var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+
         JournalEntry journalEntry;
         try
         {
             journalEntry = bill.Post(
-                company, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
+                effectiveCompany, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
                 defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
         }
         catch (Exception ex) when (
@@ -817,6 +821,8 @@ public class BillsController : ControllerBase
             UnbalancedJournalEntryException or
             AccountingLockDateViolationException or
             TaxLockDateViolationException or
+            HardLockDateViolationException or
+            PurchaseLockDateViolationException or
             InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);

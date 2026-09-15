@@ -1,0 +1,13 @@
+{
+  "id": "5b2e6f1a-2222-4b2b-9c2b-000000000001",
+  "name": "Acme Sh.p.k.",
+  "firmId": null,
+  "accountingLockDate": "2026-08-31",
+  "taxLockDate": "2026-08-31",
+  "enabledProfiles": 1,
+  "isVatRegistered": true,
+  "allowNumberOverride": false,
+  "saleLockDate": null,
+  "purchaseLockDate": null,
+  "hardLockDate": null
+}
