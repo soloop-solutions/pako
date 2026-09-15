@@ -13,19 +13,30 @@ using Pako.Localization.Xk;
 
 namespace Pako.Tests;
 
-public class ReportsControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class ReportsControllerTests : IAsyncLifetime
 {
-    private static PakoDbContext NewContext()
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        var options = new DbContextOptionsBuilder<PakoDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new PakoDbContext(options);
+        foreach (var db in _dbContexts) await db.DisposeAsync();
     }
 
-    private static async Task<(PakoDbContext Db, Guid CompanyId)> SeedMixedScenario()
+    private async Task<PakoDbContext> NewContextAsync()
     {
-        var db = NewContext();
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        return db;
+    }
+
+    private async Task<(PakoDbContext Db, Guid CompanyId)> SeedMixedScenario()
+    {
+        var db = await NewContextAsync();
         var taxComputationService = new TaxComputationService();
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
 
@@ -214,10 +225,10 @@ public class ReportsControllerTests
 
     // C6: an invoice issued on 30-day terms with 5 days' grace — current up to the due date,
     // within grace until the due date plus 5, and only "debt" (the Overdue bucket) from day 36.
-    private static async Task<(PakoDbContext Db, Guid CompanyId, Guid InvoiceId)> SeedUnpaidInvoiceWithTerms(
+    private async Task<(PakoDbContext Db, Guid CompanyId, Guid InvoiceId, Guid ReceivableJournalEntryLineId)> SeedUnpaidInvoiceWithTerms(
         DateOnly issueDate, int paymentTermDays, int graceDays)
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var company = new Company { Id = Guid.NewGuid(), Name = "Debt Co" };
         var receivableAccountId = Guid.NewGuid();
         var revenueAccountId = Guid.NewGuid();
@@ -259,14 +270,15 @@ public class ReportsControllerTests
 
         await db.SaveChangesAsync();
 
-        return (db, company.Id, invoice.Id);
+        var receivableLineId = invoiceEntry.Lines.Single(l => l.AccountId == receivableAccountId).Id;
+        return (db, company.Id, invoice.Id, receivableLineId);
     }
 
     [Fact]
     public async Task DebtAging_BeforeDueDate_IsCurrentNotDebt()
     {
         var issueDate = new DateOnly(2026, 1, 1);
-        var (db, companyId, invoiceId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        var (db, companyId, invoiceId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
         var controller = new ReportsController(db);
 
         // Due date is 2026-01-31; asOf here is the due date itself, still Current.
@@ -285,7 +297,7 @@ public class ReportsControllerTests
     public async Task DebtAging_PastDueButWithinGrace_IsNotYetDebt()
     {
         var issueDate = new DateOnly(2026, 1, 1);
-        var (db, companyId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
         var controller = new ReportsController(db);
 
         // Day 34 (2026-02-04): 4 days past the 2026-01-31 due date, still inside the 5-day grace.
@@ -302,7 +314,7 @@ public class ReportsControllerTests
     public async Task DebtAging_Day36_BecomesOverdueDebt()
     {
         var issueDate = new DateOnly(2026, 1, 1);
-        var (db, companyId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
         var controller = new ReportsController(db);
 
         // Day 36 (2026-02-06): due date + grace (2026-02-05) has passed — now real debt.
@@ -320,8 +332,8 @@ public class ReportsControllerTests
     public async Task DebtAging_FullyPaidInvoice_ExcludedEntirely()
     {
         var issueDate = new DateOnly(2026, 1, 1);
-        var (db, companyId, invoiceId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, Guid.NewGuid(), 500m));
+        var (db, companyId, invoiceId, receivableJournalEntryLineId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
+        db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, receivableJournalEntryLineId, 500m));
         await db.SaveChangesAsync();
         var controller = new ReportsController(db);
 

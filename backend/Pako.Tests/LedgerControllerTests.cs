@@ -15,7 +15,7 @@ public class LedgerControllerTests
     [Fact]
     public async Task TrialBalance_OrdersByAccountCreatedAt_NotByCode()
     {
-        var db = new PakoDbContext(new DbContextOptionsBuilder<PakoDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options);
+        await using var db = await PostgresTestDatabase.CreateAsync();
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
 

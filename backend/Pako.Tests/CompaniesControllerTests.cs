@@ -10,14 +10,25 @@ using Pako.Infrastructure;
 
 namespace Pako.Tests;
 
-public class CompaniesControllerTests
+// IAsyncLifetime: xUnit creates a fresh instance of this class per [Fact] and calls DisposeAsync
+// after it finishes, which is what actually closes each test's dedicated Postgres connection —
+// without it, connections pile up across the run and Postgres refuses new ones past max_connections.
+public class CompaniesControllerTests : IAsyncLifetime
 {
-    private static PakoDbContext NewContext()
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        var options = new DbContextOptionsBuilder<PakoDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-        return new PakoDbContext(options);
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
+    private async Task<PakoDbContext> NewContextAsync()
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        return db;
     }
 
     private static CompaniesController NewController(PakoDbContext db, Guid userId)
@@ -34,7 +45,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_RejectsNameOver256Characters()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest(new string('A', 257)));
@@ -47,7 +58,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_RejectsWhitespaceOnlyName()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("   "));
@@ -60,7 +71,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_AcceptsUnicodeAlbanianCharacters()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Shoqëria Çelniku Sh.p.k."));
@@ -76,7 +87,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_WithNoProfiles_SeedsExactlyCoreAccountsAndCoreOnlyDefaults()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Core Only Co"));
@@ -102,7 +113,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_WithImportAndPayrollProfiles_SeedsCoreImportPayrollAccountsAndFullDefaults()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest(
@@ -124,7 +135,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_SeedsExactlyFourControlAccounts()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Control Co"));
@@ -143,7 +154,7 @@ public class CompaniesControllerTests
     [Fact]
     public async Task Create_SeedsOneCashAndOneBankPaymentMethod()
     {
-        var db = NewContext();
+        var db = await NewContextAsync();
         var controller = NewController(db, Guid.NewGuid());
 
         var result = await controller.Create(new CreateCompanyRequest("Payment Co"));
