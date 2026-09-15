@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
+import { NumberingSettings } from "@/pages/settings/NumberingSettings";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
 
 export function Settings() {
@@ -45,6 +46,8 @@ export function Settings() {
           )}
         </CardContent>
       </Card>
+
+      {activeCompany && <NumberingSettings companyId={activeCompany.id} />}
 
       {activeCompany && <LockDatesSettings companyId={activeCompany.id} />}
     </div>

@@ -56,3 +56,40 @@ export const BILL_DOCUMENT_TYPE_OPTION_KEYS = [
   { value: BillDocumentType.Bill, labelKey: "enum.billDocumentType.bill" },
   { value: BillDocumentType.CreditNote, labelKey: "enum.billDocumentType.creditNote" },
 ];
+
+// F7: NumberSeriesService.DocumentTypeKey(dt) => dt.ToString() — the backend's number-series
+// preview/list endpoints key document types by the raw C# enum member name, not the numeric
+// value. Same order as InvoiceDocumentType above; Bill has no entry here because Bill is never
+// numbered by PAKO (VendorReference is vendor-supplied free text, not a PAKO-minted number — see
+// BillsController.Post's own comment), so no preview is ever requested for it.
+export const INVOICE_DOCUMENT_TYPE_NAMES = [
+  "Invoice",
+  "CreditNote",
+  "DebitNote",
+  "DownPayment",
+  "SalesReturn",
+  "Proforma",
+] as const;
+
+export function invoiceDocumentTypeName(documentType: number): string | undefined {
+  return INVOICE_DOCUMENT_TYPE_NAMES[documentType];
+}
+
+const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
+  Invoice: "enum.invoiceDocumentType.invoice",
+  CreditNote: "enum.invoiceDocumentType.creditNote",
+  DebitNote: "enum.invoiceDocumentType.debitNote",
+  DownPayment: "enum.invoiceDocumentType.downPayment",
+  SalesReturn: "enum.invoiceDocumentType.salesReturn",
+  Proforma: "enum.invoiceDocumentType.proforma",
+};
+
+// Numbering settings lists series by their raw string DocumentType key (NumberSeries.DocumentType
+// is a plain string, not tied to either C# DocumentType enum — see its own doc comment). Falls
+// back to the raw key itself for anything not in the map above, rather than hiding it — an
+// unrecognized series (e.g. a future "Item" numbering series) should still be visible and
+// editable, just without a translated label.
+export function numberSeriesDocumentTypeLabel(documentType: string, intl: IntlShape): string {
+  const key = NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS[documentType];
+  return key ? intl.formatMessage({ id: key }) : documentType;
+}

@@ -2234,3 +2234,56 @@ reconciliation whenever they land, not something resolved here. Covers all 7 mee
   payment-method management UI beyond the two seeded defaults + `POST` endpoint, and merging this
   branch with Track A's (both touch `InvoicesController.cs`/`BillsController.cs` — expect a real
   conflict to resolve by hand when both land, per the split doc's own working agreements).
+
+## F7 — numbering settings and preview (`apps/web`, `feat/fe-mvp`, 2026-09-15)
+
+Frontend-only pass wiring the already-shipped `NumberSeriesController` (list/edit-pattern/preview/
+override-number/gaps) into `apps/web` — no mocking needed, the backend was real going in. Found
+and reproduced two real backend facts worth knowing before touching this area again:
+
+- **`POST .../invoices/{id}/override-number` currently 500s on every Posted invoice, always** —
+  reproduced live, not inferred. `NumberSeriesController.OverrideInvoiceNumber` sets
+  `invoice.InvoiceNumber = newNumber` then calls `SaveChangesAsync()` directly, with no try/catch.
+  `PakoDbContext.ValidateImmutability`'s `Invoice` loop only carves out
+  `OnlyDueDateOrInternalNotesChanged` (used by the `EditPostedFieldsForm`/`PATCH` path) — an
+  `InvoiceNumber` change on a Posted invoice doesn't match that carve-out, so it throws
+  `PostedInvoiceImmutableException`, which nothing catches in this controller action, so it
+  surfaces as a raw 500 ProblemDetails ("...is Posted and cannot be modified or deleted; create a
+  credit note instead.") instead of the feature actually working. The frontend override control
+  (`apps/web/src/pages/shared/OverrideNumberForm.tsx`, wired into `InvoiceDetail.tsx`) is built
+  correctly per spec and will work the moment this is fixed — likely fix is extending the
+  immutability carve-out to also allow an `InvoiceNumber`-only change, mirroring how
+  `OnlyReconciliationFieldsChanged`/`OnlyStateChangedToCancelled` already carve out their own
+  narrow exceptions elsewhere in the same file. Flagged to Erion, not fixed here (backend is out
+  of scope for this pass).
+- **`Company.AllowNumberOverride` has no way to be set through any existing UI or API** —
+  confirmed by reading `CompaniesController.cs`: it only has `[HttpPost]` (create); there is no
+  `PUT`/`PATCH` on `Company` at all, and `CreateCompanyRequest` doesn't accept the flag. Verified
+  live for this pass by setting it directly via `psql` (`UPDATE companies SET
+  "AllowNumberOverride" = true WHERE "Id" = ...`) against the dev container on port 5433 — that is
+  currently the only way to turn this on anywhere. A real gap for a future backend+frontend pass
+  (a settings toggle, admin-gated) if this feature is meant to be reachable by an actual user.
+- **`Bill` is never numbered by PAKO, under any `Bills.DocumentType` including `CreditNote`** —
+  confirmed by reading `BillsController.Post`'s own comment ("Bill never had a numbering counter
+  to protect (VendorReference is free text)") and by grepping the file for any
+  `NumberSeriesService`/`_numberSeries` call — there is none. So the numbering settings list never
+  shows a "Bill" row and never will under the current design; `document-types.ts`'s new
+  `numberSeriesDocumentTypeLabel` helper handles this gracefully (falls back to the raw string
+  key for anything unrecognized) rather than assuming a fixed 7-type list.
+- Preview (`GET .../number-series/preview`) works correctly even before a series row exists for
+  that document type/year (it falls back to `NumberSeriesService.DefaultPattern`) — a fresh
+  company's numbering settings page legitimately shows an empty list until the first document of
+  each type is actually posted, since `NumberSeries` rows are created lazily on first
+  `ReserveNextAsync`, not seeded at company creation. `NumberingSettings.tsx` shows an explicit
+  empty-state message for this rather than fabricating placeholder rows.
+- Verified end-to-end against the real API + Postgres container (not mocked): registered a user,
+  created a company, confirmed an empty `GET .../number-series` list and a working
+  `.../preview?documentType=Invoice` before any invoice existed, created+posted a real S18 invoice
+  (`VAT code S18 requires a counterparty with a NUI / Fiscal Number / Personal Number` —
+  `PostingRuleValidator.ValidateVatCounterpartyTaxNumber` (R07) checks `Partner.TaxNumber`, not
+  `Partner.FiscalNumber` — the two are separate fields, don't conflate them when seeding a test
+  partner for a taxed document), confirmed the invoice posted as `01/2026` matching the earlier
+  preview, confirmed `PUT .../number-series/{id}` rejects a pattern without `{seq}`/`{seq:Dn}` and
+  accepts a valid one, and confirmed the new pattern immediately changes the next preview.
+  `pnpm --filter web {typecheck,lint,test,build}` and `pnpm --filter @pako/shared typecheck` all
+  pass; `lint`'s one pre-existing `IntlProviderWrapper.tsx` failure is unrelated and unchanged.

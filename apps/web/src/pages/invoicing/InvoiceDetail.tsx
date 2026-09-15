@@ -6,6 +6,7 @@ import type {
   ApplyDownPaymentResponse,
   DocumentBalanceResponse,
   InvoiceResponse,
+  MemberResponse,
   PartnerResponse,
   PaymentMethodResponse,
   TaxDefinitionResponse,
@@ -17,13 +18,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
+import { isCompanyAdminRole } from "@/lib/membership-enums";
 import { computeLine } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
+import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 
 export function InvoiceDetail() {
@@ -31,6 +35,7 @@ export function InvoiceDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
+  const { auth } = useAuth();
   const companyId = activeCompany?.id ?? null;
 
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
@@ -38,6 +43,7 @@ export function InvoiceDetail() {
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
+  const [members, setMembers] = useState<MemberResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
   const [downPaymentOptions, setDownPaymentOptions] = useState<DownPaymentOption[]>([]);
@@ -53,18 +59,20 @@ export function InvoiceDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult] = await Promise.all([
+      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult] = await Promise.all([
         apiClient.invoicesGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.invoicesAll(companyId),
         apiClient.paymentMethodsAll(companyId),
+        apiClient.membersAll(companyId),
       ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAllInvoices(allInvoicesResult);
       setPaymentMethods(paymentMethodsResult);
+      setMembers(membersResult);
 
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
@@ -168,6 +176,8 @@ export function InvoiceDetail() {
   }
 
   const partner = partners.find((p) => p.id === invoice.partnerId);
+  const currentMembership = members.find((m) => m.userId === auth?.userId);
+  const isAdmin = currentMembership ? isCompanyAdminRole(currentMembership.role) : false;
 
   let total = 0;
   let estimatedNet = 0;
@@ -388,6 +398,26 @@ export function InvoiceDetail() {
               outstanding={balance.outstanding}
               options={downPaymentOptions}
               onApplied={handleAppliedDownPayment}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      {invoice.state === "Posted" && activeCompany.allowNumberOverride && isAdmin && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "overrideNumber.title" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "overrideNumber.description" })}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <OverrideNumberForm
+              companyId={activeCompany.id}
+              invoiceId={invoice.id}
+              currentNumber={invoice.invoiceNumber}
+              onOverridden={(newNumber) => {
+                setApplyMessage(intl.formatMessage({ id: "overrideNumber.success" }, { number: newNumber }));
+                void refresh();
+              }}
             />
           </CardContent>
         </Card>

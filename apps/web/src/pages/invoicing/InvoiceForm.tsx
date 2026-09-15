@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType } from "@/lib/document-types";
+import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType, invoiceDocumentTypeName } from "@/lib/document-types";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
@@ -102,6 +102,33 @@ export function InvoiceForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // F7: preview only, never trusted as the real number — reserved only on post. Not fetched while
+  // editing an existing Draft, since editing never consumes/changes numbering.
+  const [previewNumber, setPreviewNumber] = useState<string | null>(null);
+  useEffect(() => {
+    if (editingInvoice) {
+      setPreviewNumber(null);
+      return;
+    }
+    const documentTypeName = invoiceDocumentTypeName(documentType);
+    if (!documentTypeName) {
+      setPreviewNumber(null);
+      return;
+    }
+    let cancelled = false;
+    apiClient
+      .preview(companyId, documentTypeName)
+      .then((result) => {
+        if (!cancelled) setPreviewNumber(result.number);
+      })
+      .catch(() => {
+        if (!cancelled) setPreviewNumber(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, documentType, editingInvoice]);
 
   // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
   // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
@@ -286,6 +313,12 @@ export function InvoiceForm({
           />
         </div>
       </div>
+
+      {!editingInvoice && previewNumber && (
+        <p className="text-xs text-muted-foreground">
+          {intl.formatMessage({ id: "invoiceForm.nextNumberPreview" }, { number: previewNumber })}
+        </p>
+      )}
 
       {editingInvoice && (
         <div className="flex flex-col gap-2 sm:w-1/2">
