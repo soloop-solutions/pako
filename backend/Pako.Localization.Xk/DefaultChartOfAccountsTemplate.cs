@@ -17,20 +17,20 @@ public static class DefaultChartOfAccountsTemplate
     // of accounts. This numbering is a design choice for a starting seed, not a legal requirement.
     public static readonly IReadOnlyList<ChartOfAccountsTemplateEntry> Entries = new List<ChartOfAccountsTemplateEntry>
     {
-        new("1000", "Cash", AccountType.Asset, AccountSubType.Cash),
-        new("1010", "Bank", AccountType.Asset, AccountSubType.Bank),
-        new("1200", "Accounts Receivable", AccountType.Asset, AccountSubType.Receivable),
-        new("1300", "VAT Receivable", AccountType.Asset, AccountSubType.None),
-        new("2000", "Accounts Payable", AccountType.Liability, AccountSubType.Payable),
-        new("2100", "VAT Payable", AccountType.Liability, AccountSubType.None),
-        new("2200", "PIT Payable", AccountType.Liability, AccountSubType.None),
-        new("2300", "Pension Payable", AccountType.Liability, AccountSubType.None),
-        new("2400", "Net Pay Payable", AccountType.Liability, AccountSubType.None),
-        new("2500", "Customer Deposits", AccountType.Liability, AccountSubType.None),
+        new("1000", "Cash", AccountType.Cash, AccountSubType.Cash),
+        new("1010", "Bank", AccountType.Cash, AccountSubType.Bank),
+        new("1200", "Accounts Receivable", AccountType.Receivable, AccountSubType.Receivable),
+        new("1300", "VAT Receivable", AccountType.CurrentAsset, AccountSubType.None),
+        new("2000", "Accounts Payable", AccountType.Payable, AccountSubType.Payable),
+        new("2100", "VAT Payable", AccountType.CurrentLiability, AccountSubType.None),
+        new("2200", "PIT Payable", AccountType.CurrentLiability, AccountSubType.None),
+        new("2300", "Pension Payable", AccountType.CurrentLiability, AccountSubType.None),
+        new("2400", "Net Pay Payable", AccountType.CurrentLiability, AccountSubType.None),
+        new("2500", "Customer Deposits", AccountType.CurrentLiability, AccountSubType.None),
         new("3000", "Share Capital", AccountType.Equity, AccountSubType.None),
         new("3900", "Retained Earnings", AccountType.Equity, AccountSubType.None),
         new("4000", "Sales Revenue", AccountType.Income, AccountSubType.None),
-        new("5000", "Cost of Goods Sold", AccountType.Expense, AccountSubType.None),
+        new("5000", "Cost of Goods Sold", AccountType.CostOfRevenue, AccountSubType.None),
         new("6000", "Operating Expenses", AccountType.Expense, AccountSubType.None),
         new("6100", "Salary Expense", AccountType.Expense, AccountSubType.None)
     };

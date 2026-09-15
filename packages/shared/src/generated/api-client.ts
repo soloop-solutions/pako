@@ -3207,6 +3207,7 @@ export interface AccountResponse {
     validTo: string | undefined;
     groupId: string | undefined;
     cashFlowCategory: number;
+    includeInitialBalance: boolean;
 
     [key: string]: any;
 }

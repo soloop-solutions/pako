@@ -46,8 +46,8 @@ public class PaymentMethodsControllerTests : IAsyncLifetime
         var revenueAccountId = Guid.NewGuid();
 
         db.Companies.Add(company);
-        db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "100100", Name = "Cash", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Cash });
-        db.Accounts.Add(new Account { Id = bankAccountId, CompanyId = company.Id, Code = "101001", Name = "Bank", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Bank });
+        db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "100100", Name = "Cash", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Cash });
+        db.Accounts.Add(new Account { Id = bankAccountId, CompanyId = company.Id, Code = "101001", Name = "Bank", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Bank });
         db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "400100", Name = "Revenue", AccountType = AccountType.Income });
         await db.SaveChangesAsync();
 
@@ -81,7 +81,7 @@ public class PaymentMethodsControllerTests : IAsyncLifetime
     {
         var (db, companyId, _, _, _) = await SeedAsync();
         var otherCompanyAccountId = Guid.NewGuid();
-        db.Accounts.Add(new Account { Id = otherCompanyAccountId, CompanyId = Guid.NewGuid(), Code = "100100", Name = "Other Cash", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Cash });
+        db.Accounts.Add(new Account { Id = otherCompanyAccountId, CompanyId = Guid.NewGuid(), Code = "100100", Name = "Other Cash", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Cash });
         await db.SaveChangesAsync();
         var controller = NewController(db);
 

@@ -104,20 +104,29 @@ public class ChartOfAccountsV2TemplateTests
         Assert.Equal(233, ChartOfAccountsV2Template.ForProfiles(all).Count());
     }
 
+    // B13: one AccountType per (Class, Group) — see AccountTypeDerivation.DeriveAccountType's own
+    // doc comment for the full mapping this exercises one branch of at a time.
     [Theory]
-    [InlineData(1, NormalBalance.Debit, AccountType.Asset)]
-    [InlineData(1, NormalBalance.Credit, AccountType.Asset)]
-    [InlineData(2, NormalBalance.Credit, AccountType.Liability)]
-    [InlineData(3, NormalBalance.Debit, AccountType.Equity)]
-    [InlineData(4, NormalBalance.Debit, AccountType.Income)]
-    [InlineData(4, NormalBalance.Credit, AccountType.Income)]
-    [InlineData(5, NormalBalance.Debit, AccountType.Expense)]
-    [InlineData(6, NormalBalance.Debit, AccountType.Expense)]
-    [InlineData(7, NormalBalance.Credit, AccountType.Income)]
-    [InlineData(7, NormalBalance.Debit, AccountType.Expense)]
-    public void AccountTypeDerivation_MatchesExpected(int accountClass, NormalBalance normalBalance, AccountType expected)
+    [InlineData("100100", 1, 10, NormalBalance.Debit, AccountType.Cash)]
+    [InlineData("110100", 1, 11, NormalBalance.Debit, AccountType.Receivable)]
+    [InlineData("120100", 1, 12, NormalBalance.Debit, AccountType.CurrentAsset)]
+    [InlineData("130100", 1, 13, NormalBalance.Debit, AccountType.Prepayment)]
+    [InlineData("140100", 1, 14, NormalBalance.Debit, AccountType.NonCurrentAsset)]
+    [InlineData("150100", 1, 15, NormalBalance.Debit, AccountType.FixedAsset)]
+    [InlineData("200100", 2, 20, NormalBalance.Credit, AccountType.Payable)]
+    [InlineData("210100", 2, 21, NormalBalance.Credit, AccountType.CurrentLiability)]
+    [InlineData("300100", 3, 30, NormalBalance.Credit, AccountType.Equity)]
+    [InlineData("304100", 3, 30, NormalBalance.Credit, AccountType.CurrentYearEarnings)]
+    [InlineData("400100", 4, 40, NormalBalance.Credit, AccountType.Income)]
+    [InlineData("420100", 4, 42, NormalBalance.Credit, AccountType.OtherIncome)]
+    [InlineData("500100", 5, 50, NormalBalance.Debit, AccountType.CostOfRevenue)]
+    [InlineData("600100", 6, 60, NormalBalance.Debit, AccountType.Expense)]
+    [InlineData("650100", 6, 65, NormalBalance.Debit, AccountType.Depreciation)]
+    [InlineData("700100", 7, 70, NormalBalance.Credit, AccountType.OtherIncome)]
+    [InlineData("710100", 7, 71, NormalBalance.Debit, AccountType.OtherExpense)]
+    public void AccountTypeDerivation_MatchesExpected(string code, int accountClass, int group, NormalBalance normalBalance, AccountType expected)
     {
-        Assert.Equal(expected, AccountTypeDerivation.DeriveAccountType(accountClass, normalBalance));
+        Assert.Equal(expected, AccountTypeDerivation.DeriveAccountType(code, accountClass, group, normalBalance));
     }
 
     [Fact]
@@ -125,9 +134,19 @@ public class ChartOfAccountsV2TemplateTests
     {
         foreach (var entry in ChartOfAccountsV2Template.Entries.Where(e => e.Class == 7))
         {
-            var derived = AccountTypeDerivation.DeriveAccountType(entry.Class, entry.NormalBalance);
-            var expected = entry.NormalBalance == NormalBalance.Credit ? AccountType.Income : AccountType.Expense;
+            var derived = AccountTypeDerivation.DeriveAccountType(entry.Code, entry.Class, entry.Group, entry.NormalBalance);
+            var expected = entry.NormalBalance == NormalBalance.Credit ? AccountType.OtherIncome : AccountType.OtherExpense;
             Assert.Equal(expected, derived);
         }
+    }
+
+    // B13: 304100 is the one hardcoded exception in DeriveAccountType — every company's real,
+    // single CurrentYearEarnings account.
+    [Fact]
+    public void AccountTypeDerivation_304100IsAlwaysCurrentYearEarnings()
+    {
+        var entry = ChartOfAccountsV2Template.Entries.Single(e => e.Code == "304100");
+        Assert.Equal(AccountType.CurrentYearEarnings,
+            AccountTypeDerivation.DeriveAccountType(entry.Code, entry.Class, entry.Group, entry.NormalBalance));
     }
 }

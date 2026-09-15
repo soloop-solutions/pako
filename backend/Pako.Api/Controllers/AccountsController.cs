@@ -177,5 +177,6 @@ public class AccountsController : ControllerBase
         a.Id, a.Code, a.Name, a.AccountType, a.AccountSubType, a.ParentAccountId, a.IsReconcilable,
         a.CreatedAt, a.NameSq, a.Class, a.Group, a.Statement, a.NormalBalance, a.Subledger,
         a.IsControl, a.IsPostable, a.DefaultVatCode, a.CitDeductibility, a.CitLimitRule, a.Profiles,
-        a.IsActive, a.ValidFrom, a.ValidTo, AccountGroupResolver.Resolve(a.Code, groups)?.Id, a.CashFlowCategory);
+        a.IsActive, a.ValidFrom, a.ValidTo, AccountGroupResolver.Resolve(a.Code, groups)?.Id, a.CashFlowCategory,
+        AccountTypeDerivation.IncludesInitialBalance(a.AccountType));
 }

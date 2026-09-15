@@ -81,7 +81,7 @@ public class CompaniesController : ControllerBase
                 CompanyId = company.Id,
                 Code = entry.Code,
                 Name = entry.NameEn,
-                AccountType = AccountTypeDerivation.DeriveAccountType(entry.Class, entry.NormalBalance),
+                AccountType = AccountTypeDerivation.DeriveAccountType(entry.Code, entry.Class, entry.Group, entry.NormalBalance),
                 AccountSubType = AccountTypeDerivation.DeriveAccountSubType(entry.Subledger),
                 NameSq = entry.NameSq,
                 Class = entry.Class,

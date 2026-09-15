@@ -61,9 +61,9 @@ public class ReportsControllerTests : IAsyncLifetime
         // in the old 16-account DefaultChartOfAccountsTemplate this test otherwise seeds from,
         // so they're added directly.
         accountIdsByCode["210100"] = Guid.NewGuid();
-        db.Accounts.Add(new Account { Id = accountIdsByCode["210100"], CompanyId = company.Id, Code = "210100", Name = "Output VAT - Control", AccountType = AccountType.Liability });
+        db.Accounts.Add(new Account { Id = accountIdsByCode["210100"], CompanyId = company.Id, Code = "210100", Name = "Output VAT - Control", AccountType = AccountType.CurrentLiability });
         accountIdsByCode["113100"] = Guid.NewGuid();
-        db.Accounts.Add(new Account { Id = accountIdsByCode["113100"], CompanyId = company.Id, Code = "113100", Name = "Input VAT - Control", AccountType = AccountType.Asset });
+        db.Accounts.Add(new Account { Id = accountIdsByCode["113100"], CompanyId = company.Id, Code = "113100", Name = "Input VAT - Control", AccountType = AccountType.CurrentAsset });
 
         var taxDefinitions = DefaultTaxDefinitionsTemplate.CreateDefaultTaxDefinitions(company.Id, accountIdsByCode);
         db.TaxDefinitions.AddRange(taxDefinitions);
@@ -238,7 +238,7 @@ public class ReportsControllerTests : IAsyncLifetime
         db.Companies.Add(company);
         db.Partners.Add(customer);
         db.Journals.Add(journal);
-        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Asset, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
         db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
         db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
         {
