@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType, invoiceDocumentTypeName } from "@/lib/document-types";
 import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 import { AccountType } from "@/lib/ledger-enums";
+import { partnerOptionLabel } from "@/lib/partners";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
@@ -132,6 +133,18 @@ export function InvoiceForm({
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "SEX")?.id ?? "") : "";
 
   const [partnerId, setPartnerId] = useState(editingInvoice?.partnerId ?? "");
+  // F6 — a partner's own VAT-registered status decides the default tax on a NEW line: a
+  // VAT-registered customer defaults to the standard domestic rate (S18), not the exempt
+  // baseline — code review caught that the earlier version of this override always collapsed
+  // back to the same exempt `defaultTaxId` no matter the branch (defaultTaxId is already SEX for
+  // any VAT-registered company), so it never actually changed anything. A non-VAT-registered
+  // customer, or no customer selected yet, keeps the exempt baseline. Only new lines pick this up
+  // (addLine/selectLineItem below); it never rewrites a line the accountant already set explicitly.
+  const selectedCustomer = customers.find((c) => c.id === partnerId);
+  const partnerDrivenTaxId =
+    isVatRegistered && selectedCustomer?.isVatRegistered
+      ? (findTaxByCode(taxes, "S18")?.id ?? defaultTaxId)
+      : defaultTaxId;
   const [documentType, setDocumentType] = useState<number>(editingInvoice?.documentType ?? fixedDocumentType ?? InvoiceDocumentType.Invoice);
   const [originalInvoiceId, setOriginalInvoiceId] = useState(editingInvoice?.originalInvoiceId ?? "");
   const [issueDate, setIssueDate] = useState(editingInvoice?.issueDate ?? today);
@@ -206,11 +219,11 @@ export function InvoiceForm({
 
   function selectLineItem(index: number, itemId: string) {
     const item = items.find((i) => i.id === itemId);
-    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, defaultTaxId) : line)));
+    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, partnerDrivenTaxId) : line)));
   }
 
   function addLine() {
-    setLines((prev) => [...prev, emptyLine(defaultTaxId)]);
+    setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId)]);
   }
 
   function removeLine(index: number) {
@@ -327,7 +340,7 @@ export function InvoiceForm({
             <option value="">{intl.formatMessage({ id: "invoiceForm.selectCustomer" })}</option>
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
-                {customer.name}
+                {partnerOptionLabel(customer, intl)}
               </option>
             ))}
           </Select>

@@ -15,6 +15,7 @@ import {
   Users,
   Package,
   ListTree,
+  BookUser,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -26,6 +27,7 @@ import { Invoicing } from "@/pages/invoicing/Invoicing";
 import { Proforma } from "@/pages/invoicing/Proforma";
 import { SalesReturns } from "@/pages/invoicing/SalesReturns";
 import { Ledger } from "@/pages/ledger/Ledger";
+import { Partners } from "@/pages/partners/Partners";
 import { Payroll } from "@/pages/payroll/Payroll";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
@@ -108,6 +110,13 @@ export const navItems: NavItem[] = [
     icon: Package,
     descriptionKey: "nav.items.description",
     Element: Items,
+  },
+  {
+    titleKey: "nav.partners",
+    path: "/partners",
+    icon: BookUser,
+    descriptionKey: "nav.partners.description",
+    Element: Partners,
   },
   {
     titleKey: "nav.reconciliation",

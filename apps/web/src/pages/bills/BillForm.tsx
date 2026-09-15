@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
 import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 import { AccountType } from "@/lib/ledger-enums";
+import { partnerOptionLabel } from "@/lib/partners";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
@@ -124,6 +125,16 @@ export function BillForm({
   const cashPaymentMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Cash);
 
   const [partnerId, setPartnerId] = useState(editingBill?.partnerId ?? "");
+  // F6 — same fix as InvoiceForm (see its comment): a VAT-registered vendor defaults new lines
+  // to the standard domestic purchase rate (B18), not the exempt baseline — the earlier version
+  // always collapsed back to the same exempt `defaultTaxId` regardless of branch and never
+  // actually changed anything. A non-VAT-registered vendor, or none selected yet, keeps the
+  // exempt baseline.
+  const selectedVendor = vendors.find((v) => v.id === partnerId);
+  const partnerDrivenTaxId =
+    isVatRegistered && selectedVendor?.isVatRegistered
+      ? (findTaxByCode(taxes, "B18")?.id ?? defaultTaxId)
+      : defaultTaxId;
   const [documentType, setDocumentType] = useState<number>(editingBill?.documentType ?? fixedDocumentType ?? BillDocumentType.Bill);
   const [originalBillId, setOriginalBillId] = useState(editingBill?.originalBillId ?? "");
   const [vendorReference, setVendorReference] = useState(editingBill?.vendorReference ?? "");
@@ -165,11 +176,11 @@ export function BillForm({
 
   function selectLineItem(index: number, itemId: string) {
     const item = items.find((i) => i.id === itemId);
-    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, defaultTaxId) : line)));
+    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, partnerDrivenTaxId) : line)));
   }
 
   function addLine() {
-    setLines((prev) => [...prev, emptyLine(defaultTaxId)]);
+    setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId)]);
   }
 
   function removeLine(index: number) {
@@ -277,7 +288,7 @@ export function BillForm({
             <option value="">{intl.formatMessage({ id: "billForm.selectVendor" })}</option>
             {vendors.map((vendor) => (
               <option key={vendor.id} value={vendor.id}>
-                {vendor.name}
+                {partnerOptionLabel(vendor, intl)}
               </option>
             ))}
           </Select>
