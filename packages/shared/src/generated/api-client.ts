@@ -5104,6 +5104,11 @@ export interface VatReturnResponse {
     [key: string]: any;
 }
 
+export interface FileParameter {
+    data: any;
+    fileName: string;
+}
+
 export interface FileResponse {
     data: Blob;
     status: number;
