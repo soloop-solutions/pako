@@ -3346,6 +3346,104 @@ export class PakoApiClient {
      * @param to (optional) 
      * @return OK
      */
+    salesBook(companyId: string, from: string | undefined, to: string | undefined): Promise<SalesBookResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/sales-book?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSalesBook(_response);
+        });
+    }
+
+    protected processSalesBook(response: Response): Promise<SalesBookResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as SalesBookResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<SalesBookResponse>(null as any);
+    }
+
+    /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @return OK
+     */
+    purchaseBook(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseBookResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchase-book?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPurchaseBook(_response);
+        });
+    }
+
+    protected processPurchaseBook(response: Response): Promise<PurchaseBookResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseBookResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PurchaseBookResponse>(null as any);
+    }
+
+    /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @return OK
+     */
     citAddback(companyId: string, from: string | undefined, to: string | undefined): Promise<CitAddBackResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/cit-addback?";
         if (companyId === undefined || companyId === null)
@@ -4142,6 +4240,35 @@ export interface ProfitAndLossResponse {
     [key: string]: any;
 }
 
+export interface PurchaseBookLine {
+    billId: string;
+    vendorReference: string | undefined;
+    issueDate: string;
+    documentType: string;
+    partnerId: string;
+    partnerName: string;
+    partnerTaxNumber: string | undefined;
+    partnerFiscalNumber: string | undefined;
+    vatCode: string;
+    rate: number;
+    netAmount: number;
+    vatAmount: number;
+    grossAmount: number;
+
+    [key: string]: any;
+}
+
+export interface PurchaseBookResponse {
+    from: string;
+    to: string;
+    lines: PurchaseBookLine[];
+    totalNet: number;
+    totalVat: number;
+    totalGross: number;
+
+    [key: string]: any;
+}
+
 export interface ReconciliationResponse {
     id: string;
     invoiceId: string | undefined;
@@ -4187,6 +4314,35 @@ export interface ReportLine {
 export interface ReverseJournalEntryRequest {
     date: string;
     reference?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SalesBookLine {
+    invoiceId: string;
+    invoiceNumber: string | undefined;
+    issueDate: string;
+    documentType: string;
+    partnerId: string;
+    partnerName: string;
+    partnerTaxNumber: string | undefined;
+    partnerFiscalNumber: string | undefined;
+    vatCode: string;
+    rate: number;
+    netAmount: number;
+    vatAmount: number;
+    grossAmount: number;
+
+    [key: string]: any;
+}
+
+export interface SalesBookResponse {
+    from: string;
+    to: string;
+    lines: SalesBookLine[];
+    totalNet: number;
+    totalVat: number;
+    totalGross: number;
 
     [key: string]: any;
 }

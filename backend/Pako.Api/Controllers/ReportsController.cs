@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
@@ -142,6 +143,175 @@ public class ReportsController : ControllerBase
         var totalInput = input.Sum(l => l.Amount);
 
         return Ok(new VatReturnResponse(from, to, output, input, totalOutput, totalInput, totalOutput - totalInput));
+    }
+
+    // B10: one row per (posted document, VAT code) — see SalesBookLine's own comment for why
+    // DocumentType is carried through rather than filtered on, and why that sidesteps the
+    // still-open "sales return as nota kreditore" question rather than deciding it here.
+    [HttpGet("sales-book")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<SalesBookResponse>> SalesBook(
+        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true);
+        var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
+
+        var lines = rows
+            .OrderBy(r => r.IssueDate).ThenBy(r => r.DocumentNumber)
+            .Select(r =>
+            {
+                var partner = partnersById.GetValueOrDefault(r.PartnerId);
+                return new SalesBookLine(
+                    r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
+                    partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+            })
+            .ToList();
+
+        return Ok(new SalesBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
+    }
+
+    [HttpGet("purchase-book")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<PurchaseBookResponse>> PurchaseBook(
+        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false);
+        var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
+
+        var lines = rows
+            .OrderBy(r => r.IssueDate).ThenBy(r => r.DocumentNumber)
+            .Select(r =>
+            {
+                var partner = partnersById.GetValueOrDefault(r.PartnerId);
+                return new PurchaseBookLine(
+                    r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
+                    partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+            })
+            .ToList();
+
+        return Ok(new PurchaseBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
+    }
+
+    private Task<Dictionary<Guid, Partner>> PartnersByIdAsync(IEnumerable<Guid> partnerIds) =>
+        _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+
+    private record TaxBookRow(
+        Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType,
+        Guid PartnerId, string VatCode, decimal Rate, decimal NetAmount, decimal VatAmount);
+
+    // Shared by SalesBook (Invoice-sourced, AtkBook.Shitje, Credit-normal per
+    // DocumentLineCalculator's creditsOnNormalSide=true for invoices) and PurchaseBook
+    // (Bill-sourced, AtkBook.Blerje/BlerjeImport/BlerjeInvestime, Debit-normal for bills) —
+    // same shape, opposite sign convention, exactly mirroring DocumentLineCalculator's own
+    // Invoice-vs-Bill split rather than VatReturn's TaxDefinition.Scope (Scope collapses every
+    // reverse-charge code to TaxScope.Both, which VatReturn's Sale/Purchase branches silently
+    // drop — this method sources the sign from which document type owns the entry instead, so it
+    // doesn't inherit that gap).
+    private async Task<List<TaxBookRow>> BuildTaxBookRowsAsync(Guid companyId, DateOnly from, DateOnly to, bool isSalesBook)
+    {
+        var atkBooks = isSalesBook
+            ? new[] { TaxAtkBook.Shitje }
+            : new[] { TaxAtkBook.Blerje, TaxAtkBook.BlerjeImport, TaxAtkBook.BlerjeInvestime };
+
+        var taxDefinitions = await _db.TaxDefinitions.AsNoTracking()
+            .Where(t => t.CompanyId == companyId && t.AtkBook != null && atkBooks.Contains(t.AtkBook!.Value))
+            .Include(t => t.RepartitionLines)
+            .ToListAsync();
+        var taxDefinitionsById = taxDefinitions.ToDictionary(t => t.Id);
+        var taxIds = taxDefinitionsById.Keys.ToHashSet();
+        var repartitionAccountsByTax = taxDefinitions
+            .SelectMany(t => t.RepartitionLines.Select(r => (t.Id, r.AccountId)))
+            .ToHashSet();
+
+        var defaults = await _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
+        var reverseChargeInputAccountId = defaults?.ReverseChargeInputVatAccountId;
+        var reverseChargeOutputAccountId = defaults?.ReverseChargeOutputVatAccountId;
+
+        List<(Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType, Guid PartnerId, Guid? JournalEntryId)> documents;
+        if (isSalesBook)
+        {
+            documents = (await _db.Invoices.AsNoTracking()
+                    .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate >= from && i.IssueDate <= to)
+                    .Select(i => new { i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType, i.PartnerId, i.JournalEntryId })
+                    .ToListAsync())
+                .Select(i => (i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType.ToString(), i.PartnerId, i.JournalEntryId))
+                .ToList();
+        }
+        else
+        {
+            documents = (await _db.Bills.AsNoTracking()
+                    .Where(b => b.CompanyId == companyId && b.State == Pako.Domain.Bills.BillState.Posted && b.IssueDate >= from && b.IssueDate <= to)
+                    .Select(b => new { b.Id, b.VendorReference, b.IssueDate, b.DocumentType, b.PartnerId, b.JournalEntryId })
+                    .ToListAsync())
+                .Select(b => (b.Id, b.VendorReference, b.IssueDate, b.DocumentType.ToString(), b.PartnerId, b.JournalEntryId))
+                .ToList();
+        }
+
+        var journalEntryIds = documents.Where(d => d.JournalEntryId != null).Select(d => d.JournalEntryId!.Value).ToList();
+        var lines = await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.TaxId != null && taxIds.Contains(l.TaxId!.Value))
+            .Select(l => new { l.JournalEntryId, TaxId = l.TaxId!.Value, l.AccountId, l.Debit, l.Credit })
+            .ToListAsync();
+        var linesByJournalEntry = lines.ToLookup(l => l.JournalEntryId);
+
+        var rows = new List<TaxBookRow>();
+        foreach (var doc in documents)
+        {
+            if (doc.JournalEntryId is not { } jeId)
+            {
+                continue;
+            }
+
+            foreach (var taxGroup in linesByJournalEntry[jeId].GroupBy(l => l.TaxId))
+            {
+                var taxDefinition = taxDefinitionsById[taxGroup.Key];
+                var net = 0m;
+                var vat = 0m;
+
+                foreach (var line in taxGroup)
+                {
+                    var signedAmount = isSalesBook ? line.Credit - line.Debit : line.Debit - line.Credit;
+
+                    // Known limitation: RC18/RC00 (reverse charge) post two self-balancing lines —
+                    // debit input VAT, credit output VAT, same amount — so only the input side
+                    // counts toward this book's VAT figure; the output side is excluded from both
+                    // buckets rather than miscounted as a net purchase amount. VatReturn has the
+                    // same reverse-charge gap today (Scope.Both matches neither of its Sale/
+                    // Purchase branches, so these codes are silently absent there entirely) — this
+                    // book is a strict improvement: the document still appears, net amount intact.
+                    if (reverseChargeOutputAccountId is { } outId && line.AccountId == outId)
+                    {
+                        continue;
+                    }
+
+                    if (reverseChargeInputAccountId is { } inId && line.AccountId == inId)
+                    {
+                        vat += signedAmount;
+                    }
+                    else if (repartitionAccountsByTax.Contains((taxGroup.Key, line.AccountId)))
+                    {
+                        vat += signedAmount;
+                    }
+                    else
+                    {
+                        net += signedAmount;
+                    }
+                }
+
+                if (net == 0m && vat == 0m)
+                {
+                    continue;
+                }
+
+                rows.Add(new TaxBookRow(
+                    doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
+                    doc.PartnerId, taxDefinition.Code ?? string.Empty, taxDefinition.Rate, net, vat));
+            }
+        }
+
+        return rows;
     }
 
     [HttpGet("cit-addback")]
