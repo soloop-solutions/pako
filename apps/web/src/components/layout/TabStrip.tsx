@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Plus, X } from "lucide-react";
 import { useIntl } from "react-intl";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { navItems } from "@/config/nav";
 import { useTabs, type ResolvedTab } from "@/context/TabsContext";
@@ -17,6 +17,7 @@ function tabTitle(tab: ResolvedTab, intl: ReturnType<typeof useIntl>): string {
 export function TabStrip() {
   const intl = useIntl();
   const navigate = useNavigate();
+  const location = useLocation();
   const { tabs, activeTabId, closeTab, focusTab } = useTabs();
   // "+" at the end of the strip: SHELL_SPEC §2 doesn't say what it opens. Simplest reasonable
   // behaviour — a quick-open search over every destination — chosen over e.g. a blank new-tab
@@ -33,8 +34,25 @@ export function TabStrip() {
         setQuickOpen(false);
       }
     }
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") setQuickOpen(false);
+    }
+    // Position is captured once from the trigger's bounding rect at open time; close on
+    // scroll/resize rather than tracking it live, same reasoning as the sidebar's customize
+    // panel. `scroll` needs capture: true since it doesn't bubble and the strip itself scrolls.
+    function handleReposition() {
+      setQuickOpen(false);
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeydown);
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeydown);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
   }, [quickOpen]);
 
   const matches = query.trim()
@@ -134,7 +152,7 @@ export function TabStrip() {
                   key={item.path}
                   type="button"
                   onClick={() => {
-                    navigate(item.path);
+                    if (item.path !== location.pathname) navigate(item.path);
                     setQuickOpen(false);
                     setQuickOpenAnchor(null);
                     setQuery("");

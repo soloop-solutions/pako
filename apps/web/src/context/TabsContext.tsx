@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { LucideIcon } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -38,30 +38,36 @@ export function TabsProvider({ children }: { children: ReactNode }) {
 
   const storageKey = auth ? tabsStorageKey(auth.userId, activeCompanyId) : null;
 
-  const [storedTabs, setStoredTabs] = useState<StoredTab[]>([]);
+  // `key` and `tabs` are kept in one state object, set together, so a user/company switch is
+  // atomic. Two separate `useState`s (a key ref plus a tabs array) let the save effect below
+  // observe the *new* key alongside the *previous* owner's tabs for one commit — the load
+  // effect's `setState` hasn't been applied yet when the save effect runs in the same commit —
+  // and that briefly writes the outgoing owner's tabs under the incoming owner's storage key.
+  const [tabsState, setTabsState] = useState<{ key: string | null; tabs: StoredTab[] }>({ key: null, tabs: [] });
   const [titleOverrides, setTitleOverrides] = useState<Record<string, string>>({});
   const [dirtyMap, setDirtyMap] = useState<Record<string, boolean>>({});
-  const loadedKeyRef = useRef<string | null>(null);
 
   // Reload the open-tab list whenever the user or the active company changes — the list is
   // scoped to both, per FRONTEND_START_PROMPT's "localStorage keyed by user + company".
   useEffect(() => {
     if (!storageKey) {
-      setStoredTabs([]);
-      loadedKeyRef.current = null;
+      setTabsState((prev) => (prev.key === null ? prev : { key: null, tabs: [] }));
+      setTitleOverrides({});
+      setDirtyMap({});
       return;
     }
-    if (loadedKeyRef.current === storageKey) return;
-    loadedKeyRef.current = storageKey;
-    setStoredTabs(loadTabs(storageKey));
+    setTabsState((prev) => (prev.key === storageKey ? prev : { key: storageKey, tabs: loadTabs(storageKey) }));
     setTitleOverrides({});
     setDirtyMap({});
   }, [storageKey]);
 
+  // Guarded on `tabsState.key === storageKey` — see the comment above `tabsState`'s declaration.
   useEffect(() => {
-    if (!storageKey) return;
-    saveTabs(storageKey, storedTabs);
-  }, [storageKey, storedTabs]);
+    if (!storageKey || tabsState.key !== storageKey) return;
+    saveTabs(storageKey, tabsState.tabs);
+  }, [storageKey, tabsState]);
+
+  const storedTabs = tabsState.tabs;
 
   const resolution = resolveTab(location.pathname);
 
@@ -69,15 +75,15 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!resolution) return;
     const fullPath = location.pathname + location.search;
-    setStoredTabs((prev) => {
-      const idx = prev.findIndex((t) => t.id === resolution.id);
+    setTabsState((prev) => {
+      const idx = prev.tabs.findIndex((t) => t.id === resolution.id);
       if (idx === -1) {
-        return [...prev, { id: resolution.id, kind: resolution.kind, path: fullPath }];
+        return { ...prev, tabs: [...prev.tabs, { id: resolution.id, kind: resolution.kind, path: fullPath }] };
       }
-      if (prev[idx].path === fullPath) return prev;
-      const next = [...prev];
-      next[idx] = { ...next[idx], path: fullPath };
-      return next;
+      if (prev.tabs[idx].path === fullPath) return prev;
+      const nextTabs = [...prev.tabs];
+      nextTabs[idx] = { ...nextTabs[idx], path: fullPath };
+      return { ...prev, tabs: nextTabs };
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname, location.search]);
@@ -112,15 +118,15 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   // ("You have unsaved changes — close anyway?") before closing a tab whose `dirty` flag is set.
   const closeTab = useCallback(
     (id: string) => {
-      setStoredTabs((prev) => {
-        const idx = prev.findIndex((t) => t.id === id);
+      setTabsState((prev) => {
+        const idx = prev.tabs.findIndex((t) => t.id === id);
         if (idx === -1) return prev;
-        const next = prev.filter((t) => t.id !== id);
+        const nextTabs = prev.tabs.filter((t) => t.id !== id);
         if (id === activeTabId) {
-          const fallback = next[idx - 1] ?? next[idx] ?? null;
+          const fallback = nextTabs[idx - 1] ?? nextTabs[idx] ?? null;
           navigate(fallback ? fallback.path : "/dashboard");
         }
-        return next;
+        return { ...prev, tabs: nextTabs };
       });
       setTitleOverrides((prev) => {
         if (!(id in prev)) return prev;
@@ -141,9 +147,13 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   const focusTab = useCallback(
     (id: string) => {
       const tab = storedTabs.find((t) => t.id === id);
-      if (tab) navigate(tab.path);
+      if (!tab) return;
+      // Skip the navigate if this tab is already where the router is — avoids piling up
+      // redundant back-button stops for a click on the already-active tab.
+      if (tab.path === location.pathname + location.search) return;
+      navigate(tab.path);
     },
-    [storedTabs, navigate],
+    [storedTabs, navigate, location.pathname, location.search],
   );
 
   const cycleTab = useCallback(

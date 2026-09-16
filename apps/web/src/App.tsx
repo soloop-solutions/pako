@@ -1,5 +1,6 @@
+import type { ComponentType } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
@@ -13,6 +14,15 @@ import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
 import { PayrollRunDetail } from "@/pages/payroll/PayrollRunDetail";
 import { Register } from "@/pages/Register";
+
+// react-router reuses the same component instance across `:id` param changes — it does not
+// remount just because the URL param did. That's wrong for an instance-tab route: switching
+// between two already-open document tabs must not leak one record's local state (editing mode,
+// dirty flag, in-flight data) into the other. Keying on `id` forces a remount per record.
+function InstanceRoute({ Component }: { Component: ComponentType }) {
+  const { id } = useParams();
+  return <Component key={id} />;
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,9 +52,9 @@ export function App() {
                       element={Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
                     />
                   ))}
-                  <Route path="/invoicing/:id" element={<InvoiceDetail />} />
-                  <Route path="/bills/:id" element={<BillDetail />} />
-                  <Route path="/payroll/:id" element={<PayrollRunDetail />} />
+                  <Route path="/invoicing/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
+                  <Route path="/bills/:id" element={<InstanceRoute Component={BillDetail} />} />
+                  <Route path="/payroll/:id" element={<InstanceRoute Component={PayrollRunDetail} />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

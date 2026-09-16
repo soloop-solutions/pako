@@ -33,24 +33,31 @@ export function Sidebar() {
   const { auth } = useAuth();
   const userId = auth?.userId ?? null;
 
-  const [prefs, setPrefs] = useState<SidebarPrefs>(() => emptyPrefs());
-  const loadedUserRef = useRef<string | null>(null);
+  // `userId` and `prefs` are kept in one state object, set together, so a user switch is atomic
+  // — see the matching comment in TabsContext.tsx for why a separate ref-tracked "loaded key"
+  // plus a bare prefs state briefly writes the outgoing user's prefs under the incoming user's
+  // storage key during the switch.
+  const [prefsState, setPrefsState] = useState<{ userId: string | null; prefs: SidebarPrefs }>({
+    userId: null,
+    prefs: emptyPrefs(),
+  });
 
   useEffect(() => {
     if (!userId) {
-      setPrefs(emptyPrefs());
-      loadedUserRef.current = null;
+      setPrefsState((prev) => (prev.userId === null ? prev : { userId: null, prefs: emptyPrefs() }));
       return;
     }
-    if (loadedUserRef.current === userId) return;
-    loadedUserRef.current = userId;
-    setPrefs(loadSidebarPrefs(userId));
+    setPrefsState((prev) => (prev.userId === userId ? prev : { userId, prefs: loadSidebarPrefs(userId) }));
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) return;
-    saveSidebarPrefs(userId, prefs);
-  }, [userId, prefs]);
+    if (!userId || prefsState.userId !== userId) return;
+    saveSidebarPrefs(userId, prefsState.prefs);
+  }, [userId, prefsState]);
+
+  const prefs = prefsState.prefs;
+  const setPrefs = (updater: (prev: SidebarPrefs) => SidebarPrefs) =>
+    setPrefsState((prev) => ({ ...prev, prefs: updater(prev.prefs) }));
 
   const [query, setQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -263,6 +270,7 @@ function SidebarLink({
   onToggleSavedViews?: () => void;
 }) {
   const intl = useIntl();
+  const location = useLocation();
   return (
     <div
       className={cn(
@@ -272,7 +280,15 @@ function SidebarLink({
           : "text-foreground hover:bg-accent hover:text-accent-foreground",
       )}
     >
-      <Link to={item.path} className="min-w-0 flex-1 truncate">
+      <Link
+        to={item.path}
+        // Skip the navigation if this destination is already where the router is — a click on
+        // an already-open register shouldn't pile up a redundant back-button stop.
+        onClick={(event) => {
+          if (location.pathname === item.path) event.preventDefault();
+        }}
+        className="min-w-0 flex-1 truncate"
+      >
         {label}
       </Link>
       {hasSavedViews && (
@@ -301,6 +317,7 @@ function FavouritesSection({
   onUnstar: (path: string) => void;
 }) {
   const starredItems = prefs.favourites.map((path) => allItemsByPath.get(path)).filter((i): i is NavItem => !!i);
+  const location = useLocation();
 
   return (
     <div>
@@ -329,7 +346,13 @@ function FavouritesSection({
               : "text-foreground hover:bg-accent hover:text-accent-foreground",
           )}
         >
-          <Link to={item.path} className="min-w-0 flex-1 truncate">
+          <Link
+            to={item.path}
+            onClick={(event) => {
+              if (location.pathname === item.path) event.preventDefault();
+            }}
+            className="min-w-0 flex-1 truncate"
+          >
             {intl.formatMessage({ id: item.titleKey })}
           </Link>
           <button
@@ -374,8 +397,26 @@ function CategoryCustomizePanel({
     function handleClick(event: MouseEvent) {
       if (panelRef.current && !panelRef.current.contains(event.target as Node)) onClose();
     }
+    function handleKeydown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    // The panel's position is captured once from the trigger's bounding rect at open time —
+    // rather than tracking it live on every scroll/resize, close it. Simpler than repositioning
+    // and avoids a stale, visually detached popover. `scroll` needs capture: true because it
+    // doesn't bubble, and the sidebar itself is a scroll container.
+    function handleReposition() {
+      onClose();
+    }
     document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKeydown);
+    window.addEventListener("resize", handleReposition);
+    window.addEventListener("scroll", handleReposition, true);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKeydown);
+      window.removeEventListener("resize", handleReposition);
+      window.removeEventListener("scroll", handleReposition, true);
+    };
   }, [onClose]);
 
   // Fixed (not absolute) so the panel escapes the sidebar's own scroll container — an
