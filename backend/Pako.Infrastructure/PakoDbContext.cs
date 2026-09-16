@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Pako.Domain.Attachments;
 using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
@@ -46,6 +47,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Employee> Employees => Set<Employee>();
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
+    public DbSet<Attachment> Attachments => Set<Attachment>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

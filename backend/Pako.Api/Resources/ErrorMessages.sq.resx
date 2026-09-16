@@ -114,6 +114,12 @@
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Numri fiskal duhet të jetë 64 karaktere ose më pak.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>Llogaria e zgjedhur e kontrollit nuk i përket kësaj kompanie.</value></data>
 
+  <!-- Bashkëngjitjet (B12) -->
+  <data name="AttachmentFileRequired" xml:space="preserve"><value>Kërkohet një skedar.</value></data>
+  <data name="AttachmentEmptyFile" xml:space="preserve"><value>Skedari i ngarkuar është bosh.</value></data>
+  <data name="AttachmentTooLarge" xml:space="preserve"><value>Skedari duhet të jetë 20 MB ose më i vogël.</value></data>
+  <data name="AttachmentOwnerNotFound" xml:space="preserve"><value>Regjistrimi pronar nuk i përket kësaj kompanie.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>

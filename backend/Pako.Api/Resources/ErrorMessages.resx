@@ -114,6 +114,12 @@
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Fiscal number must be 64 characters or fewer.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>The selected control account does not belong to this company.</value></data>
 
+  <!-- Attachments (B12) -->
+  <data name="AttachmentFileRequired" xml:space="preserve"><value>A file is required.</value></data>
+  <data name="AttachmentEmptyFile" xml:space="preserve"><value>The uploaded file is empty.</value></data>
+  <data name="AttachmentTooLarge" xml:space="preserve"><value>File must be 20 MB or smaller.</value></data>
+  <data name="AttachmentOwnerNotFound" xml:space="preserve"><value>The owner record does not belong to this company.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>
