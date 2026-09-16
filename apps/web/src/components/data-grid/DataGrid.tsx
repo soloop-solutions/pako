@@ -27,6 +27,7 @@ import { useColumnVisibility } from "@/components/data-grid/useColumnVisibility"
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 
 const SELECT_COLUMN_ID = "__select";
+const ORDINAL_COLUMN_ID = "__ordinal";
 const ROW_HEIGHT_CLASS = "h-[30px]";
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -118,7 +119,20 @@ export function DataGrid<TData extends object>({
   }, [columnsPanelOpen]);
 
   const finalColumns = useMemo<ColumnDef<TData>[]>(() => {
-    if (!enableRowSelection) return columns;
+    const ordinalColumn: ColumnDef<TData> = {
+      id: ORDINAL_COLUMN_ID,
+      header: "",
+      enableSorting: false,
+      enableColumnFilter: false,
+      enableGrouping: false,
+      enableHiding: false,
+      cell: ({ row }) => (
+        <span className="font-mono text-[10px] text-muted-foreground">
+          {(urlState.page - 1) * urlState.pageSize + row.index + 1}
+        </span>
+      ),
+    };
+    if (!enableRowSelection) return [ordinalColumn, ...columns];
     const selectionColumn: ColumnDef<TData> = {
       id: SELECT_COLUMN_ID,
       enableSorting: false,
@@ -145,8 +159,8 @@ export function DataGrid<TData extends object>({
         />
       ),
     };
-    return [selectionColumn, ...columns];
-  }, [columns, enableRowSelection, intl]);
+    return [ordinalColumn, selectionColumn, ...columns];
+  }, [columns, enableRowSelection, intl, urlState.page, urlState.pageSize]);
 
   const sorting: SortingState = useMemo(
     () => (urlState.sort ? [{ id: urlState.sort.id, desc: urlState.sort.desc }] : []),
@@ -308,7 +322,13 @@ export function DataGrid<TData extends object>({
                   return (
                     <TableHead
                       key={header.id}
-                      className={cn(ROW_HEIGHT_CLASS, "py-1", numeric && "text-right", header.column.id === SELECT_COLUMN_ID && "w-9")}
+                      className={cn(
+                        ROW_HEIGHT_CLASS,
+                        "py-1",
+                        numeric && "text-right",
+                        header.column.id === SELECT_COLUMN_ID && "w-9",
+                        header.column.id === ORDINAL_COLUMN_ID && "w-7",
+                      )}
                     >
                       {header.isPlaceholder ? null : canSort ? (
                         <button
@@ -332,12 +352,12 @@ export function DataGrid<TData extends object>({
               </TableRow>
             ))}
             {anyFilterable && !isLoading && (
-              <TableRow className={cn(ROW_HEIGHT_CLASS, "hover:bg-transparent")}>
+              <TableRow className={cn("h-7", "hover:bg-transparent")}>
                 {table.getFlatHeaders().map((header) => (
-                  <TableHead key={`${header.id}-filter`} className={cn(ROW_HEIGHT_CLASS, "py-1")}>
+                  <TableHead key={`${header.id}-filter`} className="h-7 py-1">
                     {header.column.getCanFilter() ? (
                       <Input
-                        className="h-6 text-xs"
+                        className="h-[18px] rounded-[3px] px-1.5 text-[10.5px] shadow-none"
                         value={urlState.columnFilters[header.column.id] ?? ""}
                         placeholder={intl.formatMessage({ id: "dataGrid.filterPlaceholder" })}
                         onChange={(event) => urlState.setColumnFilter(header.column.id, event.target.value)}
@@ -366,13 +386,19 @@ export function DataGrid<TData extends object>({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row) => (
+              rows.map((row, rowIndex) => (
                 <TableRow
                   key={row.id}
-                  className={cn(ROW_HEIGHT_CLASS, getRowClassName?.(row.original), row.getIsSelected() && "bg-muted")}
+                  className={cn(
+                    ROW_HEIGHT_CLASS,
+                    rowIndex % 2 === 1 && "bg-zebra",
+                    getRowClassName?.(row.original),
+                    row.getIsSelected() && "bg-row-selected shadow-[inset_3px_0_0_var(--primary)]",
+                  )}
                 >
                   {row.getVisibleCells().map((cell) => {
                     const numeric = cell.column.columnDef.meta?.numeric;
+                    const isOrdinal = cell.column.id === ORDINAL_COLUMN_ID;
                     if (cell.getIsPlaceholder() || cell.getIsAggregated()) {
                       return <TableCell key={cell.id} className={cn(ROW_HEIGHT_CLASS, "py-1")} />;
                     }
@@ -395,7 +421,15 @@ export function DataGrid<TData extends object>({
                       return <TableCell key={cell.id} className={cn(ROW_HEIGHT_CLASS, "py-1")} />;
                     }
                     return (
-                      <TableCell key={cell.id} className={cn(ROW_HEIGHT_CLASS, "py-1", numeric && "text-right tabular-nums")}>
+                      <TableCell
+                        key={cell.id}
+                        className={cn(
+                          ROW_HEIGHT_CLASS,
+                          "py-1",
+                          numeric && "text-right tabular-nums",
+                          isOrdinal && "w-7 text-center no-underline",
+                        )}
+                      >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
                       </TableCell>
                     );
@@ -406,13 +440,13 @@ export function DataGrid<TData extends object>({
           </TableBody>
           {!isLoading && hasAggregatedColumn && rows.length > 0 && (
             <tfoot>
-              <tr className={cn(ROW_HEIGHT_CLASS, "border-t bg-muted/30 font-medium")}>
+              <tr className="h-8 border-t border-t-grid-header-border bg-totals text-totals-foreground font-semibold">
                 {table.getVisibleLeafColumns().map((column, index) => {
-                  if (column.id === SELECT_COLUMN_ID) {
-                    return <td key={column.id} className={cn(ROW_HEIGHT_CLASS, "py-1")} />;
+                  if (column.id === SELECT_COLUMN_ID || column.id === ORDINAL_COLUMN_ID) {
+                    return <td key={column.id} className="h-8 py-1" />;
                   }
                   const meta = column.columnDef.meta;
-                  const isFirstDataColumn = index === (enableRowSelection ? 1 : 0);
+                  const isFirstDataColumn = index === 1 + (enableRowSelection ? 1 : 0);
                   if (meta?.footerAggregate === "sum" || meta?.footerAggregate === "count") {
                     const aggregate = rows.reduce((total, row) => {
                       if (row.getIsGrouped()) return total;
@@ -421,7 +455,7 @@ export function DataGrid<TData extends object>({
                       return typeof value === "number" ? total + value : total;
                     }, 0);
                     return (
-                      <td key={column.id} className={cn(ROW_HEIGHT_CLASS, "px-2 py-1 text-right tabular-nums")}>
+                      <td key={column.id} className="h-8 px-2 py-1 text-right tabular-nums">
                         {meta.footerAggregate === "count"
                           ? aggregate
                           : aggregate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -429,7 +463,7 @@ export function DataGrid<TData extends object>({
                     );
                   }
                   return (
-                    <td key={column.id} className={cn(ROW_HEIGHT_CLASS, "px-2 py-1 text-muted-foreground")}>
+                    <td key={column.id} className="h-8 px-2 py-1 text-totals-foreground/70">
                       {isFirstDataColumn ? intl.formatMessage({ id: "dataGrid.pageTotal" }) : null}
                     </td>
                   );
