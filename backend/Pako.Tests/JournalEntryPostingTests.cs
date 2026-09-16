@@ -123,4 +123,22 @@ public class JournalEntryPostingTests
 
         Assert.Equal(JournalEntryState.Posted, entry.State);
     }
+
+    // B14: Reverse() must copy AnalyticDistribution as a new dictionary instance, not share the
+    // original line's reference — otherwise mutating one would silently mutate the other.
+    [Fact]
+    public void Reverse_CopiesAnalyticDistribution_AsANewDictionaryInstance()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = BalancedEntry(new DateOnly(2026, 8, 26));
+        var costCenterId = Guid.NewGuid();
+        entry.Lines[0].AnalyticDistribution = new Dictionary<Guid, decimal> { [costCenterId] = 100m };
+        entry.Post(company);
+
+        var reversal = entry.Reverse(company, new DateOnly(2026, 8, 27));
+
+        var reversedLine = reversal.Lines.Single(l => l.AccountId == entry.Lines[0].AccountId);
+        Assert.Equal(100m, reversedLine.AnalyticDistribution![costCenterId]);
+        Assert.NotSame(entry.Lines[0].AnalyticDistribution, reversedLine.AnalyticDistribution);
+    }
 }
