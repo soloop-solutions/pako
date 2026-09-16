@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
 
@@ -42,5 +43,23 @@ public class LedgerController : ControllerBase
             .ToList();
 
         return Ok(result);
+    }
+
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("trial-balance/export", Name = "TrialBalanceExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> TrialBalanceExport(Guid companyId)
+    {
+        var result = await TrialBalance(companyId);
+        if (result.Result is not OkObjectResult ok || ok.Value is not List<TrialBalanceLine> lines)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Account Code", "Account Name", "Debit", "Credit", "Balance" };
+        var rows = lines.Select(l => (IReadOnlyList<object?>)new object?[] { l.AccountCode, l.AccountName, l.Debit, l.Credit, l.Balance }).ToList();
+
+        var bytes = ExcelExportService.BuildWorkbook("Trial Balance", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, "trial-balance.xlsx");
     }
 }

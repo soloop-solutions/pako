@@ -61,7 +61,14 @@ public static class ReconciliationCreator
             documentPartnerId = invoice.PartnerId;
             documentJournalEntryId = invoice.JournalEntryId;
             documentIsPosted = invoice.State == InvoiceState.Posted;
-            controlAccountId = defaults?.ReceivableAccountId ?? Guid.Empty;
+
+            // B8: the invoice's own AR line was posted against ITS partner's resolved receivable
+            // account (partner override or company default) — mirror that here, not just the
+            // company default, or a partner override would leave this unable to find the line at
+            // all (documentTotal computed as 0, over-reconciliation rejected every time).
+            var partnerReceivableAccountId = await db.Partners.AsNoTracking()
+                .Where(p => p.Id == invoice.PartnerId).Select(p => p.ReceivableAccountId).FirstOrDefaultAsync();
+            controlAccountId = partnerReceivableAccountId ?? defaults?.ReceivableAccountId ?? Guid.Empty;
         }
         else
         {
@@ -75,7 +82,10 @@ public static class ReconciliationCreator
             documentPartnerId = bill.PartnerId;
             documentJournalEntryId = bill.JournalEntryId;
             documentIsPosted = bill.State == BillState.Posted;
-            controlAccountId = defaults?.PayableAccountId ?? Guid.Empty;
+
+            var partnerPayableAccountId = await db.Partners.AsNoTracking()
+                .Where(p => p.Id == bill.PartnerId).Select(p => p.PayableAccountId).FirstOrDefaultAsync();
+            controlAccountId = partnerPayableAccountId ?? defaults?.PayableAccountId ?? Guid.Empty;
         }
 
         var documentTotal = 0m;

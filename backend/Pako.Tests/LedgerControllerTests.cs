@@ -52,4 +52,48 @@ public class LedgerControllerTests
         var lines = Assert.IsType<List<TrialBalanceLine>>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal(new[] { "3000", "2000", "1000" }, lines.Select(l => l.AccountCode));
     }
+
+    // B11: the export wrapper is a thin pass-through over TrialBalance's own JSON data — this
+    // proves the file it hands back is actually a valid, readable workbook containing those rows.
+    [Fact]
+    public async Task TrialBalanceExport_ReturnsXlsxWithMatchingRows()
+    {
+        await using var db = await PostgresTestDatabase.CreateAsync();
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+        var accountA = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.CurrentAsset };
+        var accountB = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "3000", Name = "Capital", AccountType = AccountType.Equity };
+
+        db.Companies.Add(company);
+        db.Journals.Add(journal);
+        db.Accounts.AddRange(accountA, accountB);
+
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            JournalId = journal.Id,
+            Date = new DateOnly(2026, 9, 1),
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = accountA.Id, Debit = 100m, Credit = 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = accountB.Id, Debit = 0m, Credit = 100m }
+            }
+        };
+        entry.Post(company);
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        var controller = new LedgerController(db);
+
+        var result = await controller.TrialBalanceExport(company.Id);
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Account Code", sheet.Cell(1, 1).GetString());
+        Assert.Equal("1000", sheet.Cell(2, 1).GetString());
+        Assert.Equal(100m, sheet.Cell(2, 3).GetValue<decimal>());
+    }
 }

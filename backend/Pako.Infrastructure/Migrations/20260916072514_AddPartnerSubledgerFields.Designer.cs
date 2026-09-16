@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Pako.Infrastructure;
@@ -11,9 +12,11 @@ using Pako.Infrastructure;
 namespace Pako.Infrastructure.Migrations
 {
     [DbContext(typeof(PakoDbContext))]
-    partial class PakoDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916072514_AddPartnerSubledgerFields")]
+    partial class AddPartnerSubledgerFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -84,51 +87,6 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("UserId", "LoginProvider", "Name");
 
                     b.ToTable("AspNetUserTokens", (string)null);
-                });
-
-            modelBuilder.Entity("Pako.Domain.Attachments.Attachment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("CompanyId")
-                        .HasColumnType("uuid");
-
-                    b.Property<byte[]>("Content")
-                        .IsRequired()
-                        .HasColumnType("bytea");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(128)
-                        .HasColumnType("character varying(128)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<Guid>("OwnerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<int>("OwnerType")
-                        .HasColumnType("integer");
-
-                    b.Property<long>("SizeBytes")
-                        .HasColumnType("bigint");
-
-                    b.Property<DateTime>("UploadedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid>("UploadedByUserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CompanyId", "OwnerType", "OwnerId");
-
-                    b.ToTable("attachments", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Bills.Bill", b =>
@@ -1104,8 +1062,8 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid>("AccountId")
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AnalyticDistribution")
-                        .HasColumnType("jsonb");
+                    b.Property<Guid?>("CostCenterId")
+                        .HasColumnType("uuid");
 
                     b.Property<decimal>("Credit")
                         .HasColumnType("numeric(18,2)");
@@ -1145,6 +1103,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("AccountId");
+
+                    b.HasIndex("CostCenterId");
 
                     b.HasIndex("JournalEntryId");
 

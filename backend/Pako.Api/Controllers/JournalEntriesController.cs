@@ -42,6 +42,43 @@ public class JournalEntriesController : ControllerBase
         return Ok(entries.Select(ToResponse).ToList());
     }
 
+    // B11: any journal entry, exported for the paper record — account code/name and partner name
+    // resolved here rather than reusing JournalEntryResponse's raw account/partner ids, since a
+    // spreadsheet meant to be read on paper needs the readable identifiers, not Guids.
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("{id:guid}/export", Name = "JournalEntryExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> Export(Guid companyId, Guid id)
+    {
+        var entry = await _db.JournalEntries.AsNoTracking()
+            .Include(e => e.Lines)
+            .FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        var accountIds = entry.Lines.Select(l => l.AccountId).ToHashSet();
+        var accountsById = await _db.Accounts.AsNoTracking().Where(a => accountIds.Contains(a.Id)).ToDictionaryAsync(a => a.Id);
+        var partnerIds = entry.Lines.Where(l => l.PartnerId != null).Select(l => l.PartnerId!.Value).ToHashSet();
+        var partnersById = await _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+
+        var rows = entry.Lines.Select(l =>
+        {
+            accountsById.TryGetValue(l.AccountId, out var account);
+            var partnerName = l.PartnerId is { } pid && partnersById.TryGetValue(pid, out var partner) ? partner.Name : null;
+            return (IReadOnlyList<object?>)new object?[]
+            {
+                account?.Code, account?.Name, partnerName, l.Debit, l.Credit, l.Description
+            };
+        }).ToList();
+
+        var headers = new[] { "Account Code", "Account Name", "Partner", "Debit", "Credit", "Description" };
+        var bytes = ExcelExportService.BuildWorkbook(entry.Reference ?? entry.Id.ToString(), headers, rows);
+        var fileName = $"journal-entry-{entry.SequenceNumber ?? entry.Id.ToString()}.xlsx";
+        return File(bytes, ExcelExportService.XlsxContentType, fileName);
+    }
+
     [HttpPost]
     [RequireCompanyAccess(writeAccess: true)]
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]

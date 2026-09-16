@@ -56,7 +56,14 @@ public class BillsControllerTests : IAsyncLifetime
         db.Accounts.Add(new Account { Id = cashAccountId, CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Cash });
         db.Accounts.Add(new Account { Id = payableAccountId, CompanyId = company.Id, Code = "2000", Name = "Accounts Payable", AccountType = AccountType.Payable, AccountSubType = AccountSubType.Payable });
         db.Accounts.Add(new Account { Id = expenseAccountId, CompanyId = company.Id, Code = "6000", Name = "Expenses", AccountType = AccountType.Expense });
-        db.Journals.Add(new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
+        // B9: PostDraftBillAsync/TryRecordPaymentAsync now ask for the Purchase/Cash journal
+        // specifically, not "the first journal for this company" — seed all four the same way
+        // CompaniesController.Create does now.
+        db.Journals.AddRange(
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Purchase, Code = "PUR", Name = "Purchases", SequencePrefix = "PUR", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Cash, Code = "CSH", Name = "Cash", SequencePrefix = "CSH", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Bank, Code = "BNK", Name = "Bank", SequencePrefix = "BNK", SequenceNextNumber = 1, SequencePadding = 4 });
         db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
         {
             Id = Guid.NewGuid(),
@@ -85,6 +92,50 @@ public class BillsControllerTests : IAsyncLifetime
         new(partnerId, "VEND-RET-001", new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
             new List<CreateBillLineRequest> { new("Returned goods", quantity, unitPrice, null, null) },
             DocumentType.PurchaseReturn, originalBillId);
+
+    // B9: a bill posts to the Purchase journal, not "the first journal for this company" —
+    // SeedAsync now seeds General/Purchase/Cash/Bank together, so this only passes if the routing
+    // is actually explicit.
+    [Fact]
+    public async Task Post_Bill_RoutesJournalEntryToPurchaseJournal()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var purchaseJournalId = await db.Journals.Where(j => j.CompanyId == companyId && j.Type == JournalType.Purchase).Select(j => j.Id).SingleAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+
+        var posted = await db.Bills.AsNoTracking().SingleAsync(b => b.Id == bill.Id);
+        var journalEntry = await db.JournalEntries.AsNoTracking().SingleAsync(je => je.Id == posted.JournalEntryId);
+        Assert.Equal(purchaseJournalId, journalEntry.JournalId);
+    }
+
+    // B9: a payment settled through a Bank-subtype account routes its settlement entry to the
+    // Bank journal, not Cash or Purchase.
+    [Fact]
+    public async Task RecordPayment_ViaBankAccount_RoutesSettlementToBankJournal()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var bankAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = bankAccountId, CompanyId = companyId, Code = "1010", Name = "Bank", AccountType = AccountType.Cash, AccountSubType = AccountSubType.Bank });
+        var bankJournalId = await db.Journals.Where(j => j.CompanyId == companyId && j.Type == JournalType.Bank).Select(j => j.Id).SingleAsync();
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, bill.Id);
+        var posted = await db.Bills.AsNoTracking().SingleAsync(b => b.Id == bill.Id);
+
+        await controller.RecordPayment(companyId, bill.Id, new RecordPaymentRequest(100m, bankAccountId, new DateOnly(2026, 8, 27)));
+
+        var settlementEntry = await db.JournalEntries.AsNoTracking()
+            .Where(je => je.CompanyId == companyId && je.Id != posted.JournalEntryId)
+            .SingleAsync();
+        Assert.Equal(bankJournalId, settlementEntry.JournalId);
+    }
 
     [Fact]
     public async Task Create_NegativeUnitPrice_Rejected()

@@ -439,7 +439,7 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType));
+        return Ok(await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType, bill.PartnerId));
     }
 
     // Atomic replacement for the client's old draft-journal-entry -> post -> reconcile 3-call
@@ -497,7 +497,7 @@ public class BillsController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType);
+            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType, bill.PartnerId);
             return StatusCode(StatusCodes.Status201Created, new RecordPaymentResponse(ToReconciliationResponse(outcome.Reconciliation!), balance));
         }
         finally
@@ -518,13 +518,18 @@ public class BillsController : ControllerBase
     private async Task<RecordPaymentOutcome> TryRecordPaymentAsync(
         Company company, Bill bill, decimal amount, Guid cashOrBankAccountId, DateOnly date)
     {
-        var payableAccountId = await GetPayableAccountIdAsync(company.Id);
+        var payableAccountId = await GetPayableAccountIdAsync(company.Id, bill.PartnerId);
         if (payableAccountId == Guid.Empty)
         {
             return new RecordPaymentOutcome(BadRequest(_localizer["NoPayableAccount"].Value), null);
         }
 
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        // B9: Cash or Bank journal, whichever matches the account the payment actually moved
+        // through — not "the first journal for this company" (ambiguous now that Sale/Purchase/
+        // Cash/Bank/General all exist).
+        var cashOrBankAccountSubType = await _db.Accounts.AsNoTracking()
+            .Where(a => a.Id == cashOrBankAccountId).Select(a => a.AccountSubType).FirstOrDefaultAsync();
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalResolver.SettlementJournalType(cashOrBankAccountSubType));
         if (journal is null)
         {
             return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
@@ -605,7 +610,7 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["InvalidCreditNote"].Value);
         }
 
-        var payableAccountId = await GetPayableAccountIdAsync(companyId);
+        var payableAccountId = await GetPayableAccountIdAsync(companyId, bill.PartnerId);
 
         var creditNoteLineId = await _db.JournalEntryLines.AsNoTracking()
             .Where(l => l.JournalEntryId == creditNote.JournalEntryId && l.AccountId == payableAccountId)
@@ -645,7 +650,7 @@ public class BillsController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType);
+            var balance = await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType, bill.PartnerId);
             return StatusCode(StatusCodes.Status201Created, new ApplyCreditNoteResponse(ToReconciliationResponse(result.Reconciliation!), balance));
         }
         finally
@@ -657,7 +662,7 @@ public class BillsController : ControllerBase
         }
     }
 
-    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid billId, Guid? journalEntryId, DocumentType documentType)
+    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid billId, Guid? journalEntryId, DocumentType documentType, Guid? partnerId = null)
     {
         // A2 (v2 release): PurchaseReturn posts through the same isCreditNote mechanics as
         // CreditNote — its own AP control line is Debit-sided too, so it needs no separate
@@ -668,7 +673,7 @@ public class BillsController : ControllerBase
         Guid? controlLineId = null;
         if (journalEntryId is { } jeId)
         {
-            var payableAccountId = await GetPayableAccountIdAsync(companyId);
+            var payableAccountId = await GetPayableAccountIdAsync(companyId, partnerId);
 
             if (isSourceDocument)
             {
@@ -703,8 +708,25 @@ public class BillsController : ControllerBase
     private Task<CompanyAccountDefaults?> GetAccountDefaultsAsync(Guid companyId) =>
         _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
 
-    private async Task<Guid> GetPayableAccountIdAsync(Guid companyId) =>
-        (await GetAccountDefaultsAsync(companyId))?.PayableAccountId ?? Guid.Empty;
+    // B8: partner's own PayableAccountId wins when set and the caller has a partner to ask about
+    // (every call site that posts, pays, or reads a specific document does); the company's
+    // default otherwise — mirrors InvoicesController.GetReceivableAccountIdAsync exactly.
+    private async Task<Guid> GetPayableAccountIdAsync(Guid companyId, Guid? partnerId = null)
+    {
+        if (partnerId is { } id)
+        {
+            var partnerAccountId = await _db.Partners.AsNoTracking()
+                .Where(p => p.Id == id && p.CompanyId == companyId)
+                .Select(p => p.PayableAccountId)
+                .FirstOrDefaultAsync();
+            if (partnerAccountId is { } paId)
+            {
+                return paId;
+            }
+        }
+
+        return (await GetAccountDefaultsAsync(companyId))?.PayableAccountId ?? Guid.Empty;
+    }
 
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(writeAccess: true)]
@@ -769,14 +791,23 @@ public class BillsController : ControllerBase
     {
         var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == bill.PartnerId);
 
-        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        // B9: every bill/credit-note/purchase-return posts to the Purchase journal.
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalType.Purchase);
         if (journal is null)
         {
             return BadRequest(_localizer["NoJournalToPost"].Value);
         }
 
         var defaults = await GetAccountDefaultsAsync(company.Id);
-        if (defaults is null || defaults.PayableAccountId == Guid.Empty)
+        if (defaults is null)
+        {
+            return BadRequest(_localizer["NoAccountDefaults"].Value);
+        }
+
+        // B8: the partner's own PayableAccountId, if set, wins over the company default — used
+        // for every payable-account reference in this method from here on.
+        var payableAccountId = partner?.PayableAccountId ?? defaults.PayableAccountId;
+        if (payableAccountId == Guid.Empty)
         {
             return BadRequest(_localizer["NoPayableAccount"].Value);
         }
@@ -800,7 +831,7 @@ public class BillsController : ControllerBase
             var account = lineAccountsById[line.ExpenseAccountId];
             try
             {
-                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, bill.PartnerId, partner?.TaxNumber);
+                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, bill.PartnerId, partner?.IsVatRegistered ?? false, partner?.TaxNumber, partner?.FiscalNumber);
                 if (taxDef.Direction is { } direction && account.Class is { } accountClass)
                 {
                     PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
@@ -824,7 +855,7 @@ public class BillsController : ControllerBase
         try
         {
             journalEntry = bill.Post(
-                effectiveCompany, journal.Id, defaults.PayableAccountId, _taxComputationService, taxDefinitionsById,
+                effectiveCompany, journal.Id, payableAccountId, _taxComputationService, taxDefinitionsById,
                 defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
         }
         catch (Exception ex) when (
@@ -864,7 +895,7 @@ public class BillsController : ControllerBase
 
             var originalTotal = original.JournalEntryId is { } originalJournalEntryId
                 ? await _db.JournalEntryLines.AsNoTracking()
-                    .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == defaults.PayableAccountId)
+                    .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == payableAccountId)
                     .SumAsync(l => l.Credit)
                 : 0m;
 
@@ -876,10 +907,10 @@ public class BillsController : ControllerBase
             var alreadyReturned = otherReturnJournalEntryIds.Count == 0
                 ? 0m
                 : await _db.JournalEntryLines.AsNoTracking()
-                    .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == defaults.PayableAccountId)
+                    .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == payableAccountId)
                     .SumAsync(l => l.Debit);
 
-            var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == defaults.PayableAccountId).Debit;
+            var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == payableAccountId).Debit;
 
             if (alreadyReturned + thisReturnAmount > originalTotal)
             {

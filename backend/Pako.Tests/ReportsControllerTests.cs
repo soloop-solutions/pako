@@ -1,7 +1,11 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
+using Pako.Api.Services;
 using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
@@ -342,5 +346,210 @@ public class ReportsControllerTests : IAsyncLifetime
         var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Empty(response.Lines);
         Assert.Equal(0m, response.TotalOverdue);
+    }
+
+    // B8: a partner posted against its own ReceivableAccountId override (not the company default)
+    // must still show up here — ReportsController.DebtAging used to key entirely off the one
+    // company-wide receivable account, which silently dropped every such invoice.
+    [Fact]
+    public async Task DebtAging_PartnerWithReceivableOverride_StillIncludesInvoice()
+    {
+        var db = await NewContextAsync();
+        var company = new Company { Id = Guid.NewGuid(), Name = "Debt Co" };
+        var receivableAccountId = Guid.NewGuid();
+        var overrideAccountId = Guid.NewGuid();
+        var revenueAccountId = Guid.NewGuid();
+        var customer = new Partner { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "Related Party Co", IsCustomer = true, ReceivableAccountId = overrideAccountId };
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+
+        db.Companies.Add(company);
+        db.Partners.Add(customer);
+        db.Journals.Add(journal);
+        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = overrideAccountId, CompanyId = company.Id, Code = "1201", Name = "Receivables - Related Parties", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
+        db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            ReceivableAccountId = receivableAccountId,
+            PayableAccountId = Guid.NewGuid(),
+            RevenueAccountId = revenueAccountId,
+            ExpenseAccountId = Guid.NewGuid(),
+            CustomerDepositsAccountId = Guid.NewGuid()
+        });
+
+        var issueDate = new DateOnly(2026, 1, 1);
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            PartnerId = customer.Id,
+            IssueDate = issueDate,
+            DueDate = issueDate.AddDays(30),
+            PaymentTermDays = 30,
+            Lines = { new InvoiceLine { Id = Guid.NewGuid(), Description = "Consulting", Quantity = 1m, UnitPrice = 500m, RevenueAccountId = revenueAccountId } }
+        };
+        var invoiceEntry = invoice.Post(
+            company, journal.Id, overrideAccountId, new TaxComputationService(),
+            new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        db.Invoices.Add(invoice);
+        db.JournalEntries.Add(invoiceEntry);
+        await db.SaveChangesAsync();
+
+        var controller = new ReportsController(db);
+
+        var result = await controller.DebtAging(company.Id, new DateOnly(2026, 1, 31));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(invoice.Id, line.InvoiceId);
+        Assert.Equal(500m, line.Outstanding);
+    }
+
+    // B10: full-stack scenario against the real v2 seed (CompaniesController.Create), so the
+    // sales/purchase book queries run against the actual seeded S18/B18 TaxDefinitions and their
+    // real AtkBook/RepartitionLines — not a hand-built fixture that might not match what
+    // production actually seeds.
+    private static ClaimsPrincipal TestUser() =>
+        new(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
+
+    private async Task<(PakoDbContext Db, Guid CompanyId, string InvoiceNumber, string VendorReference)> SeedBookScenarioAsync()
+    {
+        var db = await NewContextAsync();
+
+        var companiesController = new CompaniesController(db, new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
+        };
+        var companyResult = await companiesController.Create(new CreateCompanyRequest("Book Co"));
+        var company = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(companyResult.Result).Value);
+
+        var partnersController = new PartnersController(db, new NullStringLocalizer<ErrorMessages>());
+        // IsVatRegistered: true — R07 (PostingRuleValidator.ValidateVatCounterpartyTaxNumber, B8)
+        // requires TaxNumber specifically for a VAT-registered counterparty; a business posting
+        // real VAT codes (S18/B18) needs this set, not FiscalNumber (the natural-person case).
+        var customerResult = await partnersController.Create(company.Id, new CreatePartnerRequest("Customer Co", "810111111", IsCustomer: true, IsVendor: false, IsVatRegistered: true));
+        var customer = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>(customerResult.Result).Value);
+        var vendorResult = await partnersController.Create(company.Id, new CreatePartnerRequest("Vendor Co", "810222222", IsCustomer: false, IsVendor: true, IsVatRegistered: true));
+        var vendor = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>(vendorResult.Result).Value);
+
+        var s18 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == company.Id && t.Code == "S18");
+        var b18 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == company.Id && t.Code == "B18");
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == company.Id);
+
+        var invoicesController = new InvoicesController(db, new TaxComputationService(), new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
+        };
+        var invoiceCreateResult = await invoicesController.Create(company.Id, new CreateInvoiceRequest(
+            customer.Id, new DateOnly(2026, 2, 1), new DateOnly(2026, 3, 1),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 1000m, s18.Id, defaults.RevenueAccountId) }));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(invoiceCreateResult.Result).Value);
+        var invoicePostResult = await invoicesController.Post(company.Id, invoice.Id);
+        Assert.IsType<OkObjectResult>(invoicePostResult.Result);
+        var postedInvoice = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        Assert.Equal(InvoiceState.Posted, postedInvoice.State);
+
+        var billsController = new BillsController(db, new TaxComputationService(), new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
+        };
+        var billCreateResult = await billsController.Create(company.Id, new CreateBillRequest(
+            vendor.Id, "SUPPLIER-1", new DateOnly(2026, 3, 1), new DateOnly(2026, 3, 31),
+            new List<CreateBillLineRequest> { new("Office rent", 1m, 400m, b18.Id, defaults.ExpenseAccountId) }));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(billCreateResult.Result).Value);
+        await billsController.Post(company.Id, bill.Id);
+
+        return (db, company.Id, postedInvoice.InvoiceNumber!, "SUPPLIER-1");
+    }
+
+    [Fact]
+    public async Task SalesBook_IncludesPostedInvoiceWithVatCode()
+    {
+        var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.SalesBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var response = Assert.IsType<SalesBookResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(invoiceNumber, line.InvoiceNumber);
+        Assert.Equal("S18", line.VatCode);
+        Assert.Equal("Customer Co", line.PartnerName);
+        Assert.Equal("810111111", line.PartnerTaxNumber);
+        Assert.Equal(847.46m, line.NetAmount);
+        Assert.Equal(152.54m, line.VatAmount);
+        Assert.Equal(1000m, line.GrossAmount);
+        Assert.Equal(847.46m, response.TotalNet);
+        Assert.Equal(152.54m, response.TotalVat);
+        Assert.Equal(1000m, response.TotalGross);
+    }
+
+    [Fact]
+    public async Task PurchaseBook_IncludesPostedBillWithVatCode()
+    {
+        var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.PurchaseBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var response = Assert.IsType<PurchaseBookResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(vendorReference, line.VendorReference);
+        Assert.Equal("B18", line.VatCode);
+        Assert.Equal("Vendor Co", line.PartnerName);
+        Assert.Equal("810222222", line.PartnerTaxNumber);
+        Assert.Equal(338.98m, line.NetAmount);
+        Assert.Equal(61.02m, line.VatAmount);
+        Assert.Equal(400m, line.GrossAmount);
+    }
+
+    // B11: the export wrapper is a thin pass-through over the JSON action's own data — this proves
+    // the file it hands back is actually a valid, readable workbook containing that same row.
+    [Fact]
+    public async Task SalesBookExport_ReturnsXlsxWithMatchingRow()
+    {
+        var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Invoice Number", sheet.Cell(1, 1).GetString());
+        Assert.Equal(invoiceNumber, sheet.Cell(2, 1).GetString());
+        Assert.Equal("S18", sheet.Cell(2, 7).GetString());
+    }
+
+    [Fact]
+    public async Task PurchaseBookExport_ReturnsXlsxWithMatchingRow()
+    {
+        var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.PurchaseBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Vendor Reference", sheet.Cell(1, 1).GetString());
+        Assert.Equal(vendorReference, sheet.Cell(2, 1).GetString());
+        Assert.Equal("B18", sheet.Cell(2, 7).GetString());
+    }
+
+    // B10: a document outside the from/to range must not appear, even though it's Posted.
+    [Fact]
+    public async Task SalesBook_ExcludesInvoiceOutsideDateRange()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.SalesBook(companyId, new DateOnly(2026, 4, 1), new DateOnly(2026, 12, 31));
+
+        var response = Assert.IsType<SalesBookResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Empty(response.Lines);
     }
 }

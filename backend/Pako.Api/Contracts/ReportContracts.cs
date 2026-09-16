@@ -65,3 +65,57 @@ public record DebtAgingResponse(
     decimal TotalCurrent,
     decimal TotalWithinGrace,
     decimal TotalOverdue);
+
+// B10: one row per (posted document, VAT code) — the finest granularity a book needs, since a
+// single invoice/bill can carry lines at more than one rate. DocumentType is carried through
+// rather than filtered on: whatever actually posted with a Shitje/Blerje*-book VAT code belongs
+// in the book, no hardcoded document-type list to go stale. This also means a SalesReturn shows
+// up exactly like a CreditNote does — same debit-side journal convention, same negative-signed
+// row — without this endpoint having to take a position on the still-open "does ATK accept a
+// sales return as a nota kreditore" question (D4, docs/ACCOUNTANT_MILESTONE.md); that's a
+// presentation/export question for B11 once the partner firm answers, not a data question here.
+public record SalesBookLine(
+    Guid InvoiceId,
+    string? InvoiceNumber,
+    DateOnly IssueDate,
+    string DocumentType,
+    Guid PartnerId,
+    string PartnerName,
+    string? PartnerTaxNumber,
+    string? PartnerFiscalNumber,
+    string VatCode,
+    decimal Rate,
+    decimal NetAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
+
+public record SalesBookResponse(
+    DateOnly From,
+    DateOnly To,
+    List<SalesBookLine> Lines,
+    decimal TotalNet,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record PurchaseBookLine(
+    Guid BillId,
+    string? VendorReference,
+    DateOnly IssueDate,
+    string DocumentType,
+    Guid PartnerId,
+    string PartnerName,
+    string? PartnerTaxNumber,
+    string? PartnerFiscalNumber,
+    string VatCode,
+    decimal Rate,
+    decimal NetAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
+
+public record PurchaseBookResponse(
+    DateOnly From,
+    DateOnly To,
+    List<PurchaseBookLine> Lines,
+    decimal TotalNet,
+    decimal TotalVat,
+    decimal TotalGross);

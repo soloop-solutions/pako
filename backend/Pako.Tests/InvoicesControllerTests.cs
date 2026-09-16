@@ -64,7 +64,14 @@ public class InvoicesControllerTests : IAsyncLifetime
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4001", Name = "Other Revenue", AccountType = AccountType.Income });
         db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "2100", Name = "VAT Payable", AccountType = AccountType.CurrentLiability });
         db.Accounts.Add(new Account { Id = depositsAccountId, CompanyId = company.Id, Code = "2500", Name = "Customer Deposits", AccountType = AccountType.CurrentLiability });
-        db.Journals.Add(new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
+        // B9: PostDraftInvoiceAsync/TryRecordPaymentAsync now ask for the Sale/Cash journal
+        // specifically, not "the first journal for this company" — seed all four the same way
+        // CompaniesController.Create does now.
+        db.Journals.AddRange(
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Sale, Code = "SAL", Name = "Sales", SequencePrefix = "SAL", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Cash, Code = "CSH", Name = "Cash", SequencePrefix = "CSH", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Bank, Code = "BNK", Name = "Bank", SequencePrefix = "BNK", SequenceNextNumber = 1, SequencePadding = 4 });
         db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
         {
             Id = Guid.NewGuid(),
@@ -185,6 +192,79 @@ public class InvoicesControllerTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>(result.Result);
         var company = await db.Companies.FindAsync(companyId);
         Assert.Equal(1, company!.NextInvoiceNumber);
+    }
+
+    // B9: an invoice posts to the Sale journal, not "the first journal for this company" —
+    // SeedAsync now seeds General/Sale/Cash/Bank together, so this only passes if the routing is
+    // actually explicit.
+    [Fact]
+    public async Task Post_Invoice_RoutesJournalEntryToSaleJournal()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var saleJournalId = await db.Journals.Where(j => j.CompanyId == companyId && j.Type == JournalType.Sale).Select(j => j.Id).SingleAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var posted = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        var journalEntry = await db.JournalEntries.AsNoTracking().SingleAsync(je => je.Id == posted.JournalEntryId);
+        Assert.Equal(saleJournalId, journalEntry.JournalId);
+    }
+
+    // B9: a payment settled through a Cash-subtype account routes its settlement entry to the
+    // Cash journal, not the Sale journal the invoice itself posted to.
+    [Fact]
+    public async Task RecordPayment_ViaCashAccount_RoutesSettlementToCashJournal()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var cashJournalId = await db.Journals.Where(j => j.CompanyId == companyId && j.Type == JournalType.Cash).Select(j => j.Id).SingleAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+        var posted = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+
+        await controller.RecordPayment(companyId, invoice.Id, new RecordPaymentRequest(100m, cashAccountId, new DateOnly(2026, 8, 27)));
+
+        var settlementEntry = await db.JournalEntries.AsNoTracking()
+            .Where(je => je.CompanyId == companyId && je.Id != posted.JournalEntryId)
+            .SingleAsync();
+        Assert.Equal(cashJournalId, settlementEntry.JournalId);
+    }
+
+    // B8: a partner's own ReceivableAccountId, when set, wins over the company's default — proves
+    // the override actually reaches the posted journal entry, not just the resolution helper.
+    [Fact]
+    public async Task Post_PartnerWithReceivableOverride_PostsToPartnerAccountNotCompanyDefault()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var overrideAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = overrideAccountId, CompanyId = companyId, Code = "1201", Name = "Receivables - Related Parties", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
+        var trackedPartner = await db.Partners.SingleAsync(p => p.Id == partnerId);
+        trackedPartner.ReceivableAccountId = overrideAccountId;
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var posted = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        var arLine = await db.JournalEntryLines.AsNoTracking()
+            .SingleAsync(l => l.JournalEntryId == posted.JournalEntryId && l.Debit == 100m);
+        Assert.Equal(overrideAccountId, arLine.AccountId);
+
+        var companyDefaultReceivableId = (await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        Assert.NotEqual(companyDefaultReceivableId, arLine.AccountId);
+
+        // The whole downstream chain (balance, record-payment) must resolve against the same
+        // overridden account, not silently fall back to the company default and find nothing.
+        var paymentResult = await controller.RecordPayment(companyId, invoice.Id, new RecordPaymentRequest(100m, cashAccountId, new DateOnly(2026, 8, 27)));
+        var paymentResponse = Assert.IsType<RecordPaymentResponse>(Assert.IsType<ObjectResult>(paymentResult.Result).Value);
+        Assert.Equal(0m, paymentResponse.Balance.Outstanding);
     }
 
     [Fact]

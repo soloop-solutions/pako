@@ -109,6 +109,20 @@
   <data name="LockExceptionEndsAtMustBeFuture" xml:space="preserve"><value>Data/ora e përfundimit të përjashtimit duhet të jetë në të ardhmen.</value></data>
   <data name="LockExceptionAlreadyRevoked" xml:space="preserve"><value>Ky përjashtim është tashmë i revokuar.</value></data>
 
+  <!-- Partnerët (B8) -->
+  <data name="PartnerNameRequired" xml:space="preserve"><value>Emri i partnerit është i detyrueshëm.</value></data>
+  <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Numri fiskal duhet të jetë 64 karaktere ose më pak.</value></data>
+  <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>Llogaria e zgjedhur e kontrollit nuk i përket kësaj kompanie.</value></data>
+
+  <!-- Bashkëngjitjet (B12) -->
+  <data name="AttachmentFileRequired" xml:space="preserve"><value>Kërkohet një skedar.</value></data>
+  <data name="AttachmentEmptyFile" xml:space="preserve"><value>Skedari i ngarkuar është bosh.</value></data>
+  <data name="AttachmentTooLarge" xml:space="preserve"><value>Skedari duhet të jetë 20 MB ose më i vogël.</value></data>
+  <data name="AttachmentOwnerNotFound" xml:space="preserve"><value>Regjistrimi pronar nuk i përket kësaj kompanie.</value></data>
+
+  <!-- Zinxhiri i hash-it (B15) -->
+  <data name="CannotSecurePastDraftEntries" xml:space="preserve"><value>Nuk mund të sigurohet deri në këtë datë: një ose më shumë regjistrime draft në këtë ditar bien në ose para saj. Postojini ose hidhini së pari.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>

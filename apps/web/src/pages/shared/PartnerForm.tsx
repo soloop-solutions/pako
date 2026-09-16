@@ -27,7 +27,7 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
     setError(null);
     setSubmitting(true);
     try {
-      await apiClient.partners(companyId, {
+      await apiClient.partnersPOST(companyId, {
         name: name.trim(),
         taxNumber: taxNumber.trim() || undefined,
         isCustomer: role === "customer",

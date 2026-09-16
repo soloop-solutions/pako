@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
+using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
@@ -44,6 +46,29 @@ public class ReportsController : ControllerBase
         return Ok(new ProfitAndLossResponse(from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses));
     }
 
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("profit-and-loss/export", Name = "ProfitAndLossExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> ProfitAndLossExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await ProfitAndLoss(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not ProfitAndLossResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var rows = new List<IReadOnlyList<object?>>();
+        rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { "Income", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Income", null, "Total Income", response.TotalIncome });
+        rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { "Expenses", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Expenses", null, "Total Expenses", response.TotalExpenses });
+        rows.Add(new object?[] { null, null, "Net Income", response.NetIncome });
+
+        var bytes = ExcelExportService.BuildWorkbook("Profit and Loss", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"profit-and-loss-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
     [HttpGet("balance-sheet")]
     [RequireCompanyAccess]
     public async Task<ActionResult<BalanceSheetResponse>> BalanceSheet(Guid companyId, [FromQuery] DateOnly asOf)
@@ -82,6 +107,30 @@ public class ReportsController : ControllerBase
 
         return Ok(new BalanceSheetResponse(
             asOf, assets, liabilities, equity, currentEarnings, totalAssets, totalLiabilities, totalEquity));
+    }
+
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("balance-sheet/export", Name = "BalanceSheetExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> BalanceSheetExport(Guid companyId, [FromQuery] DateOnly asOf)
+    {
+        var result = await BalanceSheet(companyId, asOf);
+        if (result.Result is not OkObjectResult ok || ok.Value is not BalanceSheetResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var rows = new List<IReadOnlyList<object?>>();
+        rows.AddRange(response.Assets.Select(l => (IReadOnlyList<object?>)new object?[] { "Assets", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Assets", null, "Total Assets", response.TotalAssets });
+        rows.AddRange(response.Liabilities.Select(l => (IReadOnlyList<object?>)new object?[] { "Liabilities", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Liabilities", null, "Total Liabilities", response.TotalLiabilities });
+        rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { "Equity", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Equity", null, "Total Equity", response.TotalEquity });
+
+        var bytes = ExcelExportService.BuildWorkbook("Balance Sheet", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-{asOf:yyyyMMdd}.xlsx");
     }
 
     [HttpGet("vat-return")]
@@ -144,6 +193,244 @@ public class ReportsController : ControllerBase
         return Ok(new VatReturnResponse(from, to, output, input, totalOutput, totalInput, totalOutput - totalInput));
     }
 
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("vat-return/export", Name = "VatReturnExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> VatReturnExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await VatReturn(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not VatReturnResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Direction", "Tax Code", "Rate", "Amount" };
+        var rows = new List<IReadOnlyList<object?>>();
+        rows.AddRange(response.OutputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Output", l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { "Output", null, "Total Output VAT", response.TotalOutputVat });
+        rows.AddRange(response.InputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Input", l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { "Input", null, "Total Input VAT", response.TotalInputVat });
+        rows.Add(new object?[] { null, null, "Net VAT Due", response.NetVatDue });
+
+        var bytes = ExcelExportService.BuildWorkbook("VAT Return", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"vat-return-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
+    // B10: one row per (posted document, VAT code) — see SalesBookLine's own comment for why
+    // DocumentType is carried through rather than filtered on, and why that sidesteps the
+    // still-open "sales return as nota kreditore" question rather than deciding it here.
+    [HttpGet("sales-book")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<SalesBookResponse>> SalesBook(
+        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true);
+        var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
+
+        var lines = rows
+            .OrderBy(r => r.IssueDate).ThenBy(r => r.DocumentNumber)
+            .Select(r =>
+            {
+                var partner = partnersById.GetValueOrDefault(r.PartnerId);
+                return new SalesBookLine(
+                    r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
+                    partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+            })
+            .ToList();
+
+        return Ok(new SalesBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
+    }
+
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("sales-book/export", Name = "SalesBookExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await SalesBook(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not SalesBookResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Invoice Number", "Issue Date", "Document Type", "Partner", "Tax Number", "Fiscal Number", "VAT Code", "Rate", "Net", "VAT", "Gross" };
+        var rows = response.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
+        {
+            l.InvoiceNumber, l.IssueDate, l.DocumentType, l.PartnerName, l.PartnerTaxNumber, l.PartnerFiscalNumber,
+            l.VatCode, l.Rate, l.NetAmount, l.VatAmount, l.GrossAmount
+        }).ToList();
+        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", response.TotalNet, response.TotalVat, response.TotalGross });
+
+        var bytes = ExcelExportService.BuildWorkbook("Sales Book", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"sales-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
+    [HttpGet("purchase-book")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<PurchaseBookResponse>> PurchaseBook(
+        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false);
+        var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
+
+        var lines = rows
+            .OrderBy(r => r.IssueDate).ThenBy(r => r.DocumentNumber)
+            .Select(r =>
+            {
+                var partner = partnersById.GetValueOrDefault(r.PartnerId);
+                return new PurchaseBookLine(
+                    r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
+                    partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+            })
+            .ToList();
+
+        return Ok(new PurchaseBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
+    }
+
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("purchase-book/export", Name = "PurchaseBookExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await PurchaseBook(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not PurchaseBookResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Vendor Reference", "Issue Date", "Document Type", "Partner", "Tax Number", "Fiscal Number", "VAT Code", "Rate", "Net", "VAT", "Gross" };
+        var rows = response.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
+        {
+            l.VendorReference, l.IssueDate, l.DocumentType, l.PartnerName, l.PartnerTaxNumber, l.PartnerFiscalNumber,
+            l.VatCode, l.Rate, l.NetAmount, l.VatAmount, l.GrossAmount
+        }).ToList();
+        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", response.TotalNet, response.TotalVat, response.TotalGross });
+
+        var bytes = ExcelExportService.BuildWorkbook("Purchase Book", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"purchase-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
+    private Task<Dictionary<Guid, Partner>> PartnersByIdAsync(IEnumerable<Guid> partnerIds) =>
+        _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
+
+    private record TaxBookRow(
+        Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType,
+        Guid PartnerId, string VatCode, decimal Rate, decimal NetAmount, decimal VatAmount);
+
+    // Shared by SalesBook (Invoice-sourced, AtkBook.Shitje, Credit-normal per
+    // DocumentLineCalculator's creditsOnNormalSide=true for invoices) and PurchaseBook
+    // (Bill-sourced, AtkBook.Blerje/BlerjeImport/BlerjeInvestime, Debit-normal for bills) —
+    // same shape, opposite sign convention, exactly mirroring DocumentLineCalculator's own
+    // Invoice-vs-Bill split rather than VatReturn's TaxDefinition.Scope (Scope collapses every
+    // reverse-charge code to TaxScope.Both, which VatReturn's Sale/Purchase branches silently
+    // drop — this method sources the sign from which document type owns the entry instead, so it
+    // doesn't inherit that gap).
+    private async Task<List<TaxBookRow>> BuildTaxBookRowsAsync(Guid companyId, DateOnly from, DateOnly to, bool isSalesBook)
+    {
+        var atkBooks = isSalesBook
+            ? new[] { TaxAtkBook.Shitje }
+            : new[] { TaxAtkBook.Blerje, TaxAtkBook.BlerjeImport, TaxAtkBook.BlerjeInvestime };
+
+        var taxDefinitions = await _db.TaxDefinitions.AsNoTracking()
+            .Where(t => t.CompanyId == companyId && t.AtkBook != null && atkBooks.Contains(t.AtkBook!.Value))
+            .Include(t => t.RepartitionLines)
+            .ToListAsync();
+        var taxDefinitionsById = taxDefinitions.ToDictionary(t => t.Id);
+        var taxIds = taxDefinitionsById.Keys.ToHashSet();
+        var repartitionAccountsByTax = taxDefinitions
+            .SelectMany(t => t.RepartitionLines.Select(r => (t.Id, r.AccountId)))
+            .ToHashSet();
+
+        var defaults = await _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
+        var reverseChargeInputAccountId = defaults?.ReverseChargeInputVatAccountId;
+        var reverseChargeOutputAccountId = defaults?.ReverseChargeOutputVatAccountId;
+
+        List<(Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType, Guid PartnerId, Guid? JournalEntryId)> documents;
+        if (isSalesBook)
+        {
+            documents = (await _db.Invoices.AsNoTracking()
+                    .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate >= from && i.IssueDate <= to)
+                    .Select(i => new { i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType, i.PartnerId, i.JournalEntryId })
+                    .ToListAsync())
+                .Select(i => (i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType.ToString(), i.PartnerId, i.JournalEntryId))
+                .ToList();
+        }
+        else
+        {
+            documents = (await _db.Bills.AsNoTracking()
+                    .Where(b => b.CompanyId == companyId && b.State == Pako.Domain.Bills.BillState.Posted && b.IssueDate >= from && b.IssueDate <= to)
+                    .Select(b => new { b.Id, b.VendorReference, b.IssueDate, b.DocumentType, b.PartnerId, b.JournalEntryId })
+                    .ToListAsync())
+                .Select(b => (b.Id, b.VendorReference, b.IssueDate, b.DocumentType.ToString(), b.PartnerId, b.JournalEntryId))
+                .ToList();
+        }
+
+        var journalEntryIds = documents.Where(d => d.JournalEntryId != null).Select(d => d.JournalEntryId!.Value).ToList();
+        var lines = await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.TaxId != null && taxIds.Contains(l.TaxId!.Value))
+            .Select(l => new { l.JournalEntryId, TaxId = l.TaxId!.Value, l.AccountId, l.Debit, l.Credit })
+            .ToListAsync();
+        var linesByJournalEntry = lines.ToLookup(l => l.JournalEntryId);
+
+        var rows = new List<TaxBookRow>();
+        foreach (var doc in documents)
+        {
+            if (doc.JournalEntryId is not { } jeId)
+            {
+                continue;
+            }
+
+            foreach (var taxGroup in linesByJournalEntry[jeId].GroupBy(l => l.TaxId))
+            {
+                var taxDefinition = taxDefinitionsById[taxGroup.Key];
+                var net = 0m;
+                var vat = 0m;
+
+                foreach (var line in taxGroup)
+                {
+                    var signedAmount = isSalesBook ? line.Credit - line.Debit : line.Debit - line.Credit;
+
+                    // Known limitation: RC18/RC00 (reverse charge) post two self-balancing lines —
+                    // debit input VAT, credit output VAT, same amount — so only the input side
+                    // counts toward this book's VAT figure; the output side is excluded from both
+                    // buckets rather than miscounted as a net purchase amount. VatReturn has the
+                    // same reverse-charge gap today (Scope.Both matches neither of its Sale/
+                    // Purchase branches, so these codes are silently absent there entirely) — this
+                    // book is a strict improvement: the document still appears, net amount intact.
+                    if (reverseChargeOutputAccountId is { } outId && line.AccountId == outId)
+                    {
+                        continue;
+                    }
+
+                    if (reverseChargeInputAccountId is { } inId && line.AccountId == inId)
+                    {
+                        vat += signedAmount;
+                    }
+                    else if (repartitionAccountsByTax.Contains((taxGroup.Key, line.AccountId)))
+                    {
+                        vat += signedAmount;
+                    }
+                    else
+                    {
+                        net += signedAmount;
+                    }
+                }
+
+                if (net == 0m && vat == 0m)
+                {
+                    continue;
+                }
+
+                rows.Add(new TaxBookRow(
+                    doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
+                    doc.PartnerId, taxDefinition.Code ?? string.Empty, taxDefinition.Rate, net, vat));
+            }
+        }
+
+        return rows;
+    }
+
     [HttpGet("cit-addback")]
     [RequireCompanyAccess]
     public async Task<ActionResult<CitAddBackResponse>> CitAddBack(
@@ -176,7 +463,7 @@ public class ReportsController : ControllerBase
     {
         var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var receivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
+        var companyDefaultReceivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;
 
         var invoices = await _db.Invoices.AsNoTracking()
@@ -185,12 +472,27 @@ public class ReportsController : ControllerBase
             .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
             .ToListAsync();
 
+        // B8: an invoice's AR line lives on its partner's resolved receivable account (override
+        // or company default), not on one company-wide account — look each invoice's own partner
+        // up so a partner with an override is still found, instead of silently reading 0 and
+        // disappearing from the report.
+        var partnerIds = invoices.Select(i => i.PartnerId).ToHashSet();
+        var partnerReceivableOverridesById = await _db.Partners.AsNoTracking()
+            .Where(p => partnerIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.ReceivableAccountId);
+        Guid ReceivableAccountFor(Guid partnerId) =>
+            partnerReceivableOverridesById.TryGetValue(partnerId, out var overrideId) && overrideId is { } id
+                ? id
+                : companyDefaultReceivableAccountId;
+
         var journalEntryIds = invoices.Where(i => i.JournalEntryId != null).Select(i => i.JournalEntryId!.Value).ToList();
-        var totalsByJournalEntryId = await _db.JournalEntryLines.AsNoTracking()
-            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.AccountId == receivableAccountId)
-            .GroupBy(l => l.JournalEntryId)
-            .Select(g => new { JournalEntryId = g.Key, Total = g.Sum(l => l.Debit) })
-            .ToDictionaryAsync(g => g.JournalEntryId, g => g.Total);
+        var relevantAccountIds = invoices.Select(i => ReceivableAccountFor(i.PartnerId)).ToHashSet();
+        var totalsByJournalEntryAndAccount = (await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && relevantAccountIds.Contains(l.AccountId))
+            .GroupBy(l => new { l.JournalEntryId, l.AccountId })
+            .Select(g => new { g.Key.JournalEntryId, g.Key.AccountId, Total = g.Sum(l => l.Debit) })
+            .ToListAsync())
+            .ToDictionary(g => (g.JournalEntryId, g.AccountId), g => g.Total);
 
         var invoiceIds = invoices.Select(i => i.Id).ToList();
         var reconciledByInvoiceId = await _db.Reconciliations.AsNoTracking()
@@ -202,7 +504,8 @@ public class ReportsController : ControllerBase
         var lines = new List<DebtAgingLine>();
         foreach (var invoice in invoices)
         {
-            var total = invoice.JournalEntryId is { } jeId && totalsByJournalEntryId.TryGetValue(jeId, out var t) ? t : 0m;
+            var applicableAccountId = ReceivableAccountFor(invoice.PartnerId);
+            var total = invoice.JournalEntryId is { } jeId && totalsByJournalEntryAndAccount.TryGetValue((jeId, applicableAccountId), out var t) ? t : 0m;
             var reconciled = reconciledByInvoiceId.GetValueOrDefault(invoice.Id);
             var outstanding = total - reconciled;
             if (outstanding <= 0.01m)

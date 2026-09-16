@@ -120,7 +120,7 @@ public class JournalEntry
                 Credit = l.Debit,
                 Description = l.Description,
                 TaxId = l.TaxId,
-                CostCenterId = l.CostCenterId,
+                AnalyticDistribution = l.AnalyticDistribution is null ? null : new Dictionary<Guid, decimal>(l.AnalyticDistribution),
                 OriginalCurrency = l.OriginalCurrency,
                 OriginalAmount = l.OriginalAmount,
                 ExchangeRate = l.ExchangeRate
