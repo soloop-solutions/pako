@@ -903,6 +903,40 @@ export const en: Record<string, string> = {
   "attachments.deleteError": "Could not delete this attachment.",
   "attachments.unsupportedType": "“{fileName}” is not an image or PDF and was not uploaded.",
   "attachments.tooLarge": "“{fileName}” is larger than 10 MB and was not uploaded.",
+
+  // Task 8 — app shell: tab strip
+  "shell.tabs.unsaved": "Unsaved changes",
+  "shell.tabs.close": "Close tab",
+  "shell.tabs.new": "Open a destination",
+
+  // Task 8 — app shell: sidebar
+  "sidebar.filterPlaceholder": "Filter menu",
+  "sidebar.noResults": "No matches.",
+  "sidebar.category.favourites": "Favourites",
+  "sidebar.category.sales": "Sales",
+  "sidebar.category.purchases": "Purchases",
+  "sidebar.category.accounting": "Accounting",
+  "sidebar.category.registers": "Registers",
+  "sidebar.category.reports": "Reports",
+  "sidebar.customize": "Customize {category}",
+  "sidebar.customizeTitle": "Customize “{category}”",
+  "sidebar.customizeSubtitle": "Choose what shows before \"Show more\", and its order.",
+  "sidebar.showMore": "Show more ({count})",
+  "sidebar.showLess": "Show less",
+  "sidebar.savedViews.expand": "Expand saved views",
+  "sidebar.savedViews.collapse": "Collapse saved views",
+  "sidebar.removeFavourite": "Remove from favourites",
+  "sidebar.moveUp": "Move up",
+  "sidebar.moveDown": "Move down",
+  "sidebar.toggleVisible": "Visible before \"Show more\"",
+  "sidebar.toggleFavourite": "Add to favourites",
+  "sidebar.favouriteLegend": "★ = add to Favourites",
+  "sidebar.done": "Done",
+  "sidebar.action.newInvoice": "+ New invoice",
+  "sidebar.action.newJournalEntry": "+ New journal entry",
+  "sidebar.savedView.all": "All",
+  "sidebar.savedView.draft": "Drafts",
+  "sidebar.savedView.posted": "Posted",
 };
 
 export const sq: Record<string, string> = {
@@ -1810,6 +1844,40 @@ export const sq: Record<string, string> = {
   "attachments.deleteError": "Kjo bashkëngjitje nuk u fshi dot.",
   "attachments.unsupportedType": "“{fileName}” nuk është imazh apo PDF dhe nuk u ngarkua.",
   "attachments.tooLarge": "“{fileName}” është më e madhe se 10 MB dhe nuk u ngarkua.",
+
+  // Task 8 — app shell: tab strip
+  "shell.tabs.unsaved": "Ndryshime të paruajtura",
+  "shell.tabs.close": "Mbyll skedën",
+  "shell.tabs.new": "Hap një destinacion",
+
+  // Task 8 — app shell: sidebar
+  "sidebar.filterPlaceholder": "Filtro menynë",
+  "sidebar.noResults": "Nuk ka përputhje.",
+  "sidebar.category.favourites": "Të preferuarat",
+  "sidebar.category.sales": "Shitje",
+  "sidebar.category.purchases": "Blerje",
+  "sidebar.category.accounting": "Kontabiliteti",
+  "sidebar.category.registers": "Regjistrat",
+  "sidebar.category.reports": "Raportet",
+  "sidebar.customize": "Përshtat {category}",
+  "sidebar.customizeTitle": "Përshtat “{category}”",
+  "sidebar.customizeSubtitle": "Zgjidh çfarë shfaqet pa \"Shfaq më shumë\", dhe rendin.",
+  "sidebar.showMore": "Shfaq më shumë ({count})",
+  "sidebar.showLess": "Shfaq më pak",
+  "sidebar.savedViews.expand": "Zgjero pamjet e ruajtura",
+  "sidebar.savedViews.collapse": "Mbyll pamjet e ruajtura",
+  "sidebar.removeFavourite": "Hiq nga të preferuarat",
+  "sidebar.moveUp": "Lëviz lart",
+  "sidebar.moveDown": "Lëviz poshtë",
+  "sidebar.toggleVisible": "E dukshme para \"Shfaq më shumë\"",
+  "sidebar.toggleFavourite": "Shto te të preferuarat",
+  "sidebar.favouriteLegend": "★ = shto te Të preferuarat",
+  "sidebar.done": "U krye",
+  "sidebar.action.newInvoice": "+ Faturë e re",
+  "sidebar.action.newJournalEntry": "+ Urdhëresë e re",
+  "sidebar.savedView.all": "Të gjitha",
+  "sidebar.savedView.draft": "Draftet",
+  "sidebar.savedView.posted": "Postuar",
 };
 
 export const messages: Record<string, Record<string, string>> = { en, sq };
