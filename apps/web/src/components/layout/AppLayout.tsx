@@ -1,3 +1,4 @@
+import { Moon, Sun } from "lucide-react";
 import { useIntl } from "react-intl";
 import { NavLink, Outlet } from "react-router-dom";
 
@@ -7,12 +8,14 @@ import { Select } from "@/components/ui/select";
 import { navItems } from "@/config/nav";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
+import { useTheme } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
 export function AppLayout() {
   const intl = useIntl();
   const { auth, logout } = useAuth();
   const { companies, activeCompanyId, setActiveCompanyId } = useCompany();
+  const { theme, toggle } = useTheme();
 
   return (
     <div className="flex min-h-screen">
@@ -64,6 +67,15 @@ export function AppLayout() {
             )}
           </div>
           <div className="flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              aria-label={intl.formatMessage({ id: theme === "dark" ? "common.theme.light" : "common.theme.dark" })}
+              onClick={toggle}
+            >
+              {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
+            </Button>
             <LanguageSwitcher />
             <span className="text-sm text-muted-foreground">{auth?.email}</span>
             <Button variant="outline" size="sm" onClick={logout}>

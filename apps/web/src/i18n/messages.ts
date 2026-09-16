@@ -95,6 +95,9 @@ export const en: Record<string, string> = {
   "common.noData": "No data",
   "common.companyDefault": "Company default",
   "common.modified": "Modified",
+  "common.theme": "Theme",
+  "common.theme.light": "Light",
+  "common.theme.dark": "Dark",
 
   // Errors
   "errors.somethingWentWrong": "Something went wrong.",
@@ -999,6 +1002,9 @@ export const sq: Record<string, string> = {
   "common.noData": "Nuk ka t\u00eb dh\u00ebna",
   "common.companyDefault": "Parazgjedhja e kompanis\u00eb",
   "common.modified": "Ndryshuar",
+  "common.theme": "Tema",
+  "common.theme.light": "E ndritshme",
+  "common.theme.dark": "E err\u00ebt",
 
   // Errors
   "errors.somethingWentWrong": "Diçka shkoi keq.",
