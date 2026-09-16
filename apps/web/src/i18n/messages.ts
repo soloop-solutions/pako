@@ -194,6 +194,7 @@ export const en: Record<string, string> = {
   "lockDates.exceptions.revoke": "Revoke",
   "lockDates.exceptions.grant": "Grant exception",
   "lockDates.exceptions.none": "No exceptions granted.",
+  "lockDates.exceptions.noPermission": "You don't have permission to view lock exceptions.",
   "lockDates.exceptions.grantError": "Could not grant the exception.",
   "lockDates.exceptions.revokeError": "Could not revoke the exception.",
 
@@ -1161,6 +1162,7 @@ export const sq: Record<string, string> = {
   "lockDates.exceptions.revoke": "Hiq",
   "lockDates.exceptions.grant": "Jep p\u00ebrjashtim",
   "lockDates.exceptions.none": "Nuk ka p\u00ebrjashtime t\u00eb dh\u00ebna.",
+  "lockDates.exceptions.noPermission": "Nuk keni leje p\u00ebr t\u00eb par\u00eb p\u00ebrjashtimet e bllokimit.",
   "lockDates.exceptions.grantError": "P\u00ebrjashtimi nuk u dha.",
   "lockDates.exceptions.revokeError": "P\u00ebrjashtimi nuk u hoq.",
 

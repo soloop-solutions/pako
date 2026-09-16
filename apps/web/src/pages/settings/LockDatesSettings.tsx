@@ -40,12 +40,6 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
 
   const company = companies.find((c) => c.id === companyId) ?? null;
 
-  const exceptionsQueryKey = ["lockExceptions", companyId] as const;
-  const exceptionsQuery = useQuery({
-    queryKey: exceptionsQueryKey,
-    queryFn: () => apiClient.exceptionsAll(companyId),
-  });
-
   const membersQuery = useQuery({
     queryKey: ["members", "company", companyId],
     queryFn: () => apiClient.membersAll(companyId),
@@ -54,6 +48,16 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
   const members = membersQuery.data ?? [];
   const currentMembership = members.find((m: MemberResponse) => m.userId === auth?.userId);
   const isAdmin = currentMembership ? isCompanyAdminRole(currentMembership.role) : false;
+
+  // GET .../locks/exceptions is `[RequireCompanyAccess(writeAccess: true)]` server-side (only
+  // admin roles) — gating on `isAdmin` avoids a 403 that would otherwise render as an empty
+  // "No exceptions granted" table, indistinguishable from there genuinely being none.
+  const exceptionsQueryKey = ["lockExceptions", companyId] as const;
+  const exceptionsQuery = useQuery({
+    queryKey: exceptionsQueryKey,
+    queryFn: () => apiClient.exceptionsAll(companyId),
+    enabled: isAdmin,
+  });
 
   function memberEmail(userId: string): string {
     return members.find((m: MemberResponse) => m.userId === userId)?.email ?? userId;
@@ -339,8 +343,12 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
                 })}
               </TableBody>
             </Table>
-            {(exceptionsQuery.data ?? []).length === 0 && (
-              <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "lockDates.exceptions.none" })}</p>
+            {!isAdmin ? (
+              <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "lockDates.exceptions.noPermission" })}</p>
+            ) : (
+              (exceptionsQuery.data ?? []).length === 0 && (
+                <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "lockDates.exceptions.none" })}</p>
+              )
             )}
 
             {isAdmin && members.length > 0 && (
