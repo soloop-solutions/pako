@@ -54,7 +54,10 @@ export function PickerCell({
         onFocus={onFocus}
         onKeyDown={onKeyDown}
         onPaste={onPaste}
-        className="h-[26px] w-full min-w-0 rounded border border-input bg-transparent px-1.5 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[2px]"
+        className={cn(
+          "h-6 w-full min-w-0 rounded-[3px] border border-input bg-transparent px-1.5 text-[13px] outline-none",
+          open && "border-cell-active ring-2 ring-accent bg-card",
+        )}
       />
       {open && (
         <div className="absolute left-0 top-full z-20 mt-0.5 max-h-48 w-56 overflow-auto rounded-md border bg-popover py-1 text-xs shadow-md">

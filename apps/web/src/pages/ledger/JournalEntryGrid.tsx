@@ -5,6 +5,7 @@ import type { AccountResponse, JournalResponse, PartnerResponse } from "@pako/sh
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { fetchCostCenters, type CostCenterOption } from "@/api/cost-centers-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -132,8 +133,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
 
   // Totals/diff must reflect exactly what Save would submit, not every typed cell — a line with an
   // amount but no account selected is excluded from the real create request (see handleSave's
-  // validLines below), so it must be excluded here too, or the footer can show "Balanced" for a set
-  // of lines that isn't actually what gets posted.
+  // validLines below), so it must be excluded here too, or the Diferenca chip can show 0.00 for a
+  // set of lines that isn't actually what gets posted.
   const totals = useMemo(() => computeTotals(lines.filter((line) => line.accountId)), [lines]);
 
   // Re-seed the draft (and move real DOM focus) only when the focused CELL changes — deliberately
@@ -406,7 +407,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
             onKeyDown={(event) => handleKeyDown(event, row, col)}
             onClick={() => setOpenDistributionRow((current) => (current === row ? null : row))}
             className={cn(
-              "h-[26px] w-full truncate rounded border border-input bg-transparent px-1.5 text-left text-[13px] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[2px]",
+              "h-6 w-full truncate rounded-[3px] border border-input bg-transparent px-1.5 text-left text-[13px] outline-none",
+              isFocused && "border-cell-active ring-2 ring-accent bg-card",
               !complete && "border-destructive text-destructive",
             )}
           >
@@ -462,7 +464,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         onKeyDown={(event) => handleKeyDown(event, row, col)}
         onPaste={(event) => handlePaste(event, row, col)}
         className={cn(
-          "h-[26px] w-full min-w-0 rounded border border-input bg-transparent px-1.5 text-[13px] outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[2px]",
+          "h-6 w-full min-w-0 rounded-[3px] border border-input bg-transparent px-1.5 text-[13px] outline-none",
+          isFocused && "border-cell-active ring-2 ring-accent bg-card",
           (column === "debit" || column === "credit") && "text-right tabular-nums",
         )}
       />
@@ -517,7 +520,10 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           </TableHeader>
           <TableBody>
             {lines.map((line, row) => (
-              <TableRow key={line.id} className="h-[30px]">
+              <TableRow
+                key={line.id}
+                className={cn("h-[30px]", row === focus.row && "bg-row-selected shadow-[inset_3px_0_0_var(--primary)]")}
+              >
                 {GRID_COLUMNS.map((column, col) => (
                   <TableCell key={column} className="h-[30px] py-1">
                     {renderCell(line, row, col)}
@@ -532,16 +538,17 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
             ))}
           </TableBody>
           <tfoot>
-            <tr className="h-[30px] border-t bg-muted/30 font-medium">
-              <td className="h-[30px] px-2 py-1" colSpan={2}>
+            <tr className="h-[34px] border-t border-t-grid-header-border bg-totals text-totals-foreground font-bold">
+              <td className="h-[34px] px-2 py-1" colSpan={2}>
                 {intl.formatMessage({ id: "journalGrid.totalDebit" })} / {intl.formatMessage({ id: "journalGrid.totalCredit" })}
               </td>
-              <td className="h-[30px] px-2 py-1 text-right tabular-nums">{totals.debit.toFixed(2)}</td>
-              <td className="h-[30px] px-2 py-1 text-right tabular-nums">{totals.credit.toFixed(2)}</td>
-              <td className={cn("h-[30px] px-2 py-1", isUnbalanced ? "text-destructive" : "text-muted-foreground")} colSpan={3}>
-                {isUnbalanced
-                  ? `${intl.formatMessage({ id: "journalGrid.difference" })}: ${formatCents(totals.diffCents)}`
-                  : intl.formatMessage({ id: "journalGrid.balanced" })}
+              <td className="h-[34px] px-2 py-1 text-right tabular-nums">{totals.debit.toFixed(2)}</td>
+              <td className="h-[34px] px-2 py-1 text-right tabular-nums">{totals.credit.toFixed(2)}</td>
+              <td className="h-[34px] px-2 py-1" colSpan={3}>
+                <span className="inline-flex items-center gap-1.5">
+                  {intl.formatMessage({ id: "journalGrid.difference" })}
+                  <Badge variant={isUnbalanced ? "warning" : "success"}>{formatCents(totals.diffCents)}</Badge>
+                </span>
               </td>
             </tr>
           </tfoot>

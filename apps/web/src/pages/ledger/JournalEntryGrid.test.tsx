@@ -90,6 +90,15 @@ function cellInput(rowIndex: number, label: string): HTMLElement {
   return within(bodyRow(rowIndex)).getByLabelText(label);
 }
 
+// The Diferenca chip (Task 7) sits in the totals bar next to the debit/credit total cells, which
+// can carry the same numeric text (e.g. both read "100.00") — so it must be found by its badge
+// markup, not by text content scoped to the totals row.
+function diferencaBadge(container: HTMLElement): HTMLElement {
+  const badge = container.querySelector('[data-slot="badge"]');
+  if (!badge) throw new Error("Diferenca badge not found");
+  return badge as HTMLElement;
+}
+
 // Real DOM focus (not just dispatching a change event) before typing — matches how a user actually
 // reaches a cell (click, or arrow/Tab/Enter from another cell, both of which the grid ties to real
 // DOM focus via its own [focus]-keyed effect). Wrapped in `act()` so the effect that re-seeds the
@@ -199,7 +208,7 @@ describe("JournalEntryGrid keyboard model", () => {
   });
 
   it("disables Save and shows the exact difference while unbalanced, and auto-balance zeroes it", async () => {
-    renderGrid();
+    const { container } = renderGrid();
     await waitFor(() => expect(partnersAll).toHaveBeenCalled());
 
     const account0 = type(0, "Account", "100100");
@@ -211,18 +220,20 @@ describe("JournalEntryGrid keyboard model", () => {
     const account1 = type(1, "Account", "400100");
     fireEvent.keyDown(account1, { key: "Tab" });
 
-    expect(await screen.findByText("Difference: 100.00")).toBeInTheDocument();
+    await waitFor(() => expect(diferencaBadge(container)).toHaveTextContent("100.00"));
+    expect(diferencaBadge(container).className).toContain("bg-warning");
     expect(screen.getByRole("button", { name: "Save and post" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Auto-balance last line" }));
 
     await waitFor(() => expect(cellInput(1, "Credit")).toHaveValue("100.00"));
     expect(screen.getByRole("button", { name: "Save and post" })).not.toBeDisabled();
-    expect(screen.getByText("Balanced")).toBeInTheDocument();
+    expect(diferencaBadge(container)).toHaveTextContent("0.00");
+    expect(diferencaBadge(container).className).toContain("bg-success");
   });
 
   it("does not count a line's amount toward the totals or let Save through when that line has no account", async () => {
-    renderGrid();
+    const { container } = renderGrid();
     await waitFor(() => expect(partnersAll).toHaveBeenCalled());
 
     // Line 1 (account) debit 100, line 2 (account) credit 60 — deliberately short by 40 on
@@ -242,8 +253,8 @@ describe("JournalEntryGrid keyboard model", () => {
     const credit2 = type(2, "Credit", "40.00");
     fireEvent.keyDown(credit2, { key: "Enter" });
 
-    expect(await screen.findByText("Difference: 40.00")).toBeInTheDocument();
-    expect(screen.queryByText("Balanced")).not.toBeInTheDocument();
+    await waitFor(() => expect(diferencaBadge(container)).toHaveTextContent("40.00"));
+    expect(diferencaBadge(container).className).toContain("bg-warning");
     expect(screen.getByRole("button", { name: "Save and post" })).toBeDisabled();
     expect(journalEntriesCreate).not.toHaveBeenCalled();
   });
