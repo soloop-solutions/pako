@@ -28,7 +28,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       ...actual.apiClient,
       partnersAll: (...args: unknown[]) => partnersAll(...args),
       accountsAll: (...args: unknown[]) => accountsAll(...args),
-      partners: (...args: unknown[]) => partnersCreate(...args),
+      partnersPOST: (...args: unknown[]) => partnersCreate(...args),
     },
   };
 });

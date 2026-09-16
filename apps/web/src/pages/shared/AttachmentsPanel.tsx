@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { formatAttachmentSize, isImageAttachmentType, validateAttachmentFile } from "@/lib/attachment-validation";
 import { cn } from "@/lib/utils";
 import { setAttachmentsMockActive } from "@/mocks/attachmentsMockFlag";
+import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
 
 // F11 — see src/mocks/attachmentsHandlers.ts for the invented contract this talks to. Shared
 // between InvoiceDetail.tsx and BillDetail.tsx, same composition style as RecordPaymentForm.tsx/
@@ -81,11 +82,23 @@ export function AttachmentsPanel({ companyId, documentKind, documentId }: Attach
     }
   }, [companyId, documentKind, documentId, getContentUrl, intl]);
 
+  // The shared mock Service Worker isn't guaranteed to already be running — a screen that lands
+  // here directly (not via Partners/Items/Ledger, which each also start it) would otherwise fire
+  // real fetches against the mocked attachments endpoints and get real 404s. Partners.tsx/
+  // JournalEntryGrid.tsx/LockDatesSettings.tsx face the same gap but gate a TanStack `useQuery`'s
+  // declarative `enabled` on a `mockReady` flag; this screen fetches manually via `refresh()`, so
+  // the equivalent is awaiting the same promise before calling it, in one effect — not a second
+  // effect keyed on a `mockReady` state, which raced against `refresh()`'s own state updates
+  // (only surfaced as a flaky test under full-suite load, not in isolation).
   useEffect(() => {
     setAttachmentsMockActive(true);
-    void refresh();
+    let cancelled = false;
     const cache = objectUrlCache.current;
+    void ensureAccountsMockWorkerStarted().then(() => {
+      if (!cancelled) void refresh();
+    });
     return () => {
+      cancelled = true;
       setAttachmentsMockActive(false);
       for (const url of cache.values()) URL.revokeObjectURL(url);
       cache.clear();

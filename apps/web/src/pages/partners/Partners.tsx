@@ -86,7 +86,7 @@ export function Partners() {
       // src/pages/partners/PartnerRegisterForm.tsx for why controlAccountId/paymentTermDays/
       // creditLimit are MOCKED, stored separately right after the real create call succeeds —
       // same technique src/mocks/itemTypesMockFlag.ts established for F5's item type.
-      const created = await apiClient.partners(activeCompanyId, {
+      const created = await apiClient.partnersPOST(activeCompanyId, {
         name: fields.name,
         taxNumber: fields.taxNumber ?? undefined,
         isCustomer: fields.isCustomer,
