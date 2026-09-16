@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
@@ -45,6 +46,29 @@ public class ReportsController : ControllerBase
         return Ok(new ProfitAndLossResponse(from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses));
     }
 
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("profit-and-loss/export", Name = "ProfitAndLossExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> ProfitAndLossExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await ProfitAndLoss(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not ProfitAndLossResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var rows = new List<IReadOnlyList<object?>>();
+        rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { "Income", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Income", null, "Total Income", response.TotalIncome });
+        rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { "Expenses", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Expenses", null, "Total Expenses", response.TotalExpenses });
+        rows.Add(new object?[] { null, null, "Net Income", response.NetIncome });
+
+        var bytes = ExcelExportService.BuildWorkbook("Profit and Loss", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"profit-and-loss-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
     [HttpGet("balance-sheet")]
     [RequireCompanyAccess]
     public async Task<ActionResult<BalanceSheetResponse>> BalanceSheet(Guid companyId, [FromQuery] DateOnly asOf)
@@ -83,6 +107,30 @@ public class ReportsController : ControllerBase
 
         return Ok(new BalanceSheetResponse(
             asOf, assets, liabilities, equity, currentEarnings, totalAssets, totalLiabilities, totalEquity));
+    }
+
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("balance-sheet/export", Name = "BalanceSheetExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> BalanceSheetExport(Guid companyId, [FromQuery] DateOnly asOf)
+    {
+        var result = await BalanceSheet(companyId, asOf);
+        if (result.Result is not OkObjectResult ok || ok.Value is not BalanceSheetResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var rows = new List<IReadOnlyList<object?>>();
+        rows.AddRange(response.Assets.Select(l => (IReadOnlyList<object?>)new object?[] { "Assets", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Assets", null, "Total Assets", response.TotalAssets });
+        rows.AddRange(response.Liabilities.Select(l => (IReadOnlyList<object?>)new object?[] { "Liabilities", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Liabilities", null, "Total Liabilities", response.TotalLiabilities });
+        rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { "Equity", l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { "Equity", null, "Total Equity", response.TotalEquity });
+
+        var bytes = ExcelExportService.BuildWorkbook("Balance Sheet", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-{asOf:yyyyMMdd}.xlsx");
     }
 
     [HttpGet("vat-return")]
@@ -145,6 +193,29 @@ public class ReportsController : ControllerBase
         return Ok(new VatReturnResponse(from, to, output, input, totalOutput, totalInput, totalOutput - totalInput));
     }
 
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("vat-return/export", Name = "VatReturnExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> VatReturnExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await VatReturn(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not VatReturnResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Direction", "Tax Code", "Rate", "Amount" };
+        var rows = new List<IReadOnlyList<object?>>();
+        rows.AddRange(response.OutputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Output", l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { "Output", null, "Total Output VAT", response.TotalOutputVat });
+        rows.AddRange(response.InputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Input", l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { "Input", null, "Total Input VAT", response.TotalInputVat });
+        rows.Add(new object?[] { null, null, "Net VAT Due", response.NetVatDue });
+
+        var bytes = ExcelExportService.BuildWorkbook("VAT Return", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"vat-return-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
     // B10: one row per (posted document, VAT code) — see SalesBookLine's own comment for why
     // DocumentType is carried through rather than filtered on, and why that sidesteps the
     // still-open "sales return as nota kreditore" question rather than deciding it here.
@@ -171,6 +242,29 @@ public class ReportsController : ControllerBase
         return Ok(new SalesBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
     }
 
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("sales-book/export", Name = "SalesBookExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await SalesBook(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not SalesBookResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Invoice Number", "Issue Date", "Document Type", "Partner", "Tax Number", "Fiscal Number", "VAT Code", "Rate", "Net", "VAT", "Gross" };
+        var rows = response.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
+        {
+            l.InvoiceNumber, l.IssueDate, l.DocumentType, l.PartnerName, l.PartnerTaxNumber, l.PartnerFiscalNumber,
+            l.VatCode, l.Rate, l.NetAmount, l.VatAmount, l.GrossAmount
+        }).ToList();
+        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", response.TotalNet, response.TotalVat, response.TotalGross });
+
+        var bytes = ExcelExportService.BuildWorkbook("Sales Book", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"sales-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
+
     [HttpGet("purchase-book")]
     [RequireCompanyAccess]
     public async Task<ActionResult<PurchaseBookResponse>> PurchaseBook(
@@ -192,6 +286,29 @@ public class ReportsController : ControllerBase
             .ToList();
 
         return Ok(new PurchaseBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
+    }
+
+    [Produces(ExcelExportService.XlsxContentType)]
+    [HttpGet("purchase-book/export", Name = "PurchaseBookExport")]
+    [RequireCompanyAccess]
+    public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        var result = await PurchaseBook(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not PurchaseBookResponse response)
+        {
+            return result.Result!;
+        }
+
+        var headers = new[] { "Vendor Reference", "Issue Date", "Document Type", "Partner", "Tax Number", "Fiscal Number", "VAT Code", "Rate", "Net", "VAT", "Gross" };
+        var rows = response.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
+        {
+            l.VendorReference, l.IssueDate, l.DocumentType, l.PartnerName, l.PartnerTaxNumber, l.PartnerFiscalNumber,
+            l.VatCode, l.Rate, l.NetAmount, l.VatAmount, l.GrossAmount
+        }).ToList();
+        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", response.TotalNet, response.TotalVat, response.TotalGross });
+
+        var bytes = ExcelExportService.BuildWorkbook("Purchase Book", headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"purchase-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
     private Task<Dictionary<Guid, Partner>> PartnersByIdAsync(IEnumerable<Guid> partnerIds) =>

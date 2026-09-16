@@ -505,6 +505,41 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal(400m, line.GrossAmount);
     }
 
+    // B11: the export wrapper is a thin pass-through over the JSON action's own data — this proves
+    // the file it hands back is actually a valid, readable workbook containing that same row.
+    [Fact]
+    public async Task SalesBookExport_ReturnsXlsxWithMatchingRow()
+    {
+        var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Invoice Number", sheet.Cell(1, 1).GetString());
+        Assert.Equal(invoiceNumber, sheet.Cell(2, 1).GetString());
+        Assert.Equal("S18", sheet.Cell(2, 7).GetString());
+    }
+
+    [Fact]
+    public async Task PurchaseBookExport_ReturnsXlsxWithMatchingRow()
+    {
+        var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.PurchaseBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Vendor Reference", sheet.Cell(1, 1).GetString());
+        Assert.Equal(vendorReference, sheet.Cell(2, 1).GetString());
+        Assert.Equal("B18", sheet.Cell(2, 7).GetString());
+    }
+
     // B10: a document outside the from/to range must not appear, even though it's Posted.
     [Fact]
     public async Task SalesBook_ExcludesInvoiceOutsideDateRange()

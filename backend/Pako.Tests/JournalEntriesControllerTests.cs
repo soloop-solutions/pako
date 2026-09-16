@@ -292,4 +292,48 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Contains("only Posted entries can be reversed", badRequest.Value!.ToString());
     }
+
+    // B11: the export resolves account code/name and partner name itself rather than reusing
+    // JournalEntryResponse's raw ids — this proves the file it hands back actually carries those
+    // readable identifiers, not just Guids.
+    [Fact]
+    public async Task Export_ReturnsXlsxWithAccountCodeAndAmounts()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, new CreateJournalEntryRequest(
+            journalId, new DateOnly(2026, 8, 26), "Opening balance", new List<CreateJournalEntryLineRequest>
+            {
+                new(accountAId, null, 100m, 0m, "Cash in"),
+                new(accountBId, null, 0m, 100m, "Capital contribution")
+            }));
+        var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var result = await controller.Export(companyId, entry.Id);
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Account Code", sheet.Cell(1, 1).GetString());
+
+        // Line order isn't guaranteed by EF's Include, so match by account code instead of row.
+        var dataRows = sheet.RowsUsed().Skip(1).ToList();
+        var cashRow = dataRows.Single(r => r.Cell(1).GetString() == "1000");
+        Assert.Equal(100m, cashRow.Cell(4).GetValue<decimal>());
+        var capitalRow = dataRows.Single(r => r.Cell(1).GetString() == "3000");
+        Assert.Equal(100m, capitalRow.Cell(5).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task Export_UnknownId_ReturnsNotFound()
+    {
+        var (db, companyId, _, _, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Export(companyId, Guid.NewGuid());
+
+        Assert.IsType<NotFoundResult>(result);
+    }
 }
