@@ -1,7 +1,16 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
 import { Download, Lock } from "lucide-react";
-import type { BalanceSheetResponse, DebtAgingResponse, PartnerResponse, ProfitAndLossResponse, VatReturnResponse } from "@pako/shared";
+import type {
+  BalanceSheetResponse,
+  DebtAgingResponse,
+  FileResponse,
+  PartnerResponse,
+  ProfitAndLossResponse,
+  PurchaseBookResponse,
+  SalesBookResponse,
+  VatReturnResponse,
+} from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,7 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 
-type Tab = "pnl" | "balance-sheet" | "vat" | "debt";
+type Tab = "pnl" | "balance-sheet" | "vat" | "debt" | "sales-book" | "purchase-book";
 type ExcelRow = (string | number)[];
 
 function today() {
@@ -43,6 +52,21 @@ function downloadRows(rows: (string | number)[][], fileName: string): void {
   void import("@/components/data-grid/exportToExcel").then(({ exportRowsToExcel }) => exportRowsToExcel(rows, fileName));
 }
 
+// Sales/purchase book export goes through the real backend endpoint (GET .../export, an xlsx
+// built server-side by ExcelExportService) rather than the client-side xlsx composition
+// downloadRows does for pnl/balance-sheet/vat/debt above — ReportsController already builds and
+// serves the real file for these two, so there's no reason to re-derive it in the browser.
+function downloadFileResponse(file: FileResponse, fallbackFileName: string): void {
+  const url = URL.createObjectURL(file.data);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.fileName ?? fallbackFileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
 function LockNotice({ lockDate, messageId }: { lockDate: string; messageId: "reports.periodLockedAccounting" | "reports.periodLockedTax" }) {
   const intl = useIntl();
   return (
@@ -56,12 +80,12 @@ function LockNotice({ lockDate, messageId }: { lockDate: string; messageId: "rep
   );
 }
 
-function ExportButton({ onClick }: { onClick: () => void }) {
+function ExportButton({ onClick, loading }: { onClick: () => void; loading?: boolean }) {
   const intl = useIntl();
   return (
-    <Button type="button" variant="outline" size="sm" onClick={onClick}>
+    <Button type="button" variant="outline" size="sm" onClick={onClick} disabled={loading}>
       <Download className="size-3.5" />
-      {intl.formatMessage({ id: "reports.exportToExcel" })}
+      {loading ? intl.formatMessage({ id: "reports.exportingReport" }) : intl.formatMessage({ id: "reports.exportToExcel" })}
     </Button>
   );
 }
@@ -76,6 +100,8 @@ export function Reports() {
     { key: "balance-sheet", labelKey: "reports.balanceSheet" },
     { key: "vat", labelKey: "reports.vatReturn" },
     { key: "debt", labelKey: "reports.debtAging" },
+    { key: "sales-book", labelKey: "reports.salesBook" },
+    { key: "purchase-book", labelKey: "reports.purchaseBook" },
   ];
 
   const [tab, setTab] = useState<Tab>("pnl");
@@ -110,6 +136,22 @@ export function Reports() {
   const [debtPartners, setDebtPartners] = useState<PartnerResponse[]>([]);
   const [debtError, setDebtError] = useState<string | null>(null);
   const [debtLoading, setDebtLoading] = useState(false);
+
+  const [salesBookFrom, setSalesBookFrom] = useState(startOfMonth);
+  const [salesBookTo, setSalesBookTo] = useState(today);
+  const [salesBook, setSalesBook] = useState<SalesBookResponse | null>(null);
+  const [salesBookPeriod, setSalesBookPeriod] = useState<{ from: string; to: string } | null>(null);
+  const [salesBookError, setSalesBookError] = useState<string | null>(null);
+  const [salesBookLoading, setSalesBookLoading] = useState(false);
+  const [salesBookExporting, setSalesBookExporting] = useState(false);
+
+  const [purchaseBookFrom, setPurchaseBookFrom] = useState(startOfMonth);
+  const [purchaseBookTo, setPurchaseBookTo] = useState(today);
+  const [purchaseBook, setPurchaseBook] = useState<PurchaseBookResponse | null>(null);
+  const [purchaseBookPeriod, setPurchaseBookPeriod] = useState<{ from: string; to: string } | null>(null);
+  const [purchaseBookError, setPurchaseBookError] = useState<string | null>(null);
+  const [purchaseBookLoading, setPurchaseBookLoading] = useState(false);
+  const [purchaseBookExporting, setPurchaseBookExporting] = useState(false);
 
   async function loadPnl() {
     if (!companyId) return;
@@ -179,6 +221,64 @@ export function Reports() {
     return debtPartners.find((p) => p.id === partnerId)?.name ?? partnerId;
   }
 
+  async function loadSalesBook() {
+    if (!companyId) return;
+    setSalesBookError(null);
+    setSalesBookLoading(true);
+    try {
+      const result = await apiClient.salesBook(companyId, salesBookFrom, salesBookTo);
+      setSalesBook(result);
+      setSalesBookPeriod({ from: salesBookFrom, to: salesBookTo });
+    } catch (err) {
+      setSalesBookError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.salesBookLoadError" })));
+    } finally {
+      setSalesBookLoading(false);
+    }
+  }
+
+  async function exportSalesBook() {
+    if (!companyId || !salesBookPeriod) return;
+    setSalesBookError(null);
+    setSalesBookExporting(true);
+    try {
+      const file = await apiClient.salesBookExport(companyId, salesBookPeriod.from, salesBookPeriod.to);
+      downloadFileResponse(file, `sales-book-${salesBookPeriod.from}_${salesBookPeriod.to}.xlsx`);
+    } catch (err) {
+      setSalesBookError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.salesBookLoadError" })));
+    } finally {
+      setSalesBookExporting(false);
+    }
+  }
+
+  async function loadPurchaseBook() {
+    if (!companyId) return;
+    setPurchaseBookError(null);
+    setPurchaseBookLoading(true);
+    try {
+      const result = await apiClient.purchaseBook(companyId, purchaseBookFrom, purchaseBookTo);
+      setPurchaseBook(result);
+      setPurchaseBookPeriod({ from: purchaseBookFrom, to: purchaseBookTo });
+    } catch (err) {
+      setPurchaseBookError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.purchaseBookLoadError" })));
+    } finally {
+      setPurchaseBookLoading(false);
+    }
+  }
+
+  async function exportPurchaseBook() {
+    if (!companyId || !purchaseBookPeriod) return;
+    setPurchaseBookError(null);
+    setPurchaseBookExporting(true);
+    try {
+      const file = await apiClient.purchaseBookExport(companyId, purchaseBookPeriod.from, purchaseBookPeriod.to);
+      downloadFileResponse(file, `purchase-book-${purchaseBookPeriod.from}_${purchaseBookPeriod.to}.xlsx`);
+    } catch (err) {
+      setPurchaseBookError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.purchaseBookLoadError" })));
+    } finally {
+      setPurchaseBookExporting(false);
+    }
+  }
+
   if (!activeCompany) {
     return (
       <Card>
@@ -202,6 +302,8 @@ export function Reports() {
   const balanceSheetLocked = !!balanceSheetAsOf && isOnOrBeforeLock(balanceSheetAsOf, accountingLockDate);
   const vatLocked = !!vatPeriod && isOnOrBeforeLock(vatPeriod.to, taxLockDate);
   const debtLocked = !!debtAsOfLoaded && isOnOrBeforeLock(debtAsOfLoaded, accountingLockDate);
+  const salesBookLocked = !!salesBookPeriod && isOnOrBeforeLock(salesBookPeriod.to, taxLockDate);
+  const purchaseBookLocked = !!purchaseBookPeriod && isOnOrBeforeLock(purchaseBookPeriod.to, taxLockDate);
 
   function exportPnl() {
     if (!pnl || !pnlPeriod) return;
@@ -642,6 +744,173 @@ export function Reports() {
                     </div>
                   );
                 })}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === "sales-book" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "reports.salesBook" })}</CardTitle>
+            <CardDescription>{activeCompany.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="sales-book-from">{intl.formatMessage({ id: "reports.from" })}</Label>
+                <Input id="sales-book-from" type="date" value={salesBookFrom} onChange={(event) => setSalesBookFrom(event.target.value)} />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="sales-book-to">{intl.formatMessage({ id: "reports.to" })}</Label>
+                <Input id="sales-book-to" type="date" value={salesBookTo} onChange={(event) => setSalesBookTo(event.target.value)} />
+              </div>
+              <Button onClick={loadSalesBook} disabled={salesBookLoading}>
+                {salesBookLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
+              </Button>
+              {salesBook && <ExportButton onClick={() => void exportSalesBook()} loading={salesBookExporting} />}
+            </div>
+
+            {salesBookLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
+
+            {salesBookError && (
+              <Alert variant="destructive">
+                <AlertDescription>{salesBookError}</AlertDescription>
+              </Alert>
+            )}
+
+            {salesBook && (
+              <>
+                {salesBook.lines.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "reports.bookNone" })}</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookInvoiceNumber" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookIssueDate" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookDocumentType" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "common.partner" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookTaxNumber" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookFiscalNumber" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookVatCode" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.rate" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.bookNet" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.bookVat" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.bookGross" })}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {salesBook.lines.map((line, index) => (
+                        <TableRow key={`${line.invoiceId}-${line.vatCode}-${index}`}>
+                          <TableCell>{line.invoiceNumber ?? "-"}</TableCell>
+                          <TableCell className="tabular-nums">{line.issueDate}</TableCell>
+                          <TableCell>{line.documentType}</TableCell>
+                          <TableCell>{line.partnerName}</TableCell>
+                          <TableCell>{line.partnerTaxNumber ?? "-"}</TableCell>
+                          <TableCell>{line.partnerFiscalNumber ?? "-"}</TableCell>
+                          <TableCell>{line.vatCode}</TableCell>
+                          <TableCell className="text-right tabular-nums">{(line.rate * 100).toFixed(0)}%</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.netAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.vatAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.grossAmount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                <div className="flex flex-col items-end gap-1 text-sm">
+                  <p>{intl.formatMessage({ id: "reports.bookTotalNet" }, { amount: salesBook.totalNet.toFixed(2) })}</p>
+                  <p>{intl.formatMessage({ id: "reports.bookTotalVat" }, { amount: salesBook.totalVat.toFixed(2) })}</p>
+                  <p className="font-medium">{intl.formatMessage({ id: "reports.bookTotalGross" }, { amount: salesBook.totalGross.toFixed(2) })}</p>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === "purchase-book" && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "reports.purchaseBook" })}</CardTitle>
+            <CardDescription>{activeCompany.name}</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="purchase-book-from">{intl.formatMessage({ id: "reports.from" })}</Label>
+                <Input
+                  id="purchase-book-from"
+                  type="date"
+                  value={purchaseBookFrom}
+                  onChange={(event) => setPurchaseBookFrom(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-2">
+                <Label htmlFor="purchase-book-to">{intl.formatMessage({ id: "reports.to" })}</Label>
+                <Input id="purchase-book-to" type="date" value={purchaseBookTo} onChange={(event) => setPurchaseBookTo(event.target.value)} />
+              </div>
+              <Button onClick={loadPurchaseBook} disabled={purchaseBookLoading}>
+                {purchaseBookLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
+              </Button>
+              {purchaseBook && <ExportButton onClick={() => void exportPurchaseBook()} loading={purchaseBookExporting} />}
+            </div>
+
+            {purchaseBookLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
+
+            {purchaseBookError && (
+              <Alert variant="destructive">
+                <AlertDescription>{purchaseBookError}</AlertDescription>
+              </Alert>
+            )}
+
+            {purchaseBook && (
+              <>
+                {purchaseBook.lines.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "reports.bookNone" })}</p>
+                ) : (
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookVendorReference" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookIssueDate" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookDocumentType" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "common.partner" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookTaxNumber" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookFiscalNumber" })}</TableHead>
+                        <TableHead>{intl.formatMessage({ id: "reports.bookVatCode" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.rate" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.bookNet" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.bookVat" })}</TableHead>
+                        <TableHead className="text-right">{intl.formatMessage({ id: "reports.bookGross" })}</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {purchaseBook.lines.map((line, index) => (
+                        <TableRow key={`${line.billId}-${line.vatCode}-${index}`}>
+                          <TableCell>{line.vendorReference ?? "-"}</TableCell>
+                          <TableCell className="tabular-nums">{line.issueDate}</TableCell>
+                          <TableCell>{line.documentType}</TableCell>
+                          <TableCell>{line.partnerName}</TableCell>
+                          <TableCell>{line.partnerTaxNumber ?? "-"}</TableCell>
+                          <TableCell>{line.partnerFiscalNumber ?? "-"}</TableCell>
+                          <TableCell>{line.vatCode}</TableCell>
+                          <TableCell className="text-right tabular-nums">{(line.rate * 100).toFixed(0)}%</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.netAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.vatAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{line.grossAmount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+                <div className="flex flex-col items-end gap-1 text-sm">
+                  <p>{intl.formatMessage({ id: "reports.bookTotalNet" }, { amount: purchaseBook.totalNet.toFixed(2) })}</p>
+                  <p>{intl.formatMessage({ id: "reports.bookTotalVat" }, { amount: purchaseBook.totalVat.toFixed(2) })}</p>
+                  <p className="font-medium">{intl.formatMessage({ id: "reports.bookTotalGross" }, { amount: purchaseBook.totalGross.toFixed(2) })}</p>
+                </div>
               </>
             )}
           </CardContent>
