@@ -120,6 +120,9 @@
   <data name="AttachmentTooLarge" xml:space="preserve"><value>File must be 20 MB or smaller.</value></data>
   <data name="AttachmentOwnerNotFound" xml:space="preserve"><value>The owner record does not belong to this company.</value></data>
 
+  <!-- Hash chain (B15) -->
+  <data name="CannotSecurePastDraftEntries" xml:space="preserve"><value>Cannot secure up to this date: one or more draft journal entries in this journal fall on or before it. Post or discard them first.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>

@@ -2628,6 +2628,52 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    secure(companyId: string, journalId: string, body: SecureJournalRequest): Promise<SecureJournalResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/journals/{journalId}/secure";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (journalId === undefined || journalId === null)
+            throw new globalThis.Error("The parameter 'journalId' must be defined.");
+        url_ = url_.replace("{journalId}", encodeURIComponent("" + journalId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSecure(_response);
+        });
+    }
+
+    protected processSecure(response: Response): Promise<SecureJournalResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as SecureJournalResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<SecureJournalResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     trialBalance(companyId: string): Promise<TrialBalanceLine[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance";
         if (companyId === undefined || companyId === null)
@@ -4895,6 +4941,20 @@ export interface SalesBookResponse {
     totalNet: number;
     totalVat: number;
     totalGross: number;
+
+    [key: string]: any;
+}
+
+export interface SecureJournalRequest {
+    upTo: string;
+
+    [key: string]: any;
+}
+
+export interface SecureJournalResponse {
+    entriesSecured: number;
+    latestHash: string | undefined;
+    latestSecureSequenceNumber: number | undefined;
 
     [key: string]: any;
 }

@@ -84,6 +84,19 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         entry.Properties.Where(p => p.IsModified).All(p => p.Metadata.Name == nameof(JournalEntry.State)) &&
         entry.CurrentValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Cancelled;
 
+    // B15: securing a journal's hash chain (JournalsController.Secure) sets EntryHash/PrevHash/
+    // SecureSequenceNumber on an already-Posted entry — the other Posted-state mutation this repo
+    // allows besides the storno transition above. Only permitted going from unset to set (all
+    // three originally null) — once set, any further attempt to modify them fails this check and
+    // is rejected like any other Posted-entry edit, which is exactly the "freeze once hashed"
+    // guarantee: a securing run can never re-hash or silently overwrite an already-secured entry.
+    private static bool OnlyHashFieldsSecured(EntityEntry<JournalEntry> entry) =>
+        entry.Properties.Where(p => p.IsModified).All(p =>
+            p.Metadata.Name is nameof(JournalEntry.EntryHash) or nameof(JournalEntry.PrevHash) or nameof(JournalEntry.SecureSequenceNumber)) &&
+        entry.OriginalValues.GetValue<string?>(nameof(JournalEntry.EntryHash)) is null &&
+        entry.OriginalValues.GetValue<string?>(nameof(JournalEntry.PrevHash)) is null &&
+        entry.OriginalValues.GetValue<long?>(nameof(JournalEntry.SecureSequenceNumber)) is null;
+
     // A5 (v2 release): DueDate/InternalNotes are the one whitelist of fields a Posted Invoice/Bill
     // may still change — everything else (amounts, VAT, partner, lines) goes through a return or
     // a storno. This is the backstop half of a two-layer guard; InvoicesController.Update/
@@ -110,7 +123,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
         {
             if (entry.State == EntityState.Deleted ||
-                (entry.State == EntityState.Modified && !OnlyStateChangedToCancelled(entry)))
+                (entry.State == EntityState.Modified && !OnlyStateChangedToCancelled(entry) && !OnlyHashFieldsSecured(entry)))
             {
                 if (entry.OriginalValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Posted)
                 {
@@ -218,7 +231,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
         {
             if (entry.State == EntityState.Deleted ||
-                (entry.State == EntityState.Modified && !OnlyStateChangedToCancelled(entry)))
+                (entry.State == EntityState.Modified && !OnlyStateChangedToCancelled(entry) && !OnlyHashFieldsSecured(entry)))
             {
                 if (entry.OriginalValues.GetValue<JournalEntryState>(nameof(JournalEntry.State)) == JournalEntryState.Posted)
                 {

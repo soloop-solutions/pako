@@ -120,6 +120,9 @@
   <data name="AttachmentTooLarge" xml:space="preserve"><value>Skedari duhet të jetë 20 MB ose më i vogël.</value></data>
   <data name="AttachmentOwnerNotFound" xml:space="preserve"><value>Regjistrimi pronar nuk i përket kësaj kompanie.</value></data>
 
+  <!-- Zinxhiri i hash-it (B15) -->
+  <data name="CannotSecurePastDraftEntries" xml:space="preserve"><value>Nuk mund të sigurohet deri në këtë datë: një ose më shumë regjistrime draft në këtë ditar bien në ose para saj. Postojini ose hidhini së pari.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>
