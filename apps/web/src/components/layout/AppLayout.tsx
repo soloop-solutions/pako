@@ -20,9 +20,13 @@ export function AppLayout() {
 
   return (
     <TabsProvider>
-      <div className="flex min-h-screen">
+      {/* h-screen, not min-h-screen: the sidebar's own overflow-y-auto (SHELL_SPEC §3, "scrolls
+          independently") only works if this wrapper is capped at the viewport height. min-h-screen
+          lets the wrapper grow past it when a page is long, which hands scrolling to the whole
+          document instead — dragging the sidebar and top bar along with it. */}
+      <div className="flex h-screen overflow-hidden">
         <Sidebar />
-        <div className="flex flex-1 flex-col">
+        <div className="flex flex-1 flex-col overflow-hidden">
           <header className="flex h-12 shrink-0 items-center justify-between border-b px-6">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.kosovoAccountingPlatform" })}</span>
