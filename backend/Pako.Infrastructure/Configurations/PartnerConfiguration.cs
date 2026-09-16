@@ -14,6 +14,7 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(p => p.TaxNumber).HasMaxLength(64);
         builder.Property(p => p.FiscalNumber).HasMaxLength(64);
         builder.Property(p => p.IsVatRegistered).HasDefaultValue(false);
+        builder.Property(p => p.CreditLimit).HasColumnType("numeric(18,2)");
         builder.HasIndex(p => p.CompanyId);
     }
 }

@@ -14,28 +14,43 @@ public class PostingRuleValidatorTests
     [Fact]
     public void ValidateVatCounterpartyTaxNumber_NaCode_NeverThrows()
     {
-        PostingRuleValidator.ValidateVatCounterpartyTaxNumber("NA", null, null);
+        PostingRuleValidator.ValidateVatCounterpartyTaxNumber("NA", null, false, null, null);
     }
 
     [Fact]
     public void ValidateVatCounterpartyTaxNumber_RealCodeNoPartner_Throws()
     {
         var ex = Assert.Throws<MissingCounterpartyTaxNumberException>(() =>
-            PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", null, null));
+            PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", null, false, null, null));
         Assert.Equal("S18", ex.VatCode);
     }
 
     [Fact]
-    public void ValidateVatCounterpartyTaxNumber_RealCodePartnerWithNoTaxNumber_Throws()
+    public void ValidateVatCounterpartyTaxNumber_VatRegisteredPartnerWithNoTaxNumber_Throws()
     {
         Assert.Throws<MissingCounterpartyTaxNumberException>(() =>
-            PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), null));
+            PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), true, null, "0123456789"));
     }
 
     [Fact]
-    public void ValidateVatCounterpartyTaxNumber_RealCodePartnerWithTaxNumber_Succeeds()
+    public void ValidateVatCounterpartyTaxNumber_VatRegisteredPartnerWithTaxNumber_Succeeds()
     {
-        PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), "810123456");
+        PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), true, "810123456", null);
+    }
+
+    // B8: a non-VAT-registered partner (typically a natural person) has no TaxNumber to give —
+    // FiscalNumber is the identifier R07 requires for it instead.
+    [Fact]
+    public void ValidateVatCounterpartyTaxNumber_NonVatRegisteredPartnerWithNoFiscalNumber_Throws()
+    {
+        Assert.Throws<MissingCounterpartyTaxNumberException>(() =>
+            PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), false, "810123456", null));
+    }
+
+    [Fact]
+    public void ValidateVatCounterpartyTaxNumber_NonVatRegisteredPartnerWithFiscalNumber_Succeeds()
+    {
+        PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), false, null, "0123456789");
     }
 
     // R08

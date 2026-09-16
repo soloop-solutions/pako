@@ -343,4 +343,63 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Empty(response.Lines);
         Assert.Equal(0m, response.TotalOverdue);
     }
+
+    // B8: a partner posted against its own ReceivableAccountId override (not the company default)
+    // must still show up here — ReportsController.DebtAging used to key entirely off the one
+    // company-wide receivable account, which silently dropped every such invoice.
+    [Fact]
+    public async Task DebtAging_PartnerWithReceivableOverride_StillIncludesInvoice()
+    {
+        var db = await NewContextAsync();
+        var company = new Company { Id = Guid.NewGuid(), Name = "Debt Co" };
+        var receivableAccountId = Guid.NewGuid();
+        var overrideAccountId = Guid.NewGuid();
+        var revenueAccountId = Guid.NewGuid();
+        var customer = new Partner { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "Related Party Co", IsCustomer = true, ReceivableAccountId = overrideAccountId };
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+
+        db.Companies.Add(company);
+        db.Partners.Add(customer);
+        db.Journals.Add(journal);
+        db.Accounts.Add(new Account { Id = receivableAccountId, CompanyId = company.Id, Code = "1200", Name = "Accounts Receivable", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = overrideAccountId, CompanyId = company.Id, Code = "1201", Name = "Receivables - Related Parties", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
+        db.Accounts.Add(new Account { Id = revenueAccountId, CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income });
+        db.CompanyAccountDefaults.Add(new CompanyAccountDefaults
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            ReceivableAccountId = receivableAccountId,
+            PayableAccountId = Guid.NewGuid(),
+            RevenueAccountId = revenueAccountId,
+            ExpenseAccountId = Guid.NewGuid(),
+            CustomerDepositsAccountId = Guid.NewGuid()
+        });
+
+        var issueDate = new DateOnly(2026, 1, 1);
+        var invoice = new Invoice
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            PartnerId = customer.Id,
+            IssueDate = issueDate,
+            DueDate = issueDate.AddDays(30),
+            PaymentTermDays = 30,
+            Lines = { new InvoiceLine { Id = Guid.NewGuid(), Description = "Consulting", Quantity = 1m, UnitPrice = 500m, RevenueAccountId = revenueAccountId } }
+        };
+        var invoiceEntry = invoice.Post(
+            company, journal.Id, overrideAccountId, new TaxComputationService(),
+            new Dictionary<Guid, TaxDefinition>(), Guid.NewGuid(), Guid.NewGuid());
+        db.Invoices.Add(invoice);
+        db.JournalEntries.Add(invoiceEntry);
+        await db.SaveChangesAsync();
+
+        var controller = new ReportsController(db);
+
+        var result = await controller.DebtAging(company.Id, new DateOnly(2026, 1, 31));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(invoice.Id, line.InvoiceId);
+        Assert.Equal(500m, line.Outstanding);
+    }
 }

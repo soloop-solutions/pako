@@ -2696,7 +2696,7 @@ export class PakoApiClient {
     /**
      * @return Created
      */
-    partners(companyId: string, body: CreatePartnerRequest): Promise<PartnerResponse> {
+    partnersPOST(companyId: string, body: CreatePartnerRequest): Promise<PartnerResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/partners";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -2715,11 +2715,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processPartners(_response);
+            return this.processPartnersPOST(_response);
         });
     }
 
-    protected processPartners(response: Response): Promise<PartnerResponse> {
+    protected processPartnersPOST(response: Response): Promise<PartnerResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 201) {
@@ -2727,6 +2727,94 @@ export class PakoApiClient {
             let result201: any = null;
             result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PartnerResponse;
             return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PartnerResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    partnersGET(companyId: string, partnerId: string): Promise<PartnerResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners/{partnerId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (partnerId === undefined || partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' must be defined.");
+        url_ = url_.replace("{partnerId}", encodeURIComponent("" + partnerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPartnersGET(_response);
+        });
+    }
+
+    protected processPartnersGET(response: Response): Promise<PartnerResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PartnerResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PartnerResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    partnersPUT(companyId: string, partnerId: string, body: UpdatePartnerRequest): Promise<PartnerResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners/{partnerId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (partnerId === undefined || partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' must be defined.");
+        url_ = url_.replace("{partnerId}", encodeURIComponent("" + partnerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPartnersPUT(_response);
+        });
+    }
+
+    protected processPartnersPUT(response: Response): Promise<PartnerResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PartnerResponse;
+            return result200;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
@@ -3737,6 +3825,10 @@ export interface CreatePartnerRequest {
     isVendor: boolean;
     fiscalNumber?: string | undefined;
     isVatRegistered?: boolean;
+    receivableAccountId?: string | undefined;
+    payableAccountId?: string | undefined;
+    paymentTermDays?: number | undefined;
+    creditLimit?: number | undefined;
 
     [key: string]: any;
 }
@@ -3998,6 +4090,10 @@ export interface PartnerResponse {
     isVendor: boolean;
     fiscalNumber: string | undefined;
     isVatRegistered: boolean;
+    receivableAccountId: string | undefined;
+    payableAccountId: string | undefined;
+    paymentTermDays: number | undefined;
+    creditLimit: number | undefined;
 
     [key: string]: any;
 }
@@ -4198,6 +4294,21 @@ export interface UpdateItemRequest {
 
 export interface UpdateNumberSeriesPatternRequest {
     pattern: string;
+
+    [key: string]: any;
+}
+
+export interface UpdatePartnerRequest {
+    name: string;
+    taxNumber: string | undefined;
+    isCustomer: boolean;
+    isVendor: boolean;
+    fiscalNumber?: string | undefined;
+    isVatRegistered?: boolean;
+    receivableAccountId?: string | undefined;
+    payableAccountId?: string | undefined;
+    paymentTermDays?: number | undefined;
+    creditLimit?: number | undefined;
 
     [key: string]: any;
 }

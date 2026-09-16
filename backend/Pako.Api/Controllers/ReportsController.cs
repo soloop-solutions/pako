@@ -176,7 +176,7 @@ public class ReportsController : ControllerBase
     {
         var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
 
-        var receivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
+        var companyDefaultReceivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;
 
         var invoices = await _db.Invoices.AsNoTracking()
@@ -185,12 +185,27 @@ public class ReportsController : ControllerBase
             .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
             .ToListAsync();
 
+        // B8: an invoice's AR line lives on its partner's resolved receivable account (override
+        // or company default), not on one company-wide account — look each invoice's own partner
+        // up so a partner with an override is still found, instead of silently reading 0 and
+        // disappearing from the report.
+        var partnerIds = invoices.Select(i => i.PartnerId).ToHashSet();
+        var partnerReceivableOverridesById = await _db.Partners.AsNoTracking()
+            .Where(p => partnerIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.ReceivableAccountId);
+        Guid ReceivableAccountFor(Guid partnerId) =>
+            partnerReceivableOverridesById.TryGetValue(partnerId, out var overrideId) && overrideId is { } id
+                ? id
+                : companyDefaultReceivableAccountId;
+
         var journalEntryIds = invoices.Where(i => i.JournalEntryId != null).Select(i => i.JournalEntryId!.Value).ToList();
-        var totalsByJournalEntryId = await _db.JournalEntryLines.AsNoTracking()
-            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.AccountId == receivableAccountId)
-            .GroupBy(l => l.JournalEntryId)
-            .Select(g => new { JournalEntryId = g.Key, Total = g.Sum(l => l.Debit) })
-            .ToDictionaryAsync(g => g.JournalEntryId, g => g.Total);
+        var relevantAccountIds = invoices.Select(i => ReceivableAccountFor(i.PartnerId)).ToHashSet();
+        var totalsByJournalEntryAndAccount = (await _db.JournalEntryLines.AsNoTracking()
+            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && relevantAccountIds.Contains(l.AccountId))
+            .GroupBy(l => new { l.JournalEntryId, l.AccountId })
+            .Select(g => new { g.Key.JournalEntryId, g.Key.AccountId, Total = g.Sum(l => l.Debit) })
+            .ToListAsync())
+            .ToDictionary(g => (g.JournalEntryId, g.AccountId), g => g.Total);
 
         var invoiceIds = invoices.Select(i => i.Id).ToList();
         var reconciledByInvoiceId = await _db.Reconciliations.AsNoTracking()
@@ -202,7 +217,8 @@ public class ReportsController : ControllerBase
         var lines = new List<DebtAgingLine>();
         foreach (var invoice in invoices)
         {
-            var total = invoice.JournalEntryId is { } jeId && totalsByJournalEntryId.TryGetValue(jeId, out var t) ? t : 0m;
+            var applicableAccountId = ReceivableAccountFor(invoice.PartnerId);
+            var total = invoice.JournalEntryId is { } jeId && totalsByJournalEntryAndAccount.TryGetValue((jeId, applicableAccountId), out var t) ? t : 0m;
             var reconciled = reconciledByInvoiceId.GetValueOrDefault(invoice.Id);
             var outstanding = total - reconciled;
             if (outstanding <= 0.01m)

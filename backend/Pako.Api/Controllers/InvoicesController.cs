@@ -267,7 +267,8 @@ public class InvoicesController : ControllerBase
             DocumentType = request.DocumentType,
             OriginalInvoiceId = request.OriginalInvoiceId,
             PriceMode = request.PriceMode,
-            PaymentTermDays = request.PaymentTermDays,
+            // B8: an explicit request value wins; otherwise the partner's own stored default.
+            PaymentTermDays = request.PaymentTermDays ?? partner.PaymentTermDays,
             GraceDays = request.GraceDays,
             Lines = lines!
         };
@@ -527,7 +528,7 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        return Ok(await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType));
+        return Ok(await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType, invoice.PartnerId));
     }
 
     // Atomic replacement for the client's old draft-journal-entry -> post -> reconcile 3-call
@@ -587,7 +588,7 @@ public class InvoicesController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType);
+            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType, invoice.PartnerId);
             return StatusCode(StatusCodes.Status201Created, new RecordPaymentResponse(ToReconciliationResponse(outcome.Reconciliation!), balance));
         }
         finally
@@ -610,7 +611,7 @@ public class InvoicesController : ControllerBase
     private async Task<RecordPaymentOutcome> TryRecordPaymentAsync(
         Company company, Invoice invoice, decimal amount, Guid cashOrBankAccountId, DateOnly date)
     {
-        var receivableAccountId = await GetReceivableAccountIdAsync(company.Id);
+        var receivableAccountId = await GetReceivableAccountIdAsync(company.Id, invoice.PartnerId);
         if (receivableAccountId == Guid.Empty)
         {
             return new RecordPaymentOutcome(BadRequest(_localizer["NoReceivableAccount"].Value), null);
@@ -700,7 +701,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvalidCreditNote"].Value);
         }
 
-        var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
+        var receivableAccountId = await GetReceivableAccountIdAsync(companyId, invoice.PartnerId);
 
         var creditNoteLineId = await _db.JournalEntryLines.AsNoTracking()
             .Where(l => l.JournalEntryId == creditNote.JournalEntryId && l.AccountId == receivableAccountId)
@@ -740,7 +741,7 @@ public class InvoicesController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType);
+            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType, invoice.PartnerId);
             return StatusCode(StatusCodes.Status201Created, new ApplyCreditNoteResponse(ToReconciliationResponse(result.Reconciliation!), balance));
         }
         finally
@@ -802,7 +803,10 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["NoAccountDefaults"].Value);
         }
 
-        var receivableAccountId = defaults.ReceivableAccountId;
+        // B8: the down-payment invoice's own AR line was posted against ITS partner's resolved
+        // receivable account (partner override or company default) — look it up there, not the
+        // company default alone, so this still finds the line when an override is in play.
+        var receivableAccountId = await GetReceivableAccountIdAsync(companyId, downPayment.PartnerId);
         var depositsAccountId = defaults.CustomerDepositsAccountId;
         var revenueAccountId = defaults.RevenueAccountId;
 
@@ -890,7 +894,7 @@ public class InvoicesController : ControllerBase
                 await transaction.CommitAsync();
             }
 
-            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType);
+            var balance = await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType, invoice.PartnerId);
             return StatusCode(StatusCodes.Status201Created,
                 new ApplyDownPaymentResponse(ToReconciliationResponse(result.Reconciliation!), balance, reclassEntry.Id, reclassifiedAmount));
         }
@@ -903,7 +907,7 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid invoiceId, Guid? journalEntryId, DocumentType documentType)
+    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid invoiceId, Guid? journalEntryId, DocumentType documentType, Guid? partnerId = null)
     {
         // A1 (v2 release): SalesReturn posts through the same isCreditNote mechanics as
         // CreditNote (its own AR control line is Credit-sided, not Debit-sided like a normal
@@ -916,7 +920,7 @@ public class InvoicesController : ControllerBase
         Guid? controlLineId = null;
         if (journalEntryId is { } jeId)
         {
-            var receivableAccountId = await GetReceivableAccountIdAsync(companyId);
+            var receivableAccountId = await GetReceivableAccountIdAsync(companyId, partnerId);
 
             if (isSourceDocument)
             {
@@ -951,8 +955,25 @@ public class InvoicesController : ControllerBase
     private Task<CompanyAccountDefaults?> GetAccountDefaultsAsync(Guid companyId) =>
         _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
 
-    private async Task<Guid> GetReceivableAccountIdAsync(Guid companyId) =>
-        (await GetAccountDefaultsAsync(companyId))?.ReceivableAccountId ?? Guid.Empty;
+    // B8: partner's own ReceivableAccountId wins when set and the caller has a partner to ask
+    // about (every call site that posts, pays, or reads a specific document does); the company's
+    // default otherwise — same override-then-fallback chain B6 established for Item defaults.
+    private async Task<Guid> GetReceivableAccountIdAsync(Guid companyId, Guid? partnerId = null)
+    {
+        if (partnerId is { } id)
+        {
+            var partnerAccountId = await _db.Partners.AsNoTracking()
+                .Where(p => p.Id == id && p.CompanyId == companyId)
+                .Select(p => p.ReceivableAccountId)
+                .FirstOrDefaultAsync();
+            if (partnerAccountId is { } paId)
+            {
+                return paId;
+            }
+        }
+
+        return (await GetAccountDefaultsAsync(companyId))?.ReceivableAccountId ?? Guid.Empty;
+    }
 
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(writeAccess: true)]
@@ -1090,7 +1111,17 @@ public class InvoicesController : ControllerBase
         }
 
         var defaults = await GetAccountDefaultsAsync(company.Id);
-        if (defaults is null || defaults.ReceivableAccountId == Guid.Empty)
+        if (defaults is null)
+        {
+            return BadRequest(_localizer["NoAccountDefaults"].Value);
+        }
+
+        // B8: the partner's own ReceivableAccountId, if set, wins over the company default —
+        // used for every receivable-account reference in this method from here on, so a document
+        // for a partner with an override and a document for one without post to, and are found
+        // against, the correct account either way.
+        var receivableAccountId = partner?.ReceivableAccountId ?? defaults.ReceivableAccountId;
+        if (receivableAccountId == Guid.Empty)
         {
             return BadRequest(_localizer["NoReceivableAccount"].Value);
         }
@@ -1116,7 +1147,7 @@ public class InvoicesController : ControllerBase
             var account = lineAccountsById[line.RevenueAccountId];
             try
             {
-                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, invoice.PartnerId, partner?.TaxNumber);
+                PostingRuleValidator.ValidateVatCounterpartyTaxNumber(taxDef.Code, invoice.PartnerId, partner?.IsVatRegistered ?? false, partner?.TaxNumber, partner?.FiscalNumber);
                 if (taxDef.Direction is { } direction && account.Class is { } accountClass)
                 {
                     PostingRuleValidator.ValidateVatDirectionAgainstAccountClass(taxDef.Code, direction, accountClass);
@@ -1140,7 +1171,7 @@ public class InvoicesController : ControllerBase
         try
         {
             journalEntry = invoice.Post(
-                effectiveCompany, journal.Id, defaults.ReceivableAccountId, _taxComputationService, taxDefinitionsById,
+                effectiveCompany, journal.Id, receivableAccountId, _taxComputationService, taxDefinitionsById,
                 defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
         }
         catch (Exception ex) when (
@@ -1181,7 +1212,7 @@ public class InvoicesController : ControllerBase
 
             var originalTotal = original.JournalEntryId is { } originalJournalEntryId
                 ? await _db.JournalEntryLines.AsNoTracking()
-                    .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == defaults.ReceivableAccountId)
+                    .Where(l => l.JournalEntryId == originalJournalEntryId && l.AccountId == receivableAccountId)
                     .SumAsync(l => l.Debit)
                 : 0m;
 
@@ -1193,10 +1224,10 @@ public class InvoicesController : ControllerBase
             var alreadyReturned = otherReturnJournalEntryIds.Count == 0
                 ? 0m
                 : await _db.JournalEntryLines.AsNoTracking()
-                    .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == defaults.ReceivableAccountId)
+                    .Where(l => otherReturnJournalEntryIds.Contains(l.JournalEntryId) && l.AccountId == receivableAccountId)
                     .SumAsync(l => l.Credit);
 
-            var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == defaults.ReceivableAccountId).Credit;
+            var thisReturnAmount = journalEntry.Lines.Single(l => l.AccountId == receivableAccountId).Credit;
 
             if (alreadyReturned + thisReturnAmount > originalTotal)
             {

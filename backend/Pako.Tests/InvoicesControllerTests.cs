@@ -187,6 +187,38 @@ public class InvoicesControllerTests : IAsyncLifetime
         Assert.Equal(1, company!.NextInvoiceNumber);
     }
 
+    // B8: a partner's own ReceivableAccountId, when set, wins over the company's default — proves
+    // the override actually reaches the posted journal entry, not just the resolution helper.
+    [Fact]
+    public async Task Post_PartnerWithReceivableOverride_PostsToPartnerAccountNotCompanyDefault()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var overrideAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = overrideAccountId, CompanyId = companyId, Code = "1201", Name = "Receivables - Related Parties", AccountType = AccountType.Receivable, AccountSubType = AccountSubType.Receivable });
+        var trackedPartner = await db.Partners.SingleAsync(p => p.Id == partnerId);
+        trackedPartner.ReceivableAccountId = overrideAccountId;
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await controller.Post(companyId, invoice.Id);
+
+        var posted = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
+        var arLine = await db.JournalEntryLines.AsNoTracking()
+            .SingleAsync(l => l.JournalEntryId == posted.JournalEntryId && l.Debit == 100m);
+        Assert.Equal(overrideAccountId, arLine.AccountId);
+
+        var companyDefaultReceivableId = (await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        Assert.NotEqual(companyDefaultReceivableId, arLine.AccountId);
+
+        // The whole downstream chain (balance, record-payment) must resolve against the same
+        // overridden account, not silently fall back to the company default and find nothing.
+        var paymentResult = await controller.RecordPayment(companyId, invoice.Id, new RecordPaymentRequest(100m, cashAccountId, new DateOnly(2026, 8, 27)));
+        var paymentResponse = Assert.IsType<RecordPaymentResponse>(Assert.IsType<ObjectResult>(paymentResult.Result).Value);
+        Assert.Equal(0m, paymentResponse.Balance.Outstanding);
+    }
+
     [Fact]
     public async Task RecordPayment_FullAmount_CreatesReconciliationAndZeroesOutstandingBalance()
     {
