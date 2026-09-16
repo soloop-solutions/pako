@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { useTabMeta } from "@/context/TabsContext";
 import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { computeLine } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
@@ -106,6 +107,13 @@ export function BillDetail() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Task 8: instance tab title follows the same fallback used on screen ("Draft bill"). `dirty`
+  // is the existing inline-edit toggle, not real field-level change tracking.
+  useTabMeta({
+    title: bill ? (bill.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" })) : undefined,
+    dirty: editing,
+  });
 
   async function handlePost() {
     if (!companyId || !id) return;

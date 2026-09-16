@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { useTabMeta } from "@/context/TabsContext";
 
 export function PayrollRunDetail() {
   const intl = useIntl();
@@ -41,6 +42,9 @@ export function PayrollRunDetail() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Task 8: instance tab title — the payroll run has no document number, so use its period.
+  useTabMeta({ title: run ? `${run.periodStart} - ${run.periodEnd}` : undefined });
 
   async function handlePost() {
     if (!companyId || !id) return;

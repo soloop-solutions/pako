@@ -22,6 +22,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
+import { useTabMeta } from "@/context/TabsContext";
 import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
 import { isCompanyAdminRole } from "@/lib/membership-enums";
 import { computeLine } from "@/lib/tax-enums";
@@ -120,6 +121,14 @@ export function InvoiceDetail() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Task 8: instance tabs are titled with the document number, per the same fallback InvoiceForm
+  // already uses ("Draft invoice" until a number is assigned on posting). `dirty` is the existing
+  // inline-edit toggle, not real field-level change tracking — no form in the app tracks that yet.
+  useTabMeta({
+    title: invoice ? (invoice.invoiceNumber ?? intl.formatMessage({ id: "invoiceDetail.draftInvoice" })) : undefined,
+    dirty: editing,
+  });
 
   async function handlePost() {
     if (!companyId || !id) return;
