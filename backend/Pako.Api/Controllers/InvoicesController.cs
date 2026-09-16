@@ -617,7 +617,12 @@ public class InvoicesController : ControllerBase
             return new RecordPaymentOutcome(BadRequest(_localizer["NoReceivableAccount"].Value), null);
         }
 
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        // B9: Cash or Bank journal, whichever matches the account the payment actually moved
+        // through — not "the first journal for this company" (ambiguous now that Sale/Purchase/
+        // Cash/Bank/General all exist).
+        var cashOrBankAccountSubType = await _db.Accounts.AsNoTracking()
+            .Where(a => a.Id == cashOrBankAccountId).Select(a => a.AccountSubType).FirstOrDefaultAsync();
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalResolver.SettlementJournalType(cashOrBankAccountSubType));
         if (journal is null)
         {
             return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
@@ -810,7 +815,9 @@ public class InvoicesController : ControllerBase
         var depositsAccountId = defaults.CustomerDepositsAccountId;
         var revenueAccountId = defaults.RevenueAccountId;
 
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId);
+        // B9: the reclassification entry (Debit Customer Deposits / Credit Revenue) is sales-side
+        // revenue recognition, same as the invoice it's reclassifying — Sale journal.
+        var journal = await JournalResolver.GetAsync(_db, companyId, JournalType.Sale);
         if (journal is null)
         {
             return BadRequest(_localizer["NoJournalToPost"].Value);
@@ -1104,7 +1111,8 @@ public class InvoicesController : ControllerBase
 
         var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
 
-        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        // B9: every invoice/credit-note/sales-return/down-payment posts to the Sale journal.
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalType.Sale);
         if (journal is null)
         {
             return BadRequest(_localizer["NoJournalToPost"].Value);

@@ -139,17 +139,16 @@ public class CompaniesController : ControllerBase
 
         _db.CompanyAccountDefaults.Add(accountDefaults);
 
-        _db.Journals.Add(new Journal
-        {
-            Id = Guid.NewGuid(),
-            CompanyId = company.Id,
-            Type = JournalType.General,
-            Code = "GEN",
-            Name = "General",
-            SequencePrefix = "GEN",
-            SequenceNextNumber = 1,
-            SequencePadding = 4
-        });
+        // B9: General stays, for manual journal entries and payroll — Sale/Purchase/Cash/Bank are
+        // new, each document type's auto-routed post now asks for its own type explicitly
+        // (JournalResolver) instead of grabbing "the first journal for this company", which only
+        // ever worked while General was the only one that existed.
+        _db.Journals.AddRange(
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Sale, Code = "SAL", Name = "Sales", SequencePrefix = "SAL", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Purchase, Code = "PUR", Name = "Purchases", SequencePrefix = "PUR", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Cash, Code = "CSH", Name = "Cash", SequencePrefix = "CSH", SequenceNextNumber = 1, SequencePadding = 4 },
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Bank, Code = "BNK", Name = "Bank", SequencePrefix = "BNK", SequenceNextNumber = 1, SequencePadding = 4 });
 
         // Track C4: two starter payment methods so the record-payment/pay-at-creation pickers
         // aren't empty out of the box — "100100 Arka kryesore"/"101003 Banka ProCredit" are both

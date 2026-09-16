@@ -524,7 +524,12 @@ public class BillsController : ControllerBase
             return new RecordPaymentOutcome(BadRequest(_localizer["NoPayableAccount"].Value), null);
         }
 
-        var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        // B9: Cash or Bank journal, whichever matches the account the payment actually moved
+        // through — not "the first journal for this company" (ambiguous now that Sale/Purchase/
+        // Cash/Bank/General all exist).
+        var cashOrBankAccountSubType = await _db.Accounts.AsNoTracking()
+            .Where(a => a.Id == cashOrBankAccountId).Select(a => a.AccountSubType).FirstOrDefaultAsync();
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalResolver.SettlementJournalType(cashOrBankAccountSubType));
         if (journal is null)
         {
             return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
@@ -786,7 +791,8 @@ public class BillsController : ControllerBase
     {
         var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == bill.PartnerId);
 
-        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == company.Id);
+        // B9: every bill/credit-note/purchase-return posts to the Purchase journal.
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalType.Purchase);
         if (journal is null)
         {
             return BadRequest(_localizer["NoJournalToPost"].Value);

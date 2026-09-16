@@ -134,7 +134,10 @@ public class PayrollRunsController : ControllerBase
             return NotFound();
         }
 
-        var journal = await _db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId);
+        // B9: payroll isn't Sale/Purchase/Cash/Bank in nature — stays on General, the same journal
+        // it always posted to, just resolved explicitly now that "the first journal for this
+        // company" is ambiguous with five seeded.
+        var journal = await JournalResolver.GetAsync(_db, companyId, JournalType.General);
         if (journal is null)
         {
             return BadRequest(_localizer["NoJournalToPost"].Value);
