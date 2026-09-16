@@ -144,7 +144,8 @@ public class JournalEntriesController : ControllerBase
                 PartnerId = l.PartnerId,
                 Debit = l.Debit,
                 Credit = l.Credit,
-                Description = l.Description
+                Description = l.Description,
+                AnalyticDistribution = l.AnalyticDistribution
             }).ToList()
         };
 
@@ -295,5 +296,5 @@ public class JournalEntriesController : ControllerBase
         e.State.ToString(),
         e.SequenceNumber,
         e.PostedAtUtc,
-        e.Lines.Select(l => new JournalEntryLineResponse(l.Id, l.AccountId, l.PartnerId, l.Debit, l.Credit, l.Description)).ToList());
+        e.Lines.Select(l => new JournalEntryLineResponse(l.Id, l.AccountId, l.PartnerId, l.Debit, l.Credit, l.Description, l.AnalyticDistribution)).ToList());
 }

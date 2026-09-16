@@ -1,6 +1,6 @@
 namespace Pako.Api.Contracts;
 
-public record CreateJournalEntryLineRequest(Guid AccountId, Guid? PartnerId, decimal Debit, decimal Credit, string? Description);
+public record CreateJournalEntryLineRequest(Guid AccountId, Guid? PartnerId, decimal Debit, decimal Credit, string? Description, Dictionary<Guid, decimal>? AnalyticDistribution = null);
 
 public record CreateJournalEntryRequest(
     Guid JournalId,
@@ -10,7 +10,7 @@ public record CreateJournalEntryRequest(
 
 public record ReverseJournalEntryRequest(DateOnly Date, string? Reference = null);
 
-public record JournalEntryLineResponse(Guid Id, Guid AccountId, Guid? PartnerId, decimal Debit, decimal Credit, string? Description);
+public record JournalEntryLineResponse(Guid Id, Guid AccountId, Guid? PartnerId, decimal Debit, decimal Credit, string? Description, Dictionary<Guid, decimal>? AnalyticDistribution);
 
 public record JournalEntryResponse(
     Guid Id,

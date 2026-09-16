@@ -212,6 +212,41 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         Assert.Equal(201, ((ObjectResult)result.Result!).StatusCode);
     }
 
+    // B14: AnalyticDistribution round-trips through the API — the Create response carries it back
+    // immediately, and a fresh List call (there is no single-entry GET) proves it was actually
+    // persisted, not just echoed from the request.
+    [Fact]
+    public async Task Create_WithAnalyticDistribution_RoundTripsThroughCreateAndList()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var controller = NewController(db);
+        var costCenterA = Guid.NewGuid();
+        var costCenterB = Guid.NewGuid();
+        var distribution = new Dictionary<Guid, decimal> { [costCenterA] = 60m, [costCenterB] = 40m };
+
+        var request = new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
+        {
+            new(accountAId, null, 100m, 0m, null, distribution),
+            new(accountBId, null, 0m, 100m, null)
+        });
+
+        var created = await controller.Create(companyId, request);
+        var createdEntry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        var createdLine = createdEntry.Lines.Single(l => l.AccountId == accountAId);
+        Assert.NotNull(createdLine.AnalyticDistribution);
+        Assert.Equal(60m, createdLine.AnalyticDistribution![costCenterA]);
+        Assert.Equal(40m, createdLine.AnalyticDistribution[costCenterB]);
+        Assert.Null(createdEntry.Lines.Single(l => l.AccountId == accountBId).AnalyticDistribution);
+
+        var listed = await controller.List(companyId);
+        var listedEntry = Assert.IsType<List<JournalEntryResponse>>(Assert.IsType<OkObjectResult>(listed.Result).Value)
+            .Single(e => e.Id == createdEntry.Id);
+        var listedLine = listedEntry.Lines.Single(l => l.AccountId == accountAId);
+        Assert.NotNull(listedLine.AnalyticDistribution);
+        Assert.Equal(60m, listedLine.AnalyticDistribution![costCenterA]);
+        Assert.Equal(40m, listedLine.AnalyticDistribution[costCenterB]);
+    }
+
     // R23: JournalEntry.SequenceNumber, gapless/monotonic per journal, same pattern as invoice
     // numbering. Also verifies R28's PostedByUserId gets set.
     [Fact]

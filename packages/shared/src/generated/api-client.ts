@@ -4493,6 +4493,7 @@ export interface CreateJournalEntryLineRequest {
     debit: number;
     credit: number;
     description: string | undefined;
+    analyticDistribution?: { [key: string]: number; } | undefined;
 
     [key: string]: any;
 }
@@ -4701,6 +4702,7 @@ export interface JournalEntryLineResponse {
     debit: number;
     credit: number;
     description: string | undefined;
+    analyticDistribution: { [key: string]: number; } | undefined;
 
     [key: string]: any;
 }
