@@ -519,9 +519,14 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal("Invoice Number", sheet.Cell(1, 1).GetString());
-        Assert.Equal(invoiceNumber, sheet.Cell(2, 1).GetString());
-        Assert.Equal("S18", sheet.Cell(2, 7).GetString());
+        Assert.Equal("Nr.", sheet.Cell("A1").GetString());
+        Assert.Equal(1, sheet.Cell("A4").GetValue<int>());
+        Assert.Equal("01.02.2026", sheet.Cell("B4").GetString());
+        Assert.Equal(invoiceNumber, sheet.Cell("C4").GetString());
+        Assert.Equal("Customer Co", sheet.Cell("D4").GetString());
+        Assert.Equal("810111111", sheet.Cell("E4").GetString());
+        Assert.Equal(847.46m, sheet.Cell("M4").GetValue<decimal>());
+        Assert.Equal("(M4+N4+O4+P4+Q4)*18%", sheet.Cell("R4").FormulaA1.TrimStart('='));
     }
 
     [Fact]
@@ -535,9 +540,32 @@ public class ReportsControllerTests : IAsyncLifetime
         var fileResult = Assert.IsType<FileContentResult>(result);
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal("Vendor Reference", sheet.Cell(1, 1).GetString());
-        Assert.Equal(vendorReference, sheet.Cell(2, 1).GetString());
-        Assert.Equal("B18", sheet.Cell(2, 7).GetString());
+        Assert.Equal("Nr.", sheet.Cell("A1").GetString());
+        Assert.Equal("01.03.2026", sheet.Cell("B4").GetString());
+        Assert.Equal(vendorReference, sheet.Cell("C4").GetString());
+        Assert.Equal("Vendor Co", sheet.Cell("D4").GetString());
+        Assert.Equal("810222222", sheet.Cell("E4").GetString());
+        Assert.Equal(338.98m, sheet.Cell("M4").GetValue<decimal>());
+        Assert.Equal("S4+AB4", sheet.Cell("AC4").FormulaA1.TrimStart('='));
+    }
+
+    [Fact]
+    public async Task SalesBookExport_NonVat_PutsDomesticSaleInBoxA()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.IsVatRegistered = false;
+        await db.SaveChangesAsync();
+        var controller = new ReportsController(db);
+
+        var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("d=a+b+c", sheet.Cell("I3").GetString());
+        Assert.Equal(847.46m, sheet.Cell("F4").GetValue<decimal>());
+        Assert.Equal("F4+G4+H4", sheet.Cell("I4").FormulaA1.TrimStart('='));
     }
 
     // B10: a document outside the from/to range must not appear, even though it's Posted.
