@@ -159,6 +159,14 @@
   <data name="CreditLimitNegative" xml:space="preserve"><value>Limiti i kredisë nuk mund të jetë negativ.</value></data>
   <data name="CreditLimitExceeded" xml:space="preserve"><value>Është tejkaluar limiti i kredisë. Kredia e disponueshme: {0}. Shuma e re e papaguar: {1}.</value></data>
 
+  <!-- Tatimi në burim -->
+  <data name="WithholdingTaxYearInvalid" xml:space="preserve"><value>Viti i deklarimit duhet të jetë mes 2000 dhe 2100.</value></data>
+  <data name="WithholdingTaxPersonalNumberRequired" xml:space="preserve"><value>NUI / numri fiskal / numri personal është i detyrueshëm.</value></data>
+  <data name="WithholdingTaxNameRequired" xml:space="preserve"><value>Emri i biznesit ose i personit është i detyrueshëm.</value></data>
+  <data name="WithholdingTaxAmountsMustBeNonNegative" xml:space="preserve"><value>Shumat dhe të dhënat e qirasë nuk mund të jenë negative.</value></data>
+  <data name="WithholdingTaxRentDetailsRequired" xml:space="preserve"><value>Kur qiraja bruto e paguar (kutia 8) është më e madhe se zero, hapësira në m2 (kutia 13) dhe vlera bruto e qirasë mujore (kutia 14) duhet të jenë gjithashtu më të mëdha se zero.</value></data>
+  <data name="WithholdingTaxCountryUnknown" xml:space="preserve"><value>Shteti nuk gjendet në listën e ATK-së. Zgjidhni një shtet nga lista.</value></data>
+
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>

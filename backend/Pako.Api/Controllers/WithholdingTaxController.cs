@@ -1,8 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Domain.Tax;
+using Pako.Infrastructure;
+using Pako.Localization.Xk;
 
 namespace Pako.Api.Controllers;
 
@@ -11,15 +16,18 @@ namespace Pako.Api.Controllers;
 [Authorize]
 public class WithholdingTaxController : ControllerBase
 {
-    private static readonly WithholdingTaxEntryResponse FixtureEntry = new(
-        Guid.Parse("7c1f0c0e-3b0a-4f5e-9a47-5a1d2e7b9c10"), 2025, "1010391632", "Ljubica Azemi",
-        9m, 0m, 0m, 0.90m, 100m, 0m, 0m, 0m, 0m, 29m, 100m, "Kosova");
+    private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    private static readonly WithholdingTaxTotalsResponse FixtureTotals = new(9m, 0m, 0m, 0.90m, 100m, 0m, 0m, 0m, 0m);
+    public WithholdingTaxController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    {
+        _db = db;
+        _localizer = localizer;
+    }
 
     [HttpGet]
     [RequireCompanyAccess]
-    public ActionResult<WithholdingTaxListResponse> List(
+    public async Task<ActionResult<WithholdingTaxListResponse>> List(
         Guid companyId,
         [FromQuery] int year,
         [FromQuery] int page = 1,
@@ -27,57 +35,167 @@ public class WithholdingTaxController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? sort = null)
     {
-        // CONTRACT STUB — replaced in WHT1
-        return Ok(new WithholdingTaxListResponse([FixtureEntry], 1, 1, 50, FixtureTotals, 0.10m, 0.05m));
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var yearEntries = _db.WithholdingTaxEntries.AsNoTracking()
+            .Where(e => e.CompanyId == companyId && e.Year == year);
+
+        var query = yearEntries;
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            query = query.Where(e => EF.Functions.ILike(e.Name, $"%{term}%") || e.PersonalNumber.Contains(term));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = sortField?.ToLowerInvariant() switch
+        {
+            "personalnumber" => descending ? query.OrderByDescending(e => e.PersonalNumber) : query.OrderBy(e => e.PersonalNumber),
+            _ => descending ? query.OrderByDescending(e => e.Name) : query.OrderBy(e => e.Name)
+        };
+
+        var total = await query.CountAsync();
+        var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+        var allEntries = await yearEntries.ToListAsync();
+
+        var standardRate = WithholdingDeclarationRates.Standard;
+        var nonResidentRate = WithholdingDeclarationRates.NonResident;
+        var totals = WithholdingTaxTotals.Of(allEntries, standardRate, nonResidentRate);
+
+        return Ok(new WithholdingTaxListResponse(
+            entries.Select(e => ToResponse(e, standardRate, nonResidentRate)).ToList(),
+            total, page, pageSize, ToResponse(totals), standardRate, nonResidentRate));
     }
 
     [HttpGet("countries")]
     [RequireCompanyAccess]
-    public ActionResult<WithholdingTaxCountryListResponse> Countries(Guid companyId)
-    {
-        // CONTRACT STUB — replaced in WHT1
-        return Ok(new WithholdingTaxCountryListResponse(["Kosova", "Shqiperia"], "Kosova"));
-    }
+    public ActionResult<WithholdingTaxCountryListResponse> Countries(Guid companyId) =>
+        Ok(new WithholdingTaxCountryListResponse(AtkCountries.Names.ToList(), AtkCountries.Default));
 
     [HttpGet("{entryId:guid}")]
     [RequireCompanyAccess]
-    public ActionResult<WithholdingTaxEntryResponse> Get(Guid companyId, Guid entryId)
+    public async Task<ActionResult<WithholdingTaxEntryResponse>> Get(Guid companyId, Guid entryId)
     {
-        // CONTRACT STUB — replaced in WHT1
-        return Ok(FixtureEntry);
+        var entry = await _db.WithholdingTaxEntries.AsNoTracking()
+            .FirstOrDefaultAsync(e => e.Id == entryId && e.CompanyId == companyId);
+
+        if (entry is null) return NotFound();
+        return Ok(ToResponse(entry, WithholdingDeclarationRates.Standard, WithholdingDeclarationRates.NonResident));
     }
 
     [HttpPost]
     [RequireCompanyAccess(writeAccess: true)]
     [ProducesResponseType(typeof(WithholdingTaxEntryResponse), StatusCodes.Status201Created)]
-    public ActionResult<WithholdingTaxEntryResponse> Create(Guid companyId, SaveWithholdingTaxEntryRequest request)
+    public async Task<ActionResult<WithholdingTaxEntryResponse>> Create(Guid companyId, SaveWithholdingTaxEntryRequest request)
     {
-        // CONTRACT STUB — replaced in WHT1
-        return StatusCode(StatusCodes.Status201Created, FixtureEntry);
+        var error = Validate(request);
+        if (error is not null) return BadRequest(_localizer[error].Value);
+
+        var entry = new WithholdingTaxEntry { Id = Guid.NewGuid(), CompanyId = companyId };
+        Apply(entry, request);
+
+        _db.WithholdingTaxEntries.Add(entry);
+        await _db.SaveChangesAsync();
+
+        return StatusCode(StatusCodes.Status201Created,
+            ToResponse(entry, WithholdingDeclarationRates.Standard, WithholdingDeclarationRates.NonResident));
     }
 
     [HttpPut("{entryId:guid}")]
     [RequireCompanyAccess(writeAccess: true)]
-    public ActionResult<WithholdingTaxEntryResponse> Update(Guid companyId, Guid entryId, SaveWithholdingTaxEntryRequest request)
+    public async Task<ActionResult<WithholdingTaxEntryResponse>> Update(Guid companyId, Guid entryId, SaveWithholdingTaxEntryRequest request)
     {
-        // CONTRACT STUB — replaced in WHT1
-        return Ok(FixtureEntry);
+        var entry = await _db.WithholdingTaxEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.CompanyId == companyId);
+        if (entry is null) return NotFound();
+
+        var error = Validate(request);
+        if (error is not null) return BadRequest(_localizer[error].Value);
+
+        Apply(entry, request);
+        entry.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(ToResponse(entry, WithholdingDeclarationRates.Standard, WithholdingDeclarationRates.NonResident));
     }
 
     [HttpDelete("{entryId:guid}")]
     [RequireCompanyAccess(writeAccess: true)]
-    public IActionResult Delete(Guid companyId, Guid entryId)
+    public async Task<IActionResult> Delete(Guid companyId, Guid entryId)
     {
-        // CONTRACT STUB — replaced in WHT1
+        var entry = await _db.WithholdingTaxEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.CompanyId == companyId);
+        if (entry is null) return NotFound();
+
+        _db.WithholdingTaxEntries.Remove(entry);
+        await _db.SaveChangesAsync();
         return NoContent();
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("export", Name = "WithholdingTaxExport")]
     [RequireCompanyAccess]
-    public IActionResult Export(Guid companyId, [FromQuery] int year)
+    public async Task<IActionResult> Export(Guid companyId, [FromQuery] int year)
     {
-        // CONTRACT STUB — replaced in WHT1
-        return File(Array.Empty<byte>(), ExcelExportService.XlsxContentType, $"tatimi-ne-burim-{year}.xlsx");
+        var entries = await _db.WithholdingTaxEntries.AsNoTracking()
+            .Where(e => e.CompanyId == companyId && e.Year == year)
+            .OrderBy(e => e.Name)
+            .ToListAsync();
+
+        var bytes = WithholdingTaxExportService.BuildWorkbook(
+            entries, WithholdingDeclarationRates.Standard, WithholdingDeclarationRates.NonResident);
+        return File(bytes, ExcelExportService.XlsxContentType, $"tatimi-ne-burim-{year}.xlsx");
     }
+
+    private static string? Validate(SaveWithholdingTaxEntryRequest r)
+    {
+        if (r.Year is < 2000 or > 2100) return "WithholdingTaxYearInvalid";
+        if (string.IsNullOrWhiteSpace(r.PersonalNumber)) return "WithholdingTaxPersonalNumberRequired";
+        if (string.IsNullOrWhiteSpace(r.Name)) return "WithholdingTaxNameRequired";
+
+        var amounts = new[]
+        {
+            r.GrossInterest, r.PropertyRights, r.LotteryWinnings, r.GrossRent, r.NonResidentEntertainer,
+            r.NonResidentServices, r.NonEntrepreneur, r.RentalAreaM2 ?? 0m, r.MonthlyGrossRent ?? 0m
+        };
+        if (amounts.Any(a => a < 0)) return "WithholdingTaxAmountsMustBeNonNegative";
+
+        if (r.GrossRent > 0 && ((r.RentalAreaM2 ?? 0m) <= 0 || (r.MonthlyGrossRent ?? 0m) <= 0))
+        {
+            return "WithholdingTaxRentDetailsRequired";
+        }
+
+        if (!string.IsNullOrWhiteSpace(r.Country) && !AtkCountries.IsKnown(r.Country.Trim()))
+        {
+            return "WithholdingTaxCountryUnknown";
+        }
+
+        return null;
+    }
+
+    private static void Apply(WithholdingTaxEntry entry, SaveWithholdingTaxEntryRequest r)
+    {
+        entry.Year = r.Year;
+        entry.PersonalNumber = r.PersonalNumber.Trim();
+        entry.Name = r.Name.Trim();
+        entry.GrossInterest = r.GrossInterest;
+        entry.PropertyRights = r.PropertyRights;
+        entry.LotteryWinnings = r.LotteryWinnings;
+        entry.GrossRent = r.GrossRent;
+        entry.NonResidentEntertainer = r.NonResidentEntertainer;
+        entry.NonResidentServices = r.NonResidentServices;
+        entry.NonEntrepreneur = r.NonEntrepreneur;
+        entry.RentalAreaM2 = r.GrossRent > 0 ? r.RentalAreaM2 : null;
+        entry.MonthlyGrossRent = r.GrossRent > 0 ? r.MonthlyGrossRent : null;
+        entry.Country = string.IsNullOrWhiteSpace(r.Country) ? AtkCountries.Default : r.Country.Trim();
+    }
+
+    private static WithholdingTaxEntryResponse ToResponse(WithholdingTaxEntry e, decimal standardRate, decimal nonResidentRate) => new(
+        e.Id, e.Year, e.PersonalNumber, e.Name, e.GrossInterest, e.PropertyRights, e.LotteryWinnings,
+        e.WithheldTax(standardRate), e.GrossRent, e.NonResidentEntertainer, e.NonResidentServices,
+        e.NonResidentWithheldTax(nonResidentRate), e.NonEntrepreneur, e.RentalAreaM2, e.MonthlyGrossRent, e.Country);
+
+    private static WithholdingTaxTotalsResponse ToResponse(WithholdingTaxTotals t) => new(
+        t.GrossInterest, t.PropertyRights, t.LotteryWinnings, t.WithheldTax, t.GrossRent,
+        t.NonResidentEntertainer, t.NonResidentServices, t.NonResidentWithheldTax, t.NonEntrepreneur);
 }
