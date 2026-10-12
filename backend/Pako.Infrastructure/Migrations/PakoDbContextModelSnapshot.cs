@@ -1597,6 +1597,73 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("tax_repartition_lines", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Tax.WithholdingTaxEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Country")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("GrossInterest")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("GrossRent")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("LotteryWinnings")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("MonthlyGrossRent")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("NonEntrepreneur")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("NonResidentEntertainer")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("NonResidentServices")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("PersonalNumber")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal>("PropertyRights")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("RentalAreaM2")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Year");
+
+                    b.ToTable("withholding_tax_entries", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Infrastructure.Identity.AppUser", b =>
                 {
                     b.Property<Guid>("Id")

@@ -48,6 +48,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<WithholdingTaxEntry> WithholdingTaxEntries => Set<WithholdingTaxEntry>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
