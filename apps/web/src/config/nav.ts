@@ -18,6 +18,7 @@ import {
   BookUser,
   CalendarRange,
   Plus,
+  BadgePercent,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -35,6 +36,7 @@ import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
 import { Settings } from "@/pages/Settings";
+import { WithholdingTax } from "@/pages/tax/WithholdingTax";
 import { YearEnd } from "@/pages/YearEnd";
 
 export type NavItem = {
@@ -257,6 +259,13 @@ export const navCategories: NavCategory[] = [
         icon: CalendarRange,
         descriptionKey: "nav.yearEnd.description",
         Element: YearEnd,
+      },
+      {
+        titleKey: "nav.withholdingTax",
+        path: "/withholding-tax",
+        icon: BadgePercent,
+        descriptionKey: "nav.withholdingTax.description",
+        Element: WithholdingTax,
       },
     ],
   },
