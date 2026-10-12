@@ -4156,6 +4156,328 @@ export class PakoApiClient {
         }
         return Promise.resolve<TaxDefinitionResponse[]>(null as any);
     }
+
+    /**
+     * @param year (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @param search (optional) 
+     * @param sort (optional) 
+     * @return OK
+     */
+    withholdingTaxGET(companyId: string, year: number | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<WithholdingTaxListResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processWithholdingTaxGET(_response);
+        });
+    }
+
+    protected processWithholdingTaxGET(response: Response): Promise<WithholdingTaxListResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WithholdingTaxListResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WithholdingTaxListResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    withholdingTaxPOST(companyId: string, body: SaveWithholdingTaxEntryRequest): Promise<WithholdingTaxEntryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processWithholdingTaxPOST(_response);
+        });
+    }
+
+    protected processWithholdingTaxPOST(response: Response): Promise<WithholdingTaxEntryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WithholdingTaxEntryResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WithholdingTaxEntryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    countries(companyId: string): Promise<WithholdingTaxCountryListResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax/countries";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCountries(_response);
+        });
+    }
+
+    protected processCountries(response: Response): Promise<WithholdingTaxCountryListResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WithholdingTaxCountryListResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WithholdingTaxCountryListResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    withholdingTaxGET2(companyId: string, entryId: string): Promise<WithholdingTaxEntryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax/{entryId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (entryId === undefined || entryId === null)
+            throw new globalThis.Error("The parameter 'entryId' must be defined.");
+        url_ = url_.replace("{entryId}", encodeURIComponent("" + entryId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processWithholdingTaxGET2(_response);
+        });
+    }
+
+    protected processWithholdingTaxGET2(response: Response): Promise<WithholdingTaxEntryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WithholdingTaxEntryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WithholdingTaxEntryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    withholdingTaxPUT(companyId: string, entryId: string, body: SaveWithholdingTaxEntryRequest): Promise<WithholdingTaxEntryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax/{entryId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (entryId === undefined || entryId === null)
+            throw new globalThis.Error("The parameter 'entryId' must be defined.");
+        url_ = url_.replace("{entryId}", encodeURIComponent("" + entryId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processWithholdingTaxPUT(_response);
+        });
+    }
+
+    protected processWithholdingTaxPUT(response: Response): Promise<WithholdingTaxEntryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WithholdingTaxEntryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WithholdingTaxEntryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    withholdingTaxDELETE(companyId: string, entryId: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax/{entryId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (entryId === undefined || entryId === null)
+            throw new globalThis.Error("The parameter 'entryId' must be defined.");
+        url_ = url_.replace("{entryId}", encodeURIComponent("" + entryId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processWithholdingTaxDELETE(_response);
+        });
+    }
+
+    protected processWithholdingTaxDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @param year (optional) 
+     * @return OK
+     */
+    withholdingTaxExport(companyId: string, year: number | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/withholding-tax/export?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processWithholdingTaxExport(_response);
+        });
+    }
+
+    protected processWithholdingTaxExport(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
 }
 
 export interface AccountGroupResponse {
@@ -4947,6 +5269,24 @@ export interface SalesBookResponse {
     [key: string]: any;
 }
 
+export interface SaveWithholdingTaxEntryRequest {
+    year: number;
+    personalNumber: string;
+    name: string;
+    grossInterest: number;
+    propertyRights: number;
+    lotteryWinnings: number;
+    grossRent: number;
+    nonResidentEntertainer: number;
+    nonResidentServices: number;
+    nonEntrepreneur: number;
+    rentalAreaM2: number | undefined;
+    monthlyGrossRent: number | undefined;
+    country: string;
+
+    [key: string]: any;
+}
+
 export interface SecureJournalRequest {
     upTo: string;
 
@@ -5100,6 +5440,60 @@ export interface VatReturnResponse {
     totalOutputVat: number;
     totalInputVat: number;
     netVatDue: number;
+
+    [key: string]: any;
+}
+
+export interface WithholdingTaxCountryListResponse {
+    countries: string[];
+    defaultCountry: string;
+
+    [key: string]: any;
+}
+
+export interface WithholdingTaxEntryResponse {
+    id: string;
+    year: number;
+    personalNumber: string;
+    name: string;
+    grossInterest: number;
+    propertyRights: number;
+    lotteryWinnings: number;
+    withheldTax: number;
+    grossRent: number;
+    nonResidentEntertainer: number;
+    nonResidentServices: number;
+    nonResidentWithheldTax: number;
+    nonEntrepreneur: number;
+    rentalAreaM2: number | undefined;
+    monthlyGrossRent: number | undefined;
+    country: string;
+
+    [key: string]: any;
+}
+
+export interface WithholdingTaxListResponse {
+    items: WithholdingTaxEntryResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totals: WithholdingTaxTotalsResponse;
+    standardRate: number;
+    nonResidentRate: number;
+
+    [key: string]: any;
+}
+
+export interface WithholdingTaxTotalsResponse {
+    grossInterest: number;
+    propertyRights: number;
+    lotteryWinnings: number;
+    withheldTax: number;
+    grossRent: number;
+    nonResidentEntertainer: number;
+    nonResidentServices: number;
+    nonResidentWithheldTax: number;
+    nonEntrepreneur: number;
 
     [key: string]: any;
 }

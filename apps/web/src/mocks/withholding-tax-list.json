@@ -1,0 +1,38 @@
+{
+  "items": [
+    {
+      "id": "7c1f0c0e-3b0a-4f5e-9a47-5a1d2e7b9c10",
+      "year": 2025,
+      "personalNumber": "1010391632",
+      "name": "Ljubica Azemi",
+      "grossInterest": 9,
+      "propertyRights": 0,
+      "lotteryWinnings": 0,
+      "withheldTax": 0.9,
+      "grossRent": 100,
+      "nonResidentEntertainer": 0,
+      "nonResidentServices": 0,
+      "nonResidentWithheldTax": 0,
+      "nonEntrepreneur": 0,
+      "rentalAreaM2": 29,
+      "monthlyGrossRent": 100,
+      "country": "Kosova"
+    }
+  ],
+  "total": 1,
+  "page": 1,
+  "pageSize": 50,
+  "totals": {
+    "grossInterest": 9,
+    "propertyRights": 0,
+    "lotteryWinnings": 0,
+    "withheldTax": 0.9,
+    "grossRent": 100,
+    "nonResidentEntertainer": 0,
+    "nonResidentServices": 0,
+    "nonResidentWithheldTax": 0,
+    "nonEntrepreneur": 0
+  },
+  "standardRate": 0.1,
+  "nonResidentRate": 0.05
+}
