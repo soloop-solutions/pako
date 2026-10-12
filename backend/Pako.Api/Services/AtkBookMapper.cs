@@ -44,12 +44,12 @@ public static partial class AtkBookMapper
             return One("10b", row.NetAmount);
         }
 
-        if (row.DocumentType == "DebitNote" && row.Rate == 0.18m)
+        if (row.DocumentType == nameof(Pako.Domain.Invoicing.DocumentType.DebitNote) && row.Rate == 0.18m)
         {
             return One("16", row.NetAmount);
         }
 
-        if (row.DocumentType == "DebitNote" && row.Rate == 0.08m)
+        if (row.DocumentType == nameof(Pako.Domain.Invoicing.DocumentType.DebitNote) && row.Rate == 0.08m)
         {
             return One("18", row.NetAmount);
         }
@@ -186,7 +186,7 @@ public static partial class AtkBookMapper
                 var partner = partners.GetValueOrDefault(first.PartnerId);
                 var (validNui, fallbackNui, vatNumber) = PartnerNumbers(partner, isSales);
                 var rows = g.Select(m => m.Row).ToList();
-                var nui = OverridingNumber(rows, boxes, isSales) ?? validNui ?? FallbackSpecialNumber(boxes, isSales) ?? fallbackNui;
+                var nui = OverridingNumber(rows, boxes, isSales) ?? validNui ?? fallbackNui;
                 return new AtkBookDocument(
                     first.IssueDate, first.DocumentNumber, partner?.Name ?? string.Empty, nui, vatNumber, boxes);
             })
@@ -200,14 +200,16 @@ public static partial class AtkBookMapper
     {
         if (isSales)
         {
-            return boxes.Count > 0 && boxes.Keys.All(k => k is "11" or "c") ? "3" : null;
+            if (boxes.Count == 0)
+            {
+                return null;
+            }
+
+            return boxes.Keys.All(k => k is "11" or "c") ? "3" : boxes.Keys.All(k => k == "28") ? "6" : null;
         }
 
-        return rows.Any(r => r.Direction == TaxDirection.Imp) || boxes.ContainsKey("65") ? "8" : null;
+        return rows.Any(r => r.Direction is TaxDirection.Imp or TaxDirection.Rc) || boxes.ContainsKey("65") ? "8" : null;
     }
-
-    private static string? FallbackSpecialNumber(Dictionary<string, decimal> boxes, bool isSales) =>
-        isSales && boxes.Count > 0 && boxes.Keys.All(k => k == "28") ? "6" : null;
 
     private static (string? ValidNui, string? FallbackNui, string? VatNumber) PartnerNumbers(Partner? partner, bool isSales)
     {

@@ -752,7 +752,27 @@ public class ReportsControllerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Export_RowCountEqualsPostedDocumentsInRange_AllFourSheets()
+    public async Task SalesBookExport_PostedInvoiceWithNoJournalEntry_StillGetsARow()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var partnerId = await db.Partners.Where(p => p.CompanyId == companyId && p.IsCustomer).Select(p => p.Id).FirstAsync();
+        db.Invoices.Add(new Invoice
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, InvoiceNumber = "NOJE-X",
+            IssueDate = new DateOnly(2026, 5, 1), DueDate = new DateOnly(2026, 5, 31), State = InvoiceState.Posted
+        });
+        await db.SaveChangesAsync();
+
+        var controller = ControllerWithHttp(db);
+        var sheet = Sheet(await controller.SalesBookExport(companyId, From, To));
+
+        Assert.Equal(2, DataRows(sheet));
+        Assert.Contains(Enumerable.Range(4, 2), r => sheet.Cell(r, 3).GetString() == "NOJE-X");
+        Assert.Equal("1", controller.Response.Headers["X-Atk-Unplaced-Count"].ToString());
+    }
+
+    [Fact]
+    public async Task Export_RowCounts_VatSalesSheetIsInvoicesPlusRc18Bills_OtherSheetsArePostedDocuments()
     {
         var (db, companyId, _, _) = await SeedBookScenarioAsync();
         var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
@@ -760,6 +780,10 @@ public class ReportsControllerTests : IAsyncLifetime
             (defaults.ReceivableAccountId, 10m, 0m, null), (defaults.RevenueAccountId, 0m, 10m, null)));
         await AddPostedBillAsync(db, companyId, "NOJE-2", await AddPostedEntryAsync(db, companyId,
             (defaults.ExpenseAccountId, 10m, 0m, null), (defaults.PayableAccountId, 0m, 10m, null)));
+        var rc18 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == companyId && t.Code == "RC18");
+        await AddPostedBillAsync(db, companyId, "RC18-1", await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 100m, 0m, rc18.Id), (defaults.PayableAccountId, 0m, 100m, null)));
+        const int rc18Bills = 1;
         var postedInvoices = await db.Invoices.CountAsync(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate >= From && i.IssueDate <= To);
         var postedBills = await db.Bills.CountAsync(b => b.CompanyId == companyId && b.State == BillState.Posted && b.IssueDate >= From && b.IssueDate <= To);
 
@@ -770,7 +794,7 @@ public class ReportsControllerTests : IAsyncLifetime
             await db.SaveChangesAsync();
             var controller = ControllerWithHttp(db);
 
-            Assert.Equal(postedInvoices, DataRows(Sheet(await controller.SalesBookExport(companyId, From, To))));
+            Assert.Equal(vat ? postedInvoices + rc18Bills : postedInvoices, DataRows(Sheet(await controller.SalesBookExport(companyId, From, To))));
             Assert.Equal(postedBills, DataRows(Sheet(await controller.PurchaseBookExport(companyId, From, To))));
         }
     }

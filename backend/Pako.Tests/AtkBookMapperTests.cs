@@ -115,4 +115,26 @@ public class AtkBookMapperTests
         Assert.Equal(0.13m, sheet.Cell("M4").GetValue<decimal>());
         Assert.Equal(-0.13m, sheet.Cell("S4").GetValue<decimal>());
     }
+
+    [Fact]
+    public void Sales_Box28SpecialNumber6_WinsOverPartnerNumber()
+    {
+        var rc18 = Row("RC18", 0.18m, 100m, TaxDirection.Rc, 100m, true);
+
+        var book = AtkBookMapper.SalesBook(true, Array.Empty<AtkTaxRow>(), new[] { rc18 }, Partners("810111111"));
+
+        var doc = Assert.Single(book.Documents);
+        Assert.Equal(100m, doc.Boxes["28"]);
+        Assert.Equal("6", doc.Nui);
+    }
+
+    [Fact]
+    public void Purchase_Rc00InBox31_GetsSpecialNumber8_OverPartnerNumber()
+    {
+        var book = AtkBookMapper.PurchaseBook(true, new[] { Row("RC00", 0m, 80m, TaxDirection.Rc, 0m, true) }, Partners("810111111"));
+
+        var doc = Assert.Single(book.Documents);
+        Assert.Equal(80m, doc.Boxes["31"]);
+        Assert.Equal("8", doc.Nui);
+    }
 }
