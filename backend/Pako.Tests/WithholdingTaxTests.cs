@@ -222,6 +222,63 @@ public class WithholdingTaxTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Create_NameOver256Chars_Rejected()
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, Request(name: new string('x', 257)));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Create_PersonalNumberOver50Chars_Rejected()
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, Request(personalNumber: new string('1', 51)));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1999)]
+    [InlineData(2101)]
+    public async Task ListAndExport_YearMissingOrOutOfRange_Rejected(int year)
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var controller = NewController(db);
+
+        Assert.IsType<BadRequestObjectResult>((await controller.List(companyId, year)).Result);
+        Assert.IsType<BadRequestObjectResult>(await controller.Export(companyId, year));
+    }
+
+    [Fact]
+    public async Task List_SearchTreatsPercentAndUnderscoreLiterally()
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var controller = NewController(db);
+        await controller.Create(companyId, Request(name: "Alpha 100% Ltd", interest: 1m));
+        await controller.Create(companyId, Request(name: "Alpha_Beta", interest: 1m));
+        await controller.Create(companyId, Request(name: "Gamma", interest: 1m));
+
+        async Task<List<string>> Names(string term)
+        {
+            var result = await controller.List(companyId, 2025, search: term);
+            var list = Assert.IsType<WithholdingTaxListResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+            return list.Items.Select(i => i.Name).ToList();
+        }
+
+        Assert.Equal(new[] { "Alpha 100% Ltd" }, await Names("%"));
+        Assert.Equal(new[] { "Alpha_Beta" }, await Names("_"));
+        Assert.Empty(await Names("alp_a"));
+        Assert.Equal(new[] { "Alpha_Beta" }, await Names("alpha_b"));
+    }
+
+    [Fact]
     public void Export_MatchesAtkTemplateStructure()
     {
         var entries = new List<WithholdingTaxEntry>

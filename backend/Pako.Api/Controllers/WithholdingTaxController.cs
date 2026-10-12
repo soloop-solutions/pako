@@ -35,6 +35,8 @@ public class WithholdingTaxController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? sort = null)
     {
+        if (year is < 2000 or > 2100) return BadRequest(_localizer["WithholdingTaxYearInvalid"].Value);
+
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
@@ -44,8 +46,8 @@ public class WithholdingTaxController : ControllerBase
         var query = yearEntries;
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = search.Trim();
-            query = query.Where(e => EF.Functions.ILike(e.Name, $"%{term}%") || e.PersonalNumber.Contains(term));
+            var term = EscapeLike(search.Trim());
+            query = query.Where(e => EF.Functions.ILike(e.Name, $"%{term}%", "\\") || EF.Functions.ILike(e.PersonalNumber, $"%{term}%", "\\"));
         }
 
         var descending = sort is not null && sort.StartsWith('-');
@@ -137,6 +139,8 @@ public class WithholdingTaxController : ControllerBase
     [RequireCompanyAccess]
     public async Task<IActionResult> Export(Guid companyId, [FromQuery] int year)
     {
+        if (year is < 2000 or > 2100) return BadRequest(_localizer["WithholdingTaxYearInvalid"].Value);
+
         var entries = await _db.WithholdingTaxEntries.AsNoTracking()
             .Where(e => e.CompanyId == companyId && e.Year == year)
             .OrderBy(e => e.Name)
@@ -147,11 +151,16 @@ public class WithholdingTaxController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"tatimi-ne-burim-{year}.xlsx");
     }
 
+    private static string EscapeLike(string term) =>
+        term.Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+
     private static string? Validate(SaveWithholdingTaxEntryRequest r)
     {
         if (r.Year is < 2000 or > 2100) return "WithholdingTaxYearInvalid";
         if (string.IsNullOrWhiteSpace(r.PersonalNumber)) return "WithholdingTaxPersonalNumberRequired";
         if (string.IsNullOrWhiteSpace(r.Name)) return "WithholdingTaxNameRequired";
+        if (r.PersonalNumber.Trim().Length > 50) return "WithholdingTaxPersonalNumberTooLong";
+        if (r.Name.Trim().Length > 256) return "WithholdingTaxNameTooLong";
 
         var amounts = new[]
         {

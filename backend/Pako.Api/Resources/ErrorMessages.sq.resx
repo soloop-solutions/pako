@@ -163,6 +163,8 @@
   <data name="WithholdingTaxYearInvalid" xml:space="preserve"><value>Viti i deklarimit duhet të jetë mes 2000 dhe 2100.</value></data>
   <data name="WithholdingTaxPersonalNumberRequired" xml:space="preserve"><value>NUI / numri fiskal / numri personal është i detyrueshëm.</value></data>
   <data name="WithholdingTaxNameRequired" xml:space="preserve"><value>Emri i biznesit ose i personit është i detyrueshëm.</value></data>
+  <data name="WithholdingTaxPersonalNumberTooLong" xml:space="preserve"><value>NUI / numri fiskal / numri personal duhet të ketë maksimumi 50 karaktere.</value></data>
+  <data name="WithholdingTaxNameTooLong" xml:space="preserve"><value>Emri i biznesit ose i personit duhet të ketë maksimumi 256 karaktere.</value></data>
   <data name="WithholdingTaxAmountsMustBeNonNegative" xml:space="preserve"><value>Shumat dhe të dhënat e qirasë nuk mund të jenë negative.</value></data>
   <data name="WithholdingTaxRentDetailsRequired" xml:space="preserve"><value>Kur qiraja bruto e paguar (kutia 8) është më e madhe se zero, hapësira në m2 (kutia 13) dhe vlera bruto e qirasë mujore (kutia 14) duhet të jenë gjithashtu më të mëdha se zero.</value></data>
   <data name="WithholdingTaxCountryUnknown" xml:space="preserve"><value>Shteti nuk gjendet në listën e ATK-së. Zgjidhni një shtet nga lista.</value></data>

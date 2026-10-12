@@ -30,6 +30,15 @@ function downloadFileResponse(file: FileResponse, fallbackFileName: string): voi
   URL.revokeObjectURL(url);
 }
 
+function money(value: number | undefined): string {
+  return typeof value === "number" && value !== 0 ? value.toFixed(2) : "—";
+}
+
+function isValidYear(value: string): boolean {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100;
+}
+
 function parseYear(raw: string | null): number {
   const parsed = Number(raw);
   return Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100 ? parsed : new Date().getFullYear();
@@ -42,6 +51,12 @@ export function WithholdingTax() {
   const urlState = useDataGridUrlState(GRID_ID, 50);
   const [searchParams, setSearchParams] = useSearchParams();
   const year = parseYear(searchParams.get("year"));
+  const [yearDraft, setYearDraft] = useState(String(year));
+  const [draftSource, setDraftSource] = useState(year);
+  if (draftSource !== year) {
+    setDraftSource(year);
+    setYearDraft(String(year));
+  }
 
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,7 +133,7 @@ export function WithholdingTax() {
     onError: (err: unknown) => setFormError(getApiErrorMessage(err, intl.formatMessage({ id: "withholdingTax.saveError" }))),
   });
 
-  const deleteMutation = useMutation({
+  const { mutate: deleteEntry, isPending: deleting } = useMutation({
     mutationFn: (id: string) => {
       if (!activeCompanyId) throw new Error("no active company");
       return apiClient.withholdingTaxDELETE(activeCompanyId, id);
@@ -151,8 +166,6 @@ export function WithholdingTax() {
     setSearchParams(next);
     setEditingId(null);
   }
-
-  const money = (value: number | undefined) => (typeof value === "number" && value !== 0 ? value.toFixed(2) : "—");
 
   const columns = useMemo<ColumnDef<WithholdingTaxEntryResponse>[]>(
     () => [
@@ -196,10 +209,10 @@ export function WithholdingTax() {
               size="sm"
               variant="ghost"
               className="h-6 text-xs text-destructive"
-              disabled={deleteMutation.isPending}
+              disabled={deleting}
               onClick={() => {
                 if (window.confirm(intl.formatMessage({ id: "withholdingTax.deleteConfirm" }, { name: row.original.name }))) {
-                  deleteMutation.mutate(row.original.id);
+                  deleteEntry(row.original.id);
                 }
               }}
             >
@@ -209,8 +222,7 @@ export function WithholdingTax() {
         ),
       },
     ],
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, editingId, deleteMutation.isPending],
+    [intl, editingId, deleting, deleteEntry],
   );
 
   if (!activeCompanyId) {
@@ -236,8 +248,12 @@ export function WithholdingTax() {
               min={2000}
               max={2100}
               className="w-24 tabular-nums"
-              value={year}
-              onChange={(e) => changeYear(e.target.value)}
+              value={yearDraft}
+              onChange={(e) => {
+                setYearDraft(e.target.value);
+                if (isValidYear(e.target.value)) changeYear(e.target.value);
+              }}
+              onBlur={() => setYearDraft(String(year))}
             />
           </div>
           <Button variant="outline" onClick={exportYear} disabled={exporting || total === 0}>

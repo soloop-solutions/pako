@@ -163,6 +163,8 @@
   <data name="WithholdingTaxYearInvalid" xml:space="preserve"><value>The declaration year must be between 2000 and 2100.</value></data>
   <data name="WithholdingTaxPersonalNumberRequired" xml:space="preserve"><value>The NUI / fiscal number / personal number is required.</value></data>
   <data name="WithholdingTaxNameRequired" xml:space="preserve"><value>The business or person name is required.</value></data>
+  <data name="WithholdingTaxPersonalNumberTooLong" xml:space="preserve"><value>The NUI / fiscal number / personal number must be 50 characters or fewer.</value></data>
+  <data name="WithholdingTaxNameTooLong" xml:space="preserve"><value>The business or person name must be 256 characters or fewer.</value></data>
   <data name="WithholdingTaxAmountsMustBeNonNegative" xml:space="preserve"><value>Amounts and rental details cannot be negative.</value></data>
   <data name="WithholdingTaxRentDetailsRequired" xml:space="preserve"><value>When gross rent paid (box 8) is greater than zero, the rented area in m2 (box 13) and the gross monthly rent (box 14) must also be greater than zero.</value></data>
   <data name="WithholdingTaxCountryUnknown" xml:space="preserve"><value>The country is not on the ATK list. Pick a country from the list.</value></data>
