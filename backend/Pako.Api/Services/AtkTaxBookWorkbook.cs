@@ -255,7 +255,7 @@ public static class AtkTaxBookWorkbook
             {
                 if (boxColumns.TryGetValue(box, out var column) && amount != 0m)
                 {
-                    sheet.Cell(r, column).Value = Math.Round(amount, 2);
+                    sheet.Cell(r, column).Value = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
                 }
             }
 
