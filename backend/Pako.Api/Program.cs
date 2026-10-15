@@ -54,6 +54,8 @@ builder.Services.AddSingleton(new JwtOptions
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();
+builder.Services.AddScoped<Pako.Api.Authorization.CompanyAccessContext>();
+builder.Services.AddScoped<Pako.Api.Services.PayrollRunComposer>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

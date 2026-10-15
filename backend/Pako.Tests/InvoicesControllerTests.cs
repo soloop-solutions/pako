@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Api.Services;
@@ -34,7 +35,7 @@ public class InvoicesControllerTests : IAsyncLifetime
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
 
-        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };
@@ -650,7 +651,7 @@ public class InvoicesControllerTests : IAsyncLifetime
 
         await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
 
-        var reportsController = new ReportsController(db);
+        var reportsController = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
         var result = await reportsController.VatReturn(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
         var vatReturn = Assert.IsType<VatReturnResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -945,7 +946,7 @@ public class InvoicesControllerTests : IAsyncLifetime
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, userId.ToString()) }, "TestAuth"));
 
-        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        return new InvoicesController(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };
@@ -1098,7 +1099,7 @@ public class InvoicesControllerTests : IAsyncLifetime
         {
             var postDb = PostgresTestDatabase.CreateAdditionalContext(db);
             _dbContexts.Add(postDb);
-            var postController = new InvoicesController(postDb, TaxService, new DocumentNumberService(), new NumberSeriesService(postDb), new NullStringLocalizer<ErrorMessages>())
+            var postController = new InvoicesController(postDb, TaxService, new DocumentNumberService(), new NumberSeriesService(postDb), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
             {
                 ControllerContext = new ControllerContext
                 {

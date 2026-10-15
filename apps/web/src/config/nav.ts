@@ -12,12 +12,15 @@ import {
   BarChart3,
   Building2,
   Settings as SettingsIcon,
-  Users,
   Package,
   ListTree,
   BookUser,
   CalendarRange,
   Plus,
+  UserRound,
+  Network,
+  CalendarDays,
+  Wallet,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -31,14 +34,26 @@ import { SalesReturns } from "@/pages/invoicing/SalesReturns";
 import { Ledger } from "@/pages/ledger/Ledger";
 import { Partners } from "@/pages/partners/Partners";
 import { Payroll } from "@/pages/payroll/Payroll";
+import { Employees } from "@/pages/hr/Employees";
+import { Departments } from "@/pages/hr/Departments";
+import { Leave } from "@/pages/leave/Leave";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
 import { Settings } from "@/pages/Settings";
 import { YearEnd } from "@/pages/YearEnd";
 
+/**
+ * HR module: the department permission a ClientStaff user needs to see an item (mirrors the
+ * backend's AccessModule). Unset = visible to everyone with company access. Display only — the
+ * API enforces every rule itself.
+ */
+export type NavModule = "sales" | "purchases" | "partners" | "accounting" | "reports" | "hr";
+
 export type NavItem = {
   titleKey: string;
+  /** Overrides the category's module for this one item. */
+  module?: NavModule;
   descriptionKey: string;
   path: string;
   icon: LucideIcon;
@@ -72,6 +87,8 @@ export interface NavSavedView {
 export interface NavCategory {
   id: string;
   labelKey: string;
+  /** Default NavModule for every item in the category. */
+  module?: NavModule;
   items: NavItem[];
 }
 
@@ -160,6 +177,7 @@ export const navCategories: NavCategory[] = [
   {
     id: "sales",
     labelKey: "sidebar.category.sales",
+    module: "sales",
     items: [
       salesInvoicesItem,
       {
@@ -181,6 +199,7 @@ export const navCategories: NavCategory[] = [
   {
     id: "purchases",
     labelKey: "sidebar.category.purchases",
+    module: "purchases",
     items: [
       purchaseInvoicesItem,
       {
@@ -195,6 +214,7 @@ export const navCategories: NavCategory[] = [
   {
     id: "accounting",
     labelKey: "sidebar.category.accounting",
+    module: "accounting",
     items: [
       {
         titleKey: "nav.ledger",
@@ -230,19 +250,49 @@ export const navCategories: NavCategory[] = [
         icon: BookUser,
         descriptionKey: "nav.partners.description",
         Element: Partners,
+        module: "partners",
+      },
+    ],
+  },
+  {
+    id: "hr",
+    labelKey: "sidebar.category.hr",
+    module: "hr",
+    items: [
+      {
+        titleKey: "nav.employees",
+        path: "/employees",
+        icon: UserRound,
+        descriptionKey: "nav.employees.description",
+        Element: Employees,
+      },
+      {
+        titleKey: "nav.departments",
+        path: "/departments",
+        icon: Network,
+        descriptionKey: "nav.departments.description",
+        Element: Departments,
       },
       {
         titleKey: "nav.payroll",
         path: "/payroll",
-        icon: Users,
+        icon: Wallet,
         descriptionKey: "nav.payroll.description",
         Element: Payroll,
+      },
+      {
+        titleKey: "nav.leave",
+        path: "/leave",
+        icon: CalendarDays,
+        descriptionKey: "nav.leave.description",
+        Element: Leave,
       },
     ],
   },
   {
     id: "reports",
     labelKey: "sidebar.category.reports",
+    module: "reports",
     items: [
       {
         titleKey: "nav.reports",

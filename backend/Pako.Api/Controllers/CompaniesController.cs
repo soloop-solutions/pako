@@ -135,6 +135,10 @@ public class CompaniesController : ControllerBase
             accountDefaults.PitPayableAccountId = accountIdsByCode["213100"];
             accountDefaults.PensionPayableAccountId = accountIdsByCode["221100"];
             accountDefaults.NetPayPayableAccountId = accountIdsByCode["220100"];
+            accountDefaults.BonusExpenseAccountId = accountIdsByCode["600300"];
+            accountDefaults.EmployerPensionExpenseAccountId = accountIdsByCode["600200"];
+            accountDefaults.EmployerPensionPayableAccountId = accountIdsByCode["221200"];
+            accountDefaults.PayrollDeductionsAccountId = accountIdsByCode["222100"];
         }
 
         _db.CompanyAccountDefaults.Add(accountDefaults);

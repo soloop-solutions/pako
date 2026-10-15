@@ -6,6 +6,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -36,7 +37,7 @@ public class JournalsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(JournalResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<JournalResponse>> Create(Guid companyId, CreateJournalRequest request)
     {
@@ -68,7 +69,7 @@ public class JournalsController : ControllerBase
     // prerequisites this repo doesn't have), so there is nothing to check; a documented gap, not
     // a silently skipped one.
     [HttpPost("{journalId:guid}/secure")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<SecureJournalResponse>> Secure(Guid companyId, Guid journalId, SecureJournalRequest request)
     {
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.Id == journalId && j.CompanyId == companyId);

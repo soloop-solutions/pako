@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { FileText, LayoutDashboard, Receipt, Users } from "lucide-react";
+import { FileText, LayoutDashboard, Receipt, UserRound, Users } from "lucide-react";
 
 import { navItems } from "@/config/nav";
 
@@ -25,6 +25,7 @@ const instanceRoutes: InstanceRoute[] = [
   { pattern: /^\/invoicing\/[^/]+$/, icon: FileText, fallbackTitleKey: "invoiceDetail.draftInvoice" },
   { pattern: /^\/bills\/[^/]+$/, icon: Receipt, fallbackTitleKey: "billDetail.draftBill" },
   { pattern: /^\/payroll\/[^/]+$/, icon: Users, fallbackTitleKey: "payrollRunDetail.title" },
+  { pattern: /^\/employees\/[^/]+$/, icon: UserRound, fallbackTitleKey: "employeeDetail.title" },
 ];
 
 // Routes that never get a tab of their own — auth screens sit outside the workspace shell.

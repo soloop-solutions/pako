@@ -162,4 +162,47 @@
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Please try again or contact support if the problem persists.</value></data>
+
+  <!-- HR module -->
+  <data name="DepartmentCodeRequired" xml:space="preserve"><value>Department code is required.</value></data>
+  <data name="DepartmentNameRequired" xml:space="preserve"><value>Department name is required.</value></data>
+  <data name="DepartmentCodeTaken" xml:space="preserve"><value>Another department already uses code '{0}'.</value></data>
+  <data name="DepartmentNotFound" xml:space="preserve"><value>Department not found in this company.</value></data>
+  <data name="DepartmentParentCycle" xml:space="preserve"><value>A department cannot be placed under itself or one of its sub-departments.</value></data>
+  <data name="DepartmentInUse" xml:space="preserve"><value>This department still has employees or sub-departments; deactivate it instead.</value></data>
+  <data name="CostCenterNotFound" xml:space="preserve"><value>Cost center not found in this company.</value></data>
+  <data name="EmployeeNotFound" xml:space="preserve"><value>Employee not found in this company.</value></data>
+  <data name="PersonalNumberInvalid" xml:space="preserve"><value>Personal number must be exactly 10 digits.</value></data>
+  <data name="PersonalNumberTaken" xml:space="preserve"><value>Another employee already has personal number {0}.</value></data>
+  <data name="IbanInvalid" xml:space="preserve"><value>IBAN is not valid.</value></data>
+  <data name="TerminationBeforeHire" xml:space="preserve"><value>Termination date cannot be before the hire date.</value></data>
+  <data name="ManagerCannotBeSelf" xml:space="preserve"><value>An employee cannot be their own manager.</value></data>
+  <data name="EmployeeUserTaken" xml:space="preserve"><value>That login is already linked to another employee in this company.</value></data>
+  <data name="UserNotCompanyMember" xml:space="preserve"><value>That user is not a member of this company.</value></data>
+  <data name="AssignedPartnerNotFound" xml:space="preserve"><value>One or more partners were not found in this company.</value></data>
+  <data name="PartnerNotAssigned" xml:space="preserve"><value>You are not assigned to this partner.</value></data>
+  <data name="ReportNotAvailableForScopedUser" xml:space="preserve"><value>This report covers every partner and is not available to users limited to assigned partners.</value></data>
+  <data name="ContractEndBeforeStart" xml:space="preserve"><value>Contract end date cannot be before its start date.</value></data>
+  <data name="ContractOverlaps" xml:space="preserve"><value>This contract overlaps another contract of the same employee.</value></data>
+  <data name="WeeklyHoursInvalid" xml:space="preserve"><value>Weekly hours must be between 1 and 60.</value></data>
+  <data name="AdjustmentAmountInvalid" xml:space="preserve"><value>Amount must be greater than zero.</value></data>
+  <data name="AdjustmentHoursRequired" xml:space="preserve"><value>Hours are required for overtime and premium items.</value></data>
+  <data name="AdjustmentConsumed" xml:space="preserve"><value>This item is already included in a payroll run.</value></data>
+  <data name="PayrollPeriodOverlaps" xml:space="preserve"><value>Another payroll run already covers part of this period.</value></data>
+  <data name="PayrollRunNotDraft" xml:space="preserve"><value>Only a Draft payroll run can be changed or deleted.</value></data>
+  <data name="PayrollRunNotPosted" xml:space="preserve"><value>Only a Posted payroll run can be paid.</value></data>
+  <data name="LeaveTypeNotFound" xml:space="preserve"><value>Leave type not found in this company.</value></data>
+  <data name="LeaveTypeCodeTaken" xml:space="preserve"><value>Another leave type already uses code '{0}'.</value></data>
+  <data name="LeavePayPercentInvalid" xml:space="preserve"><value>Pay percent must be between 0 and 100.</value></data>
+  <data name="LeaveEndBeforeStart" xml:space="preserve"><value>Leave end date cannot be before its start date.</value></data>
+  <data name="LeaveNoWorkingDays" xml:space="preserve"><value>The selected dates contain no working days.</value></data>
+  <data name="LeaveOverlaps" xml:space="preserve"><value>This leave overlaps another pending or approved leave of the same employee.</value></data>
+  <data name="LeaveExceedsBalance" xml:space="preserve"><value>Not enough leave balance: {0} days requested, {1} remaining.</value></data>
+  <data name="LeaveRequestNotPending" xml:space="preserve"><value>Only a pending leave request can be approved or rejected.</value></data>
+  <data name="LeaveAllocationInvalid" xml:space="preserve"><value>Allocated days must be zero or more.</value></data>
+  <data name="HolidayDateTaken" xml:space="preserve"><value>A public holiday already exists on {0}.</value></data>
+  <data name="HolidayNameRequired" xml:space="preserve"><value>Holiday name is required.</value></data>
+  <data name="StaffNeedsEmployee" xml:space="preserve"><value>A staff member must be linked to an employee.</value></data>
+  <data name="LeaveTypeCodeRequired" xml:space="preserve"><value>Leave type code is required.</value></data>
+  <data name="LeaveTypeNameRequired" xml:space="preserve"><value>Leave type name is required.</value></data>
 </root>

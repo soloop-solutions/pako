@@ -6,6 +6,7 @@ using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -17,18 +18,22 @@ public class PartnersController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly CompanyAccessContext _access;
 
-    public PartnersController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    public PartnersController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
     {
         _db = db;
         _localizer = localizer;
+        _access = access;
     }
 
+    // Reads stay AccessModule.None (every document form needs the partner picker) but are
+    // partner-filtered: a partner-scoped staff user sees only their assigned partners.
     [HttpGet]
     [RequireCompanyAccess]
     public async Task<ActionResult<List<PartnerResponse>>> List(Guid companyId)
     {
-        var partners = await _db.Partners.AsNoTracking()
+        var partners = await _db.Partners.AsNoTracking().VisibleTo(_access)
             .Where(p => p.CompanyId == companyId)
             .OrderBy(p => p.Name)
             .ToListAsync();
@@ -40,7 +45,7 @@ public class PartnersController : ControllerBase
     [RequireCompanyAccess]
     public async Task<ActionResult<PartnerResponse>> Get(Guid companyId, Guid partnerId)
     {
-        var partner = await _db.Partners.AsNoTracking()
+        var partner = await _db.Partners.AsNoTracking().VisibleTo(_access)
             .FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
 
         if (partner is null) return NotFound();
@@ -48,7 +53,7 @@ public class PartnersController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Partners)]
     [ProducesResponseType(typeof(PartnerResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
@@ -72,16 +77,30 @@ public class PartnersController : ControllerBase
         };
 
         _db.Partners.Add(partner);
+
+        // A partner-scoped user would otherwise create a partner they can't see (or invoice)
+        // afterwards — the creator is assigned to it in the same SaveChanges.
+        if (_access.IsPartnerRestricted && _access.EmployeeId is { } employeeId)
+        {
+            _db.EmployeePartnerAssignments.Add(new EmployeePartnerAssignment
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                EmployeeId = employeeId,
+                PartnerId = partner.Id
+            });
+        }
+
         await _db.SaveChangesAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(partner));
     }
 
     [HttpPut("{partnerId:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Partners)]
     public async Task<ActionResult<PartnerResponse>> Update(Guid companyId, Guid partnerId, UpdatePartnerRequest request)
     {
-        var partner = await _db.Partners.FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
+        var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
         if (partner is null) return NotFound();
 
         var validationError = await ValidateAsync(companyId, request.Name, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId);

@@ -8,6 +8,7 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Services;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -30,7 +31,7 @@ public class JournalEntriesController : ControllerBase
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<List<JournalEntryResponse>>> List(Guid companyId)
     {
         var entries = await _db.JournalEntries.AsNoTracking()
@@ -47,7 +48,7 @@ public class JournalEntriesController : ControllerBase
     // spreadsheet meant to be read on paper needs the readable identifiers, not Guids.
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("{id:guid}/export", Name = "JournalEntryExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> Export(Guid companyId, Guid id)
     {
         var entry = await _db.JournalEntries.AsNoTracking()
@@ -80,7 +81,7 @@ public class JournalEntriesController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<JournalEntryResponse>> Create(Guid companyId, CreateJournalEntryRequest request)
     {
@@ -156,7 +157,7 @@ public class JournalEntriesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/post")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<JournalEntryResponse>> Post(Guid companyId, Guid id)
     {
         // R23: finish JournalEntry.SequenceNumber the same way Invoice numbering already does —
@@ -237,7 +238,7 @@ public class JournalEntriesController : ControllerBase
     // Cancelled. See JournalEntry.Reverse()'s own doc comment for why the reversal is created
     // already-Posted, not Draft.
     [HttpPost("{id:guid}/reverse")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<JournalEntryResponse>> Reverse(Guid companyId, Guid id, ReverseJournalEntryRequest request)
     {

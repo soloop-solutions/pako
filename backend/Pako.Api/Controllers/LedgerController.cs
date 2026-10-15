@@ -6,6 +6,7 @@ using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -22,7 +23,7 @@ public class LedgerController : ControllerBase
     }
 
     [HttpGet("trial-balance")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<List<TrialBalanceLine>>> TrialBalance(Guid companyId)
     {
         var sums = await _db.JournalEntryLines.AsNoTracking()
@@ -47,7 +48,7 @@ public class LedgerController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("trial-balance/export", Name = "TrialBalanceExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> TrialBalanceExport(Guid companyId)
     {
         var result = await TrialBalance(companyId);

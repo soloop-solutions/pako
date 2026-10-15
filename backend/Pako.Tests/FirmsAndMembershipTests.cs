@@ -12,6 +12,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Infrastructure;
 using Pako.Infrastructure.Identity;
 
@@ -174,7 +175,7 @@ public class FirmsAndMembershipTests : IAsyncLifetime
         await db.SaveChangesAsync();
 
         var result = await RunFilterAsync(
-            new CompanyAccessFilter(db, writeAccess: true, adminOnly: true), viewer, "companyId", company.Id);
+            new CompanyAccessFilter(db, new CompanyAccessContext(), writeAccess: true, adminOnly: true, module: AccessModule.None), viewer, "companyId", company.Id);
 
         Assert.IsType<ForbidResult>(result);
     }
@@ -193,7 +194,7 @@ public class FirmsAndMembershipTests : IAsyncLifetime
 
         Assert.False(await db.Memberships.AnyAsync(m => m.CompanyId == company.Id));
 
-        var result = await RunFilterAsync(new CompanyAccessFilter(db, writeAccess: true), firmAdmin, "companyId", company.Id);
+        var result = await RunFilterAsync(new CompanyAccessFilter(db, new CompanyAccessContext(), writeAccess: true, adminOnly: false, module: AccessModule.None), firmAdmin, "companyId", company.Id);
 
         Assert.Null(result);
     }
@@ -215,7 +216,7 @@ public class FirmsAndMembershipTests : IAsyncLifetime
         db.Memberships.Add(Membership.ForCompany(userId, company.Id, MembershipRole.ClientViewer));
         await db.SaveChangesAsync();
 
-        var result = await RunFilterAsync(new CompanyAccessFilter(db, writeAccess: true), userId, "companyId", company.Id);
+        var result = await RunFilterAsync(new CompanyAccessFilter(db, new CompanyAccessContext(), writeAccess: true, adminOnly: false, module: AccessModule.None), userId, "companyId", company.Id);
 
         Assert.Null(result);
     }

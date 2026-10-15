@@ -10,6 +10,7 @@ using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Reconciliation;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
@@ -25,28 +26,34 @@ public class InvoicesController : ControllerBase
     private readonly IDocumentNumberService _documentNumberService;
     private readonly NumberSeriesService _numberSeries;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly CompanyAccessContext _access;
 
+    // HR module: every invoice read goes through .VisibleTo(_access), so a partner-scoped staff
+    // user gets 404 on another partner's document (never a hint that it exists), and every write
+    // naming a partner is refused unless that partner is assigned to them.
     public InvoicesController(
         PakoDbContext db,
         ITaxComputationService taxComputationService,
         IDocumentNumberService documentNumberService,
         NumberSeriesService numberSeries,
-        IStringLocalizer<ErrorMessages> localizer)
+        IStringLocalizer<ErrorMessages> localizer,
+        CompanyAccessContext access)
     {
         _db = db;
         _taxComputationService = taxComputationService;
         _documentNumberService = documentNumberService;
         _numberSeries = numberSeries;
         _localizer = localizer;
+        _access = access;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<List<InvoiceResponse>>> List(Guid companyId)
     {
-        var invoices = await _db.Invoices.AsNoTracking()
+        var invoices = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .Include(i => i.Lines)
             .Where(i => i.CompanyId == companyId)
             .OrderByDescending(i => i.IssueDate)
@@ -56,10 +63,10 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<InvoiceResponse>> Get(Guid companyId, Guid id)
     {
-        var invoice = await _db.Invoices.AsNoTracking()
+        var invoice = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
 
@@ -77,10 +84,10 @@ public class InvoicesController : ControllerBase
     // exception, and even that goes through this dedicated POST action rather than a DELETE verb,
     // so InvoicesControllerTests' "no delete route exists" guarantee stays literally true.
     [HttpPost("{id:guid}/discard")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<IActionResult> Discard(Guid companyId, Guid id)
     {
-        var invoice = await _db.Invoices.FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        var invoice = await _db.Invoices.VisibleTo(_access).FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
             return NotFound();
@@ -216,7 +223,7 @@ public class InvoicesController : ControllerBase
 
         if (originalInvoiceId is { } id)
         {
-            var originalExists = await _db.Invoices.AsNoTracking()
+            var originalExists = await _db.Invoices.AsNoTracking().VisibleTo(_access)
                 .AnyAsync(i => i.Id == id && i.CompanyId == companyId);
             if (!originalExists)
             {
@@ -228,7 +235,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<InvoiceResponse>> Create(Guid companyId, CreateInvoiceRequest request)
     {
@@ -236,6 +243,11 @@ public class InvoicesController : ControllerBase
         if (company is null)
         {
             return NotFound();
+        }
+
+        if (!_access.CanSeePartner(request.PartnerId))
+        {
+            return BadRequest(_localizer["PartnerNotAssigned"].Value);
         }
 
         var partner = await _db.Partners.AsNoTracking()
@@ -401,10 +413,10 @@ public class InvoicesController : ControllerBase
     // Posted-only, audited path, which this endpoint deliberately cannot reach: a Posted document
     // 400s here with a message pointing at the right endpoint, rather than silently no-opping).
     [HttpPut("{id:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<ActionResult<InvoiceResponse>> Update(Guid companyId, Guid id, UpdateInvoiceRequest request)
     {
-        var invoice = await _db.Invoices.Include(i => i.Lines)
+        var invoice = await _db.Invoices.VisibleTo(_access).Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
@@ -425,6 +437,11 @@ public class InvoicesController : ControllerBase
         if (company is null)
         {
             return NotFound();
+        }
+
+        if (!_access.CanSeePartner(request.PartnerId))
+        {
+            return BadRequest(_localizer["PartnerNotAssigned"].Value);
         }
 
         var partner = await _db.Partners.AsNoTracking()
@@ -477,10 +494,10 @@ public class InvoicesController : ControllerBase
     // OnlyDueDateOrInternalNotesChanged carve-out on SaveChangesAsync — the backstop half of this
     // guard, since this action itself never touches any other field to begin with.
     [HttpPatch("{id:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<ActionResult<InvoiceResponse>> EditPosted(Guid companyId, Guid id, EditPostedInvoiceRequest request)
     {
-        var invoice = await _db.Invoices.Include(i => i.Lines)
+        var invoice = await _db.Invoices.VisibleTo(_access).Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
@@ -519,10 +536,10 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet("{id:guid}/balance")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<DocumentBalanceResponse>> Balance(Guid companyId, Guid id)
     {
-        var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        var invoice = await _db.Invoices.AsNoTracking().VisibleTo(_access).FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
             return NotFound();
@@ -537,7 +554,7 @@ public class InvoicesController : ControllerBase
     // invalid cashOrBankAccountId, or the reconciliation itself failing Fix 1's line-capacity
     // check) leaves nothing persisted instead of an orphaned Posted journal entry.
     [HttpPost("{id:guid}/record-payment")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(RecordPaymentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<RecordPaymentResponse>> RecordPayment(Guid companyId, Guid id, RecordPaymentRequest request)
     {
@@ -552,7 +569,7 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        var invoice = await _db.Invoices.AsNoTracking().VisibleTo(_access).FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
             return NotFound();
@@ -679,7 +696,7 @@ public class InvoicesController : ControllerBase
     // free (see CLAUDE.md's backend fixes pass), and the partner-match check in
     // ReconciliationValidator already covers "same partner as the target invoice."
     [HttpPost("{id:guid}/apply-credit-note")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(ApplyCreditNoteResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ApplyCreditNoteResponse>> ApplyCreditNote(Guid companyId, Guid id, ApplyCreditNoteRequest request)
     {
@@ -688,13 +705,14 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["AmountMustBePositive"].Value);
         }
 
-        var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        var invoice = await _db.Invoices.AsNoTracking().VisibleTo(_access).FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
             return NotFound();
         }
 
-        var creditNote = await _db.Invoices.AsNoTracking()
+        // The credit note must be visible too — otherwise its id becomes an existence oracle.
+        var creditNote = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .FirstOrDefaultAsync(i => i.Id == request.CreditNoteId && i.CompanyId == companyId);
         if (creditNote is null)
         {
@@ -769,7 +787,7 @@ public class InvoicesController : ControllerBase
     // but only the net portion was ever credited to Customer Deposits; VAT accounts are not
     // touched again here.
     [HttpPost("{id:guid}/apply-down-payment")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(ApplyDownPaymentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ApplyDownPaymentResponse>> ApplyDownPayment(Guid companyId, Guid id, ApplyDownPaymentRequest request)
     {
@@ -784,13 +802,13 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        var invoice = await _db.Invoices.AsNoTracking().FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        var invoice = await _db.Invoices.AsNoTracking().VisibleTo(_access).FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (invoice is null)
         {
             return NotFound();
         }
 
-        var downPayment = await _db.Invoices.AsNoTracking()
+        var downPayment = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .FirstOrDefaultAsync(i => i.Id == request.DownPaymentInvoiceId && i.CompanyId == companyId);
         if (downPayment is null)
         {
@@ -983,7 +1001,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/post")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<ActionResult<InvoiceResponse>> Post(Guid companyId, Guid id)
     {
         // Company.NextInvoiceNumber is reserved via a read-increment-write on the Company row
@@ -1009,7 +1027,7 @@ public class InvoicesController : ControllerBase
                 return NotFound();
             }
 
-            var invoice = await _db.Invoices.Include(i => i.Lines)
+            var invoice = await _db.Invoices.VisibleTo(_access).Include(i => i.Lines)
                 .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
             if (invoice is null)
             {
@@ -1046,11 +1064,11 @@ public class InvoicesController : ControllerBase
     // document this one relates to") rather than a dedicated column, to avoid a migration for
     // this alone; the proforma itself is left as-is, untouched, still available for reference.
     [HttpPost("{id:guid}/convert-to-invoice")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(InvoiceResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<InvoiceResponse>> ConvertToInvoice(Guid companyId, Guid id)
     {
-        var proforma = await _db.Invoices.AsNoTracking().Include(i => i.Lines)
+        var proforma = await _db.Invoices.AsNoTracking().VisibleTo(_access).Include(i => i.Lines)
             .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
         if (proforma is null)
         {

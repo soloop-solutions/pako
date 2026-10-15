@@ -13,6 +13,7 @@ import { InvoiceDetail } from "@/pages/invoicing/InvoiceDetail";
 import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
 import { PayrollRunDetail } from "@/pages/payroll/PayrollRunDetail";
+import { EmployeeDetail } from "@/pages/hr/EmployeeDetail";
 import { Register } from "@/pages/Register";
 
 // react-router reuses the same component instance across `:id` param changes — it does not
@@ -55,6 +56,7 @@ export function App() {
                   <Route path="/invoicing/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
                   <Route path="/bills/:id" element={<InstanceRoute Component={BillDetail} />} />
                   <Route path="/payroll/:id" element={<InstanceRoute Component={PayrollRunDetail} />} />
+                  <Route path="/employees/:id" element={<InstanceRoute Component={EmployeeDetail} />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

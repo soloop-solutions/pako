@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Tax;
@@ -18,17 +20,33 @@ namespace Pako.Api.Controllers;
 public class ReportsController : ControllerBase
 {
     private readonly PakoDbContext _db;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly CompanyAccessContext _access;
 
-    public ReportsController(PakoDbContext db)
+    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
     {
         _db = db;
+        _localizer = localizer;
+        _access = access;
     }
 
+    // HR module: the sales/purchase books and debt aging are per-document and are filtered to the
+    // caller's visible partners. Every other report is a whole-ledger aggregate that can't be
+    // partner-filtered without misstating it (hidden contra lines), so a partner-scoped user is
+    // refused outright. Exports call their JSON action, so they inherit the same 403.
+    private ObjectResult ReportNotAvailableForScopedUser() =>
+        StatusCode(StatusCodes.Status403Forbidden, _localizer["ReportNotAvailableForScopedUser"].Value);
+
     [HttpGet("profit-and-loss")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<ProfitAndLossResponse>> ProfitAndLoss(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (_access.IsPartnerRestricted)
+        {
+            return ReportNotAvailableForScopedUser();
+        }
+
         var sums = await SumsByAccountAsync(companyId, from, to);
 
         var income = sums.Where(s => AccountTypeDerivation.IsIncome(s.Account.AccountType))
@@ -48,7 +66,7 @@ public class ReportsController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("profit-and-loss/export", Name = "ProfitAndLossExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> ProfitAndLossExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
         var result = await ProfitAndLoss(companyId, from, to);
@@ -70,9 +88,14 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("balance-sheet")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<BalanceSheetResponse>> BalanceSheet(Guid companyId, [FromQuery] DateOnly asOf)
     {
+        if (_access.IsPartnerRestricted)
+        {
+            return ReportNotAvailableForScopedUser();
+        }
+
         var sums = await SumsByAccountAsync(companyId, from: null, to: asOf);
 
         var assets = sums.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType))
@@ -111,7 +134,7 @@ public class ReportsController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("balance-sheet/export", Name = "BalanceSheetExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> BalanceSheetExport(Guid companyId, [FromQuery] DateOnly asOf)
     {
         var result = await BalanceSheet(companyId, asOf);
@@ -134,10 +157,15 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("vat-return")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<VatReturnResponse>> VatReturn(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (_access.IsPartnerRestricted)
+        {
+            return ReportNotAvailableForScopedUser();
+        }
+
         var repartitionAccountsByTax = (await _db.TaxRepartitionLines.AsNoTracking()
                 .Select(r => new { r.TaxDefinitionId, r.AccountId })
                 .ToListAsync())
@@ -195,7 +223,7 @@ public class ReportsController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("vat-return/export", Name = "VatReturnExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VatReturnExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
         var result = await VatReturn(companyId, from, to);
@@ -220,7 +248,7 @@ public class ReportsController : ControllerBase
     // DocumentType is carried through rather than filtered on, and why that sidesteps the
     // still-open "sales return as nota kreditore" question rather than deciding it here.
     [HttpGet("sales-book")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<SalesBookResponse>> SalesBook(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
@@ -244,7 +272,7 @@ public class ReportsController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("sales-book/export", Name = "SalesBookExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
         var result = await SalesBook(companyId, from, to);
@@ -266,7 +294,7 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("purchase-book")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<PurchaseBookResponse>> PurchaseBook(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
@@ -290,7 +318,7 @@ public class ReportsController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("purchase-book/export", Name = "PurchaseBookExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
         var result = await PurchaseBook(companyId, from, to);
@@ -349,7 +377,7 @@ public class ReportsController : ControllerBase
         List<(Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType, Guid PartnerId, Guid? JournalEntryId)> documents;
         if (isSalesBook)
         {
-            documents = (await _db.Invoices.AsNoTracking()
+            documents = (await _db.Invoices.AsNoTracking().VisibleTo(_access)
                     .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate >= from && i.IssueDate <= to)
                     .Select(i => new { i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType, i.PartnerId, i.JournalEntryId })
                     .ToListAsync())
@@ -358,7 +386,7 @@ public class ReportsController : ControllerBase
         }
         else
         {
-            documents = (await _db.Bills.AsNoTracking()
+            documents = (await _db.Bills.AsNoTracking().VisibleTo(_access)
                     .Where(b => b.CompanyId == companyId && b.State == Pako.Domain.Bills.BillState.Posted && b.IssueDate >= from && b.IssueDate <= to)
                     .Select(b => new { b.Id, b.VendorReference, b.IssueDate, b.DocumentType, b.PartnerId, b.JournalEntryId })
                     .ToListAsync())
@@ -432,10 +460,15 @@ public class ReportsController : ControllerBase
     }
 
     [HttpGet("cit-addback")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<CitAddBackResponse>> CitAddBack(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (_access.IsPartnerRestricted)
+        {
+            return ReportNotAvailableForScopedUser();
+        }
+
         var sums = await SumsByAccountAsync(companyId, from, to);
 
         var nonDeductible = sums.Where(s => s.Account.CitDeductibility == CitDeductibility.Non)
@@ -458,7 +491,7 @@ public class ReportsController : ControllerBase
     // identically to a normal invoice, see CLAUDE.md's Debit notes section) — CreditNote/
     // DownPayment are source documents netted against other invoices, never "debt" themselves.
     [HttpGet("debt-aging")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<DebtAgingResponse>> DebtAging(Guid companyId, [FromQuery] DateOnly? asOf = null)
     {
         var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
@@ -466,7 +499,7 @@ public class ReportsController : ControllerBase
         var companyDefaultReceivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;
 
-        var invoices = await _db.Invoices.AsNoTracking()
+        var invoices = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted
                 && (i.DocumentType == DocumentType.Invoice || i.DocumentType == DocumentType.DebitNote))
             .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
