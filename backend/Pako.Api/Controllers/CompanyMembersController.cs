@@ -45,9 +45,25 @@ public class CompanyMembersController : ControllerBase
     [ProducesResponseType(typeof(MemberResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<MemberResponse>> Create(Guid companyId, AddMemberRequest request)
     {
-        if (request.Role != MembershipRole.ClientAdmin && request.Role != MembershipRole.ClientViewer)
+        if (request.Role != MembershipRole.ClientAdmin && request.Role != MembershipRole.ClientViewer &&
+            request.Role != MembershipRole.ClientStaff)
         {
             return BadRequest(_localizer["RoleMustBeCompanyRole"].Value);
+        }
+
+        Pako.Domain.Payroll.Employee? employee = null;
+        if (request.Role == MembershipRole.ClientStaff)
+        {
+            if (request.EmployeeId is not { } employeeId)
+            {
+                return BadRequest(_localizer["StaffNeedsEmployee"].Value);
+            }
+
+            employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == employeeId && e.CompanyId == companyId);
+            if (employee is null)
+            {
+                return BadRequest(_localizer["EmployeeNotFound"].Value);
+            }
         }
 
         var user = await _userManager.FindByEmailAsync(request.Email);
@@ -61,6 +77,17 @@ public class CompanyMembersController : ControllerBase
         if (alreadyMember)
         {
             return BadRequest(string.Format(_localizer["AlreadyCompanyMember"], request.Email));
+        }
+
+        if (employee is not null)
+        {
+            if (employee.UserId is { } linked && linked != user.Id ||
+                await _db.Employees.AnyAsync(e => e.CompanyId == companyId && e.UserId == user.Id && e.Id != employee.Id))
+            {
+                return BadRequest(_localizer["EmployeeUserTaken"].Value);
+            }
+
+            employee.UserId = user.Id;
         }
 
         var membership = Membership.ForCompany(user.Id, companyId, request.Role);

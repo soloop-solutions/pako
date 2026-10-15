@@ -3,6 +3,7 @@ using System.Text;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Attachments;
@@ -37,7 +38,7 @@ public class AttachmentsControllerTests : IAsyncLifetime
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, TestUserId.ToString()) }, "TestAuth"));
 
-        return new AttachmentsController(db, new NullStringLocalizer<ErrorMessages>())
+        return new AttachmentsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };

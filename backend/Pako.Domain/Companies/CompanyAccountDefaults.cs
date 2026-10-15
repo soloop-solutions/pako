@@ -54,6 +54,22 @@ public class CompanyAccountDefaults
     // 220100 Net Salaries Payable. Null unless the Payroll profile is enabled.
     public Guid? NetPayPayableAccountId { get; set; }
 
+    // HR module: the finer payroll roles. All nullable and optional — PayrollRun.Post falls back to
+    // the four roles above when one is null (bonuses and employer pension on salary expense,
+    // employer pension payable on 221100, deductions on net pay payable), which is exactly the
+    // pre-HR posting. Set for new Payroll-profile companies and backfilled by AddHrModule.
+    // 600300 Bonuses.
+    public Guid? BonusExpenseAccountId { get; set; }
+
+    // 600200 Employer Pension Contribution (expense).
+    public Guid? EmployerPensionExpenseAccountId { get; set; }
+
+    // 221200 Pension Contribution - Employer (liability) — closes the 221100/221200 imprecision.
+    public Guid? EmployerPensionPayableAccountId { get; set; }
+
+    // 222100 Other Employee Liabilities — after-tax payroll deductions.
+    public Guid? PayrollDeductionsAccountId { get; set; }
+
     // 60_Posting_Rules R10 (AUTO, Stage 4): RC18 generates Dr 113300 / Cr 210300 automatically.
     // Both CORE-profile, always present, so required like the first five roles above.
     public Guid ReverseChargeInputVatAccountId { get; set; }

@@ -126,4 +126,47 @@
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>
   <data name="TryAgainOrContactSupport" xml:space="preserve"><value>Ju lutem provoni përsëri ose kontaktoni mbështetjen nëse problemi vazhdon.</value></data>
+
+  <!-- HR module -->
+  <data name="DepartmentCodeRequired" xml:space="preserve"><value>Kodi i departamentit është i detyrueshëm.</value></data>
+  <data name="DepartmentNameRequired" xml:space="preserve"><value>Emri i departamentit është i detyrueshëm.</value></data>
+  <data name="DepartmentCodeTaken" xml:space="preserve"><value>Një departament tjetër e përdor tashmë kodin '{0}'.</value></data>
+  <data name="DepartmentNotFound" xml:space="preserve"><value>Departamenti nuk u gjet në këtë kompani.</value></data>
+  <data name="DepartmentParentCycle" xml:space="preserve"><value>Një departament nuk mund të vendoset nën vetveten ose nën një nëndepartament të tij.</value></data>
+  <data name="DepartmentInUse" xml:space="preserve"><value>Ky departament ka ende punonjës ose nëndepartamente; çaktivizojeni në vend të fshirjes.</value></data>
+  <data name="CostCenterNotFound" xml:space="preserve"><value>Qendra e kostos nuk u gjet në këtë kompani.</value></data>
+  <data name="EmployeeNotFound" xml:space="preserve"><value>Punonjësi nuk u gjet në këtë kompani.</value></data>
+  <data name="PersonalNumberInvalid" xml:space="preserve"><value>Numri personal duhet të ketë saktësisht 10 shifra.</value></data>
+  <data name="PersonalNumberTaken" xml:space="preserve"><value>Një punonjës tjetër e ka tashmë numrin personal {0}.</value></data>
+  <data name="IbanInvalid" xml:space="preserve"><value>IBAN-i nuk është i vlefshëm.</value></data>
+  <data name="TerminationBeforeHire" xml:space="preserve"><value>Data e largimit nuk mund të jetë para datës së punësimit.</value></data>
+  <data name="ManagerCannotBeSelf" xml:space="preserve"><value>Punonjësi nuk mund të jetë menaxher i vetes.</value></data>
+  <data name="EmployeeUserTaken" xml:space="preserve"><value>Ky përdorues është tashmë i lidhur me një punonjës tjetër në këtë kompani.</value></data>
+  <data name="UserNotCompanyMember" xml:space="preserve"><value>Ky përdorues nuk është anëtar i kësaj kompanie.</value></data>
+  <data name="AssignedPartnerNotFound" xml:space="preserve"><value>Një ose më shumë partnerë nuk u gjetën në këtë kompani.</value></data>
+  <data name="PartnerNotAssigned" xml:space="preserve"><value>Ju nuk jeni i caktuar për këtë partner.</value></data>
+  <data name="ReportNotAvailableForScopedUser" xml:space="preserve"><value>Ky raport përfshin të gjithë partnerët dhe nuk është i disponueshëm për përdoruesit e kufizuar te partnerët e caktuar.</value></data>
+  <data name="ContractEndBeforeStart" xml:space="preserve"><value>Data e përfundimit të kontratës nuk mund të jetë para datës së fillimit.</value></data>
+  <data name="ContractOverlaps" xml:space="preserve"><value>Kjo kontratë mbivendoset me një kontratë tjetër të të njëjtit punonjës.</value></data>
+  <data name="WeeklyHoursInvalid" xml:space="preserve"><value>Orët javore duhet të jenë ndërmjet 1 dhe 60.</value></data>
+  <data name="AdjustmentAmountInvalid" xml:space="preserve"><value>Shuma duhet të jetë më e madhe se zero.</value></data>
+  <data name="AdjustmentHoursRequired" xml:space="preserve"><value>Orët janë të detyrueshme për orët shtesë dhe shtesat.</value></data>
+  <data name="AdjustmentConsumed" xml:space="preserve"><value>Ky zë është tashmë i përfshirë në një listë pagash.</value></data>
+  <data name="PayrollPeriodOverlaps" xml:space="preserve"><value>Një listë tjetër pagash e mbulon tashmë një pjesë të kësaj periudhe.</value></data>
+  <data name="PayrollRunNotDraft" xml:space="preserve"><value>Vetëm një listë pagash në gjendje Draft mund të ndryshohet ose fshihet.</value></data>
+  <data name="PayrollRunNotPosted" xml:space="preserve"><value>Vetëm një listë pagash e postuar mund të paguhet.</value></data>
+  <data name="LeaveTypeNotFound" xml:space="preserve"><value>Lloji i pushimit nuk u gjet në këtë kompani.</value></data>
+  <data name="LeaveTypeCodeTaken" xml:space="preserve"><value>Një lloj tjetër pushimi e përdor tashmë kodin '{0}'.</value></data>
+  <data name="LeavePayPercentInvalid" xml:space="preserve"><value>Përqindja e pagesës duhet të jetë ndërmjet 0 dhe 100.</value></data>
+  <data name="LeaveEndBeforeStart" xml:space="preserve"><value>Data e përfundimit të pushimit nuk mund të jetë para datës së fillimit.</value></data>
+  <data name="LeaveNoWorkingDays" xml:space="preserve"><value>Datat e zgjedhura nuk përmbajnë ditë pune.</value></data>
+  <data name="LeaveOverlaps" xml:space="preserve"><value>Ky pushim mbivendoset me një pushim tjetër në pritje ose të miratuar të të njëjtit punonjës.</value></data>
+  <data name="LeaveExceedsBalance" xml:space="preserve"><value>Bilanc i pamjaftueshëm pushimi: kërkohen {0} ditë, kanë mbetur {1}.</value></data>
+  <data name="LeaveRequestNotPending" xml:space="preserve"><value>Vetëm një kërkesë pushimi në pritje mund të miratohet ose refuzohet.</value></data>
+  <data name="LeaveAllocationInvalid" xml:space="preserve"><value>Ditët e caktuara duhet të jenë zero ose më shumë.</value></data>
+  <data name="HolidayDateTaken" xml:space="preserve"><value>Ekziston tashmë një festë zyrtare më {0}.</value></data>
+  <data name="HolidayNameRequired" xml:space="preserve"><value>Emri i festës është i detyrueshëm.</value></data>
+  <data name="StaffNeedsEmployee" xml:space="preserve"><value>Një anëtar i stafit duhet të lidhet me një punonjës.</value></data>
+  <data name="LeaveTypeCodeRequired" xml:space="preserve"><value>Kodi i llojit të pushimit është i detyrueshëm.</value></data>
+  <data name="LeaveTypeNameRequired" xml:space="preserve"><value>Emri i llojit të pushimit është i detyrueshëm.</value></data>
 </root>

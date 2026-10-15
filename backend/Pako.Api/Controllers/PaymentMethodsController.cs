@@ -7,6 +7,7 @@ using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -41,7 +42,7 @@ public class PaymentMethodsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(PaymentMethodResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PaymentMethodResponse>> Create(Guid companyId, CreatePaymentMethodRequest request)
     {

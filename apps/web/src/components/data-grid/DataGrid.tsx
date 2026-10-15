@@ -43,6 +43,8 @@ export interface DataGridProps<TData extends object> {
   enableRowSelection?: boolean;
   onSelectedRowsChange?: (rows: TData[]) => void;
   getRowClassName?: (row: TData) => string | undefined;
+  /** Opens a record when its row is clicked. Clicks on buttons/links/inputs inside the row are ignored. */
+  onRowClick?: (row: TData) => void;
   enableGlobalFilter?: boolean;
   globalFilterPlaceholder?: string;
   emptyMessage?: string;
@@ -76,6 +78,7 @@ export function DataGrid<TData extends object>({
   enableRowSelection = false,
   onSelectedRowsChange,
   getRowClassName,
+  onRowClick,
   enableGlobalFilter = false,
   globalFilterPlaceholder,
   emptyMessage,
@@ -394,7 +397,16 @@ export function DataGrid<TData extends object>({
                     rowIndex % 2 === 1 && "bg-zebra",
                     getRowClassName?.(row.original),
                     row.getIsSelected() && "bg-row-selected shadow-[inset_3px_0_0_var(--primary)]",
+                    onRowClick && !row.getIsGrouped() && "cursor-pointer",
                   )}
+                  onClick={
+                    onRowClick && !row.getIsGrouped()
+                      ? (event) => {
+                          if ((event.target as HTMLElement).closest("button, a, input, select, label")) return;
+                          onRowClick(row.original);
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => {
                     const numeric = cell.column.columnDef.meta?.numeric;

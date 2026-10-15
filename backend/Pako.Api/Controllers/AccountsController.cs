@@ -6,6 +6,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -37,7 +38,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<AccountResponse>> Create(Guid companyId, CreateAccountRequest request)
     {
@@ -101,7 +102,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpPut("{accountId:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<AccountResponse>> Update(Guid companyId, Guid accountId, UpdateAccountRequest request)
     {
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.CompanyId == companyId);
@@ -152,7 +153,7 @@ public class AccountsController : ControllerBase
     // R26: accounts are deactivated, never deleted — there is deliberately no DELETE action on
     // this controller at all (see NoDeletionGuaranteeTests.AccountsController_HasNoDeleteRoute).
     [HttpPost("{accountId:guid}/deactivate")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<AccountResponse>> Deactivate(Guid companyId, Guid accountId)
     {
         var account = await _db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId && a.CompanyId == companyId);

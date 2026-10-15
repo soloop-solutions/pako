@@ -9,12 +9,15 @@ const MEMBERSHIP_ROLE_KEYS = [
   "enum.membershipRole.firmAccountant",
   "enum.membershipRole.clientAdmin",
   "enum.membershipRole.clientViewer",
+  "enum.membershipRole.clientStaff",
 ] as const;
 
 export const FIRM_ADMIN = 0;
 export const FIRM_ACCOUNTANT = 1;
 export const CLIENT_ADMIN = 2;
 export const CLIENT_VIEWER = 3;
+/** HR module: a company's own employee who logs in; rights come from their department. */
+export const CLIENT_STAFF = 4;
 
 export function membershipRoleLabel(value: number, intl: IntlShape): string {
   const key = MEMBERSHIP_ROLE_KEYS[value];
@@ -29,5 +32,5 @@ export function isFirmAdminRole(value: number): boolean {
   return value === FIRM_ADMIN;
 }
 
-export const companyMemberRoleValues = [CLIENT_ADMIN, CLIENT_VIEWER];
+export const companyMemberRoleValues = [CLIENT_ADMIN, CLIENT_VIEWER, CLIENT_STAFF];
 export const firmMemberRoleValues = [FIRM_ADMIN, FIRM_ACCOUNTANT];
