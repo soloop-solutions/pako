@@ -6,6 +6,7 @@ using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Api.Services;
+using Microsoft.Extensions.Localization;
 using Pako.Domain.Companies;
 using Pako.Infrastructure;
 
@@ -32,7 +33,7 @@ public class ItemsControllerTests : IAsyncLifetime
         return db;
     }
 
-    private static ItemsController NewController(PakoDbContext db) => new(db, new NumberSeriesService(db));
+    private static ItemsController NewController(PakoDbContext db) => new(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>());
 
     private async Task<(PakoDbContext Db, Guid CompanyId)> SeedCompanyAsync()
     {
@@ -101,6 +102,8 @@ public class ItemsControllerTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
         var revenueAccountId = Guid.NewGuid();
+        db.Accounts.Add(new Pako.Domain.Ledger.Account { Id = revenueAccountId, CompanyId = companyId, Code = "601000", Name = "Revenue", AccountType = Pako.Domain.Ledger.AccountType.Income });
+        await db.SaveChangesAsync();
         var createResult = await controller.Create(companyId, new CreateItemRequest("Widget", "pcs"));
         var created = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
 

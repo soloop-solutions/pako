@@ -11,7 +11,11 @@
   <!-- Companies -->
   <data name="CompanyNameRequired" xml:space="preserve"><value>Company name is required.</value></data>
   <data name="CompanyNameTooLong" xml:space="preserve"><value>Company name must be 256 characters or fewer.</value></data>
+  <data name="CompanyNotFound" xml:space="preserve"><value>Company {0} not found.</value></data>
   <data name="FirmNotFound" xml:space="preserve"><value>Firm {0} not found.</value></data>
+  <data name="CompanyAlreadyArchived" xml:space="preserve"><value>This company is already archived.</value></data>
+  <data name="CompanyNotArchived" xml:space="preserve"><value>This company is not archived.</value></data>
+  <data name="CompanyIsArchived" xml:space="preserve"><value>This company is archived. Unarchive it before making changes.</value></data>
 
   <!-- Firms -->
   <data name="FirmNameRequired" xml:space="preserve"><value>Firm name is required.</value></data>
@@ -27,12 +31,17 @@
   <!-- Employees -->
   <data name="EmployeeNameRequired" xml:space="preserve"><value>Employee name is required.</value></data>
   <data name="SalaryMustBePositive" xml:space="preserve"><value>Monthly gross salary must be positive.</value></data>
+  <data name="SalaryExcessivePrecision" xml:space="preserve"><value>Monthly gross salary must have at most two decimal places.</value></data>
+  <data name="SalaryExceedsMaximum" xml:space="preserve"><value>Monthly gross salary cannot exceed 1,000,000.</value></data>
 
   <!-- Journal Entries -->
   <data name="InvalidJournal" xml:space="preserve"><value>Invalid journal for this company.</value></data>
   <data name="LineAmountExceedsMax" xml:space="preserve"><value>Line amounts cannot exceed {0}.</value></data>
   <data name="AccountsNotBelongToCompany" xml:space="preserve"><value>One or more accounts do not belong to this company.</value></data>
   <data name="JournalNoLongerExists" xml:space="preserve"><value>Journal entry references a journal that no longer exists.</value></data>
+
+  <!-- Items -->
+  <data name="ItemDefaultAccountNotBelongToCompany" xml:space="preserve"><value>One or more selected default accounts do not belong to this company.</value></data>
 
   <!-- Invoices -->
   <data name="InvalidCustomerPartner" xml:space="preserve"><value>Invalid customer partner for this company.</value></data>
@@ -113,6 +122,12 @@
   <data name="PartnerNameRequired" xml:space="preserve"><value>Partner name is required.</value></data>
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Fiscal number must be 64 characters or fewer.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>The selected control account does not belong to this company.</value></data>
+  <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>A partner with this NUI already exists in this company.</value></data>
+
+  <!-- Posting rule R07: counterparty identification -->
+  <data name="MissingPartnerTaxNumber_R07" xml:space="preserve"><value>Cannot post: {0} is VAT-registered but has no Tax Number (NUI). Edit the partner and add the NUI, then retry.</value></data>
+  <data name="MissingPartnerFiscalNumber_R07" xml:space="preserve"><value>Cannot post: {0} is not VAT-registered and has no Fiscal Number. Edit the partner and add the Fiscal Number, then retry.</value></data>
+  <data name="MissingPartnerForVat_R07" xml:space="preserve"><value>Cannot post: VAT code {0} requires a partner with a tax identifier, but no partner is set on this document.</value></data>
 
   <!-- Attachments (B12) -->
   <data name="AttachmentFileRequired" xml:space="preserve"><value>A file is required.</value></data>
@@ -122,6 +137,27 @@
 
   <!-- Hash chain (B15) -->
   <data name="CannotSecurePastDraftEntries" xml:space="preserve"><value>Cannot secure up to this date: one or more draft journal entries in this journal fall on or before it. Post or discard them first.</value></data>
+
+  <!-- VAT eligibility -->
+  <data name="VatCodeNotEligible_OutputVat" xml:space="preserve"><value>This company is not VAT registered and cannot charge output VAT. Remove the VAT code or use "NA" (not applicable).</value></data>
+  <data name="VatCodeNotEligible_InputVat" xml:space="preserve"><value>This company is not VAT registered and cannot deduct input VAT. The full gross amount should be recorded as expense.</value></data>
+  <data name="VatCodeNotEligible_ImportVat" xml:space="preserve"><value>This company is not VAT registered and cannot use import VAT codes.</value></data>
+  <data name="VatCodeNotEligible_ReverseCharge" xml:space="preserve"><value>This company is not VAT registered and cannot use reverse-charge VAT codes.</value></data>
+  <data name="VatCodeNotEligible_General" xml:space="preserve"><value>This VAT code is not available for non-VAT-registered companies.</value></data>
+
+  <!-- Action tokens -->
+  <data name="ActionTokenRequired" xml:space="preserve"><value>Password verification is required before creating a journal entry.</value></data>
+  <data name="ActionTokenInvalid" xml:space="preserve"><value>Password verification has expired or is invalid. Please verify your password again.</value></data>
+  <data name="TooManyFailedAttempts" xml:space="preserve"><value>Too many failed password attempts. Please wait a few minutes and try again.</value></data>
+
+  <!-- Projects -->
+  <data name="ProjectCodeRequired" xml:space="preserve"><value>Project code is required.</value></data>
+  <data name="ProjectNameRequired" xml:space="preserve"><value>Project name is required.</value></data>
+  <data name="ProjectCodeAlreadyExists" xml:space="preserve"><value>A project with this code already exists in this company.</value></data>
+
+  <!-- Partners / Credit -->
+  <data name="CreditLimitNegative" xml:space="preserve"><value>Credit limit cannot be negative.</value></data>
+  <data name="CreditLimitExceeded" xml:space="preserve"><value>Credit limit exceeded. Available credit: {0}. New unpaid amount: {1}.</value></data>
 
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>An unexpected error occurred.</value></data>

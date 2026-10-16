@@ -50,6 +50,16 @@ public class EmployeesController : ControllerBase
             return BadRequest(_localizer["SalaryMustBePositive"].Value);
         }
 
+        if (request.MonthlyGrossSalary != Math.Round(request.MonthlyGrossSalary, 2))
+        {
+            return BadRequest(_localizer["SalaryExcessivePrecision"].Value);
+        }
+
+        if (request.MonthlyGrossSalary > 1_000_000m)
+        {
+            return BadRequest(_localizer["SalaryExceedsMaximum"].Value);
+        }
+
         var employee = new Employee
         {
             Id = Guid.NewGuid(),
