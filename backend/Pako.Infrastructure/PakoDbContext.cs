@@ -9,6 +9,7 @@ using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Payroll;
 using Pako.Domain.Reconciliation;
+using Pako.Domain.Shared;
 using Pako.Domain.Tax;
 using Pako.Infrastructure.Identity;
 
@@ -58,6 +59,9 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<LeaveAllocation> LeaveAllocations => Set<LeaveAllocation>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<PublicHoliday> PublicHolidays => Set<PublicHoliday>();
+    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
+    public DbSet<Project> Projects => Set<Project>();
+    public DbSet<UserFavorite> UserFavorites => Set<UserFavorite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
