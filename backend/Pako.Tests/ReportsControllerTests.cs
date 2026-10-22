@@ -557,7 +557,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var company = await db.Companies.SingleAsync(c => c.Id == companyId);
         company.IsVatRegistered = false;
         await db.SaveChangesAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -586,7 +586,7 @@ public class ReportsControllerTests : IAsyncLifetime
     private static readonly DateOnly To = new(2026, 12, 31);
 
     private static ReportsController ControllerWithHttp(PakoDbContext db) =>
-        new(db) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
+        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
 
     private static ClosedXML.Excel.IXLWorksheet Sheet(IActionResult result)
     {

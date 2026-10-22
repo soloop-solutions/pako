@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
@@ -26,7 +27,15 @@ public class EmployeeValidationTests : IAsyncLifetime
         return db;
     }
 
-    private static EmployeesController NewController(PakoDbContext db) => new(db, new NullStringLocalizer<ErrorMessages>());
+    private static EmployeesController NewController(PakoDbContext db) =>
+        new(db, CompanyAccessContext.Unrestricted(), new NullStringLocalizer<ErrorMessages>());
+
+    private static SaveEmployeeRequest Req(string name, decimal salary) =>
+        new(FirstName: name, LastName: null, Name: null, PersonalNumber: null,
+            Email: null, Phone: null, Address: null, BirthDate: null,
+            HireDate: null, TerminationDate: null, JobTitle: null,
+            DepartmentId: null, ManagerId: null, UserId: null,
+            Iban: null, BankName: null, MonthlyGrossSalary: salary);
 
     private async Task<(PakoDbContext Db, Guid CompanyId)> SeedCompanyAsync()
     {
@@ -45,7 +54,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", -100m));
+        var result = await controller.Create(companyId, Req("Alice", -100m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -56,7 +65,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", -0.01m));
+        var result = await controller.Create(companyId, Req("Alice", -0.01m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -67,7 +76,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 0m));
+        var result = await controller.Create(companyId, Req("Alice", 0m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -78,9 +87,9 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 0.01m));
+        var result = await controller.Create(companyId, Req("Alice", 0.01m));
 
-        var created = Assert.IsType<EmployeeResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        var created = Assert.IsType<EmployeeDetailResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal(0.01m, created.MonthlyGrossSalary);
     }
 
@@ -90,9 +99,9 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 500m));
+        var result = await controller.Create(companyId, Req("Alice", 500m));
 
-        var created = Assert.IsType<EmployeeResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        var created = Assert.IsType<EmployeeDetailResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal(500m, created.MonthlyGrossSalary);
         Assert.True(created.IsActive);
     }
@@ -103,7 +112,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("", 500m));
+        var result = await controller.Create(companyId, Req("", 500m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -114,7 +123,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("   ", 500m));
+        var result = await controller.Create(companyId, Req("   ", 500m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -127,7 +136,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 500.001m));
+        var result = await controller.Create(companyId, Req("Alice", 500.001m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -138,7 +147,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 999.999m));
+        var result = await controller.Create(companyId, Req("Alice", 999.999m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -149,9 +158,9 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 500.50m));
+        var result = await controller.Create(companyId, Req("Alice", 500.50m));
 
-        var created = Assert.IsType<EmployeeResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        var created = Assert.IsType<EmployeeDetailResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal(500.50m, created.MonthlyGrossSalary);
     }
 
@@ -161,9 +170,9 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 1000m));
+        var result = await controller.Create(companyId, Req("Alice", 1000m));
 
-        var created = Assert.IsType<EmployeeResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        var created = Assert.IsType<EmployeeDetailResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal(1000m, created.MonthlyGrossSalary);
     }
 
@@ -173,7 +182,7 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 1_000_001m));
+        var result = await controller.Create(companyId, Req("Alice", 1_000_001m));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -184,9 +193,9 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateEmployeeRequest("Alice", 1_000_000m));
+        var result = await controller.Create(companyId, Req("Alice", 1_000_000m));
 
-        var created = Assert.IsType<EmployeeResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        var created = Assert.IsType<EmployeeDetailResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal(1_000_000m, created.MonthlyGrossSalary);
     }
 
@@ -198,10 +207,10 @@ public class EmployeeValidationTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        await controller.Create(companyId, new CreateEmployeeRequest("Alice", 500.12m));
+        await controller.Create(companyId, Req("Alice", 500.12m));
 
         var employee = await db.Employees.FirstOrDefaultAsync(e => e.CompanyId == companyId);
-        Assert.Equal(500.12m, employee.MonthlyGrossSalary);
+        Assert.Equal(500.12m, employee!.MonthlyGrossSalary);
     }
 
     // --- Company isolation ---
@@ -215,13 +224,13 @@ public class EmployeeValidationTests : IAsyncLifetime
         await db.SaveChangesAsync();
 
         var controller = NewController(db);
-        await controller.Create(companyId, new CreateEmployeeRequest("Alice", 500m));
-        await controller.Create(otherCompanyId, new CreateEmployeeRequest("Bob", 600m));
+        await controller.Create(companyId, Req("Alice", 500m));
+        await controller.Create(otherCompanyId, Req("Bob", 600m));
 
         var result = await controller.List(companyId);
-        var employees = Assert.IsType<List<EmployeeResponse>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var paginated = Assert.IsType<PaginatedResponse<EmployeeDetailResponse>>(Assert.IsType<OkObjectResult>(result.Result).Value);
 
-        Assert.Single(employees);
-        Assert.Equal("Alice", employees[0].Name);
+        Assert.Single(paginated.Items);
+        Assert.Equal("Alice", paginated.Items[0].Name);
     }
 }

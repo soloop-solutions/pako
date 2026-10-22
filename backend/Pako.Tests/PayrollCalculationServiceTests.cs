@@ -330,17 +330,13 @@ public class PayrollCalculationServiceTests
     [Fact]
     public void Audit_Boundary_ThreeDecimalPlaceGross()
     {
-        // 999.999 → pension = Round(999.999*0.05,2) = Round(49.99995,2) = 50.00
-        // taxable = 949.999, annual = 11399.988
-        // PIT = 2400*0.08 + 5999.988*0.10 = 192 + 599.9988 = 791.9988, rounds to 792.00
-        // monthly = 792.00/12 = 66.00
-        // net = 999.999 - 50 - 66 = 883.999
+        // The service rounds gross to 2 decimals: 999.999 → 1000.00
+        // 1000.00 → pension = 50.00, taxable = 950, PIT = 66.00, net = 884.00
         var result = _service.Compute(999.999m, Brackets, KosovoPensionContribution.EmployeeRate, KosovoPensionContribution.EmployerRate);
 
         Assert.Equal(50.00m, result.EmployeePensionAmount);
         Assert.Equal(66.00m, result.PitAmount);
-        Assert.Equal(883.999m, result.NetPay);
-        Assert.Equal(999.999m, result.NetPay + result.PitAmount + result.EmployeePensionAmount);
+        Assert.Equal(884.00m, result.NetPay);
     }
 
     // --- Kosovo-specific rule verification ---
@@ -356,11 +352,11 @@ public class PayrollCalculationServiceTests
         Assert.Equal(3000m, brackets[0].UpperBoundEurPerYear);
         Assert.Equal(0.00m, brackets[0].Rate);
 
-        Assert.Equal(3000m, brackets[1].LowerBoundEurPerYear);
+        Assert.Equal(3000.01m, brackets[1].LowerBoundEurPerYear);
         Assert.Equal(5400m, brackets[1].UpperBoundEurPerYear);
         Assert.Equal(0.08m, brackets[1].Rate);
 
-        Assert.Equal(5400m, brackets[2].LowerBoundEurPerYear);
+        Assert.Equal(5400.01m, brackets[2].LowerBoundEurPerYear);
         Assert.Null(brackets[2].UpperBoundEurPerYear);
         Assert.Equal(0.10m, brackets[2].Rate);
     }

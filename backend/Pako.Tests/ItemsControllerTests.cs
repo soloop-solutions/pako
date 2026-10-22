@@ -33,7 +33,7 @@ public class ItemsControllerTests : IAsyncLifetime
         return db;
     }
 
-    private static ItemsController NewController(PakoDbContext db) => new(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>());
+    private static ItemsController NewController(PakoDbContext db) => new(db, new NumberSeriesService(db));
 
     private async Task<(PakoDbContext Db, Guid CompanyId)> SeedCompanyAsync()
     {
