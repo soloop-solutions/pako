@@ -11,7 +11,11 @@
   <!-- Companies -->
   <data name="CompanyNameRequired" xml:space="preserve"><value>Emri i kompanisë është i detyrueshëm.</value></data>
   <data name="CompanyNameTooLong" xml:space="preserve"><value>Emri i kompanisë duhet të jetë maksimumi 256 karaktere.</value></data>
+  <data name="CompanyNotFound" xml:space="preserve"><value>Kompania {0} nuk u gjet.</value></data>
   <data name="FirmNotFound" xml:space="preserve"><value>Firma {0} nuk u gjet.</value></data>
+  <data name="CompanyAlreadyArchived" xml:space="preserve"><value>Kjo kompani është tashmë e arkivuar.</value></data>
+  <data name="CompanyNotArchived" xml:space="preserve"><value>Kjo kompani nuk është e arkivuar.</value></data>
+  <data name="CompanyIsArchived" xml:space="preserve"><value>Kjo kompani është e arkivuar. Çarkivoni para se të bëni ndryshime.</value></data>
 
   <!-- Firms -->
   <data name="FirmNameRequired" xml:space="preserve"><value>Emri i firmës është i detyrueshëm.</value></data>
@@ -27,12 +31,17 @@
   <!-- Employees -->
   <data name="EmployeeNameRequired" xml:space="preserve"><value>Emri i punonjësit është i detyrueshëm.</value></data>
   <data name="SalaryMustBePositive" xml:space="preserve"><value>Paga mujore bruto duhet të jetë më e madhe se zero.</value></data>
+  <data name="SalaryExcessivePrecision" xml:space="preserve"><value>Paga mujore bruto duhet të ketë maksimumi dy shifra dhjetore.</value></data>
+  <data name="SalaryExceedsMaximum" xml:space="preserve"><value>Paga mujore bruto nuk mund të kalojë 1,000,000.</value></data>
 
   <!-- Journal Entries -->
   <data name="InvalidJournal" xml:space="preserve"><value>Ditar i pavlefshëm për këtë kompani.</value></data>
   <data name="LineAmountExceedsMax" xml:space="preserve"><value>Shuma e rreshtit nuk mund të kalojë {0}.</value></data>
   <data name="AccountsNotBelongToCompany" xml:space="preserve"><value>Një ose më shumë llogari nuk i përkasin kësaj kompanie.</value></data>
   <data name="JournalNoLongerExists" xml:space="preserve"><value>Regjistrimi referon një ditar që nuk ekziston më.</value></data>
+
+  <!-- Items -->
+  <data name="ItemDefaultAccountNotBelongToCompany" xml:space="preserve"><value>Një ose më shumë llogari të parazgjedhura nuk i përkasin kësaj kompanie.</value></data>
 
   <!-- Invoices -->
   <data name="InvalidCustomerPartner" xml:space="preserve"><value>Partner klient i pavlefshëm për këtë kompani.</value></data>
@@ -113,6 +122,12 @@
   <data name="PartnerNameRequired" xml:space="preserve"><value>Emri i partnerit është i detyrueshëm.</value></data>
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Numri fiskal duhet të jetë 64 karaktere ose më pak.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>Llogaria e zgjedhur e kontrollit nuk i përket kësaj kompanie.</value></data>
+  <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>Ekziston tashmë një partner me këtë NUI në këtë kompani.</value></data>
+
+  <!-- Rregulli i postimit R07: identifikimi i palës -->
+  <data name="MissingPartnerTaxNumber_R07" xml:space="preserve"><value>Nuk mund të postohet: {0} është i regjistruar për TVSH por nuk ka Numër Fiskal (NUI). Ndryshoni partnerin dhe shtoni NUI-n, pastaj provoni përsëri.</value></data>
+  <data name="MissingPartnerFiscalNumber_R07" xml:space="preserve"><value>Nuk mund të postohet: {0} nuk është i regjistruar për TVSH dhe nuk ka Numër Personal. Ndryshoni partnerin dhe shtoni Numrin Personal, pastaj provoni përsëri.</value></data>
+  <data name="MissingPartnerForVat_R07" xml:space="preserve"><value>Nuk mund të postohet: kodi i TVSH-së {0} kërkon një partner me identifikim tatimor, por ky dokument nuk ka partner.</value></data>
 
   <!-- Bashkëngjitjet (B12) -->
   <data name="AttachmentFileRequired" xml:space="preserve"><value>Kërkohet një skedar.</value></data>
@@ -122,6 +137,37 @@
 
   <!-- Zinxhiri i hash-it (B15) -->
   <data name="CannotSecurePastDraftEntries" xml:space="preserve"><value>Nuk mund të sigurohet deri në këtë datë: një ose më shumë regjistrime draft në këtë ditar bien në ose para saj. Postojini ose hidhini së pari.</value></data>
+
+  <!-- VAT eligibility -->
+  <data name="VatCodeNotEligible_OutputVat" xml:space="preserve"><value>Kjo kompani nuk është e regjistruar për TVSH dhe nuk mund të ngarkojë TVSH-në dalëse. Hiqni kodin e TVSH-së ose përdorni "NA" (nuk aplikohet).</value></data>
+  <data name="VatCodeNotEligible_InputVat" xml:space="preserve"><value>Kjo kompani nuk është e regjistruar për TVSH dhe nuk mund të zbresë TVSH-në hyrëse. Shuma bruto duhet të regjistrohet si shpenzim.</value></data>
+  <data name="VatCodeNotEligible_ImportVat" xml:space="preserve"><value>Kjo kompani nuk është e regjistruar për TVSH dhe nuk mund të përdorë kodet e TVSH-së së importit.</value></data>
+  <data name="VatCodeNotEligible_ReverseCharge" xml:space="preserve"><value>Kjo kompani nuk është e regjistruar për TVSH dhe nuk mund të përdorë kodet e ngarkesës së kundërt.</value></data>
+  <data name="VatCodeNotEligible_General" xml:space="preserve"><value>Ky kod TVSH nuk është i disponueshëm për kompanitë e paregjistruara për TVSH.</value></data>
+
+  <!-- Tokenat e veprimit -->
+  <data name="ActionTokenRequired" xml:space="preserve"><value>Verifikimi i fjalëkalimit kërkohet para krijimit të një urdhërese.</value></data>
+  <data name="ActionTokenInvalid" xml:space="preserve"><value>Verifikimi i fjalëkalimit ka skaduar ose është i pavlefshëm. Ju lutem verifikoni fjalëkalimin përsëri.</value></data>
+  <data name="TooManyFailedAttempts" xml:space="preserve"><value>Shumë tentativa të dështuara. Ju lutem prisni disa minuta dhe provoni përsëri.</value></data>
+
+  <!-- Projektet -->
+  <data name="ProjectCodeRequired" xml:space="preserve"><value>Kodi i projektit është i domosdoshëm.</value></data>
+  <data name="ProjectNameRequired" xml:space="preserve"><value>Emri i projektit është i domosdoshëm.</value></data>
+  <data name="ProjectCodeAlreadyExists" xml:space="preserve"><value>Ekziston tashmë një projekt me këtë kod në këtë kompani.</value></data>
+
+  <!-- Partnerët / Kredia -->
+  <data name="CreditLimitNegative" xml:space="preserve"><value>Limiti i kredisë nuk mund të jetë negativ.</value></data>
+  <data name="CreditLimitExceeded" xml:space="preserve"><value>Është tejkaluar limiti i kredisë. Kredia e disponueshme: {0}. Shuma e re e papaguar: {1}.</value></data>
+
+  <!-- Tatimi në burim -->
+  <data name="WithholdingTaxYearInvalid" xml:space="preserve"><value>Viti i deklarimit duhet të jetë mes 2000 dhe 2100.</value></data>
+  <data name="WithholdingTaxPersonalNumberRequired" xml:space="preserve"><value>NUI / numri fiskal / numri personal është i detyrueshëm.</value></data>
+  <data name="WithholdingTaxNameRequired" xml:space="preserve"><value>Emri i biznesit ose i personit është i detyrueshëm.</value></data>
+  <data name="WithholdingTaxPersonalNumberTooLong" xml:space="preserve"><value>NUI / numri fiskal / numri personal duhet të ketë maksimumi 50 karaktere.</value></data>
+  <data name="WithholdingTaxNameTooLong" xml:space="preserve"><value>Emri i biznesit ose i personit duhet të ketë maksimumi 256 karaktere.</value></data>
+  <data name="WithholdingTaxAmountsMustBeNonNegative" xml:space="preserve"><value>Shumat dhe të dhënat e qirasë nuk mund të jenë negative.</value></data>
+  <data name="WithholdingTaxRentDetailsRequired" xml:space="preserve"><value>Kur qiraja bruto e paguar (kutia 8) është më e madhe se zero, hapësira në m2 (kutia 13) dhe vlera bruto e qirasë mujore (kutia 14) duhet të jenë gjithashtu më të mëdha se zero.</value></data>
+  <data name="WithholdingTaxCountryUnknown" xml:space="preserve"><value>Shteti nuk gjendet në listën e ATK-së. Zgjidhni një shtet nga lista.</value></data>
 
   <!-- Global -->
   <data name="UnexpectedError" xml:space="preserve"><value>Ndodhi një gabim i papritur.</value></data>

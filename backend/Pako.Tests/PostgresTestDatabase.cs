@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Npgsql;
 using Pako.Infrastructure;
 
@@ -66,7 +67,10 @@ internal static class PostgresTestDatabase
         // against Postgres's max_connections for its default 300s idle lifetime instead of
         // actually closing when the owning DbContext is disposed.
         var connectionString = new NpgsqlConnectionStringBuilder(AdminConnectionString) { SearchPath = schema, Pooling = false }.ConnectionString;
-        var options = new DbContextOptionsBuilder<PakoDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<PakoDbContext>()
+            .UseNpgsql(connectionString)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+            .Options;
 
         var db = new PakoDbContext(options);
         await db.Database.MigrateAsync();
@@ -81,7 +85,10 @@ internal static class PostgresTestDatabase
     public static PakoDbContext CreateAdditionalContext(PakoDbContext existing)
     {
         var connectionString = existing.Database.GetConnectionString()!;
-        var options = new DbContextOptionsBuilder<PakoDbContext>().UseNpgsql(connectionString).Options;
+        var options = new DbContextOptionsBuilder<PakoDbContext>()
+            .UseNpgsql(connectionString)
+            .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning))
+            .Options;
         return new PakoDbContext(options);
     }
 }

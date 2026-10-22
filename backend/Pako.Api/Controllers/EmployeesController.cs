@@ -255,6 +255,10 @@ public class EmployeesController : ControllerBase
         var name = Employee.DisplayName(request.FirstName, request.LastName, request.Name);
         if (name.Length == 0) return BadRequest(_localizer["EmployeeNameRequired"].Value);
         if (request.MonthlyGrossSalary <= 0) return BadRequest(_localizer["SalaryMustBePositive"].Value);
+        if (request.MonthlyGrossSalary != Math.Round(request.MonthlyGrossSalary, 2))
+            return BadRequest(_localizer["SalaryExcessivePrecision"].Value);
+        if (request.MonthlyGrossSalary > 1_000_000m)
+            return BadRequest(_localizer["SalaryExceedsMaximum"].Value);
         if (request.HireDate is { } hire && request.TerminationDate is { } term && term < hire)
         {
             return BadRequest(_localizer["TerminationBeforeHire"].Value);

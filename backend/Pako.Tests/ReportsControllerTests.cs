@@ -520,9 +520,14 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", fileResult.ContentType);
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal("Invoice Number", sheet.Cell(1, 1).GetString());
-        Assert.Equal(invoiceNumber, sheet.Cell(2, 1).GetString());
-        Assert.Equal("S18", sheet.Cell(2, 7).GetString());
+        Assert.Equal("Nr.", sheet.Cell("A1").GetString());
+        Assert.Equal(1, sheet.Cell("A4").GetValue<int>());
+        Assert.Equal("01.02.2026", sheet.Cell("B4").GetString());
+        Assert.Equal(invoiceNumber, sheet.Cell("C4").GetString());
+        Assert.Equal("Customer Co", sheet.Cell("D4").GetString());
+        Assert.Equal("810111111", sheet.Cell("E4").GetString());
+        Assert.Equal(847.46m, sheet.Cell("M4").GetValue<decimal>());
+        Assert.Equal("(M4+N4+O4+P4+Q4)*18%", sheet.Cell("R4").FormulaA1.TrimStart('='));
     }
 
     [Fact]
@@ -536,9 +541,32 @@ public class ReportsControllerTests : IAsyncLifetime
         var fileResult = Assert.IsType<FileContentResult>(result);
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal("Vendor Reference", sheet.Cell(1, 1).GetString());
-        Assert.Equal(vendorReference, sheet.Cell(2, 1).GetString());
-        Assert.Equal("B18", sheet.Cell(2, 7).GetString());
+        Assert.Equal("Nr.", sheet.Cell("A1").GetString());
+        Assert.Equal("01.03.2026", sheet.Cell("B4").GetString());
+        Assert.Equal(vendorReference, sheet.Cell("C4").GetString());
+        Assert.Equal("Vendor Co", sheet.Cell("D4").GetString());
+        Assert.Equal("810222222", sheet.Cell("E4").GetString());
+        Assert.Equal(338.98m, sheet.Cell("M4").GetValue<decimal>());
+        Assert.Equal("S4+AB4", sheet.Cell("AC4").FormulaA1.TrimStart('='));
+    }
+
+    [Fact]
+    public async Task SalesBookExport_NonVat_PutsDomesticSaleInBoxA()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.IsVatRegistered = false;
+        await db.SaveChangesAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+
+        var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
+
+        var fileResult = Assert.IsType<FileContentResult>(result);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(fileResult.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("d=a+b+c", sheet.Cell("I3").GetString());
+        Assert.Equal(847.46m, sheet.Cell("F4").GetValue<decimal>());
+        Assert.Equal("F4+G4+H4", sheet.Cell("I4").FormulaA1.TrimStart('='));
     }
 
     // B10: a document outside the from/to range must not appear, even though it's Posted.
@@ -552,5 +580,223 @@ public class ReportsControllerTests : IAsyncLifetime
 
         var response = Assert.IsType<SalesBookResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Empty(response.Lines);
+    }
+
+    private static readonly DateOnly From = new(2026, 1, 1);
+    private static readonly DateOnly To = new(2026, 12, 31);
+
+    private static ReportsController ControllerWithHttp(PakoDbContext db) =>
+        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
+
+    private static ClosedXML.Excel.IXLWorksheet Sheet(IActionResult result)
+    {
+        var file = Assert.IsType<FileContentResult>(result);
+        return new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents)).Worksheet(1);
+    }
+
+    private static int DataRows(ClosedXML.Excel.IXLWorksheet sheet) => sheet.LastRowUsed()!.RowNumber() - 3;
+
+    private async Task<Guid> AddPostedEntryAsync(PakoDbContext db, Guid companyId, params (Guid Account, decimal Debit, decimal Credit, Guid? Tax)[] lines)
+    {
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        var journalId = await db.Journals.Where(j => j.CompanyId == companyId).Select(j => j.Id).FirstAsync();
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journalId, Date = new DateOnly(2026, 5, 1),
+            Lines = lines.Select(l => new JournalEntryLine { Id = Guid.NewGuid(), AccountId = l.Account, Debit = l.Debit, Credit = l.Credit, TaxId = l.Tax }).ToList()
+        };
+        entry.Post(company);
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+        return entry.Id;
+    }
+
+    private async Task AddPostedBillAsync(PakoDbContext db, Guid companyId, string reference, Guid entryId)
+    {
+        var partnerId = await db.Partners.Where(p => p.CompanyId == companyId && p.IsVendor).Select(p => p.Id).FirstAsync();
+        db.Bills.Add(new Bill
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, VendorReference = reference,
+            IssueDate = new DateOnly(2026, 5, 1), DueDate = new DateOnly(2026, 5, 31), State = BillState.Posted, JournalEntryId = entryId
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private async Task AddPostedInvoiceAsync(PakoDbContext db, Guid companyId, string number, Guid entryId)
+    {
+        var partnerId = await db.Partners.Where(p => p.CompanyId == companyId && p.IsCustomer).Select(p => p.Id).FirstAsync();
+        db.Invoices.Add(new Invoice
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, InvoiceNumber = number,
+            IssueDate = new DateOnly(2026, 5, 1), DueDate = new DateOnly(2026, 5, 31), State = InvoiceState.Posted, JournalEntryId = entryId
+        });
+        await db.SaveChangesAsync();
+    }
+
+    private static async Task<Guid> AccountOfTypeAsync(PakoDbContext db, Guid companyId, AccountType type) =>
+        await db.Accounts.Where(a => a.CompanyId == companyId && a.AccountType == type && !a.IsControl).Select(a => a.Id).FirstAsync();
+
+    [Fact]
+    public async Task PurchaseBookExport_Vat_KeepsRowsForBv50AndRc00_Bv50SplitsAndRc00GoesToBox31()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
+        var bv50 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == companyId && t.Code == "BV50");
+        var rc00 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == companyId && t.Code == "RC00");
+        var payable = defaults.PayableAccountId;
+        var repartition = await db.TaxRepartitionLines.AsNoTracking().Where(r => r.TaxDefinitionId == bv50.Id).ToListAsync();
+
+        var bv50Entry = await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 100m, 0m, bv50.Id),
+            (repartition[0].AccountId, 9m, 0m, bv50.Id),
+            (repartition[1].AccountId, 9m, 0m, bv50.Id),
+            (payable, 0m, 118m, null));
+        await AddPostedBillAsync(db, companyId, "BV50-1", bv50Entry);
+        var rc00Entry = await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 80m, 0m, rc00.Id),
+            (payable, 0m, 80m, null));
+        await AddPostedBillAsync(db, companyId, "RC00-1", rc00Entry);
+
+        var controller = ControllerWithHttp(db);
+        var sheet = Sheet(await controller.PurchaseBookExport(companyId, From, To));
+
+        Assert.Equal(3, DataRows(sheet));
+        var bv50Row = Enumerable.Range(4, 3).Single(r => sheet.Cell(r, 3).GetString() == "BV50-1");
+        var rc00Row = Enumerable.Range(4, 3).Single(r => sheet.Cell(r, 3).GetString() == "RC00-1");
+        Assert.Equal(50m, sheet.Cell(bv50Row, 13).GetValue<decimal>());
+        Assert.Equal(50m, sheet.Cell(bv50Row, 9).GetValue<decimal>());
+        Assert.Equal(80m, sheet.Cell(rc00Row, 7).GetValue<decimal>());
+        Assert.Equal("0", controller.Response.Headers["X-Atk-Unplaced-Count"].ToString());
+    }
+
+    [Fact]
+    public async Task SalesBookExport_Vat_TaxlessInvoiceKeepsItsRowAndIsReportedUnplaced()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
+        var entry = await AddPostedEntryAsync(db, companyId,
+            (defaults.ReceivableAccountId, 50m, 0m, null),
+            (defaults.RevenueAccountId, 0m, 50m, null));
+        await AddPostedInvoiceAsync(db, companyId, "TAXLESS-1", entry);
+
+        var controller = ControllerWithHttp(db);
+        var sheet = Sheet(await controller.SalesBookExport(companyId, From, To));
+
+        Assert.Equal(2, DataRows(sheet));
+        var row = Enumerable.Range(4, 2).Single(r => sheet.Cell(r, 3).GetString() == "TAXLESS-1");
+        Assert.Equal("Customer Co", sheet.Cell(row, 4).GetString());
+        Assert.True(sheet.Cell(row, 13).IsEmpty());
+        Assert.Equal("1", controller.Response.Headers["X-Atk-Unplaced-Count"].ToString());
+        Assert.Contains("TAXLESS-1|-|50.00", controller.Response.Headers["X-Atk-Unplaced"].ToString());
+    }
+
+    [Fact]
+    public async Task SalesBookExport_NonVat_CashSettledInvoiceTakesNetFromRevenueAccount()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.IsVatRegistered = false;
+        await db.SaveChangesAsync();
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
+        var cash = await AccountOfTypeAsync(db, companyId, AccountType.Cash);
+        var entry = await AddPostedEntryAsync(db, companyId, (cash, 200m, 0m, null), (defaults.RevenueAccountId, 0m, 200m, null));
+        await AddPostedInvoiceAsync(db, companyId, "CASH-1", entry);
+
+        var sheet = Sheet(await ControllerWithHttp(db).SalesBookExport(companyId, From, To));
+
+        Assert.Equal(2, DataRows(sheet));
+        var row = Enumerable.Range(4, 2).Single(r => sheet.Cell(r, 3).GetString() == "CASH-1");
+        Assert.Equal(200m, sheet.Cell(row, 6).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task PurchaseBookExport_NonVat_BillWithWhtPayableTakesGrossExpenseNet()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.IsVatRegistered = false;
+        var whtPayable = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "299999", Name = "WHT payable", AccountType = AccountType.CurrentLiability };
+        db.Accounts.Add(whtPayable);
+        await db.SaveChangesAsync();
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
+        var entry = await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 100m, 0m, null), (whtPayable.Id, 0m, 10m, null), (defaults.PayableAccountId, 0m, 90m, null));
+        await AddPostedBillAsync(db, companyId, "WHT-1", entry);
+
+        var sheet = Sheet(await ControllerWithHttp(db).PurchaseBookExport(companyId, From, To));
+
+        Assert.Equal(2, DataRows(sheet));
+        var row = Enumerable.Range(4, 2).Single(r => sheet.Cell(r, 3).GetString() == "WHT-1");
+        Assert.Equal(100m, sheet.Cell(row, 6).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task PurchaseBookExport_NonVat_VatLineUnderNonBookTaxDefinitionIsNotCountedInNet()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        company.IsVatRegistered = false;
+        await db.SaveChangesAsync();
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
+        var b18 = await db.TaxDefinitions.AsNoTracking().Include(t => t.RepartitionLines).SingleAsync(t => t.CompanyId == companyId && t.Code == "B18");
+        var na = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == companyId && t.Code == "NA");
+        var entry = await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 100m, 0m, na.Id),
+            (b18.RepartitionLines.Single().AccountId, 18m, 0m, na.Id),
+            (defaults.PayableAccountId, 0m, 118m, null));
+        await AddPostedBillAsync(db, companyId, "NA-1", entry);
+
+        var sheet = Sheet(await ControllerWithHttp(db).PurchaseBookExport(companyId, From, To));
+
+        var row = Enumerable.Range(4, 2).Single(r => sheet.Cell(r, 3).GetString() == "NA-1");
+        Assert.Equal(100m, sheet.Cell(row, 6).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task SalesBookExport_PostedInvoiceWithNoJournalEntry_StillGetsARow()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var partnerId = await db.Partners.Where(p => p.CompanyId == companyId && p.IsCustomer).Select(p => p.Id).FirstAsync();
+        db.Invoices.Add(new Invoice
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, InvoiceNumber = "NOJE-X",
+            IssueDate = new DateOnly(2026, 5, 1), DueDate = new DateOnly(2026, 5, 31), State = InvoiceState.Posted
+        });
+        await db.SaveChangesAsync();
+
+        var controller = ControllerWithHttp(db);
+        var sheet = Sheet(await controller.SalesBookExport(companyId, From, To));
+
+        Assert.Equal(2, DataRows(sheet));
+        Assert.Contains(Enumerable.Range(4, 2), r => sheet.Cell(r, 3).GetString() == "NOJE-X");
+        Assert.Equal("1", controller.Response.Headers["X-Atk-Unplaced-Count"].ToString());
+    }
+
+    [Fact]
+    public async Task Export_RowCounts_VatSalesSheetIsInvoicesPlusRc18Bills_OtherSheetsArePostedDocuments()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == companyId);
+        await AddPostedInvoiceAsync(db, companyId, "NOJE-1", await AddPostedEntryAsync(db, companyId,
+            (defaults.ReceivableAccountId, 10m, 0m, null), (defaults.RevenueAccountId, 0m, 10m, null)));
+        await AddPostedBillAsync(db, companyId, "NOJE-2", await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 10m, 0m, null), (defaults.PayableAccountId, 0m, 10m, null)));
+        var rc18 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == companyId && t.Code == "RC18");
+        await AddPostedBillAsync(db, companyId, "RC18-1", await AddPostedEntryAsync(db, companyId,
+            (defaults.ExpenseAccountId, 100m, 0m, rc18.Id), (defaults.PayableAccountId, 0m, 100m, null)));
+        const int rc18Bills = 1;
+        var postedInvoices = await db.Invoices.CountAsync(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate >= From && i.IssueDate <= To);
+        var postedBills = await db.Bills.CountAsync(b => b.CompanyId == companyId && b.State == BillState.Posted && b.IssueDate >= From && b.IssueDate <= To);
+
+        foreach (var vat in new[] { true, false })
+        {
+            var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+            company.IsVatRegistered = vat;
+            await db.SaveChangesAsync();
+            var controller = ControllerWithHttp(db);
+
+            Assert.Equal(vat ? postedInvoices + rc18Bills : postedInvoices, DataRows(Sheet(await controller.SalesBookExport(companyId, From, To))));
+            Assert.Equal(postedBills, DataRows(Sheet(await controller.PurchaseBookExport(companyId, From, To))));
+        }
     }
 }

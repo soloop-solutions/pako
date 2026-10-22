@@ -275,21 +275,18 @@ public class ReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        var result = await SalesBook(companyId, from, to);
-        if (result.Result is not OkObjectResult ok || ok.Value is not SalesBookResponse response)
-        {
-            return result.Result!;
-        }
+        var vatRegistered = await ResolveVatRegisteredAsync(companyId);
+        var salesRows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true, includeUnbooked: true);
+        var purchaseRows = vatRegistered
+            ? await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false)
+            : new List<TaxBookRow>();
+        var partnersById = await PartnersByIdAsync(salesRows.Concat(purchaseRows).Select(r => r.PartnerId));
 
-        var headers = new[] { "Invoice Number", "Issue Date", "Document Type", "Partner", "Tax Number", "Fiscal Number", "VAT Code", "Rate", "Net", "VAT", "Gross" };
-        var rows = response.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
-        {
-            l.InvoiceNumber, l.IssueDate, l.DocumentType, l.PartnerName, l.PartnerTaxNumber, l.PartnerFiscalNumber,
-            l.VatCode, l.Rate, l.NetAmount, l.VatAmount, l.GrossAmount
-        }).ToList();
-        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", response.TotalNet, response.TotalVat, response.TotalGross });
+        var book = AtkBookMapper.SalesBook(
+            vatRegistered, salesRows.Select(ToAtkRow), purchaseRows.Select(ToAtkRow), partnersById);
 
-        var bytes = ExcelExportService.BuildWorkbook("Sales Book", headers, rows);
+        AddUnplacedHeaders(book.Unplaced);
+        var bytes = AtkTaxBookWorkbook.BuildSales(vatRegistered, book.Documents);
         return File(bytes, ExcelExportService.XlsxContentType, $"sales-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -321,30 +318,72 @@ public class ReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        var result = await PurchaseBook(companyId, from, to);
-        if (result.Result is not OkObjectResult ok || ok.Value is not PurchaseBookResponse response)
-        {
-            return result.Result!;
-        }
+        var vatRegistered = await ResolveVatRegisteredAsync(companyId);
+        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false, includeUnbooked: true);
+        var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
 
-        var headers = new[] { "Vendor Reference", "Issue Date", "Document Type", "Partner", "Tax Number", "Fiscal Number", "VAT Code", "Rate", "Net", "VAT", "Gross" };
-        var rows = response.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
-        {
-            l.VendorReference, l.IssueDate, l.DocumentType, l.PartnerName, l.PartnerTaxNumber, l.PartnerFiscalNumber,
-            l.VatCode, l.Rate, l.NetAmount, l.VatAmount, l.GrossAmount
-        }).ToList();
-        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", response.TotalNet, response.TotalVat, response.TotalGross });
+        var book = AtkBookMapper.PurchaseBook(vatRegistered, rows.Select(ToAtkRow), partnersById);
 
-        var bytes = ExcelExportService.BuildWorkbook("Purchase Book", headers, rows);
+        AddUnplacedHeaders(book.Unplaced);
+        var bytes = AtkTaxBookWorkbook.BuildPurchases(vatRegistered, book.Documents);
         return File(bytes, ExcelExportService.XlsxContentType, $"purchase-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
+
+    private void AddUnplacedHeaders(IReadOnlyList<AtkUnplaced> unplaced)
+    {
+        if (HttpContext is null)
+        {
+            return;
+        }
+
+        const int maxLength = 1500;
+        var items = unplaced
+            .Select(u => $"{Ascii(u.DocumentNumber)}|{(u.VatCode.Length == 0 ? "-" : Ascii(u.VatCode))}|{u.NetAmount.ToString("0.00", System.Globalization.CultureInfo.InvariantCulture)}")
+            .ToList();
+        var list = new System.Text.StringBuilder();
+        var included = 0;
+        foreach (var item in items)
+        {
+            if (list.Length + item.Length + 1 > maxLength)
+            {
+                break;
+            }
+
+            list.Append(list.Length == 0 ? item : ";" + item);
+            included++;
+        }
+
+        if (included < items.Count)
+        {
+            list.Append($";+{items.Count - included} more");
+        }
+
+        Response.Headers["X-Atk-Unplaced-Count"] = unplaced.Count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (list.Length > 0)
+        {
+            Response.Headers["X-Atk-Unplaced"] = list.ToString();
+        }
+
+        Response.Headers.Append("Access-Control-Expose-Headers", "X-Atk-Unplaced-Count, X-Atk-Unplaced");
+    }
+
+    private static string Ascii(string? value) =>
+        new((value ?? string.Empty).Where(c => c is > ' ' and < '~' and not (';' or '|')).ToArray());
+
+    private async Task<bool> ResolveVatRegisteredAsync(Guid companyId) =>
+        await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.IsVatRegistered).FirstOrDefaultAsync();
+
+    private static AtkTaxRow ToAtkRow(TaxBookRow r) =>
+        new(r.DocumentId, r.DocumentNumber, r.IssueDate, r.PartnerId, r.VatCode, r.Rate, r.NetAmount,
+            r.Direction, r.DeductiblePercent, r.IsReverseCharge, r.AtkBook, r.DocumentType);
 
     private Task<Dictionary<Guid, Partner>> PartnersByIdAsync(IEnumerable<Guid> partnerIds) =>
         _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
 
     private record TaxBookRow(
         Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType,
-        Guid PartnerId, string VatCode, decimal Rate, decimal NetAmount, decimal VatAmount);
+        Guid PartnerId, string VatCode, decimal Rate, decimal NetAmount, decimal VatAmount,
+        TaxDirection? Direction = null, decimal? DeductiblePercent = null, bool IsReverseCharge = false, TaxAtkBook? AtkBook = null);
 
     // Shared by SalesBook (Invoice-sourced, AtkBook.Shitje, Credit-normal per
     // DocumentLineCalculator's creditsOnNormalSide=true for invoices) and PurchaseBook
@@ -354,7 +393,7 @@ public class ReportsController : ControllerBase
     // reverse-charge code to TaxScope.Both, which VatReturn's Sale/Purchase branches silently
     // drop — this method sources the sign from which document type owns the entry instead, so it
     // doesn't inherit that gap).
-    private async Task<List<TaxBookRow>> BuildTaxBookRowsAsync(Guid companyId, DateOnly from, DateOnly to, bool isSalesBook)
+    private async Task<List<TaxBookRow>> BuildTaxBookRowsAsync(Guid companyId, DateOnly from, DateOnly to, bool isSalesBook, bool includeUnbooked = false)
     {
         var atkBooks = isSalesBook
             ? new[] { TaxAtkBook.Shitje }
@@ -452,7 +491,52 @@ public class ReportsController : ControllerBase
 
                 rows.Add(new TaxBookRow(
                     doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
-                    doc.PartnerId, taxDefinition.Code ?? string.Empty, taxDefinition.Rate, net, vat));
+                    doc.PartnerId, taxDefinition.Code ?? string.Empty, taxDefinition.Rate, net, vat,
+                    taxDefinition.Direction, taxDefinition.DeductiblePercent, taxDefinition.IsReverseCharge, taxDefinition.AtkBook));
+            }
+        }
+
+        if (includeUnbooked)
+        {
+            var allTaxDefinitions = await _db.TaxDefinitions.AsNoTracking()
+                .Where(t => t.CompanyId == companyId)
+                .Include(t => t.RepartitionLines)
+                .ToListAsync();
+            var taxAccountIds = allTaxDefinitions.SelectMany(t => t.RepartitionLines.Select(r => r.AccountId)).ToHashSet();
+            if (reverseChargeInputAccountId is { } rcIn) taxAccountIds.Add(rcIn);
+            if (reverseChargeOutputAccountId is { } rcOut) taxAccountIds.Add(rcOut);
+
+            var bookAccountIds = (await _db.Accounts.AsNoTracking()
+                    .Where(a => a.CompanyId == companyId && !a.IsControl)
+                    .Select(a => new { a.Id, a.AccountType })
+                    .ToListAsync())
+                .Where(a => !taxAccountIds.Contains(a.Id) && (isSalesBook
+                    ? AccountTypeDerivation.IsIncome(a.AccountType)
+                    : (AccountTypeDerivation.IsExpense(a.AccountType) && a.AccountType != AccountType.Depreciation)
+                        || a.AccountType is AccountType.FixedAsset or AccountType.NonCurrentAsset or AccountType.CurrentAsset))
+                .Select(a => a.Id)
+                .ToHashSet();
+
+            var entryIds = documents.Where(d => d.JournalEntryId != null).Select(d => d.JournalEntryId!.Value).ToList();
+            var unbookedLines = await _db.JournalEntryLines.AsNoTracking()
+                .Where(l => entryIds.Contains(l.JournalEntryId) && bookAccountIds.Contains(l.AccountId)
+                    && (l.TaxId == null || !taxIds.Contains(l.TaxId.Value)))
+                .Select(l => new { l.JournalEntryId, l.Debit, l.Credit })
+                .ToListAsync();
+            var netByEntry = unbookedLines
+                .GroupBy(l => l.JournalEntryId)
+                .ToDictionary(g => g.Key, g => g.Sum(l => isSalesBook ? l.Credit - l.Debit : l.Debit - l.Credit));
+
+            foreach (var doc in documents)
+            {
+                var net = doc.JournalEntryId is { } entryId ? netByEntry.GetValueOrDefault(entryId) : 0m;
+                var hasRows = rows.Any(r => r.DocumentId == doc.DocumentId);
+                if (net != 0m || !hasRows)
+                {
+                    rows.Add(new TaxBookRow(
+                        doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
+                        doc.PartnerId, string.Empty, 0m, net, 0m));
+                }
             }
         }
 
