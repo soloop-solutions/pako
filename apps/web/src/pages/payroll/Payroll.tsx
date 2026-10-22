@@ -1,107 +1,171 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { ColumnDef } from "@tanstack/react-table";
+import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import { Link } from "react-router-dom";
-import type { EmployeeResponse, PayrollRunResponse } from "@pako/shared";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import type { PayrollRunDetailResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import {
+  formatAmount,
+  formatPayrollMonth,
+  isValidMonth,
+  monthBounds,
+  nextUnrunMonth,
+  payrollRunStateBadgeVariant,
+  payrollRunStateLabel,
+} from "@/lib/payroll-enums";
+import { PayrollAdjustments } from "@/pages/payroll/PayrollAdjustments";
 
-function startOfMonth() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-}
+const RUNS_GRID_ID = "payrollRuns";
 
-function endOfMonth() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+type View = "runs" | "adjustments";
+
+function payrollRunsQueryKey(companyId: string | null) {
+  return ["payrollRuns", companyId] as const;
 }
 
 export function Payroll() {
   const intl = useIntl();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  const [employees, setEmployees] = useState<EmployeeResponse[]>([]);
-  const [runs, setRuns] = useState<PayrollRunResponse[]>([]);
-  const [error, setError] = useState<string | null>(null);
+  const view: View = searchParams.get("view") === "adjustments" ? "adjustments" : "runs";
+  const monthParam = searchParams.get("month");
 
-  const [employeeName, setEmployeeName] = useState("");
-  const [employeeSalary, setEmployeeSalary] = useState("");
-  const [employeeError, setEmployeeError] = useState<string | null>(null);
-  const [creatingEmployee, setCreatingEmployee] = useState(false);
+  const runsQuery = useQuery({
+    queryKey: payrollRunsQueryKey(companyId),
+    queryFn: () => apiClient.listPayrollRuns(companyId as string),
+    enabled: !!companyId,
+  });
+  const runs = useMemo(() => runsQuery.data ?? [], [runsQuery.data]);
+  const suggestedMonth = useMemo(() => nextUnrunMonth(runs), [runs]);
+  const selectedMonth = isValidMonth(monthParam) ? monthParam : suggestedMonth;
 
-  const [periodStart, setPeriodStart] = useState(startOfMonth);
-  const [periodEnd, setPeriodEnd] = useState(endOfMonth);
-  const [runError, setRunError] = useState<string | null>(null);
-  const [creatingRun, setCreatingRun] = useState(false);
+  // The new-run month is a form value, not a filter — it follows the suggestion until edited.
+  const [newRunMonth, setNewRunMonth] = useState<string | null>(null);
+  const effectiveNewRunMonth = newRunMonth ?? suggestedMonth;
+  const [createError, setCreateError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    if (!companyId) return;
-    setError(null);
-    try {
-      const [employeesResult, runsResult] = await Promise.all([
-        apiClient.employeesAll(companyId),
-        apiClient.payrollRunsAll(companyId),
-      ]);
-      setEmployees(employeesResult);
-      setRuns(runsResult);
-    } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.loadError" })));
-    }
-  }, [companyId, intl]);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
-
-  async function handleCreateEmployee(event: FormEvent) {
-    event.preventDefault();
-    if (!companyId) return;
-    setEmployeeError(null);
-    setCreatingEmployee(true);
-    try {
-      await apiClient.employees(companyId, {
-        name: employeeName.trim(),
-        monthlyGrossSalary: parseFloat(employeeSalary) || 0,
-      });
-      setEmployeeName("");
-      setEmployeeSalary("");
-      await refresh();
-    } catch (err) {
-      setEmployeeError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.createEmployeeError" })));
-    } finally {
-      setCreatingEmployee(false);
-    }
+  function setParam(name: string, value: string | null) {
+    setSearchParams(
+      (prev) => {
+        const params = new URLSearchParams(prev);
+        if (value === null) params.delete(name);
+        else params.set(name, value);
+        return params;
+      },
+      { replace: true },
+    );
   }
 
-  async function handleCreateRun(event: FormEvent) {
+  const createRun = useMutation({
+    mutationFn: (month: string) => {
+      const { start, end } = monthBounds(month);
+      return apiClient.createPayrollRun(companyId as string, { periodStart: start, periodEnd: end });
+    },
+    onSuccess: async (run) => {
+      setCreateError(null);
+      setNewRunMonth(null);
+      await queryClient.invalidateQueries({ queryKey: payrollRunsQueryKey(companyId) });
+      navigate(`/payroll/${run.id}`);
+    },
+    onError: (err: unknown) => setCreateError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.createRunError" }))),
+  });
+
+  function handleCreateRun(event: FormEvent) {
     event.preventDefault();
-    if (!companyId) return;
-    setRunError(null);
-    setCreatingRun(true);
-    try {
-      await apiClient.payrollRunsPOST(companyId, { periodStart, periodEnd });
-      await refresh();
-    } catch (err) {
-      setRunError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.createRunError" })));
-    } finally {
-      setCreatingRun(false);
-    }
+    if (!companyId || !isValidMonth(effectiveNewRunMonth)) return;
+    createRun.mutate(effectiveNewRunMonth);
   }
+
+  const columns = useMemo<ColumnDef<PayrollRunDetailResponse>[]>(
+    () => [
+      {
+        id: "period",
+        header: intl.formatMessage({ id: "payroll.period" }),
+        accessorFn: (row) => row.periodStart,
+        cell: ({ row }) => (
+          <Link className="font-medium text-primary hover:underline" to={`/payroll/${row.original.id}`}>
+            {formatPayrollMonth(row.original.periodStart, intl)}
+          </Link>
+        ),
+      },
+      {
+        accessorKey: "state",
+        header: intl.formatMessage({ id: "payroll.state" }),
+        cell: ({ getValue }) => {
+          const state = getValue() as string;
+          return <Badge variant={payrollRunStateBadgeVariant(state)}>{payrollRunStateLabel(state, intl)}</Badge>;
+        },
+      },
+      {
+        id: "gross",
+        header: intl.formatMessage({ id: "payroll.totals.gross" }),
+        meta: { numeric: true },
+        accessorFn: (row) => row.totals.gross,
+        cell: ({ getValue }) => formatAmount(getValue() as number),
+      },
+      {
+        id: "pit",
+        header: intl.formatMessage({ id: "payroll.totals.pit" }),
+        meta: { numeric: true },
+        accessorFn: (row) => row.totals.pit,
+        cell: ({ getValue }) => formatAmount(getValue() as number),
+      },
+      {
+        id: "netPay",
+        header: intl.formatMessage({ id: "payroll.totals.netPay" }),
+        meta: { numeric: true },
+        accessorFn: (row) => row.totals.netPay,
+        cell: ({ getValue }) => formatAmount(getValue() as number),
+      },
+      {
+        id: "employerCost",
+        header: intl.formatMessage({ id: "payroll.totals.employerCost" }),
+        meta: { numeric: true },
+        accessorFn: (row) => row.totals.employerCost,
+        cell: ({ getValue }) => formatAmount(getValue() as number),
+      },
+      {
+        accessorKey: "paidOn",
+        header: intl.formatMessage({ id: "payroll.paidOn" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "—",
+      },
+      {
+        id: "actions",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) => (
+          <Link className="text-xs font-medium text-primary hover:underline" to={`/payroll/${row.original.id}`}>
+            {intl.formatMessage({ id: "common.view" })}
+          </Link>
+        ),
+      },
+    ],
+    [intl],
+  );
 
   if (!activeCompany) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "payroll.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "payroll.description" })}</CardDescription>
+          <CardDescription>{intl.formatMessage({ id: "payroll.screenDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
@@ -110,146 +174,122 @@ export function Payroll() {
     );
   }
 
+  const loadError = runsQuery.isError ? getApiErrorMessage(runsQuery.error, intl.formatMessage({ id: "payroll.loadError" })) : null;
+
   return (
-    <div className="flex flex-col gap-6">
-      {error && (
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "payroll.title" })}</h2>
+          <p className="text-sm text-muted-foreground">
+            {intl.formatMessage(
+              { id: "payroll.employeesLiveUnder" },
+              {
+                link: (chunks) => (
+                  <Link className="text-primary hover:underline" to="/employees">
+                    {chunks}
+                  </Link>
+                ),
+              },
+            )}
+          </p>
+        </div>
+        <div className="flex gap-2" role="tablist">
+          {(["runs", "adjustments"] as const).map((key) => (
+            <Button
+              key={key}
+              type="button"
+              role="tab"
+              aria-selected={view === key}
+              variant={view === key ? "default" : "outline"}
+              size="sm"
+              onClick={() => setParam("view", key === "runs" ? null : key)}
+            >
+              {intl.formatMessage({ id: key === "runs" ? "payroll.payrollRuns" : "payroll.adjustments.tab" })}
+            </Button>
+          ))}
+        </div>
+      </div>
+
+      {loadError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{loadError}</AlertDescription>
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "payroll.employees" })}</CardTitle>
-          <CardDescription>{activeCompany.name}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleCreateEmployee}>
-            {employeeError && (
-              <Alert variant="destructive" className="sm:basis-full">
-                <AlertDescription>{employeeError}</AlertDescription>
-              </Alert>
-            )}
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="employee-name">{intl.formatMessage({ id: "payroll.employeeName" })}</Label>
-              <Input id="employee-name" required value={employeeName} onChange={(event) => setEmployeeName(event.target.value)} />
-            </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="employee-salary">{intl.formatMessage({ id: "payroll.monthlyGrossSalary" })}</Label>
-              <Input
-                id="employee-salary"
-                type="number"
-                step="0.01"
-                min="0"
-                required
-                value={employeeSalary}
-                onChange={(event) => setEmployeeSalary(event.target.value)}
-              />
-            </div>
-            <Button type="submit" disabled={creatingEmployee || employeeName.trim().length === 0}>
-              {creatingEmployee ? intl.formatMessage({ id: "payroll.adding" }) : intl.formatMessage({ id: "payroll.addEmployee" })}
-            </Button>
-          </form>
+      {view === "runs" ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>{intl.formatMessage({ id: "payroll.newPayrollRun" })}</CardTitle>
+              <CardDescription>{intl.formatMessage({ id: "payroll.newRunHint" })}</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleCreateRun}>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="payroll-new-run-month">{intl.formatMessage({ id: "payroll.month" })}</Label>
+                  <Input
+                    id="payroll-new-run-month"
+                    type="month"
+                    className="w-44"
+                    value={effectiveNewRunMonth}
+                    onChange={(event) => setNewRunMonth(event.target.value)}
+                    required
+                  />
+                </div>
+                <Button type="submit" size="sm" disabled={createRun.isPending || !isValidMonth(effectiveNewRunMonth)}>
+                  {createRun.isPending
+                    ? intl.formatMessage({ id: "payroll.creatingRun" })
+                    : intl.formatMessage({ id: "payroll.createPayrollRun" })}
+                </Button>
+                {isValidMonth(effectiveNewRunMonth) && (
+                  <span className="text-xs text-muted-foreground sm:pb-2">
+                    {(() => {
+                      const { start, end } = monthBounds(effectiveNewRunMonth);
+                      return `${start} – ${end}`;
+                    })()}
+                  </span>
+                )}
+              </form>
+              {createError && (
+                <Alert variant="destructive" className="mt-3">
+                  <AlertDescription>{createError}</AlertDescription>
+                </Alert>
+              )}
+            </CardContent>
+          </Card>
 
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "common.name" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "payroll.monthlyGrossSalary" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "common.active" })}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {employees.map((employee) => (
-                <TableRow key={employee.id}>
-                  <TableCell>{employee.name}</TableCell>
-                  <TableCell className="text-right">{employee.monthlyGrossSalary.toFixed(2)}</TableCell>
-                  <TableCell>
-                    <Badge variant={employee.isActive ? "default" : "secondary"}>
-                      {employee.isActive ? intl.formatMessage({ id: "common.active" }) : intl.formatMessage({ id: "common.inactive" })}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {employees.length === 0 && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "payroll.noEmployees" })}</p>}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "payroll.newPayrollRun" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "payroll.newPayrollRunDescription" })}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form className="flex flex-col gap-4 sm:flex-row sm:items-end" onSubmit={handleCreateRun}>
-            {runError && (
-              <Alert variant="destructive" className="sm:basis-full">
-                <AlertDescription>{runError}</AlertDescription>
-              </Alert>
-            )}
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="run-period-start">{intl.formatMessage({ id: "payroll.periodStart" })}</Label>
-              <Input
-                id="run-period-start"
-                type="date"
-                value={periodStart}
-                onChange={(event) => setPeriodStart(event.target.value)}
-                required
+          <Card>
+            <CardHeader>
+              <CardTitle>{intl.formatMessage({ id: "payroll.payrollRuns" })}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <DataGrid
+                gridId={RUNS_GRID_ID}
+                columns={columns}
+                data={runs}
+                rowCount={runs.length}
+                isLoading={runsQuery.isLoading}
+                getRowId={(row) => row.id}
+                getRowClassName={(row) => (row.state === "Draft" ? "text-muted-foreground" : undefined)}
+                emptyMessage={intl.formatMessage({ id: "payroll.noPayrollRuns" })}
+                exportFileName="payroll-runs"
+                manualFiltering={false}
+                manualSorting={false}
+                manualGrouping={false}
+                defaultPageSize={100}
+                pageSizeOptions={[50, 100, 200]}
               />
-            </div>
-            <div className="flex flex-1 flex-col gap-2">
-              <Label htmlFor="run-period-end">{intl.formatMessage({ id: "payroll.periodEnd" })}</Label>
-              <Input
-                id="run-period-end"
-                type="date"
-                value={periodEnd}
-                onChange={(event) => setPeriodEnd(event.target.value)}
-                required
-              />
-            </div>
-            <Button type="submit" disabled={creatingRun}>
-              {creatingRun ? intl.formatMessage({ id: "payroll.creatingRun" }) : intl.formatMessage({ id: "payroll.createPayrollRun" })}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "payroll.payrollRuns" })}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{intl.formatMessage({ id: "payroll.period" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "payroll.state" })}</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {runs.map((run) => (
-                <TableRow key={run.id}>
-                  <TableCell>
-                    {run.periodStart} - {run.periodEnd}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={run.state === "Posted" ? "default" : "secondary"}>{run.state}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Link className="text-sm font-medium text-primary hover:underline" to={`/payroll/${run.id}`}>
-                      {intl.formatMessage({ id: "common.view" })}
-                    </Link>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {runs.length === 0 && <p className="mt-2 text-sm text-muted-foreground">{intl.formatMessage({ id: "payroll.noPayrollRuns" })}</p>}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <PayrollAdjustments
+          companyId={activeCompany.id}
+          month={selectedMonth}
+          onMonthChange={(month) => setParam("month", month)}
+        />
+      )}
     </div>
   );
 }

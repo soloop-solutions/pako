@@ -3,8 +3,9 @@ import { ChevronDown, ChevronUp, MoreHorizontal, Search, Star, X } from "lucide-
 import { useIntl } from "react-intl";
 import { Link, useLocation } from "react-router-dom";
 
-import { bottomNavItems, favouriteActions, navCategories, topNavItems, type NavItem } from "@/config/nav";
+import { bottomNavItems, favouriteActions, navCategories, topNavItems, type NavItem, type NavModule } from "@/config/nav";
 import { useAuth } from "@/context/AuthContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import {
   emptyPrefs,
   loadSidebarPrefs,
@@ -16,6 +17,12 @@ import { cn } from "@/lib/utils";
 
 const allItemsByPath = new Map<string, NavItem>(
   [...topNavItems, ...navCategories.flatMap((c) => c.items), ...bottomNavItems].map((item) => [item.path, item]),
+);
+
+// HR module: the permission module each nav path needs (item override, else its category's).
+// Paths outside any module-gated category resolve to undefined = always visible.
+const moduleByPath = new Map<string, NavModule | undefined>(
+  navCategories.flatMap((c) => c.items.map((item) => [item.path, item.module ?? c.module] as const)),
 );
 
 function buildSavedViewHref(item: NavItem, filters: Record<string, string>): string {
@@ -32,6 +39,13 @@ export function Sidebar() {
   const location = useLocation();
   const { auth } = useAuth();
   const userId = auth?.userId ?? null;
+  const { access, canSee } = useMyAccess();
+
+  // Display only — hides what the user's department can't open; the API enforces it regardless.
+  function isAllowed(path: string): boolean {
+    const module = moduleByPath.get(path);
+    return !module || canSee(module);
+  }
 
   // `userId` and `prefs` are kept in one state object, set together, so a user switch is atomic
   // — see the matching comment in TabsContext.tsx for why a separate ref-tracked "loaded key"
@@ -107,7 +121,7 @@ export function Sidebar() {
 
   const searchQuery = query.trim().toLowerCase();
   const searchResults = searchQuery
-    ? [...allItemsByPath.values()].filter((item) => label(item).toLowerCase().includes(searchQuery))
+    ? [...allItemsByPath.values()].filter((item) => isAllowed(item.path) && label(item).toLowerCase().includes(searchQuery))
     : null;
 
   return (
@@ -149,11 +163,13 @@ export function Sidebar() {
 
           <div className="border-t" />
 
-          <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} onUnstar={toggleFavourite} />
+          <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} />
 
           {navCategories.map((category) => {
+            const allowedItems = category.items.filter((i) => isAllowed(i.path));
+            if (allowedItems.length === 0) return null;
             const catPrefs: CategoryPrefs = prefs.categories[category.id] ?? { order: category.items.map((i) => i.path), hidden: [] };
-            const itemsById = new Map(category.items.map((i) => [i.path, i]));
+            const itemsById = new Map(allowedItems.map((i) => [i.path, i]));
             const orderedItems = catPrefs.order.map((id) => itemsById.get(id)).filter((i): i is NavItem => !!i);
             const visibleItems = orderedItems.filter((i) => !catPrefs.hidden.includes(i.path));
             const hiddenItems = orderedItems.filter((i) => catPrefs.hidden.includes(i.path));
@@ -185,7 +201,7 @@ export function Sidebar() {
                   </button>
                   {customizeCategoryId === category.id && customizeAnchor && (
                     <CategoryCustomizePanel
-                      category={category}
+                      category={{ ...category, items: allowedItems }}
                       catPrefs={catPrefs}
                       favourites={prefs.favourites}
                       anchor={customizeAnchor}
@@ -250,6 +266,12 @@ export function Sidebar() {
           </div>
         </>
       )}
+
+      {access?.partnerRestricted && (
+        <p className="mt-auto border-t px-3 py-1.5 text-[11px] text-muted-foreground" data-testid="sidebar-partner-scope">
+          {intl.formatMessage({ id: "hr.sidebar.assignedPartners" }, { count: access.assignedPartnerCount })}
+        </p>
+      )}
     </aside>
   );
 }
@@ -309,14 +331,18 @@ function FavouritesSection({
   prefs,
   intl,
   isActive,
+  isAllowed,
   onUnstar,
 }: {
   prefs: SidebarPrefs;
   intl: ReturnType<typeof useIntl>;
   isActive: (path: string) => boolean;
+  isAllowed: (path: string) => boolean;
   onUnstar: (path: string) => void;
 }) {
-  const starredItems = prefs.favourites.map((path) => allItemsByPath.get(path)).filter((i): i is NavItem => !!i);
+  const starredItems = prefs.favourites
+    .map((path) => allItemsByPath.get(path))
+    .filter((i): i is NavItem => !!i && isAllowed(i.path));
   const location = useLocation();
 
   return (
@@ -327,7 +353,7 @@ function FavouritesSection({
           {intl.formatMessage({ id: "sidebar.category.favourites" })}
         </span>
       </div>
-      {favouriteActions.map((action) => (
+      {favouriteActions.filter((action) => isAllowed(action.path)).map((action) => (
         <Link
           key={action.id}
           to={action.path}

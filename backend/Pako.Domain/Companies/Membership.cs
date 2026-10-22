@@ -7,7 +7,7 @@ namespace Pako.Domain.Companies;
 public class Membership
 {
     private static readonly MembershipRole[] FirmRoles = { MembershipRole.FirmAdmin, MembershipRole.FirmAccountant };
-    private static readonly MembershipRole[] ClientRoles = { MembershipRole.ClientAdmin, MembershipRole.ClientViewer };
+    private static readonly MembershipRole[] ClientRoles = { MembershipRole.ClientAdmin, MembershipRole.ClientViewer, MembershipRole.ClientStaff };
 
     public Guid Id { get; set; }
     public Guid UserId { get; set; }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Api.Services;
@@ -158,7 +159,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task ProfitAndLoss_SplitsIncomeAndExpensesAndComputesNetIncome()
     {
         var (db, companyId) = await SeedMixedScenario();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.ProfitAndLoss(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -185,7 +186,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task BalanceSheet_AssetsEqualLiabilitiesPlusEquity_ForMixedScenario()
     {
         var (db, companyId) = await SeedMixedScenario();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.BalanceSheet(companyId, new DateOnly(2026, 12, 31));
 
@@ -206,7 +207,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task VatReturn_SeparatesOutputAndInputAndComputesNetDue()
     {
         var (db, companyId) = await SeedMixedScenario();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.VatReturn(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -283,7 +284,7 @@ public class ReportsControllerTests : IAsyncLifetime
     {
         var issueDate = new DateOnly(2026, 1, 1);
         var (db, companyId, invoiceId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         // Due date is 2026-01-31; asOf here is the due date itself, still Current.
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 1, 31));
@@ -302,7 +303,7 @@ public class ReportsControllerTests : IAsyncLifetime
     {
         var issueDate = new DateOnly(2026, 1, 1);
         var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         // Day 34 (2026-02-04): 4 days past the 2026-01-31 due date, still inside the 5-day grace.
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 4));
@@ -319,7 +320,7 @@ public class ReportsControllerTests : IAsyncLifetime
     {
         var issueDate = new DateOnly(2026, 1, 1);
         var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         // Day 36 (2026-02-06): due date + grace (2026-02-05) has passed — now real debt.
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 6));
@@ -339,7 +340,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var (db, companyId, invoiceId, receivableJournalEntryLineId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
         db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, receivableJournalEntryLineId, 500m));
         await db.SaveChangesAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 6));
 
@@ -397,7 +398,7 @@ public class ReportsControllerTests : IAsyncLifetime
         db.JournalEntries.Add(invoiceEntry);
         await db.SaveChangesAsync();
 
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.DebtAging(company.Id, new DateOnly(2026, 1, 31));
 
@@ -425,7 +426,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var companyResult = await companiesController.Create(new CreateCompanyRequest("Book Co"));
         var company = Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(companyResult.Result).Value);
 
-        var partnersController = new PartnersController(db, new NullStringLocalizer<ErrorMessages>());
+        var partnersController = new PartnersController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
         // IsVatRegistered: true — R07 (PostingRuleValidator.ValidateVatCounterpartyTaxNumber, B8)
         // requires TaxNumber specifically for a VAT-registered counterparty; a business posting
         // real VAT codes (S18/B18) needs this set, not FiscalNumber (the natural-person case).
@@ -438,7 +439,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var b18 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == company.Id && t.Code == "B18");
         var defaults = await db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == company.Id);
 
-        var invoicesController = new InvoicesController(db, new TaxComputationService(), new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        var invoicesController = new InvoicesController(db, new TaxComputationService(), new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
         };
@@ -451,7 +452,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var postedInvoice = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id);
         Assert.Equal(InvoiceState.Posted, postedInvoice.State);
 
-        var billsController = new BillsController(db, new TaxComputationService(), new NullStringLocalizer<ErrorMessages>())
+        var billsController = new BillsController(db, new TaxComputationService(), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
         };
@@ -468,7 +469,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task SalesBook_IncludesPostedInvoiceWithVatCode()
     {
         var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.SalesBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -490,7 +491,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task PurchaseBook_IncludesPostedBillWithVatCode()
     {
         var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.PurchaseBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -511,7 +512,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task SalesBookExport_ReturnsXlsxWithMatchingRow()
     {
         var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -533,7 +534,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task PurchaseBookExport_ReturnsXlsxWithMatchingRow()
     {
         var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.PurchaseBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -573,7 +574,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task SalesBook_ExcludesInvoiceOutsideDateRange()
     {
         var (db, companyId, _, _) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
         var result = await controller.SalesBook(companyId, new DateOnly(2026, 4, 1), new DateOnly(2026, 12, 31));
 

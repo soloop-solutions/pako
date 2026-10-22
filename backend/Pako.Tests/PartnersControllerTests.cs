@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
@@ -28,7 +29,7 @@ public class PartnersControllerTests : IAsyncLifetime
         return db;
     }
 
-    private static PartnersController NewController(PakoDbContext db) => new(db, new NullStringLocalizer<ErrorMessages>());
+    private static PartnersController NewController(PakoDbContext db) => new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
 
     private async Task<(PakoDbContext Db, Guid CompanyId, Guid AccountId)> SeedCompanyWithAccountAsync()
     {

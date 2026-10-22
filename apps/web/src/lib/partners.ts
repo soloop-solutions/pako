@@ -8,7 +8,7 @@
 import type { IntlShape } from "react-intl";
 import type { PartnerResponse } from "@pako/shared";
 
-export interface PartnerV2 extends PartnerResponse {
+export interface PartnerV2 extends Omit<PartnerResponse, "paymentTermDays" | "creditLimit"> {
   controlAccountId: string | null;
   paymentTermDays: number | null;
   creditLimit: number | null;

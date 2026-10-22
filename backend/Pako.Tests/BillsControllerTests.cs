@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Domain.Bills;
@@ -33,7 +34,7 @@ public class BillsControllerTests : IAsyncLifetime
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"));
 
-        return new BillsController(db, TaxService, new NullStringLocalizer<ErrorMessages>())
+        return new BillsController(db, TaxService, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };

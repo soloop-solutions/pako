@@ -1,3 +1,7 @@
+import { hrEn, hrSq } from "@/i18n/messages.hr";
+import { leaveEn, leaveSq } from "@/i18n/messages.leave";
+import { payrollEn, payrollSq } from "@/i18n/messages.payroll";
+
 export const en: Record<string, string> = {
   // Nav
   "nav.dashboard": "Dashboard",
@@ -1999,5 +2003,9 @@ export const sq: Record<string, string> = {
   "withholdingTax.country": "Shteti me të cilin keni transaksione (15)",
   "withholdingTax.totals": "Totalet e vitit",
 };
+
+// HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
+Object.assign(en, hrEn, payrollEn, leaveEn);
+Object.assign(sq, hrSq, payrollSq, leaveSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

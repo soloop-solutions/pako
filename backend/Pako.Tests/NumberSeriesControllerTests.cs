@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Api.Services;
@@ -50,7 +51,7 @@ public class NumberSeriesControllerTests : IAsyncLifetime
         };
 
     private static InvoicesController NewInvoicesController(PakoDbContext db) =>
-        new(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        new(db, TaxService, new DocumentNumberService(), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted())
         {
             ControllerContext = new ControllerContext
             {

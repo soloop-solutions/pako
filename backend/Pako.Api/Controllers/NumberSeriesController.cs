@@ -7,6 +7,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -138,7 +139,8 @@ public class NumberSeriesController : ControllerBase
 
     // B3: gap detection report for a specific document type and year.
     [HttpGet("gaps")]
-    [RequireCompanyAccess]
+    // An audit view across every partner's documents: Accounting, which partner-scoped staff never hold.
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<GapReportResponse>> GapReport(
         Guid companyId,
         [FromQuery] string documentType,
