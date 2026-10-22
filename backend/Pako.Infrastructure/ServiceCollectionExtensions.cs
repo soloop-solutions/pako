@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Pako.Domain.Invoicing;
@@ -16,7 +17,9 @@ public static class ServiceCollectionExtensions
             ?? throw new InvalidOperationException(
                 "Missing ConnectionStrings:Default. Set it in appsettings, or the ConnectionStrings__Default environment variable.");
 
-        services.AddDbContext<PakoDbContext>(options => options.UseNpgsql(connectionString));
+        services.AddDbContext<PakoDbContext>(options =>
+            options.UseNpgsql(connectionString)
+                .ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning)));
         services.AddScoped<ITaxComputationService, TaxComputationService>();
         services.AddScoped<IPayrollCalculationService, PayrollCalculationService>();
         services.AddScoped<IDocumentNumberService, DocumentNumberService>();

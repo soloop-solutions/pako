@@ -60,6 +60,34 @@ public class Company
     // via the /override-number endpoint; FirmAccountant may not (adminOnly on that route).
     public bool AllowNumberOverride { get; set; }
 
+    // Company profile fields (migration: AddCompanyProfile)
+    public string? TradingName { get; set; }
+    public int? LegalForm { get; set; }
+    public string? BusinessActivity { get; set; }
+    public string? Description { get; set; }
+    public string? BusinessNumber { get; set; }
+    public string? FiscalNumber { get; set; }
+    public string? VatNumber { get; set; }
+    public DateOnly? VatRegistrationDate { get; set; }
+    public string? Country { get; set; }
+    public string? Municipality { get; set; }
+    public string? StreetAddress { get; set; }
+    public string? PostalCode { get; set; }
+    public string? AddressLine2 { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Website { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountHolder { get; set; }
+    public string? Iban { get; set; }
+    public string? SwiftBic { get; set; }
+    public string? DocumentFooter { get; set; }
+    public string? PaymentInstructions { get; set; }
+
+    // Company archive (migration: AddCompanyArchive)
+    public bool IsArchived { get; set; }
+    public DateTime? ArchivedAt { get; set; }
+
     // Kosovo VAT Law Article 45/56 requires invoice numbering to be gapless and strictly
     // monotonic per company. This mints the number and advances the counter together so a
     // failed Invoice.Post (e.g. a lock-date violation) never burns a number.

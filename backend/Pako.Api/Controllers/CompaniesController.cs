@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
@@ -215,7 +216,57 @@ public class CompaniesController : ControllerBase
         return Ok(companies.Select(ToResponse).ToList());
     }
 
+    [HttpPut("{companyId:guid}/profile")]
+    [RequireCompanyAccess(writeAccess: true)]
+    public async Task<ActionResult<CompanyResponse>> UpdateProfile(Guid companyId, UpdateCompanyProfileRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+            return BadRequest(_localizer["CompanyNameRequired"].Value);
+        if (request.Name.Length > 256)
+            return BadRequest(_localizer["CompanyNameTooLong"].Value);
+
+        var company = await _db.Companies.FindAsync(companyId);
+        if (company is null) return NotFound();
+        if (company.IsArchived) return BadRequest(_localizer["CompanyIsArchived"].Value);
+
+        company.Name = request.Name;
+        company.TradingName = request.TradingName;
+        company.LegalForm = request.LegalForm;
+        company.BusinessActivity = request.BusinessActivity;
+        company.Description = request.Description;
+        company.BusinessNumber = request.BusinessNumber;
+        company.FiscalNumber = request.FiscalNumber;
+        company.VatNumber = request.VatNumber;
+        company.VatRegistrationDate = request.VatRegistrationDate is string d && DateOnly.TryParse(d, out var date)
+            ? date : null;
+        company.Country = request.Country;
+        company.Municipality = request.Municipality;
+        company.StreetAddress = request.StreetAddress;
+        company.PostalCode = request.PostalCode;
+        company.AddressLine2 = request.AddressLine2;
+        company.Email = request.Email;
+        company.Phone = request.Phone;
+        company.Website = request.Website;
+        company.BankName = request.BankName;
+        company.BankAccountHolder = request.BankAccountHolder;
+        company.Iban = request.Iban;
+        company.SwiftBic = request.SwiftBic;
+        company.DocumentFooter = request.DocumentFooter;
+        company.PaymentInstructions = request.PaymentInstructions;
+
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(company));
+    }
+
     private static CompanyResponse ToResponse(Company c) =>
         new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,
-            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate);
+            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate,
+            c.FunctionalCurrency,
+            c.TradingName, c.LegalForm, c.BusinessActivity, c.Description,
+            c.BusinessNumber, c.FiscalNumber, c.VatNumber, c.VatRegistrationDate,
+            c.Country, c.Municipality, c.StreetAddress, c.PostalCode, c.AddressLine2,
+            c.Email, c.Phone, c.Website,
+            c.BankName, c.BankAccountHolder, c.Iban, c.SwiftBic,
+            c.DocumentFooter, c.PaymentInstructions,
+            c.IsArchived);
 }

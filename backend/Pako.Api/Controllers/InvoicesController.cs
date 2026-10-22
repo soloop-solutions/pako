@@ -1000,6 +1000,69 @@ public class InvoicesController : ControllerBase
         return (await GetAccountDefaultsAsync(companyId))?.ReceivableAccountId ?? Guid.Empty;
     }
 
+    [HttpGet("{id:guid}/post-preview")]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
+    public async Task<ActionResult<PostingPreviewResponse>> PostPreview(Guid companyId, Guid id)
+    {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+
+        var invoice = await _db.Invoices.AsNoTracking().Include(i => i.Lines)
+            .FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
+        if (invoice is null) return NotFound();
+
+        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalType.Sale);
+        if (journal is null) return BadRequest(_localizer["NoJournalToPost"].Value);
+
+        var defaults = await GetAccountDefaultsAsync(company.Id);
+        if (defaults is null) return BadRequest(_localizer["NoAccountDefaults"].Value);
+
+        var receivableAccountId = partner?.ReceivableAccountId ?? defaults.ReceivableAccountId;
+        var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
+            .Include(t => t.RepartitionLines)
+            .Where(t => t.CompanyId == company.Id)
+            .ToDictionaryAsync(t => t.Id);
+
+        // Use a clone of the company to avoid mutating the tracked entity's number counter
+        var previewCompany = new Company
+        {
+            Id = company.Id, Name = company.Name, FirmId = company.FirmId,
+            AccountingLockDate = company.AccountingLockDate, TaxLockDate = company.TaxLockDate,
+            SaleLockDate = company.SaleLockDate, PurchaseLockDate = company.PurchaseLockDate,
+            HardLockDate = company.HardLockDate,
+            NextInvoiceNumber = company.NextInvoiceNumber, NextCreditNoteNumber = company.NextCreditNoteNumber,
+            NextDebitNoteNumber = company.NextDebitNoteNumber, NextSalesReturnNumber = company.NextSalesReturnNumber,
+            NextDownPaymentNumber = company.NextDownPaymentNumber, NextProformaNumber = company.NextProformaNumber,
+            IsVatRegistered = company.IsVatRegistered, AllowNumberOverride = company.AllowNumberOverride,
+            EnabledProfiles = company.EnabledProfiles, FunctionalCurrency = company.FunctionalCurrency,
+        };
+
+        JournalEntry journalEntry;
+        try
+        {
+            journalEntry = invoice.Post(
+                previewCompany, journal.Id, receivableAccountId, _taxComputationService, taxDefinitionsById,
+                defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        var accountIds = journalEntry.Lines.Select(l => l.AccountId).Distinct().ToList();
+        var accountsById = await _db.Accounts.AsNoTracking()
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id);
+
+        var lines = journalEntry.Lines.Select(l => new PostingPreviewLineResponse(
+            accountsById.TryGetValue(l.AccountId, out var acc) ? acc.Code : "",
+            accountsById.TryGetValue(l.AccountId, out var acc2) ? acc2.Name : "",
+            l.Debit, l.Credit)).ToList();
+
+        return Ok(new PostingPreviewResponse(lines));
+    }
+
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<ActionResult<InvoiceResponse>> Post(Guid companyId, Guid id)

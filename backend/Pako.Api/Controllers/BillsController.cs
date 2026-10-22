@@ -744,6 +744,55 @@ public class BillsController : ControllerBase
         return (await GetAccountDefaultsAsync(companyId))?.PayableAccountId ?? Guid.Empty;
     }
 
+    [HttpGet("{id:guid}/post-preview")]
+    [RequireCompanyAccess(module: AccessModule.Purchases)]
+    public async Task<ActionResult<PostingPreviewResponse>> PostPreview(Guid companyId, Guid id)
+    {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+
+        var bill = await _db.Bills.AsNoTracking().Include(b => b.Lines)
+            .FirstOrDefaultAsync(b => b.Id == id && b.CompanyId == companyId);
+        if (bill is null) return NotFound();
+
+        var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == bill.PartnerId);
+        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalType.Purchase);
+        if (journal is null) return BadRequest(_localizer["NoJournalToPost"].Value);
+
+        var defaults = await GetAccountDefaultsAsync(company.Id);
+        if (defaults is null) return BadRequest(_localizer["NoAccountDefaults"].Value);
+
+        var payableAccountId = partner?.PayableAccountId ?? defaults.PayableAccountId;
+        var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
+            .Include(t => t.RepartitionLines)
+            .Where(t => t.CompanyId == company.Id)
+            .ToDictionaryAsync(t => t.Id);
+
+        JournalEntry journalEntry;
+        try
+        {
+            journalEntry = bill.Post(
+                company, journal.Id, payableAccountId, _taxComputationService, taxDefinitionsById,
+                defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
+
+        var accountIds = journalEntry.Lines.Select(l => l.AccountId).Distinct().ToList();
+        var accountsById = await _db.Accounts.AsNoTracking()
+            .Where(a => accountIds.Contains(a.Id))
+            .ToDictionaryAsync(a => a.Id);
+
+        var lines = journalEntry.Lines.Select(l => new PostingPreviewLineResponse(
+            accountsById.TryGetValue(l.AccountId, out var acc) ? acc.Code : "",
+            accountsById.TryGetValue(l.AccountId, out var acc2) ? acc2.Name : "",
+            l.Debit, l.Credit)).ToList();
+
+        return Ok(new PostingPreviewResponse(lines));
+    }
+
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
     public async Task<ActionResult<BillResponse>> Post(Guid companyId, Guid id)

@@ -1,8 +1,11 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Auth;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Infrastructure.Identity;
 
 namespace Pako.Api.Controllers;
@@ -14,12 +17,15 @@ public class AuthController : ControllerBase
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtTokenService _tokenService;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ActionTokenService _actionTokenService;
 
-    public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService, IStringLocalizer<ErrorMessages> localizer)
+    public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService,
+        IStringLocalizer<ErrorMessages> localizer, ActionTokenService actionTokenService)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _localizer = localizer;
+        _actionTokenService = actionTokenService;
     }
 
     [HttpPost("register")]
@@ -54,5 +60,42 @@ public class AuthController : ControllerBase
 
         var token = _tokenService.GenerateToken(user);
         return Ok(new AuthResponse(token, user.Id, user.Email!));
+    }
+
+    [HttpPost("verify-password")]
+    [Authorize]
+    public async Task<IActionResult> VerifyPassword(VerifyPasswordRequest request)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
+            return Unauthorized();
+
+        return Ok();
+    }
+
+    [HttpPost("action-tokens")]
+    [Authorize]
+    public async Task<ActionResult<ActionTokenResponse>> ActionTokens(ActionTokenRequest request)
+    {
+        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+
+        if (_actionTokenService.IsRateLimited(userId))
+            return StatusCode(StatusCodes.Status429TooManyRequests);
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
+        {
+            _actionTokenService.RecordFailedAttempt(userId);
+            return Unauthorized();
+        }
+
+        _actionTokenService.ResetFailedAttempts(userId);
+
+        if (!Guid.TryParse(request.CompanyId, out var companyId))
+            return BadRequest("Invalid CompanyId");
+
+        var (token, expiresAt) = _actionTokenService.GenerateToken(userId, companyId, request.Action);
+        return Ok(new ActionTokenResponse(token, expiresAt));
     }
 }

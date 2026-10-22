@@ -197,16 +197,18 @@ export function CompanyProfile() {
               <Select
                 id="cp-legalForm"
                 value={String(legalForm ?? "")}
-                onValueChange={(v) => {
-                  setLegalForm(v ? Number(v) : null);
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
+                  setLegalForm(e.target.value ? Number(e.target.value) : null);
                   setDirty(true);
                 }}
-                placeholder={intl.formatMessage({ id: "companyProfile.legalForm.placeholder" })}
-                options={LEGAL_FORM_OPTIONS.map((o) => ({
-                  value: String(o.value),
-                  label: intl.formatMessage({ id: o.labelKey }),
-                }))}
-              />
+              >
+                <option value="">{intl.formatMessage({ id: "companyProfile.legalForm.placeholder" })}</option>
+                {LEGAL_FORM_OPTIONS.map((o) => (
+                  <option key={o.value} value={String(o.value)}>
+                    {intl.formatMessage({ id: o.labelKey })}
+                  </option>
+                ))}
+              </Select>
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="cp-businessActivity">{intl.formatMessage({ id: "companyProfile.businessActivity" })}</Label>
