@@ -187,15 +187,13 @@ export function Employees() {
             id="employees-department"
             className="w-56"
             value={departmentId}
-            onChange={(e) => setParam(DEPARTMENT_PARAM, e.target.value || null)}
-          >
-            <option value="">{intl.formatMessage({ id: "hr.employees.allDepartments" })}</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.code} — {d.name}
-              </option>
-            ))}
-          </Select>
+            onValueChange={(v) => setParam(DEPARTMENT_PARAM, v || null)}
+            placeholder={intl.formatMessage({ id: "hr.employees.allDepartments" })}
+            options={departments.map((d) => ({
+              value: d.id,
+              label: `${d.code} — ${d.name}`,
+            }))}
+          />
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={includeInactive} onChange={(e) => setParam(INACTIVE_PARAM, e.target.checked ? "1" : null)} />

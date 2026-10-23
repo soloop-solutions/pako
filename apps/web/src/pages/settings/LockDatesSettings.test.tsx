@@ -40,6 +40,7 @@ const initialCompany: CompanyResponse = {
   bankName: undefined, bankAccountHolder: undefined, iban: undefined, swiftBic: undefined,
   documentFooter: undefined, paymentInstructions: undefined,
   isArchived: false,
+  archivedAt: undefined,
 };
 
 // `backendCompany` is what apiClient.soft/hard mutate directly, mirroring the real
@@ -198,7 +199,10 @@ describe("LockDatesSettings", () => {
     renderPage();
     await waitFor(() => expect(screen.getByLabelText("Member")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Member"), { target: { value: "viewer-user" } });
+    // Open the Member dropdown and select "viewer@pako.test"
+    fireEvent.click(screen.getByLabelText("Member"));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "viewer@pako.test" }));
+
     fireEvent.change(screen.getByLabelText("Effective date"), { target: { value: "2026-08-01" } });
     fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Late supplier invoice" } });
     fireEvent.change(screen.getByLabelText("Until"), { target: { value: "2026-09-30" } });

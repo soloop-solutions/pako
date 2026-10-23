@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useIntl } from "react-intl";
+import { Link } from "react-router-dom";
 import { Download, Lock } from "lucide-react";
+
+import { PrintButton } from "@/components/shared/PrintButton";
 import type {
   BalanceSheetResponse,
   DebtAgingResponse,
@@ -20,6 +23,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 
@@ -90,10 +94,25 @@ function ExportButton({ onClick, loading }: { onClick: () => void; loading?: boo
   );
 }
 
+/** Renders a report amount; non-zero values link to the trial balance filtered by account code. */
+function DrillAmount({ amount, accountCode }: { amount: number; accountCode: string }) {
+  const formatted = amount.toFixed(2);
+  if (amount === 0) return <>{formatted}</>;
+  return (
+    <Link
+      to={`/ledger?trialBalance.q=${encodeURIComponent(accountCode)}`}
+      className="cursor-pointer text-primary hover:underline"
+    >
+      {formatted}
+    </Link>
+  );
+}
+
 export function Reports() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const printRef = useRef<HTMLDivElement>(null);
 
   const TABS: { key: Tab; labelKey: string }[] = [
     { key: "pnl", labelKey: "reports.profitAndLoss" },
@@ -421,7 +440,7 @@ export function Reports() {
       </div>
 
       {tab === "pnl" && (
-        <Card>
+        <Card ref={printRef}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "reports.profitAndLoss" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
@@ -440,6 +459,7 @@ export function Reports() {
                 {pnlLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
               {pnl && <ExportButton onClick={exportPnl} />}
+              {pnl && <PrintButton contentRef={printRef} />}
             </div>
 
             {pnlLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
@@ -453,7 +473,7 @@ export function Reports() {
             {pnl && (
               <>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.income" })}</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.income" })}<AccountingTooltip termKey="tooltip.income" /></h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -467,14 +487,14 @@ export function Reports() {
                         <TableRow key={line.accountId}>
                           <TableCell>{line.accountCode}</TableCell>
                           <TableCell>{line.accountName}</TableCell>
-                          <TableCell className="text-right">{line.amount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
                   </Table>
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.expenses" })}</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.expenses" })}<AccountingTooltip termKey="tooltip.expenses" /></h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -488,7 +508,7 @@ export function Reports() {
                         <TableRow key={line.accountId}>
                           <TableCell>{line.accountCode}</TableCell>
                           <TableCell>{line.accountName}</TableCell>
-                          <TableCell className="text-right">{line.amount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -506,7 +526,7 @@ export function Reports() {
       )}
 
       {tab === "balance-sheet" && (
-        <Card>
+        <Card ref={printRef}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "reports.balanceSheet" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
@@ -521,6 +541,7 @@ export function Reports() {
                 {balanceSheetLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
               {balanceSheet && <ExportButton onClick={exportBalanceSheet} />}
+              {balanceSheet && <PrintButton contentRef={printRef} />}
             </div>
 
             {balanceSheetLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
@@ -535,13 +556,13 @@ export function Reports() {
               <>
                 {(
                   [
-                    ["reports.assets", balanceSheet.assets, balanceSheet.totalAssets, "reports.totalAssets"],
-                    ["reports.liabilities", balanceSheet.liabilities, balanceSheet.totalLiabilities, "reports.totalLiabilities"],
-                    ["reports.equity", balanceSheet.equity, balanceSheet.totalEquity, "reports.totalEquity"],
+                    ["reports.assets", balanceSheet.assets, balanceSheet.totalAssets, "reports.totalAssets", "tooltip.assets"],
+                    ["reports.liabilities", balanceSheet.liabilities, balanceSheet.totalLiabilities, "reports.totalLiabilities", "tooltip.liabilities"],
+                    ["reports.equity", balanceSheet.equity, balanceSheet.totalEquity, "reports.totalEquity", "tooltip.equity"],
                   ] as const
-                ).map(([titleKey, lines, total, totalKey]) => (
+                ).map(([titleKey, lines, total, totalKey, tooltipKey]) => (
                   <div key={titleKey}>
-                    <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: titleKey })}</h3>
+                    <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: titleKey })}<AccountingTooltip termKey={tooltipKey} /></h3>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -555,7 +576,7 @@ export function Reports() {
                           <TableRow key={line.accountId}>
                             <TableCell>{line.accountCode}</TableCell>
                             <TableCell>{line.accountName}</TableCell>
-                            <TableCell className="text-right">{line.amount.toFixed(2)}</TableCell>
+                            <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -589,7 +610,7 @@ export function Reports() {
       )}
 
       {tab === "vat" && (
-        <Card>
+        <Card ref={printRef}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "reports.vatReturn" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
@@ -608,6 +629,7 @@ export function Reports() {
                 {vatLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
               {vatReturn && <ExportButton onClick={exportVatReturn} />}
+              {vatReturn && <PrintButton contentRef={printRef} />}
             </div>
 
             {vatLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
@@ -621,7 +643,7 @@ export function Reports() {
             {vatReturn && (
               <>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.outputVat" })}</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.outputVat" })}<AccountingTooltip termKey="tooltip.outputVat" /></h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -642,7 +664,7 @@ export function Reports() {
                   </Table>
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.inputVat" })}</h3>
+                  <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.inputVat" })}<AccountingTooltip termKey="tooltip.inputVat" /></h3>
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -674,7 +696,7 @@ export function Reports() {
       )}
 
       {tab === "debt" && (
-        <Card>
+        <Card ref={printRef}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "reports.debtAging" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "reports.debtAgingDescription" })}</CardDescription>
@@ -689,6 +711,7 @@ export function Reports() {
                 {debtLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
               {debtAging && <ExportButton onClick={exportDebtAging} />}
+              {debtAging && <PrintButton contentRef={printRef} />}
             </div>
 
             {debtLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
@@ -751,7 +774,7 @@ export function Reports() {
       )}
 
       {tab === "sales-book" && (
-        <Card>
+        <Card ref={printRef}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "reports.salesBook" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
@@ -770,6 +793,7 @@ export function Reports() {
                 {salesBookLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
               {salesBook && <ExportButton onClick={() => void exportSalesBook()} loading={salesBookExporting} />}
+              {salesBook && <PrintButton contentRef={printRef} landscape />}
             </div>
 
             {salesBookLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
@@ -832,7 +856,7 @@ export function Reports() {
       )}
 
       {tab === "purchase-book" && (
-        <Card>
+        <Card ref={printRef}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "reports.purchaseBook" })}</CardTitle>
             <CardDescription>{activeCompany.name}</CardDescription>
@@ -856,6 +880,7 @@ export function Reports() {
                 {purchaseBookLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
               </Button>
               {purchaseBook && <ExportButton onClick={() => void exportPurchaseBook()} loading={purchaseBookExporting} />}
+              {purchaseBook && <PrintButton contentRef={printRef} landscape />}
             </div>
 
             {purchaseBookLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}

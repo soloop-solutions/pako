@@ -141,7 +141,7 @@ export function Payroll() {
       {
         accessorKey: "paidOn",
         header: intl.formatMessage({ id: "payroll.paidOn" }),
-        cell: ({ getValue }) => (getValue() as string | undefined) ?? "—",
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "\u2014",
       },
       {
         id: "actions",
@@ -246,7 +246,7 @@ export function Payroll() {
                   <span className="text-xs text-muted-foreground sm:pb-2">
                     {(() => {
                       const { start, end } = monthBounds(effectiveNewRunMonth);
-                      return `${start} – ${end}`;
+                      return `${start} \u2013 ${end}`;
                     })()}
                   </span>
                 )}

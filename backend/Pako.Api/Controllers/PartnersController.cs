@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Npgsql;
 using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
@@ -57,7 +58,7 @@ public class PartnersController : ControllerBase
     [ProducesResponseType(typeof(PartnerResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
-        var validationError = await ValidateAsync(companyId, request.Name, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId);
+        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit);
         if (validationError is not null) return validationError;
 
         var partner = new Partner
@@ -65,7 +66,7 @@ public class PartnersController : ControllerBase
             Id = Guid.NewGuid(),
             CompanyId = companyId,
             Name = request.Name,
-            TaxNumber = request.TaxNumber,
+            TaxNumber = request.TaxNumber?.Trim(),
             IsCustomer = request.IsCustomer,
             IsVendor = request.IsVendor,
             FiscalNumber = request.FiscalNumber,
@@ -91,7 +92,14 @@ public class PartnersController : ControllerBase
             });
         }
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsTaxNumberUniqueViolation(ex))
+        {
+            return Conflict(_localizer["PartnerTaxNumberAlreadyExists"].Value);
+        }
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(partner));
     }
@@ -103,11 +111,11 @@ public class PartnersController : ControllerBase
         var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
         if (partner is null) return NotFound();
 
-        var validationError = await ValidateAsync(companyId, request.Name, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId);
+        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId);
         if (validationError is not null) return validationError;
 
         partner.Name = request.Name;
-        partner.TaxNumber = request.TaxNumber;
+        partner.TaxNumber = request.TaxNumber?.Trim();
         partner.IsCustomer = request.IsCustomer;
         partner.IsVendor = request.IsVendor;
         partner.FiscalNumber = request.FiscalNumber;
@@ -117,17 +125,65 @@ public class PartnersController : ControllerBase
         partner.PaymentTermDays = request.PaymentTermDays;
         partner.CreditLimit = request.CreditLimit;
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (IsTaxNumberUniqueViolation(ex))
+        {
+            return Conflict(_localizer["PartnerTaxNumberAlreadyExists"].Value);
+        }
         return Ok(ToResponse(partner));
     }
 
-    private async Task<ActionResult?> ValidateAsync(Guid companyId, string name, string? fiscalNumber, Guid? receivableAccountId, Guid? payableAccountId)
+    [HttpGet("{partnerId:guid}/credit-exposure")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<CreditExposureResponse>> CreditExposure(Guid companyId, Guid partnerId)
+    {
+        var partner = await _db.Partners.AsNoTracking().VisibleTo(_access)
+            .FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
+        if (partner is null) return NotFound();
+
+        var defaults = await _db.CompanyAccountDefaults.AsNoTracking()
+            .FirstOrDefaultAsync(d => d.CompanyId == companyId);
+        var receivableAccountId = partner.ReceivableAccountId ?? defaults?.ReceivableAccountId ?? Guid.Empty;
+
+        var outstanding = await _db.JournalEntryLines.AsNoTracking()
+            .Include(l => l.JournalEntry)
+            .Where(l => l.JournalEntry!.CompanyId == companyId
+                && l.JournalEntry.State == Domain.Ledger.JournalEntryState.Posted
+                && l.AccountId == receivableAccountId
+                && l.PartnerId == partnerId)
+            .SumAsync(l => l.Debit - l.Credit);
+        if (outstanding < 0) outstanding = 0;
+
+        decimal? available = partner.CreditLimit.HasValue ? partner.CreditLimit.Value - outstanding : null;
+
+        return Ok(new CreditExposureResponse(partner.CreditLimit, outstanding, available));
+    }
+
+    private async Task<ActionResult?> ValidateAsync(Guid companyId, string name, string? taxNumber, string? fiscalNumber,
+        Guid? receivableAccountId, Guid? payableAccountId, decimal? creditLimit = null, Guid? excludePartnerId = null)
     {
         if (string.IsNullOrWhiteSpace(name))
             return BadRequest(_localizer["PartnerNameRequired"].Value);
 
+        if (!string.IsNullOrWhiteSpace(taxNumber))
+        {
+            var normalizedTaxNumber = taxNumber.Trim();
+            var duplicateExists = await _db.Partners.AsNoTracking()
+                .AnyAsync(p => p.CompanyId == companyId
+                            && p.TaxNumber == normalizedTaxNumber
+                            && (excludePartnerId == null || p.Id != excludePartnerId));
+            if (duplicateExists)
+                return Conflict(_localizer["PartnerTaxNumberAlreadyExists"].Value);
+        }
+
         if (fiscalNumber is { Length: > 64 })
             return BadRequest(_localizer["PartnerFiscalNumberTooLong"].Value);
+
+        if (creditLimit is < 0)
+            return BadRequest(_localizer["CreditLimitNegative"].Value);
 
         var accountIdsToCheck = new[] { receivableAccountId, payableAccountId }
             .Where(id => id.HasValue).Select(id => id!.Value).ToHashSet();
@@ -142,6 +198,9 @@ public class PartnersController : ControllerBase
 
         return null;
     }
+
+    private static bool IsTaxNumberUniqueViolation(DbUpdateException ex) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_partners_CompanyId_TaxNumber_Unique" };
 
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,

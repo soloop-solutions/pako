@@ -4,6 +4,7 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -77,8 +78,7 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
       </div>
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+          <Checkbox
             checked={isVatRegistered}
             onChange={e => setIsVatRegistered(e.target.checked)}
           />

@@ -1,7 +1,7 @@
 import { useIntl } from "react-intl";
 import type { PaymentMethodResponse } from "@pako/shared";
 
-import { Select } from "@/components/ui/select";
+import { SearchableSelect, type SelectGroup } from "@/components/ui/searchable-select";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 
 type PaymentMethodSelectProps = {
@@ -19,31 +19,35 @@ export function PaymentMethodSelect({ id, paymentMethods, value, onChange, empty
   const cashMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Cash);
   const bankMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Bank);
 
+  const groups: SelectGroup[] = [];
+  if (cashMethods.length > 0) {
+    groups.push({
+      label: intl.formatMessage({ id: "paymentMethods.cash" }),
+      options: cashMethods.map((m) => ({ value: m.id, label: m.name })),
+    });
+  }
+  if (bankMethods.length > 0) {
+    groups.push({
+      label: intl.formatMessage({ id: "paymentMethods.bank" }),
+      options: bankMethods.map((m) => ({ value: m.id, label: m.name })),
+    });
+  }
+
   return (
-    <Select id={id} value={value} onChange={(event) => onChange(event.target.value)}>
-      {(paymentMethods.length === 0 || emptyOptionLabelKey) && (
-        <option value="">
-          {emptyOptionLabelKey ? intl.formatMessage({ id: emptyOptionLabelKey }) : intl.formatMessage({ id: "recordPayment.noCashBankAccount" })}
-        </option>
-      )}
-      {cashMethods.length > 0 && (
-        <optgroup label={intl.formatMessage({ id: "paymentMethods.cash" })}>
-          {cashMethods.map((method) => (
-            <option key={method.id} value={method.id}>
-              {method.name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-      {bankMethods.length > 0 && (
-        <optgroup label={intl.formatMessage({ id: "paymentMethods.bank" })}>
-          {bankMethods.map((method) => (
-            <option key={method.id} value={method.id}>
-              {method.name}
-            </option>
-          ))}
-        </optgroup>
-      )}
-    </Select>
+    <SearchableSelect
+      id={id}
+      value={value}
+      onChange={onChange}
+      placeholder={
+        emptyOptionLabelKey
+          ? intl.formatMessage({ id: emptyOptionLabelKey })
+          : intl.formatMessage({ id: "recordPayment.noCashBankAccount" })
+      }
+      searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+      noResultsText={intl.formatMessage({ id: "common.noResults" })}
+      emptyOptionLabel={emptyOptionLabelKey ? intl.formatMessage({ id: emptyOptionLabelKey }) : undefined}
+      options={groups}
+      searchable={false}
+    />
   );
 }

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
@@ -17,6 +18,7 @@ public class JournalsControllerTests : IAsyncLifetime
 {
     private static readonly Guid TestUserId = Guid.NewGuid();
     private readonly List<PakoDbContext> _dbContexts = new();
+    private readonly ActionTokenService _actionTokenService = new();
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -35,7 +37,7 @@ public class JournalsControllerTests : IAsyncLifetime
         };
 
     private static JournalEntriesController NewEntriesController(PakoDbContext db) =>
-        new(db, new NullStringLocalizer<ErrorMessages>())
+        new(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
         };
@@ -57,6 +59,9 @@ public class JournalsControllerTests : IAsyncLifetime
         return (db, company.Id, journal.Id, accountA.Id, accountB.Id);
     }
 
+    private string MakeActionToken(Guid companyId) =>
+        _actionTokenService.GenerateToken(TestUserId, companyId, "create-journal-entry").Token;
+
     private static CreateJournalEntryRequest MakeEntryRequest(Guid journalId, DateOnly date, Guid accountAId, Guid accountBId) =>
         new(journalId, date, null, new List<CreateJournalEntryLineRequest>
         {
@@ -72,10 +77,10 @@ public class JournalsControllerTests : IAsyncLifetime
         var journalsController = NewJournalsController(db);
 
         var first = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(
-            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId))).Result).Value);
+            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId), _actionTokenService, MakeActionToken(companyId))).Result).Value);
         await entriesController.Post(companyId, first.Id);
         var second = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(
-            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 15), accountAId, accountBId))).Result).Value);
+            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 15), accountAId, accountBId), _actionTokenService, MakeActionToken(companyId))).Result).Value);
         await entriesController.Post(companyId, second.Id);
 
         var result = await journalsController.Secure(companyId, journalId, new SecureJournalRequest(new DateOnly(2026, 8, 31)));
@@ -102,7 +107,7 @@ public class JournalsControllerTests : IAsyncLifetime
         var entriesController = NewEntriesController(db);
         var journalsController = NewJournalsController(db);
 
-        await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId));
+        await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId), _actionTokenService, MakeActionToken(companyId));
 
         var result = await journalsController.Secure(companyId, journalId, new SecureJournalRequest(new DateOnly(2026, 8, 31)));
 
@@ -118,7 +123,7 @@ public class JournalsControllerTests : IAsyncLifetime
         var journalsController = NewJournalsController(db);
 
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(
-            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 9, 15), accountAId, accountBId))).Result).Value);
+            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 9, 15), accountAId, accountBId), _actionTokenService, MakeActionToken(companyId))).Result).Value);
         await entriesController.Post(companyId, entry.Id);
 
         var result = await journalsController.Secure(companyId, journalId, new SecureJournalRequest(new DateOnly(2026, 8, 31)));
@@ -137,7 +142,7 @@ public class JournalsControllerTests : IAsyncLifetime
         var journalsController = NewJournalsController(db);
 
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(
-            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId))).Result).Value);
+            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId), _actionTokenService, MakeActionToken(companyId))).Result).Value);
         await entriesController.Post(companyId, entry.Id);
         await journalsController.Secure(companyId, journalId, new SecureJournalRequest(new DateOnly(2026, 8, 31)));
         var hashAfterFirstSecure = (await db.JournalEntries.AsNoTracking().SingleAsync(e => e.Id == entry.Id)).EntryHash;
@@ -160,7 +165,7 @@ public class JournalsControllerTests : IAsyncLifetime
         var journalsController = NewJournalsController(db);
 
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(
-            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId))).Result).Value);
+            (await entriesController.Create(companyId, MakeEntryRequest(journalId, new DateOnly(2026, 8, 1), accountAId, accountBId), _actionTokenService, MakeActionToken(companyId))).Result).Value);
         await entriesController.Post(companyId, entry.Id);
         await journalsController.Secure(companyId, journalId, new SecureJournalRequest(new DateOnly(2026, 8, 31)));
 

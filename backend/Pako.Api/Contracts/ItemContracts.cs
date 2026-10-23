@@ -10,7 +10,8 @@ public record CreateItemRequest(
     Guid? DefaultRevenueAccountId = null,
     Guid? DefaultExpenseAccountId = null,
     Guid? DefaultInventoryAccountId = null,
-    decimal? DefaultUnitPrice = null);
+    decimal? DefaultUnitPrice = null,
+    string? Description = null);
 
 public record UpdateItemRequest(
     string Name,
@@ -20,7 +21,8 @@ public record UpdateItemRequest(
     Guid? DefaultRevenueAccountId = null,
     Guid? DefaultExpenseAccountId = null,
     Guid? DefaultInventoryAccountId = null,
-    decimal? DefaultUnitPrice = null);
+    decimal? DefaultUnitPrice = null,
+    string? Description = null);
 
 public record AddBarcodeRequest(string Barcode);
 
@@ -30,6 +32,7 @@ public record ItemResponse(
     Guid Id,
     int Code,
     string Name,
+    string? Description,
     string Unit,
     ItemType Type,
     Guid? DefaultTaxDefinitionId,

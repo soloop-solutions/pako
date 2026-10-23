@@ -16,13 +16,20 @@ function renderForm(onSubmit = vi.fn()) {
   return onSubmit;
 }
 
+/** Open a Select (Radix popover) by its label text and pick an option by visible label. */
+async function pickSelect(labelText: string, optionLabel: string) {
+  fireEvent.click(screen.getByLabelText(labelText));
+  const option = await screen.findByRole("option", { name: optionLabel });
+  fireEvent.mouseDown(option);
+}
+
 describe("AdjustmentForm", () => {
-  it("asks for an amount on a bonus and sends it as typed", () => {
+  it("asks for an amount on a bonus and sends it as typed", async () => {
     const onSubmit = renderForm();
     expect(screen.getByLabelText("Amount")).toBeInTheDocument();
     expect(screen.queryByLabelText("Hours")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Employee"), { target: { value: "e1" } });
+    await pickSelect("Employee", "Arta Krasniqi");
     fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "150" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
@@ -31,15 +38,15 @@ describe("AdjustmentForm", () => {
     );
   });
 
-  it("switches to hours and multiplier for overtime and sends no amount", () => {
+  it("switches to hours and multiplier for overtime and sends no amount", async () => {
     const onSubmit = renderForm();
-    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: String(PayrollAdjustmentKind.Overtime) } });
+    await pickSelect("Kind", "Overtime");
 
     expect(screen.getByLabelText("Hours")).toBeInTheDocument();
     expect(screen.getByLabelText("Multiplier")).toHaveAttribute("placeholder", "1.3");
     expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Employee"), { target: { value: "e1" } });
+    await pickSelect("Employee", "Arta Krasniqi");
     fireEvent.change(screen.getByLabelText("Hours"), { target: { value: "8" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
@@ -48,10 +55,10 @@ describe("AdjustmentForm", () => {
     );
   });
 
-  it("refuses an hour-based item without hours", () => {
+  it("refuses an hour-based item without hours", async () => {
     const onSubmit = renderForm();
-    fireEvent.change(screen.getByLabelText("Kind"), { target: { value: String(PayrollAdjustmentKind.NightWork) } });
-    fireEvent.change(screen.getByLabelText("Employee"), { target: { value: "e1" } });
+    await pickSelect("Kind", "Night work");
+    await pickSelect("Employee", "Arta Krasniqi");
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText(/number of hours/)).toBeInTheDocument();

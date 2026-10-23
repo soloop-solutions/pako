@@ -99,7 +99,7 @@ public class CreditLimitTests : IAsyncLifetime
 
     // --- Partner validation tests ---
 
-    [Fact(Skip = "Credit limit validation not yet enforced in PartnersController")]
+    [Fact]
     public async Task Create_RejectsNegativeCreditLimit()
     {
         var db = await NewContextAsync();
@@ -116,7 +116,7 @@ public class CreditLimitTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
-    [Fact(Skip = "Credit limit validation not yet enforced in PartnersController")]
+    [Fact]
     public async Task Update_RejectsNegativeCreditLimit()
     {
         var db = await NewContextAsync();
@@ -179,7 +179,7 @@ public class CreditLimitTests : IAsyncLifetime
         Assert.Equal("Posted", posted.State);
     }
 
-    [Fact(Skip = "Credit limit enforcement on posting not yet implemented")]
+    [Fact]
     public async Task PostInvoice_BlockedAboveLimit()
     {
         var (db, companyId, partnerId, _) = await SeedAsync(creditLimit: 50m);
@@ -192,7 +192,7 @@ public class CreditLimitTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
-    [Fact(Skip = "Credit limit enforcement on posting not yet implemented")]
+    [Fact]
     public async Task PostInvoice_BlockedWithExistingOutstanding()
     {
         var (db, companyId, partnerId, _) = await SeedAsync(creditLimit: 150m);
@@ -245,15 +245,37 @@ public class CreditLimitTests : IAsyncLifetime
 
     // --- Credit exposure endpoint ---
 
-    [Fact(Skip = "CreditExposure endpoint not yet implemented")]
+    [Fact]
     public async Task CreditExposure_ReturnsCorrectValues()
     {
-        await Task.CompletedTask;
+        var (db, companyId, partnerId, _) = await SeedAsync(creditLimit: 500m);
+        var invoiceCtrl = NewInvoicesController(db);
+        var partnerCtrl = NewPartnersController(db);
+
+        // Post invoice for 100
+        var created = await invoiceCtrl.Create(companyId, InvoiceRequest(partnerId, 1m, 100m));
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        await invoiceCtrl.Post(companyId, invoice.Id);
+
+        var result = await partnerCtrl.CreditExposure(companyId, partnerId);
+        var exposure = Assert.IsType<CreditExposureResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+        Assert.Equal(500m, exposure.CreditLimit);
+        Assert.Equal(100m, exposure.Outstanding);
+        Assert.Equal(400m, exposure.Available);
     }
 
-    [Fact(Skip = "CreditExposure endpoint not yet implemented")]
+    [Fact]
     public async Task CreditExposure_NullLimitReturnsNullAvailable()
     {
-        await Task.CompletedTask;
+        var (db, companyId, partnerId, _) = await SeedAsync(creditLimit: null);
+        var partnerCtrl = NewPartnersController(db);
+
+        var result = await partnerCtrl.CreditExposure(companyId, partnerId);
+        var exposure = Assert.IsType<CreditExposureResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+        Assert.Null(exposure.CreditLimit);
+        Assert.Equal(0m, exposure.Outstanding);
+        Assert.Null(exposure.Available);
     }
 }

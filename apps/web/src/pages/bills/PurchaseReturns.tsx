@@ -7,10 +7,12 @@ import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMet
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { BillDocumentType } from "@/lib/document-types";
+import { BillDocumentType, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 
@@ -29,6 +31,8 @@ export function PurchaseReturns() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -98,7 +102,7 @@ export function PurchaseReturns() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
         },
       },
       {
@@ -121,7 +125,7 @@ export function PurchaseReturns() {
         enableGrouping: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <Link className="text-sm font-medium text-primary hover:underline" to={`/bills/${row.original.id}`}>
+          <Link className="text-sm font-medium text-primary hover:underline" to={`/purchase-returns/${row.original.id}`}>
             {intl.formatMessage({ id: "common.view" })}
           </Link>
         ),
@@ -130,6 +134,12 @@ export function PurchaseReturns() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [intl, partners, bills, balances],
   );
+
+  const handleCreated = useCallback(async () => {
+    setFormOpen(false);
+    setFormKey((k) => k + 1);
+    await refresh();
+  }, [refresh]);
 
   if (!activeCompany) {
     return (
@@ -153,24 +163,35 @@ export function PurchaseReturns() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "purchaseReturns.newReturn" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "purchaseReturns.newReturnDescription" })}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BillForm
-            companyId={activeCompany.id}
-            vendors={vendors}
-            taxes={taxesForPurchase(taxes)}
-            bills={bills}
-            paymentMethods={paymentMethods}
-            isVatRegistered={activeCompany.isVatRegistered}
-            onCreated={refresh}
-            fixedDocumentType={BillDocumentType.PurchaseReturn}
-          />
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "purchaseReturns.title" })}</h2>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "purchaseReturns.description" })}</p>
+        </div>
+        <Button onClick={() => setFormOpen(true)}>
+          {intl.formatMessage({ id: "purchaseReturns.newReturn" })}
+        </Button>
+      </div>
+
+      <FormDialog
+        open={formOpen}
+        onOpenChange={(open) => { if (!open) setFormOpen(false); }}
+        title={intl.formatMessage({ id: "purchaseReturns.newReturn" })}
+        description={intl.formatMessage({ id: "purchaseReturns.newReturnDescription" })}
+        size="full"
+      >
+        <BillForm
+          key={formKey}
+          companyId={activeCompany.id}
+          vendors={vendors}
+          taxes={taxesForPurchase(taxes)}
+          bills={bills}
+          paymentMethods={paymentMethods}
+          isVatRegistered={activeCompany.isVatRegistered}
+          onCreated={handleCreated}
+          fixedDocumentType={BillDocumentType.PurchaseReturn}
+        />
+      </FormDialog>
 
       <Card>
         <CardHeader>
@@ -183,6 +204,7 @@ export function PurchaseReturns() {
             data={returns}
             rowCount={returns.length}
             getRowId={(row) => row.id}
+            getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "purchaseReturns.noReturns" })}
             exportFileName="purchase-returns"

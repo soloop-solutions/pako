@@ -213,14 +213,19 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="leave-state-filter">{intl.formatMessage({ id: "leave.field.state" })}</Label>
-            <Select id="leave-state-filter" className="w-40" value={stateFilter} onChange={(e) => setFilter("state", e.target.value === "Pending" ? "" : e.target.value)}>
-              {LEAVE_STATES.map((s) => (
-                <option key={s} value={s}>
-                  {intl.formatMessage({ id: `leave.state.${s}` })}
-                </option>
-              ))}
-              <option value={ALL_STATES}>{intl.formatMessage({ id: "leave.filter.allStates" })}</option>
-            </Select>
+            <Select
+              id="leave-state-filter"
+              className="w-40"
+              value={stateFilter}
+              onValueChange={(v) => setFilter("state", v === "Pending" ? "" : v)}
+              options={[
+                ...LEAVE_STATES.map((s) => ({
+                  value: s,
+                  label: intl.formatMessage({ id: `leave.state.${s}` }),
+                })),
+                { value: ALL_STATES, label: intl.formatMessage({ id: "leave.filter.allStates" }) },
+              ]}
+            />
           </div>
           <EmployeeFilter value={employeeFilter} onChange={(v) => setFilter("employee", v)} employees={employees} />
         </div>
@@ -279,14 +284,17 @@ export function EmployeeFilter({
   return (
     <div className="flex flex-col gap-1">
       <Label htmlFor="leave-employee-filter">{intl.formatMessage({ id: "leave.field.employee" })}</Label>
-      <Select id="leave-employee-filter" className="w-56" value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{intl.formatMessage({ id: "leave.filter.allEmployees" })}</option>
-        {employees.map((e) => (
-          <option key={e.id} value={e.id}>
-            {e.name}
-          </option>
-        ))}
-      </Select>
+      <Select
+        id="leave-employee-filter"
+        className="w-56"
+        value={value}
+        onValueChange={(v) => onChange(v)}
+        placeholder={intl.formatMessage({ id: "leave.filter.allEmployees" })}
+        options={employees.map((e) => ({
+          value: e.id,
+          label: e.name,
+        }))}
+      />
     </div>
   );
 }
@@ -355,25 +363,29 @@ function NewLeaveRequestForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-new-employee">{intl.formatMessage({ id: "leave.field.employee" })}</Label>
-              <Select id="leave-new-employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-                <option value="">{intl.formatMessage({ id: "leave.form.selectEmployee" })}</option>
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                id="leave-new-employee"
+                value={employeeId}
+                onValueChange={(v) => setEmployeeId(v)}
+                placeholder={intl.formatMessage({ id: "leave.form.selectEmployee" })}
+                options={employees.map((e) => ({
+                  value: e.id,
+                  label: e.name,
+                }))}
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-new-type">{intl.formatMessage({ id: "leave.field.type" })}</Label>
-              <Select id="leave-new-type" value={leaveTypeId} onChange={(e) => setLeaveTypeId(e.target.value)}>
-                <option value="">{intl.formatMessage({ id: "leave.form.selectType" })}</option>
-                {leaveTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.code} — {t.name}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                id="leave-new-type"
+                value={leaveTypeId}
+                onValueChange={(v) => setLeaveTypeId(v)}
+                placeholder={intl.formatMessage({ id: "leave.form.selectType" })}
+                options={leaveTypes.map((t) => ({
+                  value: t.id,
+                  label: `${t.code} — ${t.name}`,
+                }))}
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-new-start">{intl.formatMessage({ id: "leave.field.startDate" })}</Label>

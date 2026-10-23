@@ -37,17 +37,35 @@ export function getApiErrorMessage(err: unknown, fallback?: string): string {
   const msgs = currentLocale() === "sq" ? sq : en;
   const fb = fallback ?? msgs["errors.somethingWentWrong"];
   if (err instanceof ApiException) {
+    // Map common HTTP status codes to user-friendly messages
+    if (err.status === 403) return msgs["errors.noPermission"];
+    if (err.status === 404) return msgs["errors.notFound"];
     const raw = err.response?.trim();
     if (raw) {
       try {
         const parsed = JSON.parse(raw);
         if (typeof parsed === "string" && parsed) return parsed;
         if (Array.isArray(parsed)) return parsed.join(", ");
+        // Handle ProblemDetails / validation errors
+        if (typeof parsed === "object" && parsed !== null) {
+          if (parsed.detail) return parsed.detail;
+          if (parsed.title) return parsed.title;
+          if (parsed.errors) {
+            const fieldErrors = Object.entries(parsed.errors)
+              .map(([field, messages]) => `${field}: ${(messages as string[]).join(", ")}`)
+              .join("; ");
+            return fieldErrors || fb;
+          }
+        }
       } catch {
         return raw;
       }
     }
+    if (err.status === 500) return msgs["errors.serverError"];
     return err.message || fb;
+  }
+  if (err instanceof TypeError && err.message === "Failed to fetch") {
+    return msgs["errors.networkError"];
   }
   if (err instanceof Error) return err.message;
   return fb;

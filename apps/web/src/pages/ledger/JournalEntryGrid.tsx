@@ -1,18 +1,23 @@
+import * as RadixPopover from "@radix-ui/react-popover";
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse, JournalResponse, PartnerResponse } from "@pako/shared";
+import type { AccountResponse, EmployeeDetailResponse, JournalResponse, PartnerResponse, ProjectResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { fetchCostCenters, type CostCenterOption } from "@/api/cost-centers-client";
+import { ActionPasswordDialog } from "@/components/layout/ActionPasswordDialog";
+import { useCompany } from "@/context/CompanyContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { cn } from "@/lib/utils";
-import { setCostCentersMockActive, setLineDistribution } from "@/mocks/costCentersMockFlag";
+import { setCostCentersMockActive } from "@/mocks/costCentersMockFlag";
 import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
 import { autoBalanceLastLine, computeTotals, toCents } from "@/pages/ledger/journal-grid/balance";
 import { isMultiCellBlock, parseClipboardBlock } from "@/pages/ledger/journal-grid/clipboard";
@@ -44,8 +49,11 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   const [journalId, setJournalId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
+  const [remarks, setRemarks] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const { activeCompany } = useCompany();
 
   const idCounter = useRef(0);
   function nextId(): string {
@@ -70,7 +78,14 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
 
   const inputRefs = useRef<Map<string, HTMLInputElement | HTMLButtonElement>>(new Map());
 
+  // Guard against double-committing: commitAndMove (Enter/Tab/arrows) sets this to true before
+  // committing, so the subsequent onBlur (which fires when focus moves) knows to skip. Reset on
+  // every fresh focus so the next blur is live again.
+  const blurGuardRef = useRef(false);
+
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
+  const [projects, setProjects] = useState<ProjectResponse[]>([]);
+  const [employees, setEmployees] = useState<EmployeeDetailResponse[]>([]);
   const [costCenters, setCostCenters] = useState<CostCenterOption[]>([]);
 
   // F9's cost-center picker is entirely mocked (see src/mocks/costCentersMockFlag.ts) — this
@@ -106,6 +121,32 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   }, [companyId]);
 
   useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .projectsAll(companyId)
+      .then((result) => {
+        if (!cancelled) setProjects(result);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    apiClient
+      .listEmployees(companyId, undefined, undefined, undefined, undefined, undefined, undefined)
+      .then((result) => {
+        if (!cancelled) setEmployees(result.items ?? []);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId]);
+
+  useEffect(() => {
     if (!mockReady) return;
     let cancelled = false;
     fetchCostCenters(companyId)
@@ -123,11 +164,16 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
 
   const accountOptions = useMemo<PickerOption[]>(() => accounts.map((a) => ({ id: a.id, code: a.code, name: a.name })), [accounts]);
   const partnerOptions = useMemo<PickerOption[]>(() => partners.map((p) => ({ id: p.id, name: p.name })), [partners]);
+  const projectOptions = useMemo<PickerOption[]>(() => projects.map((p) => ({ id: p.id, code: p.code, name: p.name })), [projects]);
+  const employeeOptions = useMemo<PickerOption[]>(() => employees.map((e) => ({ id: e.id, name: e.name })), [employees]);
   const costCenterOptions = useMemo<PickerOption[]>(
     () => costCenters.map((c) => ({ id: c.id, code: c.code, name: c.name })),
     [costCenters],
   );
-  const optionsByColumn = useMemo(() => ({ account: accountOptions, partner: partnerOptions }), [accountOptions, partnerOptions]);
+  const optionsByColumn = useMemo(
+    () => ({ account: accountOptions, partner: partnerOptions, project: projectOptions, employee: employeeOptions }),
+    [accountOptions, partnerOptions, projectOptions, employeeOptions],
+  );
 
   const effectiveJournalId = journalId || journals.find((j) => j.code === "GEN")?.id || journals[0]?.id || "";
 
@@ -137,11 +183,17 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   // set of lines that isn't actually what gets posted.
   const totals = useMemo(() => computeTotals(lines.filter((line) => line.accountId)), [lines]);
 
+  // Protect unsaved journal entry lines from accidental navigation
+  const hasContent = lines.some((line) => line.accountId || line.debit || line.credit || line.description.trim());
+  useUnsavedChanges(hasContent && !submitting);
+
   // Re-seed the draft (and move real DOM focus) only when the focused CELL changes — deliberately
   // not on every `lines` mutation, so an unrelated update elsewhere (auto-balance touching the
   // last line, a paste landing on other cells) never clobbers whatever the user is mid-typing in
   // the cell they're actually on. See the report for why this is a deliberate omission.
   useEffect(() => {
+    // Reset the blur guard so the newly focused cell's future blur will commit if needed.
+    blurGuardRef.current = false;
     const line = lines[focus.row];
     const column = GRID_COLUMNS[focus.col];
     if (line) setDraft(getCellText(line, column));
@@ -162,6 +214,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   }
 
   function commitAndMove(row: number, col: number, target: { row: number; col: number; grow: boolean }) {
+    blurGuardRef.current = true;
     setLines((prev) => {
       let next = commitDraftAt(row, col, draft, prev);
       if (target.grow) {
@@ -218,6 +271,12 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     }
   }
 
+  function handleBlur(row: number, col: number) {
+    // If Enter/Tab/arrow already committed via commitAndMove, skip to avoid double-committing.
+    if (blurGuardRef.current) return;
+    setLines((prev) => commitDraftAt(row, col, draft, prev));
+  }
+
   function handlePaste(event: ClipboardEvent<HTMLInputElement>, row: number, col: number) {
     const text = event.clipboardData.getData("text/plain");
     if (!text) return;
@@ -265,22 +324,13 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     });
   }
 
-  async function handleSave() {
+  function handleSaveClick() {
     setError(null);
 
-    // Whatever is currently mid-typed in the focused cell has not been committed yet (no
-    // Enter/Tab/blur has fired) — capture it directly from render-time state rather than relying
-    // on the Save button's click to have already triggered the input's onBlur, since blur/click
-    // event ordering vs. React's own batching is not something to depend on for correctness here.
     const focusedLine = lines[focus.row];
     const finalLines = focusedLine ? commitDraftAt(focus.row, focus.col, draft, lines) : lines;
     setLines(finalLines);
 
-    // A line with a nonzero debit/credit but no account selected (easy to produce from a fast
-    // paste that fills the amount columns without filling the account column) would otherwise be
-    // silently dropped by the validLines filter below — counted toward nothing, submitted to
-    // nobody. Block it explicitly, with the exact line, rather than letting it vanish into an
-    // "unbalanced" surprise from the server after a draft has already been created.
     const orphanAmountIndex = finalLines.findIndex(
       (line) => !line.accountId && (toCents(line.debit) !== 0 || toCents(line.credit) !== 0),
     );
@@ -289,10 +339,6 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       return;
     }
 
-    // F12: a line's analytic distribution must be either empty (unassigned, valid) or sum to
-    // exactly 100% across its allocations — same "name the exact line" discipline as the
-    // orphan-amount check above, and the same numbering (1-based over the full grid, not the
-    // filtered set Save actually submits).
     const invalidDistributionIndex = finalLines.findIndex(
       (line) => line.accountId && !isDistributionComplete(line.costCenterAllocations),
     );
@@ -302,6 +348,15 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     }
 
     const validLines = finalLines.filter((line) => line.accountId);
+
+    const dualAmountIndex = validLines.findIndex(
+      (line) => toCents(line.debit) > 0 && toCents(line.credit) > 0,
+    );
+    if (dualAmountIndex !== -1) {
+      setError(intl.formatMessage({ id: "journalGrid.lineBothDebitAndCredit" }, { line: dualAmountIndex + 1 }));
+      return;
+    }
+
     if (validLines.length < 2) {
       setError(intl.formatMessage({ id: "journalGrid.atLeastTwoLines" }));
       return;
@@ -310,42 +365,51 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       setError(intl.formatMessage({ id: "journalGrid.noJournal" }));
       return;
     }
-    // Same reasoning as the live footer totals above — validate exactly the line set Save is
-    // about to submit, not every line currently in the grid.
     const finalTotals = computeTotals(validLines);
     if (finalTotals.diffCents !== 0) {
       setError(intl.formatMessage({ id: "journalGrid.unbalancedError" }, { amount: formatCents(finalTotals.diffCents) }));
       return;
     }
 
+    // Validation passed — show password dialog
+    setShowPasswordDialog(true);
+  }
+
+  async function handlePasswordConfirm(token: string) {
+    setShowPasswordDialog(false);
+
+    const focusedLine = lines[focus.row];
+    const finalLines = focusedLine ? commitDraftAt(focus.row, focus.col, draft, lines) : lines;
+    const validLines = finalLines.filter((line) => line.accountId);
+
     setSubmitting(true);
     try {
-      const draftEntry = await apiClient.journalEntries(companyId, {
+      const draftEntry = await apiClient.journalEntries(companyId, token, {
         journalId: effectiveJournalId,
         date,
         reference: reference || undefined,
-        lines: validLines.map((line) => ({
-          accountId: line.accountId,
-          partnerId: line.partnerId || undefined,
-          debit: parseFloat(line.debit) || 0,
-          credit: parseFloat(line.credit) || 0,
-          description: line.description || undefined,
-        })),
-      });
-
-      // Stash the mocked distribution against the newly created lines' real ids — request and
-      // response lines are in the same order (see src/mocks/costCentersMockFlag.ts).
-      validLines.forEach((line, index) => {
-        const createdLine = draftEntry.lines[index];
-        if (createdLine && line.costCenterAllocations.length > 0) {
-          setLineDistribution(
-            createdLine.id,
-            line.costCenterAllocations.map((allocation) => ({
-              costCenterId: allocation.costCenterId,
-              percentage: parseFloat(allocation.percentage) || 0,
-            })),
-          );
-        }
+        remarks: remarks || undefined,
+        lines: validLines.map((line) => {
+          let analyticDistribution: { [key: string]: number } | undefined;
+          if (line.costCenterAllocations.length > 0) {
+            analyticDistribution = {};
+            for (const alloc of line.costCenterAllocations) {
+              if (alloc.costCenterId) {
+                analyticDistribution[alloc.costCenterId] = parseFloat(alloc.percentage) || 0;
+              }
+            }
+          }
+          return {
+            accountId: line.accountId,
+            partnerId: line.partnerId || undefined,
+            debit: parseFloat(line.debit) || 0,
+            credit: parseFloat(line.credit) || 0,
+            description: line.description || undefined,
+            projectId: line.projectId || undefined,
+            employeeId: line.employeeId || undefined,
+            analyticDistribution,
+          };
+        }),
       });
 
       try {
@@ -356,20 +420,35 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         return;
       }
 
+      toast.success(intl.formatMessage({ id: "toast.journalSaved" }));
       setLines([emptyLine(nextId()), emptyLine(nextId())]);
       setFocus({ row: 0, col: 0 });
       setOpenDistributionRow(null);
       setReference("");
+      setRemarks("");
       onCreated();
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "journalGrid.saveError" })));
+      const msg = getApiErrorMessage(err, intl.formatMessage({ id: "journalGrid.saveError" }));
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   }
 
+  // Per-line dual-amount detection — drives the inline warning on debit/credit cells so
+  // the user sees the problem immediately, not only after clicking Save.
+  const dualAmountRows = useMemo(() => {
+    const set = new Set<number>();
+    for (let i = 0; i < lines.length; i++) {
+      if (toCents(lines[i].debit) > 0 && toCents(lines[i].credit) > 0) set.add(i);
+    }
+    return set;
+  }, [lines]);
+
   const isUnbalanced = totals.diffCents !== 0;
-  const canSave = !isUnbalanced && !submitting;
+  const hasDualAmountLines = dualAmountRows.size > 0;
+  const canSave = !isUnbalanced && !hasDualAmountLines && !submitting;
 
   const columnHeaderKeys: Record<GridColumn, string> = {
     account: "journalGrid.colAccount",
@@ -377,7 +456,9 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
     debit: "journalGrid.colDebit",
     credit: "journalGrid.colCredit",
     partner: "journalGrid.colPartner",
-    costCenter: "journalGrid.colDistributionMocked",
+    project: "journalGrid.colProject",
+    employee: "journalGrid.colEmployee",
+    costCenter: "journalGrid.colDistribution",
   };
 
   function renderCell(line: GridLine, row: number, col: number) {
@@ -397,24 +478,26 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         allocations.length === 0
           ? intl.formatMessage({ id: "journalGrid.distributionUnassigned" })
           : allocations.map((allocation) => `${allocation.percentage || 0}% ${allocation.costCenterLabel || "?"}`).join(", ");
+      const isPopoverOpen = openDistributionRow === row;
       return (
-        <div className="relative">
-          <button
-            ref={registerRef}
-            type="button"
-            aria-label={intl.formatMessage({ id: columnHeaderKeys[column] })}
-            onFocus={() => setFocus({ row, col })}
-            onKeyDown={(event) => handleKeyDown(event, row, col)}
-            onClick={() => setOpenDistributionRow((current) => (current === row ? null : row))}
-            className={cn(
-              "h-6 w-full truncate rounded-[3px] border border-input bg-transparent px-1.5 text-left text-[13px] outline-none",
-              isFocused && "border-cell-active ring-2 ring-accent bg-card",
-              !complete && "border-destructive text-destructive",
-            )}
-          >
-            {summary}
-          </button>
-          {openDistributionRow === row && (
+        <RadixPopover.Root open={isPopoverOpen} onOpenChange={(open) => setOpenDistributionRow(open ? row : null)}>
+          <RadixPopover.Trigger asChild>
+            <button
+              ref={registerRef}
+              type="button"
+              aria-label={intl.formatMessage({ id: columnHeaderKeys[column] })}
+              onFocus={() => setFocus({ row, col })}
+              onKeyDown={(event) => handleKeyDown(event, row, col)}
+              className={cn(
+                "h-6 w-full truncate rounded-[3px] border border-input bg-transparent px-1.5 text-left text-[13px] outline-none",
+                isFocused && "border-cell-active ring-2 ring-accent bg-card",
+                !complete && "border-destructive text-destructive",
+              )}
+            >
+              {summary}
+            </button>
+          </RadixPopover.Trigger>
+          {isPopoverOpen && (
             <DistributionEditor
               allocations={allocations}
               options={costCenterOptions}
@@ -423,13 +506,15 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
               onClose={() => setOpenDistributionRow(null)}
             />
           )}
-        </div>
+        </RadixPopover.Root>
       );
     }
 
-    if (column === "account" || column === "partner") {
-      const options = column === "account" ? accountOptions : partnerOptions;
-      const placeholderKey = column === "account" ? "journalGrid.accountPlaceholder" : "journalGrid.partnerPlaceholder";
+    if (column === "account" || column === "partner" || column === "project" || column === "employee") {
+      const optionsMap: Record<string, PickerOption[]> = { account: accountOptions, partner: partnerOptions, project: projectOptions, employee: employeeOptions };
+      const options = optionsMap[column] ?? [];
+      const placeholderKeys: Record<string, string> = { account: "journalGrid.accountPlaceholder", partner: "journalGrid.partnerPlaceholder", project: "journalGrid.projectPlaceholder", employee: "journalGrid.employeePlaceholder" };
+      const placeholderKey = placeholderKeys[column] ?? "journalGrid.partnerPlaceholder";
       return (
         <PickerCell
           value={displayValue}
@@ -441,6 +526,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           inputRef={registerRef}
           onChange={setDraft}
           onFocus={() => setFocus({ row, col })}
+          onBlur={() => handleBlur(row, col)}
           onKeyDown={(event) => handleKeyDown(event, row, col)}
           onPaste={(event) => handlePaste(event, row, col)}
           onSelect={(option) => {
@@ -452,6 +538,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       );
     }
 
+    const isDualAmountCell = (column === "debit" || column === "credit") && dualAmountRows.has(row);
+
     return (
       <input
         ref={registerRef}
@@ -461,13 +549,16 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         value={displayValue}
         onChange={(event) => setDraft(event.target.value)}
         onFocus={() => setFocus({ row, col })}
+        onBlur={() => handleBlur(row, col)}
         onKeyDown={(event) => handleKeyDown(event, row, col)}
         onPaste={(event) => handlePaste(event, row, col)}
         className={cn(
           "h-6 w-full min-w-0 rounded-[3px] border border-input bg-transparent px-1.5 text-[13px] outline-none",
           isFocused && "border-cell-active ring-2 ring-accent bg-card",
           (column === "debit" || column === "credit") && "text-right tabular-nums",
+          isDualAmountCell && "border-destructive",
         )}
+        title={isDualAmountCell ? intl.formatMessage({ id: "journalGrid.dualAmountWarning" }) : undefined}
       />
     );
   }
@@ -485,13 +576,19 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="journal-grid-journal">{intl.formatMessage({ id: "journalGrid.journal" })}</Label>
-          <Select id="journal-grid-journal" value={effectiveJournalId} onChange={(event) => setJournalId(event.target.value)}>
-            {journals.map((journal) => (
-              <option key={journal.id} value={journal.id}>
-                {journal.name} ({journal.code})
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="journal-grid-journal"
+            value={effectiveJournalId}
+            onChange={setJournalId}
+            placeholder={intl.formatMessage({ id: "journalGrid.journal" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            options={journals.map((journal) => ({
+              value: journal.id,
+              label: `${journal.name} (${journal.code})`,
+            }))}
+            searchable={false}
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="journal-grid-date">{intl.formatMessage({ id: "journalGrid.date" })}</Label>
@@ -501,6 +598,10 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           <Label htmlFor="journal-grid-reference">{intl.formatMessage({ id: "journalGrid.reference" })}</Label>
           <Input id="journal-grid-reference" value={reference} onChange={(event) => setReference(event.target.value)} />
         </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Label htmlFor="journal-grid-remarks">{intl.formatMessage({ id: "journalGrid.remarks" })}</Label>
+        <Input id="journal-grid-remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder={intl.formatMessage({ id: "journalGrid.remarksPlaceholder" })} />
       </div>
 
       <div className="overflow-x-auto rounded-lg border">
@@ -544,7 +645,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
               </td>
               <td className="h-[34px] px-2 py-1 text-right tabular-nums">{totals.debit.toFixed(2)}</td>
               <td className="h-[34px] px-2 py-1 text-right tabular-nums">{totals.credit.toFixed(2)}</td>
-              <td className="h-[34px] px-2 py-1" colSpan={3}>
+              <td className="h-[34px] px-2 py-1" colSpan={5}>
                 <span className="inline-flex items-center gap-1.5">
                   {intl.formatMessage({ id: "journalGrid.difference" })}
                   <Badge variant={isUnbalanced ? "warning" : "success"}>{formatCents(totals.diffCents)}</Badge>
@@ -562,7 +663,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         <Button type="button" variant="outline" size="sm" onClick={handleAutoBalance} disabled={!isUnbalanced}>
           {intl.formatMessage({ id: "journalGrid.autoBalance" })}
         </Button>
-        <Button type="button" size="sm" onClick={() => void handleSave()} disabled={!canSave}>
+        <Button type="button" size="sm" onClick={handleSaveClick} disabled={!canSave}>
           {submitting ? intl.formatMessage({ id: "journalGrid.saving" }) : intl.formatMessage({ id: "journalGrid.save" })}
         </Button>
         {isUnbalanced && (
@@ -570,7 +671,23 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
             {intl.formatMessage({ id: "journalGrid.saveDisabledUnbalanced" }, { amount: formatCents(totals.diffCents) })}
           </span>
         )}
+        {hasDualAmountLines && (
+          <span className="text-xs text-destructive">
+            {intl.formatMessage({ id: "journalGrid.dualAmountWarning" })}
+          </span>
+        )}
       </div>
+
+      {showPasswordDialog && (
+        <ActionPasswordDialog
+          companyName={activeCompany?.name ?? ""}
+          companyId={companyId}
+          action="create-journal-entry"
+          actionLabelId="actionPassword.action.createJournalEntry"
+          onConfirm={(token) => void handlePasswordConfirm(token)}
+          onCancel={() => setShowPasswordDialog(false)}
+        />
+      )}
     </div>
   );
 }

@@ -38,6 +38,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
+    public DbSet<Project> Projects => Set<Project>();
     public DbSet<TaxDefinition> TaxDefinitions => Set<TaxDefinition>();
     public DbSet<TaxRepartitionLine> TaxRepartitionLines => Set<TaxRepartitionLine>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
@@ -59,14 +60,20 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<LeaveAllocation> LeaveAllocations => Set<LeaveAllocation>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<PublicHoliday> PublicHolidays => Set<PublicHoliday>();
-    public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
-    public DbSet<Project> Projects => Set<Project>();
-    public DbSet<UserFavorite> UserFavorites => Set<UserFavorite>();
+    public DbSet<Pako.Domain.Shared.AuditEntry> AuditEntries => Set<Pako.Domain.Shared.AuditEntry>();
+    public DbSet<Pako.Domain.Shared.UserFavorite> UserFavorites => Set<Pako.Domain.Shared.UserFavorite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PakoDbContext).Assembly);
+
+        modelBuilder.Entity<Pako.Domain.Shared.AuditEntry>(entity =>
+        {
+            entity.ToTable("audit_entries");
+            entity.HasIndex(e => new { e.CompanyId, e.EntityType, e.EntityId });
+            entity.HasIndex(e => new { e.CompanyId, e.OccurredAtUtc });
+        });
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)

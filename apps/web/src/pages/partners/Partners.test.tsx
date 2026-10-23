@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { Partners } from "@/pages/partners/Partners";
 
+// Partners.tsx now calls apiClient directly for all CRUD operations — no MSW mock layer needed.
 const partnersAll = vi.fn();
 const accountsAll = vi.fn();
 const partnersCreate = vi.fn();
@@ -85,7 +86,7 @@ describe("Partners", () => {
     accountsAll.mockResolvedValue([RECEIVABLE_ACCOUNT, PAYABLE_ACCOUNT]);
   });
 
-  it("lists a partner with account, terms and credit limit fields", async () => {
+  it("lists a partner with its real fields (receivable account, terms, credit limit)", async () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText("Acme Corp")).toBeInTheDocument());
@@ -95,8 +96,9 @@ describe("Partners", () => {
     expect(screen.getByText("5000.00 \u20AC")).toBeInTheDocument();
   });
 
-  it("edits a partner via the real PUT and closes the form on success", async () => {
+  it("edits a partner via the real PUT endpoint and closes the form on success", async () => {
     partnersUpdate.mockResolvedValue({ ...ACME, creditLimit: 9000 });
+
     renderPage();
     await waitFor(() => expect(screen.getByText("Acme Corp")).toBeInTheDocument());
 
@@ -109,11 +111,37 @@ describe("Partners", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(partnersUpdate).toHaveBeenCalled());
+    await waitFor(() => expect(partnersUpdate).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      "partner-1",
+      expect.objectContaining({ creditLimit: 9000 }),
+    ));
     await waitFor(() => expect(screen.queryByLabelText("Credit limit")).not.toBeInTheDocument());
   });
 
-  it("creates a partner via the real POST", async () => {
+  it("edits a partner name via the real PUT endpoint", async () => {
+    partnersUpdate.mockResolvedValue({ ...ACME, name: "Acme Renamed" });
+
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Acme Corp")).toBeInTheDocument());
+
+    const row = screen.getByText("Acme Corp").closest("tr");
+    if (!row) throw new Error("row not found");
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+
+    const nameInput = await screen.findByLabelText(/^Name/);
+    fireEvent.change(nameInput, { target: { value: "Acme Renamed" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(partnersUpdate).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      "partner-1",
+      expect.objectContaining({ name: "Acme Renamed" }),
+    ));
+  });
+
+  it("creates a partner with all fields via the real POST endpoint", async () => {
     partnersCreate.mockResolvedValue({ ...ACME, id: "partner-2", name: "New Co" });
 
     renderPage();
@@ -121,7 +149,7 @@ describe("Partners", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add partner" }));
 
-    const nameInputs = await screen.findAllByLabelText("Name");
+    const nameInputs = await screen.findAllByLabelText(/^Name/);
     fireEvent.change(nameInputs[nameInputs.length - 1], { target: { value: "New Co" } });
 
     const creditLimitInputs = screen.getAllByLabelText("Credit limit");
@@ -130,7 +158,10 @@ describe("Partners", () => {
     const submitButtons = screen.getAllByRole("button", { name: "Add partner" });
     fireEvent.click(submitButtons[submitButtons.length - 1]);
 
-    await waitFor(() => expect(partnersCreate).toHaveBeenCalled());
+    await waitFor(() => expect(partnersCreate).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      expect.objectContaining({ name: "New Co", creditLimit: 1200 }),
+    ));
   });
 
   it("still loads correctly after a StrictMode double-mount", async () => {

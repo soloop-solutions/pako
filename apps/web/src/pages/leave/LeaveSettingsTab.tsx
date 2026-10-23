@@ -406,13 +406,16 @@ function PublicHolidaysSection({ companyId }: { companyId: string }) {
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="leave-holidays-year">{intl.formatMessage({ id: "leave.field.year" })}</Label>
-          <Select id="leave-holidays-year" className="w-28" value={String(year)} onChange={(e) => setYear(e.target.value)}>
-            {yearOptions(year).map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="leave-holidays-year"
+            className="w-28"
+            value={String(year)}
+            onValueChange={(v) => setYear(v)}
+            options={yearOptions(year).map((y) => ({
+              value: String(y),
+              label: String(y),
+            }))}
+          />
         </div>
       </div>
 

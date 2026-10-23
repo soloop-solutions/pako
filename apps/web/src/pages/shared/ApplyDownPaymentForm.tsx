@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export type DownPaymentOption = { id: string; label: string; total: number };
 
@@ -70,17 +70,19 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="apply-down-payment-select">{intl.formatMessage({ id: "applyDownPayment.downPayment" })}</Label>
-          <Select
+          <SearchableSelect
             id="apply-down-payment-select"
             value={downPaymentInvoiceId}
-            onChange={(event) => handleSelectChange(event.target.value)}
-          >
-            {options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label} ({intl.formatMessage({ id: "applyDownPayment.available" })} {option.total.toFixed(2)})
-              </option>
-            ))}
-          </Select>
+            onChange={handleSelectChange}
+            placeholder={intl.formatMessage({ id: "applyDownPayment.downPayment" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            options={options.map((option) => ({
+              value: option.id,
+              label: option.label,
+              description: `${intl.formatMessage({ id: "applyDownPayment.available" })} ${option.total.toFixed(2)}`,
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="apply-down-payment-amount">{intl.formatMessage({ id: "applyDownPayment.amount" })}</Label>

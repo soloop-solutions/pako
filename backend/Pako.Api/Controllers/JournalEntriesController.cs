@@ -20,11 +20,13 @@ public class JournalEntriesController : ControllerBase
     private const decimal MaxLineAmount = 9999999999999999.99m;
 
     private readonly PakoDbContext _db;
+    private readonly NumberSeriesService _numberSeries;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public JournalEntriesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    public JournalEntriesController(PakoDbContext db, NumberSeriesService numberSeries, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
+        _numberSeries = numberSeries;
         _localizer = localizer;
     }
 
@@ -83,8 +85,21 @@ public class JournalEntriesController : ControllerBase
     [HttpPost]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]
-    public async Task<ActionResult<JournalEntryResponse>> Create(Guid companyId, CreateJournalEntryRequest request)
+    public async Task<ActionResult<JournalEntryResponse>> Create(
+        Guid companyId,
+        CreateJournalEntryRequest request,
+        [FromServices] ActionTokenService actionTokenService,
+        [FromHeader(Name = "X-Action-Token")] string? actionToken = null)
     {
+        if (string.IsNullOrWhiteSpace(actionToken))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, _localizer["ActionTokenRequired"].Value);
+        }
+        if (!actionTokenService.ValidateAndConsume(actionToken, CurrentUserId, companyId, "create-journal-entry"))
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, _localizer["ActionTokenInvalid"].Value);
+        }
+
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.Id == request.JournalId);
         if (journal is null || journal.CompanyId != companyId)
         {
@@ -105,27 +120,27 @@ public class JournalEntriesController : ControllerBase
             return BadRequest(_localizer["AccountsNotBelongToCompany"].Value);
         }
 
-        // 60_Posting_Rules R02/R03/R04/R05 (BLOCK) — only for this generic manual-entry path;
+        // 60_Posting_Rules R02/R04/R05 (BLOCK) — only for this generic manual-entry path;
         // Invoice/Bill/PayrollRun legitimately post to control accounts as their whole purpose,
-        // so these checks don't apply to their own Post() methods. R09 needs a per-line VAT
-        // code, which CreateJournalEntryLineRequest has no field for at all — genuinely
-        // unreachable here, not a gap in this check.
+        // so these checks don't apply to their own Post() methods.
+        //
+        // R03 (Partner subledger) is NOT enforced here: R04 already blocks manual posting to
+        // control accounts (the only accounts where a partner is truly mandatory), and non-control
+        // accounts with SubledgerType.Partner (revenue, expense, etc.) use the subledger tag as
+        // informational metadata for reports — not a hard requirement on manual journal entries.
+        // An accountant must be able to post adjusting/reclassification entries to these accounts
+        // without selecting a partner.
         foreach (var line in request.Lines)
         {
             var account = accountsById[line.AccountId];
             try
             {
                 PostingRuleValidator.ValidateManualLineAccountEligibility(account.Code, account.IsPostable, account.IsControl);
-                if (account.Subledger is { } subledger)
-                {
-                    PostingRuleValidator.ValidatePartnerSubledgerReference(account.Code, subledger, line.PartnerId);
-                }
             }
             catch (Exception ex) when (
                 ex is NonPostableAccountException or
                 ControlAccountManualPostingException or
-                SystemComputedAccountPostingException or
-                MissingSubledgerReferenceException)
+                SystemComputedAccountPostingException)
             {
                 return BadRequest(ex.Message);
             }
@@ -138,6 +153,7 @@ public class JournalEntriesController : ControllerBase
             JournalId = request.JournalId,
             Date = request.Date,
             Reference = request.Reference,
+            Remarks = request.Remarks,
             Lines = request.Lines.Select(l => new JournalEntryLine
             {
                 Id = Guid.NewGuid(),
@@ -146,7 +162,9 @@ public class JournalEntriesController : ControllerBase
                 Debit = l.Debit,
                 Credit = l.Credit,
                 Description = l.Description,
-                AnalyticDistribution = l.AnalyticDistribution
+                AnalyticDistribution = l.AnalyticDistribution,
+                ProjectId = l.ProjectId,
+                EmployeeId = l.EmployeeId
             }).ToList()
         };
 
@@ -204,6 +222,8 @@ public class JournalEntriesController : ControllerBase
             }
             catch (Exception ex) when (
                 ex is UnbalancedJournalEntryException or
+                NegativeAmountLineException or
+                DualAmountLineException or
                 AccountingLockDateViolationException or
                 TaxLockDateViolationException or
                 HardLockDateViolationException or
@@ -213,8 +233,16 @@ public class JournalEntriesController : ControllerBase
                 return BadRequest(ex.Message);
             }
 
-            entry.SequenceNumber = JournalSequencer.ReserveNext(journal);
+            // Manual journal entries use NumberSeriesService (configurable format, derived
+            // counter) instead of JournalSequencer's stored counter. This gives manual entries
+            // the same configurable numbering (Format A: date-based, Format B: prefix-based)
+            // as invoices, while invoice/bill/payroll-generated entries continue using
+            // JournalSequencer for their per-journal accounting sequence.
+            entry.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
             entry.PostedByUserId = CurrentUserId;
+
+            AuditController.Stage(_db, companyId, "JournalEntry", id.ToString(), "Post",
+                CurrentUserId.ToString(), $"Seq={entry.SequenceNumber}");
 
             await _db.SaveChangesAsync();
 
@@ -271,6 +299,8 @@ public class JournalEntriesController : ControllerBase
         catch (Exception ex) when (
             ex is InvalidOperationException or
             UnbalancedJournalEntryException or
+            NegativeAmountLineException or
+            DualAmountLineException or
             AccountingLockDateViolationException or
             TaxLockDateViolationException or
             HardLockDateViolationException or
@@ -281,7 +311,7 @@ public class JournalEntriesController : ControllerBase
 
         reversal.PostedByUserId = CurrentUserId;
         reversal.SourceDocumentId = entry.Id;
-        reversal.SequenceNumber = JournalSequencer.ReserveNext(journal);
+        reversal.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", reversal.Date);
 
         _db.JournalEntries.Add(reversal);
         await _db.SaveChangesAsync();
@@ -294,8 +324,9 @@ public class JournalEntriesController : ControllerBase
         e.JournalId,
         e.Date,
         e.Reference,
+        e.Remarks,
         e.State.ToString(),
         e.SequenceNumber,
         e.PostedAtUtc,
-        e.Lines.Select(l => new JournalEntryLineResponse(l.Id, l.AccountId, l.PartnerId, l.Debit, l.Credit, l.Description, l.AnalyticDistribution)).ToList());
+        e.Lines.Select(l => new JournalEntryLineResponse(l.Id, l.AccountId, l.PartnerId, l.Debit, l.Credit, l.Description, l.AnalyticDistribution, l.ProjectId, l.EmployeeId)).ToList());
 }

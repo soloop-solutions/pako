@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountResponse, JournalResponse } from "@pako/shared";
+import { MemoryRouter } from "react-router-dom";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
@@ -10,8 +11,11 @@ import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
 // but the cost-center picker's own mock (src/mocks/costCentersHandlers.ts) genuinely round-trips
 // through the real msw/node server wired up in src/test/setup.ts, same as ChartOfAccounts.test.tsx.
 const partnersAll = vi.fn();
+const projectsAll = vi.fn();
+const listEmployees = vi.fn();
 const journalEntriesCreate = vi.fn();
 const post3 = vi.fn();
+const actionTokens = vi.fn();
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -20,11 +24,18 @@ vi.mock("@/api/client", async (importOriginal) => {
     apiClient: {
       ...actual.apiClient,
       partnersAll: (...args: unknown[]) => partnersAll(...args),
+      projectsAll: (...args: unknown[]) => projectsAll(...args),
+      listEmployees: (...args: unknown[]) => listEmployees(...args),
       journalEntries: (...args: unknown[]) => journalEntriesCreate(...args),
       post3: (...args: unknown[]) => post3(...args),
+      actionTokens: (...args: unknown[]) => actionTokens(...args),
     },
   };
 });
+
+vi.mock("@/context/CompanyContext", () => ({
+  useCompany: () => ({ activeCompany: { id: "company-1", name: "Test Company" } }),
+}));
 
 function testAccount(overrides: Partial<AccountResponse> & Pick<AccountResponse, "id" | "code" | "name" | "accountType" | "accountSubType">): AccountResponse {
   return {
@@ -64,14 +75,27 @@ const JOURNALS: JournalResponse[] = [
 
 function renderGrid(onCreated = vi.fn()) {
   partnersAll.mockResolvedValue([]);
+  projectsAll.mockResolvedValue([]);
+  listEmployees.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 50 });
+  actionTokens.mockResolvedValue({ token: "test-action-token", expiresAtUtc: new Date(Date.now() + 300_000).toISOString() });
   return {
     onCreated,
     ...render(
-      <IntlProviderWrapper>
-        <JournalEntryGrid companyId="company-1" journals={JOURNALS} accounts={ACCOUNTS} onCreated={onCreated} />
-      </IntlProviderWrapper>,
+      <MemoryRouter>
+        <IntlProviderWrapper>
+          <JournalEntryGrid companyId="company-1" journals={JOURNALS} accounts={ACCOUNTS} onCreated={onCreated} />
+        </IntlProviderWrapper>
+      </MemoryRouter>,
     ),
   };
+}
+
+/** After clicking Save, the password dialog appears — complete it so the actual create proceeds. */
+async function completePasswordDialog() {
+  const passwordInput = await screen.findByLabelText("Password");
+  fireEvent.change(passwordInput, { target: { value: "testpassword" } });
+  fireEvent.click(screen.getByRole("button", { name: "Confirm & Continue" }));
+  await waitFor(() => expect(actionTokens).toHaveBeenCalled());
 }
 
 // getAllByRole("row") also picks up the header row and the totals <tfoot> row (both are real <tr>
@@ -143,11 +167,19 @@ describe("JournalEntryGrid keyboard model", () => {
     renderGrid();
     await waitFor(() => expect(partnersAll).toHaveBeenCalled());
 
-    const partnerCell = focusCell(1, "Partner"); // second-to-last column on the last (second) row
+    const partnerCell = focusCell(1, "Partner");
     fireEvent.keyDown(partnerCell, { key: "Tab" });
 
-    // Moves right to the mocked cost-center column, same row (not yet a wrap — it's the last column).
-    const costCenterCell = cellInput(1, "Analytic distribution (mocked — not yet saved to the backend)");
+    // Tab through Project → Employee → Cost Center (last column on the last row).
+    const projectCell = cellInput(1, "Project");
+    await waitFor(() => expect(projectCell).toHaveFocus());
+    fireEvent.keyDown(projectCell, { key: "Tab" });
+
+    const employeeCell = cellInput(1, "Employee");
+    await waitFor(() => expect(employeeCell).toHaveFocus());
+    fireEvent.keyDown(employeeCell, { key: "Tab" });
+
+    const costCenterCell = cellInput(1, "Analytic distribution");
     await waitFor(() => expect(costCenterCell).toHaveFocus());
 
     fireEvent.keyDown(costCenterCell, { key: "Tab" });
@@ -316,14 +348,148 @@ describe("JournalEntryGrid keyboard model", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Save and post" })).not.toBeDisabled());
     fireEvent.click(screen.getByRole("button", { name: "Save and post" }));
 
+    // Password dialog appears — complete it to proceed with the actual create
+    await completePasswordDialog();
+
     await waitFor(() => expect(journalEntriesCreate).toHaveBeenCalledTimes(1));
-    expect(journalEntriesCreate.mock.calls[0][1].lines).toEqual([
+    // First arg is companyId, second is the action token, third is the request body
+    expect(journalEntriesCreate.mock.calls[0][2].lines).toEqual([
       { accountId: "acc-cash", partnerId: undefined, debit: 100, credit: 0, description: undefined },
       { accountId: "acc-rev", partnerId: undefined, debit: 0, credit: 100, description: undefined },
     ]);
     await waitFor(() => expect(post3).toHaveBeenCalledWith("company-1", "entry-1"));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(cellInput(0, "Account")).toHaveValue("");
+  });
+});
+
+describe("Debit/Credit inline validation", () => {
+  it("shows an inline warning and disables Save when a line has both Debit and Credit positive", async () => {
+    renderGrid();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    const account0 = type(0, "Account", "100100");
+    fireEvent.keyDown(account0, { key: "Tab" });
+    const debit0 = type(0, "Debit", "100.00");
+    fireEvent.keyDown(debit0, { key: "Tab" }); // commit debit, move to credit
+    const credit0 = type(0, "Credit", "100.00");
+    fireEvent.keyDown(credit0, { key: "Tab" }); // commit credit
+
+    // Inline warning should appear
+    await waitFor(() => expect(screen.getByText("Enter an amount in either Debit or Credit, not both.")).toBeInTheDocument());
+    // Save should be disabled
+    expect(screen.getByRole("button", { name: "Save and post" })).toBeDisabled();
+  });
+
+  it("removes the inline warning when the dual-amount is corrected", async () => {
+    renderGrid();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    const account0 = type(0, "Account", "100100");
+    fireEvent.keyDown(account0, { key: "Tab" });
+    const debit0 = type(0, "Debit", "100.00");
+    fireEvent.keyDown(debit0, { key: "Tab" });
+    type(0, "Credit", "50.00");
+    fireEvent.keyDown(cellInput(0, "Credit"), { key: "Tab" });
+
+    await waitFor(() => expect(screen.getByText("Enter an amount in either Debit or Credit, not both.")).toBeInTheDocument());
+
+    // Clear the credit field to fix it
+    type(0, "Credit", "");
+    fireEvent.keyDown(cellInput(0, "Credit"), { key: "Tab" });
+
+    await waitFor(() => expect(screen.queryByText("Enter an amount in either Debit or Credit, not both.")).not.toBeInTheDocument());
+  });
+
+  it("rejects negative values from sanitizeAmount — they never reach grid state", async () => {
+    renderGrid();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    // Type a negative debit — sanitizeAmount should reject it and keep the previous value (empty)
+    type(0, "Debit", "-100.00");
+    fireEvent.keyDown(cellInput(0, "Debit"), { key: "Tab" });
+
+    // The committed value should be empty (previous value), not -100.00
+    expect(cellInput(0, "Debit")).toHaveValue("");
+  });
+});
+
+describe("PickerCell dropdown behavior", () => {
+  function renderGridWithPartners() {
+    partnersAll.mockResolvedValue([
+      { id: "partner-erion", name: "Erion LLC", taxNumber: "123456789", partnerType: 0 },
+      { id: "partner-soloop", name: "Soloop Solutions", taxNumber: "987654321", partnerType: 0 },
+    ]);
+    projectsAll.mockResolvedValue([]);
+    listEmployees.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 50 });
+    actionTokens.mockResolvedValue({ token: "test-action-token", expiresAtUtc: new Date(Date.now() + 300_000).toISOString() });
+    return render(
+      <MemoryRouter>
+        <IntlProviderWrapper>
+          <JournalEntryGrid companyId="company-1" journals={JOURNALS} accounts={ACCOUNTS} onCreated={vi.fn()} />
+        </IntlProviderWrapper>
+      </MemoryRouter>,
+    );
+  }
+
+  it("shows the dropdown when typing in an account cell and hides it after selecting an option", async () => {
+    renderGridWithPartners();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    const accountInput = type(0, "Account", "100");
+    // Dropdown should appear with matching accounts
+    await waitFor(() => expect(screen.getByText("100100 · Cash")).toBeInTheDocument());
+
+    // Select via mousedown (the real path — onMouseDown, not onClick)
+    fireEvent.mouseDown(screen.getByText("100100 · Cash"));
+
+    // After selection, the dropdown should close (not show the selected item as a search result)
+    await waitFor(() => expect(screen.queryByText("100100 · Cash")).not.toBeInTheDocument());
+    expect(accountInput).toHaveValue("100100 · Cash");
+  });
+
+  it("shows the dropdown when typing in the partner cell and closes it after selection", async () => {
+    renderGridWithPartners();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    const partnerInput = type(0, "Partner", "Erion");
+    await waitFor(() => expect(screen.getByText("Erion LLC")).toBeInTheDocument());
+
+    fireEvent.mouseDown(screen.getByText("Erion LLC"));
+
+    // After selection, dropdown should be suppressed
+    await waitFor(() => expect(screen.queryByText("Erion LLC")).not.toBeInTheDocument());
+    expect(partnerInput).toHaveValue("Erion LLC");
+  });
+
+  it("reopens the dropdown when the user types new text after a selection", async () => {
+    renderGridWithPartners();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    const partnerInput = type(0, "Partner", "Erion");
+    await waitFor(() => expect(screen.getByText("Erion LLC")).toBeInTheDocument());
+    fireEvent.mouseDown(screen.getByText("Erion LLC"));
+    await waitFor(() => expect(screen.queryByText("Erion LLC")).not.toBeInTheDocument());
+
+    // User starts typing again — dropdown should reopen
+    fireEvent.change(partnerInput, { target: { value: "Sol" } });
+    await waitFor(() => expect(screen.getByText("Soloop Solutions")).toBeInTheDocument());
+  });
+
+  it("selects a dropdown option via keyboard (ArrowDown + Enter)", async () => {
+    renderGridWithPartners();
+    await waitFor(() => expect(partnersAll).toHaveBeenCalled());
+
+    const accountInput = type(0, "Account", "100");
+    await waitFor(() => expect(screen.getByText("100100 · Cash")).toBeInTheDocument());
+
+    // ArrowDown to highlight first option, then Enter to select
+    fireEvent.keyDown(accountInput, { key: "ArrowDown" });
+    fireEvent.keyDown(accountInput, { key: "Enter" });
+
+    // Dropdown should close after keyboard selection
+    await waitFor(() => expect(screen.queryByText("100100 · Cash")).not.toBeInTheDocument());
+    expect(accountInput).toHaveValue("100100 · Cash");
   });
 });
 
@@ -334,6 +500,7 @@ describe("F12 analytic distribution editor", () => {
   beforeEach(() => {
     journalEntriesCreate.mockClear();
     post3.mockClear();
+    actionTokens.mockClear();
   });
 
   function balanceTwoAccountedLines() {
@@ -350,13 +517,15 @@ describe("F12 analytic distribution editor", () => {
 
   async function addAllocation(costCenterOptionIndex: number, percentage: string) {
     fireEvent.click(screen.getByRole("button", { name: "Add allocation" }));
-    const selects = screen.getAllByLabelText("Cost center");
-    const select = selects[selects.length - 1];
-    // Options load asynchronously (fetchCostCenters) — wait until there are enough real options
-    // (index 0 is always the "select..." placeholder) before reading the one we want.
-    await waitFor(() => expect(within(select).getAllByRole("option").length).toBeGreaterThanOrEqual(costCenterOptionIndex + 2));
-    const value = (within(select).getAllByRole("option")[costCenterOptionIndex + 1] as HTMLOptionElement).value;
-    fireEvent.change(select, { target: { value } });
+    // Open the last cost center dropdown (the newly added one)
+    const triggers = screen.getAllByLabelText("Cost center");
+    const trigger = triggers[triggers.length - 1];
+    fireEvent.click(trigger);
+    // Options load asynchronously (fetchCostCenters) — wait until there are enough options
+    // in the popover portal before picking the one at the requested index.
+    await waitFor(() => expect(screen.getAllByRole("option").length).toBeGreaterThanOrEqual(costCenterOptionIndex + 1));
+    const options = screen.getAllByRole("option");
+    fireEvent.mouseDown(options[costCenterOptionIndex]);
     const percentageInputs = screen.getAllByLabelText("Percentage");
     fireEvent.change(percentageInputs[percentageInputs.length - 1], { target: { value: percentage } });
   }
@@ -391,7 +560,7 @@ describe("F12 analytic distribution editor", () => {
     balanceTwoAccountedLines();
     await waitFor(() => expect(screen.getByRole("button", { name: "Save and post" })).not.toBeDisabled());
 
-    fireEvent.click(cellInput(0, "Analytic distribution (mocked — not yet saved to the backend)"));
+    fireEvent.click(cellInput(0, "Analytic distribution"));
     await addAllocation(0, "60");
     await addAllocation(1, "20"); // sums to 80, short of 100
     expect(await screen.findByText("Total: 80.00%")).toBeInTheDocument();
@@ -402,13 +571,17 @@ describe("F12 analytic distribution editor", () => {
     expect(journalEntriesCreate).not.toHaveBeenCalled();
 
     // Reopen and complete the split to exactly 100%.
-    fireEvent.click(cellInput(0, "Analytic distribution (mocked — not yet saved to the backend)"));
+    fireEvent.click(cellInput(0, "Analytic distribution"));
     const percentageInputs = await screen.findAllByLabelText("Percentage");
     fireEvent.change(percentageInputs[1], { target: { value: "40" } });
     expect(await screen.findByText("Total: 100.00%")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Save and post" }));
+
+    // Password dialog appears — complete it to proceed
+    await completePasswordDialog();
+
     await waitFor(() => expect(journalEntriesCreate).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(post3).toHaveBeenCalledWith("company-1", "entry-2"));
   });

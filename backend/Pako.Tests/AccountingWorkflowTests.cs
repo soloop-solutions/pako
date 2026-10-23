@@ -124,7 +124,7 @@ public class AccountingWorkflowTests : IAsyncLifetime
         Assert.Equal(40m, balance!.Outstanding);
     }
 
-    [Fact(Skip = "Sales return reconciliation not yet implemented")]
+    [Fact]
     public async Task SalesReturn_RefundDecreasesCash_NeverIncreases()
     {
         var (db, companyId, partnerId, cashAccountId, receivableAccountId) = await SeedAsync();
@@ -171,7 +171,7 @@ public class AccountingWorkflowTests : IAsyncLifetime
         Assert.Equal(60m, refundCashLine.Credit);
     }
 
-    [Fact(Skip = "Sales return reconciliation not yet implemented")]
+    [Fact]
     public async Task SalesReturn_BalanceShowsCorrectOutstanding()
     {
         var (db, companyId, partnerId, cashAccountId, _) = await SeedAsync();
@@ -258,7 +258,7 @@ public class AccountingWorkflowTests : IAsyncLifetime
     /// €100 gross invoice (incl 18% VAT) → €60 payment → €100 return
     /// → Apply €40 credit against invoice → Refund €60 → ALL balances €0.
     /// </summary>
-    [Fact(Skip = "Sales return reconciliation not yet implemented")]
+    [Fact]
     public async Task VatInclusive_FullScenario_InvoicePaymentReturnRefund()
     {
         var (db, companyId, partnerId, cashAccountId, receivableAccountId, vatAccountId, taxDefId) = await SeedVatAsync();
@@ -437,7 +437,7 @@ public class AccountingWorkflowTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>(overPay.Result);
     }
 
-    [Fact(Skip = "Sales return reconciliation not yet implemented")]
+    [Fact]
     public async Task FullReturnAfterFullPayment()
     {
         var (db, companyId, partnerId, cashAccountId, _) = await SeedAsync();
@@ -551,5 +551,48 @@ public class AccountingWorkflowTests : IAsyncLifetime
         var totalDebit = allJeLines.Sum(l => l.Debit);
         var totalCredit = allJeLines.Sum(l => l.Credit);
         Assert.Equal(totalDebit, totalCredit);
+    }
+
+    [Fact]
+    public async Task PostInvoice_CreatesAuditEntry_Atomically()
+    {
+        var (db, companyId, partnerId, cashAccountId, _) = await SeedAsync();
+        var ctrl = NewInvoiceController(db);
+
+        var createResult = await ctrl.Create(companyId, new CreateInvoiceRequest(
+            partnerId, new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1),
+            new List<CreateInvoiceLineRequest> { new("Service", 1, 100m, null, null) }));
+        var invoice = ((ObjectResult)createResult.Result!).Value as InvoiceResponse;
+        await ctrl.Post(companyId, invoice!.Id);
+
+        // Audit entry should exist in the same DB after the posting transaction
+        var audit = await db.AuditEntries.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.EntityType == "Invoice" && a.EntityId == invoice.Id.ToString())
+            .FirstOrDefaultAsync();
+        Assert.NotNull(audit);
+        Assert.Equal("Post", audit!.Action);
+    }
+
+    [Fact]
+    public async Task RecordPayment_CreatesAuditEntry()
+    {
+        var (db, companyId, partnerId, cashAccountId, _) = await SeedAsync();
+        var ctrl = NewInvoiceController(db);
+
+        var createResult = await ctrl.Create(companyId, new CreateInvoiceRequest(
+            partnerId, new DateOnly(2026, 9, 1), new DateOnly(2026, 10, 1),
+            new List<CreateInvoiceLineRequest> { new("Service", 1, 100m, null, null) }));
+        var invoice = ((ObjectResult)createResult.Result!).Value as InvoiceResponse;
+        await ctrl.Post(companyId, invoice!.Id);
+
+        await ctrl.RecordPayment(companyId, invoice.Id,
+            new RecordPaymentRequest(50m, cashAccountId, new DateOnly(2026, 9, 15)));
+
+        var audit = await db.AuditEntries.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.EntityType == "Invoice"
+                && a.EntityId == invoice.Id.ToString() && a.Action == "Payment")
+            .FirstOrDefaultAsync();
+        Assert.NotNull(audit);
+        Assert.Contains("50", audit!.Changes);
     }
 }

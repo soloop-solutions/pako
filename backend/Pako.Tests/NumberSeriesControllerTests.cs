@@ -177,4 +177,155 @@ public class NumberSeriesControllerTests : IAsyncLifetime
         var response = Assert.IsType<GapReportResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Empty(response.Gaps);
     }
+
+    // --- Format B (Prefix + Counter) tests ---
+
+    [Fact]
+    public void FormatNumber_PrefixCounter_ProducesExpectedOutput()
+    {
+        Assert.Equal("INV-000001", NumberSeriesService.FormatNumber("INV-{seq:D6}", 1, 2026));
+        Assert.Equal("INV-000042", NumberSeriesService.FormatNumber("INV-{seq:D6}", 42, 2026));
+        Assert.Equal("FSH-0001", NumberSeriesService.FormatNumber("FSH-{seq:D4}", 1, 2026));
+        Assert.Equal("URD-000001", NumberSeriesService.FormatNumber("URD-{seq:D6}", 1, 2026));
+    }
+
+    // --- Format A (Date + Counter) tests ---
+
+    [Fact]
+    public void FormatNumber_DateCounter_ProducesExpectedOutput()
+    {
+        var date = new DateOnly(2026, 10, 15);
+        Assert.Equal("20261015-0001", NumberSeriesService.FormatNumber("{yyyy}{mm}{dd}-{seq:D4}", 1, 2026, date));
+        Assert.Equal("20261015-0002", NumberSeriesService.FormatNumber("{yyyy}{mm}{dd}-{seq:D4}", 2, 2026, date));
+
+        var nextDay = new DateOnly(2026, 10, 16);
+        Assert.Equal("20261016-0001", NumberSeriesService.FormatNumber("{yyyy}{mm}{dd}-{seq:D4}", 1, 2026, nextDay));
+    }
+
+    [Fact]
+    public void FormatNumber_DatePlaceholders_UseDocumentDateNotServerTime()
+    {
+        var date = new DateOnly(2025, 3, 7);
+        var result = NumberSeriesService.FormatNumber("{yyyy}{mm}{dd}-{seq:D4}", 1, 2025, date);
+        Assert.Equal("20250307-0001", result);
+    }
+
+    [Fact]
+    public void FormatNumber_MmPlaceholder_UsesDocumentDate()
+    {
+        var date = new DateOnly(2026, 6, 15);
+        Assert.Equal("06/2026-0001", NumberSeriesService.FormatNumber("{mm}/{yyyy}-{seq:D4}", 1, 2026, date));
+    }
+
+    [Fact]
+    public void DefaultPattern_JournalEntry_ReturnsURDFormat()
+    {
+        Assert.Equal("URD-{seq:D6}", NumberSeriesService.DefaultPattern("JournalEntry"));
+    }
+
+    [Fact]
+    public void ExtractStaticPrefix_ReturnsLeadingTextBeforeFirstPlaceholder()
+    {
+        Assert.Equal("URD-", NumberSeriesService.ExtractStaticPrefix("URD-{seq:D6}"));
+        Assert.Equal("INV-", NumberSeriesService.ExtractStaticPrefix("INV-{seq:D6}"));
+        Assert.Equal("", NumberSeriesService.ExtractStaticPrefix("{yyyy}{mm}{dd}-{seq:D4}"));
+        Assert.Equal("PRO-", NumberSeriesService.ExtractStaticPrefix("PRO-{seq:D4}"));
+    }
+
+    // B5: date-scoped (day-based) numbering resets the counter per day.
+    [Fact]
+    public async Task ReserveNext_DateScopedPattern_ResetsDailyCounter()
+    {
+        var db = await NewContextAsync();
+        var companyId = Guid.NewGuid();
+        db.Companies.Add(new Company { Id = companyId, Name = "Date Co" });
+
+        // Set up a date-scoped pattern.
+        db.NumberSeriesSet.Add(new NumberSeries
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            DocumentType = "Invoice",
+            Year = 2026,
+            Pattern = "{yyyy}{mm}{dd}-{seq:D4}"
+        });
+
+        // Seed existing invoices for different days.
+        var partnerId = Guid.NewGuid();
+        db.Partners.Add(new Partner { Id = partnerId, CompanyId = companyId, Name = "P1", IsCustomer = true });
+        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1200", Name = "Rec", AccountType = AccountType.Receivable });
+        db.Accounts.Add(new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "4000", Name = "Rev", AccountType = AccountType.Income });
+
+        // Day 1: two invoices
+        db.Invoices.Add(new Invoice { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = new DateOnly(2026, 10, 15), DueDate = new DateOnly(2026, 11, 15), InvoiceNumber = "20261015-0001", State = InvoiceState.Posted, DocumentType = DocumentType.Invoice });
+        db.Invoices.Add(new Invoice { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = new DateOnly(2026, 10, 15), DueDate = new DateOnly(2026, 11, 15), InvoiceNumber = "20261015-0002", State = InvoiceState.Posted, DocumentType = DocumentType.Invoice });
+
+        // Day 2: one invoice
+        db.Invoices.Add(new Invoice { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = new DateOnly(2026, 10, 16), DueDate = new DateOnly(2026, 11, 16), InvoiceNumber = "20261016-0001", State = InvoiceState.Posted, DocumentType = DocumentType.Invoice });
+
+        await db.SaveChangesAsync();
+
+        var service = new NumberSeriesService(db);
+
+        // Day 1: next should be 0003
+        var day1Next = await service.ReserveNextAsync(companyId, "Invoice", new DateOnly(2026, 10, 15));
+        Assert.Equal("20261015-0003", day1Next);
+
+        // Day 2: next should be 0002
+        var day2Next = await service.ReserveNextAsync(companyId, "Invoice", new DateOnly(2026, 10, 16));
+        Assert.Equal("20261016-0002", day2Next);
+
+        // Day 3: first invoice, counter starts at 1
+        var day3Next = await service.ReserveNextAsync(companyId, "Invoice", new DateOnly(2026, 10, 17));
+        Assert.Equal("20261017-0001", day3Next);
+    }
+
+    // Manual journal entries use NumberSeriesService with configurable format.
+    [Fact]
+    public async Task JournalEntry_UsesNumberSeriesService_WithURDPrefix()
+    {
+        var db = await NewContextAsync();
+        var companyId = Guid.NewGuid();
+        db.Companies.Add(new Company { Id = companyId, Name = "JE Co" });
+
+        // Add a journal with the old-style prefix (JournalSequencer should no longer be used for manual entries).
+        var journalId = Guid.NewGuid();
+        db.Journals.Add(new Journal { Id = journalId, CompanyId = companyId, Type = JournalType.General, Code = "GEN", Name = "General", SequencePrefix = "GEN", SequenceNextNumber = 1, SequencePadding = 4 });
+
+        var accountAId = Guid.NewGuid();
+        var accountBId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = accountAId, CompanyId = companyId, Code = "1000", Name = "Cash", AccountType = AccountType.CurrentAsset });
+        db.Accounts.Add(new Account { Id = accountBId, CompanyId = companyId, Code = "2000", Name = "Revenue", AccountType = AccountType.Income });
+        await db.SaveChangesAsync();
+
+        var actionTokenService = new ActionTokenService();
+        var controller = new JournalEntriesController(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"))
+                }
+            }
+        };
+
+        var userId = Guid.Parse(controller.HttpContext.User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var token = actionTokenService.GenerateToken(userId, companyId, "create-journal-entry").Token;
+
+        var created = await controller.Create(companyId, new CreateJournalEntryRequest(
+            journalId, new DateOnly(2026, 10, 16), null, new List<CreateJournalEntryLineRequest>
+            {
+                new(accountAId, null, 100m, 0m, null),
+                new(accountBId, null, 0m, 100m, null)
+            }), actionTokenService, token);
+        var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+
+        var posted = await controller.Post(companyId, entry.Id);
+        var postedEntry = Assert.IsType<JournalEntryResponse>(Assert.IsType<OkObjectResult>(posted.Result).Value);
+
+        // Default pattern for JournalEntry is "URD-{seq:D6}"
+        Assert.Equal("URD-000001", postedEntry.SequenceNumber);
+    }
 }

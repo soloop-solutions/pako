@@ -83,18 +83,56 @@ function handlersForKind(documentKind: AttachmentDocumentKind, pathSegment: "inv
     http.post(`${API_BASE_URL}/api/companies/:companyId/${pathSegment}/:documentId/attachments`, async ({ params, request }) => {
       if (!isAttachmentsMockActive()) return passthrough();
 
-      const formData = await request.formData();
-      const file = formData.get("file");
-      // Not `instanceof Blob`/`File` — under vitest's jsdom test environment, the File a test
-      // constructs and the one undici reconstructs while parsing the multipart body come from
-      // different realms, so `instanceof` fails even though it's a real Blob-like value (confirmed
-      // while building this file's test coverage). A plain string is the only other thing
-      // `FormData.get` can return, so that's the actual check that matters.
-      if (typeof file === "string" || file == null) {
+      // Node 26's undici throws an assertion error when parsing multipart/form-data in some
+      // environments (MSW test interception). We use a two-stage approach: try the standard
+      // formData() API first, and if that fails, parse the raw bytes ourselves.
+      let file: File | Blob | null = null;
+      let fileName = "attachment";
+
+      // Clone the request so we can retry with arrayBuffer if formData() fails
+      const cloned = request.clone();
+      try {
+        const formData = await request.formData();
+        const rawFile = formData.get("file");
+        if (typeof rawFile !== "string" && rawFile != null) {
+          file = rawFile;
+        }
+        const fileNameField = formData.get("fileName");
+        if (typeof fileNameField === "string" && fileNameField) {
+          fileName = fileNameField;
+        }
+      } catch {
+        // FormData parsing failed (Node 26 undici). Parse the multipart body from raw bytes.
+        try {
+          const ct = cloned.headers.get("content-type") ?? "";
+          const boundaryMatch = ct.match(/boundary=([^\s;]+)/);
+          if (boundaryMatch) {
+            const rawBuf = await cloned.arrayBuffer();
+            const raw = new TextDecoder().decode(rawBuf);
+            const boundary = boundaryMatch[1];
+            const parts = raw.split(`--${boundary}`);
+            for (const part of parts) {
+              if (!part.includes("Content-Disposition")) continue;
+              const divider = part.indexOf("\r\n\r\n");
+              if (divider === -1) continue;
+              const headers = part.substring(0, divider);
+              const body = part.substring(divider + 4).replace(/\r\n$/, "");
+              if (headers.includes('name="fileName"')) {
+                fileName = body.trim();
+              } else if (headers.includes('name="file"')) {
+                const ctMatch = headers.match(/Content-Type:\s*(.+)/i);
+                const fileType = ctMatch ? ctMatch[1].trim() : "application/octet-stream";
+                file = new Blob([body], { type: fileType });
+              }
+            }
+          }
+        } catch {
+          return errorResponse(400, "Could not read uploaded file.");
+        }
+      }
+      if (file == null) {
         return errorResponse(400, "No file was uploaded.");
       }
-      const fileNameField = formData.get("fileName");
-      const fileName = typeof fileNameField === "string" && fileNameField ? fileNameField : "attachment";
       const validationError = validateAttachmentFile(file);
       if (validationError === "unsupported-type") {
         return errorResponse(400, `Unsupported file type "${file.type || "unknown"}". Upload an image (PNG/JPEG/GIF/WEBP) or a PDF.`);

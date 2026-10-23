@@ -178,6 +178,20 @@ public class InvoicesController : ControllerBase
                 return (null, 0m, BadRequest(_localizer["TaxCodeRequired"].Value));
             }
 
+            // VAT eligibility: a non-VAT company must not use VAT-mechanism codes (Out/In/Imp/Rc).
+            // Kosovo VAT Law Art. 6(8): non-registered persons must not charge VAT.
+            // Art. 35(1): only registered persons may deduct input VAT.
+            if (taxDefinitionId is { } eligibilityTaxId)
+            {
+                var taxDef = await _db.TaxDefinitions.AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == eligibilityTaxId && t.CompanyId == companyId);
+                if (taxDef is not null && !VatEligibilityValidator.IsEligible(isVatRegistered, taxDef))
+                {
+                    var reasonKey = VatEligibilityValidator.GetIneligibilityReason(isVatRegistered, taxDef);
+                    return (null, 0m, BadRequest(_localizer[reasonKey ?? "VatCodeNotEligible_General"].Value));
+                }
+            }
+
             // B6: line's own account wins, then the item's default, then the company's —
             // "company fallback, not refuse the save" for an item with no default of its own.
             var revenueAccountId = documentType == DocumentType.DownPayment
@@ -282,6 +296,7 @@ public class InvoicesController : ControllerBase
             // B8: an explicit request value wins; otherwise the partner's own stored default.
             PaymentTermDays = request.PaymentTermDays ?? partner.PaymentTermDays,
             GraceDays = request.GraceDays,
+            InternalNotes = request.InternalNotes,
             Lines = lines!
         };
 
@@ -311,7 +326,7 @@ public class InvoicesController : ControllerBase
                     return NotFound();
                 }
 
-                invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(companyId, "Proforma", invoice.IssueDate.Year);
+                invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(companyId, "Proforma", invoice.IssueDate);
 
                 _db.Invoices.Add(invoice);
                 await _db.SaveChangesAsync();
@@ -367,6 +382,13 @@ public class InvoicesController : ControllerBase
             if (trackedCompany is null)
             {
                 return NotFound();
+            }
+
+            // B8: lock the partner row to serialize concurrent credit-limit checks.
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM partners WHERE \"Id\" = {invoice.PartnerId} FOR UPDATE");
             }
 
             _db.Invoices.Add(invoice);
@@ -598,6 +620,11 @@ public class InvoicesController : ControllerBase
                 return outcome.Error;
             }
 
+            var isRefundPayment = invoice.DocumentType == DocumentType.SalesReturn;
+            AuditController.Stage(_db, companyId, "Invoice", id.ToString(),
+                isRefundPayment ? "Refund" : "Payment",
+                CurrentUserId.ToString(), $"Amount={request.Amount}");
+
             await _db.SaveChangesAsync();
 
             if (transaction is not null)
@@ -645,17 +672,28 @@ public class InvoicesController : ControllerBase
             return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
         }
 
+        // A Sales Return or Credit Note is a credit document — "recording a payment" against it
+        // means issuing a refund: cash goes OUT (Credit Cash) and the customer's credit balance is
+        // cleared (Debit AR). Normal invoices are the reverse: cash IN (Debit Cash), receivable
+        // cleared (Credit AR).
+        var isCreditDocument = invoice.DocumentType is DocumentType.CreditNote or DocumentType.SalesReturn;
         var settlementEntry = new JournalEntry
         {
             Id = Guid.NewGuid(),
             CompanyId = company.Id,
             JournalId = journal.Id,
             Date = date,
-            Reference = $"Payment for {invoice.InvoiceNumber}",
+            Reference = isCreditDocument
+                ? $"Refund for {invoice.InvoiceNumber}"
+                : $"Payment for {invoice.InvoiceNumber}",
             Lines =
             {
-                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccountId, Debit = amount, Credit = 0m },
-                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivableAccountId, PartnerId = invoice.PartnerId, Debit = 0m, Credit = amount }
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccountId,
+                    Debit = isCreditDocument ? 0m : amount,
+                    Credit = isCreditDocument ? amount : 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivableAccountId, PartnerId = invoice.PartnerId,
+                    Debit = isCreditDocument ? amount : 0m,
+                    Credit = isCreditDocument ? 0m : amount }
             }
         };
 
@@ -686,6 +724,10 @@ public class InvoicesController : ControllerBase
         {
             return new RecordPaymentOutcome(BadRequest(result.Error), null);
         }
+
+        AuditController.Stage(_db, company.Id, "Invoice", invoice.Id.ToString(),
+            isCreditDocument ? "Refund" : "Payment", CurrentUserId.ToString(),
+            $"Amount: {amount}, Account: {cashOrBankAccountId}");
 
         return new RecordPaymentOutcome(null, result.Reconciliation);
     }
@@ -719,7 +761,7 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        if (creditNote.DocumentType != DocumentType.CreditNote || creditNote.State != InvoiceState.Posted)
+        if (creditNote.DocumentType is not (DocumentType.CreditNote or DocumentType.SalesReturn) || creditNote.State != InvoiceState.Posted)
         {
             return BadRequest(_localizer["InvalidCreditNote"].Value);
         }
@@ -967,9 +1009,18 @@ public class InvoicesController : ControllerBase
             }
         }
 
+        // Source documents (CreditNote/SalesReturn/DownPayment) can be reconciled two ways:
+        // (a) their control line used as a settlement line against another invoice (ApplyCreditNote)
+        // (b) a cash refund reconciled directly against this document (RecordPayment)
+        // Sum both patterns to get the full reconciled amount.
+        var reconciledViaControlLine = isSourceDocument && controlLineId is { } lineId
+            ? await ReconciliationCreator.SumReconciledForLineAsync(_db, lineId)
+            : 0m;
+        var reconciledViaDocument = await _db.Reconciliations.AsNoTracking()
+            .Where(r => r.InvoiceId == invoiceId).SumAsync(r => r.Amount);
         var reconciled = isSourceDocument
-            ? controlLineId is { } lineId ? await ReconciliationCreator.SumReconciledForLineAsync(_db, lineId) : 0m
-            : await _db.Reconciliations.AsNoTracking().Where(r => r.InvoiceId == invoiceId).SumAsync(r => r.Amount);
+            ? reconciledViaControlLine + reconciledViaDocument
+            : reconciledViaDocument;
 
         return new DocumentBalanceResponse(total, reconciled, total - reconciled);
     }
@@ -1097,11 +1148,22 @@ public class InvoicesController : ControllerBase
                 return NotFound();
             }
 
+            // B8: lock the partner row to serialize concurrent credit-limit checks for the
+            // same partner. Inside the same transaction that already locks the company row.
+            if (transaction is not null)
+            {
+                await _db.Database.ExecuteSqlInterpolatedAsync(
+                    $"SELECT \"Id\" FROM partners WHERE \"Id\" = {invoice.PartnerId} FOR UPDATE");
+            }
+
             var postError = await PostDraftInvoiceAsync(company, invoice);
             if (postError is not null)
             {
                 return postError;
             }
+
+            AuditController.Stage(_db, companyId, "Invoice", invoice.Id.ToString(),
+                "Posted", CurrentUserId.ToString(), $"Number: {invoice.InvoiceNumber}, Type: {invoice.DocumentType}");
 
             await _db.SaveChangesAsync();
 
@@ -1192,6 +1254,31 @@ public class InvoicesController : ControllerBase
 
         var partner = await _db.Partners.AsNoTracking().FirstOrDefaultAsync(p => p.Id == invoice.PartnerId);
 
+        // Credit limit enforcement: only for documents that increase AR (invoices, debit notes,
+        // down-payments), not for returns/credit notes which decrease it.
+        if (partner?.CreditLimit is { } limit
+            && invoice.DocumentType is DocumentType.Invoice or DocumentType.DebitNote or DocumentType.DownPayment)
+        {
+            var receivableAccountId2 = partner.ReceivableAccountId
+                ?? (await GetAccountDefaultsAsync(company.Id))?.ReceivableAccountId ?? Guid.Empty;
+            // Net AR for this partner across all posted entries = current exposure.
+            // Debits on AR = invoices posted; credits on AR = payments received + credit notes applied.
+            var currentExposure = await _db.JournalEntryLines.AsNoTracking()
+                .Include(l => l.JournalEntry)
+                .Where(l => l.JournalEntry!.CompanyId == company.Id
+                    && l.JournalEntry.State == JournalEntryState.Posted
+                    && l.AccountId == receivableAccountId2
+                    && l.PartnerId == invoice.PartnerId)
+                .SumAsync(l => l.Debit - l.Credit);
+            if (currentExposure < 0) currentExposure = 0;
+
+            var invoiceTotal = invoice.Lines.Sum(l => l.Quantity * l.UnitPrice);
+            if (currentExposure + invoiceTotal > limit)
+            {
+                return BadRequest(_localizer["CreditLimitExceeded"].Value);
+            }
+        }
+
         // B9: every invoice/credit-note/sales-return/down-payment posts to the Sale journal.
         var journal = await JournalResolver.GetAsync(_db, company.Id, JournalType.Sale);
         if (journal is null)
@@ -1243,9 +1330,15 @@ public class InvoicesController : ControllerBase
                 }
                 PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
             }
+            catch (MissingCounterpartyTaxNumberException)
+            {
+                var partnerName = partner?.Name ?? "?";
+                if (partner?.IsVatRegistered == true)
+                    return BadRequest(string.Format(_localizer["MissingPartnerTaxNumber_R07"].Value, partnerName));
+                return BadRequest(string.Format(_localizer["MissingPartnerFiscalNumber_R07"].Value, partnerName));
+            }
             catch (Exception ex) when (
-                ex is MissingCounterpartyTaxNumberException or
-                VatDirectionAccountClassMismatchException or
+                ex is VatDirectionAccountClassMismatchException or
                 VatOnControlAccountException)
             {
                 return BadRequest(ex.Message);
@@ -1325,10 +1418,28 @@ public class InvoicesController : ControllerBase
             }
         }
 
+        // B8: credit limit enforcement — only for documents that increase the receivable
+        // (Invoice, DebitNote). CreditNote/SalesReturn/DownPayment reduce or are neutral.
+        if (partner?.CreditLimit is { } creditLimit &&
+            invoice.DocumentType is DocumentType.Invoice or DocumentType.DebitNote)
+        {
+            var newAmount = journalEntry.Lines
+                .Where(l => l.AccountId == receivableAccountId)
+                .Sum(l => l.Debit);
+            var currentOutstanding = await GetPartnerOutstandingAsync(company.Id, invoice.PartnerId);
+            var available = creditLimit - currentOutstanding;
+            if (currentOutstanding + newAmount > creditLimit)
+            {
+                return BadRequest(string.Format(
+                    _localizer["CreditLimitExceeded"].Value,
+                    available, newAmount));
+            }
+        }
+
         // B1: numbering from NumberSeries table, row-locked (gapless). Falls back to the old
         // Company counter via IDocumentNumberService on InMemory (tests).
         var docTypeKey = NumberSeriesService.DocumentTypeKey(invoice.DocumentType);
-        invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(company.Id, docTypeKey, invoice.IssueDate.Year);
+        invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(company.Id, docTypeKey, invoice.IssueDate);
         journalEntry.Reference = invoice.InvoiceNumber;
 
         journalEntry.PostedByUserId = CurrentUserId;
@@ -1337,6 +1448,61 @@ public class InvoicesController : ControllerBase
 
         _db.JournalEntries.Add(journalEntry);
         return null;
+    }
+
+    // B8: total outstanding receivables for a partner across all posted invoices in a company.
+    // Used by the credit limit check on posting and by the credit-exposure endpoint.
+    // Outstanding = sum of receivable-account debits (invoices) minus credits (credit notes /
+    // sales returns) across all posted invoice journal entries, minus all reconciled amounts.
+    internal async Task<decimal> GetPartnerOutstandingAsync(Guid companyId, Guid partnerId)
+    {
+        var receivableAccountId = await GetReceivableAccountIdAsync(companyId, partnerId);
+        if (receivableAccountId == Guid.Empty) return 0m;
+
+        // All posted invoices for this partner
+        var postedInvoices = await _db.Invoices.AsNoTracking()
+            .Where(i => i.CompanyId == companyId && i.PartnerId == partnerId && i.State == InvoiceState.Posted)
+            .Select(i => new { i.Id, i.JournalEntryId })
+            .ToListAsync();
+
+        if (postedInvoices.Count == 0) return 0m;
+
+        var journalEntryIds = postedInvoices
+            .Where(i => i.JournalEntryId.HasValue)
+            .Select(i => i.JournalEntryId!.Value)
+            .ToList();
+
+        // Net receivable = sum(Debit) - sum(Credit) on the receivable account across all
+        // posted invoice journal entries for this partner.
+        var netReceivable = journalEntryIds.Count == 0
+            ? 0m
+            : await _db.JournalEntryLines.AsNoTracking()
+                .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.AccountId == receivableAccountId)
+                .SumAsync(l => l.Debit - l.Credit);
+
+        // Total reconciled across all those invoices (payments, applied credit notes, etc.)
+        var invoiceIds = postedInvoices.Select(i => i.Id).ToList();
+        var totalReconciled = await _db.Reconciliations.AsNoTracking()
+            .Where(r => r.InvoiceId.HasValue && invoiceIds.Contains(r.InvoiceId.Value))
+            .SumAsync(r => r.Amount);
+
+        return netReceivable - totalReconciled;
+    }
+
+    [HttpGet("partner/{partnerId:guid}/credit-exposure")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<CreditExposureResponse>> CreditExposure(Guid companyId, Guid partnerId)
+    {
+        var partner = await _db.Partners.AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
+        if (partner is null) return NotFound();
+
+        var outstanding = await GetPartnerOutstandingAsync(companyId, partnerId);
+        var available = partner.CreditLimit.HasValue
+            ? partner.CreditLimit.Value - outstanding
+            : (decimal?)null;
+
+        return Ok(new CreditExposureResponse(partner.CreditLimit, outstanding, available));
     }
 
     private static InvoiceResponse ToResponse(Invoice i) => new(

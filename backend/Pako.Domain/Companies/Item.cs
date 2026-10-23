@@ -20,6 +20,7 @@ public class Item
     public Guid CompanyId { get; set; }
     public int Code { get; set; }
     public string Name { get; set; } = string.Empty;
+    public string? Description { get; set; }
     public string Unit { get; set; } = string.Empty;
     public ItemType Type { get; set; } = ItemType.Goods;
     public Guid? DefaultTaxDefinitionId { get; set; }

@@ -24,6 +24,7 @@ interface TabsContextValue {
   closeTab: (id: string) => void;
   focusTab: (id: string) => void;
   cycleTab: (direction: 1 | -1) => void;
+  reorderTab: (fromIndex: number, toIndex: number) => void;
   setTabDirty: (id: string, dirty: boolean) => void;
   setTabTitleOverride: (id: string, title: string | null) => void;
 }
@@ -168,6 +169,18 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     [tabs, activeTabId, navigate],
   );
 
+  const reorderTab = useCallback((fromIndex: number, toIndex: number) => {
+    setTabsState((prev) => {
+      if (fromIndex === toIndex) return prev;
+      if (fromIndex < 0 || fromIndex >= prev.tabs.length) return prev;
+      if (toIndex < 0 || toIndex >= prev.tabs.length) return prev;
+      const nextTabs = [...prev.tabs];
+      const [moved] = nextTabs.splice(fromIndex, 1);
+      nextTabs.splice(toIndex, 0, moved);
+      return { ...prev, tabs: nextTabs };
+    });
+  }, []);
+
   const setTabDirty = useCallback((id: string, dirty: boolean) => {
     setDirtyMap((prev) => {
       if ((prev[id] ?? false) === dirty) return prev;
@@ -209,8 +222,8 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   }, [cycleTab, closeTab, activeTabId]);
 
   const value = useMemo(
-    () => ({ tabs, activeTabId, closeTab, focusTab, cycleTab, setTabDirty, setTabTitleOverride }),
-    [tabs, activeTabId, closeTab, focusTab, cycleTab, setTabDirty, setTabTitleOverride],
+    () => ({ tabs, activeTabId, closeTab, focusTab, cycleTab, reorderTab, setTabDirty, setTabTitleOverride }),
+    [tabs, activeTabId, closeTab, focusTab, cycleTab, reorderTab, setTabDirty, setTabTitleOverride],
   );
 
   return <TabsContext.Provider value={value}>{children}</TabsContext.Provider>;

@@ -62,40 +62,51 @@ public class AuthController : ControllerBase
         return Ok(new AuthResponse(token, user.Id, user.Email!));
     }
 
-    [HttpPost("verify-password")]
     [Authorize]
+    [HttpPost("verify-password")]
     public async Task<IActionResult> VerifyPassword(VerifyPasswordRequest request)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
-            return Unauthorized();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var valid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!valid) return Unauthorized();
 
         return Ok();
     }
 
-    [HttpPost("action-tokens")]
     [Authorize]
-    public async Task<ActionResult<ActionTokenResponse>> ActionTokens(ActionTokenRequest request)
+    [HttpPost("action-tokens")]
+    [ProducesResponseType(typeof(ActionTokenResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateActionToken(
+        [FromBody] ActionTokenRequest request,
+        [FromServices] ActionTokenService actionTokenService)
     {
-        var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return Unauthorized();
+        var userGuid = Guid.Parse(userId);
 
-        if (_actionTokenService.IsRateLimited(userId))
-            return StatusCode(StatusCodes.Status429TooManyRequests);
-
-        var user = await _userManager.FindByIdAsync(userId.ToString());
-        if (user is null || !await _userManager.CheckPasswordAsync(user, request.Password))
+        if (actionTokenService.IsRateLimited(userGuid))
         {
-            _actionTokenService.RecordFailedAttempt(userId);
+            return StatusCode(StatusCodes.Status429TooManyRequests,
+                _localizer["TooManyFailedAttempts"].Value);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var valid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!valid)
+        {
+            actionTokenService.RecordFailedAttempt(userGuid);
             return Unauthorized();
         }
 
-        _actionTokenService.ResetFailedAttempts(userId);
-
-        if (!Guid.TryParse(request.CompanyId, out var companyId))
-            return BadRequest("Invalid CompanyId");
-
-        var (token, expiresAt) = _actionTokenService.GenerateToken(userId, companyId, request.Action);
+        actionTokenService.ResetFailedAttempts(userGuid);
+        var (token, expiresAt) = actionTokenService.GenerateToken(userGuid, request.CompanyId, request.Action);
         return Ok(new ActionTokenResponse(token, expiresAt));
     }
 }

@@ -1140,10 +1140,15 @@ export class PakoApiClient {
     }
 
     /**
+     * @param includeArchived (optional) 
      * @return OK
      */
-    companiesAll(): Promise<CompanyResponse[]> {
-        let url_ = this.baseUrl + "/api/companies";
+    companiesAll(includeArchived: boolean | undefined): Promise<CompanyResponse[]> {
+        let url_ = this.baseUrl + "/api/companies?";
+        if (includeArchived === null)
+            throw new globalThis.Error("The parameter 'includeArchived' cannot be null.");
+        else if (includeArchived !== undefined)
+            url_ += "includeArchived=" + encodeURIComponent("" + includeArchived) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -1202,6 +1207,84 @@ export class PakoApiClient {
     }
 
     protected processProfile(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    archive(companyId: string): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/archive";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processArchive(_response);
+        });
+    }
+
+    protected processArchive(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    unarchive(companyId: string): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/unarchive";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUnarchive(_response);
+        });
+    }
+
+    protected processUnarchive(response: Response): Promise<CompanyResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -3088,6 +3171,48 @@ export class PakoApiClient {
     }
 
     /**
+     * @return OK
+     */
+    creditExposure(companyId: string, partnerId: string): Promise<CreditExposureResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/partner/{partnerId}/credit-exposure";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (partnerId === undefined || partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' must be defined.");
+        url_ = url_.replace("{partnerId}", encodeURIComponent("" + partnerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreditExposure(_response);
+        });
+    }
+
+    protected processCreditExposure(response: Response): Promise<CreditExposureResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CreditExposureResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CreditExposureResponse>(null as any);
+    }
+
+    /**
      * @param page (optional) 
      * @param pageSize (optional) 
      * @param search (optional) 
@@ -3405,9 +3530,10 @@ export class PakoApiClient {
     }
 
     /**
+     * @param x_Action_Token (optional) 
      * @return Created
      */
-    journalEntries(companyId: string, body: CreateJournalEntryRequest): Promise<JournalEntryResponse> {
+    journalEntries(companyId: string, x_Action_Token: string | undefined, body: CreateJournalEntryRequest): Promise<JournalEntryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/journal-entries";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -3420,6 +3546,7 @@ export class PakoApiClient {
             body: content_,
             method: "POST",
             headers: {
+                "X-Action-Token": x_Action_Token !== undefined && x_Action_Token !== null ? "" + x_Action_Token : "",
                 "Content-Type": "application/json",
                 "Accept": "application/json"
             }
@@ -7136,15 +7263,13 @@ export interface CompanyResponse {
     saleLockDate: string | undefined;
     purchaseLockDate: string | undefined;
     hardLockDate: string | undefined;
-    functionalCurrency: string;
     tradingName: string | undefined;
-    legalForm: number | undefined;
-    businessActivity: string | undefined;
-    description: string | undefined;
     businessNumber: string | undefined;
     fiscalNumber: string | undefined;
     vatNumber: string | undefined;
-    vatRegistrationDate: string | undefined;
+    legalForm: number | undefined;
+    businessActivity: string | undefined;
+    description: string | undefined;
     country: string | undefined;
     municipality: string | undefined;
     streetAddress: string | undefined;
@@ -7159,7 +7284,10 @@ export interface CompanyResponse {
     swiftBic: string | undefined;
     documentFooter: string | undefined;
     paymentInstructions: string | undefined;
+    vatRegistrationDate: string | undefined;
+    functionalCurrency: string;
     isArchived: boolean;
+    archivedAt: string | undefined;
 
     [key: string]: any;
 }
@@ -7269,6 +7397,7 @@ export interface CreateInvoiceRequest {
     paymentTermDays?: number | undefined;
     graceDays?: number | undefined;
     payment?: CreateInvoicePaymentRequest | undefined;
+    internalNotes?: string | undefined;
 
     [key: string]: any;
 }
@@ -7282,6 +7411,7 @@ export interface CreateItemRequest {
     defaultExpenseAccountId?: string | undefined;
     defaultInventoryAccountId?: string | undefined;
     defaultUnitPrice?: number | undefined;
+    description?: string | undefined;
 
     [key: string]: any;
 }
@@ -7293,6 +7423,8 @@ export interface CreateJournalEntryLineRequest {
     credit: number;
     description: string | undefined;
     analyticDistribution?: { [key: string]: number; } | undefined;
+    projectId?: string | undefined;
+    employeeId?: string | undefined;
 
     [key: string]: any;
 }
@@ -7302,6 +7434,7 @@ export interface CreateJournalEntryRequest {
     date: string;
     reference: string | undefined;
     lines: CreateJournalEntryLineRequest[];
+    remarks?: string | undefined;
 
     [key: string]: any;
 }
@@ -7366,6 +7499,14 @@ export interface CreateReconciliationRequest {
     billId: string | undefined;
     journalEntryLineId: string;
     amount: number;
+
+    [key: string]: any;
+}
+
+export interface CreditExposureResponse {
+    creditLimit: number | undefined;
+    outstandingBalance: number;
+    availableCredit: number | undefined;
 
     [key: string]: any;
 }
@@ -7591,6 +7732,7 @@ export interface ItemResponse {
     id: string;
     code: number;
     name: string;
+    description: string | undefined;
     unit: string;
     type: number;
     defaultTaxDefinitionId: string | undefined;
@@ -7611,6 +7753,8 @@ export interface JournalEntryLineResponse {
     credit: number;
     description: string | undefined;
     analyticDistribution: { [key: string]: number; } | undefined;
+    projectId: string | undefined;
+    employeeId: string | undefined;
 
     [key: string]: any;
 }
@@ -7620,6 +7764,7 @@ export interface JournalEntryResponse {
     journalId: string;
     date: string;
     reference: string | undefined;
+    remarks: string | undefined;
     state: string;
     sequenceNumber: string | undefined;
     postedAtUtc: string | undefined;
@@ -8282,15 +8427,14 @@ export interface UpdateBillRequest {
 }
 
 export interface UpdateCompanyProfileRequest {
-    name: string;
+    name?: string | undefined;
     tradingName?: string | undefined;
-    legalForm?: number | undefined;
-    businessActivity?: string | undefined;
-    description?: string | undefined;
     businessNumber?: string | undefined;
     fiscalNumber?: string | undefined;
     vatNumber?: string | undefined;
-    vatRegistrationDate?: string | undefined;
+    legalForm?: number | undefined;
+    businessActivity?: string | undefined;
+    description?: string | undefined;
     country?: string | undefined;
     municipality?: string | undefined;
     streetAddress?: string | undefined;
@@ -8305,6 +8449,8 @@ export interface UpdateCompanyProfileRequest {
     swiftBic?: string | undefined;
     documentFooter?: string | undefined;
     paymentInstructions?: string | undefined;
+    isVatRegistered?: boolean | undefined;
+    vatRegistrationDate?: string | undefined;
 
     [key: string]: any;
 }
@@ -8330,6 +8476,7 @@ export interface UpdateItemRequest {
     defaultExpenseAccountId?: string | undefined;
     defaultInventoryAccountId?: string | undefined;
     defaultUnitPrice?: number | undefined;
+    description?: string | undefined;
 
     [key: string]: any;
 }

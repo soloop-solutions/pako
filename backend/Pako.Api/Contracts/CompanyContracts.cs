@@ -14,25 +14,54 @@ public record CompanyResponse(
     Guid Id, string Name, Guid? FirmId, DateOnly? AccountingLockDate, DateOnly? TaxLockDate,
     CompanyProfile EnabledProfiles, bool IsVatRegistered, bool AllowNumberOverride,
     DateOnly? SaleLockDate, DateOnly? PurchaseLockDate, DateOnly? HardLockDate,
-    string FunctionalCurrency,
-    string? TradingName, int? LegalForm, string? BusinessActivity, string? Description,
-    string? BusinessNumber, string? FiscalNumber, string? VatNumber, DateOnly? VatRegistrationDate,
+    // Profile
+    string? TradingName, string? BusinessNumber, string? FiscalNumber, string? VatNumber,
+    int? LegalForm, string? BusinessActivity, string? Description,
+    // Address
     string? Country, string? Municipality, string? StreetAddress, string? PostalCode, string? AddressLine2,
+    // Contact
     string? Email, string? Phone, string? Website,
+    // Banking
     string? BankName, string? BankAccountHolder, string? Iban, string? SwiftBic,
+    // Document
     string? DocumentFooter, string? PaymentInstructions,
-    bool IsArchived);
+    // Tax
+    DateOnly? VatRegistrationDate,
+    string FunctionalCurrency,
+    // Archive
+    bool IsArchived,
+    DateTime? ArchivedAt);
 
 public record UpdateCompanyProfileRequest(
-    string Name,
-    string? TradingName = null, int? LegalForm = null, string? BusinessActivity = null,
-    string? Description = null, string? BusinessNumber = null, string? FiscalNumber = null,
-    string? VatNumber = null, string? VatRegistrationDate = null,
-    string? Country = null, string? Municipality = null, string? StreetAddress = null,
-    string? PostalCode = null, string? AddressLine2 = null,
-    string? Email = null, string? Phone = null, string? Website = null,
-    string? BankName = null, string? BankAccountHolder = null, string? Iban = null,
-    string? SwiftBic = null, string? DocumentFooter = null, string? PaymentInstructions = null);
+    string? Name = null,
+    string? TradingName = null,
+    string? BusinessNumber = null,
+    string? FiscalNumber = null,
+    string? VatNumber = null,
+    int? LegalForm = null,
+    string? BusinessActivity = null,
+    string? Description = null,
+    // Address
+    string? Country = null,
+    string? Municipality = null,
+    string? StreetAddress = null,
+    string? PostalCode = null,
+    string? AddressLine2 = null,
+    // Contact
+    string? Email = null,
+    string? Phone = null,
+    string? Website = null,
+    // Banking
+    string? BankName = null,
+    string? BankAccountHolder = null,
+    string? Iban = null,
+    string? SwiftBic = null,
+    // Document
+    string? DocumentFooter = null,
+    string? PaymentInstructions = null,
+    // Tax
+    bool? IsVatRegistered = null,
+    DateOnly? VatRegistrationDate = null);
 
 // B4: LockDateField excludes HardLockDate by construction — the same enum backs both "which soft
 // lock to set" and "which soft lock this exception is for", so a hard-lock exception is

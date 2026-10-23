@@ -1,5 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  closestCenter,
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  horizontalListSortingStrategy,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useLocation, useNavigate } from "react-router-dom";
 
@@ -14,19 +30,177 @@ function tabTitle(tab: ResolvedTab, intl: ReturnType<typeof useIntl>): string {
   return tab.path;
 }
 
+/* ────────────── Sortable tab button ────────────── */
+
+function SortableTab({
+  tab,
+  isActive,
+  isDragActive,
+  intl,
+  onFocus,
+  onClose,
+}: {
+  tab: ResolvedTab;
+  isActive: boolean;
+  isDragActive: boolean;
+  intl: ReturnType<typeof useIntl>;
+  onFocus: () => void;
+  onClose: () => void;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 20 : undefined,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  const Icon = tab.icon;
+  const title = tabTitle(tab, intl);
+
+  return (
+    <button
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      type="button"
+      onClick={() => {
+        if (!isDragActive) onFocus();
+      }}
+      onAuxClick={(event) => {
+        if (event.button === 1) {
+          event.preventDefault();
+          onClose();
+        }
+      }}
+      className={cn(
+        "group flex h-9 max-w-52 min-w-32 shrink-0 cursor-grab items-center gap-1.5 border-r px-2.5 text-[12.5px] select-none",
+        isDragging && "cursor-grabbing shadow-lg",
+        isActive
+          ? "bg-card font-medium text-foreground shadow-[inset_0_2px_0_var(--primary)]"
+          : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
+      )}
+      title={title}
+    >
+      <Icon className="size-3.5 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-left">{title}</span>
+      {tab.dirty && (
+        <span
+          aria-label={intl.formatMessage({ id: "shell.tabs.unsaved" })}
+          className="size-1.5 shrink-0 rounded-full bg-warning-foreground"
+        />
+      )}
+      <span
+        role="button"
+        tabIndex={-1}
+        aria-label={intl.formatMessage({ id: "shell.tabs.close" })}
+        onClick={(event) => {
+          event.stopPropagation();
+          onClose();
+        }}
+        className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-accent-foreground group-hover:opacity-100"
+      >
+        <X className="size-3" />
+      </span>
+    </button>
+  );
+}
+
+/* ────────────── Scroll arrow button ────────────── */
+
+function ScrollArrow({
+  direction,
+  visible,
+  onClick,
+}: {
+  direction: "left" | "right";
+  visible: boolean;
+  onClick: () => void;
+}) {
+  if (!visible) return null;
+  const Icon = direction === "left" ? ChevronLeft : ChevronRight;
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "z-10 flex h-9 w-6 shrink-0 items-center justify-center bg-secondary text-muted-foreground hover:text-foreground",
+        direction === "left" && "border-r",
+        direction === "right" && "border-l",
+      )}
+      aria-label={`Scroll tabs ${direction}`}
+    >
+      <Icon className="size-3.5" />
+    </button>
+  );
+}
+
+/* ────────────── TabStrip ────────────── */
+
 export function TabStrip() {
   const intl = useIntl();
   const navigate = useNavigate();
   const location = useLocation();
-  const { tabs, activeTabId, closeTab, focusTab } = useTabs();
-  // "+" at the end of the strip: SHELL_SPEC §2 doesn't say what it opens. Simplest reasonable
-  // behaviour — a quick-open search over every destination — chosen over e.g. a blank new-tab
-  // page, since there is no "blank tab" concept in this app (every tab is a real route).
+  const { tabs, activeTabId, closeTab, focusTab, reorderTab } = useTabs();
+
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickOpenAnchor, setQuickOpenAnchor] = useState<DOMRect | null>(null);
   const [query, setQuery] = useState("");
   const quickOpenRef = useRef<HTMLDivElement>(null);
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  // Check overflow state
+  const updateScrollState = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) {
+      setCanScrollLeft(false);
+      setCanScrollRight(false);
+      return;
+    }
+    setCanScrollLeft(el.scrollLeft > 1);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 1);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    updateScrollState();
+    el.addEventListener("scroll", updateScrollState, { passive: true });
+    const ro = new ResizeObserver(updateScrollState);
+    ro.observe(el);
+    return () => {
+      el.removeEventListener("scroll", updateScrollState);
+      ro.disconnect();
+    };
+  }, [updateScrollState, tabs.length]);
+
+  // Horizontal wheel scrolling on the tab strip
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    function handleWheel(e: WheelEvent) {
+      if (!el) return;
+      // If there's horizontal overflow, redirect vertical scroll to horizontal
+      if (el.scrollWidth > el.clientWidth) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY || e.deltaX;
+      }
+    }
+    el.addEventListener("wheel", handleWheel, { passive: false });
+    return () => el.removeEventListener("wheel", handleWheel);
+  }, [tabs.length]);
+
+  const scrollBy = useCallback((amount: number) => {
+    scrollRef.current?.scrollBy({ left: amount, behavior: "smooth" });
+  }, []);
+
+  // Quick-open popup close handlers
   useEffect(() => {
     if (!quickOpen) return;
     function handleClick(event: MouseEvent) {
@@ -37,9 +211,6 @@ export function TabStrip() {
     function handleKeydown(event: KeyboardEvent) {
       if (event.key === "Escape") setQuickOpen(false);
     }
-    // Position is captured once from the trigger's bounding rect at open time; close on
-    // scroll/resize rather than tracking it live, same reasoning as the sidebar's customize
-    // panel. `scroll` needs capture: true since it doesn't bubble and the strip itself scrolls.
     function handleReposition() {
       setQuickOpen(false);
     }
@@ -59,62 +230,96 @@ export function TabStrip() {
     ? navItems.filter((item) => intl.formatMessage({ id: item.titleKey }).toLowerCase().includes(query.trim().toLowerCase()))
     : navItems;
 
+  // dnd-kit sensors
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  const handleDragStart = useCallback(() => {
+    setIsDragActive(true);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      setIsDragActive(false);
+      const { active, over } = event;
+      if (!over || active.id === over.id) return;
+      const oldIndex = tabs.findIndex((t) => t.id === active.id);
+      const newIndex = tabs.findIndex((t) => t.id === over.id);
+      if (oldIndex !== -1 && newIndex !== -1) {
+        reorderTab(oldIndex, newIndex);
+      }
+    },
+    [tabs, reorderTab],
+  );
+
+  // Auto-scroll while dragging near edges
+  const dragAutoScrollRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!isDragActive) {
+      if (dragAutoScrollRef.current) {
+        cancelAnimationFrame(dragAutoScrollRef.current);
+        dragAutoScrollRef.current = null;
+      }
+      return;
+    }
+    const el = scrollRef.current;
+    if (!el) return;
+
+    function tick(e: PointerEvent) {
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const edgeZone = 40;
+      if (e.clientX < rect.left + edgeZone) {
+        el.scrollLeft -= 6;
+      } else if (e.clientX > rect.right - edgeZone) {
+        el.scrollLeft += 6;
+      }
+    }
+    window.addEventListener("pointermove", tick);
+    return () => window.removeEventListener("pointermove", tick);
+  }, [isDragActive]);
+
   if (tabs.length === 0 && !quickOpen) return null;
 
+  const tabIds = tabs.map((t) => t.id);
+
   return (
-    // Overflow behaviour: simplest version is a horizontal scroll on the strip itself.
-    // TODO: SHELL_SPEC §2 leaves this an open decision — the alternative is a "+N" overflow
-    // menu once the strip is full, which would need measuring available width instead of
-    // relying on native scroll. Revisit if accountants routinely keep >10-12 tabs open.
-    <div className="flex h-9 shrink-0 items-stretch overflow-x-auto border-b bg-secondary">
-      <div className="flex items-stretch">
-        {tabs.map((tab) => {
-          const isActive = tab.id === activeTabId;
-          const Icon = tab.icon;
-          const title = tabTitle(tab, intl);
-          return (
-            <button
-              key={tab.id}
-              type="button"
-              onClick={() => focusTab(tab.id)}
-              onAuxClick={(event) => {
-                if (event.button === 1) {
-                  event.preventDefault();
-                  closeTab(tab.id);
-                }
-              }}
-              className={cn(
-                "group flex h-9 max-w-52 min-w-32 shrink-0 items-center gap-1.5 border-r px-2.5 text-[12.5px]",
-                isActive
-                  ? "bg-card font-medium text-foreground shadow-[inset_0_2px_0_var(--primary)]"
-                  : "text-muted-foreground hover:bg-card/60 hover:text-foreground",
-              )}
-              title={title}
-            >
-              <Icon className="size-3.5 shrink-0" />
-              <span className="min-w-0 flex-1 truncate text-left">{title}</span>
-              {tab.dirty && (
-                <span
-                  aria-label={intl.formatMessage({ id: "shell.tabs.unsaved" })}
-                  className="size-1.5 shrink-0 rounded-full bg-warning-foreground"
+    <div className="flex h-9 shrink-0 items-stretch border-b bg-secondary">
+      <ScrollArrow direction="left" visible={canScrollLeft} onClick={() => scrollBy(-200)} />
+
+      <div
+        ref={scrollRef}
+        className="flex flex-1 items-stretch overflow-x-auto"
+        style={{ scrollbarWidth: "none" }}
+      >
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext items={tabIds} strategy={horizontalListSortingStrategy}>
+            <div className="flex items-stretch">
+              {tabs.map((tab) => (
+                <SortableTab
+                  key={tab.id}
+                  tab={tab}
+                  isActive={tab.id === activeTabId}
+                  isDragActive={isDragActive}
+                  intl={intl}
+                  onFocus={() => focusTab(tab.id)}
+                  onClose={() => closeTab(tab.id)}
                 />
-              )}
-              <span
-                role="button"
-                tabIndex={-1}
-                aria-label={intl.formatMessage({ id: "shell.tabs.close" })}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  closeTab(tab.id);
-                }}
-                className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-accent-foreground group-hover:opacity-100"
-              >
-                <X className="size-3" />
-              </span>
-            </button>
-          );
-        })}
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
+
+      <ScrollArrow direction="right" visible={canScrollRight} onClick={() => scrollBy(200)} />
+
       <div ref={quickOpenRef} className="shrink-0">
         <button
           type="button"
@@ -133,8 +338,6 @@ export function TabStrip() {
           <Plus className="size-3.5" />
         </button>
         {quickOpen && quickOpenAnchor && (
-          // Fixed, not absolute — the strip itself scrolls horizontally, which would clip an
-          // absolutely-positioned popover the same way it clips overflow generally.
           <div
             style={{ position: "fixed", top: quickOpenAnchor.bottom + 2, left: Math.max(8, quickOpenAnchor.right - 256) }}
             className="z-30 w-64 rounded-md border bg-card p-1.5 shadow-lg"

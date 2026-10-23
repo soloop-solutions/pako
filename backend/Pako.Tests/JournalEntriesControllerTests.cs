@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Api;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
@@ -18,6 +19,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
 {
     private static readonly Guid TestUserId = Guid.NewGuid();
     private readonly List<PakoDbContext> _dbContexts = new();
+    private readonly ActionTokenService _actionTokenService = new();
 
     public Task InitializeAsync() => Task.CompletedTask;
 
@@ -31,11 +33,14 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, TestUserId.ToString()) }, "TestAuth"));
 
-        return new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>())
+        return new JournalEntriesController(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };
     }
+
+    private string MakeActionToken(Guid companyId) =>
+        _actionTokenService.GenerateToken(TestUserId, companyId, "create-journal-entry").Token;
 
     private async Task<(PakoDbContext Db, Guid CompanyId, Guid JournalId, Guid AccountAId, Guid AccountBId)> SeedAsync()
     {
@@ -58,7 +63,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Create_AmountExceedingNumericCapacity_RejectedWithBadRequest()
     {
         var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
-        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
+        var controller = NewController(db);
 
         var request = new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
         {
@@ -66,7 +71,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 99999999999999999.99m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -75,7 +80,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
     public async Task Create_AmountWithinNumericCapacity_Succeeds()
     {
         var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
-        var controller = new JournalEntriesController(db, new NullStringLocalizer<ErrorMessages>());
+        var controller = NewController(db);
 
         var request = new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
         {
@@ -83,7 +88,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
         Assert.IsType<ObjectResult>(result.Result);
     }
@@ -120,7 +125,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Contains("not postable", badRequest.Value!.ToString());
@@ -142,7 +147,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Contains("control account", badRequest.Value!.ToString());
@@ -164,15 +169,17 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
         Assert.Contains("system-computed", badRequest.Value!.ToString());
     }
 
-    // 60_Posting_Rules R03 (BLOCK, Partner subledger).
+    // R03 is no longer enforced on manual entries: the Partner subledger tag on non-control
+    // accounts is informational metadata (for reports), not a hard requirement. Control accounts
+    // where partner IS mandatory are already blocked by R04.
     [Fact]
-    public async Task Create_PartnerSubledgerAccountWithNoPartnerId_Rejected()
+    public async Task Create_PartnerSubledgerNonControlAccountWithNoPartnerId_Succeeds()
     {
         var (db, companyId, journalId, _, accountBId) = await SeedAsync();
         var partnerSubledger = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1200", Name = "Receivable", AccountType = AccountType.Receivable, IsPostable = true, Subledger = SubledgerType.Partner };
@@ -186,10 +193,9 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("Partner subledger", badRequest.Value!.ToString());
+        Assert.Equal(201, ((ObjectResult)result.Result!).StatusCode);
     }
 
     [Fact]
@@ -207,7 +213,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var result = await controller.Create(companyId, request);
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
 
         Assert.Equal(201, ((ObjectResult)result.Result!).StatusCode);
     }
@@ -230,7 +236,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             new(accountBId, null, 0m, 100m, null)
         });
 
-        var created = await controller.Create(companyId, request);
+        var created = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
         var createdEntry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
         var createdLine = createdEntry.Lines.Single(l => l.AccountId == accountAId);
         Assert.NotNull(createdLine.AnalyticDistribution);
@@ -263,7 +269,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
                 {
                     new(accountAId, null, 100m, 0m, null),
                     new(accountBId, null, 0m, 100m, null)
-                }));
+                }), _actionTokenService, MakeActionToken(companyId));
             var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
 
             var posted = await controller.Post(companyId, entry.Id);
@@ -271,9 +277,11 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             numbers.Add(response.SequenceNumber!);
         }
 
-        Assert.Equal(new[] { "GEN-0001", "GEN-0002", "GEN-0003" }, numbers);
+        // Manual journal entries now use NumberSeriesService (configurable format) instead of
+        // JournalSequencer. Default pattern for JournalEntry is "URD-{seq:D6}".
+        Assert.Equal(new[] { "URD-000001", "URD-000002", "URD-000003" }, numbers);
 
-        var lastEntry = await db.JournalEntries.AsNoTracking().FirstAsync(e => e.SequenceNumber == "GEN-0003");
+        var lastEntry = await db.JournalEntries.AsNoTracking().FirstAsync(e => e.SequenceNumber == "URD-000003");
         Assert.Equal(TestUserId, lastEntry.PostedByUserId);
     }
 
@@ -289,7 +297,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             {
                 new(accountAId, null, 100m, 0m, null),
                 new(accountBId, null, 0m, 100m, null)
-            }));
+            }), _actionTokenService, MakeActionToken(companyId));
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
         await controller.Post(companyId, entry.Id);
 
@@ -328,7 +336,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             {
                 new(accountAId, null, 100m, 0m, null),
                 new(accountBId, null, 0m, 100m, null)
-            }));
+            }), _actionTokenService, MakeActionToken(companyId));
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
 
         var trackedLine = await db.JournalEntryLines.SingleAsync(l => l.JournalEntryId == entry.Id && l.AccountId == accountAId);
@@ -360,7 +368,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             {
                 new(accountAId, null, 100m, 0m, null),
                 new(accountBId, null, 0m, 100m, null)
-            }));
+            }), _actionTokenService, MakeActionToken(companyId));
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
 
         var result = await controller.Reverse(companyId, entry.Id, new ReverseJournalEntryRequest(new DateOnly(2026, 8, 27)));
@@ -383,7 +391,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
             {
                 new(accountAId, null, 100m, 0m, "Cash in"),
                 new(accountBId, null, 0m, 100m, "Capital contribution")
-            }));
+            }), _actionTokenService, MakeActionToken(companyId));
         var entry = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
 
         var result = await controller.Export(companyId, entry.Id);

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { PaymentMethodResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -16,6 +17,7 @@ type RecordPaymentFormProps = {
   paymentMethods: PaymentMethodResponse[];
   outstanding: number;
   onRecorded: () => void;
+  isRefund?: boolean;
 };
 
 export function RecordPaymentForm({
@@ -25,6 +27,7 @@ export function RecordPaymentForm({
   paymentMethods,
   outstanding,
   onRecorded,
+  isRefund = false,
 }: RecordPaymentFormProps) {
   const intl = useIntl();
   const [amount, setAmount] = useState(() => outstanding.toFixed(2));
@@ -66,9 +69,12 @@ export function RecordPaymentForm({
         await apiClient.recordPayment(companyId, documentId, body);
       }
 
+      toast.success(intl.formatMessage({ id: "toast.paymentRecorded" }));
       onRecorded();
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "recordPayment.error" })));
+      const msg = getApiErrorMessage(err, intl.formatMessage({ id: "recordPayment.error" }));
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -99,8 +105,12 @@ export function RecordPaymentForm({
           <PaymentMethodSelect id="payment-account" paymentMethods={paymentMethods} value={paymentMethodId} onChange={setPaymentMethodId} />
         </div>
         <div className="flex items-end">
-          <Button type="submit" disabled={submitting || paymentMethods.length === 0}>
-            {submitting ? intl.formatMessage({ id: "recordPayment.recording" }) : intl.formatMessage({ id: "recordPayment.recordPayment" })}
+          <Button type="submit" disabled={submitting || paymentMethods.length === 0} variant={isRefund ? "destructive" : "default"}>
+            {submitting
+              ? intl.formatMessage({ id: "recordPayment.recording" })
+              : isRefund
+                ? intl.formatMessage({ id: "payment.refund" })
+                : intl.formatMessage({ id: "recordPayment.recordPayment" })}
           </Button>
         </div>
       </div>

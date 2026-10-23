@@ -73,3 +73,39 @@ export function saveSidebarPrefs(userId: string, prefs: SidebarPrefs): void {
     // Storage unavailable — customisation just won't persist across reloads.
   }
 }
+
+// ---------------------------------------------------------------------------
+// Navigation frequency tracking — powers the "Suggested" sub-section inside
+// Favourites by surfacing the pages the user visits most often.
+// ---------------------------------------------------------------------------
+
+function navFreqKey(userId: string): string {
+  return `pako.navFreq.${userId}`;
+}
+
+/** Increments the visit counter for `path`. Call on every sidebar nav click. */
+export function recordNavigation(userId: string, path: string): void {
+  try {
+    const raw = localStorage.getItem(navFreqKey(userId));
+    const freq: Record<string, number> = raw ? JSON.parse(raw) : {};
+    freq[path] = (freq[path] ?? 0) + 1;
+    localStorage.setItem(navFreqKey(userId), JSON.stringify(freq));
+  } catch {
+    // Storage unavailable — suggestions just won't appear.
+  }
+}
+
+/** Returns the `limit` most-visited paths, most frequent first. */
+export function getTopNavPaths(userId: string, limit: number): string[] {
+  try {
+    const raw = localStorage.getItem(navFreqKey(userId));
+    if (!raw) return [];
+    const freq: Record<string, number> = JSON.parse(raw);
+    return Object.entries(freq)
+      .sort(([, a], [, b]) => b - a)
+      .slice(0, limit)
+      .map(([path]) => path);
+  } catch {
+    return [];
+  }
+}

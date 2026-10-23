@@ -154,6 +154,18 @@ public class BillsController : ControllerBase
                 return (null, 0m, BadRequest(_localizer["TaxCodeRequired"].Value));
             }
 
+            // VAT eligibility: same check as InvoicesController — see its comment.
+            if (taxDefinitionId is { } eligibilityTaxId)
+            {
+                var taxDef = await _db.TaxDefinitions.AsNoTracking()
+                    .FirstOrDefaultAsync(t => t.Id == eligibilityTaxId && t.CompanyId == companyId);
+                if (taxDef is not null && !VatEligibilityValidator.IsEligible(isVatRegistered, taxDef))
+                {
+                    var reasonKey = VatEligibilityValidator.GetIneligibilityReason(isVatRegistered, taxDef);
+                    return (null, 0m, BadRequest(_localizer[reasonKey ?? "VatCodeNotEligible_General"].Value));
+                }
+            }
+
             var expenseAccountId = line.ExpenseAccountId ?? item?.DefaultExpenseAccountId ?? defaultExpenseAccountId;
             if (!validAccountIds.Contains(expenseAccountId))
             {
@@ -550,17 +562,29 @@ public class BillsController : ControllerBase
             return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
         }
 
+        // A Purchase Return or Credit Note is a credit document — "recording a payment" against it
+        // means receiving a refund from the supplier: cash comes IN (Debit Cash) and the supplier's
+        // credit balance is cleared (Credit AP). Normal bills are the reverse: cash OUT (Credit
+        // Cash), payable cleared (Debit AP).
+        var isCreditDocument = bill.DocumentType is DocumentType.CreditNote or DocumentType.PurchaseReturn;
+
         var settlementEntry = new JournalEntry
         {
             Id = Guid.NewGuid(),
             CompanyId = company.Id,
             JournalId = journal.Id,
             Date = date,
-            Reference = $"Payment for {bill.VendorReference}",
+            Reference = isCreditDocument
+                ? $"Refund for {bill.VendorReference}"
+                : $"Payment for {bill.VendorReference}",
             Lines =
             {
-                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = payableAccountId, PartnerId = bill.PartnerId, Debit = amount, Credit = 0m },
-                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccountId, Debit = 0m, Credit = amount }
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = payableAccountId, PartnerId = bill.PartnerId,
+                    Debit = isCreditDocument ? 0m : amount,
+                    Credit = isCreditDocument ? amount : 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccountId,
+                    Debit = isCreditDocument ? amount : 0m,
+                    Credit = isCreditDocument ? 0m : amount }
             }
         };
 
@@ -621,7 +645,7 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
-        if (creditNote.DocumentType != DocumentType.CreditNote || creditNote.State != BillState.Posted)
+        if (creditNote.DocumentType is not (DocumentType.CreditNote or DocumentType.PurchaseReturn) || creditNote.State != BillState.Posted)
         {
             return BadRequest(_localizer["InvalidCreditNote"].Value);
         }
@@ -711,9 +735,18 @@ public class BillsController : ControllerBase
             }
         }
 
+        // Source documents (CreditNote/PurchaseReturn) can be reconciled two ways:
+        // (a) their control line used as a settlement line against another bill (ApplyCreditNote)
+        // (b) a cash refund reconciled directly against this document (RecordPayment)
+        // Sum both patterns to get the full reconciled amount.
+        var reconciledViaControlLine = isSourceDocument && controlLineId is { } lineId
+            ? await ReconciliationCreator.SumReconciledForLineAsync(_db, lineId)
+            : 0m;
+        var reconciledViaDocument = await _db.Reconciliations.AsNoTracking()
+            .Where(r => r.BillId == billId).SumAsync(r => r.Amount);
         var reconciled = isSourceDocument
-            ? controlLineId is { } lineId ? await ReconciliationCreator.SumReconciledForLineAsync(_db, lineId) : 0m
-            : await _db.Reconciliations.AsNoTracking().Where(r => r.BillId == billId).SumAsync(r => r.Amount);
+            ? reconciledViaControlLine + reconciledViaDocument
+            : reconciledViaDocument;
 
         return new DocumentBalanceResponse(total, reconciled, total - reconciled);
     }
@@ -827,6 +860,9 @@ public class BillsController : ControllerBase
                 return postError;
             }
 
+            AuditController.Stage(_db, companyId, "Bill", id.ToString(), "Post",
+                CurrentUserId.ToString());
+
             await _db.SaveChangesAsync();
 
             if (transaction is not null)
@@ -903,9 +939,15 @@ public class BillsController : ControllerBase
                 }
                 PostingRuleValidator.ValidateVatNotAppliedToControlAccount(taxDef.Code, account.Code);
             }
+            catch (MissingCounterpartyTaxNumberException)
+            {
+                var partnerName = partner?.Name ?? "?";
+                if (partner?.IsVatRegistered == true)
+                    return BadRequest(string.Format(_localizer["MissingPartnerTaxNumber_R07"].Value, partnerName));
+                return BadRequest(string.Format(_localizer["MissingPartnerFiscalNumber_R07"].Value, partnerName));
+            }
             catch (Exception ex) when (
-                ex is MissingCounterpartyTaxNumberException or
-                VatDirectionAccountClassMismatchException or
+                ex is VatDirectionAccountClassMismatchException or
                 VatOnControlAccountException)
             {
                 return BadRequest(ex.Message);

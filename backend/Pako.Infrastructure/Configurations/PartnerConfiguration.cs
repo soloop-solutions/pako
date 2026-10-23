@@ -16,5 +16,9 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(p => p.IsVatRegistered).HasDefaultValue(false);
         builder.Property(p => p.CreditLimit).HasColumnType("numeric(18,2)");
         builder.HasIndex(p => p.CompanyId);
+        builder.HasIndex(p => new { p.CompanyId, p.TaxNumber })
+            .IsUnique()
+            .HasFilter("\"TaxNumber\" IS NOT NULL")
+            .HasDatabaseName("IX_partners_CompanyId_TaxNumber_Unique");
     }
 }

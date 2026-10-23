@@ -32,6 +32,7 @@ const activeCompany: CompanyResponse = {
   bankName: undefined, bankAccountHolder: undefined, iban: undefined, swiftBic: undefined,
   documentFooter: undefined, paymentInstructions: undefined,
   isArchived: false,
+  archivedAt: undefined,
 };
 
 vi.mock("@/context/CompanyContext", () => ({

@@ -144,13 +144,15 @@ export function WithholdingTaxForm({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <Label htmlFor="wht-country">{intl.formatMessage({ id: "withholdingTax.country" })}</Label>
-          <Select id="wht-country" value={country} onChange={(e) => setCountry(e.target.value)}>
-            {countries.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="wht-country"
+            value={country}
+            onValueChange={(v) => setCountry(v)}
+            options={countries.map((c) => ({
+              value: c,
+              label: c,
+            }))}
+          />
         </div>
       </div>
 

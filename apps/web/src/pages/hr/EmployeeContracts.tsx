@@ -281,13 +281,15 @@ function ContractForm({
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="contract-type">{intl.formatMessage({ id: "hr.contract.employmentType" })}</Label>
-          <Select id="contract-type" value={employmentType} onChange={(e) => setEmploymentType(Number(e.target.value))}>
-            {employmentTypeValues.map((value) => (
-              <option key={value} value={value}>
-                {employmentTypeLabel(value, intl)}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="contract-type"
+            value={String(employmentType)}
+            onValueChange={(v) => setEmploymentType(Number(v))}
+            options={employmentTypeValues.map((value) => ({
+              value: String(value),
+              label: employmentTypeLabel(value, intl),
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="contract-hours">{intl.formatMessage({ id: "hr.contract.weeklyHours" })}</Label>

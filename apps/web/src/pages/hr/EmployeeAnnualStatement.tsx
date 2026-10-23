@@ -73,24 +73,22 @@ export function EmployeeAnnualStatement({ companyId, employeeId }: { companyId: 
           <Select
             id="statement-year"
             className="w-28"
-            value={year}
-            onChange={(e) =>
+            value={String(year)}
+            onValueChange={(v) =>
               setSearchParams(
                 (prev) => {
                   const params = new URLSearchParams(prev);
-                  params.set(YEAR_PARAM, e.target.value);
+                  params.set(YEAR_PARAM, v);
                   return params;
                 },
                 { replace: true },
               )
             }
-          >
-            {years.map((y) => (
-              <option key={y} value={y}>
-                {y}
-              </option>
-            ))}
-          </Select>
+            options={years.map((y) => ({
+              value: String(y),
+              label: String(y),
+            }))}
+          />
         </div>
         <p className="pb-1 text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.statement.hint" })}</p>
       </div>

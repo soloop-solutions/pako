@@ -4,9 +4,10 @@ import type { AccountResponse, PartnerResponse } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AccountType } from "@/lib/ledger-enums";
 
 export interface PartnerRegisterFormFields {
@@ -30,8 +31,11 @@ export interface PartnerRegisterFormProps {
   error: string | null;
   onSubmit: (fields: PartnerRegisterFormFields) => void;
   onCancel?: () => void;
+  /** Pre-select a role when creating from the Customers or Vendors page. */
   defaultRole?: "customer" | "vendor";
+  /** Label override for the submit button in create mode. */
   createButtonLabelKey?: string;
+  /** Called when form dirty state changes (for unsaved-changes protection). */
   onDirtyChange?: (dirty: boolean) => void;
 }
 
@@ -90,48 +94,72 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
         </Alert>
       )}
 
-      {mode === "edit" && (
-        <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.realFieldsLockedHint" })}</p>
-      )}
+      {/* --- Role & tax status --- */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={isCustomer} onChange={(e) => setIsCustomer(e.target.checked)} />
+          {intl.formatMessage({ id: "partners.form.isCustomer" })}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={isVendor} onChange={(e) => setIsVendor(e.target.checked)} />
+          {intl.formatMessage({ id: "partners.form.isVendor" })}
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={isVatRegistered} onChange={(e) => setIsVatRegistered(e.target.checked)} />
+          {intl.formatMessage({ id: "partnerForm.vatRegistered" })}
+        </label>
+      </div>
 
+      {/* --- Identity --- */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="partner-name">{intl.formatMessage({ id: "partners.form.name" })}</Label>
-          <Input id="partner-name" required disabled={mode === "edit"} value={name} onChange={(e) => setName(e.target.value)} />
+          <Label htmlFor="partner-name">
+            {intl.formatMessage({ id: "partners.form.name" })} <span className="text-destructive">*</span>
+          </Label>
+          <Input id="partner-name" required value={name} onChange={(e) => setName(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.taxNumber" })}</Label>
-          <Input id="partner-tax-number" disabled={mode === "edit"} value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+          <Input id="partner-tax-number" value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="partner-fiscal-number">{intl.formatMessage({ id: "partners.form.fiscalNumber" })}</Label>
-          <Input id="partner-fiscal-number" disabled={mode === "edit"} value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
+          <Input id="partner-fiscal-number" value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
         </div>
+      </div>
 
+      {/* --- Accounting --- */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {isCustomer && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="partner-receivable-account">{intl.formatMessage({ id: "partners.form.receivableAccount" })}</Label>
-            <Select id="partner-receivable-account" value={receivableAccountId} onChange={(e) => setReceivableAccountId(e.target.value)}>
-              <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-              {receivableAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} — {a.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              id="partner-receivable-account"
+              value={receivableAccountId}
+              onChange={setReceivableAccountId}
+              placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+              options={receivableAccounts.map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` }))}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.receivableAccountHint" })}</p>
           </div>
         )}
         {isVendor && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="partner-payable-account">{intl.formatMessage({ id: "partners.form.payableAccount" })}</Label>
-            <Select id="partner-payable-account" value={payableAccountId} onChange={(e) => setPayableAccountId(e.target.value)}>
-              <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-              {payableAccounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.code} — {a.name}
-                </option>
-              ))}
-            </Select>
+            <SearchableSelect
+              id="partner-payable-account"
+              value={payableAccountId}
+              onChange={setPayableAccountId}
+              placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+              options={payableAccounts.map((a) => ({ value: a.id, label: `${a.code} · ${a.name}` }))}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.payableAccountHint" })}</p>
           </div>
         )}
         <div className="flex flex-col gap-1">
@@ -161,21 +189,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" disabled={mode === "edit"} checked={isCustomer} onChange={(e) => setIsCustomer(e.target.checked)} />
-          {intl.formatMessage({ id: "partners.form.isCustomer" })}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" disabled={mode === "edit"} checked={isVendor} onChange={(e) => setIsVendor(e.target.checked)} />
-          {intl.formatMessage({ id: "partners.form.isVendor" })}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" disabled={mode === "edit"} checked={isVatRegistered} onChange={(e) => setIsVatRegistered(e.target.checked)} />
-          {intl.formatMessage({ id: "partnerForm.vatRegistered" })}
-        </label>
-      </div>
-
+      {/* --- Actions --- */}
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={submitting || !name.trim() || (!isCustomer && !isVendor)}>
           {submitting

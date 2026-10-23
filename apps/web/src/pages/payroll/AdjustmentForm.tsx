@@ -95,24 +95,28 @@ export function AdjustmentForm({ employees, period, initial, submitting = false,
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="flex flex-col gap-1.5 lg:col-span-2">
           <Label htmlFor={`${idPrefix}-employee`}>{intl.formatMessage({ id: "payroll.adjustment.employee" })}</Label>
-          <Select id={`${idPrefix}-employee`} value={employeeId} onChange={(event) => setEmployeeId(event.target.value)}>
-            <option value="">{intl.formatMessage({ id: "payroll.adjustment.selectEmployee" })}</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.name}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id={`${idPrefix}-employee`}
+            value={employeeId}
+            onValueChange={(v) => setEmployeeId(v)}
+            placeholder={intl.formatMessage({ id: "payroll.adjustment.selectEmployee" })}
+            options={employees.map((employee) => ({
+              value: employee.id,
+              label: employee.name,
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`${idPrefix}-kind`}>{intl.formatMessage({ id: "payroll.adjustment.kind" })}</Label>
-          <Select id={`${idPrefix}-kind`} value={String(kind)} onChange={(event) => setKind(Number(event.target.value))}>
-            {PAYROLL_ADJUSTMENT_KINDS.map((value) => (
-              <option key={value} value={value}>
-                {payrollAdjustmentKindLabel(value, intl)}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id={`${idPrefix}-kind`}
+            value={String(kind)}
+            onValueChange={(v) => setKind(Number(v))}
+            options={PAYROLL_ADJUSTMENT_KINDS.map((value) => ({
+              value: String(value),
+              label: payrollAdjustmentKindLabel(value, intl),
+            }))}
+          />
         </div>
         {hourBased ? (
           <>
