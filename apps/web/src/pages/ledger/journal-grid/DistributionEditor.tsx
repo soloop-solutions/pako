@@ -1,3 +1,4 @@
+import * as Popover from "@radix-ui/react-popover";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
@@ -24,6 +25,9 @@ interface DistributionEditorProps {
 // key handler at all. Escape is the one key this component does own, to close itself; it stops
 // propagation so the grid's cell-level Escape handling (which reverts a text draft) never also
 // fires for a keypress that was actually meant for the popover.
+//
+// Renders as a Radix Popover.Content inside a portal so it escapes the grid's overflow-x-auto
+// container and benefits from Radix's collision-aware positioning.
 export function DistributionEditor({ allocations, options, onChange, onAddId, onClose }: DistributionEditorProps) {
   const intl = useIntl();
   const sumUnits = sumAllocationUnits(allocations);
@@ -44,81 +48,87 @@ export function DistributionEditor({ allocations, options, onChange, onAddId, on
   }
 
   return (
-    <div
-      className="absolute right-0 top-full z-30 mt-1 w-80 rounded-md border bg-popover p-3 text-xs shadow-md"
-      onKeyDown={(event) => {
-        if (event.key === "Escape") {
-          event.stopPropagation();
-          onClose();
-        }
-      }}
-    >
-      <p className="mb-2 font-medium">{intl.formatMessage({ id: "journalGrid.distributionTitle" })}</p>
+    <Popover.Portal>
+      <Popover.Content
+        side="bottom"
+        align="end"
+        sideOffset={4}
+        collisionPadding={8}
+        className="z-50 w-80 max-w-[calc(100vw-1rem)] rounded-md border bg-popover p-3 text-xs shadow-md"
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            event.stopPropagation();
+            onClose();
+          }
+        }}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
+        <p className="mb-2 font-medium">{intl.formatMessage({ id: "journalGrid.distributionTitle" })}</p>
 
-      {allocations.length === 0 ? (
-        <p className="text-muted-foreground">{intl.formatMessage({ id: "journalGrid.distributionEmpty" })}</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {allocations.map((allocation, index) => (
-            <div key={allocation.id} className="flex items-center gap-1.5">
-              <Select
-                aria-label={intl.formatMessage({ id: "journalGrid.distributionCostCenterLabel" })}
-                value={allocation.costCenterId}
-                onChange={(event) => {
-                  const selected = options.find((option) => option.id === event.target.value);
-                  update(index, { costCenterId: event.target.value, costCenterLabel: selected ? optionLabel(selected) : "" });
-                }}
-                className="h-7 flex-1 px-2 py-0 text-xs"
-              >
-                <option value="">{intl.formatMessage({ id: "journalGrid.distributionCostCenterPlaceholder" })}</option>
-                {options.map((option) => (
-                  <option key={option.id} value={option.id}>
-                    {optionLabel(option)}
-                  </option>
-                ))}
-              </Select>
-              <Input
-                aria-label={intl.formatMessage({ id: "journalGrid.distributionPercentageLabel" })}
-                type="text"
-                inputMode="decimal"
-                value={allocation.percentage}
-                onChange={(event) => update(index, { percentage: event.target.value })}
-                className="h-7 w-16 px-1.5 py-0 text-right tabular-nums"
-              />
-              <span className="text-muted-foreground">%</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="h-7 px-1.5"
-                onClick={() => remove(index)}
-                aria-label={intl.formatMessage({ id: "journalGrid.distributionRemove" })}
-              >
-                ×
-              </Button>
-            </div>
-          ))}
+        {allocations.length === 0 ? (
+          <p className="text-muted-foreground">{intl.formatMessage({ id: "journalGrid.distributionEmpty" })}</p>
+        ) : (
+          <div className="flex max-h-48 flex-col gap-2 overflow-y-auto">
+            {allocations.map((allocation, index) => (
+              <div key={allocation.id} className="flex items-center gap-1.5">
+                <Select
+                  aria-label={intl.formatMessage({ id: "journalGrid.distributionCostCenterLabel" })}
+                  value={allocation.costCenterId}
+                  onValueChange={(v) => {
+                    const selected = options.find((option) => option.id === v);
+                    update(index, { costCenterId: v, costCenterLabel: selected ? optionLabel(selected) : "" });
+                  }}
+                  placeholder={intl.formatMessage({ id: "journalGrid.distributionCostCenterPlaceholder" })}
+                  className="h-7 min-w-0 flex-1 text-xs"
+                  options={options.map((option) => ({
+                    value: option.id,
+                    label: optionLabel(option),
+                  }))}
+                />
+                <Input
+                  aria-label={intl.formatMessage({ id: "journalGrid.distributionPercentageLabel" })}
+                  type="text"
+                  inputMode="decimal"
+                  value={allocation.percentage}
+                  onChange={(event) => update(index, { percentage: event.target.value })}
+                  className="h-7 w-16 shrink-0 px-1.5 py-0 text-right tabular-nums"
+                />
+                <span className="shrink-0 text-muted-foreground">%</span>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 px-1.5"
+                  onClick={() => remove(index)}
+                  aria-label={intl.formatMessage({ id: "journalGrid.distributionRemove" })}
+                >
+                  ×
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-2 flex items-center justify-between gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={add}>
+            {intl.formatMessage({ id: "journalGrid.distributionAdd" })}
+          </Button>
+          <span className={cn("tabular-nums", isComplete ? "text-muted-foreground" : "text-destructive")}>
+            {intl.formatMessage({ id: "journalGrid.distributionSum" })}: {sumDisplay}%
+          </span>
         </div>
-      )}
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={add}>
-          {intl.formatMessage({ id: "journalGrid.distributionAdd" })}
-        </Button>
-        <span className={cn("tabular-nums", isComplete ? "text-muted-foreground" : "text-destructive")}>
-          {intl.formatMessage({ id: "journalGrid.distributionSum" })}: {sumDisplay}%
-        </span>
-      </div>
+        {!isComplete && (
+          <p className="mt-1 text-destructive">{intl.formatMessage({ id: "journalGrid.distributionMustEqual100" })}</p>
+        )}
 
-      {!isComplete && (
-        <p className="mt-1 text-destructive">{intl.formatMessage({ id: "journalGrid.distributionMustEqual100" })}</p>
-      )}
-
-      <div className="mt-2 flex justify-end">
-        <Button type="button" size="sm" onClick={onClose}>
-          {intl.formatMessage({ id: "journalGrid.distributionDone" })}
-        </Button>
-      </div>
-    </div>
+        <div className="mt-2 flex justify-end">
+          <Button type="button" size="sm" onClick={onClose}>
+            {intl.formatMessage({ id: "journalGrid.distributionDone" })}
+          </Button>
+        </div>
+      </Popover.Content>
+    </Popover.Portal>
   );
 }

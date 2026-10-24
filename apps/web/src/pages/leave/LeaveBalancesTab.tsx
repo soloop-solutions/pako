@@ -183,13 +183,16 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="leave-balances-year">{intl.formatMessage({ id: "leave.field.year" })}</Label>
-            <Select id="leave-balances-year" className="w-28" value={String(year)} onChange={(e) => setParam("year", e.target.value)}>
-              {yearOptions(year).map((y) => (
-                <option key={y} value={y}>
-                  {y}
-                </option>
-              ))}
-            </Select>
+            <Select
+              id="leave-balances-year"
+              className="w-28"
+              value={String(year)}
+              onValueChange={(v) => setParam("year", v)}
+              options={yearOptions(year).map((y) => ({
+                value: String(y),
+                label: String(y),
+              }))}
+            />
           </div>
           <EmployeeFilter value={employeeFilter} onChange={(v) => setParam("employee", v)} employees={employeesQuery.data ?? []} />
         </div>
@@ -286,25 +289,29 @@ function SetAllocationForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-alloc-employee">{intl.formatMessage({ id: "leave.field.employee" })}</Label>
-              <Select id="leave-alloc-employee" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-                <option value="">{intl.formatMessage({ id: "leave.form.selectEmployee" })}</option>
-                {employees.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                id="leave-alloc-employee"
+                value={employeeId}
+                onValueChange={(v) => setEmployeeId(v)}
+                placeholder={intl.formatMessage({ id: "leave.form.selectEmployee" })}
+                options={employees.map((e) => ({
+                  value: e.id,
+                  label: e.name,
+                }))}
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-alloc-type">{intl.formatMessage({ id: "leave.field.type" })}</Label>
-              <Select id="leave-alloc-type" value={leaveTypeId} onChange={(e) => setLeaveTypeId(e.target.value)}>
-                <option value="">{intl.formatMessage({ id: "leave.form.selectType" })}</option>
-                {leaveTypes.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.code} — {t.name}
-                  </option>
-                ))}
-              </Select>
+              <Select
+                id="leave-alloc-type"
+                value={leaveTypeId}
+                onValueChange={(v) => setLeaveTypeId(v)}
+                placeholder={intl.formatMessage({ id: "leave.form.selectType" })}
+                options={leaveTypes.map((t) => ({
+                  value: t.id,
+                  label: `${t.code} — ${t.name}`,
+                }))}
+              />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-alloc-days">{intl.formatMessage({ id: "leave.field.allocatedDays" })}</Label>

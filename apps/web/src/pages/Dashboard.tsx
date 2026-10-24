@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
+import { useNavigate } from "react-router-dom";
+import { Building2 } from "lucide-react";
 import type { TrialBalanceLine } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 
 export function Dashboard() {
   const intl = useIntl();
-  const { activeCompany } = useCompany();
+  const navigate = useNavigate();
+  const { activeCompany, companies, loading } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
   const [trialBalance, setTrialBalance] = useState<TrialBalanceLine[]>([]);
@@ -30,15 +34,34 @@ export function Dashboard() {
   }, [refresh]);
 
   if (!activeCompany) {
+    // Still loading companies — show nothing to avoid a flash
+    if (loading) return null;
+
+    // No companies at all — first-time user welcome
+    if (companies.length === 0) {
+      return (
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="flex max-w-md flex-col items-center gap-4 text-center">
+            <div className="flex size-16 items-center justify-center rounded-full bg-muted">
+              <Building2 className="size-8 text-muted-foreground" />
+            </div>
+            <h2 className="text-2xl font-semibold tracking-tight">{intl.formatMessage({ id: "dashboard.welcomeTitle" })}</h2>
+            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dashboard.welcomeDescription" })}</p>
+            <Button size="lg" onClick={() => navigate("/companies")}>
+              {intl.formatMessage({ id: "dashboard.createCompany" })}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
+    // Companies exist but none selected
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "dashboard.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "dashboard.description" })}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: "dashboard.noCompanyTitle" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: "dashboard.noCompanyDescription" })}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
-        </CardContent>
       </Card>
     );
   }

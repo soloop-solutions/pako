@@ -171,25 +171,31 @@ export function DepartmentForm({
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="department-parent">{intl.formatMessage({ id: "hr.department.parent" })}</Label>
-          <Select id="department-parent" disabled={readOnly} value={parentId} onChange={(e) => setParentId(e.target.value)}>
-            <option value="">{intl.formatMessage({ id: "hr.department.noParent" })}</option>
-            {parentOptions.map((d) => (
-              <option key={d.id} value={d.id}>
-                {d.code} — {d.name}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="department-parent"
+            disabled={readOnly}
+            value={parentId}
+            onValueChange={(v) => setParentId(v)}
+            placeholder={intl.formatMessage({ id: "hr.department.noParent" })}
+            options={parentOptions.map((d) => ({
+              value: d.id,
+              label: `${d.code} — ${d.name}`,
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="department-manager">{intl.formatMessage({ id: "hr.department.manager" })}</Label>
-          <Select id="department-manager" disabled={readOnly} value={managerEmployeeId} onChange={(e) => setManagerEmployeeId(e.target.value)}>
-            <option value="">{intl.formatMessage({ id: "common.notSet" })}</option>
-            {employees.map((emp) => (
-              <option key={emp.id} value={emp.id}>
-                {emp.name}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="department-manager"
+            disabled={readOnly}
+            value={managerEmployeeId}
+            onValueChange={(v) => setManagerEmployeeId(v)}
+            placeholder={intl.formatMessage({ id: "common.notSet" })}
+            options={employees.map((emp) => ({
+              value: emp.id,
+              label: emp.name,
+            }))}
+          />
         </div>
       </div>
 

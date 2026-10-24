@@ -82,6 +82,7 @@ const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
   DownPayment: "enum.invoiceDocumentType.downPayment",
   SalesReturn: "enum.invoiceDocumentType.salesReturn",
   Proforma: "enum.invoiceDocumentType.proforma",
+  JournalEntry: "enum.documentType.journalEntry",
 };
 
 // Numbering settings lists series by their raw string DocumentType key (NumberSeries.DocumentType
@@ -92,4 +93,38 @@ const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
 export function numberSeriesDocumentTypeLabel(documentType: string, intl: IntlShape): string {
   const key = NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS[documentType];
   return key ? intl.formatMessage({ id: key }) : documentType;
+}
+
+// ---------------------------------------------------------------------------
+// Document state visual helpers
+// ---------------------------------------------------------------------------
+// Maps a document state string ("Draft" | "Posted" | "Cancelled") to the badge
+// variant defined in badge.tsx. The badge component already carries purpose-built
+// `draft`, `success` and `cancelled` variants with shape cues that survive
+// greyscale print (dashed border for draft, line-through for cancelled, etc.).
+export function documentStateBadgeVariant(state: string): "draft" | "success" | "cancelled" | "secondary" {
+  switch (state) {
+    case "Draft":
+      return "draft";
+    case "Posted":
+      return "success";
+    case "Cancelled":
+      return "cancelled";
+    default:
+      return "secondary";
+  }
+}
+
+// Row-level className for DataGrid's `getRowClassName` prop. Draft rows are
+// slightly muted; cancelled rows are struck through and dimmed; posted rows
+// keep the default styling.
+export function getDocumentRowClassName(state: string): string | undefined {
+  switch (state) {
+    case "Draft":
+      return "text-muted-foreground";
+    case "Cancelled":
+      return "line-through opacity-60";
+    default:
+      return undefined;
+  }
 }

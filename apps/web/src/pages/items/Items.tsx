@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 import { itemTypeLabel } from "@/lib/item-types";
@@ -24,9 +25,12 @@ export function Items() {
   const queryClient = useQueryClient();
   const urlState = useDataGridUrlState(ITEMS_GRID_ID, 50);
 
+  const [createOpen, setCreateOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [createFormKey, setCreateFormKey] = useState(0);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   const [barcodeItemId, setBarcodeItemId] = useState<string | null>(null);
   const [newBarcode, setNewBarcode] = useState("");
@@ -85,10 +89,14 @@ export function Items() {
         defaultRevenueAccountId: fields.defaultRevenueAccountId,
         defaultExpenseAccountId: fields.defaultExpenseAccountId,
         defaultInventoryAccountId: fields.defaultInventoryAccountId,
+        description: fields.description,
       });
     },
     onSuccess: async () => {
       setCreateError(null);
+      setDirty(false);
+      setCreateOpen(false);
+      setCreateFormKey((k) => k + 1);
       urlState.setPage(1);
       await refreshItems();
     },
@@ -107,10 +115,12 @@ export function Items() {
         defaultRevenueAccountId: vars.fields.defaultRevenueAccountId,
         defaultExpenseAccountId: vars.fields.defaultExpenseAccountId,
         defaultInventoryAccountId: vars.fields.defaultInventoryAccountId,
+        description: vars.fields.description,
       });
     },
     onSuccess: async () => {
       setEditError(null);
+      setDirty(false);
       setEditingId(null);
       await refreshItems();
     },
@@ -285,10 +295,11 @@ export function Items() {
             // before starting another — without this, clicking Edit on a second row while the
             // first row's form is still showing (unsaved) let the two get mixed up (see the `key`
             // prop below for the other half of this fix).
-            disabled={editingId !== null && editingId !== row.original.id}
             onClick={() => {
               setEditingId(row.original.id);
+              setCreateOpen(false);
               setEditError(null);
+              setDirty(false);
             }}
           >
             {intl.formatMessage({ id: "common.edit" })}
@@ -296,7 +307,7 @@ export function Items() {
         ),
       },
     ],
-    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts, editingId],
+    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts],
   );
 
   if (!activeCompanyId) {
@@ -314,9 +325,14 @@ export function Items() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "items.title" })}</h2>
-        <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "items.description" })}</p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "items.title" })}</h2>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "items.description" })}</p>
+        </div>
+        <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); }}>
+          {intl.formatMessage({ id: "items.addItem" })}
+        </Button>
       </div>
 
       {loadError && (
@@ -330,9 +346,15 @@ export function Items() {
         </Alert>
       )}
 
-      <div className="rounded-lg border p-4">
-        <h3 className="mb-3 font-medium">{intl.formatMessage({ id: "items.newItem" })}</h3>
+      <FormDialog
+        open={createOpen}
+        onOpenChange={(open) => { if (!open) { setCreateOpen(false); setCreateError(null); setDirty(false); } }}
+        title={intl.formatMessage({ id: "items.newItem" })}
+        size="lg"
+        dirty={dirty}
+      >
         <ItemForm
+          key={createFormKey}
           mode="create"
           taxes={taxes}
           incomeAccounts={incomeAccounts}
@@ -341,19 +363,20 @@ export function Items() {
           submitting={createMutation.isPending}
           error={createError}
           onSubmit={(fields) => createMutation.mutate(fields)}
+          onCancel={() => { setCreateOpen(false); setCreateError(null); setDirty(false); }}
+          onDirtyChange={setDirty}
         />
-      </div>
+      </FormDialog>
 
-      {editingItem && (
-        <div className="rounded-lg border p-4">
-          <h3 className="mb-3 font-medium">{intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name })}</h3>
+      <FormDialog
+        open={editingItem !== undefined}
+        onOpenChange={(open) => { if (!open) { setEditingId(null); setEditError(null); setDirty(false); } }}
+        title={editingItem ? intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name }) : ""}
+        size="lg"
+        dirty={dirty}
+      >
+        {editingItem && (
           <ItemForm
-            // Bug fix (code review): ItemForm seeds its fields from `initial` only on first
-            // mount (plain useState). Without a key tied to the item being edited, switching from
-            // editing item A to item B kept the same React element in place — it didn't remount,
-            // so it kept showing A's stale values, and saving would silently overwrite B with A's
-            // data. The `disabled` guard on the row's Edit button above closes the same gap from
-            // the other side; this key is the actual fix.
             key={editingItem.id}
             mode="edit"
             taxes={taxes}
@@ -364,13 +387,11 @@ export function Items() {
             submitting={updateMutation.isPending}
             error={editError}
             onSubmit={(fields) => updateMutation.mutate({ id: editingItem.id, fields })}
-            onCancel={() => {
-              setEditingId(null);
-              setEditError(null);
-            }}
+            onCancel={() => { setEditingId(null); setEditError(null); setDirty(false); }}
+            onDirtyChange={setDirty}
           />
-        </div>
-      )}
+        )}
+      </FormDialog>
 
       <DataGrid
         gridId={ITEMS_GRID_ID}

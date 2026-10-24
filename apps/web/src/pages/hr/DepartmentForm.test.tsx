@@ -61,9 +61,13 @@ describe("DepartmentForm permission matrix", () => {
     expect(request.permissions).toEqual({ sales: 2, purchases: 1, partners: 1, accounting: 0, reports: 1, hr: 0 });
   });
 
-  it("excludes the department itself from the parent options", () => {
+  it("excludes the department itself from the parent options", async () => {
     renderForm();
-    const parent = screen.getByLabelText("Parent department");
-    expect(parent.querySelectorAll("option")).toHaveLength(1);
+    // Open the parent-department dropdown to inspect available options.
+    fireEvent.click(screen.getByLabelText("Parent department"));
+    // The only department passed in is SALES_DEPARTMENT (the one being edited),
+    // so it must be excluded. No role="option" items should appear.
+    const options = screen.queryAllByRole("option");
+    expect(options).toHaveLength(0);
   });
 });

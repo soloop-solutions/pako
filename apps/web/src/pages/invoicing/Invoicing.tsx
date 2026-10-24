@@ -15,10 +15,12 @@ import type {
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
+import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
@@ -42,6 +44,9 @@ export function Invoicing() {
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
+  const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
+  const [customerFormOpen, setCustomerFormOpen] = useState(false);
+  const [invoiceFormKey, setInvoiceFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -127,7 +132,7 @@ export function Invoicing() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
         },
       },
       {
@@ -160,6 +165,17 @@ export function Invoicing() {
     [intl, partners, balances],
   );
 
+  const handleInvoiceCreated = useCallback(async () => {
+    setInvoiceFormOpen(false);
+    setInvoiceFormKey((k) => k + 1);
+    await refresh();
+  }, [refresh]);
+
+  const handleCustomerCreated = useCallback(async () => {
+    setCustomerFormOpen(false);
+    await refresh();
+  }, [refresh]);
+
   if (!activeCompany) {
     return (
       <Card>
@@ -182,46 +198,50 @@ export function Invoicing() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "invoicing.customers" })}</CardTitle>
-          <CardDescription>{activeCompany.name}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <PartnerForm companyId={activeCompany.id} role="customer" onCreated={refresh} />
-          {customers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.noCustomers" })}</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {customers.map((customer) => (
-                <Badge key={customer.id} variant="secondary">
-                  {customer.name}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "invoicing.title" })}</h2>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.description" })}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
+            {intl.formatMessage({ id: "invoicing.addCustomer" })}
+          </Button>
+          <Button onClick={() => setInvoiceFormOpen(true)}>
+            {intl.formatMessage({ id: "invoicing.newInvoice" })}
+          </Button>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "invoicing.newInvoice" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "invoicing.newInvoiceDescription" })}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <InvoiceForm
-            companyId={activeCompany.id}
-            customers={customers}
-            taxes={taxesForSale(taxes)}
-            invoices={invoices}
-            paymentMethods={paymentMethods}
-            items={items}
-            accounts={accounts}
-            isVatRegistered={activeCompany.isVatRegistered}
-            onCreated={refresh}
-          />
-        </CardContent>
-      </Card>
+      <FormDialog
+        open={customerFormOpen}
+        onOpenChange={(open) => { if (!open) setCustomerFormOpen(false); }}
+        title={intl.formatMessage({ id: "invoicing.addCustomer" })}
+        size="sm"
+      >
+        <PartnerForm companyId={activeCompany.id} role="customer" onCreated={handleCustomerCreated} />
+      </FormDialog>
+
+      <FormDialog
+        open={invoiceFormOpen}
+        onOpenChange={(open) => { if (!open) setInvoiceFormOpen(false); }}
+        title={intl.formatMessage({ id: "invoicing.newInvoice" })}
+        description={intl.formatMessage({ id: "invoicing.newInvoiceDescription" })}
+        size="full"
+      >
+        <InvoiceForm
+          key={invoiceFormKey}
+          companyId={activeCompany.id}
+          customers={customers}
+          taxes={taxesForSale(taxes)}
+          invoices={invoices}
+          paymentMethods={paymentMethods}
+          items={items}
+          accounts={accounts}
+          isVatRegistered={activeCompany.isVatRegistered}
+          onCreated={handleInvoiceCreated}
+        />
+      </FormDialog>
 
       <Card>
         <CardHeader>
@@ -234,6 +254,7 @@ export function Invoicing() {
             data={displayedInvoices}
             rowCount={displayedInvoices.length}
             getRowId={(row) => row.id}
+            getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "invoicing.noInvoices" })}
             exportFileName="invoices"

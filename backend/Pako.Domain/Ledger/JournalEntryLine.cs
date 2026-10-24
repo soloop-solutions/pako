@@ -10,6 +10,8 @@ public class JournalEntryLine
     public decimal Credit { get; set; }
     public string? Description { get; set; }
     public Guid? TaxId { get; set; }
+    public Guid? ProjectId { get; set; }
+    public Guid? EmployeeId { get; set; }
     public bool ReconciledFlag { get; set; }
     public Guid? ReconciliationId { get; set; }
 

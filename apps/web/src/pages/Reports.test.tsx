@@ -22,6 +22,17 @@ const activeCompany: CompanyResponse = {
   enabledProfiles: 1,
   isVatRegistered: true,
   allowNumberOverride: false,
+  functionalCurrency: "EUR",
+  tradingName: undefined, legalForm: undefined, businessActivity: undefined,
+  description: undefined, businessNumber: undefined, fiscalNumber: undefined,
+  vatNumber: undefined, vatRegistrationDate: undefined,
+  country: undefined, municipality: undefined, streetAddress: undefined,
+  postalCode: undefined, addressLine2: undefined,
+  email: undefined, phone: undefined, website: undefined,
+  bankName: undefined, bankAccountHolder: undefined, iban: undefined, swiftBic: undefined,
+  documentFooter: undefined, paymentInstructions: undefined,
+  isArchived: false,
+  archivedAt: undefined,
 };
 
 vi.mock("@/context/CompanyContext", () => ({

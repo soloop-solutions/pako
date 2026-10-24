@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
@@ -6,12 +6,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { ITEM_TYPE_OPTION_KEYS, ItemType } from "@/lib/item-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
 
 export interface ItemFormFields {
   name: string;
+  description?: string;
   unit: string;
   type: number;
   defaultUnitPrice?: number;
@@ -32,6 +35,7 @@ interface ItemFormProps {
   error: string | null;
   onSubmit: (fields: ItemFormFields) => void;
   onCancel?: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 export function ItemForm({
@@ -45,11 +49,19 @@ export function ItemForm({
   error,
   onSubmit,
   onCancel,
+  onDirtyChange,
 }: ItemFormProps) {
   const intl = useIntl();
 
   const [name, setName] = useState(initial?.name ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
   const [unit, setUnit] = useState(initial?.unit ?? "");
+
+  const initialRef = useRef({ name: initial?.name ?? "", unit: initial?.unit ?? "" });
+  useEffect(() => {
+    const isDirty = name !== initialRef.current.name || unit !== initialRef.current.unit;
+    onDirtyChange?.(isDirty);
+  }, [name, unit, onDirtyChange]);
   const [price, setPrice] = useState(initial?.defaultUnitPrice != null ? String(initial.defaultUnitPrice) : "");
   const [type, setType] = useState<number>(initial?.type ?? ItemType.Goods);
   const [taxId, setTaxId] = useState(initial?.defaultTaxDefinitionId ?? "");
@@ -61,6 +73,7 @@ export function ItemForm({
     e.preventDefault();
     onSubmit({
       name: name.trim(),
+      description: description.trim() || undefined,
       unit: unit.trim(),
       type,
       defaultUnitPrice: price ? parseFloat(price) : undefined,
@@ -84,6 +97,16 @@ export function ItemForm({
           <Label htmlFor="item-name">{intl.formatMessage({ id: "items.name" })}</Label>
           <Input id="item-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Laptop HP ProBook 450" />
         </div>
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <Label htmlFor="item-description">{intl.formatMessage({ id: "items.form.description" })}</Label>
+          <Textarea
+            id="item-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder={intl.formatMessage({ id: "items.form.descriptionPlaceholder" })}
+            rows={2}
+          />
+        </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-unit">{intl.formatMessage({ id: "items.unit" })}</Label>
           <Input id="item-unit" required value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="copë" />
@@ -95,59 +118,82 @@ export function ItemForm({
 
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-type">{intl.formatMessage({ id: "items.form.type" })}</Label>
-          <Select id="item-type" value={type} onChange={(e) => setType(Number(e.target.value))}>
-            {ITEM_TYPE_OPTION_KEYS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {intl.formatMessage({ id: option.labelKey })}
-              </option>
-            ))}
-          </Select>
+          <Select
+            id="item-type"
+            value={String(type)}
+            onValueChange={(v) => setType(Number(v))}
+            options={ITEM_TYPE_OPTION_KEYS.map((option) => ({
+              value: String(option.value),
+              label: intl.formatMessage({ id: option.labelKey }),
+            }))}
+          />
           <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.form.typeHint" })}</p>
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-tax">{intl.formatMessage({ id: "items.form.vatCode" })}</Label>
-          <Select id="item-tax" value={taxId} onChange={(e) => setTaxId(e.target.value)}>
-            <option value="">{intl.formatMessage({ id: "items.form.noVatCode" })}</option>
-            {taxes.map((tax) => (
-              <option key={tax.id} value={tax.id}>
-                {taxRatePercentLabel(tax)}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="item-tax"
+            value={taxId}
+            onChange={setTaxId}
+            placeholder={intl.formatMessage({ id: "items.form.noVatCode" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={intl.formatMessage({ id: "items.form.noVatCode" })}
+            options={taxes.map((tax) => ({
+              value: tax.id,
+              label: taxRatePercentLabel(tax),
+              description: tax.code ?? undefined,
+            }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-revenue-account">{intl.formatMessage({ id: "items.form.revenueAccount" })}</Label>
-          <Select id="item-revenue-account" value={revenueAccountId} onChange={(e) => setRevenueAccountId(e.target.value)}>
-            <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-            {incomeAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} — {account.name}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="item-revenue-account"
+            value={revenueAccountId}
+            onChange={setRevenueAccountId}
+            placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+            options={incomeAccounts.map((account) => ({
+              value: account.id,
+              label: `${account.code} · ${account.name}`,
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-expense-account">{intl.formatMessage({ id: "items.form.expenseAccount" })}</Label>
-          <Select id="item-expense-account" value={expenseAccountId} onChange={(e) => setExpenseAccountId(e.target.value)}>
-            <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-            {expenseAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} — {account.name}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="item-expense-account"
+            value={expenseAccountId}
+            onChange={setExpenseAccountId}
+            placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+            options={expenseAccounts.map((account) => ({
+              value: account.id,
+              label: `${account.code} · ${account.name}`,
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-inventory-account">{intl.formatMessage({ id: "items.form.inventoryAccount" })}</Label>
-          <Select id="item-inventory-account" value={inventoryAccountId} onChange={(e) => setInventoryAccountId(e.target.value)}>
-            <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-            {inventoryAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.code} — {account.name}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="item-inventory-account"
+            value={inventoryAccountId}
+            onChange={setInventoryAccountId}
+            placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+            options={inventoryAccounts.map((account) => ({
+              value: account.id,
+              label: `${account.code} · ${account.name}`,
+            }))}
+          />
         </div>
       </div>
 

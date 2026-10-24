@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
@@ -63,7 +64,8 @@ public class CompaniesController : ControllerBase
             Name = request.Name,
             FirmId = request.FirmId,
             EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core,
-            IsVatRegistered = request.IsVatRegistered ?? true
+            IsVatRegistered = request.IsVatRegistered ?? true,
+            Country = "Kosovo"
         };
         _db.Companies.Add(company);
 
@@ -193,8 +195,68 @@ public class CompaniesController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, ToResponse(company));
     }
 
+    [HttpPut("{companyId:guid}/profile")]
+    [RequireCompanyAccess(writeAccess: true)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CompanyResponse>> UpdateProfile(Guid companyId, UpdateCompanyProfileRequest request)
+    {
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+            return NotFound(string.Format(_localizer["CompanyNotFound"], companyId));
+
+        if (company.IsArchived)
+            return BadRequest(_localizer["CompanyIsArchived"].Value);
+
+        // Only update non-null fields (partial update)
+        if (request.Name is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(_localizer["CompanyNameRequired"].Value);
+            if (request.Name.Length > 256)
+                return BadRequest(_localizer["CompanyNameTooLong"].Value);
+            company.Name = request.Name;
+        }
+
+        if (request.TradingName is not null) company.TradingName = request.TradingName == "" ? null : request.TradingName;
+        if (request.BusinessNumber is not null) company.BusinessNumber = request.BusinessNumber == "" ? null : request.BusinessNumber;
+        if (request.FiscalNumber is not null) company.FiscalNumber = request.FiscalNumber == "" ? null : request.FiscalNumber;
+        if (request.VatNumber is not null) company.VatNumber = request.VatNumber == "" ? null : request.VatNumber;
+        if (request.LegalForm is not null) company.LegalForm = request.LegalForm;
+        if (request.BusinessActivity is not null) company.BusinessActivity = request.BusinessActivity == "" ? null : request.BusinessActivity;
+        if (request.Description is not null) company.Description = request.Description == "" ? null : request.Description;
+
+        // Address
+        if (request.Country is not null) company.Country = request.Country == "" ? null : request.Country;
+        if (request.Municipality is not null) company.Municipality = request.Municipality == "" ? null : request.Municipality;
+        if (request.StreetAddress is not null) company.StreetAddress = request.StreetAddress == "" ? null : request.StreetAddress;
+        if (request.PostalCode is not null) company.PostalCode = request.PostalCode == "" ? null : request.PostalCode;
+        if (request.AddressLine2 is not null) company.AddressLine2 = request.AddressLine2 == "" ? null : request.AddressLine2;
+
+        // Contact
+        if (request.Email is not null) company.Email = request.Email == "" ? null : request.Email;
+        if (request.Phone is not null) company.Phone = request.Phone == "" ? null : request.Phone;
+        if (request.Website is not null) company.Website = request.Website == "" ? null : request.Website;
+
+        // Banking
+        if (request.BankName is not null) company.BankName = request.BankName == "" ? null : request.BankName;
+        if (request.BankAccountHolder is not null) company.BankAccountHolder = request.BankAccountHolder == "" ? null : request.BankAccountHolder;
+        if (request.Iban is not null) company.Iban = request.Iban == "" ? null : request.Iban;
+        if (request.SwiftBic is not null) company.SwiftBic = request.SwiftBic == "" ? null : request.SwiftBic;
+
+        // Document
+        if (request.DocumentFooter is not null) company.DocumentFooter = request.DocumentFooter == "" ? null : request.DocumentFooter;
+        if (request.PaymentInstructions is not null) company.PaymentInstructions = request.PaymentInstructions == "" ? null : request.PaymentInstructions;
+
+        // Tax
+        if (request.IsVatRegistered is not null) company.IsVatRegistered = request.IsVatRegistered.Value;
+        if (request.VatRegistrationDate is not null) company.VatRegistrationDate = request.VatRegistrationDate;
+
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(company));
+    }
+
     [HttpGet]
-    public async Task<ActionResult<List<CompanyResponse>>> List()
+    public async Task<ActionResult<List<CompanyResponse>>> List([FromQuery] bool includeArchived = false)
     {
         var userId = CurrentUserId;
 
@@ -208,14 +270,65 @@ public class CompaniesController : ControllerBase
             .Select(m => m.CompanyId!.Value)
             .ToListAsync();
 
-        var companies = await _db.Companies.AsNoTracking()
-            .Where(c => directCompanyIds.Contains(c.Id) || (c.FirmId != null && firmIds.Contains(c.FirmId.Value)))
-            .ToListAsync();
+        var query = _db.Companies.AsNoTracking()
+            .Where(c => directCompanyIds.Contains(c.Id) || (c.FirmId != null && firmIds.Contains(c.FirmId.Value)));
+
+        if (!includeArchived)
+            query = query.Where(c => !c.IsArchived);
+
+        var companies = await query.ToListAsync();
 
         return Ok(companies.Select(ToResponse).ToList());
     }
 
+    [HttpPost("{companyId:guid}/archive")]
+    [RequireCompanyAccess(adminOnly: true)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CompanyResponse>> Archive(Guid companyId)
+    {
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+            return NotFound(string.Format(_localizer["CompanyNotFound"], companyId));
+
+        if (company.IsArchived)
+            return BadRequest(_localizer["CompanyAlreadyArchived"].Value);
+
+        company.IsArchived = true;
+        company.ArchivedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+
+        return Ok(ToResponse(company));
+    }
+
+    [HttpPost("{companyId:guid}/unarchive")]
+    [RequireCompanyAccess(adminOnly: true)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CompanyResponse>> Unarchive(Guid companyId)
+    {
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+            return NotFound(string.Format(_localizer["CompanyNotFound"], companyId));
+
+        if (!company.IsArchived)
+            return BadRequest(_localizer["CompanyNotArchived"].Value);
+
+        company.IsArchived = false;
+        company.ArchivedAt = null;
+        await _db.SaveChangesAsync();
+
+
+        return Ok(ToResponse(company));
+    }
+
     private static CompanyResponse ToResponse(Company c) =>
         new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,
-            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate);
+            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate,
+            c.TradingName, c.BusinessNumber, c.FiscalNumber, c.VatNumber,
+            c.LegalForm, c.BusinessActivity, c.Description,
+            c.Country, c.Municipality, c.StreetAddress, c.PostalCode, c.AddressLine2,
+            c.Email, c.Phone, c.Website,
+            c.BankName, c.BankAccountHolder, c.Iban, c.SwiftBic,
+            c.DocumentFooter, c.PaymentInstructions,
+            c.VatRegistrationDate, c.FunctionalCurrency,
+            c.IsArchived, c.ArchivedAt);
 }

@@ -15,6 +15,19 @@ public enum CompanyProfile
     IfrsPlus = 32
 }
 
+public enum LegalFormType
+{
+    Individual = 0,       // Biznes individual
+    Shpk = 1,            // SH.P.K. (Shoqëri me Përgjegjësi të Kufizuar)
+    Sha = 2,             // SH.A. (Shoqëri Aksionare)
+    Shk = 3,             // SH.K. (Shoqëri Kolektive)
+    ShkKomandite = 4,    // Shoqëri Komandite
+    Oe = 5,              // O.E. (Ortakëri e Përgjithshme)
+    Ngo = 6,             // OJQ (Organizatë Jo-Qeveritare)
+    PublicEntity = 7,    // Ndërmarrje publike
+    Other = 99
+}
+
 public class Company
 {
     public Guid Id { get; set; }
@@ -59,6 +72,45 @@ public class Company
     // B4: off by default. When true, ClientAdmin/FirmAdmin may override a posted document's number
     // via the /override-number endpoint; FirmAccountant may not (adminOnly on that route).
     public bool AllowNumberOverride { get; set; }
+
+    // ---- Company profile (extended) ----
+    public string? TradingName { get; set; }
+    public string? BusinessNumber { get; set; }   // Numri i biznesit
+    public string? FiscalNumber { get; set; }      // Numri fiskal
+    public string? VatNumber { get; set; }         // Numri i TVSH-së
+    public int? LegalForm { get; set; }            // LegalFormType enum
+    public string? BusinessActivity { get; set; }  // Veprimtaria ekonomike
+    public string? Description { get; set; }
+
+    // Address
+    public string? Country { get; set; }
+    public string? Municipality { get; set; }
+    public string? StreetAddress { get; set; }
+    public string? PostalCode { get; set; }
+    public string? AddressLine2 { get; set; }
+
+    // Contact
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? Website { get; set; }
+
+    // Banking
+    public string? BankName { get; set; }
+    public string? BankAccountHolder { get; set; }
+    public string? Iban { get; set; }
+    public string? SwiftBic { get; set; }
+
+    // Document display
+    public string? DocumentFooter { get; set; }
+    public string? PaymentInstructions { get; set; }
+
+    // Tax
+    public DateOnly? VatRegistrationDate { get; set; }
+
+    // Archive: soft-delete for accounting data integrity — archived companies retain all history
+    // but cannot receive new transactions.
+    public bool IsArchived { get; set; }
+    public DateTime? ArchivedAt { get; set; }
 
     // Kosovo VAT Law Article 45/56 requires invoice numbering to be gapless and strictly
     // monotonic per company. This mints the number and advances the counter together so a

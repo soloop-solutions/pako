@@ -48,7 +48,7 @@ public class AuthControllerTests : IAsyncLifetime
     public async Task Register_DuplicateEmail_DoesNotRevealEmailWasTaken()
     {
         var (_, userManager) = await NewContextAsync();
-        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>());
+        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>(), new Pako.Api.Services.ActionTokenService());
 
         var first = await controller.Register(new RegisterRequest("dup@example.com", "Passw0rd!123"));
         Assert.IsType<OkObjectResult>(first.Result);
@@ -68,7 +68,7 @@ public class AuthControllerTests : IAsyncLifetime
         // hiding them behind the same generic message just breaks registration for anyone who
         // trips a real, fixable validation rule (a very real bug this test used to enshrine).
         var (_, userManager) = await NewContextAsync();
-        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>());
+        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>(), new Pako.Api.Services.ActionTokenService());
 
         var result = await controller.Register(new RegisterRequest("weak@example.com", "abc"));
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);

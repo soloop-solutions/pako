@@ -124,6 +124,91 @@ public class JournalEntryPostingTests
         Assert.Equal(JournalEntryState.Posted, entry.State);
     }
 
+    // 60_Posting_Rules R30 (BLOCK): each line must have a positive Debit or a positive Credit,
+    // never both on the same line.
+    [Fact]
+    public void Post_RefusesLineWithBothDebitAndCredit_R30()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = Guid.NewGuid(),
+            JournalId = Guid.NewGuid(),
+            Date = new DateOnly(2026, 8, 26),
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), Debit = 1000m, Credit = 2000m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), Debit = 1000m, Credit = 0m }
+            }
+        };
+
+        var ex = Assert.Throws<DualAmountLineException>(() => entry.Post(company));
+        Assert.Equal(entry.Lines[0].Id, ex.LineId);
+        Assert.Equal(JournalEntryState.Draft, entry.State);
+    }
+
+    // R30: a line with one side zero is fine (the normal case).
+    [Fact]
+    public void Post_AllowsLineWithZeroOnOneSide_R30()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = BalancedEntry(new DateOnly(2026, 8, 26));
+
+        entry.Post(company);
+
+        Assert.Equal(JournalEntryState.Posted, entry.State);
+    }
+
+    // R31: negative Debit or Credit must be rejected.
+    [Fact]
+    public void Post_RefusesLineWithNegativeDebit_R31()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = Guid.NewGuid(),
+            JournalId = Guid.NewGuid(),
+            Date = new DateOnly(2026, 8, 26),
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), Debit = -100m, Credit = 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), Debit = 0m, Credit = -100m }
+            }
+        };
+
+        var ex = Assert.Throws<NegativeAmountLineException>(() => entry.Post(company));
+        Assert.Equal(entry.Lines[0].Id, ex.LineId);
+        Assert.Equal(JournalEntryState.Draft, entry.State);
+    }
+
+    [Fact]
+    public void Post_RefusesLineWithNegativeCredit_R31()
+    {
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        // Build a balanced entry where the second line has a negative credit — the balance check
+        // (debit 100 = credit 100 + (-100) = 0) would fail first, so we use lines that happen to
+        // balance while still containing a negative: debit 0, credit -100 on one side and debit -100,
+        // credit 0 on the other. Both lines are negative, and they "balance" at -100 = -100.
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = Guid.NewGuid(),
+            JournalId = Guid.NewGuid(),
+            Date = new DateOnly(2026, 8, 26),
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), Debit = -100m, Credit = 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = Guid.NewGuid(), Debit = 0m, Credit = -100m }
+            }
+        };
+
+        // R31 fires before R30 — the first line has a negative debit.
+        var ex = Assert.Throws<NegativeAmountLineException>(() => entry.Post(company));
+        Assert.Equal(entry.Lines[0].Id, ex.LineId);
+    }
+
     // B14: Reverse() must copy AnalyticDistribution as a new dictionary instance, not share the
     // original line's reference — otherwise mutating one would silently mutate the other.
     [Fact]

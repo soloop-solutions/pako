@@ -15,10 +15,12 @@ import type {
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
+import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
@@ -39,6 +41,9 @@ export function Bills() {
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
+  const [billFormOpen, setBillFormOpen] = useState(false);
+  const [vendorFormOpen, setVendorFormOpen] = useState(false);
+  const [billFormKey, setBillFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -115,7 +120,7 @@ export function Bills() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
         },
       },
       {
@@ -148,16 +153,24 @@ export function Bills() {
     [intl, partners, balances],
   );
 
+  const handleBillCreated = useCallback(async () => {
+    setBillFormOpen(false);
+    setBillFormKey((k) => k + 1);
+    await refresh();
+  }, [refresh]);
+
+  const handleVendorCreated = useCallback(async () => {
+    setVendorFormOpen(false);
+    await refresh();
+  }, [refresh]);
+
   if (!activeCompany) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "bills.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "bills.description" })}</CardDescription>
         </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
-        </CardContent>
+        <p className="p-6 text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
       </Card>
     );
   }
@@ -170,46 +183,50 @@ export function Bills() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.vendors" })}</CardTitle>
-          <CardDescription>{activeCompany.name}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          <PartnerForm companyId={activeCompany.id} role="vendor" onCreated={refresh} />
-          {vendors.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.noVendors" })}</p>
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {vendors.map((vendor) => (
-                <Badge key={vendor.id} variant="secondary">
-                  {vendor.name}
-                </Badge>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "bills.title" })}</h2>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.description" })}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setVendorFormOpen(true)}>
+            {intl.formatMessage({ id: "bills.addVendor" })}
+          </Button>
+          <Button onClick={() => setBillFormOpen(true)}>
+            {intl.formatMessage({ id: "bills.newBill" })}
+          </Button>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.newBill" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "bills.newBillDescription" })}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <BillForm
-            companyId={activeCompany.id}
-            vendors={vendors}
-            taxes={taxesForPurchase(taxes)}
-            bills={bills}
-            paymentMethods={paymentMethods}
-            items={items}
-            accounts={accounts}
-            isVatRegistered={activeCompany.isVatRegistered}
-            onCreated={refresh}
-          />
-        </CardContent>
-      </Card>
+      <FormDialog
+        open={vendorFormOpen}
+        onOpenChange={(open) => { if (!open) setVendorFormOpen(false); }}
+        title={intl.formatMessage({ id: "bills.addVendor" })}
+        size="sm"
+      >
+        <PartnerForm companyId={activeCompany.id} role="vendor" onCreated={handleVendorCreated} />
+      </FormDialog>
+
+      <FormDialog
+        open={billFormOpen}
+        onOpenChange={(open) => { if (!open) setBillFormOpen(false); }}
+        title={intl.formatMessage({ id: "bills.newBill" })}
+        description={intl.formatMessage({ id: "bills.newBillDescription" })}
+        size="full"
+      >
+        <BillForm
+          key={billFormKey}
+          companyId={activeCompany.id}
+          vendors={vendors}
+          taxes={taxesForPurchase(taxes)}
+          bills={bills}
+          paymentMethods={paymentMethods}
+          items={items}
+          accounts={accounts}
+          isVatRegistered={activeCompany.isVatRegistered}
+          onCreated={handleBillCreated}
+        />
+      </FormDialog>
 
       <Card>
         <CardHeader>
@@ -222,6 +239,7 @@ export function Bills() {
             data={displayedBills}
             rowCount={displayedBills.length}
             getRowId={(row) => row.id}
+            getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "bills.noBills" })}
             exportFileName="bills"

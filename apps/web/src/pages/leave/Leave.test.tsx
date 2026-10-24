@@ -153,10 +153,12 @@ describe("Leave — requests tab", () => {
     renderLeave();
 
     fireEvent.click(await screen.findByRole("button", { name: "New leave request" }));
-    const employeeSelect = screen.getByLabelText("Employee", { selector: "#leave-new-employee" });
-    await waitFor(() => expect(within(employeeSelect).getByRole("option", { name: "Arta Krasniqi" })).toBeInTheDocument());
-    fireEvent.change(employeeSelect, { target: { value: "emp-1" } });
-    fireEvent.change(screen.getByLabelText("Leave type", { selector: "#leave-new-type" }), { target: { value: "type-annual" } });
+    // Open the Employee popover-select and pick "Arta Krasniqi"
+    fireEvent.click(screen.getByLabelText("Employee", { selector: "#leave-new-employee" }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: "Arta Krasniqi" }));
+    // Open the Leave type popover-select and pick "ANNUAL — Annual leave"
+    fireEvent.click(screen.getByLabelText("Leave type", { selector: "#leave-new-type" }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Annual leave/ }));
     fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-19" } });
     fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-23" } });
     fireEvent.click(screen.getByRole("button", { name: "Submit request" }));

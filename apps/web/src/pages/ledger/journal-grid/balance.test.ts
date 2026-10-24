@@ -26,23 +26,34 @@ describe("computeTotals", () => {
 
 describe("autoBalanceLastLine", () => {
   it("sets the last line's credit when debit is ahead", () => {
+    // Other lines: 100 debit. Last line's existing debit is cleared, credit set to close the gap.
     const result = autoBalanceLastLine([line({ debit: "100.00" }), line({ debit: "20.00" })]);
-    expect(result[1].credit).toBe("120.00");
+    expect(result[1].debit).toBe("");
+    expect(result[1].credit).toBe("100.00");
     expect(computeTotals(result).diffCents).toBe(0);
   });
 
   it("sets the last line's debit when credit is ahead", () => {
+    // Other lines: 75 credit. Last line's existing credit is cleared, debit set to close the gap.
     const result = autoBalanceLastLine([line({ credit: "75.00" }), line({ credit: "5.00" })]);
-    expect(result[1].debit).toBe("80.00");
+    expect(result[1].debit).toBe("75.00");
+    expect(result[1].credit).toBe("");
     expect(computeTotals(result).diffCents).toBe(0);
   });
 
-  it("overwrites, absorbing whatever was already on the short-side field, rather than ignoring it", () => {
-    // Others: 100 debit. Last line already has 10 credit (contributing to the diff already) plus
-    // whatever else is on it. The correct closing value replaces that 10, it does not add to it
-    // blindly nor ignore it — the resulting entry must balance exactly.
+  it("replaces the last line as a pure balancing entry, clearing both sides first", () => {
+    // Other lines: 100 debit. Last line had 10 credit — discarded and replaced with 100 credit.
     const result = autoBalanceLastLine([line({ debit: "100.00" }), line({ credit: "10.00" })]);
+    expect(result[1].debit).toBe("");
     expect(result[1].credit).toBe("100.00");
+    expect(computeTotals(result).diffCents).toBe(0);
+  });
+
+  it("never creates a line with both debit and credit positive", () => {
+    // Last line has debit=50 — auto-balance must clear it, not leave both sides positive.
+    const result = autoBalanceLastLine([line({ debit: "200.00" }), line({ debit: "50.00", credit: "10.00" })]);
+    expect(result[1].debit).toBe("");
+    expect(result[1].credit).toBe("200.00");
     expect(computeTotals(result).diffCents).toBe(0);
   });
 

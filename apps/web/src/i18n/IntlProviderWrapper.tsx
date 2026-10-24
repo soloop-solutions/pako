@@ -1,7 +1,8 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { IntlProvider } from "react-intl";
 
 import { en, messages } from "@/i18n/messages";
+import { LocaleContext } from "@/i18n/useLocale";
 
 const LANGUAGE_STORAGE_KEY = "pako.language";
 
@@ -13,20 +14,6 @@ function storedLanguage(): string {
     // localStorage unavailable (private mode, etc.) - fall through to default.
   }
   return "en";
-}
-
-type LocaleContextType = {
-  locale: string;
-  setLocale: (locale: string) => void;
-};
-
-const LocaleContext = createContext<LocaleContextType>({
-  locale: "en",
-  setLocale: () => {},
-});
-
-export function useLocale() {
-  return useContext(LocaleContext);
 }
 
 type IntlProviderWrapperProps = {

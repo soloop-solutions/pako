@@ -1,30 +1,10 @@
 // PROVISIONAL — F6 (partner register) mock contract.
 //
-// The real `PartnersController` (backend/Pako.Api/Controllers/PartnersController.cs) only exposes
-// `GET`/`POST` — no edit endpoint of any kind. The real `Partner` entity
-// (backend/Pako.Domain/Companies/Partner.cs) also has no `ControlAccountId`/`PaymentTermDays`/
-// `CreditLimit` fields. This mock is therefore two different shapes glued together, not one:
-//
-//   - GET .../partners wraps the REAL endpoint (bypass + real fetch, same technique
-//     src/mocks/itemTypesHandlers.ts already established for F5) and splices the 3 mocked fields
-//     (plus, if this partner was ever edited through the mocked PUT below, the edited values of
-//     the 5 real fields too — see withMockFields) onto each real partner in the response.
-//   - PUT .../partners/:partnerId is FULLY invented (closer to src/mocks/handlers.ts's F2
-//     accounts create/update mock than to itemTypesHandlers.ts) — there is no real edit endpoint
-//     of any kind to wrap, so this never touches the real backend at all. It stores the complete
-//     8-field record in src/mocks/partnersMockFlag.ts, which then wins entirely over the (frozen,
-//     create-time) real GET response for that partner's id.
-//
-// This is scaffolding to be torn out, not permanent product code:
-//   1. Once the real backend adds ControlAccountId/PaymentTermDays/CreditLimit to `Partner` (or
-//      the product drops the requirement) AND lands a real PUT/edit action, delete this file and
-//      src/mocks/partnersMockFlag.ts, remove both from src/mocks/browser.ts / src/mocks/server.ts,
-//      remove src/api/partners-client.ts, and replace every call in Partners.tsx with the real
-//      generated `apiClient.*` methods.
-//   2. The 5 real fields (name/taxNumber/isCustomer/isVendor/fiscalNumber/isVatRegistered) are
-//      genuinely editable today ONLY through this mock's PUT — once a real PUT/PATCH exists on
-//      `PartnersController`, split the write path back into "real fields via the generated
-//      client" + "3 mocked fields via a slimmer mock", the same shape F5's item-type mock uses.
+// The real `PartnersController` now supports GET/POST/PUT and the real `Partner` entity has
+// `ControlAccountId`, `PaymentTermDays` and `CreditLimit` fields. This mock still exists because
+// the PUT path here augments the GET response with mock-only overrides (withMockFields) for test
+// isolation — once the frontend is fully wired to the real generated `apiClient.*` methods for
+// partner editing, this file and src/mocks/partnersMockFlag.ts can be deleted.
 //
 // **Gated by a synchronous flag, own and separate from every other mock's** — see
 // src/mocks/accountsMockFlag.ts's header for the mount/unmount + route-transition races this

@@ -7,6 +7,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
 
 const GRID_ID = "journalEntries";
 
@@ -58,11 +59,16 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
         cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
       },
       {
+        accessorKey: "remarks",
+        header: intl.formatMessage({ id: "journalEntries.remarks" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
+      },
+      {
         accessorKey: "state",
         header: intl.formatMessage({ id: "journalEntries.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
         },
       },
       {
@@ -106,6 +112,7 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
       rowCount={entries.length}
       isLoading={isLoading}
       getRowId={(row) => row.id}
+      getRowClassName={(row) => getDocumentRowClassName(row.state)}
       enableGlobalFilter
       emptyMessage={intl.formatMessage({ id: "ledger.noJournalEntries" })}
       exportFileName="journal-entries"

@@ -153,15 +153,13 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
             <Select
               id={`${scope}-${scopeId}-member-role`}
               className="w-40"
-              value={role}
-              onChange={(event) => setRole(Number(event.target.value))}
-            >
-              {roleValues.map((value) => (
-                <option key={value} value={value}>
-                  {membershipRoleLabel(value, intl)}
-                </option>
-              ))}
-            </Select>
+              value={String(role)}
+              onValueChange={(v) => setRole(Number(v))}
+              options={roleValues.map((value) => ({
+                value: String(value),
+                label: membershipRoleLabel(value, intl),
+              }))}
+            />
           </div>
           {isStaffRole && (
             <div className="flex flex-col gap-2">
@@ -169,25 +167,20 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
               <Select
                 id={`${scope}-${scopeId}-member-employee`}
                 className="w-56"
-                required
                 value={employeeId}
-                onChange={(event) => setEmployeeId(event.target.value)}
-              >
-                <option value="">
-                  {intl.formatMessage({
-                    id: unlinkedEmployeesQuery.isPending
-                      ? "common.loading"
-                      : unlinkedEmployees.length === 0
-                        ? "hr.members.noUnlinkedEmployees"
-                        : "hr.members.selectEmployee",
-                  })}
-                </option>
-                {unlinkedEmployees.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name}
-                  </option>
-                ))}
-              </Select>
+                onValueChange={(v) => setEmployeeId(v)}
+                placeholder={intl.formatMessage({
+                  id: unlinkedEmployeesQuery.isPending
+                    ? "common.loading"
+                    : unlinkedEmployees.length === 0
+                      ? "hr.members.noUnlinkedEmployees"
+                      : "hr.members.selectEmployee",
+                })}
+                options={unlinkedEmployees.map((employee) => ({
+                  value: employee.id,
+                  label: employee.name,
+                }))}
+              />
             </div>
           )}
           <Button type="submit" disabled={adding || email.trim().length === 0 || (isStaffRole && !employeeId)}>

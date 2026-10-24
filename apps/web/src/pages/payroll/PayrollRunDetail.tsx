@@ -244,14 +244,14 @@ export function PayrollRunDetail() {
       {
         accessorKey: "personalNumber",
         header: intl.formatMessage({ id: "payroll.payslip.personalNumber" }),
-        cell: ({ getValue }) => (getValue() as string | undefined) || "—",
+        cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
       {
         accessorKey: "departmentName",
         header: intl.formatMessage({ id: "payroll.payslip.department" }),
         enableGrouping: true,
         meta: { groupable: true },
-        cell: ({ getValue }) => (getValue() as string | undefined) || "—",
+        cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
       amountColumn("baseSalary", "payroll.payslip.baseSalary"),
       {
@@ -350,7 +350,7 @@ export function PayrollRunDetail() {
                 <Badge variant={payrollRunStateBadgeVariant(run.state)}>{payrollRunStateLabel(run.state, intl)}</Badge>
               </div>
               <CardDescription>
-                {intl.formatMessage({ id: "payrollRunDetail.title" })} · {run.periodStart} – {run.periodEnd}
+                {intl.formatMessage({ id: "payrollRunDetail.title" })} · {run.periodStart} \u2013 {run.periodEnd}
               </CardDescription>
               <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
                 {run.approvedAt && (

@@ -1,20 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse } from "@pako/shared";
+import type { AccountResponse, PartnerResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
-import { updatePartnerV2 } from "@/api/partners-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
-import type { PartnerV2 } from "@/lib/partners";
-import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
-import { setPartnerMockFields, setPartnersMockActive } from "@/mocks/partnersMockFlag";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 
 const GRID_ID = "partners";
@@ -28,35 +24,11 @@ export function Partners() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
 
-  // Mount-scoped mock — same synchronous-flag discipline as F2 (src/mocks/accountsMockFlag.ts),
-  // F3 and F5: the F6 mock only answers real partner requests while this screen is actually on
-  // screen, and the flag flip itself must stay perfectly synchronous with the effect (no async
-  // work before it) to close the route-transition race documented on accountsMockFlag.ts.
-  const [mockReady, setMockReady] = useState(false);
-  useEffect(() => {
-    setPartnersMockActive(true);
-    let cancelled = false;
-    void ensureAccountsMockWorkerStarted().then(() => {
-      if (!cancelled) setMockReady(true);
-    });
-    return () => {
-      cancelled = true;
-      setMockReady(false);
-      setPartnersMockActive(false);
-    };
-  }, []);
-
-  const partnersQueryKey = ["partnersV2", activeCompanyId] as const;
+  const partnersQueryKey = ["partners", activeCompanyId] as const;
   const partnersQuery = useQuery({
     queryKey: partnersQueryKey,
-    queryFn: async () => {
-      // GET .../partners is the real generated client method — the F6 mock intercepts this exact
-      // URL and splices the 3 mocked fields onto the real response. See
-      // src/mocks/partnersHandlers.ts.
-      const result = await apiClient.partnersAll(activeCompanyId as string);
-      return result as unknown as PartnerV2[];
-    },
-    enabled: !!activeCompanyId && mockReady,
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    enabled: !!activeCompanyId,
   });
 
   const accountsQuery = useQuery({
@@ -65,12 +37,12 @@ export function Partners() {
     enabled: !!activeCompanyId,
   });
 
-  const partners = useMemo(() => partnersQuery.data ?? [], [partnersQuery.data]);
+  const partners = useMemo<PartnerResponse[]>(() => partnersQuery.data ?? [], [partnersQuery.data]);
   const accounts = useMemo<AccountResponse[]>(() => accountsQuery.data ?? [], [accountsQuery.data]);
-  const accountLabel = (id: string | null) => {
-    if (!id) return "—";
+  const accountLabel = (id: string | undefined) => {
+    if (!id) return "\u2014";
     const account = accounts.find((a) => a.id === id);
-    return account ? `${account.code} — ${account.name}` : "—";
+    return account ? `${account.code} \u2014 ${account.name}` : "\u2014";
   };
 
   const editingPartner = editingId ? partners.find((p) => p.id === editingId) ?? null : null;
@@ -82,24 +54,18 @@ export function Partners() {
   const createMutation = useMutation({
     mutationFn: async (fields: PartnerRegisterFormFields) => {
       if (!activeCompanyId) throw new Error("no active company");
-      // The 6 real fields go through the real generated POST. See
-      // src/pages/partners/PartnerRegisterForm.tsx for why controlAccountId/paymentTermDays/
-      // creditLimit are MOCKED, stored separately right after the real create call succeeds —
-      // same technique src/mocks/itemTypesMockFlag.ts established for F5's item type.
-      const created = await apiClient.partnersPOST(activeCompanyId, {
+      return apiClient.partnersPOST(activeCompanyId, {
         name: fields.name,
         taxNumber: fields.taxNumber ?? undefined,
         isCustomer: fields.isCustomer,
         isVendor: fields.isVendor,
         fiscalNumber: fields.fiscalNumber ?? undefined,
         isVatRegistered: fields.isVatRegistered,
+        receivableAccountId: fields.receivableAccountId ?? undefined,
+        payableAccountId: fields.payableAccountId ?? undefined,
+        paymentTermDays: fields.paymentTermDays ?? undefined,
+        creditLimit: fields.creditLimit ?? undefined,
       });
-      setPartnerMockFields(created.id, {
-        controlAccountId: fields.controlAccountId,
-        paymentTermDays: fields.paymentTermDays,
-        creditLimit: fields.creditLimit,
-      });
-      return created;
     },
     onSuccess: async () => {
       setMutationError(null);
@@ -111,28 +77,17 @@ export function Partners() {
 
   const updateMutation = useMutation({
     mutationFn: (vars: { id: string; fields: PartnerRegisterFormFields }) =>
-      // No real edit endpoint exists at all (PartnersController has only GET/POST) — every field,
-      // real or mocked, goes through the fully mocked PUT here. See
-      // src/mocks/partnersHandlers.ts's header for why this is a different real/mock split shape
-      // than F5's item-type mock. Code review caught that an edited real field (name/taxNumber/
-      // fiscalNumber/isCustomer/isVendor/isVatRegistered) only ever shows the new value while
-      // this page itself is mounted — GET .../partners called from anywhere else (Invoicing.tsx/
-      // Bills.tsx) hits the mock inactive and passes through to the real, unedited backend record,
-      // and a page reload loses the mocked override entirely, since the store is in-memory only.
-      // PartnerRegisterForm.tsx now disables those 6 fields in edit mode specifically to close
-      // that gap — only controlAccountId/paymentTermDays/creditLimit (genuinely mocked, nothing
-      // real to diverge from) are editable here; the 6 real values submitted below are always the
-      // form's own unchanged `initial` values, never something the user could have edited.
-      updatePartnerV2(activeCompanyId as string, vars.id, {
+      apiClient.partnersPUT(activeCompanyId as string, vars.id, {
         name: vars.fields.name,
-        taxNumber: vars.fields.taxNumber,
+        taxNumber: vars.fields.taxNumber ?? undefined,
         isCustomer: vars.fields.isCustomer,
         isVendor: vars.fields.isVendor,
-        fiscalNumber: vars.fields.fiscalNumber,
+        fiscalNumber: vars.fields.fiscalNumber ?? undefined,
         isVatRegistered: vars.fields.isVatRegistered,
-        controlAccountId: vars.fields.controlAccountId,
-        paymentTermDays: vars.fields.paymentTermDays,
-        creditLimit: vars.fields.creditLimit,
+        receivableAccountId: vars.fields.receivableAccountId ?? undefined,
+        payableAccountId: vars.fields.payableAccountId ?? undefined,
+        paymentTermDays: vars.fields.paymentTermDays ?? undefined,
+        creditLimit: vars.fields.creditLimit ?? undefined,
       }),
     onSuccess: async () => {
       setMutationError(null);
@@ -142,7 +97,7 @@ export function Partners() {
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "partners.saveError" }))),
   });
 
-  const columns = useMemo<ColumnDef<PartnerV2>[]>(
+  const columns = useMemo<ColumnDef<PartnerResponse>[]>(
     () => [
       {
         accessorKey: "name",
@@ -177,36 +132,36 @@ export function Partners() {
       {
         accessorKey: "taxNumber",
         header: intl.formatMessage({ id: "partners.form.taxNumber" }),
-        cell: ({ getValue }) => (getValue() as string | undefined) || "—",
+        cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
       {
         accessorKey: "fiscalNumber",
         header: intl.formatMessage({ id: "partners.form.fiscalNumber" }),
-        cell: ({ getValue }) => (getValue() as string | undefined) || "—",
+        cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
       {
-        id: "controlAccount",
-        header: intl.formatMessage({ id: "partners.form.controlAccount" }),
+        id: "receivableAccount",
+        header: intl.formatMessage({ id: "partners.form.receivableAccount" }),
         enableSorting: false,
-        accessorFn: (row) => accountLabel(row.controlAccountId),
+        accessorFn: (row) => accountLabel(row.receivableAccountId),
+      },
+      {
+        id: "payableAccount",
+        header: intl.formatMessage({ id: "partners.form.payableAccount" }),
+        enableSorting: false,
+        accessorFn: (row) => accountLabel(row.payableAccountId),
       },
       {
         accessorKey: "paymentTermDays",
         header: intl.formatMessage({ id: "partners.form.paymentTermDays" }),
         meta: { numeric: true },
-        cell: ({ getValue }) => {
-          const value = getValue();
-          return typeof value === "number" ? value : "—";
-        },
+        cell: ({ getValue }) => { const v = getValue(); return typeof v === "number" ? v : "\u2014"; },
       },
       {
         accessorKey: "creditLimit",
         header: intl.formatMessage({ id: "partners.form.creditLimit" }),
         meta: { numeric: true },
-        cell: ({ getValue }) => {
-          const value = getValue();
-          return typeof value === "number" ? `${value.toFixed(2)} €` : "—";
-        },
+        cell: ({ getValue }) => { const v = getValue(); return typeof v === "number" ? `${v.toFixed(2)} \u20AC` : "\u2014"; },
       },
       {
         id: "actions",

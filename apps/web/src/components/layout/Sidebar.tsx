@@ -8,11 +8,14 @@ import { useAuth } from "@/context/AuthContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import {
   emptyPrefs,
+  getTopNavPaths,
   loadSidebarPrefs,
+  recordNavigation,
   saveSidebarPrefs,
   type CategoryPrefs,
   type SidebarPrefs,
 } from "@/lib/sidebar-prefs";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 const allItemsByPath = new Map<string, NavItem>(
@@ -72,6 +75,19 @@ export function Sidebar() {
   const prefs = prefsState.prefs;
   const setPrefs = (updater: (prev: SidebarPrefs) => SidebarPrefs) =>
     setPrefsState((prev) => ({ ...prev, prefs: updater(prev.prefs) }));
+
+  // Record every navigation so the "Suggested" section can surface most-visited pages.
+  // We track the base pathname (no query string) and only paths that correspond to a known nav
+  // item, so random sub-routes don't pollute the frequency map.
+  const prevPathRef = useRef<string | null>(null);
+  useEffect(() => {
+    const basePath = location.pathname;
+    if (!userId || basePath === prevPathRef.current) return;
+    prevPathRef.current = basePath;
+    if (allItemsByPath.has(basePath)) {
+      recordNavigation(userId, basePath);
+    }
+  }, [location.pathname, userId]);
 
   const [query, setQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -163,7 +179,7 @@ export function Sidebar() {
 
           <div className="border-t" />
 
-          <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} />
+          <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} onPin={toggleFavourite} userId={userId} />
 
           {navCategories.map((category) => {
             const allowedItems = category.items.filter((i) => isAllowed(i.path));
@@ -333,17 +349,33 @@ function FavouritesSection({
   isActive,
   isAllowed,
   onUnstar,
+  onPin,
+  userId,
 }: {
   prefs: SidebarPrefs;
   intl: ReturnType<typeof useIntl>;
   isActive: (path: string) => boolean;
   isAllowed: (path: string) => boolean;
   onUnstar: (path: string) => void;
+  onPin: (path: string) => void;
+  userId: string | null;
 }) {
   const starredItems = prefs.favourites
     .map((path) => allItemsByPath.get(path))
     .filter((i): i is NavItem => !!i && isAllowed(i.path));
   const location = useLocation();
+
+  // Build the "Suggested" list: top-visited paths that are not already pinned and not
+  // top/bottom nav items (those are always visible and don't benefit from suggestion).
+  const pinnedSet = new Set(prefs.favourites);
+  const excludedPaths = new Set([...topNavItems.map((i) => i.path), ...bottomNavItems.map((i) => i.path)]);
+  const SUGGESTION_LIMIT = 3;
+  // Over-fetch so we have enough candidates after filtering out pinned/excluded paths.
+  const topPaths = userId ? getTopNavPaths(userId, SUGGESTION_LIMIT + pinnedSet.size + excludedPaths.size) : [];
+  const suggestions = topPaths
+    .filter((path) => !pinnedSet.has(path) && !excludedPaths.has(path) && allItemsByPath.has(path))
+    .slice(0, SUGGESTION_LIMIT)
+    .map((path) => allItemsByPath.get(path)!)
 
   return (
     <div>
@@ -391,6 +423,45 @@ function FavouritesSection({
           </button>
         </div>
       ))}
+
+      {suggestions.length > 0 && (
+        <>
+          <div className="flex h-[20px] items-center px-3 mt-0.5">
+            <span className="text-[10px] font-medium tracking-[0.06em] text-muted-foreground/70 uppercase">
+              {intl.formatMessage({ id: "sidebar.suggested" })}
+            </span>
+          </div>
+          {suggestions.map((item) => (
+            <div
+              key={item.path}
+              className={cn(
+                "group flex h-[26px] items-center pr-1 pl-5 text-[12.5px]",
+                isActive(item.path)
+                  ? "bg-row-selected font-semibold text-accent-foreground shadow-[inset_2px_0_0_var(--primary)]"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+              )}
+            >
+              <Link
+                to={item.path}
+                onClick={(event) => {
+                  if (location.pathname === item.path) event.preventDefault();
+                }}
+                className="min-w-0 flex-1 truncate"
+              >
+                {intl.formatMessage({ id: item.titleKey })}
+              </Link>
+              <button
+                type="button"
+                onClick={() => onPin(item.path)}
+                aria-label={intl.formatMessage({ id: "sidebar.pinFavourite" })}
+                className="shrink-0 rounded p-0.5 text-muted-foreground/40 opacity-0 hover:text-warning-foreground group-hover:opacity-100"
+              >
+                <Star className="size-3" />
+              </button>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -492,8 +563,7 @@ function CategoryCustomizePanel({
                 </button>
               </div>
               <label className="flex flex-1 items-center gap-2">
-                <input
-                  type="checkbox"
+                <Checkbox
                   checked={!hidden}
                   onChange={() => onToggleHidden(item.path)}
                   aria-label={intl.formatMessage({ id: "sidebar.toggleVisible" })}

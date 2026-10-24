@@ -31,13 +31,13 @@ public static class PostingRuleValidator
         }
     }
 
-    // R03, Partner subledger only. Item/Asset/Employee/Customs are NOT enforced here:
-    // JournalEntryLine has no ItemId/AssetId/EmployeeId/CustomsDocumentId field to check against
-    // (only PartnerId exists), so enforcing those would mean rejecting every line against such
-    // an account outright rather than genuinely validating a reference — a fake implementation,
-    // not a real one. Bank/Cash/Tax subledgers aren't enforced either: reconciling against a
-    // bank statement (R22) or a specific tax filing isn't a per-line reference concept the way a
-    // partner is.
+    // R03, Partner subledger only — retained for document-posting paths that may call it in the
+    // future, but NOT called from the manual journal-entry path (JournalEntriesController.Create):
+    // R04 already blocks manual posting to control accounts (the only accounts where a partner
+    // reference is truly mandatory), and non-control accounts with SubledgerType.Partner (revenue,
+    // expense, etc.) use the tag as informational metadata for analytical reports, not as a hard
+    // data-entry requirement. An accountant must be able to post adjusting and reclassification
+    // entries to these accounts without selecting a partner.
     public static void ValidatePartnerSubledgerReference(string accountCode, SubledgerType subledger, Guid? partnerId)
     {
         if (subledger == SubledgerType.Partner && partnerId is null)

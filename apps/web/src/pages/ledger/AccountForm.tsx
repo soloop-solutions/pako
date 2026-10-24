@@ -1,9 +1,10 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { AccountGroupResponse, AccountResponse } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -56,6 +57,7 @@ interface AccountFormProps {
   error: string | null;
   onSubmit: (fields: AccountFormFields) => void;
   onCancel: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 
 const PROFILE_TOGGLES = [
@@ -71,7 +73,7 @@ function findInitialGroup(initial: AccountResponse | undefined, groupOptions: Ac
   return groupOptions.find((g) => g.id === initial.groupId);
 }
 
-export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGroup, submitting, error, onSubmit, onCancel }: AccountFormProps) {
+export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGroup, submitting, error, onSubmit, onCancel, onDirtyChange }: AccountFormProps) {
   const intl = useIntl();
 
   const [group, setGroup] = useState<AccountGroupResponse | undefined>(
@@ -79,6 +81,11 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
   );
   const [code, setCode] = useState(initial?.code ?? "");
   const [name, setName] = useState(initial?.name ?? "");
+
+  const initialNameRef = useRef(initial?.name ?? "");
+  useEffect(() => {
+    onDirtyChange?.(name !== initialNameRef.current);
+  }, [name, onDirtyChange]);
   const [nameSq, setNameSq] = useState(initial?.nameSq ?? "");
   const [normalBalance, setNormalBalance] = useState<number>(initial?.normalBalance ?? 0);
   const [subledger, setSubledger] = useState<number>(initial?.subledger ?? 0);
@@ -163,15 +170,12 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
           {mode === "create" ? (
             <Select
               value={group?.id ?? ""}
-              onChange={(e) => setGroup(groupOptions.find((g) => g.id === e.target.value))}
-              required
-            >
-              {groupOptions.map((g) => (
-                <option key={g.id} value={g.id}>
-                  {accountGroupLabel(g, groupsById, intl)}
-                </option>
-              ))}
-            </Select>
+              onValueChange={(v) => setGroup(groupOptions.find((g) => g.id === v))}
+              options={groupOptions.map((g) => ({
+                value: g.id,
+                label: accountGroupLabel(g, groupsById, intl),
+              }))}
+            />
           ) : (
             <Input readOnly disabled value={group ? accountGroupLabel(group, groupsById, intl) : ""} />
           )}
@@ -207,24 +211,26 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
 
         <div className="flex flex-col gap-1">
           <Label>{intl.formatMessage({ id: "chartOfAccounts.form.normalBalance" })}</Label>
-          <Select value={String(normalBalance)} onChange={(e) => setNormalBalance(Number(e.target.value))} required>
-            {NORMAL_BALANCE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {intl.formatMessage({ id: o.labelKey })}
-              </option>
-            ))}
-          </Select>
+          <Select
+            value={String(normalBalance)}
+            onValueChange={(v) => setNormalBalance(Number(v))}
+            options={NORMAL_BALANCE_OPTIONS.map((o) => ({
+              value: String(o.value),
+              label: intl.formatMessage({ id: o.labelKey }),
+            }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1">
           <Label>{intl.formatMessage({ id: "chartOfAccounts.subledger" })}</Label>
-          <Select value={String(subledger)} onChange={(e) => setSubledger(Number(e.target.value))}>
-            {SUBLEDGER_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {intl.formatMessage({ id: o.labelKey })}
-              </option>
-            ))}
-          </Select>
+          <Select
+            value={String(subledger)}
+            onValueChange={(v) => setSubledger(Number(v))}
+            options={SUBLEDGER_TYPE_OPTIONS.map((o) => ({
+              value: String(o.value),
+              label: intl.formatMessage({ id: o.labelKey }),
+            }))}
+          />
         </div>
 
         <div className="flex flex-col gap-1">
@@ -239,13 +245,14 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
 
         <div className="flex flex-col gap-1">
           <Label>{intl.formatMessage({ id: "chartOfAccounts.citTreatment" })}</Label>
-          <Select value={String(citDeductibility)} onChange={(e) => setCitDeductibility(Number(e.target.value))}>
-            {CIT_DEDUCTIBILITY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>
-                {intl.formatMessage({ id: o.labelKey })}
-              </option>
-            ))}
-          </Select>
+          <Select
+            value={String(citDeductibility)}
+            onValueChange={(v) => setCitDeductibility(Number(v))}
+            options={CIT_DEDUCTIBILITY_OPTIONS.map((o) => ({
+              value: String(o.value),
+              label: intl.formatMessage({ id: o.labelKey }),
+            }))}
+          />
         </div>
 
         {citDeductibility === CitDeductibility.Limit && (
@@ -263,11 +270,11 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
 
       <div className="flex flex-wrap items-center gap-4">
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isPostable} onChange={(e) => setIsPostable(e.target.checked)} />
+          <Checkbox checked={isPostable} onChange={(e) => setIsPostable(e.target.checked)} />
           {intl.formatMessage({ id: "chartOfAccounts.postable" })}
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isControl} onChange={(e) => setIsControl(e.target.checked)} />
+          <Checkbox checked={isControl} onChange={(e) => setIsControl(e.target.checked)} />
           {intl.formatMessage({ id: "chartOfAccounts.control" })}
         </label>
       </div>
@@ -277,13 +284,12 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
         <Label>{intl.formatMessage({ id: "chartOfAccounts.form.profiles" })}</Label>
         <div className="flex flex-wrap items-center gap-4">
           <label className="flex items-center gap-2 text-sm text-muted-foreground">
-            <input type="checkbox" checked disabled />
+            <Checkbox checked disabled />
             {intl.formatMessage({ id: "chartOfAccounts.profile.core" })}
           </label>
           {PROFILE_TOGGLES.map(({ bit, labelKey }) => (
             <label key={bit} className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={(profiles & bit) === bit}
                 onChange={() => setProfiles((p) => toggleProfileBit(p, bit))}
               />

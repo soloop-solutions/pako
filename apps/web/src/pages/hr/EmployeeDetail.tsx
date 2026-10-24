@@ -362,28 +362,29 @@ function EmployeeEditor({
                       id="emp-department"
                       disabled={readOnly || isStaff}
                       value={form.departmentId}
-                      onChange={(e) => set("departmentId", e.target.value)}
-                    >
-                      <option value="">{intl.formatMessage({ id: "common.notSet" })}</option>
-                      {departments.map((d) => (
-                        <option key={d.id} value={d.id}>
-                          {d.code} — {d.name}
-                        </option>
-                      ))}
-                    </Select>
+                      onValueChange={(v) => set("departmentId", v)}
+                      placeholder={intl.formatMessage({ id: "common.notSet" })}
+                      options={departments.map((d) => ({
+                        value: d.id,
+                        label: `${d.code} — ${d.name}`,
+                      }))}
+                    />
                   </Field>
                   <Field id="emp-job-title" label={intl.formatMessage({ id: "hr.employee.jobTitle" })}>
                     <Input id="emp-job-title" disabled={readOnly} value={form.jobTitle} onChange={(e) => set("jobTitle", e.target.value)} />
                   </Field>
                   <Field id="emp-manager" label={intl.formatMessage({ id: "hr.employee.manager" })}>
-                    <Select id="emp-manager" disabled={readOnly} value={form.managerId} onChange={(e) => set("managerId", e.target.value)}>
-                      <option value="">{intl.formatMessage({ id: "common.notSet" })}</option>
-                      {managerOptions.map((m) => (
-                        <option key={m.id} value={m.id}>
-                          {m.name}
-                        </option>
-                      ))}
-                    </Select>
+                    <Select
+                      id="emp-manager"
+                      disabled={readOnly}
+                      value={form.managerId}
+                      onValueChange={(v) => set("managerId", v)}
+                      placeholder={intl.formatMessage({ id: "common.notSet" })}
+                      options={managerOptions.map((m) => ({
+                        value: m.id,
+                        label: m.name,
+                      }))}
+                    />
                   </Field>
                   <Field id="emp-hire-date" label={intl.formatMessage({ id: "hr.employee.hireDate" })}>
                     <Input id="emp-hire-date" type="date" disabled={readOnly} value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} />

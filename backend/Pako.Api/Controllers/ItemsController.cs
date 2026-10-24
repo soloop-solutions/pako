@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -16,11 +17,13 @@ public class ItemsController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly NumberSeriesService _numberSeries;
+    private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public ItemsController(PakoDbContext db, NumberSeriesService numberSeries)
+    public ItemsController(PakoDbContext db, NumberSeriesService numberSeries, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _numberSeries = numberSeries;
+        _localizer = localizer;
     }
 
     // B7: the one paginated-list shape. ?page=1&pageSize=50&search=laptop&sort=name — sort takes
@@ -97,6 +100,9 @@ public class ItemsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Unit))
             return BadRequest("Unit is required.");
 
+        var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
+        if (accountError is not null) return accountError;
+
         // B6: auto-assign the next ordinal code from the Item number series.
         var year = DateTime.UtcNow.Year;
         var codeStr = await _numberSeries.ReserveNextAsync(companyId, "Item", year);
@@ -108,6 +114,7 @@ public class ItemsController : ControllerBase
             CompanyId = companyId,
             Code = code,
             Name = request.Name.Trim(),
+            Description = request.Description?.Trim(),
             Unit = request.Unit.Trim(),
             Type = request.Type,
             DefaultTaxDefinitionId = request.DefaultTaxDefinitionId,
@@ -138,7 +145,11 @@ public class ItemsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Unit))
             return BadRequest("Unit is required.");
 
+        var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
+        if (accountError is not null) return accountError;
+
         item.Name = request.Name.Trim();
+        item.Description = request.Description?.Trim();
         item.Unit = request.Unit.Trim();
         item.Type = request.Type;
         item.DefaultTaxDefinitionId = request.DefaultTaxDefinitionId;
@@ -199,8 +210,27 @@ public class ItemsController : ControllerBase
         return NoContent();
     }
 
+    private async Task<ActionResult?> ValidateDefaultAccounts(Guid companyId, Guid? revenueAccountId, Guid? expenseAccountId, Guid? inventoryAccountId)
+    {
+        var accountIds = new[] { revenueAccountId, expenseAccountId, inventoryAccountId }
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .Distinct()
+            .ToList();
+
+        if (accountIds.Count == 0) return null;
+
+        var validCount = await _db.Accounts.AsNoTracking()
+            .CountAsync(a => accountIds.Contains(a.Id) && a.CompanyId == companyId);
+
+        if (validCount != accountIds.Count)
+            return BadRequest(_localizer["ItemDefaultAccountNotBelongToCompany"].Value);
+
+        return null;
+    }
+
     private static ItemResponse ToResponse(Item i) => new(
-        i.Id, i.Code, i.Name, i.Unit, i.Type,
+        i.Id, i.Code, i.Name, i.Description, i.Unit, i.Type,
         i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
         i.Barcodes.Select(b => new ItemBarcodeResponse(b.Id, b.Barcode)).ToList());

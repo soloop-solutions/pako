@@ -156,7 +156,15 @@ public class CompanyLocksController : ControllerBase
 
     private static CompanyResponse ToResponse(Company c) =>
         new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,
-            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate);
+            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate,
+            c.TradingName, c.BusinessNumber, c.FiscalNumber, c.VatNumber,
+            c.LegalForm, c.BusinessActivity, c.Description,
+            c.Country, c.Municipality, c.StreetAddress, c.PostalCode, c.AddressLine2,
+            c.Email, c.Phone, c.Website,
+            c.BankName, c.BankAccountHolder, c.Iban, c.SwiftBic,
+            c.DocumentFooter, c.PaymentInstructions,
+            c.VatRegistrationDate, c.FunctionalCurrency,
+            c.IsArchived, c.ArchivedAt);
 
     private static AccountLockExceptionResponse ToResponse(AccountLockException e, DateTime asOfUtc) =>
         new(e.Id, e.UserId, e.LockDateField, e.LockDate, e.Reason, e.EndsAt, e.CreatedAt, e.GrantedByUserId, e.RevokedAt, e.RevokedByUserId, e.IsLive(asOfUtc));

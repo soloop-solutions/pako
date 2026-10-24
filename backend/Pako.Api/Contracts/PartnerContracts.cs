@@ -36,3 +36,8 @@ public record PartnerResponse(
     Guid? PayableAccountId,
     int? PaymentTermDays,
     decimal? CreditLimit);
+
+public record CreditExposureResponse(
+    decimal? CreditLimit,
+    decimal Outstanding,
+    decimal? Available);

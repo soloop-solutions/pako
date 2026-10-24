@@ -2,7 +2,7 @@
 // (distinct from CreateJournalEntryLineRequest, which is only built at submit time — see
 // JournalEntryGrid.tsx's submit()).
 
-export const GRID_COLUMNS = ["account", "description", "debit", "credit", "partner", "costCenter"] as const;
+export const GRID_COLUMNS = ["account", "description", "debit", "credit", "partner", "project", "employee", "costCenter"] as const;
 
 export type GridColumn = (typeof GRID_COLUMNS)[number];
 
@@ -28,6 +28,10 @@ export interface GridLine {
   credit: string;
   partnerId: string;
   partnerLabel: string;
+  projectId: string;
+  projectLabel: string;
+  employeeId: string;
+  employeeLabel: string;
   costCenterAllocations: CostCenterAllocation[];
 }
 
@@ -41,6 +45,10 @@ export function emptyLine(id: string, description = ""): GridLine {
     credit: "",
     partnerId: "",
     partnerLabel: "",
+    projectId: "",
+    projectLabel: "",
+    employeeId: "",
+    employeeLabel: "",
     costCenterAllocations: [],
   };
 }

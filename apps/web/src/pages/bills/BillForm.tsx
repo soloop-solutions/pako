@@ -1,15 +1,19 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { AccountResponse, BillResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
+import { useEntityFavorites } from "@/hooks/useEntityFavorites";
 import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 import { isExpenseAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
@@ -117,6 +121,9 @@ export function BillForm({
   onSaved,
 }: BillFormProps) {
   const intl = useIntl();
+  const partnerFavs = useEntityFavorites("Partner");
+  const accountFavs = useEntityFavorites("Account");
+  const itemFavs = useEntityFavorites("Item");
   // C2: same rule as InvoiceForm — default new lines to the exempt purchase code (BEX).
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "BEX")?.id ?? "") : "";
   // B13: AccountType widened to Odoo's real 19 values — Expense is now a family of types
@@ -165,6 +172,45 @@ export function BillForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-populate lines from the original bill when creating a Purchase Return. Only fires when:
+  // 1. This form is fixed to PurchaseReturn (fixedDocumentType === 2)
+  // 2. The user selects an originalBillId
+  // 3. The user has NOT already entered lines manually (still on a single empty line)
+  // The user can then modify quantities for partial returns or remove lines they don't want.
+  const isPurchaseReturn = fixedDocumentType === BillDocumentType.PurchaseReturn;
+  useEffect(() => {
+    if (!isPurchaseReturn || !originalBillId || editingBill) return;
+
+    // Don't overwrite if the user has already entered lines manually.
+    const hasManualLines = lines.length > 1 || (lines.length === 1 && lines[0].description.trim() !== "");
+    if (hasManualLines) return;
+
+    let cancelled = false;
+    apiClient
+      .billsGET(companyId, originalBillId)
+      .then((bill) => {
+        if (cancelled) return;
+        if (bill.lines.length === 0) return;
+        const populated: Line[] = bill.lines.map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity),
+          unitPrice: String(l.unitPrice),
+          discountPercent: String(l.discountPercent),
+          taxDefinitionId: l.taxDefinitionId ?? defaultTaxId,
+          itemId: l.itemId ?? "",
+          expenseAccountId: l.expenseAccountId ?? "",
+        }));
+        setLines(populated);
+      })
+      .catch(() => {
+        // Silently ignore — the user can still enter lines manually.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only react to originalBillId changes
+  }, [originalBillId]);
 
   // A2 (v2 release): PurchaseReturn joins CreditNote in needing an original-bill picker, but
   // unlike CreditNote it's REQUIRED, not optional — see requiresOriginalBill below.
@@ -231,6 +277,14 @@ export function BillForm({
         itemId: line.itemId || undefined,
       }));
 
+      const recordFavorites = () => {
+        if (partnerId) partnerFavs.recordSelection(partnerId);
+        for (const line of validLines) {
+          if (line.expenseAccountId) accountFavs.recordSelection(line.expenseAccountId);
+          if (line.itemId) itemFavs.recordSelection(line.itemId);
+        }
+      };
+
       if (editingBill) {
         await apiClient.billsPUT(companyId, editingBill.id, {
           partnerId,
@@ -242,6 +296,7 @@ export function BillForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
         });
+        recordFavorites();
         onSaved?.();
       } else {
         await apiClient.billsPOST(companyId, {
@@ -257,6 +312,7 @@ export function BillForm({
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
         });
+        recordFavorites();
         setPartnerId("");
         setDocumentType(fixedDocumentType ?? BillDocumentType.Bill);
         setOriginalBillId("");
@@ -266,10 +322,13 @@ export function BillForm({
         setTakePaymentNow(false);
         setPaymentAmount("");
         setPaymentMethodId("");
+        toast.success(intl.formatMessage({ id: "toast.billCreated" }));
         onCreated();
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: editingBill ? "billForm.saveError" : "billForm.createError" })));
+      const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingBill ? "billForm.saveError" : "billForm.createError" }));
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -286,32 +345,44 @@ export function BillForm({
       <div className="grid gap-4 sm:grid-cols-5">
         <div className="flex flex-col gap-2">
           <Label htmlFor="bill-vendor">{intl.formatMessage({ id: "billForm.vendor" })}</Label>
-          <Select id="bill-vendor" value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
-            <option value="">{intl.formatMessage({ id: "billForm.selectVendor" })}</option>
-            {vendors.map((vendor) => (
-              <option key={vendor.id} value={vendor.id}>
-                {partnerOptionLabel(vendor, intl)}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="bill-vendor"
+            value={partnerId}
+            onChange={setPartnerId}
+            placeholder={intl.formatMessage({ id: "billForm.selectVendor" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={intl.formatMessage({ id: "billForm.selectVendor" })}
+            options={vendors.map((vendor) => ({
+              value: vendor.id,
+              label: partnerOptionLabel(vendor, intl),
+              description: vendor.taxNumber ?? undefined,
+            }))}
+            favorites={{
+              pinnedIds: partnerFavs.pinnedIds,
+              autoIds: partnerFavs.autoIds,
+              onPin: partnerFavs.pin,
+              onUnpin: partnerFavs.unpin,
+              pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+              frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+            }}
+          />
         </div>
         {fixedDocumentType === undefined && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
             <Select
               id="bill-document-type"
-              value={documentType}
-              onChange={(event) => {
-                setDocumentType(Number(event.target.value));
+              value={String(documentType)}
+              onValueChange={(v) => {
+                setDocumentType(Number(v));
                 setOriginalBillId("");
               }}
-            >
-              {BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {intl.formatMessage({ id: option.labelKey })}
-                </option>
-              ))}
-            </Select>
+              options={BILL_DOCUMENT_TYPE_OPTION_KEYS.map((option) => ({
+                value: String(option.value),
+                label: intl.formatMessage({ id: option.labelKey }),
+              }))}
+            />
           </div>
         )}
         <div className="flex flex-col gap-2">
@@ -348,10 +419,15 @@ export function BillForm({
       {!editingBill && (
         <div className="flex flex-col gap-2 sm:w-1/4">
           <Label htmlFor="bill-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
-          <Select id="bill-price-mode" value={priceMode} onChange={(event) => setPriceMode(Number(event.target.value))}>
-            <option value={PriceMode.GrossInclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeGross" })}</option>
-            <option value={PriceMode.NetExclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeNet" })}</option>
-          </Select>
+          <Select
+            id="bill-price-mode"
+            value={String(priceMode)}
+            onValueChange={(v) => setPriceMode(Number(v))}
+            options={[
+              { value: String(PriceMode.GrossInclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeGross" }) },
+              { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
+            ]}
+          />
         </div>
       )}
 
@@ -360,17 +436,19 @@ export function BillForm({
           <Label htmlFor="bill-original">
             {intl.formatMessage({ id: requiresOriginalBill ? "billForm.originalBillRequired" : "billForm.originalBill" })}
           </Label>
-          <Select id="bill-original" value={originalBillId} onChange={(event) => setOriginalBillId(event.target.value)}>
-            {!requiresOriginalBill && <option value="">{intl.formatMessage({ id: "billForm.noOriginalBill" })}</option>}
-            {requiresOriginalBill && originalBillCandidates.length === 0 && (
-              <option value="">{intl.formatMessage({ id: "billForm.selectOriginalBill" })}</option>
-            )}
-            {originalBillCandidates.map((bill) => (
-              <option key={bill.id} value={bill.id}>
-                {bill.vendorReference ?? bill.id}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="bill-original"
+            value={originalBillId}
+            onChange={setOriginalBillId}
+            placeholder={intl.formatMessage({ id: requiresOriginalBill ? "billForm.selectOriginalBill" : "billForm.noOriginalBill" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={requiresOriginalBill ? undefined : intl.formatMessage({ id: "billForm.noOriginalBill" })}
+            options={originalBillCandidates.map((bill) => ({
+              value: bill.id,
+              label: bill.vendorReference ?? bill.id,
+            }))}
+          />
         </div>
       )}
 
@@ -381,17 +459,58 @@ export function BillForm({
           const selectedItem = items.find((i) => i.id === line.itemId);
           const overridden = overriddenFields(line, selectedItem);
           return (
-          <div key={index} className="grid grid-cols-[1fr_2fr_5rem_6rem_5rem_1fr_1fr_5rem_5rem_auto] items-end gap-2">
+          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.item" })}</Label>}
-              <Select value={line.itemId} onChange={(event) => selectLineItem(index, event.target.value)}>
-                <option value="">{intl.formatMessage({ id: "billForm.noItem" })}</option>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                value={line.itemId}
+                onChange={(val) => selectLineItem(index, val)}
+                placeholder={intl.formatMessage({ id: "billForm.noItem" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "billForm.noItem" })}
+                options={items.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                  description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
+                }))}
+                favorites={{
+                  pinnedIds: itemFavs.pinnedIds,
+                  autoIds: itemFavs.autoIds,
+                  onPin: itemFavs.pin,
+                  onUnpin: itemFavs.unpin,
+                  pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+                  frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.expenseAccount" })}</Label>}
+              <SearchableSelect
+                value={line.expenseAccountId}
+                onChange={(val) => updateLine(index, { expenseAccountId: val })}
+                placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                options={expenseAccounts.map((account) => ({
+                  value: account.id,
+                  label: `${account.code} · ${account.name}`,
+                }))}
+                favorites={{
+                  pinnedIds: accountFavs.pinnedIds,
+                  autoIds: accountFavs.autoIds,
+                  onPin: accountFavs.pin,
+                  onUnpin: accountFavs.unpin,
+                  pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+                  frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                }}
+              />
+              {overridden.account && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
@@ -417,12 +536,13 @@ export function BillForm({
                 type="number"
                 step="0.01"
                 min="0"
+                placeholder={intl.formatMessage({ id: "billForm.purchasePricePlaceholder" })}
                 value={line.unitPrice}
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
               {overridden.price && (
                 <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
-                  {intl.formatMessage({ id: "common.modified" })}
+                  {intl.formatMessage({ id: "billForm.priceOverridden" })}
                 </Badge>
               )}
             </div>
@@ -439,34 +559,20 @@ export function BillForm({
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.tax" })}</Label>}
-              <Select
+              <SearchableSelect
                 value={line.taxDefinitionId}
-                onChange={(event) => updateLine(index, { taxDefinitionId: event.target.value })}
-              >
-                {!isVatRegistered && <option value="">{intl.formatMessage({ id: "billForm.noTax" })}</option>}
-                {taxes.map((tax) => (
-                  <option key={tax.id} value={tax.id}>
-                    {taxRatePercentLabel(tax)}
-                  </option>
-                ))}
-              </Select>
+                onChange={(val) => updateLine(index, { taxDefinitionId: val })}
+                placeholder={intl.formatMessage({ id: "billForm.noTax" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={!isVatRegistered ? intl.formatMessage({ id: "billForm.noTax" }) : undefined}
+                options={taxes.map((tax) => ({
+                  value: tax.id,
+                  label: taxRatePercentLabel(tax),
+                  description: tax.code ?? undefined,
+                }))}
+              />
               {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.expenseAccount" })}</Label>}
-              <Select value={line.expenseAccountId} onChange={(event) => updateLine(index, { expenseAccountId: event.target.value })}>
-                <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-                {expenseAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.code}
-                  </option>
-                ))}
-              </Select>
-              {overridden.account && (
                 <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
@@ -494,7 +600,7 @@ export function BillForm({
       {!editingBill && (
         <div className="flex flex-col gap-2 rounded-md border p-3">
           <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="checkbox" checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
+            <Checkbox checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
             {intl.formatMessage({ id: "billForm.takeCashPaymentNow" })}
           </label>
           {takePaymentNow && (
