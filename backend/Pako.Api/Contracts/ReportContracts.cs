@@ -119,3 +119,78 @@ public record PurchaseBookResponse(
     decimal TotalNet,
     decimal TotalVat,
     decimal TotalGross);
+
+public record GeneralLedgerLine(
+    Guid EntryId,
+    string? EntryNumber,
+    DateOnly Date,
+    string? Reference,
+    string AccountCode,
+    string AccountName,
+    Guid? PartnerId,
+    string? PartnerName,
+    string? Description,
+    decimal Debit,
+    decimal Credit);
+
+public record MonthlyReportLine(Guid AccountId, string AccountCode, string AccountName, List<decimal> Months, decimal Total);
+
+public record MonthlyProfitAndLossResponse(
+    int Year,
+    List<MonthlyReportLine> Income,
+    List<MonthlyReportLine> CostOfRevenue,
+    List<MonthlyReportLine> Expenses,
+    List<decimal> GrossProfitByMonth,
+    List<decimal> NetIncomeByMonth,
+    decimal GrossProfit,
+    decimal NetIncome);
+
+public record ComparativeLine(Guid AccountId, string AccountCode, string AccountName, decimal Current, decimal Prior, decimal Difference);
+
+public record BalanceSheetComparativeResponse(
+    DateOnly AsOf,
+    DateOnly CompareTo,
+    List<ComparativeLine> Assets,
+    List<ComparativeLine> Liabilities,
+    List<ComparativeLine> Equity,
+    decimal TotalAssets,
+    decimal TotalLiabilitiesAndEquity);
+
+public record CashFlowLine(Guid AccountId, string AccountCode, string AccountName, decimal Amount);
+
+public record CashFlowResponse(
+    DateOnly From,
+    DateOnly To,
+    decimal OpeningCash,
+    decimal NetIncome,
+    List<CashFlowLine> Operating,
+    List<CashFlowLine> Investing,
+    List<CashFlowLine> Financing,
+    decimal NetChange,
+    decimal ClosingCash,
+    decimal Difference);
+
+public record EquityMovementLine(Guid AccountId, string AccountCode, string AccountName, decimal Amount);
+
+public record EquityStatementResponse(
+    DateOnly From,
+    DateOnly To,
+    decimal OpeningEquity,
+    decimal NetIncome,
+    List<EquityMovementLine> Movements,
+    decimal ClosingEquity);
+
+public record ExpenseBookColumn(Guid AccountId, string AccountCode, string AccountName);
+
+public record ExpenseBookRow(Guid EntryId, DateOnly Date, string? DocumentNumber, string? PartnerName, List<decimal> Amounts, decimal Total);
+
+public record ExpenseBookResponse(
+    DateOnly From,
+    DateOnly To,
+    List<ExpenseBookColumn> Columns,
+    List<ExpenseBookRow> Rows,
+    List<decimal> ColumnTotals);
+
+public record ReportCheck(string Key, bool Passed, decimal Expected, decimal Actual);
+
+public record ReportChecksResponse(DateOnly From, DateOnly To, List<ReportCheck> Checks);

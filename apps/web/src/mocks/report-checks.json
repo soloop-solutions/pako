@@ -1,0 +1,9 @@
+{
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "checks": [
+    { "key": "trialBalanceBalanced", "passed": true, "expected": 0.00, "actual": 0.00 },
+    { "key": "balanceSheetBalanced", "passed": true, "expected": 130000.00, "actual": 130000.00 },
+    { "key": "cashFlowReconciles", "passed": true, "expected": 45000.00, "actual": 45000.00 }
+  ]
+}

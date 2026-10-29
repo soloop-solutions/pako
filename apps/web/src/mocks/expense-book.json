@@ -1,0 +1,15 @@
+{
+  "from": "2026-01-01",
+  "to": "2026-01-31",
+  "columns": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000621", "accountCode": "621", "accountName": "Rent" },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000622", "accountCode": "622", "accountName": "Salaries" },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000631", "accountCode": "631", "accountName": "Utilities" }
+  ],
+  "rows": [
+    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000011", "date": "2026-01-02", "documentNumber": "BILL-0001", "partnerName": "Prime Properties L.L.C.", "amounts": [1000.00, 0.00, 0.00], "total": 1000.00 },
+    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000012", "date": "2026-01-31", "documentNumber": null, "partnerName": null, "amounts": [0.00, 3000.00, 0.00], "total": 3000.00 },
+    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000013", "date": "2026-01-15", "documentNumber": "BILL-0002", "partnerName": "KEDS J.S.C.", "amounts": [0.00, 0.00, 240.00], "total": 240.00 }
+  ],
+  "columnTotals": [1000.00, 3000.00, 240.00]
+}
