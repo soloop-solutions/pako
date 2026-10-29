@@ -1,0 +1,6 @@
+[
+  { "itemId": null, "itemCode": null, "description": "Office rent January 2026", "unit": null, "quantity": 1.00, "netAmount": 1000.00, "vatAmount": 180.00, "grossAmount": 1180.00 },
+  { "itemId": "5b1f0c2e-1a11-4c01-9a06-000000000001", "itemCode": "SRV-ELE", "description": "Electricity", "unit": "kWh", "quantity": 1200.00, "netAmount": 203.39, "vatAmount": 36.61, "grossAmount": 240.00 },
+  { "itemId": "5b1f0c2e-1a11-4c01-9a06-000000000002", "itemCode": "SRV-NET", "description": "Internet and telephony", "unit": "month", "quantity": 1.00, "netAmount": 300.00, "vatAmount": 54.00, "grossAmount": 354.00 },
+  { "itemId": "5b1f0c2e-1a11-4c01-9a06-000000000003", "itemCode": "ITM-0007", "description": "A4 printer paper", "unit": "pcs", "quantity": 40.00, "netAmount": 380.00, "vatAmount": 68.40, "grossAmount": 448.40 }
+]

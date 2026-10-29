@@ -194,3 +194,70 @@ public record ExpenseBookResponse(
 public record ReportCheck(string Key, bool Passed, decimal Expected, decimal Actual);
 
 public record ReportChecksResponse(DateOnly From, DateOnly To, List<ReportCheck> Checks);
+
+public record VendorBalanceLine(Guid PartnerId, string Name, decimal Opening, decimal Debit, decimal Credit, decimal Closing);
+
+public record VendorSyntheticResponse(DateOnly From, DateOnly To, List<VendorBalanceLine> Lines, decimal TotalClosing);
+
+public record VendorStatementRow(
+    DateOnly Date,
+    string Type,
+    string? DocumentNumber,
+    string? Description,
+    decimal Debit,
+    decimal Credit,
+    decimal Balance);
+
+public record VendorStatementResponse(
+    Guid PartnerId,
+    string Name,
+    DateOnly From,
+    DateOnly To,
+    decimal Opening,
+    List<VendorStatementRow> Rows,
+    decimal Closing);
+
+public record PayablesAgingLine(
+    Guid BillId,
+    string? BillNumber,
+    Guid PartnerId,
+    string PartnerName,
+    DateOnly IssueDate,
+    DateOnly DueDate,
+    decimal Outstanding,
+    string Bucket);
+
+public record AgingBucketTotal(string Bucket, decimal Total);
+
+public record PayablesAgingResponse(DateOnly AsOf, List<PayablesAgingLine> Lines, List<AgingBucketTotal> Buckets);
+
+public record PurchaseByVendorLine(
+    Guid PartnerId,
+    string Name,
+    decimal NetAmount,
+    decimal DiscountAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
+
+public record PurchaseByItemLine(
+    Guid? ItemId,
+    string? ItemCode,
+    string Description,
+    string? Unit,
+    decimal Quantity,
+    decimal NetAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
+
+public record PurchaseTransactionLine(
+    DateOnly Date,
+    string? DocumentNumber,
+    string DocumentType,
+    string PartnerName,
+    string? ItemCode,
+    string Description,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal NetAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
