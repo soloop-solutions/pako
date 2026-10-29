@@ -134,10 +134,14 @@ describe("ChartOfAccounts", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add account" }));
 
-    // Only the Group-level (leaf) group is offered — the Class-level parent is never a valid
-    // creation target on its own.
+    // Open the Group dropdown to verify only leaf groups are offered — the Class-level parent
+    // ("Assets") is never a valid creation target on its own.
+    const groupTrigger = screen.getAllByRole("combobox")[0];
+    fireEvent.click(groupTrigger);
+    await waitFor(() => expect(screen.getByRole("option", { name: "Assets · Cash and Cash Equivalents" })).toBeInTheDocument());
     expect(screen.queryByRole("option", { name: "Assets" })).not.toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Assets · Cash and Cash Equivalents" })).toBeInTheDocument();
+    // Close the dropdown by selecting the already-selected option
+    fireEvent.mouseDown(screen.getByRole("option", { name: "Assets · Cash and Cash Equivalents" }));
 
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "100200" } });
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Test Cash Drawer" } });

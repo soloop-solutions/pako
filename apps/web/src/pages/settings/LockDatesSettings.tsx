@@ -365,14 +365,12 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
                       id="exception-member"
                       className="w-56"
                       value={exceptionMemberId}
-                      onChange={(event) => setExceptionMemberId(event.target.value)}
-                    >
-                      {members.map((member: MemberResponse) => (
-                        <option key={member.userId} value={member.userId}>
-                          {member.email}
-                        </option>
-                      ))}
-                    </Select>
+                      onValueChange={setExceptionMemberId}
+                      options={members.map((member: MemberResponse) => ({
+                        value: member.userId,
+                        label: member.email,
+                      }))}
+                    />
                   </div>
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="exception-field">{intl.formatMessage({ id: "lockDates.exceptions.lock" })}</Label>
@@ -380,14 +378,12 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
                       id="exception-field"
                       className="w-40"
                       value={exceptionField}
-                      onChange={(event) => setExceptionField(event.target.value as SoftLockDateKey)}
-                    >
-                      {SOFT_LOCK_DATE_KEYS.map((key) => (
-                        <option key={key} value={key}>
-                          {lockDateLabel(key, intl)}
-                        </option>
-                      ))}
-                    </Select>
+                      onValueChange={(v) => setExceptionField(v as SoftLockDateKey)}
+                      options={SOFT_LOCK_DATE_KEYS.map((key) => ({
+                        value: key,
+                        label: lockDateLabel(key, intl),
+                      }))}
+                    />
                   </div>
                   <div className="flex flex-col gap-1">
                     <Label htmlFor="exception-lock-date">{intl.formatMessage({ id: "lockDates.exceptions.effectiveDate" })}</Label>

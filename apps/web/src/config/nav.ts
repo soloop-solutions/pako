@@ -10,17 +10,25 @@ import {
   FileClock,
   GitMerge,
   BarChart3,
+  Building,
   Building2,
   Settings as SettingsIcon,
-  Users,
+  UserCheck,
+  Truck,
   Package,
   ListTree,
   BookUser,
   CalendarRange,
   Plus,
+  BadgePercent,
+  UserRound,
+  Network,
+  CalendarDays,
+  Wallet,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
+import { CompanyProfile } from "@/pages/CompanyProfile";
 import { PurchaseReturns } from "@/pages/bills/PurchaseReturns";
 import { ChartOfAccounts } from "@/pages/ledger/ChartOfAccounts";
 import { Companies } from "@/pages/Companies";
@@ -29,16 +37,31 @@ import { Invoicing } from "@/pages/invoicing/Invoicing";
 import { Proforma } from "@/pages/invoicing/Proforma";
 import { SalesReturns } from "@/pages/invoicing/SalesReturns";
 import { Ledger } from "@/pages/ledger/Ledger";
+import { Customers } from "@/pages/partners/Customers";
 import { Partners } from "@/pages/partners/Partners";
+import { Vendors } from "@/pages/partners/Vendors";
 import { Payroll } from "@/pages/payroll/Payroll";
+import { Employees } from "@/pages/hr/Employees";
+import { Departments } from "@/pages/hr/Departments";
+import { Leave } from "@/pages/leave/Leave";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
 import { Settings } from "@/pages/Settings";
+import { WithholdingTax } from "@/pages/tax/WithholdingTax";
 import { YearEnd } from "@/pages/YearEnd";
+
+/**
+ * HR module: the department permission a ClientStaff user needs to see an item (mirrors the
+ * backend's AccessModule). Unset = visible to everyone with company access. Display only — the
+ * API enforces every rule itself.
+ */
+export type NavModule = "sales" | "purchases" | "partners" | "accounting" | "reports" | "hr";
 
 export type NavItem = {
   titleKey: string;
+  /** Overrides the category's module for this one item. */
+  module?: NavModule;
   descriptionKey: string;
   path: string;
   icon: LucideIcon;
@@ -72,6 +95,8 @@ export interface NavSavedView {
 export interface NavCategory {
   id: string;
   labelKey: string;
+  /** Default NavModule for every item in the category. */
+  module?: NavModule;
   items: NavItem[];
 }
 
@@ -98,12 +123,32 @@ const billSavedViews: NavSavedView[] = [
   { id: "posted", labelKey: "sidebar.savedView.posted", filters: { state: "Posted" } },
 ];
 
+const salesReturnSavedViews: NavSavedView[] = [
+  { id: "all", labelKey: "sidebar.savedView.all", filters: {} },
+  { id: "draft", labelKey: "sidebar.savedView.draft", filters: { state: "Draft" } },
+  { id: "posted", labelKey: "sidebar.savedView.posted", filters: { state: "Posted" } },
+];
+
+const purchaseReturnSavedViews: NavSavedView[] = [
+  { id: "all", labelKey: "sidebar.savedView.all", filters: {} },
+  { id: "draft", labelKey: "sidebar.savedView.draft", filters: { state: "Draft" } },
+  { id: "posted", labelKey: "sidebar.savedView.posted", filters: { state: "Posted" } },
+];
+
 const dashboardItem: NavItem = {
   titleKey: "nav.dashboard",
   path: "/dashboard",
   icon: LayoutDashboard,
   descriptionKey: "nav.dashboard.description",
   Element: Dashboard,
+};
+
+const companyProfileItem: NavItem = {
+  titleKey: "nav.companyProfile",
+  path: "/company-profile",
+  icon: Building,
+  descriptionKey: "nav.companyProfile.description",
+  Element: CompanyProfile,
 };
 
 const companiesItem: NavItem = {
@@ -154,12 +199,13 @@ const chartOfAccountsItem: NavItem = {
 export const topNavItems: NavItem[] = [dashboardItem];
 
 /** Top-level items rendered below every category. */
-export const bottomNavItems: NavItem[] = [companiesItem, settingsItem];
+export const bottomNavItems: NavItem[] = [companyProfileItem, companiesItem, settingsItem];
 
 export const navCategories: NavCategory[] = [
   {
     id: "sales",
     labelKey: "sidebar.category.sales",
+    module: "sales",
     items: [
       salesInvoicesItem,
       {
@@ -168,6 +214,8 @@ export const navCategories: NavCategory[] = [
         icon: Undo2,
         descriptionKey: "nav.salesReturns.description",
         Element: SalesReturns,
+        gridId: "salesReturns",
+        savedViews: salesReturnSavedViews,
       },
       {
         titleKey: "nav.proforma",
@@ -176,11 +224,19 @@ export const navCategories: NavCategory[] = [
         descriptionKey: "nav.proforma.description",
         Element: Proforma,
       },
+      {
+        titleKey: "nav.customers",
+        path: "/customers",
+        icon: UserCheck,
+        descriptionKey: "nav.customers.description",
+        Element: Customers,
+      },
     ],
   },
   {
     id: "purchases",
     labelKey: "sidebar.category.purchases",
+    module: "purchases",
     items: [
       purchaseInvoicesItem,
       {
@@ -189,12 +245,22 @@ export const navCategories: NavCategory[] = [
         icon: RotateCcw,
         descriptionKey: "nav.purchaseReturns.description",
         Element: PurchaseReturns,
+        gridId: "purchaseReturns",
+        savedViews: purchaseReturnSavedViews,
+      },
+      {
+        titleKey: "nav.vendors",
+        path: "/vendors",
+        icon: Truck,
+        descriptionKey: "nav.vendors.description",
+        Element: Vendors,
       },
     ],
   },
   {
     id: "accounting",
     labelKey: "sidebar.category.accounting",
+    module: "accounting",
     items: [
       {
         titleKey: "nav.ledger",
@@ -230,19 +296,49 @@ export const navCategories: NavCategory[] = [
         icon: BookUser,
         descriptionKey: "nav.partners.description",
         Element: Partners,
+        module: "partners",
+      },
+    ],
+  },
+  {
+    id: "hr",
+    labelKey: "sidebar.category.hr",
+    module: "hr",
+    items: [
+      {
+        titleKey: "nav.employees",
+        path: "/employees",
+        icon: UserRound,
+        descriptionKey: "nav.employees.description",
+        Element: Employees,
+      },
+      {
+        titleKey: "nav.departments",
+        path: "/departments",
+        icon: Network,
+        descriptionKey: "nav.departments.description",
+        Element: Departments,
       },
       {
         titleKey: "nav.payroll",
         path: "/payroll",
-        icon: Users,
+        icon: Wallet,
         descriptionKey: "nav.payroll.description",
         Element: Payroll,
+      },
+      {
+        titleKey: "nav.leave",
+        path: "/leave",
+        icon: CalendarDays,
+        descriptionKey: "nav.leave.description",
+        Element: Leave,
       },
     ],
   },
   {
     id: "reports",
     labelKey: "sidebar.category.reports",
+    module: "reports",
     items: [
       {
         titleKey: "nav.reports",
@@ -257,6 +353,13 @@ export const navCategories: NavCategory[] = [
         icon: CalendarRange,
         descriptionKey: "nav.yearEnd.description",
         Element: YearEnd,
+      },
+      {
+        titleKey: "nav.withholdingTax",
+        path: "/withholding-tax",
+        icon: BadgePercent,
+        descriptionKey: "nav.withholdingTax.description",
+        Element: WithholdingTax,
       },
     ],
   },

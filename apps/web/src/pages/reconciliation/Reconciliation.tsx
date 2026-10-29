@@ -5,6 +5,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { BillResponse, DocumentBalanceResponse, InvoiceResponse, PartnerResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -180,7 +181,7 @@ export function Reconciliation() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsReceivable" })}</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsReceivable" })}<AccountingTooltip termKey="tooltip.accountsReceivable" /></CardTitle>
           <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: totalAr.toFixed(2) })}</CardDescription>
         </CardHeader>
         <CardContent>
@@ -204,7 +205,7 @@ export function Reconciliation() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsPayable" })}</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsPayable" })}<AccountingTooltip termKey="tooltip.accountsPayable" /></CardTitle>
           <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: totalAp.toFixed(2) })}</CardDescription>
         </CardHeader>
         <CardContent>

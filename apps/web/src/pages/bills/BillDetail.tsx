@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import type {
   AccountResponse,
   ApplyCreditNoteResponse,
@@ -20,8 +21,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
-import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant } from "@/lib/document-types";
 import { computeLine } from "@/lib/tax-enums";
+import { cn } from "@/lib/utils";
+import { ActivityTimeline } from "@/components/shared/ActivityTimeline";
+import { RelatedDocuments } from "@/components/shared/RelatedDocuments";
+import { PrintButton } from "@/components/shared/PrintButton";
+import { PostingPreview } from "@/components/shared/PostingPreview";
 import { BillForm } from "@/pages/bills/BillForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
@@ -49,8 +56,10 @@ export function BillDetail() {
   const [postError, setPostError] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  const [showPostPreview, setShowPostPreview] = useState(false);
   // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
   const [editing, setEditing] = useState(false);
+  const billPrintRef = useRef<HTMLDivElement>(null);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
@@ -115,22 +124,29 @@ export function BillDetail() {
     dirty: editing,
   });
 
+  useUnsavedChanges(editing);
+
   async function handlePost() {
     if (!companyId || !id) return;
     setPostError(null);
     setPosting(true);
     try {
       await apiClient.post(companyId, id);
+      toast.success(intl.formatMessage({ id: "toast.billPosted" }));
       await refresh();
     } catch (err) {
-      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: "billDetail.postError" })));
+      const msg = getApiErrorMessage(err, intl.formatMessage({ id: "billDetail.postError" }));
+      setPostError(msg);
+      toast.error(msg);
     } finally {
       setPosting(false);
     }
   }
 
   async function handleAppliedCreditNote(response: ApplyCreditNoteResponse) {
-    setApplyMessage(intl.formatMessage({ id: "billDetail.appliedCreditNote" }, { amount: response.reconciliation.amount.toFixed(2) }));
+    const msg = intl.formatMessage({ id: "billDetail.appliedCreditNote" }, { amount: response.reconciliation.amount.toFixed(2) });
+    setApplyMessage(msg);
+    toast.success(msg);
     await refresh();
   }
 
@@ -154,6 +170,35 @@ export function BillDetail() {
   }
 
   const partner = partners.find((p) => p.id === bill.partnerId);
+  const isCreditDocument = bill.documentType === BillDocumentType.CreditNote || bill.documentType === BillDocumentType.PurchaseReturn;
+
+  // Task 7: Build related documents list
+  const relatedDocs = [];
+  if (bill.originalBillId) {
+    const original = allBills.find((b) => b.id === bill.originalBillId);
+    if (original) {
+      relatedDocs.push({
+        id: original.id,
+        label: original.vendorReference ?? original.id,
+        type: intl.formatMessage({ id: "relatedDocuments.originalBill" }),
+        url: `/bills/${original.id}`,
+      });
+    }
+  }
+  // Find purchase returns / credit notes that reference this bill
+  for (const related of allBills) {
+    if (related.originalBillId === bill.id && related.id !== bill.id) {
+      const isReturn = related.documentType === BillDocumentType.PurchaseReturn;
+      relatedDocs.push({
+        id: related.id,
+        label: related.vendorReference ?? related.id,
+        type: isReturn
+          ? intl.formatMessage({ id: "relatedDocuments.purchaseReturn" })
+          : intl.formatMessage({ id: "relatedDocuments.creditNote" }),
+        url: isReturn ? `/purchase-returns/${related.id}` : `/bills/${related.id}`,
+      });
+    }
+  }
 
   let total = 0;
   let estimatedNet = 0;
@@ -184,7 +229,7 @@ export function BillDetail() {
         </Alert>
       )}
 
-      <Card>
+      <Card ref={billPrintRef} className={cn(bill.state === "Draft" && "border-dashed bg-muted/30", bill.state === "Cancelled" && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -200,7 +245,8 @@ export function BillDetail() {
                   {intl.formatMessage({ id: "common.edit" })}
                 </Button>
               )}
-              <Badge variant={bill.state === "Posted" ? "default" : "secondary"}>{bill.state}</Badge>
+              {!editing && <PrintButton contentRef={billPrintRef} size="sm" />}
+              <Badge variant={documentStateBadgeVariant(bill.state)}>{bill.state}</Badge>
             </div>
           </div>
         </CardHeader>
@@ -279,7 +325,7 @@ export function BillDetail() {
 
           {bill.state === "Draft" && (
             <div className="flex flex-col items-start gap-1">
-              <Button onClick={handlePost} disabled={posting}>
+              <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "billDetail.posting" }) : intl.formatMessage({ id: "billDetail.postBill" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}
@@ -293,10 +339,30 @@ export function BillDetail() {
               <p className="font-medium">{intl.formatMessage({ id: "billDetail.outstanding" }, { amount: balance.outstanding.toFixed(2) })}</p>
             </div>
           )}
+            {relatedDocs.length > 0 && <RelatedDocuments documents={relatedDocs} />}
             </>
           )}
         </CardContent>
       </Card>
+
+      {bill.state === "Posted" && bill.documentType === BillDocumentType.Bill && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "billDetail.actions" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "billDetail.actionsDescription" })}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/purchase-returns">{intl.formatMessage({ id: "billDetail.createReturn" })}</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/bills">{intl.formatMessage({ id: "billDetail.createCreditNote" })}</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {bill.state === "Posted" && (
         <Card>
@@ -319,8 +385,16 @@ export function BillDetail() {
       {bill.state === "Posted" && balance && balance.outstanding > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>{intl.formatMessage({ id: "billDetail.recordPayment" })}</CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "billDetail.recordPaymentDescription" })}</CardDescription>
+            <CardTitle>
+              {isCreditDocument
+                ? intl.formatMessage({ id: "payment.refundSupplier" })
+                : intl.formatMessage({ id: "billDetail.recordPayment" })}
+            </CardTitle>
+            <CardDescription>
+              {isCreditDocument
+                ? intl.formatMessage({ id: "payment.refundSupplierDescription" })
+                : intl.formatMessage({ id: "billDetail.recordPaymentDescription" })}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <RecordPaymentForm
@@ -330,6 +404,7 @@ export function BillDetail() {
               paymentMethods={paymentMethods}
               outstanding={balance.outstanding}
               onRecorded={refresh}
+              isRefund={isCreditDocument}
             />
           </CardContent>
         </Card>
@@ -363,6 +438,28 @@ export function BillDetail() {
           <AttachmentsPanel companyId={activeCompany.id} documentKind="bill" documentId={bill.id} />
         </CardContent>
       </Card>
+
+      {bill.state === "Posted" && (
+        <Card>
+          <CardContent className="pt-6">
+            <ActivityTimeline companyId={activeCompany.id} documentKind="bill" documentId={bill.id} />
+          </CardContent>
+        </Card>
+      )}
+
+      {showPostPreview && (
+        <PostingPreview
+          companyId={activeCompany.id}
+          documentKind="bill"
+          documentId={bill.id}
+          confirming={posting}
+          onConfirm={() => {
+            setShowPostPreview(false);
+            void handlePost();
+          }}
+          onCancel={() => setShowPostPreview(false)}
+        />
+      )}
     </div>
   );
 }

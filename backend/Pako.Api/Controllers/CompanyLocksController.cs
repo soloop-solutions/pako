@@ -8,6 +8,7 @@ using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -33,7 +34,7 @@ public class CompanyLocksController : ControllerBase
     }
 
     [HttpPut("soft")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<CompanyResponse>> SetSoftLock(Guid companyId, SetSoftLockRequest request)
     {
         var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
@@ -63,7 +64,7 @@ public class CompanyLocksController : ControllerBase
     // request shape can ask to clear it) and cannot move backwards; setting it requires that no
     // Draft journal entry remains on or before the requested date.
     [HttpPut("hard")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<CompanyResponse>> SetHardLock(Guid companyId, SetHardLockRequest request)
     {
         var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
@@ -87,7 +88,7 @@ public class CompanyLocksController : ControllerBase
     }
 
     [HttpGet("exceptions")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<List<AccountLockExceptionResponse>>> ListExceptions(Guid companyId)
     {
         var exceptions = await _db.AccountLockExceptions.AsNoTracking()
@@ -100,7 +101,7 @@ public class CompanyLocksController : ControllerBase
     }
 
     [HttpPost("exceptions")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(AccountLockExceptionResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<AccountLockExceptionResponse>> GrantException(Guid companyId, GrantLockExceptionRequest request)
     {
@@ -133,7 +134,7 @@ public class CompanyLocksController : ControllerBase
     }
 
     [HttpPost("exceptions/{exceptionId:guid}/revoke")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<AccountLockExceptionResponse>> RevokeException(Guid companyId, Guid exceptionId)
     {
         var exception = await _db.AccountLockExceptions.FirstOrDefaultAsync(e => e.Id == exceptionId && e.CompanyId == companyId);
@@ -155,7 +156,15 @@ public class CompanyLocksController : ControllerBase
 
     private static CompanyResponse ToResponse(Company c) =>
         new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,
-            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate);
+            c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate,
+            c.TradingName, c.BusinessNumber, c.FiscalNumber, c.VatNumber,
+            c.LegalForm, c.BusinessActivity, c.Description,
+            c.Country, c.Municipality, c.StreetAddress, c.PostalCode, c.AddressLine2,
+            c.Email, c.Phone, c.Website,
+            c.BankName, c.BankAccountHolder, c.Iban, c.SwiftBic,
+            c.DocumentFooter, c.PaymentInstructions,
+            c.VatRegistrationDate, c.FunctionalCurrency,
+            c.IsArchived, c.ArchivedAt);
 
     private static AccountLockExceptionResponse ToResponse(AccountLockException e, DateTime asOfUtc) =>
         new(e.Id, e.UserId, e.LockDateField, e.LockDate, e.Reason, e.EndsAt, e.CreatedAt, e.GrantedByUserId, e.RevokedAt, e.RevokedByUserId, e.IsLive(asOfUtc));

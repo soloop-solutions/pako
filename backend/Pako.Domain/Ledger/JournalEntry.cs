@@ -16,6 +16,7 @@ public class JournalEntry
     public Guid JournalId { get; set; }
     public DateOnly Date { get; set; }
     public string? Reference { get; set; }
+    public string? Remarks { get; set; }
     public JournalEntryState State { get; set; } = JournalEntryState.Draft;
     public string? SequenceNumber { get; set; }
     public DateTime? PostedAtUtc { get; set; }
@@ -75,6 +76,26 @@ public class JournalEntry
             throw new HardLockDateViolationException(Id, Date, hardLockDate);
         }
 
+        // R31: amounts must be non-negative — corrections use the opposite side (debit/credit), not
+        // signed values. Checked before R30 so a line with Debit=-100 gets a clear "negative" message
+        // rather than silently passing the dual-amount check.
+        foreach (var line in Lines)
+        {
+            if (line.Debit < 0 || line.Credit < 0)
+            {
+                throw new NegativeAmountLineException(line.Id);
+            }
+        }
+
+        // R30: each line posts to one side only — positive Debit or positive Credit, never both.
+        foreach (var line in Lines)
+        {
+            if (line.Debit > 0 && line.Credit > 0)
+            {
+                throw new DualAmountLineException(line.Id);
+            }
+        }
+
         // R19: OriginalCurrency/OriginalAmount/ExchangeRate must all be set together, or none of
         // them — a partial set can't be reconciled back to the functional-currency Debit/Credit.
         foreach (var line in Lines)
@@ -111,6 +132,7 @@ public class JournalEntry
             JournalId = JournalId,
             Date = date,
             Reference = reference ?? $"Reversal of {Reference ?? Id.ToString()}",
+            Remarks = Remarks,
             Lines = Lines.Select(l => new JournalEntryLine
             {
                 Id = Guid.NewGuid(),
@@ -120,6 +142,8 @@ public class JournalEntry
                 Credit = l.Debit,
                 Description = l.Description,
                 TaxId = l.TaxId,
+                ProjectId = l.ProjectId,
+                EmployeeId = l.EmployeeId,
                 AnalyticDistribution = l.AnalyticDistribution is null ? null : new Dictionary<Guid, decimal>(l.AnalyticDistribution),
                 OriginalCurrency = l.OriginalCurrency,
                 OriginalAmount = l.OriginalAmount,

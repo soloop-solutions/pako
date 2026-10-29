@@ -1,15 +1,22 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, CreditExposureResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
+import { buildDocumentDataFromForm } from "@/lib/invoice-document-data";
+import { InvoicePreviewDialog } from "@/components/shared/InvoicePreviewDialog";
+import { useCompany } from "@/context/CompanyContext";
 import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType, invoiceDocumentTypeName } from "@/lib/document-types";
+import { useEntityFavorites } from "@/hooks/useEntityFavorites";
 import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 import { isIncomeAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
@@ -127,6 +134,10 @@ export function InvoiceForm({
   onSaved,
 }: InvoiceFormProps) {
   const intl = useIntl();
+  const activeCompany = useCompany().activeCompany;
+  const partnerFavs = useEntityFavorites("Partner");
+  const accountFavs = useEntityFavorites("Account");
+  const itemFavs = useEntityFavorites("Item");
   // B13: AccountType widened to Odoo's real 19 values — Income is now a family of types
   // (Income/OtherIncome), not one bucket.
   const revenueAccounts = accounts.filter((a) => isIncomeAccountType(a.accountType));
@@ -176,6 +187,47 @@ export function InvoiceForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Auto-populate lines from the original invoice when creating a Sales Return. Only fires when:
+  // 1. This form is fixed to SalesReturn (fixedDocumentType === 4)
+  // 2. The user selects an originalInvoiceId
+  // 3. The user has NOT already entered lines manually (still on a single empty line)
+  // The user can then modify quantities for partial returns or remove lines they don't want.
+  const isSalesReturn = fixedDocumentType === InvoiceDocumentType.SalesReturn;
+  useEffect(() => {
+    if (!isSalesReturn || !originalInvoiceId || editingInvoice) return;
+
+    // Don't overwrite if the user has already entered lines manually: check whether we still have
+    // the initial single empty line (no description filled in).
+    const hasManualLines = lines.length > 1 || (lines.length === 1 && lines[0].description.trim() !== "");
+    if (hasManualLines) return;
+
+    let cancelled = false;
+    apiClient
+      .invoicesGET(companyId, originalInvoiceId)
+      .then((invoice) => {
+        if (cancelled) return;
+        if (invoice.lines.length === 0) return;
+        const populated: Line[] = invoice.lines.map((l) => ({
+          description: l.description,
+          quantity: String(l.quantity),
+          unitPrice: String(l.unitPrice),
+          discountPercent: String(l.discountPercent),
+          taxDefinitionId: l.taxDefinitionId ?? defaultTaxId,
+          itemId: l.itemId ?? "",
+          revenueAccountId: l.revenueAccountId ?? "",
+        }));
+        setLines(populated);
+      })
+      .catch(() => {
+        // Silently ignore — the user can still enter lines manually.
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only react to originalInvoiceId changes
+  }, [originalInvoiceId]);
 
   // F7: preview only, never trusted as the real number — reserved only on post. Not fetched while
   // editing an existing Draft, since editing never consumes/changes numbering.
@@ -203,6 +255,31 @@ export function InvoiceForm({
       cancelled = true;
     };
   }, [companyId, documentType, editingInvoice]);
+
+  // Credit limit exposure: fetch when a customer is selected, show informational banner.
+  // Only fetched for customers that might have a credit limit; the backend returns null creditLimit
+  // for partners with no limit set, in which case we show nothing.
+  const [creditExposure, setCreditExposure] = useState<CreditExposureResponse | null>(null);
+  useEffect(() => {
+    setCreditExposure(null);
+    if (!partnerId) return;
+    let cancelled = false;
+    apiClient
+      .creditExposure(companyId, partnerId)
+      .then((result) => {
+        if (!cancelled) setCreditExposure(result);
+      })
+      .catch(() => {
+        if (!cancelled) setCreditExposure(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, partnerId]);
+
+  // Compute current invoice total for the "would exceed" warning. This is a display-only estimate
+  // using the entered amounts — the backend enforces the real total on posting.
+  const invoiceEnteredTotal = lines.reduce((sum, line) => sum + lineEnteredAmount(line), 0);
 
   // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
   // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
@@ -282,6 +359,15 @@ export function InvoiceForm({
         itemId: line.itemId || undefined,
       }));
 
+      // Record entity selections for smart favorites (on successful save)
+      const recordFavorites = () => {
+        if (partnerId) partnerFavs.recordSelection(partnerId);
+        for (const line of validLines) {
+          if (line.revenueAccountId) accountFavs.recordSelection(line.revenueAccountId);
+          if (line.itemId) itemFavs.recordSelection(line.itemId);
+        }
+      };
+
       if (editingInvoice) {
         await apiClient.invoicesPUT(companyId, editingInvoice.id, {
           partnerId,
@@ -292,6 +378,7 @@ export function InvoiceForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
         });
+        recordFavorites();
         onSaved?.();
       } else {
         await apiClient.invoicesPOST(companyId, {
@@ -304,10 +391,12 @@ export function InvoiceForm({
           paymentTermDays: paymentTermDays ? parseInt(paymentTermDays, 10) : undefined,
           graceDays: graceDays ? parseInt(graceDays, 10) : undefined,
           lines: lineRequests,
+          internalNotes: internalNotes.trim() || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
         });
+        recordFavorites();
         setPartnerId("");
         setDocumentType(fixedDocumentType ?? InvoiceDocumentType.Invoice);
         setOriginalInvoiceId("");
@@ -315,13 +404,17 @@ export function InvoiceForm({
         setPaymentTermDays("");
         setGraceDays("");
         setLines([emptyLine(defaultTaxId)]);
+        setInternalNotes("");
         setTakePaymentNow(false);
         setPaymentAmount("");
         setPaymentMethodId("");
+        toast.success(intl.formatMessage({ id: "toast.invoiceCreated" }));
         onCreated();
       }
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: editingInvoice ? "invoiceForm.saveError" : "invoiceForm.createError" })));
+      const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingInvoice ? "invoiceForm.saveError" : "invoiceForm.createError" }));
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -338,32 +431,44 @@ export function InvoiceForm({
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="flex flex-col gap-2">
           <Label htmlFor="invoice-customer">{intl.formatMessage({ id: "invoiceForm.customer" })}</Label>
-          <Select id="invoice-customer" value={partnerId} onChange={(event) => setPartnerId(event.target.value)}>
-            <option value="">{intl.formatMessage({ id: "invoiceForm.selectCustomer" })}</option>
-            {customers.map((customer) => (
-              <option key={customer.id} value={customer.id}>
-                {partnerOptionLabel(customer, intl)}
-              </option>
-            ))}
-          </Select>
+          <SearchableSelect
+            id="invoice-customer"
+            value={partnerId}
+            onChange={setPartnerId}
+            placeholder={intl.formatMessage({ id: "invoiceForm.selectCustomer" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.selectCustomer" })}
+            options={customers.map((customer) => ({
+              value: customer.id,
+              label: partnerOptionLabel(customer, intl),
+              description: customer.taxNumber ?? undefined,
+            }))}
+            favorites={{
+              pinnedIds: partnerFavs.pinnedIds,
+              autoIds: partnerFavs.autoIds,
+              onPin: partnerFavs.pin,
+              onUnpin: partnerFavs.unpin,
+              pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+              frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+            }}
+          />
         </div>
         {fixedDocumentType === undefined && (
           <div className="flex flex-col gap-2">
             <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
             <Select
               id="invoice-document-type"
-              value={documentType}
-              onChange={(event) => {
-                setDocumentType(Number(event.target.value));
+              value={String(documentType)}
+              onValueChange={(v) => {
+                setDocumentType(Number(v));
                 setOriginalInvoiceId("");
               }}
-            >
-              {INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {intl.formatMessage({ id: option.labelKey })}
-                </option>
-              ))}
-            </Select>
+              options={INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => ({
+                value: String(option.value),
+                label: intl.formatMessage({ id: option.labelKey }),
+              }))}
+            />
           </div>
         )}
         <div className="flex flex-col gap-2">
@@ -394,27 +499,72 @@ export function InvoiceForm({
         </div>
       </div>
 
+      {creditExposure && creditExposure.creditLimit != null && (() => {
+        const isOverLimit = creditExposure.availableCredit != null && creditExposure.availableCredit < 0;
+        const wouldExceed =
+          !isOverLimit &&
+          creditExposure.availableCredit != null &&
+          invoiceEnteredTotal > 0 &&
+          invoiceEnteredTotal > creditExposure.availableCredit;
+        const fmt = (n: number) => n.toFixed(2) + " EUR";
+        return (
+          <div
+            className={
+              isOverLimit
+                ? "rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                : wouldExceed
+                  ? "rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
+                  : "rounded-md border px-3 py-2 text-sm text-muted-foreground"
+            }
+          >
+            {isOverLimit ? (
+              <p className="font-medium">
+                {intl.formatMessage(
+                  { id: "invoicing.creditLimit.overLimit" },
+                  { amount: fmt(Math.abs(creditExposure.availableCredit!)) },
+                )}
+              </p>
+            ) : wouldExceed ? (
+              <p className="font-medium">{intl.formatMessage({ id: "invoicing.creditLimit.wouldExceed" })}</p>
+            ) : null}
+            <p>
+              {intl.formatMessage(
+                { id: "invoicing.creditLimit.info" },
+                {
+                  available: fmt(creditExposure.availableCredit ?? 0),
+                  limit: fmt(creditExposure.creditLimit),
+                  outstanding: fmt(creditExposure.outstandingBalance),
+                },
+              )}
+            </p>
+          </div>
+        );
+      })()}
+
       {!editingInvoice && previewNumber && (
         <p className="text-xs text-muted-foreground">
           {intl.formatMessage({ id: "invoiceForm.nextNumberPreview" }, { number: previewNumber })}
         </p>
       )}
 
-      {editingInvoice && (
-        <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
-          <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-        </div>
-      )}
+      <div className="flex flex-col gap-2 sm:w-1/2">
+        <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
+        <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+      </div>
 
       {!editingInvoice && (
         <div className="grid gap-4 sm:grid-cols-3">
           <div className="flex flex-col gap-2">
             <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
-            <Select id="invoice-price-mode" value={priceMode} onChange={(event) => setPriceMode(Number(event.target.value))}>
-              <option value={PriceMode.GrossInclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeGross" })}</option>
-              <option value={PriceMode.NetExclusive}>{intl.formatMessage({ id: "invoiceForm.priceModeNet" })}</option>
-            </Select>
+            <Select
+              id="invoice-price-mode"
+              value={String(priceMode)}
+              onValueChange={(v) => setPriceMode(Number(v))}
+              options={[
+                { value: String(PriceMode.GrossInclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeGross" }) },
+                { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
+              ]}
+            />
           </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
@@ -446,21 +596,19 @@ export function InvoiceForm({
           <Label htmlFor="invoice-original">
             {intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
           </Label>
-          <Select
+          <SearchableSelect
             id="invoice-original"
             value={originalInvoiceId}
-            onChange={(event) => setOriginalInvoiceId(event.target.value)}
-          >
-            {!requiresOriginalInvoice && <option value="">{intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}</option>}
-            {requiresOriginalInvoice && originalInvoiceCandidates.length === 0 && (
-              <option value="">{intl.formatMessage({ id: "invoiceForm.selectOriginalInvoice" })}</option>
-            )}
-            {originalInvoiceCandidates.map((invoice) => (
-              <option key={invoice.id} value={invoice.id}>
-                {invoice.invoiceNumber ?? invoice.id}
-              </option>
-            ))}
-          </Select>
+            onChange={setOriginalInvoiceId}
+            placeholder={intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.selectOriginalInvoice" : "invoiceForm.noOriginalInvoice" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            emptyOptionLabel={requiresOriginalInvoice ? undefined : intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}
+            options={originalInvoiceCandidates.map((invoice) => ({
+              value: invoice.id,
+              label: invoice.invoiceNumber ?? invoice.id,
+            }))}
+          />
         </div>
       )}
 
@@ -471,17 +619,58 @@ export function InvoiceForm({
           const selectedItem = items.find((i) => i.id === line.itemId);
           const overridden = overriddenFields(line, selectedItem);
           return (
-          <div key={index} className="grid grid-cols-[1fr_2fr_5rem_6rem_5rem_1fr_1fr_5rem_5rem_auto] items-end gap-2">
+          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
-              <Select value={line.itemId} onChange={(event) => selectLineItem(index, event.target.value)}>
-                <option value="">{intl.formatMessage({ id: "invoiceForm.noItem" })}</option>
-                {items.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </Select>
+              <SearchableSelect
+                value={line.itemId}
+                onChange={(val) => selectLineItem(index, val)}
+                placeholder={intl.formatMessage({ id: "invoiceForm.noItem" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.noItem" })}
+                options={items.map((item) => ({
+                  value: item.id,
+                  label: item.name,
+                  description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
+                }))}
+                favorites={{
+                  pinnedIds: itemFavs.pinnedIds,
+                  autoIds: itemFavs.autoIds,
+                  onPin: itemFavs.pin,
+                  onUnpin: itemFavs.unpin,
+                  pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+                  frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                }}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
+              <SearchableSelect
+                value={line.revenueAccountId}
+                onChange={(val) => updateLine(index, { revenueAccountId: val })}
+                placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                options={revenueAccounts.map((account) => ({
+                  value: account.id,
+                  label: `${account.code} · ${account.name}`,
+                }))}
+                favorites={{
+                  pinnedIds: accountFavs.pinnedIds,
+                  autoIds: accountFavs.autoIds,
+                  onPin: accountFavs.pin,
+                  onUnpin: accountFavs.unpin,
+                  pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+                  frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                }}
+              />
+              {overridden.account && (
+                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                  {intl.formatMessage({ id: "common.modified" })}
+                </Badge>
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
@@ -529,34 +718,20 @@ export function InvoiceForm({
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
-              <Select
+              <SearchableSelect
                 value={line.taxDefinitionId}
-                onChange={(event) => updateLine(index, { taxDefinitionId: event.target.value })}
-              >
-                {!isVatRegistered && <option value="">{intl.formatMessage({ id: "invoiceForm.noTax" })}</option>}
-                {taxes.map((tax) => (
-                  <option key={tax.id} value={tax.id}>
-                    {taxRatePercentLabel(tax)}
-                  </option>
-                ))}
-              </Select>
+                onChange={(val) => updateLine(index, { taxDefinitionId: val })}
+                placeholder={intl.formatMessage({ id: "invoiceForm.noTax" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={!isVatRegistered ? intl.formatMessage({ id: "invoiceForm.noTax" }) : undefined}
+                options={taxes.map((tax) => ({
+                  value: tax.id,
+                  label: taxRatePercentLabel(tax),
+                  description: tax.code ?? undefined,
+                }))}
+              />
               {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
-              <Select value={line.revenueAccountId} onChange={(event) => updateLine(index, { revenueAccountId: event.target.value })}>
-                <option value="">{intl.formatMessage({ id: "common.companyDefault" })}</option>
-                {revenueAccounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {account.code}
-                  </option>
-                ))}
-              </Select>
-              {overridden.account && (
                 <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
@@ -584,7 +759,7 @@ export function InvoiceForm({
       {!editingInvoice && (
         <div className="flex flex-col gap-2 rounded-md border p-3">
           <label className="flex items-center gap-2 text-sm font-medium">
-            <input type="checkbox" checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
+            <Checkbox checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
             {intl.formatMessage({ id: "invoiceForm.takePaymentNow" })}
           </label>
           {takePaymentNow && (
@@ -615,15 +790,39 @@ export function InvoiceForm({
         </div>
       )}
 
-      <Button type="submit" className="w-fit" disabled={submitting}>
-        {editingInvoice
-          ? submitting
-            ? intl.formatMessage({ id: "invoiceForm.saving" })
-            : intl.formatMessage({ id: "invoiceForm.saveChanges" })
-          : submitting
-            ? intl.formatMessage({ id: "invoiceForm.creating" })
-            : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button type="submit" className="w-fit" disabled={submitting}>
+          {editingInvoice
+            ? submitting
+              ? intl.formatMessage({ id: "invoiceForm.saving" })
+              : intl.formatMessage({ id: "invoiceForm.saveChanges" })
+            : submitting
+              ? intl.formatMessage({ id: "invoiceForm.creating" })
+              : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
+        </Button>
+        <Button type="button" variant="outline" className="w-fit" onClick={() => setShowPreview(true)}>
+          {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
+        </Button>
+      </div>
+
+      {showPreview && (
+        <InvoicePreviewDialog
+          data={buildDocumentDataFromForm({
+            company: activeCompany ?? { name: "" },
+            customer: selectedCustomer ? { name: selectedCustomer.name, taxNumber: selectedCustomer.taxNumber ?? undefined, fiscalNumber: selectedCustomer.fiscalNumber ?? undefined, isVatRegistered: selectedCustomer.isVatRegistered } : undefined,
+            lines,
+            taxes,
+            documentType,
+            issueDate,
+            dueDate,
+            priceMode,
+            internalNotes: internalNotes || undefined,
+            paymentTermDays,
+            originalDocumentNumber: originalInvoiceId ? (invoices.find((i) => i.id === originalInvoiceId)?.invoiceNumber ?? undefined) : undefined,
+          })}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
     </form>
   );
 }

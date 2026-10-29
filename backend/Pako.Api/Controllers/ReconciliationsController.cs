@@ -7,6 +7,7 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Services;
 using Pako.Domain.Reconciliation;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -25,7 +26,7 @@ public class ReconciliationsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(ReconciliationResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ReconciliationResponse>> Create(Guid companyId, CreateReconciliationRequest request)
     {
@@ -83,7 +84,7 @@ public class ReconciliationsController : ControllerBase
 
     [HttpGet]
     [Route("~/api/companies/{companyId:guid}/invoices/{invoiceId:guid}/reconciliations")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<List<ReconciliationResponse>>> ListForInvoice(Guid companyId, Guid invoiceId)
     {
         var exists = await _db.Invoices.AsNoTracking().AnyAsync(i => i.Id == invoiceId && i.CompanyId == companyId);
@@ -102,7 +103,7 @@ public class ReconciliationsController : ControllerBase
 
     [HttpGet]
     [Route("~/api/companies/{companyId:guid}/bills/{billId:guid}/reconciliations")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<List<ReconciliationResponse>>> ListForBill(Guid companyId, Guid billId)
     {
         var exists = await _db.Bills.AsNoTracking().AnyAsync(b => b.Id == billId && b.CompanyId == companyId);

@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export type CreditNoteOption = { id: string; label: string; total: number };
 
@@ -79,17 +79,19 @@ export function ApplyCreditNoteForm({
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="flex flex-col gap-2">
           <Label htmlFor="apply-credit-note-select">{intl.formatMessage({ id: "applyCreditNote.creditNote" })}</Label>
-          <Select
+          <SearchableSelect
             id="apply-credit-note-select"
             value={creditNoteId}
-            onChange={(event) => handleSelectChange(event.target.value)}
-          >
-            {options.map((option) => (
-              <option key={option.id} value={option.id}>
-                {option.label} ({intl.formatMessage({ id: "applyCreditNote.available" })} {option.total.toFixed(2)})
-              </option>
-            ))}
-          </Select>
+            onChange={handleSelectChange}
+            placeholder={intl.formatMessage({ id: "applyCreditNote.creditNote" })}
+            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+            noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            options={options.map((option) => ({
+              value: option.id,
+              label: option.label,
+              description: `${intl.formatMessage({ id: "applyCreditNote.available" })} ${option.total.toFixed(2)}`,
+            }))}
+          />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="apply-credit-note-amount">{intl.formatMessage({ id: "applyCreditNote.amount" })}</Label>

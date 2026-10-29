@@ -12,6 +12,7 @@ public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
         builder.HasKey(e => e.Id);
         builder.Property(e => e.State).HasConversion<string>().HasMaxLength(16);
         builder.Property(e => e.Reference).HasMaxLength(256);
+        builder.Property(e => e.Remarks).HasMaxLength(1024);
         builder.Property(e => e.SequenceNumber).HasMaxLength(64);
         builder.Property(e => e.EntryHash).HasMaxLength(128);
         builder.Property(e => e.PrevHash).HasMaxLength(128);

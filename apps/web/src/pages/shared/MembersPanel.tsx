@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { MemberResponse } from "@pako/shared";
@@ -12,6 +13,8 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
 import {
+  CLIENT_STAFF,
+  CLIENT_VIEWER,
   companyMemberRoleValues,
   firmMemberRoleValues,
   isCompanyAdminRole,
@@ -34,9 +37,25 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState(roleValues[roleValues.length - 1]);
+  // Company scope defaults to Viewer (the least-privileged non-HR role); Staff is opt-in because it
+  // also needs an employee picked.
+  const [role, setRole] = useState(scope === "company" ? CLIENT_VIEWER : roleValues[roleValues.length - 1]);
+  const [employeeId, setEmployeeId] = useState("");
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
+  const isStaffRole = scope === "company" && role === CLIENT_STAFF;
+
+  // HR module: a Staff member is linked to an employee record, and only employees with no login yet
+  // can be picked. 200 is the API's page-size ceiling.
+  const unlinkedEmployeesQuery = useQuery({
+    queryKey: ["employees", scopeId, "unlinked"],
+    queryFn: async () => {
+      const result = await apiClient.listEmployees(scopeId, 1, 200, undefined, "name", undefined, false);
+      return result.items.filter((e) => !e.userId);
+    },
+    enabled: isStaffRole,
+  });
+  const unlinkedEmployees = unlinkedEmployeesQuery.data ?? [];
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -61,11 +80,13 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
     setAdding(true);
     try {
       if (scope === "company") {
-        await apiClient.members(scopeId, { email: email.trim(), role });
+        await apiClient.members(scopeId, { email: email.trim(), role, employeeId: isStaffRole ? employeeId : undefined });
       } else {
         await apiClient.members2(scopeId, { email: email.trim(), role });
       }
       setEmail("");
+      setEmployeeId("");
+      if (isStaffRole) await unlinkedEmployeesQuery.refetch();
       await refresh();
     } catch (err) {
       setAddError(getApiErrorMessage(err, intl.formatMessage({ id: "members.addError" })));
@@ -132,17 +153,37 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
             <Select
               id={`${scope}-${scopeId}-member-role`}
               className="w-40"
-              value={role}
-              onChange={(event) => setRole(Number(event.target.value))}
-            >
-              {roleValues.map((value) => (
-                <option key={value} value={value}>
-                  {membershipRoleLabel(value, intl)}
-                </option>
-              ))}
-            </Select>
+              value={String(role)}
+              onValueChange={(v) => setRole(Number(v))}
+              options={roleValues.map((value) => ({
+                value: String(value),
+                label: membershipRoleLabel(value, intl),
+              }))}
+            />
           </div>
-          <Button type="submit" disabled={adding || email.trim().length === 0}>
+          {isStaffRole && (
+            <div className="flex flex-col gap-2">
+              <Label htmlFor={`${scope}-${scopeId}-member-employee`}>{intl.formatMessage({ id: "hr.members.employee" })}</Label>
+              <Select
+                id={`${scope}-${scopeId}-member-employee`}
+                className="w-56"
+                value={employeeId}
+                onValueChange={(v) => setEmployeeId(v)}
+                placeholder={intl.formatMessage({
+                  id: unlinkedEmployeesQuery.isPending
+                    ? "common.loading"
+                    : unlinkedEmployees.length === 0
+                      ? "hr.members.noUnlinkedEmployees"
+                      : "hr.members.selectEmployee",
+                })}
+                options={unlinkedEmployees.map((employee) => ({
+                  value: employee.id,
+                  label: employee.name,
+                }))}
+              />
+            </div>
+          )}
+          <Button type="submit" disabled={adding || email.trim().length === 0 || (isStaffRole && !employeeId)}>
             {adding ? intl.formatMessage({ id: "members.adding" }) : intl.formatMessage({ id: "members.addMember" })}
           </Button>
         </form>

@@ -4,15 +4,18 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
+import { RequireCompany } from "@/components/RequireCompany";
 import { navItems } from "@/config/nav";
 import { AuthProvider } from "@/context/AuthContext";
 import { CompanyProvider } from "@/context/CompanyContext";
 import { BillDetail } from "@/pages/bills/BillDetail";
 import { ComingSoon } from "@/pages/ComingSoon";
+import { CompanySelect } from "@/pages/CompanySelect";
 import { InvoiceDetail } from "@/pages/invoicing/InvoiceDetail";
 import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
 import { PayrollRunDetail } from "@/pages/payroll/PayrollRunDetail";
+import { EmployeeDetail } from "@/pages/hr/EmployeeDetail";
 import { Register } from "@/pages/Register";
 
 // react-router reuses the same component instance across `:id` param changes — it does not
@@ -43,18 +46,24 @@ export function App() {
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
               <Route element={<RequireAuth />}>
-                <Route element={<AppLayout />}>
-                  <Route path="/" element={<Landing />} />
-                  {navItems.map(({ path, titleKey, descriptionKey, Element }) => (
-                    <Route
-                      key={path}
-                      path={path}
-                      element={Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
-                    />
-                  ))}
-                  <Route path="/invoicing/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
-                  <Route path="/bills/:id" element={<InstanceRoute Component={BillDetail} />} />
-                  <Route path="/payroll/:id" element={<InstanceRoute Component={PayrollRunDetail} />} />
+                <Route path="/select-company" element={<CompanySelect />} />
+                <Route element={<RequireCompany />}>
+                  <Route element={<AppLayout />}>
+                    <Route path="/" element={<Landing />} />
+                    {navItems.map(({ path, titleKey, descriptionKey, Element }) => (
+                      <Route
+                        key={path}
+                        path={path}
+                        element={Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
+                      />
+                    ))}
+                    <Route path="/invoicing/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
+                    <Route path="/sales-returns/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
+                    <Route path="/bills/:id" element={<InstanceRoute Component={BillDetail} />} />
+                    <Route path="/purchase-returns/:id" element={<InstanceRoute Component={BillDetail} />} />
+                    <Route path="/payroll/:id" element={<InstanceRoute Component={PayrollRunDetail} />} />
+                    <Route path="/employees/:id" element={<InstanceRoute Component={EmployeeDetail} />} />
+                  </Route>
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,8 +1,11 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Auth;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Infrastructure.Identity;
 
 namespace Pako.Api.Controllers;
@@ -14,12 +17,15 @@ public class AuthController : ControllerBase
     private readonly UserManager<AppUser> _userManager;
     private readonly IJwtTokenService _tokenService;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ActionTokenService _actionTokenService;
 
-    public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService, IStringLocalizer<ErrorMessages> localizer)
+    public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService,
+        IStringLocalizer<ErrorMessages> localizer, ActionTokenService actionTokenService)
     {
         _userManager = userManager;
         _tokenService = tokenService;
         _localizer = localizer;
+        _actionTokenService = actionTokenService;
     }
 
     [HttpPost("register")]
@@ -54,5 +60,53 @@ public class AuthController : ControllerBase
 
         var token = _tokenService.GenerateToken(user);
         return Ok(new AuthResponse(token, user.Id, user.Email!));
+    }
+
+    [Authorize]
+    [HttpPost("verify-password")]
+    public async Task<IActionResult> VerifyPassword(VerifyPasswordRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var valid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!valid) return Unauthorized();
+
+        return Ok();
+    }
+
+    [Authorize]
+    [HttpPost("action-tokens")]
+    [ProducesResponseType(typeof(ActionTokenResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateActionToken(
+        [FromBody] ActionTokenRequest request,
+        [FromServices] ActionTokenService actionTokenService)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId is null) return Unauthorized();
+        var userGuid = Guid.Parse(userId);
+
+        if (actionTokenService.IsRateLimited(userGuid))
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests,
+                _localizer["TooManyFailedAttempts"].Value);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user is null) return Unauthorized();
+
+        var valid = await _userManager.CheckPasswordAsync(user, request.Password);
+        if (!valid)
+        {
+            actionTokenService.RecordFailedAttempt(userGuid);
+            return Unauthorized();
+        }
+
+        actionTokenService.ResetFailedAttempts(userGuid);
+        var (token, expiresAt) = actionTokenService.GenerateToken(userGuid, request.CompanyId, request.Action);
+        return Ok(new ActionTokenResponse(token, expiresAt));
     }
 }

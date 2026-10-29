@@ -1,16 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useEffect, useMemo, useState } from "react";
+import { List, TreePine } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
+import { useSearchParams } from "react-router-dom";
 import type { AccountResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import {
   CitDeductibility,
@@ -25,6 +27,7 @@ import {
 } from "@/lib/account-v2";
 import { accountTypeLabel } from "@/lib/ledger-enums";
 import { AccountForm, type AccountFormFields } from "@/pages/ledger/AccountForm";
+import { ChartOfAccountsTree } from "@/pages/ledger/ChartOfAccountsTree";
 
 const GRID_ID = "chartOfAccounts";
 
@@ -37,10 +40,25 @@ export function ChartOfAccounts() {
   const { activeCompanyId } = useCompany();
   const queryClient = useQueryClient();
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  const viewMode = searchParams.get("view") === "tree" ? "tree" : "list";
+  const setViewMode = useCallback(
+    (mode: "tree" | "list") => {
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        if (mode === "tree") next.set("view", "tree");
+        else next.delete("view");
+        return next;
+      }, { replace: true });
+    },
+    [setSearchParams],
+  );
+
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [confirmingDeactivateId, setConfirmingDeactivateId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [dirty, setDirty] = useState(false);
 
   // Default the grid's grouping to the group column the first time this screen is opened — F2
   // asks for a tree grouped by the account groups by default, not an opt-in the accountant has to
@@ -70,6 +88,10 @@ export function ChartOfAccounts() {
   const groups = useMemo(() => accountGroupsQuery.data ?? [], [accountGroupsQuery.data]);
   const groupsById = useMemo(() => accountGroupsById(groups), [groups]);
   const groupOptions = useMemo(() => leafAccountGroups(groups), [groups]);
+  const treeGroupLabel = useCallback(
+    (g: Parameters<typeof accountGroupLabel>[0]) => accountGroupLabel(g, groupsById, intl),
+    [groupsById, intl],
+  );
 
   const rows = useMemo<AccountRow[]>(
     () => accounts.map((a) => ({ ...a, groupLabelText: accountGroupLabel(groupsById.get(a.groupId ?? ""), groupsById, intl) })),
@@ -92,6 +114,7 @@ export function ChartOfAccounts() {
       }),
     onSuccess: async () => {
       setMutationError(null);
+      setDirty(false);
       setFormOpen(false);
       await refresh();
     },
@@ -108,6 +131,7 @@ export function ChartOfAccounts() {
       }),
     onSuccess: async () => {
       setMutationError(null);
+      setDirty(false);
       setEditingId(null);
       await refresh();
     },
@@ -268,6 +292,7 @@ export function ChartOfAccounts() {
                   setEditingId(account.id);
                   setFormOpen(false);
                   setMutationError(null);
+                  setDirty(false);
                 }}
               >
                 {intl.formatMessage({ id: "common.edit" })}
@@ -305,15 +330,38 @@ export function ChartOfAccounts() {
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "chartOfAccounts.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "chartOfAccounts.description" })}</p>
         </div>
-        <Button
-          onClick={() => {
-            setFormOpen((open) => !open);
-            setEditingId(null);
-            setMutationError(null);
-          }}
-        >
-          {intl.formatMessage({ id: "chartOfAccounts.addAccount" })}
-        </Button>
+        <div className="flex items-center gap-2">
+          <div className="flex items-center rounded-md border">
+            <Button
+              size="sm"
+              variant={viewMode === "list" ? "secondary" : "ghost"}
+              className="h-8 gap-1.5 rounded-r-none"
+              onClick={() => setViewMode("list")}
+            >
+              <List className="h-4 w-4" />
+              {intl.formatMessage({ id: "chartOfAccounts.listView" })}
+            </Button>
+            <Button
+              size="sm"
+              variant={viewMode === "tree" ? "secondary" : "ghost"}
+              className="h-8 gap-1.5 rounded-l-none border-l"
+              onClick={() => setViewMode("tree")}
+            >
+              <TreePine className="h-4 w-4" />
+              {intl.formatMessage({ id: "chartOfAccounts.treeView" })}
+            </Button>
+          </div>
+          <Button
+            onClick={() => {
+              setFormOpen(true);
+              setEditingId(null);
+              setMutationError(null);
+              setDirty(false);
+            }}
+          >
+            {intl.formatMessage({ id: "chartOfAccounts.addAccount" })}
+          </Button>
+        </div>
       </div>
 
       {loadError && (
@@ -322,78 +370,81 @@ export function ChartOfAccounts() {
         </Alert>
       )}
 
-      {formOpen && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{intl.formatMessage({ id: "chartOfAccounts.addAccount" })}</CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "chartOfAccounts.form.addDescription" })}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AccountForm
-              mode="create"
-              groupOptions={groupOptions}
-              groupsById={groupsById}
-              submitting={createMutation.isPending}
-              error={mutationError}
-              onSubmit={(fields) => createMutation.mutate(fields)}
-              onCancel={() => {
-                setFormOpen(false);
-                setMutationError(null);
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <FormDialog
+        open={formOpen}
+        onOpenChange={(open) => { if (!open) { setFormOpen(false); setMutationError(null); setDirty(false); } }}
+        title={intl.formatMessage({ id: "chartOfAccounts.addAccount" })}
+        description={intl.formatMessage({ id: "chartOfAccounts.form.addDescription" })}
+        size="lg"
+        dirty={dirty}
+      >
+        <AccountForm
+          mode="create"
+          groupOptions={groupOptions}
+          groupsById={groupsById}
+          submitting={createMutation.isPending}
+          error={mutationError}
+          onSubmit={(fields) => createMutation.mutate(fields)}
+          onCancel={() => { setFormOpen(false); setMutationError(null); setDirty(false); }}
+          onDirtyChange={setDirty}
+        />
+      </FormDialog>
 
-      {editingAccount && (
-        <Card>
-          <CardHeader>
-            <CardTitle>
-              {intl.formatMessage({ id: "chartOfAccounts.editAccount" }, { code: editingAccount.code })}
-            </CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "chartOfAccounts.form.editDescription" })}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AccountForm
-              mode="edit"
-              groupOptions={groupOptions}
-              groupsById={groupsById}
-              initial={editingAccount}
-              submitting={updateMutation.isPending}
-              error={mutationError}
-              onSubmit={(fields) => updateMutation.mutate({ id: editingAccount.id, fields })}
-              onCancel={() => {
-                setEditingId(null);
-                setMutationError(null);
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
+      <FormDialog
+        open={editingAccount !== null}
+        onOpenChange={(open) => { if (!open) { setEditingId(null); setMutationError(null); setDirty(false); } }}
+        title={editingAccount ? intl.formatMessage({ id: "chartOfAccounts.editAccount" }, { code: editingAccount.code }) : ""}
+        description={intl.formatMessage({ id: "chartOfAccounts.form.editDescription" })}
+        size="lg"
+        dirty={dirty}
+      >
+        {editingAccount && (
+          <AccountForm
+            mode="edit"
+            groupOptions={groupOptions}
+            groupsById={groupsById}
+            initial={editingAccount}
+            submitting={updateMutation.isPending}
+            error={mutationError}
+            onSubmit={(fields) => updateMutation.mutate({ id: editingAccount.id, fields })}
+            onCancel={() => { setEditingId(null); setMutationError(null); setDirty(false); }}
+            onDirtyChange={setDirty}
+          />
+        )}
+      </FormDialog>
 
-      <DataGrid
-        gridId={GRID_ID}
-        columns={columns}
-        data={rows}
-        rowCount={rows.length}
-        isLoading={accountsQuery.isPending || accountGroupsQuery.isPending}
-        getRowId={(row) => row.id}
-        enableGlobalFilter
-        globalFilterPlaceholder={intl.formatMessage({ id: "chartOfAccounts.searchPlaceholder" })}
-        emptyMessage={intl.formatMessage({ id: "chartOfAccounts.noAccounts" })}
-        exportFileName="chart-of-accounts"
-        getRowClassName={(row) => (row.isActive ? undefined : "text-muted-foreground/70")}
-        manualFiltering={false}
-        manualSorting={false}
-        manualGrouping={false}
-        // DataGrid always expects `data` pre-sliced to the current page (its pagination itself is
-        // always "manual" — see DataGrid.tsx). A tree view should never split a group across pages,
-        // so this screen keeps the whole chart on one page instead: a single page-size option large
-        // enough to hold a full v2 chart (233 real accounts) plus headroom for a company's own extra
-        // accounts, rather than a real paging control that would fragment the tree.
-        defaultPageSize={500}
-        pageSizeOptions={[500]}
-      />
+      {viewMode === "tree" ? (
+        <ChartOfAccountsTree
+          accounts={accounts}
+          groupsById={groupsById}
+          groupLabel={treeGroupLabel}
+          onEdit={(id) => {
+            setEditingId(id);
+            setFormOpen(false);
+            setMutationError(null);
+            setDirty(false);
+          }}
+        />
+      ) : (
+        <DataGrid
+          gridId={GRID_ID}
+          columns={columns}
+          data={rows}
+          rowCount={rows.length}
+          isLoading={accountsQuery.isPending || accountGroupsQuery.isPending}
+          getRowId={(row) => row.id}
+          enableGlobalFilter
+          globalFilterPlaceholder={intl.formatMessage({ id: "chartOfAccounts.searchPlaceholder" })}
+          emptyMessage={intl.formatMessage({ id: "chartOfAccounts.noAccounts" })}
+          exportFileName="chart-of-accounts"
+          getRowClassName={(row) => (row.isActive ? undefined : "text-muted-foreground/70")}
+          manualFiltering={false}
+          manualSorting={false}
+          manualGrouping={false}
+          defaultPageSize={500}
+          pageSizeOptions={[500]}
+        />
+      )}
     </div>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { toast } from "sonner";
 import type {
   AccountResponse,
   ApplyCreditNoteResponse,
@@ -23,12 +24,19 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
-import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
+import { documentStateBadgeVariant, invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
 import { isCompanyAdminRole } from "@/lib/membership-enums";
 import { computeLine } from "@/lib/tax-enums";
+import { cn } from "@/lib/utils";
+import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { buildDocumentDataFromResponse } from "@/lib/invoice-document-data";
+import { InvoicePreviewDialog } from "@/components/shared/InvoicePreviewDialog";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
+import { PostingPreview } from "@/components/shared/PostingPreview";
+import { ActivityTimeline } from "@/components/shared/ActivityTimeline";
+import { RelatedDocuments } from "@/components/shared/RelatedDocuments";
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
@@ -60,8 +68,10 @@ export function InvoiceDetail() {
   const [posting, setPosting] = useState(false);
   const [converting, setConverting] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
+  const [showPostPreview, setShowPostPreview] = useState(false);
   // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
   const [editing, setEditing] = useState(false);
+  const [showDocPreview, setShowDocPreview] = useState(false);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
@@ -130,15 +140,20 @@ export function InvoiceDetail() {
     dirty: editing,
   });
 
+  useUnsavedChanges(editing);
+
   async function handlePost() {
     if (!companyId || !id) return;
     setPostError(null);
     setPosting(true);
     try {
       await apiClient.post2(companyId, id);
+      toast.success(intl.formatMessage({ id: "toast.invoicePosted" }));
       await refresh();
     } catch (err) {
-      setPostError(getApiErrorMessage(err, intl.formatMessage({ id: "invoiceDetail.postError" })));
+      const msg = getApiErrorMessage(err, intl.formatMessage({ id: "invoiceDetail.postError" }));
+      setPostError(msg);
+      toast.error(msg);
     } finally {
       setPosting(false);
     }
@@ -160,20 +175,22 @@ export function InvoiceDetail() {
   }
 
   async function handleAppliedCreditNote(response: ApplyCreditNoteResponse) {
-    setApplyMessage(intl.formatMessage({ id: "invoiceDetail.appliedCreditNote" }, { amount: response.reconciliation.amount.toFixed(2) }));
+    const msg = intl.formatMessage({ id: "invoiceDetail.appliedCreditNote" }, { amount: response.reconciliation.amount.toFixed(2) });
+    setApplyMessage(msg);
+    toast.success(msg);
     await refresh();
   }
 
   async function handleAppliedDownPayment(response: ApplyDownPaymentResponse) {
     const applied = response.reconciliation.amount;
-    setApplyMessage(
-      response.reclassifiedAmount > 0
-        ? intl.formatMessage(
-            { id: "invoiceDetail.appliedDownPaymentWithRevenue" },
-            { amount: applied.toFixed(2), revenueAmount: response.reclassifiedAmount.toFixed(2) },
-          )
-        : intl.formatMessage({ id: "invoiceDetail.appliedDownPayment" }, { amount: applied.toFixed(2) }),
-    );
+    const msg = response.reclassifiedAmount > 0
+      ? intl.formatMessage(
+          { id: "invoiceDetail.appliedDownPaymentWithRevenue" },
+          { amount: applied.toFixed(2), revenueAmount: response.reclassifiedAmount.toFixed(2) },
+        )
+      : intl.formatMessage({ id: "invoiceDetail.appliedDownPayment" }, { amount: applied.toFixed(2) });
+    setApplyMessage(msg);
+    toast.success(msg);
     await refresh();
   }
 
@@ -199,6 +216,35 @@ export function InvoiceDetail() {
   const partner = partners.find((p) => p.id === invoice.partnerId);
   const currentMembership = members.find((m) => m.userId === auth?.userId);
   const isAdmin = currentMembership ? isCompanyAdminRole(currentMembership.role) : false;
+  const isCreditDocument = invoice.documentType === InvoiceDocumentType.CreditNote || invoice.documentType === InvoiceDocumentType.SalesReturn;
+
+  // Item 29: Build related documents list
+  const relatedDocs = [];
+  if (invoice.originalInvoiceId) {
+    const original = allInvoices.find((i) => i.id === invoice.originalInvoiceId);
+    if (original) {
+      relatedDocs.push({
+        id: original.id,
+        label: original.invoiceNumber ?? original.id,
+        type: intl.formatMessage({ id: "relatedDocuments.originalInvoice" }),
+        url: `/invoicing/${original.id}`,
+      });
+    }
+  }
+  // Find returns/credit notes that reference this invoice
+  for (const related of allInvoices) {
+    if (related.originalInvoiceId === invoice.id && related.id !== invoice.id) {
+      const isReturn = related.documentType === InvoiceDocumentType.SalesReturn;
+      relatedDocs.push({
+        id: related.id,
+        label: related.invoiceNumber ?? related.id,
+        type: isReturn
+          ? intl.formatMessage({ id: "relatedDocuments.salesReturn" })
+          : intl.formatMessage({ id: "relatedDocuments.creditNote" }),
+        url: isReturn ? `/sales-returns/${related.id}` : `/invoicing/${related.id}`,
+      });
+    }
+  }
 
   let total = 0;
   let estimatedNet = 0;
@@ -229,7 +275,7 @@ export function InvoiceDetail() {
         </Alert>
       )}
 
-      <Card>
+      <Card className={cn(invoice.state === "Draft" && "border-dashed bg-muted/30", invoice.state === "Cancelled" && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -245,7 +291,12 @@ export function InvoiceDetail() {
                   {intl.formatMessage({ id: "common.edit" })}
                 </Button>
               )}
-              <Badge variant={invoice.state === "Posted" ? "default" : "secondary"}>{invoice.state}</Badge>
+              {!editing && (
+                <Button variant="outline" size="sm" onClick={() => setShowDocPreview(true)}>
+                  {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
+                </Button>
+              )}
+              <Badge variant={documentStateBadgeVariant(invoice.state)}>{invoice.state}</Badge>
             </div>
           </div>
         </CardHeader>
@@ -333,7 +384,7 @@ export function InvoiceDetail() {
 
           {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && (
             <div className="flex flex-col items-start gap-1">
-              <Button onClick={handlePost} disabled={posting}>
+              <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}
@@ -347,10 +398,30 @@ export function InvoiceDetail() {
               <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.outstanding" }, { amount: balance.outstanding.toFixed(2) })}</p>
             </div>
           )}
+            {relatedDocs.length > 0 && <RelatedDocuments documents={relatedDocs} />}
             </>
           )}
         </CardContent>
       </Card>
+
+      {invoice.state === "Posted" && invoice.documentType === InvoiceDocumentType.Invoice && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{intl.formatMessage({ id: "invoiceDetail.actions" })}</CardTitle>
+            <CardDescription>{intl.formatMessage({ id: "invoiceDetail.actionsDescription" })}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/sales-returns">{intl.formatMessage({ id: "invoiceDetail.createReturn" })}</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link to="/invoicing">{intl.formatMessage({ id: "invoiceDetail.createCreditNote" })}</Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {invoice.state === "Posted" && (
         <Card>
@@ -373,8 +444,16 @@ export function InvoiceDetail() {
       {invoice.state === "Posted" && balance && balance.outstanding > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>{intl.formatMessage({ id: "invoiceDetail.recordPayment" })}</CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "invoiceDetail.recordPaymentDescription" })}</CardDescription>
+            <CardTitle>
+              {isCreditDocument
+                ? intl.formatMessage({ id: "payment.refundCustomer" })
+                : intl.formatMessage({ id: "invoiceDetail.recordPayment" })}
+            </CardTitle>
+            <CardDescription>
+              {isCreditDocument
+                ? intl.formatMessage({ id: "payment.refundCustomerDescription" })
+                : intl.formatMessage({ id: "invoiceDetail.recordPaymentDescription" })}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <RecordPaymentForm
@@ -384,6 +463,7 @@ export function InvoiceDetail() {
               paymentMethods={paymentMethods}
               outstanding={balance.outstanding}
               onRecorded={refresh}
+              isRefund={isCreditDocument}
             />
           </CardContent>
         </Card>
@@ -455,6 +535,43 @@ export function InvoiceDetail() {
           <AttachmentsPanel companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} />
         </CardContent>
       </Card>
+
+      {invoice.state === "Posted" && (
+        <Card>
+          <CardContent className="pt-6">
+            <ActivityTimeline companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} />
+          </CardContent>
+        </Card>
+      )}
+
+      {showPostPreview && (
+        <PostingPreview
+          companyId={activeCompany.id}
+          documentKind="invoice"
+          documentId={invoice.id}
+          confirming={posting}
+          onConfirm={() => {
+            setShowPostPreview(false);
+            void handlePost();
+          }}
+          onCancel={() => setShowPostPreview(false)}
+        />
+      )}
+
+      {showDocPreview && (
+        <InvoicePreviewDialog
+          data={buildDocumentDataFromResponse({
+            invoice,
+            company: activeCompany,
+            customer: partner ? { name: partner.name, taxNumber: partner.taxNumber ?? undefined, fiscalNumber: partner.fiscalNumber ?? undefined, isVatRegistered: partner.isVatRegistered } : undefined,
+            taxes,
+            originalDocumentNumber: invoice.originalInvoiceId
+              ? (allInvoices.find((i) => i.id === invoice.originalInvoiceId)?.invoiceNumber ?? undefined)
+              : undefined,
+          })}
+          onClose={() => setShowDocPreview(false)}
+        />
+      )}
     </div>
   );
 }

@@ -3,7 +3,7 @@ import type { CompanyResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
-import { recordCompanyOpened } from "@/lib/company-last-opened";
+import { getLastOpenedMap, recordCompanyOpened } from "@/lib/company-last-opened";
 
 const ACTIVE_COMPANY_KEY = "pako.activeCompanyId";
 
@@ -34,7 +34,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const result = await apiClient.companiesAll();
+      const result = await apiClient.companiesAll(true);
       setCompanies(result);
     } catch (err) {
       setError(getApiErrorMessage(err, "Could not load companies."));
@@ -59,6 +59,39 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
     }
   }, [activeCompanyId, companies]);
+
+  // Auto-select: single company, or last-opened, when no company is active.
+  // Skip archived companies for auto-selection.
+  useEffect(() => {
+    if (activeCompanyId || companies.length === 0 || !auth) return;
+
+    const active = companies.filter((c) => !c.isArchived);
+    if (active.length === 0) return;
+
+    if (active.length === 1) {
+      const id = active[0].id;
+      setActiveCompanyIdState(id);
+      sessionStorage.setItem(ACTIVE_COMPANY_KEY, id);
+      recordCompanyOpened(auth.userId, id);
+      return;
+    }
+
+    // Multiple companies: pick the most recently opened one
+    const lastOpened = getLastOpenedMap(auth.userId);
+    let bestId: string | null = null;
+    let bestTime = "";
+    for (const c of active) {
+      const t = lastOpened[c.id];
+      if (t && t > bestTime) {
+        bestTime = t;
+        bestId = c.id;
+      }
+    }
+    if (bestId) {
+      setActiveCompanyIdState(bestId);
+      sessionStorage.setItem(ACTIVE_COMPANY_KEY, bestId);
+    }
+  }, [activeCompanyId, companies, auth]);
 
   function setActiveCompanyId(id: string) {
     setActiveCompanyIdState(id);

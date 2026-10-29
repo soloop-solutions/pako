@@ -17,6 +17,10 @@ export function getCellText(line: GridLine, column: GridColumn): string {
       return line.accountLabel;
     case "partner":
       return line.partnerLabel;
+    case "project":
+      return line.projectLabel;
+    case "employee":
+      return line.employeeLabel;
     case "costCenter":
       // F12: the distribution cell is a button that opens DistributionEditor, not a free-text
       // picker — there is no single string to type/commit into it, so it has no draft text.
@@ -32,14 +36,18 @@ export function sanitizeAmount(raw: string, previous: string): string {
   const trimmed = raw.trim();
   if (trimmed === "") return "";
   const normalized = trimmed.replace(",", ".");
-  return Number.isFinite(parseFloat(normalized)) ? normalized : previous;
+  const parsed = parseFloat(normalized);
+  if (!Number.isFinite(parsed)) return previous;
+  // Reject negative amounts — corrections use the appropriate side (debit/credit), not signed values.
+  if (parsed < 0) return previous;
+  return normalized;
 }
 
 export function commitCellValue(
   line: GridLine,
   column: GridColumn,
   raw: string,
-  options: { account: PickerOption[]; partner: PickerOption[] },
+  options: { account: PickerOption[]; partner: PickerOption[]; project: PickerOption[]; employee: PickerOption[] },
 ): GridLine {
   switch (column) {
     case "description":
@@ -57,6 +65,16 @@ export function commitCellValue(
       const previous = line.partnerId ? { id: line.partnerId, label: line.partnerLabel } : null;
       const resolved = resolvePickerCommit(raw, options.partner, previous);
       return resolved ? { ...line, partnerId: resolved.id, partnerLabel: resolved.label } : { ...line, partnerId: "", partnerLabel: "" };
+    }
+    case "project": {
+      const previous = line.projectId ? { id: line.projectId, label: line.projectLabel } : null;
+      const resolved = resolvePickerCommit(raw, options.project, previous);
+      return resolved ? { ...line, projectId: resolved.id, projectLabel: resolved.label } : { ...line, projectId: "", projectLabel: "" };
+    }
+    case "employee": {
+      const previous = line.employeeId ? { id: line.employeeId, label: line.employeeLabel } : null;
+      const resolved = resolvePickerCommit(raw, options.employee, previous);
+      return resolved ? { ...line, employeeId: resolved.id, employeeLabel: resolved.label } : { ...line, employeeId: "", employeeLabel: "" };
     }
     case "costCenter":
       // F12: no free-text commit for the distribution cell — edits go through

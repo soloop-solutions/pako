@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { clampCell, moveArrow, nextForEnter, nextForTab, prevForTab } from "@/pages/ledger/journal-grid/gridNavigation";
+import { COLUMN_COUNT } from "@/pages/ledger/journal-grid/types";
+
+const LAST_COL = COLUMN_COUNT - 1;
 
 describe("gridNavigation", () => {
   describe("nextForEnter", () => {
@@ -19,11 +22,11 @@ describe("gridNavigation", () => {
     });
 
     it("wraps to the first column of the next row at the last column", () => {
-      expect(nextForTab({ row: 0, col: 5 }, 2)).toEqual({ row: 1, col: 0, grow: false });
+      expect(nextForTab({ row: 0, col: LAST_COL }, 2)).toEqual({ row: 1, col: 0, grow: false });
     });
 
     it("wraps and grows the grid when the last column of the last row is reached", () => {
-      expect(nextForTab({ row: 1, col: 5 }, 2)).toEqual({ row: 2, col: 0, grow: true });
+      expect(nextForTab({ row: 1, col: LAST_COL }, 2)).toEqual({ row: 2, col: 0, grow: true });
     });
   });
 
@@ -33,7 +36,7 @@ describe("gridNavigation", () => {
     });
 
     it("wraps to the last column of the previous row at the first column", () => {
-      expect(prevForTab({ row: 1, col: 0 })).toEqual({ row: 0, col: 5 });
+      expect(prevForTab({ row: 1, col: 0 })).toEqual({ row: 0, col: LAST_COL });
     });
 
     it("clamps at the very first cell", () => {
@@ -54,7 +57,7 @@ describe("gridNavigation", () => {
 
     it("moves left/right and clamps without wrapping rows", () => {
       expect(moveArrow({ row: 1, col: 0 }, "left", 3)).toEqual({ row: 1, col: 0 });
-      expect(moveArrow({ row: 1, col: 5 }, "right", 3)).toEqual({ row: 1, col: 5 });
+      expect(moveArrow({ row: 1, col: LAST_COL }, "right", 3)).toEqual({ row: 1, col: LAST_COL });
       expect(moveArrow({ row: 1, col: 2 }, "left", 3)).toEqual({ row: 1, col: 1 });
       expect(moveArrow({ row: 1, col: 2 }, "right", 3)).toEqual({ row: 1, col: 3 });
     });
@@ -62,7 +65,7 @@ describe("gridNavigation", () => {
 
   describe("clampCell", () => {
     it("clamps row and column into range", () => {
-      expect(clampCell({ row: 10, col: 10 }, 3)).toEqual({ row: 2, col: 5 });
+      expect(clampCell({ row: 10, col: 10 }, 3)).toEqual({ row: 2, col: LAST_COL });
       expect(clampCell({ row: -1, col: -1 }, 3)).toEqual({ row: 0, col: 0 });
     });
 

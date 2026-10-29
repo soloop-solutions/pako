@@ -6,6 +6,7 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Attachments;
+using Pako.Domain.Hr;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -22,11 +23,20 @@ public class AttachmentsController : ControllerBase
 
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly CompanyAccessContext _access;
 
-    public AttachmentsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    // HR module: the owner type is only known at runtime, so the attribute can't name a module.
+    // Every action is left at AccessModule.None and checks the owner itself (CanAccessOwnerAsync):
+    // a ClientStaff user needs Read on the owner's module and, when partner-scoped, the owner must
+    // reference a visible partner — anything else is a 404, same as a missing owner. Writes stay
+    // AccessModule.None on purpose, which the filter already denies to every ClientStaff user:
+    // attaching/removing evidence on a posted document is a bookkeeper action, not a sales or
+    // purchasing one, until someone decides otherwise.
+    public AttachmentsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
     {
         _db = db;
         _localizer = localizer;
+        _access = access;
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -35,6 +45,11 @@ public class AttachmentsController : ControllerBase
     [RequireCompanyAccess]
     public async Task<ActionResult<List<AttachmentResponse>>> List(Guid companyId, [FromQuery] AttachmentOwnerType ownerType, [FromQuery] Guid ownerId)
     {
+        if (!await CanAccessOwnerAsync(companyId, ownerType, ownerId))
+        {
+            return NotFound();
+        }
+
         var attachments = await _db.Attachments.AsNoTracking()
             .Where(a => a.CompanyId == companyId && a.OwnerType == ownerType && a.OwnerId == ownerId)
             .OrderByDescending(a => a.UploadedAtUtc)
@@ -77,7 +92,8 @@ public class AttachmentsController : ControllerBase
             return BadRequest(_localizer["AttachmentTooLarge"].Value);
         }
 
-        if (!await OwnerBelongsToCompanyAsync(companyId, parsedOwnerType, request.OwnerId))
+        if (!await OwnerBelongsToCompanyAsync(companyId, parsedOwnerType, request.OwnerId) ||
+            !await CanAccessOwnerAsync(companyId, parsedOwnerType, request.OwnerId))
         {
             return BadRequest(_localizer["AttachmentOwnerNotFound"].Value);
         }
@@ -111,7 +127,7 @@ public class AttachmentsController : ControllerBase
     {
         var attachment = await _db.Attachments.AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);
-        if (attachment is null)
+        if (attachment is null || !await CanAccessOwnerAsync(companyId, attachment.OwnerType, attachment.OwnerId))
         {
             return NotFound();
         }
@@ -124,7 +140,7 @@ public class AttachmentsController : ControllerBase
     public async Task<ActionResult> Delete(Guid companyId, Guid id)
     {
         var attachment = await _db.Attachments.FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);
-        if (attachment is null)
+        if (attachment is null || !await CanAccessOwnerAsync(companyId, attachment.OwnerType, attachment.OwnerId))
         {
             return NotFound();
         }
@@ -142,6 +158,39 @@ public class AttachmentsController : ControllerBase
         AttachmentOwnerType.Partner => await _db.Partners.AnyAsync(p => p.Id == ownerId && p.CompanyId == companyId),
         _ => false
     };
+
+    private static AccessModule ModuleFor(AttachmentOwnerType ownerType) => ownerType switch
+    {
+        AttachmentOwnerType.Invoice => AccessModule.Sales,
+        AttachmentOwnerType.Bill => AccessModule.Purchases,
+        AttachmentOwnerType.JournalEntry => AccessModule.Accounting,
+        // Partner records themselves are reference data every staff user may read.
+        _ => AccessModule.None
+    };
+
+    // Unrestricted callers short-circuit to true (existence is checked separately where it
+    // matters). A journal entry has no single partner to scope by, so a partner-scoped user is
+    // always denied one — Department.LevelFor already forces their Accounting to None.
+    private async Task<bool> CanAccessOwnerAsync(Guid companyId, AttachmentOwnerType ownerType, Guid ownerId)
+    {
+        if (_access.Department is { } department && department.LevelFor(ModuleFor(ownerType)) < AccessLevel.Read)
+        {
+            return false;
+        }
+
+        if (!_access.IsPartnerRestricted)
+        {
+            return true;
+        }
+
+        return ownerType switch
+        {
+            AttachmentOwnerType.Invoice => await _db.Invoices.VisibleTo(_access).AnyAsync(i => i.Id == ownerId && i.CompanyId == companyId),
+            AttachmentOwnerType.Bill => await _db.Bills.VisibleTo(_access).AnyAsync(b => b.Id == ownerId && b.CompanyId == companyId),
+            AttachmentOwnerType.Partner => _access.CanSeePartner(ownerId),
+            _ => false
+        };
+    }
 
     private static AttachmentResponse ToResponse(Attachment a) =>
         new(a.Id, a.OwnerType.ToString(), a.OwnerId, a.FileName, a.ContentType, a.SizeBytes, a.UploadedAtUtc);

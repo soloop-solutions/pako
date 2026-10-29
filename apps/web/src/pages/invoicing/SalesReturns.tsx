@@ -7,10 +7,12 @@ import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, Payment
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { InvoiceDocumentType } from "@/lib/document-types";
+import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 
@@ -30,6 +32,8 @@ export function SalesReturns() {
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [formKey, setFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -99,7 +103,7 @@ export function SalesReturns() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={state === "Posted" ? "default" : "secondary"}>{state}</Badge>;
+          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
         },
       },
       {
@@ -122,7 +126,7 @@ export function SalesReturns() {
         enableGrouping: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${row.original.id}`}>
+          <Link className="text-sm font-medium text-primary hover:underline" to={`/sales-returns/${row.original.id}`}>
             {intl.formatMessage({ id: "common.view" })}
           </Link>
         ),
@@ -131,6 +135,12 @@ export function SalesReturns() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [intl, partners, invoices, balances],
   );
+
+  const handleCreated = useCallback(async () => {
+    setFormOpen(false);
+    setFormKey((k) => k + 1);
+    await refresh();
+  }, [refresh]);
 
   if (!activeCompany) {
     return (
@@ -154,24 +164,35 @@ export function SalesReturns() {
         </Alert>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "salesReturns.newReturn" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "salesReturns.newReturnDescription" })}</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <InvoiceForm
-            companyId={activeCompany.id}
-            customers={customers}
-            taxes={taxesForSale(taxes)}
-            invoices={invoices}
-            paymentMethods={paymentMethods}
-            isVatRegistered={activeCompany.isVatRegistered}
-            onCreated={refresh}
-            fixedDocumentType={InvoiceDocumentType.SalesReturn}
-          />
-        </CardContent>
-      </Card>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "salesReturns.title" })}</h2>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "salesReturns.description" })}</p>
+        </div>
+        <Button onClick={() => setFormOpen(true)}>
+          {intl.formatMessage({ id: "salesReturns.newReturn" })}
+        </Button>
+      </div>
+
+      <FormDialog
+        open={formOpen}
+        onOpenChange={(open) => { if (!open) setFormOpen(false); }}
+        title={intl.formatMessage({ id: "salesReturns.newReturn" })}
+        description={intl.formatMessage({ id: "salesReturns.newReturnDescription" })}
+        size="full"
+      >
+        <InvoiceForm
+          key={formKey}
+          companyId={activeCompany.id}
+          customers={customers}
+          taxes={taxesForSale(taxes)}
+          invoices={invoices}
+          paymentMethods={paymentMethods}
+          isVatRegistered={activeCompany.isVatRegistered}
+          onCreated={handleCreated}
+          fixedDocumentType={InvoiceDocumentType.SalesReturn}
+        />
+      </FormDialog>
 
       <Card>
         <CardHeader>
@@ -184,6 +205,7 @@ export function SalesReturns() {
             data={returns}
             rowCount={returns.length}
             getRowId={(row) => row.id}
+            getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "salesReturns.noReturns" })}
             exportFileName="sales-returns"

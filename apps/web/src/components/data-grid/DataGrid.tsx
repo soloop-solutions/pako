@@ -18,6 +18,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -43,6 +44,8 @@ export interface DataGridProps<TData extends object> {
   enableRowSelection?: boolean;
   onSelectedRowsChange?: (rows: TData[]) => void;
   getRowClassName?: (row: TData) => string | undefined;
+  /** Opens a record when its row is clicked. Clicks on buttons/links/inputs inside the row are ignored. */
+  onRowClick?: (row: TData) => void;
   enableGlobalFilter?: boolean;
   globalFilterPlaceholder?: string;
   emptyMessage?: string;
@@ -76,6 +79,7 @@ export function DataGrid<TData extends object>({
   enableRowSelection = false,
   onSelectedRowsChange,
   getRowClassName,
+  onRowClick,
   enableGlobalFilter = false,
   globalFilterPlaceholder,
   emptyMessage,
@@ -90,6 +94,8 @@ export function DataGrid<TData extends object>({
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnsPanelOpen, setColumnsPanelOpen] = useState(false);
   const columnsPanelRef = useRef<HTMLDivElement>(null);
+  const [exportPanelOpen, setExportPanelOpen] = useState(false);
+  const exportPanelRef = useRef<HTMLDivElement>(null);
   const [searchDraft, setSearchDraft] = useState(urlState.globalFilter);
 
   useEffect(() => {
@@ -118,6 +124,17 @@ export function DataGrid<TData extends object>({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [columnsPanelOpen]);
 
+  useEffect(() => {
+    if (!exportPanelOpen) return;
+    function handleClickOutside(event: MouseEvent) {
+      if (exportPanelRef.current && !exportPanelRef.current.contains(event.target as Node)) {
+        setExportPanelOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [exportPanelOpen]);
+
   const finalColumns = useMemo<ColumnDef<TData>[]>(() => {
     const ordinalColumn: ColumnDef<TData> = {
       id: ORDINAL_COLUMN_ID,
@@ -140,8 +157,7 @@ export function DataGrid<TData extends object>({
       enableGrouping: false,
       enableHiding: false,
       header: ({ table }) => (
-        <input
-          type="checkbox"
+        <Checkbox
           className="size-3.5"
           aria-label={intl.formatMessage({ id: "dataGrid.selectAll" })}
           checked={table.getIsAllPageRowsSelected()}
@@ -149,8 +165,7 @@ export function DataGrid<TData extends object>({
         />
       ),
       cell: ({ row }) => (
-        <input
-          type="checkbox"
+        <Checkbox
           className="size-3.5"
           aria-label={intl.formatMessage({ id: "dataGrid.selectRow" })}
           checked={row.getIsSelected()}
@@ -262,16 +277,16 @@ export function DataGrid<TData extends object>({
             <Select
               className="h-8 w-auto text-xs"
               value={urlState.groupBy ?? ""}
-              onChange={(event) => urlState.setGroupBy(event.target.value || null)}
+              onValueChange={(v) => urlState.setGroupBy(v || null)}
               aria-label={intl.formatMessage({ id: "dataGrid.groupBy" })}
-            >
-              <option value="">{intl.formatMessage({ id: "dataGrid.noGrouping" })}</option>
-              {groupableColumns.map((column) => (
-                <option key={column.id} value={column.id}>
-                  {intl.formatMessage({ id: "dataGrid.groupByColumn" }, { column: columnLabel(column) })}
-                </option>
-              ))}
-            </Select>
+              options={[
+                { value: "", label: intl.formatMessage({ id: "dataGrid.noGrouping" }) },
+                ...groupableColumns.map((column) => ({
+                  value: column.id,
+                  label: intl.formatMessage({ id: "dataGrid.groupByColumn" }, { column: columnLabel(column) }),
+                })),
+              ]}
+            />
           )}
           <div className="relative" ref={columnsPanelRef}>
             <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={() => setColumnsPanelOpen((open) => !open)}>
@@ -282,8 +297,7 @@ export function DataGrid<TData extends object>({
               <div className="absolute right-0 z-10 mt-1 w-56 rounded-md border bg-popover p-2 shadow-md">
                 {hideableColumns.map((column) => (
                   <label key={column.id} className="flex items-center gap-2 rounded px-1 py-1 text-xs hover:bg-accent">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={column.getIsVisible()}
                       onChange={column.getToggleVisibilityHandler()}
                     />
@@ -293,20 +307,46 @@ export function DataGrid<TData extends object>({
               </div>
             )}
           </div>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => {
-              void import("@/components/data-grid/exportToExcel").then(({ exportTableToExcel }) =>
-                exportTableToExcel(table, exportFileName ?? gridId),
-              );
-            }}
-          >
-            <Download className="size-3.5" />
-            {intl.formatMessage({ id: "dataGrid.export" })}
-          </Button>
+          <div className="relative" ref={exportPanelRef}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 text-xs"
+              onClick={() => setExportPanelOpen((open) => !open)}
+            >
+              <Download className="size-3.5" />
+              {intl.formatMessage({ id: "dataGrid.export" })}
+            </Button>
+            {exportPanelOpen && (
+              <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border bg-popover p-1 shadow-md">
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent"
+                  onClick={() => {
+                    setExportPanelOpen(false);
+                    void import("@/components/data-grid/exportToExcel").then(({ exportTableToExcel }) =>
+                      exportTableToExcel(table, exportFileName ?? gridId),
+                    );
+                  }}
+                >
+                  {intl.formatMessage({ id: "dataGrid.exportExcel" })}
+                </button>
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent"
+                  onClick={() => {
+                    setExportPanelOpen(false);
+                    void import("@/components/data-grid/exportToExcel").then(({ exportTableToCsv }) =>
+                      exportTableToCsv(table, exportFileName ?? gridId),
+                    );
+                  }}
+                >
+                  {intl.formatMessage({ id: "dataGrid.exportCsv" })}
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -394,7 +434,16 @@ export function DataGrid<TData extends object>({
                     rowIndex % 2 === 1 && "bg-zebra",
                     getRowClassName?.(row.original),
                     row.getIsSelected() && "bg-row-selected shadow-[inset_3px_0_0_var(--primary)]",
+                    onRowClick && !row.getIsGrouped() && "cursor-pointer",
                   )}
+                  onClick={
+                    onRowClick && !row.getIsGrouped()
+                      ? (event) => {
+                          if ((event.target as HTMLElement).closest("button, a, input, select, label")) return;
+                          onRowClick(row.original);
+                        }
+                      : undefined
+                  }
                 >
                   {row.getVisibleCells().map((cell) => {
                     const numeric = cell.column.columnDef.meta?.numeric;
@@ -484,15 +533,13 @@ export function DataGrid<TData extends object>({
           <Select
             className="h-7 w-auto text-xs"
             value={String(urlState.pageSize)}
-            onChange={(event) => urlState.setPageSize(Number(event.target.value))}
+            onValueChange={(v) => urlState.setPageSize(Number(v))}
             aria-label={intl.formatMessage({ id: "dataGrid.rowsPerPage" })}
-          >
-            {pageSizeOptions.map((size) => (
-              <option key={size} value={size}>
-                {intl.formatMessage({ id: "dataGrid.rowsPerPageOption" }, { count: size })}
-              </option>
-            ))}
-          </Select>
+            options={pageSizeOptions.map((size) => ({
+              value: String(size),
+              label: intl.formatMessage({ id: "dataGrid.rowsPerPageOption" }, { count: size }),
+            }))}
+          />
           <Button
             type="button"
             variant="outline"

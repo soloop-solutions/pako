@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -23,13 +24,22 @@ public class TaxesController : ControllerBase
     [RequireCompanyAccess]
     public async Task<ActionResult<List<TaxDefinitionResponse>>> List(Guid companyId)
     {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+
         var taxes = await _db.TaxDefinitions.AsNoTracking()
             .Where(t => t.CompanyId == companyId && t.IsActive)
             .OrderBy(t => t.Name)
             .ToListAsync();
 
-        return Ok(taxes
+        // Filter to only eligible codes for this company's VAT status.
+        // Non-VAT companies see only NA, withholding, and Direction.None codes.
+        // VAT companies see everything.
+        var eligible = taxes
+            .Where(t => VatEligibilityValidator.IsEligible(company.IsVatRegistered, t))
             .Select(t => new TaxDefinitionResponse(t.Id, t.Name, t.Rate, t.Type, t.Scope, t.IsActive, t.Code, t.Direction, t.IsReverseCharge))
-            .ToList());
+            .ToList();
+
+        return Ok(eligible);
     }
 }

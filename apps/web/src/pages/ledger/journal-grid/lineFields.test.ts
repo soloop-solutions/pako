@@ -5,7 +5,7 @@ import type { PickerOption } from "@/pages/ledger/journal-grid/pickerMatch";
 import { emptyLine } from "@/pages/ledger/journal-grid/types";
 
 const ACCOUNTS: PickerOption[] = [{ id: "acc-cash", code: "100100", name: "Cash" }];
-const OPTIONS = { account: ACCOUNTS, partner: [] as PickerOption[] };
+const OPTIONS = { account: ACCOUNTS, partner: [] as PickerOption[], project: [] as PickerOption[], employee: [] as PickerOption[] };
 
 describe("sanitizeAmount", () => {
   it("passes through a plain decimal", () => {
@@ -22,6 +22,16 @@ describe("sanitizeAmount", () => {
 
   it("keeps the previous value for unparsable garbage", () => {
     expect(sanitizeAmount("abc", "9.00")).toBe("9.00");
+  });
+
+  it("rejects negative values and keeps the previous value", () => {
+    expect(sanitizeAmount("-100", "50.00")).toBe("50.00");
+    expect(sanitizeAmount("-0.01", "")).toBe("");
+  });
+
+  it("accepts zero", () => {
+    expect(sanitizeAmount("0", "")).toBe("0");
+    expect(sanitizeAmount("0.00", "")).toBe("0.00");
   });
 });
 

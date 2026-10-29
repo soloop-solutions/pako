@@ -25,13 +25,9 @@ export function computeTotals(lines: GridLine[]): Totals {
   return { debit: debitCents / 100, credit: creditCents / 100, diffCents: debitCents - creditCents };
 }
 
-// Sets the LAST line's short side (whichever side is behind) to exactly whatever closes the
-// current difference — overwriting that field's existing value, per the explicit instruction that
-// auto-balance overwrites rather than adds a line. "Overwrite" here means the field ends up holding
-// the one number that makes the entry balance, which is computed by absorbing whatever was already
-// in that field into the new total (the only way an overwritten value can actually close the gap —
-// naively writing the raw difference would double-count or ignore a pre-existing amount on that
-// same field).
+// Replaces the last line with the single-sided amount needed to balance the other lines. The last
+// line becomes a pure balancing entry: its previous debit/credit are discarded, and only the side
+// needed to close the gap is set — so a line never ends up with both debit and credit positive.
 export function autoBalanceLastLine(lines: GridLine[]): GridLine[] {
   if (lines.length === 0) return lines;
   const { diffCents } = computeTotals(lines);
@@ -40,10 +36,24 @@ export function autoBalanceLastLine(lines: GridLine[]): GridLine[] {
   const lastIndex = lines.length - 1;
   const last = lines[lastIndex];
 
-  const updatedLast =
-    diffCents > 0
-      ? { ...last, credit: ((toCents(last.credit) + diffCents) / 100).toFixed(2) }
-      : { ...last, debit: ((toCents(last.debit) + Math.abs(diffCents)) / 100).toFixed(2) };
+  // Sum all lines except the last — the last line is the one we're overwriting.
+  let otherDebitCents = 0;
+  let otherCreditCents = 0;
+  for (let i = 0; i < lastIndex; i++) {
+    otherDebitCents += toCents(lines[i].debit);
+    otherCreditCents += toCents(lines[i].credit);
+  }
+  const otherDiffCents = otherDebitCents - otherCreditCents;
 
-  return lines.map((line, index) => (index === lastIndex ? updatedLast : line));
+  // If other lines already balance, clear the last line entirely.
+  if (otherDiffCents === 0) {
+    return lines.map((line, i) => (i === lastIndex ? { ...last, debit: "", credit: "" } : line));
+  }
+
+  const updatedLast =
+    otherDiffCents > 0
+      ? { ...last, debit: "", credit: (otherDiffCents / 100).toFixed(2) }
+      : { ...last, debit: (Math.abs(otherDiffCents) / 100).toFixed(2), credit: "" };
+
+  return lines.map((line, i) => (i === lastIndex ? updatedLast : line));
 }

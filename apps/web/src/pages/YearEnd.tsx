@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { PrintButton } from "@/components/shared/PrintButton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
@@ -21,9 +22,6 @@ import { buildRollForward, type RollForward } from "@/pages/year-end/rollForward
 // GET .../reports/balance-sheet?asOf= endpoint twice (Dec 31 of the previous year, Dec 31 of the
 // selected year) and show the difference as the year's movement. Kosovo's fiscal year is the
 // calendar year, same assumption the rest of this app's date handling already makes.
-function fiscalYearNow(): number {
-  return new Date().getFullYear();
-}
 
 function equationOk(assets: number, liabilities: number, equity: number): boolean {
   return Math.abs(assets - (liabilities + equity)) < 0.01;
@@ -33,15 +31,29 @@ export function YearEnd() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const printRef = useRef<HTMLDivElement>(null);
 
-  const [year, setYear] = useState<number>(fiscalYearNow);
+  const [availableYears, setAvailableYears] = useState<number[]>([]);
+  const [year, setYear] = useState<number | null>(null);
   const [rollForward, setRollForward] = useState<RollForward | null>(null);
   const [period, setPeriod] = useState<{ beginning: string; ending: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  async function run() {
+  useEffect(() => {
     if (!companyId) return;
+    let cancelled = false;
+    apiClient.journalEntriesAll(companyId).then((entries) => {
+      if (cancelled) return;
+      const years = [...new Set(entries.map((e) => new Date(e.date).getFullYear()))].sort((a, b) => b - a);
+      setAvailableYears(years);
+      if (years.length > 0) setYear((prev) => prev ?? years[0]);
+    });
+    return () => { cancelled = true; };
+  }, [companyId]);
+
+  async function run() {
+    if (!companyId || year == null) return;
     setError(null);
     setLoading(true);
     const beginningAsOf = `${year - 1}-12-31`;
@@ -76,7 +88,7 @@ export function YearEnd() {
 
   return (
     <div className="flex flex-col gap-6">
-      <Card>
+      <Card ref={printRef}>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "yearEnd.title" })}</CardTitle>
           <CardDescription>
@@ -86,18 +98,19 @@ export function YearEnd() {
         <CardContent className="flex flex-col gap-4">
           <div className="flex flex-wrap items-end gap-4">
             <div className="flex flex-col gap-2">
-              <Label htmlFor="year-end-fiscal-year">{intl.formatMessage({ id: "yearEnd.fiscalYear" })}</Label>
-              <Input
-                id="year-end-fiscal-year"
-                type="number"
-                value={year}
-                onChange={(event) => setYear(parseInt(event.target.value, 10) || fiscalYearNow())}
+              <Label>{intl.formatMessage({ id: "yearEnd.fiscalYear" })}</Label>
+              <Select
+                value={year != null ? String(year) : ""}
+                onValueChange={(v) => setYear(v ? parseInt(v, 10) : null)}
+                options={availableYears.map((y) => ({ value: String(y), label: String(y) }))}
+                placeholder={intl.formatMessage({ id: "yearEnd.fiscalYear" })}
                 className="w-28"
               />
             </div>
-            <Button onClick={() => void run()} disabled={loading}>
+            <Button onClick={() => void run()} disabled={loading || year == null}>
               {loading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
             </Button>
+            {rollForward && <PrintButton contentRef={printRef} />}
           </div>
 
           {error && (

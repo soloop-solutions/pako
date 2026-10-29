@@ -28,7 +28,11 @@ builder.Services.AddCors(options =>
     options.AddPolicy(CorsPolicy, policy =>
         policy.WithOrigins(
                 "http://localhost:5173",
+                "http://localhost:5180",
+                "http://localhost:5181",
                 "http://127.0.0.1:5173",
+                "http://127.0.0.1:5180",
+                "http://127.0.0.1:5181",
                 "https://pakoerp.netlify.app")
             .AllowAnyHeader()
             .AllowAnyMethod());
@@ -54,6 +58,9 @@ builder.Services.AddSingleton(new JwtOptions
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();
+builder.Services.AddScoped<Pako.Api.Authorization.CompanyAccessContext>();
+builder.Services.AddScoped<Pako.Api.Services.PayrollRunComposer>();
+builder.Services.AddSingleton<Pako.Api.Services.ActionTokenService>();
 
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -21,7 +21,8 @@ public record CreateInvoiceRequest(
     PriceMode PriceMode = PriceMode.GrossInclusive,
     int? PaymentTermDays = null,
     int? GraceDays = null,
-    CreateInvoicePaymentRequest? Payment = null);
+    CreateInvoicePaymentRequest? Payment = null,
+    string? InternalNotes = null);
 
 // C3: optional inline payment recorded atomically with the invoice's own creation+posting — see
 // InvoicesController.Create's comment for why this must post the invoice (not leave it Draft).

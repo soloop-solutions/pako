@@ -1,14 +1,7 @@
-// F6 (partner register) — types and helpers for the "control account / payment terms / credit
-// limit" fields that are not yet on the real generated PartnerResponse (see
-// backend/Pako.Domain/Companies/Partner.cs — those three fields genuinely don't exist on the
-// domain entity yet). Field names below match this task's own contract, not a real backend
-// contract — see src/mocks/partnersHandlers.ts for the mock that currently serves this shape,
-// same pattern src/lib/account-v2.ts already established for F2's mocked fields.
-
 import type { IntlShape } from "react-intl";
 import type { PartnerResponse } from "@pako/shared";
 
-export interface PartnerV2 extends PartnerResponse {
+export interface PartnerV2 extends Omit<PartnerResponse, "paymentTermDays" | "creditLimit"> {
   controlAccountId: string | null;
   paymentTermDays: number | null;
   creditLimit: number | null;

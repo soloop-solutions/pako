@@ -207,6 +207,34 @@ public class VatOnControlAccountException : Exception
     }
 }
 
+// 60_Posting_Rules R30 (BLOCK): a journal entry line must post to one side only — a positive
+// Debit or a positive Credit, never both on the same line. Users can freely edit both fields
+// during data entry, but posting with both positive is rejected.
+public class DualAmountLineException : Exception
+{
+    public Guid LineId { get; }
+
+    public DualAmountLineException(Guid lineId)
+        : base($"Journal entry line {lineId} has both a positive Debit and a positive Credit — each line must use only one side.")
+    {
+        LineId = lineId;
+    }
+}
+
+// 60_Posting_Rules R31 (BLOCK): Debit and Credit must be non-negative. Corrections use the
+// opposite side (debit vs credit), not signed values — the entire PAKO posting model is built on
+// positive-only amounts with side-flipping (see Invoice.cs, Bill.cs, JournalEntry.Reverse()).
+public class NegativeAmountLineException : Exception
+{
+    public Guid LineId { get; }
+
+    public NegativeAmountLineException(Guid lineId)
+        : base($"Journal entry line {lineId} has a negative Debit or Credit — use the opposite side instead.")
+    {
+        LineId = lineId;
+    }
+}
+
 // 60_Posting_Rules R19 (BLOCK): a foreign-currency line must store OriginalCurrency,
 // OriginalAmount and ExchangeRate together, or none of them — a partial set can't be reconciled
 // back to the functional-currency Debit/Credit.

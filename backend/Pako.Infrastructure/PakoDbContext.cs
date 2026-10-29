@@ -4,10 +4,12 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Pako.Domain.Attachments;
 using Pako.Domain.Bills;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Payroll;
 using Pako.Domain.Reconciliation;
+using Pako.Domain.Shared;
 using Pako.Domain.Tax;
 using Pako.Infrastructure.Identity;
 
@@ -36,6 +38,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<JournalEntry> JournalEntries => Set<JournalEntry>();
     public DbSet<JournalEntryLine> JournalEntryLines => Set<JournalEntryLine>();
     public DbSet<CostCenter> CostCenters => Set<CostCenter>();
+    public DbSet<Project> Projects => Set<Project>();
     public DbSet<TaxDefinition> TaxDefinitions => Set<TaxDefinition>();
     public DbSet<TaxRepartitionLine> TaxRepartitionLines => Set<TaxRepartitionLine>();
     public DbSet<Invoice> Invoices => Set<Invoice>();
@@ -48,11 +51,29 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<WithholdingTaxEntry> WithholdingTaxEntries => Set<WithholdingTaxEntry>();
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<EmployeePartnerAssignment> EmployeePartnerAssignments => Set<EmployeePartnerAssignment>();
+    public DbSet<EmployeeContract> EmployeeContracts => Set<EmployeeContract>();
+    public DbSet<PayrollAdjustment> PayrollAdjustments => Set<PayrollAdjustment>();
+    public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
+    public DbSet<LeaveAllocation> LeaveAllocations => Set<LeaveAllocation>();
+    public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
+    public DbSet<PublicHoliday> PublicHolidays => Set<PublicHoliday>();
+    public DbSet<Pako.Domain.Shared.AuditEntry> AuditEntries => Set<Pako.Domain.Shared.AuditEntry>();
+    public DbSet<Pako.Domain.Shared.UserFavorite> UserFavorites => Set<Pako.Domain.Shared.UserFavorite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(PakoDbContext).Assembly);
+
+        modelBuilder.Entity<Pako.Domain.Shared.AuditEntry>(entity =>
+        {
+            entity.ToTable("audit_entries");
+            entity.HasIndex(e => new { e.CompanyId, e.EntityType, e.EntityId });
+            entity.HasIndex(e => new { e.CompanyId, e.OccurredAtUtc });
+        });
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
@@ -110,6 +131,15 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     // Company.AllowNumberOverride, a uniqueness check, and a DocumentNumberAudit row), and until
     // this was added, that endpoint's own SaveChangesAsync threw PostedInvoiceImmutableException
     // every time — a real, previously-untested bug this fix closes.
+    // HR module: paying a Posted payroll run (PayrollRun.Pay) moves it to Paid and records the
+    // payment entry — the one mutation a Posted run allows. Everything about the accrual stays
+    // locked, and a Paid run allows nothing.
+    private static bool OnlyPaymentRecorded(EntityEntry<PayrollRun> entry) =>
+        entry.OriginalValues.GetValue<PayrollRunState>(nameof(PayrollRun.State)) == PayrollRunState.Posted &&
+        entry.CurrentValues.GetValue<PayrollRunState>(nameof(PayrollRun.State)) == PayrollRunState.Paid &&
+        entry.Properties.Where(p => p.IsModified).All(p =>
+            p.Metadata.Name is nameof(PayrollRun.State) or nameof(PayrollRun.PaymentJournalEntryId) or nameof(PayrollRun.PaidOn));
+
     private static bool OnlyDueDateOrInternalNotesChanged(EntityEntry<Invoice> entry) =>
         entry.Properties.Where(p => p.IsModified).All(p =>
             p.Metadata.Name is nameof(Invoice.DueDate) or nameof(Invoice.InternalNotes) or nameof(Invoice.InvoiceNumber));
@@ -203,8 +233,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<PayrollRun>())
         {
+            var originalState = entry.OriginalValues.GetValue<PayrollRunState>(nameof(PayrollRun.State));
             if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<PayrollRunState>(nameof(PayrollRun.State)) == PayrollRunState.Posted)
+                originalState is PayrollRunState.Posted or PayrollRunState.Paid &&
+                !(entry.State == EntityState.Modified && OnlyPaymentRecorded(entry)))
             {
                 throw new PostedPayrollRunImmutableException(entry.Entity.Id);
             }
@@ -218,9 +250,25 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
                     .Where(r => r.Id == entry.Entity.PayrollRunId)
                     .Select(r => r.State)
                     .FirstOrDefault();
-                if (parentState == PayrollRunState.Posted)
+                if (parentState is PayrollRunState.Posted or PayrollRunState.Paid)
                 {
                     throw new PostedPayrollRunImmutableException(entry.Entity.PayrollRunId);
+                }
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<PayrollAdjustment>())
+        {
+            var runId = entry.OriginalValues.GetValue<Guid?>(nameof(PayrollAdjustment.PayrollRunId));
+            if (entry.State is EntityState.Modified or EntityState.Deleted && runId is not null)
+            {
+                var parentState = PayrollRuns.AsNoTracking()
+                    .Where(r => r.Id == runId)
+                    .Select(r => r.State)
+                    .FirstOrDefault();
+                if (parentState is PayrollRunState.Posted or PayrollRunState.Paid)
+                {
+                    throw new PostedPayrollRunImmutableException(runId.Value);
                 }
             }
         }
@@ -311,8 +359,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
         foreach (var entry in ChangeTracker.Entries<PayrollRun>())
         {
+            var originalState = entry.OriginalValues.GetValue<PayrollRunState>(nameof(PayrollRun.State));
             if (entry.State is EntityState.Modified or EntityState.Deleted &&
-                entry.OriginalValues.GetValue<PayrollRunState>(nameof(PayrollRun.State)) == PayrollRunState.Posted)
+                originalState is PayrollRunState.Posted or PayrollRunState.Paid &&
+                !(entry.State == EntityState.Modified && OnlyPaymentRecorded(entry)))
             {
                 throw new PostedPayrollRunImmutableException(entry.Entity.Id);
             }
@@ -326,9 +376,25 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
                     .Where(r => r.Id == entry.Entity.PayrollRunId)
                     .Select(r => r.State)
                     .FirstOrDefaultAsync(cancellationToken);
-                if (parentState == PayrollRunState.Posted)
+                if (parentState is PayrollRunState.Posted or PayrollRunState.Paid)
                 {
                     throw new PostedPayrollRunImmutableException(entry.Entity.PayrollRunId);
+                }
+            }
+        }
+
+        foreach (var entry in ChangeTracker.Entries<PayrollAdjustment>())
+        {
+            var runId = entry.OriginalValues.GetValue<Guid?>(nameof(PayrollAdjustment.PayrollRunId));
+            if (entry.State is EntityState.Modified or EntityState.Deleted && runId is not null)
+            {
+                var parentState = await PayrollRuns.AsNoTracking()
+                    .Where(r => r.Id == runId)
+                    .Select(r => r.State)
+                    .FirstOrDefaultAsync(cancellationToken);
+                if (parentState is PayrollRunState.Posted or PayrollRunState.Paid)
+                {
+                    throw new PostedPayrollRunImmutableException(runId.Value);
                 }
             }
         }

@@ -7,6 +7,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -138,7 +139,8 @@ public class NumberSeriesController : ControllerBase
 
     // B3: gap detection report for a specific document type and year.
     [HttpGet("gaps")]
-    [RequireCompanyAccess]
+    // An audit view across every partner's documents: Accounting, which partner-scoped staff never hold.
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<GapReportResponse>> GapReport(
         Guid companyId,
         [FromQuery] string documentType,
@@ -158,7 +160,21 @@ public class NumberSeriesController : ControllerBase
         // Get all issued numbers for this company+type by querying invoice/bill tables.
         var issuedNumbers = new HashSet<int>();
 
-        if (documentType is "Invoice" or "CreditNote" or "DebitNote" or "DownPayment" or "SalesReturn" or "Proforma")
+        if (documentType == "JournalEntry")
+        {
+            var prefix = NumberSeriesService.ExtractStaticPrefix(series.Pattern);
+            var jeNumbers = await _db.JournalEntries.AsNoTracking()
+                .Where(e => e.CompanyId == companyId && e.SequenceNumber != null)
+                .Select(e => e.SequenceNumber!)
+                .ToListAsync();
+
+            foreach (var num in jeNumbers.Where(n => string.IsNullOrEmpty(prefix) || n.StartsWith(prefix)))
+            {
+                var seqValue = ExtractSequenceValue(num);
+                if (seqValue.HasValue) issuedNumbers.Add(seqValue.Value);
+            }
+        }
+        else if (documentType is "Invoice" or "CreditNote" or "DebitNote" or "DownPayment" or "SalesReturn" or "Proforma")
         {
             var invoiceNumbers = await _db.Invoices.AsNoTracking()
                 .Where(i => i.CompanyId == companyId && i.InvoiceNumber != null)

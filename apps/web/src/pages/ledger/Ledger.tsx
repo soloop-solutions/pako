@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AccountResponse, JournalEntryResponse, JournalResponse, TrialBalanceLine } from "@pako/shared";
 
@@ -8,8 +8,12 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
+import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
+import { PrintButton } from "@/components/shared/PrintButton";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
 import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
 
@@ -19,6 +23,7 @@ export function Ledger() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const trialBalancePrintRef = useRef<HTMLDivElement>(null);
 
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [journals, setJournals] = useState<JournalResponse[]>([]);
@@ -26,6 +31,30 @@ export function Ledger() {
   const [trialBalance, setTrialBalance] = useState<TrialBalanceLine[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fromDate = searchParams.get("fromDate") ?? "";
+  const toDate = searchParams.get("toDate") ?? "";
+  const sortOrder = searchParams.get("sortOrder") ?? "newest";
+
+  function setDateFilter(key: string, value: string) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (value) next.set(key, value);
+      else next.delete(key);
+      return next;
+    }, { replace: true });
+  }
+
+  const filteredEntries = useMemo(() => {
+    let result = entries;
+    if (fromDate) result = result.filter((e) => e.date >= fromDate);
+    if (toDate) result = result.filter((e) => e.date <= toDate);
+    result = [...result].sort((a, b) =>
+      sortOrder === "oldest" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
+    );
+    return result;
+  }, [entries, fromDate, toDate, sortOrder]);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -65,14 +94,14 @@ export function Ledger() {
       },
       {
         accessorKey: "debit",
-        header: intl.formatMessage({ id: "ledger.debit" }),
+        header: () => <>{intl.formatMessage({ id: "ledger.debit" })}<AccountingTooltip termKey="tooltip.debit" /></>,
         meta: { numeric: true },
         enableColumnFilter: false,
         cell: ({ getValue }) => (getValue() as number).toFixed(2),
       },
       {
         accessorKey: "credit",
-        header: intl.formatMessage({ id: "ledger.credit" }),
+        header: () => <>{intl.formatMessage({ id: "ledger.credit" })}<AccountingTooltip termKey="tooltip.credit" /></>,
         meta: { numeric: true },
         enableColumnFilter: false,
         cell: ({ getValue }) => (getValue() as number).toFixed(2),
@@ -138,15 +167,65 @@ export function Ledger() {
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "ledger.journalEntries" })}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <JournalEntriesTable companyId={activeCompany.id} entries={entries} journals={journals} onPosted={refresh} isLoading={loading} />
+        <CardContent className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-end gap-4">
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">{intl.formatMessage({ id: "ledger.fromDate" })}</Label>
+              <Input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setDateFilter("fromDate", e.target.value)}
+                className="h-8 w-40"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label className="text-xs">{intl.formatMessage({ id: "ledger.toDate" })}</Label>
+              <Input
+                type="date"
+                value={toDate}
+                onChange={(e) => setDateFilter("toDate", e.target.value)}
+                className="h-8 w-40"
+              />
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setDateFilter("sortOrder", sortOrder === "oldest" ? "newest" : "oldest")}
+            >
+              {sortOrder === "oldest"
+                ? intl.formatMessage({ id: "ledger.newestFirst" })
+                : intl.formatMessage({ id: "ledger.oldestFirst" })}
+            </Button>
+            {(fromDate || toDate) && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchParams((prev) => {
+                    const next = new URLSearchParams(prev);
+                    next.delete("fromDate");
+                    next.delete("toDate");
+                    return next;
+                  }, { replace: true });
+                }}
+              >
+                {intl.formatMessage({ id: "ledger.clearFilters" })}
+              </Button>
+            )}
+          </div>
+          <JournalEntriesTable companyId={activeCompany.id} entries={filteredEntries} journals={journals} onPosted={refresh} isLoading={loading} />
         </CardContent>
       </Card>
 
-      <Card>
+      <Card ref={trialBalancePrintRef}>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "ledger.trialBalance" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "ledger.trialBalanceDescription" })}</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{intl.formatMessage({ id: "ledger.trialBalance" })}<AccountingTooltip termKey="tooltip.trialBalance" /></CardTitle>
+              <CardDescription>{intl.formatMessage({ id: "ledger.trialBalanceDescription" })}</CardDescription>
+            </div>
+            {trialBalance.length > 0 && <PrintButton contentRef={trialBalancePrintRef} />}
+          </div>
         </CardHeader>
         <CardContent>
           <DataGrid

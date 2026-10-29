@@ -20,6 +20,47 @@ export function exportTableToExcel<TData>(table: Table<TData>, fileName: string)
   XLSX.writeFile(workbook, fileName.endsWith(".xlsx") ? fileName : `${fileName}.xlsx`);
 }
 
+function csvEscape(value: unknown): string {
+  if (value == null) return "";
+  const str = String(value);
+  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+function triggerCsvDownload(csv: string, fileName: string): void {
+  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName.endsWith(".csv") ? fileName : `${fileName}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportTableToCsv<TData>(table: Table<TData>, fileName: string): void {
+  const columns = table.getVisibleLeafColumns().filter((column) => !column.id.startsWith("__"));
+  const header = columns.map((column) => {
+    const meta = column.columnDef.meta;
+    if (meta?.headerLabel) return meta.headerLabel;
+    if (typeof column.columnDef.header === "string") return column.columnDef.header;
+    return column.id;
+  });
+  const rows = table
+    .getRowModel()
+    .rows.filter((row) => !row.getIsGrouped())
+    .map((row) => columns.map((column) => row.getValue(column.id)));
+
+  const lines = [header, ...rows].map((row) => row.map(csvEscape).join(","));
+  triggerCsvDownload(lines.join("\r\n"), fileName);
+}
+
+export function exportRowsToCsv(rows: (string | number)[][], fileName: string): void {
+  const lines = rows.map((row) => row.map(csvEscape).join(","));
+  triggerCsvDownload(lines.join("\r\n"), fileName);
+}
+
 // For report screens (F10): a report is not a paginated register — it's a fixed, already-computed
 // set of sections (e.g. income/expenses, or bucketed totals) with summary rows that don't fit a
 // single flat TanStack table. This takes the exact rows already rendered on screen (built by the
