@@ -296,6 +296,64 @@ public class PurchaseAnalysisTests : IAsyncLifetime
         Assert.Equal(0, hidden.Total);
     }
 
+    private async Task<Seed> SeedReverseChargeAsync()
+    {
+        var s = await SeedAsync();
+        var company = await s.Db.Companies.SingleAsync(c => c.Id == s.CompanyId);
+        var defaults = await s.Db.CompanyAccountDefaults.AsNoTracking().SingleAsync(d => d.CompanyId == s.CompanyId);
+        var journal = await s.Db.Journals.AsNoTracking().FirstAsync(j => j.CompanyId == s.CompanyId && j.Type == JournalType.Purchase);
+        var rc = await s.Db.TaxDefinitions.Include(t => t.RepartitionLines).SingleAsync(t => t.CompanyId == s.CompanyId && t.Code == "RC18");
+        var bill = new Bill
+        {
+            Id = Guid.NewGuid(), CompanyId = s.CompanyId, PartnerId = s.Beta, VendorReference = "B-RC",
+            IssueDate = new DateOnly(2026, 1, 15), DueDate = new DateOnly(2026, 2, 15),
+            Lines =
+            {
+                new BillLine
+                {
+                    Id = Guid.NewGuid(), Description = "Foreign software", Quantity = 1m, UnitPrice = 1000m,
+                    TaxDefinitionId = rc.Id, ExpenseAccountId = defaults.ExpenseAccountId
+                }
+            }
+        };
+        var entry = bill.Post(
+            company, journal.Id, defaults.PayableAccountId, new TaxComputationService(),
+            new Dictionary<Guid, TaxDefinition> { [rc.Id] = rc },
+            defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
+        s.Db.Bills.Add(bill);
+        s.Db.JournalEntries.Add(entry);
+        await s.Db.SaveChangesAsync();
+        return s;
+    }
+
+    [Fact]
+    public async Task PurchasesByVendor_ReverseChargeBill_VatMatchesPurchaseBook()
+    {
+        var s = await SeedReverseChargeAsync();
+
+        var vendors = Ok(await Controller(s.Db).PurchasesByVendor(s.CompanyId, Jan1, Jan31));
+
+        var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
+        var book = Ok(await reports.PurchaseBook(s.CompanyId, Jan1, Jan31));
+        Assert.Equal(1500m, vendors.Single(v => v.PartnerId == s.Beta).NetAmount);
+        Assert.Equal(270m, vendors.Single(v => v.PartnerId == s.Beta).VatAmount);
+        Assert.Equal(book.TotalNet, vendors.Sum(v => v.NetAmount));
+        Assert.Equal(book.TotalVat, vendors.Sum(v => v.VatAmount));
+    }
+
+    [Fact]
+    public async Task PurchaseTransactions_ReverseChargeLine_GrossEqualsNet()
+    {
+        var s = await SeedReverseChargeAsync();
+
+        var r = await Transactions(Controller(s.Db), s.CompanyId, search: "Foreign software");
+
+        var row = Assert.Single(r.Items);
+        Assert.Equal(1000m, row.NetAmount);
+        Assert.Equal(180m, row.VatAmount);
+        Assert.Equal(1000m, row.GrossAmount);
+    }
+
     [Fact]
     public async Task Purchases_FromAfterTo_Returns400()
     {

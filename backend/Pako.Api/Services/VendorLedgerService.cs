@@ -235,11 +235,15 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
                     items.TryGetValue(itemId, out item);
                 }
 
+                var vat = taxDefinition is { IsReverseCharge: true }
+                    ? Math.Round(result.NetAmount * taxDefinition.Rate, 2, MidpointRounding.AwayFromZero)
+                    : result.Gross - result.NetAmount;
+
                 rows.Add(new PurchaseRow(
                     bill.IssueDate, bill.VendorReference, bill.DocumentType.ToString(), bill.PartnerId, partnerName,
                     line.ItemId, item?.Code, item?.Name, string.IsNullOrEmpty(item?.Unit) ? null : item.Unit, line.Description,
                     sign * line.Quantity, line.UnitPrice, sign * result.NetAmount,
-                    sign * (undiscounted.NetAmount - result.NetAmount), sign * (result.Gross - result.NetAmount), sign * result.Gross,
+                    sign * (undiscounted.NetAmount - result.NetAmount), sign * vat, sign * result.Gross,
                     line.Id));
             }
         }
