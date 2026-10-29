@@ -42,3 +42,7 @@ export function downloadFileResponse(file: FileResponse, fallbackFileName: strin
   link.remove();
   URL.revokeObjectURL(url);
 }
+
+export function formatAmount(amount: number): string {
+  return amount.toFixed(2);
+}

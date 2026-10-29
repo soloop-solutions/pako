@@ -15,12 +15,13 @@ import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { cn } from "@/lib/utils";
 import { DrillAmount, ExportButton, LockNotice } from "./shared";
 import { downloadRows, isOnOrBeforeLock, type ExcelRow } from "./helpers";
+import { ComparativeBalanceSheet } from "./ComparativeBalanceSheet";
 import type { useBalanceSheetReport } from "./useBalanceSheetReport";
 
 export function BalanceSheetTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof useBalanceSheetReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
   const printRef = useRef<HTMLDivElement>(null);
-  const { asOf, setAsOf, balanceSheet, balanceSheetAsOf, balanceSheetError, balanceSheetLoading, loadBalanceSheet } = report;
+  const { compareTo, setCompareTo, comparative, comparativeExporter, asOf, setAsOf, balanceSheet, balanceSheetAsOf, balanceSheetError, balanceSheetLoading, loadBalanceSheet } = report;
 
   const balanceSheetLocked = !!balanceSheetAsOf && isOnOrBeforeLock(balanceSheetAsOf, accountingLockDate);
 
@@ -66,11 +67,16 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
             <Label htmlFor="bs-as-of">{intl.formatMessage({ id: "reports.asOf" })}</Label>
             <Input id="bs-as-of" type="date" value={asOf} onChange={(event) => setAsOf(event.target.value)} />
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="bs-compare-to">{intl.formatMessage({ id: "reports.compareTo" })}</Label>
+            <Input id="bs-compare-to" type="date" value={compareTo} onChange={(event) => setCompareTo(event.target.value)} />
+          </div>
           <Button onClick={loadBalanceSheet} disabled={balanceSheetLoading}>
             {balanceSheetLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
           </Button>
           {balanceSheet && <ExportButton onClick={exportBalanceSheet} />}
-          {balanceSheet && <PrintButton contentRef={printRef} />}
+          {comparative && <ExportButton onClick={comparativeExporter.exportFile} loading={comparativeExporter.exporting} />}
+          {(balanceSheet || comparative) && <PrintButton contentRef={printRef} />}
         </div>
 
         {balanceSheetLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
@@ -80,6 +86,14 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
             <AlertDescription>{balanceSheetError}</AlertDescription>
           </Alert>
         )}
+
+        {comparativeExporter.exportError && (
+          <Alert variant="destructive">
+            <AlertDescription>{comparativeExporter.exportError}</AlertDescription>
+          </Alert>
+        )}
+
+        {comparative && <ComparativeBalanceSheet data={comparative} />}
 
         {balanceSheet && (
           <>

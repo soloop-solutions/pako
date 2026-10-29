@@ -14,7 +14,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Columns3, Download } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,8 @@ export interface DataGridProps<TData extends object> {
   manualFiltering?: boolean;
   manualSorting?: boolean;
   manualGrouping?: boolean;
+  /** Server-supplied totals row, keyed by column id. Replaces the page-sum footer; the grid never derives these. */
+  footerRow?: { label: string; cells: Record<string, ReactNode> };
 }
 
 function columnLabel<TData>(column: Column<TData, unknown>): string {
@@ -87,6 +89,7 @@ export function DataGrid<TData extends object>({
   manualFiltering = true,
   manualSorting = true,
   manualGrouping = true,
+  footerRow,
 }: DataGridProps<TData>) {
   const intl = useIntl();
   const urlState = useDataGridUrlState(gridId, defaultPageSize);
@@ -487,7 +490,32 @@ export function DataGrid<TData extends object>({
               ))
             )}
           </TableBody>
-          {!isLoading && hasAggregatedColumn && rows.length > 0 && (
+          {!isLoading && footerRow && rows.length > 0 && (
+            <tfoot>
+              <tr className="h-8 border-t border-t-grid-header-border bg-totals text-totals-foreground font-semibold">
+                {table.getVisibleLeafColumns().map((column, index) => {
+                  if (column.id === SELECT_COLUMN_ID || column.id === ORDINAL_COLUMN_ID) {
+                    return <td key={column.id} className="h-8 py-1" />;
+                  }
+                  const cell = footerRow.cells[column.id];
+                  if (cell !== undefined) {
+                    return (
+                      <td key={column.id} className="h-8 px-2 py-1 text-right tabular-nums">
+                        {cell}
+                      </td>
+                    );
+                  }
+                  const isFirstDataColumn = index === 1 + (enableRowSelection ? 1 : 0);
+                  return (
+                    <td key={column.id} className="h-8 px-2 py-1">
+                      {isFirstDataColumn ? footerRow.label : null}
+                    </td>
+                  );
+                })}
+              </tr>
+            </tfoot>
+          )}
+          {!isLoading && !footerRow && hasAggregatedColumn && rows.length > 0 && (
             <tfoot>
               <tr className="h-8 border-t border-t-grid-header-border bg-totals text-totals-foreground font-semibold">
                 {table.getVisibleLeafColumns().map((column, index) => {
