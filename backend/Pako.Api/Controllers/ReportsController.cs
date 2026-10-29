@@ -22,12 +22,14 @@ public class ReportsController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
+    private readonly LedgerAggregator _ledger;
 
-    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
+    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger)
     {
         _db = db;
         _localizer = localizer;
         _access = access;
+        _ledger = ledger;
     }
 
     // HR module: the sales/purchase books and debt aging are per-document and are filtered to the
@@ -47,7 +49,7 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await SumsByAccountAsync(companyId, from, to);
+        var sums = await _ledger.SumsByAccountAsync(companyId, from, to);
 
         var income = sums.Where(s => AccountTypeDerivation.IsIncome(s.Account.AccountType))
             .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
@@ -96,7 +98,7 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await SumsByAccountAsync(companyId, from: null, to: asOf);
+        var sums = await _ledger.SumsByAccountAsync(companyId, from: null, to: asOf);
 
         var assets = sums.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType))
             .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
@@ -117,7 +119,7 @@ public class ReportsController : ControllerBase
         // B13: the real CurrentYearEarnings account (304100) every v2-seeded company has, rather
         // than a synthetic Guid.Empty/"3999" row — falls back to the old synthetic row only if a
         // company genuinely has none (the legacy 16-account template some tests still seed from).
-        var currentEarnings = NetIncome(sums);
+        var currentEarnings = LedgerAggregator.NetIncome(sums);
         var currentYearEarningsAccount = await _db.Accounts.AsNoTracking()
             .FirstOrDefaultAsync(a => a.CompanyId == companyId && a.AccountType == AccountType.CurrentYearEarnings);
         equity.Add(currentYearEarningsAccount is { } cye
@@ -553,7 +555,7 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await SumsByAccountAsync(companyId, from, to);
+        var sums = await _ledger.SumsByAccountAsync(companyId, from, to);
 
         var nonDeductible = sums.Where(s => s.Account.CitDeductibility == CitDeductibility.Non)
             .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
@@ -647,36 +649,4 @@ public class ReportsController : ControllerBase
             lines.Where(l => l.Bucket == "WithinGrace").Sum(l => l.Outstanding),
             lines.Where(l => l.Bucket == "Overdue").Sum(l => l.Outstanding)));
     }
-
-    private async Task<List<(Account Account, decimal Debit, decimal Credit)>> SumsByAccountAsync(
-        Guid companyId, DateOnly? from, DateOnly to)
-    {
-        var query = _db.JournalEntryLines.AsNoTracking()
-            .Where(l => l.JournalEntry!.CompanyId == companyId
-                && l.JournalEntry.State == JournalEntryState.Posted
-                && l.JournalEntry.Date <= to);
-        if (from is { } f)
-        {
-            query = query.Where(l => l.JournalEntry!.Date >= f);
-        }
-
-        var sums = await query
-            .GroupBy(l => l.AccountId)
-            .Select(g => new { AccountId = g.Key, Debit = g.Sum(l => l.Debit), Credit = g.Sum(l => l.Credit) })
-            .ToListAsync();
-
-        var accountIds = sums.Select(s => s.AccountId).ToList();
-        var accounts = await _db.Accounts.AsNoTracking()
-            .Where(a => accountIds.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id);
-
-        return sums
-            .Where(s => accounts.ContainsKey(s.AccountId))
-            .Select(s => (accounts[s.AccountId], s.Debit, s.Credit))
-            .ToList();
-    }
-
-    private static decimal NetIncome(IEnumerable<(Account Account, decimal Debit, decimal Credit)> sums) =>
-        sums.Where(s => AccountTypeDerivation.IsIncome(s.Account.AccountType)).Sum(s => s.Credit - s.Debit) -
-        sums.Where(s => AccountTypeDerivation.IsExpense(s.Account.AccountType)).Sum(s => s.Debit - s.Credit);
 }
