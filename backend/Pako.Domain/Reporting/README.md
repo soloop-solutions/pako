@@ -1,1 +1,1 @@
-Phase 2+ module — see docs/ROADMAP.md. Not built this pass.
+Pure report calculators (cash flow, equity, reconciliation), added by the report-suite plan.

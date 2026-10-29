@@ -45,9 +45,8 @@ pnpm --filter web build
 4. **Branch state (as of 2026-09-14):** Track A is merged into `main`. Track C is complete but
    unmerged on `origin/track-c/price-payment-debt` and conflicts with Track A (~36 hunks).
    `origin/arnit-imp-1` holds Albanian terminology fixes, unmerged.
-5. **Tests still run on EF InMemory** (13 call sites). Moving them to Testcontainers is Phase 0 of
-   the current plan; until then, any test involving a unique index, trigger, transaction or row
-   lock proves nothing.
+5. **Tests run on real Postgres** via `backend/Pako.Tests/PostgresTestDatabase.cs` (compose Postgres
+   on :5433). `UseInMemoryDatabase` appears only in a comment there.
 
 ## Things that already exist and are easy to rebuild by mistake
 

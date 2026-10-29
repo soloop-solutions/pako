@@ -155,9 +155,10 @@ enum has existed and never been read — **this is what structurally blocks the 
 ### B10 · Purchase and sales books
 Built on B9's journals and the VAT codes already seeded. Confirm with the partner firm whether ATK
 accepts a sales return as a nota kreditore (**D4**) before fixing the mapping.
+**Status:** the sales and purchase books already exist (`AtkTaxBookWorkbook`, `AtkBookMapper`).
 
 ### B11 · Excel export
-Add ClosedXML — the solution has no export library at all today. Export the VAT return, both books,
+**Status:** ClosedXML is already referenced in `Pako.Api`; `ExcelExportService.BuildWorkbook` and `AtkTaxBookWorkbook` are the shared writers, and exports exist for trial balance, P&L, balance sheet, VAT return, and the sales and purchase books. Original scope: export the VAT return, both books,
 trial balance, P&L, balance sheet and any journal entry, in ATK's column order. One shared writer,
 not six.
 
