@@ -192,6 +192,7 @@
   <data name="AssignedPartnerNotFound" xml:space="preserve"><value>Një ose më shumë partnerë nuk u gjetën në këtë kompani.</value></data>
   <data name="PartnerNotAssigned" xml:space="preserve"><value>Ju nuk jeni i caktuar për këtë partner.</value></data>
   <data name="ReportDateRangeInvalid" xml:space="preserve"><value>Data e fillimit nuk mund të jetë pas datës së përfundimit.</value></data>
+  <data name="ReportYearInvalid" xml:space="preserve"><value>Viti duhet të jetë midis 1 dhe 9999.</value></data>
   <data name="ReportNotAvailableForScopedUser" xml:space="preserve"><value>Ky raport përfshin të gjithë partnerët dhe nuk është i disponueshëm për përdoruesit e kufizuar te partnerët e caktuar.</value></data>
   <data name="ContractEndBeforeStart" xml:space="preserve"><value>Data e përfundimit të kontratës nuk mund të jetë para datës së fillimit.</value></data>
   <data name="ContractOverlaps" xml:space="preserve"><value>Kjo kontratë mbivendoset me një kontratë tjetër të të njëjtit punonjës.</value></data>

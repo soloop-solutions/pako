@@ -98,40 +98,7 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await _ledger.SumsByAccountAsync(companyId, from: null, to: asOf);
-
-        var assets = sums.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType))
-            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
-            .OrderBy(l => l.AccountCode)
-            .ToList();
-        var liabilities = sums.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType))
-            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
-            .OrderBy(l => l.AccountCode)
-            .ToList();
-        // CurrentYearEarnings is excluded here and added back below as a computed line — R05
-        // blocks manual postings to it, so its own ledger balance is always zero; the real net
-        // income figure is what belongs on the balance sheet, attributed to that real account.
-        var equity = sums.Where(s => s.Account.AccountType == AccountType.Equity)
-            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
-            .OrderBy(l => l.AccountCode)
-            .ToList();
-
-        // B13: the real CurrentYearEarnings account (304100) every v2-seeded company has, rather
-        // than a synthetic Guid.Empty/"3999" row — falls back to the old synthetic row only if a
-        // company genuinely has none (the legacy 16-account template some tests still seed from).
-        var currentEarnings = LedgerAggregator.NetIncome(sums);
-        var currentYearEarningsAccount = await _db.Accounts.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.CompanyId == companyId && a.AccountType == AccountType.CurrentYearEarnings);
-        equity.Add(currentYearEarningsAccount is { } cye
-            ? new ReportLine(cye.Id, cye.Code, cye.Name, currentEarnings)
-            : new ReportLine(Guid.Empty, "3999", "Current Earnings", currentEarnings));
-
-        var totalAssets = assets.Sum(l => l.Amount);
-        var totalLiabilities = liabilities.Sum(l => l.Amount);
-        var totalEquity = equity.Sum(l => l.Amount);
-
-        return Ok(new BalanceSheetResponse(
-            asOf, assets, liabilities, equity, currentEarnings, totalAssets, totalLiabilities, totalEquity));
+        return Ok(await _ledger.BalanceSheetAsync(companyId, asOf));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
