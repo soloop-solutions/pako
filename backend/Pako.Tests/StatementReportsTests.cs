@@ -5,6 +5,7 @@ using Pako.Api.Contracts;
 using Pako.Api.Controllers;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
 
@@ -184,5 +185,177 @@ public class StatementReportsTests : IAsyncLifetime
         Assert.All(r.NetIncomeByMonth, v => Assert.Equal(0m, v));
         Assert.Equal(0m, r.GrossProfit);
         Assert.Equal(0m, r.NetIncome);
+    }
+
+    private record FlowSeed(PakoDbContext Db, Guid CompanyId, Account Receivable, Account Fixed, Account Loan, Account Capital);
+
+    private async Task<FlowSeed> SeedFlowAsync(bool withEntries = true)
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        var company = new Company { Id = Guid.NewGuid(), Name = "Flow Co" };
+        Account Acc(string code, string name, AccountType type, CashFlowCategory cat = CashFlowCategory.None) =>
+            new() { Id = Guid.NewGuid(), CompanyId = company.Id, Code = code, Name = name, AccountType = type, CashFlowCategory = cat };
+        var cash = Acc("1000", "Cash", AccountType.Cash);
+        var receivable = Acc("1200", "Receivables", AccountType.CurrentAsset, CashFlowCategory.Operating);
+        var fixedAsset = Acc("1500", "Fixed assets", AccountType.FixedAsset, CashFlowCategory.Investing);
+        var loan = Acc("2500", "Loan", AccountType.NonCurrentLiability, CashFlowCategory.Financing);
+        var capital = Acc("3000", "Capital", AccountType.Equity, CashFlowCategory.Financing);
+        var revenue = Acc("4000", "Revenue", AccountType.Income);
+        var rent = Acc("6000", "Rent", AccountType.Expense);
+        db.Companies.Add(company);
+        db.Accounts.AddRange(cash, receivable, fixedAsset, loan, capital, revenue, rent);
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+        db.Journals.Add(journal);
+
+        if (withEntries)
+        {
+            Post(db, company, journal, new DateOnly(2025, 12, 15), (cash, 5000m, 0m), (capital, 0m, 5000m));
+            Post(db, company, journal, new DateOnly(2026, 1, 10), (cash, 1000m, 0m), (revenue, 0m, 1000m));
+            Post(db, company, journal, new DateOnly(2026, 2, 1), (fixedAsset, 2000m, 0m), (cash, 0m, 2000m));
+            Post(db, company, journal, new DateOnly(2026, 3, 1), (cash, 3000m, 0m), (loan, 0m, 3000m));
+            Post(db, company, journal, new DateOnly(2026, 3, 5), (receivable, 500m, 0m), (revenue, 0m, 500m));
+            Post(db, company, journal, new DateOnly(2026, 3, 25), (rent, 400m, 0m), (cash, 0m, 400m));
+            Post(db, company, journal, new DateOnly(2026, 4, 1), (capital, 200m, 0m), (cash, 0m, 200m));
+        }
+
+        await db.SaveChangesAsync();
+        return new FlowSeed(db, company.Id, receivable, fixedAsset, loan, capital);
+    }
+
+    private static readonly DateOnly Jan1 = new(2026, 1, 1);
+    private static readonly DateOnly Dec31 = new(2026, 12, 31);
+
+    private static async Task<CashFlowResponse> CashFlowAsync(PakoDbContext db, Guid companyId)
+    {
+        var result = await Statements(db).CashFlow(companyId, Jan1, Dec31);
+        return Assert.IsType<CashFlowResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+    }
+
+    [Fact]
+    public async Task CashFlow_ClosesToCashAndBankBalance_Check3()
+    {
+        var s = await SeedFlowAsync();
+        var r = await CashFlowAsync(s.Db, s.CompanyId);
+
+        Assert.Equal(5000m, r.OpeningCash);
+        Assert.Equal(1100m, r.NetIncome);
+        Assert.Equal(1400m, r.NetChange);
+        Assert.Equal(6400m, r.ClosingCash);
+        Assert.Equal(0m, r.Difference);
+        Assert.Equal(-500m, Assert.Single(r.Operating).Amount);
+    }
+
+    [Fact]
+    public async Task CashFlow_UsesAccountCashFlowCategory()
+    {
+        var s = await SeedFlowAsync();
+        s.Db.Accounts.Single(a => a.Id == s.Loan.Id).CashFlowCategory = CashFlowCategory.Investing;
+        s.Db.Accounts.Single(a => a.Id == s.Receivable.Id).CashFlowCategory = CashFlowCategory.None;
+        await s.Db.SaveChangesAsync();
+
+        var r = await CashFlowAsync(s.Db, s.CompanyId);
+
+        Assert.Empty(r.Operating);
+        Assert.Equal(new[] { "1500", "2500" }, r.Investing.Select(l => l.AccountCode));
+        Assert.Equal(new[] { -2000m, 3000m }, r.Investing.Select(l => l.Amount));
+        Assert.Equal(new[] { "3000" }, r.Financing.Select(l => l.AccountCode));
+        Assert.Equal(-200m, Assert.Single(r.Financing).Amount);
+        Assert.Equal(1900m, r.NetChange);
+        Assert.Equal(-500m, r.Difference);
+    }
+
+    [Fact]
+    public async Task CashFlow_NoPostings_ReturnsZeros()
+    {
+        var s = await SeedFlowAsync(withEntries: false);
+        var r = await CashFlowAsync(s.Db, s.CompanyId);
+
+        Assert.Equal(0m, r.OpeningCash);
+        Assert.Equal(0m, r.ClosingCash);
+        Assert.Equal(0m, r.Difference);
+        Assert.Empty(r.Operating);
+        Assert.Empty(r.Investing);
+        Assert.Empty(r.Financing);
+    }
+
+    [Fact]
+    public async Task CashFlow_FromAfterTo_Returns400()
+    {
+        var s = await SeedFlowAsync();
+        var result = await Statements(s.Db).CashFlow(s.CompanyId, Dec31, Jan1);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task CashFlow_PartnerRestricted_Returns403()
+    {
+        var s = await SeedFlowAsync();
+        var access = CompanyAccessContext.ForStaff(s.CompanyId, Guid.NewGuid(), Guid.NewGuid(), new Department(), new HashSet<Guid> { Guid.NewGuid() });
+        var controller = new StatementReportsController(new NullStringLocalizer<ErrorMessages>(), access, new LedgerAggregator(s.Db));
+
+        var json = await controller.CashFlow(s.CompanyId, Jan1, Dec31);
+        Assert.Equal(403, Assert.IsType<ObjectResult>(json.Result).StatusCode);
+        var export = await controller.CashFlowExport(s.CompanyId, Jan1, Dec31);
+        Assert.Equal(403, Assert.IsType<ObjectResult>(export).StatusCode);
+    }
+
+    [Fact]
+    public async Task CashFlow_Export_IncludesSummaryRows()
+    {
+        var s = await SeedFlowAsync();
+        var file = Assert.IsType<FileContentResult>(await Statements(s.Db).CashFlowExport(s.CompanyId, Jan1, Dec31));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Amount", sheet.Cell(1, 4).GetString());
+        var last = sheet.LastRowUsed()!.RowNumber();
+        Assert.Equal("Difference", sheet.Cell(last, 3).GetString());
+        Assert.Equal(0m, sheet.Cell(last, 4).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task Equity_ClosingEqualsBalanceSheetEquity()
+    {
+        var s = await SeedFlowAsync();
+        var result = await Statements(s.Db).EquityStatement(s.CompanyId, Jan1, Dec31);
+        var r = Assert.IsType<EquityStatementResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var bs = await new LedgerAggregator(s.Db).BalanceSheetAsync(s.CompanyId, Dec31);
+
+        Assert.Equal(5000m, r.OpeningEquity);
+        Assert.Equal(-200m, Assert.Single(r.Movements).Amount);
+        Assert.Equal(5900m, r.ClosingEquity);
+        Assert.Equal(bs.TotalEquity, r.ClosingEquity);
+    }
+
+    [Fact]
+    public async Task Equity_NetIncomeMatchesProfitAndLoss_Check2()
+    {
+        var s = await SeedFlowAsync();
+        var result = await Statements(s.Db).EquityStatement(s.CompanyId, Jan1, Dec31);
+        var r = Assert.IsType<EquityStatementResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var pnl = Assert.IsType<ProfitAndLossResponse>(Assert.IsType<OkObjectResult>((await Reports(s.Db).ProfitAndLoss(s.CompanyId, Jan1, Dec31)).Result).Value);
+
+        Assert.Equal(1100m, pnl.NetIncome);
+        Assert.Equal(pnl.NetIncome, r.NetIncome);
+    }
+
+    [Fact]
+    public async Task Equity_FromAfterTo_Returns400()
+    {
+        var s = await SeedFlowAsync();
+        var result = await Statements(s.Db).EquityStatement(s.CompanyId, Dec31, Jan1);
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Equity_Export_EndsWithClosingEquity()
+    {
+        var s = await SeedFlowAsync();
+        var file = Assert.IsType<FileContentResult>(await Statements(s.Db).EquityStatementExport(s.CompanyId, Jan1, Dec31));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+        var last = sheet.LastRowUsed()!.RowNumber();
+        Assert.Equal("Closing Equity", sheet.Cell(last, 3).GetString());
+        Assert.Equal(5900m, sheet.Cell(last, 4).GetValue<decimal>());
     }
 }

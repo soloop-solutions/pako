@@ -6,6 +6,7 @@ using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Hr;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 
 namespace Pako.Api.Controllers;
 
@@ -171,64 +172,134 @@ public class StatementReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-comparative-{asOf:yyyyMMdd}.xlsx");
     }
 
+    private BadRequestObjectResult InvalidDateRange() =>
+        BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
+
     [HttpGet("cash-flow")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<CashFlowResponse> CashFlow(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<ActionResult<CashFlowResponse>> CashFlow(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        // CONTRACT STUB — replaced in T7
         if (_access.IsPartnerRestricted)
         {
             return ReportNotAvailableForScopedUser();
         }
 
-        return Ok(new CashFlowResponse(new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), 30000.00m, 45000.00m,
-            new() { new(Id(120), "120", "Trade receivables", -5000.00m), new(Id(400), "400", "Trade payables", 5000.00m) },
-            new() { new(Id(210), "210", "Fixed assets", -10000.00m) },
-            new() { new(Id(560), "560", "Retained earnings (dividends paid)", -20000.00m) },
-            15000.00m, 45000.00m, 0.00m));
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
+        static decimal CashBalance(IEnumerable<AccountSums> sums) =>
+            sums.Where(s => s.Account.AccountType == AccountType.Cash).Sum(s => s.Debit - s.Credit);
+
+        var opening = CashBalance(await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1)));
+        var closing = CashBalance(await _ledger.SumsByAccountAsync(companyId, null, to));
+        var period = await _ledger.SumsByAccountAsync(companyId, from, to);
+
+        var movements = period
+            .Where(s => s.Account.AccountType is not (AccountType.Cash or AccountType.CurrentYearEarnings or AccountType.OffBalance)
+                && !AccountTypeDerivation.IsIncome(s.Account.AccountType)
+                && !AccountTypeDerivation.IsExpense(s.Account.AccountType)
+                && (s.Debit != 0m || s.Credit != 0m))
+            .Select(s => new AccountMovement(s.Account.Id, s.Account.Code, s.Account.Name, s.Account.CashFlowCategory, s.Debit, s.Credit))
+            .OrderBy(m => m.Code, StringComparer.Ordinal);
+
+        var netIncome = LedgerAggregator.NetIncome(period);
+        var result = CashFlowStatement.Calculate(netIncome, movements, opening, closing);
+
+        static List<CashFlowLine> Lines(IEnumerable<AccountMovement> list) =>
+            list.Select(m => new CashFlowLine(m.AccountId, m.Code, m.Name, m.Credit - m.Debit)).ToList();
+
+        return Ok(new CashFlowResponse(
+            from, to, opening, netIncome,
+            Lines(result.Operating), Lines(result.Investing), Lines(result.Financing),
+            result.NetChange, closing, result.Difference));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("cash-flow/export", Name = "CashFlowExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult CashFlowExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<IActionResult> CashFlowExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        // CONTRACT STUB — replaced in T7
-        if (_access.IsPartnerRestricted)
+        var result = await CashFlow(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not CashFlowResponse r)
         {
-            return ReportNotAvailableForScopedUser();
+            return result.Result!;
         }
 
-        return StubExport("Cash Flow", $"cash-flow-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+        var rows = new List<IReadOnlyList<object?>>
+        {
+            new object?[] { "Opening", null, "Opening Cash", r.OpeningCash },
+            new object?[] { "Operating", null, "Net Income", r.NetIncome },
+        };
+        void AddSection(string section, List<CashFlowLine> lines, string totalLabel)
+        {
+            rows.AddRange(lines.Select(l => (IReadOnlyList<object?>)new object?[] { section, l.AccountCode, l.AccountName, l.Amount }));
+            rows.Add(new object?[] { section, null, totalLabel, lines.Sum(l => l.Amount) });
+        }
+        AddSection("Operating", r.Operating, "Total Operating Adjustments");
+        AddSection("Investing", r.Investing, "Total Investing");
+        AddSection("Financing", r.Financing, "Total Financing");
+        rows.Add(new object?[] { "Summary", null, "Net Change", r.NetChange });
+        rows.Add(new object?[] { "Summary", null, "Closing Cash", r.ClosingCash });
+        rows.Add(new object?[] { "Summary", null, "Difference", r.Difference });
+
+        var bytes = ExcelExportService.BuildWorkbook("Cash Flow", new[] { "Section", "Account Code", "Account Name", "Amount" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"cash-flow-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
     [HttpGet("equity-statement")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<EquityStatementResponse> EquityStatement(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<ActionResult<EquityStatementResponse>> EquityStatement(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        // CONTRACT STUB — replaced in T7
         if (_access.IsPartnerRestricted)
         {
             return ReportNotAvailableForScopedUser();
         }
 
-        return Ok(new EquityStatementResponse(new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), 45000.00m, 45000.00m,
-            new() { new(Id(560), "560", "Retained earnings (dividends paid)", -20000.00m) },
-            70000.00m));
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
+        var prior = await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1));
+        var opening =
+            prior.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType)).Sum(s => s.Debit - s.Credit) -
+            prior.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType)).Sum(s => s.Credit - s.Debit);
+
+        var period = await _ledger.SumsByAccountAsync(companyId, from, to);
+        var netIncome = LedgerAggregator.NetIncome(period);
+        var movements = period
+            .Where(s => s.Account.AccountType == AccountType.Equity && (s.Debit != 0m || s.Credit != 0m))
+            .OrderBy(s => s.Account.Code, StringComparer.Ordinal)
+            .Select(s => new EquityMovementLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
+            .ToList();
+
+        var closing = Pako.Domain.Reporting.EquityStatement.Closing(opening, netIncome, movements.Select(m => m.Amount));
+        return Ok(new EquityStatementResponse(from, to, opening, netIncome, movements, closing));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("equity-statement/export", Name = "EquityStatementExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult EquityStatementExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<IActionResult> EquityStatementExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        // CONTRACT STUB — replaced in T7
-        if (_access.IsPartnerRestricted)
+        var result = await EquityStatement(companyId, from, to);
+        if (result.Result is not OkObjectResult ok || ok.Value is not EquityStatementResponse r)
         {
-            return ReportNotAvailableForScopedUser();
+            return result.Result!;
         }
 
-        return StubExport("Equity Statement", $"equity-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+        var rows = new List<IReadOnlyList<object?>>
+        {
+            new object?[] { "Opening", null, "Opening Equity", r.OpeningEquity },
+            new object?[] { "Result", null, "Net Income", r.NetIncome },
+        };
+        rows.AddRange(r.Movements.Select(m => (IReadOnlyList<object?>)new object?[] { "Movements", m.AccountCode, m.AccountName, m.Amount }));
+        rows.Add(new object?[] { "Closing", null, "Closing Equity", r.ClosingEquity });
+
+        var bytes = ExcelExportService.BuildWorkbook("Equity Statement", new[] { "Section", "Account Code", "Account Name", "Amount" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"equity-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
     [HttpGet("expense-book")]
