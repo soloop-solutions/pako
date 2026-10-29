@@ -118,40 +118,28 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"vendor-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    // CONTRACT STUB — replaced in T13
     [HttpGet("payables-aging")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<PayablesAgingResponse> PayablesAging(Guid companyId, [FromQuery] DateOnly asOf)
+    public async Task<ActionResult<PayablesAgingResponse>> PayablesAging(Guid companyId, [FromQuery] DateOnly asOf)
     {
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        var lines = new List<PayablesAgingLine>
-        {
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a05-000000000001"), "BILL-0001", PrimeId, "Prime Properties L.L.C.", new DateOnly(2026, 1, 2), new DateOnly(2026, 2, 1), 1180.00m, "Current"),
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a05-000000000002"), "BILL-0002", KedsId, "KEDS J.S.C.", new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 15), 240.00m, "1-30"),
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a05-000000000003"), "BILL-0003", TelekomId, "Telekomi i Kosoves J.S.C.", new DateOnly(2025, 11, 25), new DateOnly(2025, 12, 10), 234.00m, "46-60"),
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a05-000000000004"), "BILL-0004", TelekomId, "Telekomi i Kosoves J.S.C.", new DateOnly(2025, 10, 5), new DateOnly(2025, 10, 20), 120.00m, "91-180"),
-        };
-        var order = new[] { "Current", "1-30", "31-45", "46-60", "61-90", "91-180", "181-360", "Over360" };
-        var buckets = order.Select(b => new AgingBucketTotal(b, lines.Where(l => l.Bucket == b).Sum(l => l.Outstanding))).ToList();
-        return Ok(new PayablesAgingResponse(asOf, lines, buckets));
+        var date = asOf == default ? DateOnly.FromDateTime(DateTime.UtcNow) : asOf;
+        return Ok(await _vendors.PayablesAgingAsync(companyId, date));
     }
 
-    // CONTRACT STUB — replaced in T13
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("payables-aging/export", Name = "PayablesAgingExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult PayablesAgingExport(Guid companyId, [FromQuery] DateOnly asOf)
+    public async Task<IActionResult> PayablesAgingExport(Guid companyId, [FromQuery] DateOnly asOf)
     {
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        return Export("Payables Aging", $"payables-aging-{asOf:yyyyMMdd}.xlsx", "Bill");
+        var date = asOf == default ? DateOnly.FromDateTime(DateTime.UtcNow) : asOf;
+        var aging = await _vendors.PayablesAgingAsync(companyId, date);
+        var rows = aging.Lines
+            .Select(l => (IReadOnlyList<object?>)new object?[] { l.BillNumber, l.PartnerName, l.IssueDate, l.DueDate, l.Outstanding, l.Bucket })
+            .ToList();
+        rows.AddRange(aging.Buckets.Select(b => (IReadOnlyList<object?>)new object?[] { "Total", null, null, null, b.Total, b.Bucket }));
+        var bytes = ExcelExportService.BuildWorkbook(
+            "Payables Aging", new[] { "Bill", "Vendor", "Issue date", "Due date", "Outstanding", "Bucket" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"payables-aging-{date:yyyyMMdd}.xlsx");
     }
 
     // CONTRACT STUB — replaced in T14
