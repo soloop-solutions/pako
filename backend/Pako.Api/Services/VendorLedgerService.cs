@@ -2,7 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Bills;
+using Pako.Domain.Companies;
+using Pako.Domain.Documents;
 using Pako.Domain.Ledger;
+using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Services;
@@ -176,6 +179,134 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             .Select(b => new AgingBucketTotal(b, lines.Where(l => l.Bucket == b).Sum(l => l.Outstanding)))
             .ToList();
         return new PayablesAgingResponse(asOf, lines, buckets);
+    }
+
+    private record PurchaseRow(
+        DateOnly Date, string? DocumentNumber, string DocumentType, Guid PartnerId, string PartnerName,
+        Guid? ItemId, int? ItemCode, string? ItemName, string? Unit, string Description,
+        decimal Quantity, decimal UnitPrice, decimal Net, decimal Discount, decimal Vat, decimal Gross, Guid LineId);
+
+    private async Task<List<PurchaseRow>> PurchaseRowsAsync(Guid companyId, DateOnly from, DateOnly to, Guid? partnerId)
+    {
+        var billsQuery = db.Bills.AsNoTracking().VisibleTo(access)
+            .Where(b => b.CompanyId == companyId && b.State == BillState.Posted && b.IssueDate >= from && b.IssueDate <= to);
+        if (partnerId is { } pid)
+        {
+            billsQuery = billsQuery.Where(b => b.PartnerId == pid);
+        }
+
+        var bills = await billsQuery.Include(b => b.Lines).ToListAsync();
+        var partnerIds = bills.Select(b => b.PartnerId).ToHashSet();
+        var partnerNames = await db.Partners.AsNoTracking()
+            .Where(p => p.CompanyId == companyId && partnerIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name);
+        var itemIds = bills.SelectMany(b => b.Lines).Where(l => l.ItemId != null).Select(l => l.ItemId!.Value).ToHashSet();
+        var items = await db.Items.AsNoTracking()
+            .Where(i => i.CompanyId == companyId && itemIds.Contains(i.Id))
+            .ToDictionaryAsync(i => i.Id);
+        var taxDefinitions = await db.TaxDefinitions.AsNoTracking()
+            .Where(t => t.CompanyId == companyId)
+            .Include(t => t.RepartitionLines)
+            .ToDictionaryAsync(t => t.Id);
+
+        var rows = new List<PurchaseRow>();
+        foreach (var bill in bills)
+        {
+            var isCreditNote = bill.DocumentType is Pako.Domain.Bills.DocumentType.CreditNote or Pako.Domain.Bills.DocumentType.PurchaseReturn;
+            var sign = isCreditNote ? -1m : 1m;
+            var partnerName = partnerNames.GetValueOrDefault(bill.PartnerId, string.Empty);
+            foreach (var line in bill.Lines)
+            {
+                TaxDefinition? taxDefinition = null;
+                if (line.TaxDefinitionId is { } taxId)
+                {
+                    taxDefinitions.TryGetValue(taxId, out taxDefinition);
+                }
+
+                DocumentLineResult Calc(decimal discountPercent) => DocumentLineCalculator.Calculate(
+                    line.Quantity, line.UnitPrice, discountPercent, line.ExpenseAccountId, line.Description,
+                    taxDefinition, isCreditNote, creditsOnNormalSide: false,
+                    TaxComputation, Guid.Empty, Guid.Empty, bill.PriceMode);
+                var result = Calc(line.DiscountPercent);
+                var undiscounted = line.DiscountPercent == 0m ? result : Calc(0m);
+                Item? item = null;
+                if (line.ItemId is { } itemId)
+                {
+                    items.TryGetValue(itemId, out item);
+                }
+
+                rows.Add(new PurchaseRow(
+                    bill.IssueDate, bill.VendorReference, bill.DocumentType.ToString(), bill.PartnerId, partnerName,
+                    line.ItemId, item?.Code, item?.Name, string.IsNullOrEmpty(item?.Unit) ? null : item.Unit, line.Description,
+                    sign * line.Quantity, line.UnitPrice, sign * result.NetAmount,
+                    sign * (undiscounted.NetAmount - result.NetAmount), sign * (result.Gross - result.NetAmount), sign * result.Gross,
+                    line.Id));
+            }
+        }
+
+        return rows;
+    }
+
+    private static readonly TaxComputationService TaxComputation = new();
+
+    public async Task<List<PurchaseByVendorLine>> PurchasesByVendorAsync(Guid companyId, DateOnly from, DateOnly to) =>
+        (await PurchaseRowsAsync(companyId, from, to, null))
+            .GroupBy(r => r.PartnerId)
+            .Select(g => new PurchaseByVendorLine(
+                g.Key, g.First().PartnerName, g.Sum(r => r.Net), g.Sum(r => r.Discount), g.Sum(r => r.Vat), g.Sum(r => r.Gross)))
+            .OrderBy(l => l.Name, StringComparer.OrdinalIgnoreCase).ThenBy(l => l.PartnerId)
+            .ToList();
+
+    public async Task<List<PurchaseByItemLine>> PurchasesByItemAsync(Guid companyId, DateOnly from, DateOnly to) =>
+        (await PurchaseRowsAsync(companyId, from, to, null))
+            .GroupBy(r => r.ItemId is { } id ? (object)id : r.Description)
+            .Select(g =>
+            {
+                var first = g.First();
+                return new
+                {
+                    first.ItemCode,
+                    Line = new PurchaseByItemLine(
+                        first.ItemId, first.ItemCode?.ToString(), first.ItemId is null ? first.Description : first.ItemName ?? first.Description,
+                        first.Unit, g.Sum(r => r.Quantity), g.Sum(r => r.Net), g.Sum(r => r.Vat), g.Sum(r => r.Gross))
+                };
+            })
+            .OrderBy(x => x.ItemCode ?? int.MinValue)
+            .ThenBy(x => x.Line.Description, StringComparer.OrdinalIgnoreCase)
+            .Select(x => x.Line)
+            .ToList();
+
+    public async Task<List<PurchaseTransactionLine>> PurchaseTransactionsAsync(
+        Guid companyId, DateOnly from, DateOnly to, Guid? partnerId, string? search, string? sort)
+    {
+        var rows = await PurchaseRowsAsync(companyId, from, to, partnerId);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            bool Has(string? value) => value != null && value.Contains(term, StringComparison.OrdinalIgnoreCase);
+            rows = rows.Where(r => Has(r.PartnerName) || Has(r.DocumentNumber) || Has(r.ItemCode?.ToString()) || Has(r.Description)).ToList();
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        Func<PurchaseRow, object?> key = sortField?.ToLowerInvariant() switch
+        {
+            "vendor" => r => r.PartnerName.ToLowerInvariant(),
+            "document" => r => r.DocumentNumber?.ToLowerInvariant() ?? string.Empty,
+            "net" => r => r.Net,
+            "gross" => r => r.Gross,
+            _ => r => r.Date,
+        };
+        var ordered = descending ? rows.OrderByDescending(key) : rows.OrderBy(key);
+        return ordered
+            .ThenBy(r => r.Date)
+            .ThenBy(r => r.DocumentNumber, StringComparer.Ordinal)
+            .ThenBy(r => r.Description, StringComparer.Ordinal)
+            .ThenBy(r => r.LineId)
+            .Select(r => new PurchaseTransactionLine(
+                r.Date, r.DocumentNumber, r.DocumentType, r.PartnerName, r.ItemCode?.ToString(), r.Description,
+                r.Quantity, r.UnitPrice, r.Net, r.Vat, r.Gross))
+            .ToList();
     }
 
     public async Task<decimal> PayablesControlBalanceAsync(Guid companyId, DateOnly to) =>

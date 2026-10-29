@@ -13,11 +13,6 @@ namespace Pako.Api.Controllers;
 [Authorize]
 public class PayablesReportsController : ControllerBase
 {
-    private static readonly Guid PrimeId = Guid.Parse("5b1f0c2e-1a11-4c01-9a04-000000000001");
-    private static readonly Guid KedsId = Guid.Parse("5b1f0c2e-1a11-4c01-9a04-000000000002");
-    private static readonly Guid TelekomId = Guid.Parse("5b1f0c2e-1a11-4c01-9a04-000000000003");
-    private static readonly Guid SuppliesId = Guid.Parse("5b1f0c2e-1a11-4c01-9a04-000000000004");
-
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
     private readonly VendorLedgerService _vendors;
@@ -27,15 +22,6 @@ public class PayablesReportsController : ControllerBase
         _localizer = localizer;
         _access = access;
         _vendors = vendors;
-    }
-
-    private ObjectResult ReportNotAvailableForScopedUser() =>
-        StatusCode(StatusCodes.Status403Forbidden, _localizer["ReportNotAvailableForScopedUser"].Value);
-
-    private FileContentResult Export(string sheet, string fileName, string header)
-    {
-        var bytes = ExcelExportService.BuildWorkbook(sheet, new[] { header }, new List<IReadOnlyList<object?>> { new object?[] { "stub" } });
-        return File(bytes, ExcelExportService.XlsxContentType, fileName);
     }
 
     [HttpGet("vendors/synthetic")]
@@ -142,78 +128,73 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"payables-aging-{date:yyyyMMdd}.xlsx");
     }
 
-    // CONTRACT STUB — replaced in T14
     [HttpGet("purchases/by-vendor")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<List<PurchaseByVendorLine>> PurchasesByVendor(
+    public async Task<ActionResult<List<PurchaseByVendorLine>>> PurchasesByVendor(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        if (_access.IsPartnerRestricted)
+        if (from > to)
         {
-            return ReportNotAvailableForScopedUser();
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Ok(new List<PurchaseByVendorLine>
-        {
-            new(PrimeId, "Prime Properties L.L.C.", 1000.00m, 0.00m, 180.00m, 1180.00m),
-            new(KedsId, "KEDS J.S.C.", 203.39m, 0.00m, 36.61m, 240.00m),
-            new(TelekomId, "Telekomi i Kosoves J.S.C.", 300.00m, 0.00m, 54.00m, 354.00m),
-            new(SuppliesId, "Kosova Office Supplies SH.P.K.", 380.00m, 20.00m, 68.40m, 448.40m),
-        });
+        return Ok(await _vendors.PurchasesByVendorAsync(companyId, from, to));
     }
 
-    // CONTRACT STUB — replaced in T14
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("purchases/by-vendor/export", Name = "PurchasesByVendorExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult PurchasesByVendorExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<IActionResult> PurchasesByVendorExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        if (_access.IsPartnerRestricted)
+        if (from > to)
         {
-            return ReportNotAvailableForScopedUser();
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Export("Purchases by Vendor", $"purchases-by-vendor-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx", "Vendor");
+        var lines = await _vendors.PurchasesByVendorAsync(companyId, from, to);
+        var rows = lines
+            .Select(l => (IReadOnlyList<object?>)new object?[] { l.Name, l.NetAmount, l.DiscountAmount, l.VatAmount, l.GrossAmount })
+            .ToList();
+        rows.Add(new object?[] { "Total", lines.Sum(l => l.NetAmount), lines.Sum(l => l.DiscountAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount) });
+        var bytes = ExcelExportService.BuildWorkbook("Purchases by Vendor", new[] { "Vendor", "Net", "Discount", "VAT", "Gross" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"purchases-by-vendor-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    // CONTRACT STUB — replaced in T14
     [HttpGet("purchases/by-item")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<List<PurchaseByItemLine>> PurchasesByItem(
+    public async Task<ActionResult<List<PurchaseByItemLine>>> PurchasesByItem(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        if (_access.IsPartnerRestricted)
+        if (from > to)
         {
-            return ReportNotAvailableForScopedUser();
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Ok(new List<PurchaseByItemLine>
-        {
-            new(null, null, "Office rent January 2026", null, 1.00m, 1000.00m, 180.00m, 1180.00m),
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a06-000000000001"), "SRV-ELE", "Electricity", "kWh", 1200.00m, 203.39m, 36.61m, 240.00m),
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a06-000000000002"), "SRV-NET", "Internet and telephony", "month", 1.00m, 300.00m, 54.00m, 354.00m),
-            new(Guid.Parse("5b1f0c2e-1a11-4c01-9a06-000000000003"), "ITM-0007", "A4 printer paper", "pcs", 40.00m, 380.00m, 68.40m, 448.40m),
-        });
+        return Ok(await _vendors.PurchasesByItemAsync(companyId, from, to));
     }
 
-    // CONTRACT STUB — replaced in T14
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("purchases/by-item/export", Name = "PurchasesByItemExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult PurchasesByItemExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<IActionResult> PurchasesByItemExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        if (_access.IsPartnerRestricted)
+        if (from > to)
         {
-            return ReportNotAvailableForScopedUser();
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Export("Purchases by Item", $"purchases-by-item-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx", "Item");
+        var lines = await _vendors.PurchasesByItemAsync(companyId, from, to);
+        var rows = lines
+            .Select(l => (IReadOnlyList<object?>)new object?[] { l.ItemCode, l.Description, l.Unit, l.Quantity, l.NetAmount, l.VatAmount, l.GrossAmount })
+            .ToList();
+        rows.Add(new object?[] { "Total", null, null, null, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount) });
+        var bytes = ExcelExportService.BuildWorkbook("Purchases by Item", new[] { "Item Code", "Description", "Unit", "Quantity", "Net", "VAT", "Gross" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"purchases-by-item-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    // CONTRACT STUB — replaced in T14
     [HttpGet("purchases/transactions")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<PaginatedResponse<PurchaseTransactionLine>> PurchaseTransactions(
+    public async Task<ActionResult<PaginatedResponse<PurchaseTransactionLine>>> PurchaseTransactions(
         Guid companyId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
@@ -223,33 +204,41 @@ public class PayablesReportsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? sort = null)
     {
-        if (_access.IsPartnerRestricted)
+        if (from > to)
         {
-            return ReportNotAvailableForScopedUser();
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        var items = new List<PurchaseTransactionLine>
-        {
-            new(new DateOnly(2026, 1, 2), "BILL-0001", "Bill", "Prime Properties L.L.C.", null, "Office rent January 2026", 1.00m, 1000.00m, 1000.00m, 180.00m, 1180.00m),
-            new(new DateOnly(2026, 1, 8), "BILL-0005", "Bill", "Kosova Office Supplies SH.P.K.", "ITM-0007", "A4 printer paper", 40.00m, 9.50m, 380.00m, 68.40m, 448.40m),
-            new(new DateOnly(2026, 1, 15), "BILL-0002", "Bill", "KEDS J.S.C.", "SRV-ELE", "Electricity", 1200.00m, 0.169492m, 203.39m, 36.61m, 240.00m),
-            new(new DateOnly(2026, 1, 20), "BILL-0006", "Bill", "Telekomi i Kosoves J.S.C.", "SRV-NET", "Internet and telephony", 1.00m, 300.00m, 300.00m, 54.00m, 354.00m),
-        };
-        return Ok(new PaginatedResponse<PurchaseTransactionLine>(items, items.Count, 1, 50));
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var all = await _vendors.PurchaseTransactionsAsync(companyId, from, to, partnerId, search, sort);
+        var items = all.Skip((page - 1) * pageSize).Take(pageSize).ToList();
+        return Ok(new PaginatedResponse<PurchaseTransactionLine>(items, all.Count, page, pageSize));
     }
 
-    // CONTRACT STUB — replaced in T14
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("purchases/transactions/export", Name = "PurchaseTransactionsExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult PurchaseTransactionsExport(
+    public async Task<IActionResult> PurchaseTransactionsExport(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] Guid? partnerId)
     {
-        if (_access.IsPartnerRestricted)
+        if (from > to)
         {
-            return ReportNotAvailableForScopedUser();
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Export("Purchase Transactions", $"purchase-transactions-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx", "Date");
+        var lines = await _vendors.PurchaseTransactionsAsync(companyId, from, to, partnerId, null, null);
+        var rows = lines
+            .Select(l => (IReadOnlyList<object?>)new object?[]
+            {
+                l.Date.ToString("yyyy-MM-dd"), l.DocumentNumber, l.DocumentType, l.PartnerName, l.ItemCode, l.Description,
+                l.Quantity, l.UnitPrice, l.NetAmount, l.VatAmount, l.GrossAmount
+            })
+            .ToList();
+        var bytes = ExcelExportService.BuildWorkbook(
+            "Purchase Transactions",
+            new[] { "Date", "Document", "Type", "Vendor", "Item Code", "Description", "Quantity", "Unit Price", "Net", "VAT", "Gross" },
+            rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"purchase-transactions-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 }
