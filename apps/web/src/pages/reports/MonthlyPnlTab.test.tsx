@@ -59,4 +59,19 @@ describe("MonthlyPnlTab", () => {
     renderReports("/reports?tab=monthly-pnl&year=2025");
     expect(await screen.findByText("This period is locked (accounting lock: 2026-08-31).")).toBeInTheDocument();
   });
+
+  it("lets the year be edited freely and commits only valid years", async () => {
+    renderReports("/reports?tab=monthly-pnl&year=2026");
+    await screen.findByText("Revenue from sales");
+    const input = screen.getByLabelText("Year") as HTMLInputElement;
+    fireEvent.change(input, { target: { value: "202" } });
+    expect(input.value).toBe("202");
+    expect(screen.getByTestId("location").textContent).toContain("year=2026");
+    fireEvent.change(input, { target: { value: "2025" } });
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toContain("year=2025"));
+    fireEvent.change(input, { target: { value: "202" } });
+    fireEvent.change(input, { target: { value: "2027" } });
+    expect(input.value).toBe("2027");
+    await waitFor(() => expect(m.monthly).toHaveBeenLastCalledWith("c1", 2027));
+  });
 });

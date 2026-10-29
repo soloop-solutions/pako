@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 
 import type { MonthlyReportLine } from "@pako/shared";
@@ -13,6 +13,18 @@ import type { useMonthlyPnlReport } from "./useMonthlyPnlReport";
 export function MonthlyPnlTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof useMonthlyPnlReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
   const { period, data } = report;
+  const [draft, setDraft] = useState(String(period.year));
+  const [draftSource, setDraftSource] = useState(period.year);
+  if (draftSource !== period.year) {
+    setDraftSource(period.year);
+    setDraft(String(period.year));
+  }
+
+  function changeYear(value: string) {
+    setDraft(value);
+    const parsed = Number(value);
+    if (Number.isInteger(parsed) && parsed >= 2000 && parsed <= 2100) period.setYear(value);
+  }
 
   const monthHeaders = useMemo(
     () => Array.from({ length: 12 }, (_, index) => intl.formatDate(new Date(2026, index, 1), { month: "short" })),
@@ -54,7 +66,7 @@ export function MonthlyPnlTab({ report, companyName, accountingLockDate }: { rep
       controls={
         <div className="flex flex-col gap-2">
           <Label htmlFor="monthly-pnl-year">{intl.formatMessage({ id: "reports.year" })}</Label>
-          <Input id="monthly-pnl-year" type="number" min={2000} max={2100} value={period.year} onChange={(event) => period.setYear(event.target.value)} />
+          <Input id="monthly-pnl-year" type="number" min={2000} max={2100} value={draft} onChange={(event) => changeYear(event.target.value)} />
         </div>
       }
     >

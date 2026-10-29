@@ -58,7 +58,6 @@ export interface DataGridProps<TData extends object> {
   manualFiltering?: boolean;
   manualSorting?: boolean;
   manualGrouping?: boolean;
-  /** Server-supplied totals row, keyed by column id. Replaces the page-sum footer; the grid never derives these. */
   footerRow?: { label: string; cells: Record<string, ReactNode> };
 }
 

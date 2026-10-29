@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import fixture from "@/mocks/report-checks.json";
@@ -41,5 +41,13 @@ describe("ChecksPanel", () => {
     expect(failing).toHaveTextContent("44880.00");
     const passing = screen.getByText("Balance sheet balances").closest("[data-check]") as HTMLElement;
     expect(passing.className).not.toContain("amber");
+  });
+
+  it("has its own From input bound to the URL that re-runs the checks for the new range", async () => {
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    await screen.findByText("Cash flow closes");
+    fireEvent.change(screen.getByLabelText("Checks from"), { target: { value: "2026-03-01" } });
+    await waitFor(() => expect(m.checks).toHaveBeenLastCalledWith("c1", "2026-03-01", "2026-12-31"));
+    expect(screen.getByTestId("location").textContent).toContain("from=2026-03-01");
   });
 });
