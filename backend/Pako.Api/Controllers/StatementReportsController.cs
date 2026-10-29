@@ -29,12 +29,6 @@ public class StatementReportsController : ControllerBase
     private ObjectResult ReportNotAvailableForScopedUser() =>
         StatusCode(StatusCodes.Status403Forbidden, _localizer["ReportNotAvailableForScopedUser"].Value);
 
-    private static Guid Id(int n) => new($"5b1f0c2e-1a11-4c01-9a03-{n:D12}");
-
-    private IActionResult StubExport(string sheet, string file) =>
-        File(ExcelExportService.BuildWorkbook(sheet, new[] { "Report" }, new List<IReadOnlyList<object?>> { new object?[] { "stub" } }),
-            ExcelExportService.XlsxContentType, file);
-
     [HttpGet("profit-and-loss/monthly")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<MonthlyProfitAndLossResponse>> MonthlyProfitAndLoss(Guid companyId, [FromQuery] int year)
@@ -300,47 +294,6 @@ public class StatementReportsController : ControllerBase
 
         var bytes = ExcelExportService.BuildWorkbook("Equity Statement", new[] { "Section", "Account Code", "Account Name", "Amount" }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"equity-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
-    }
-
-    [HttpGet("expense-book")]
-    [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<ExpenseBookResponse> ExpenseBook(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
-    {
-        // CONTRACT STUB — replaced in T8
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        static Guid E(int n) => new($"5b1f0c2e-1a11-4c01-9a01-{n:D12}");
-        return Ok(new ExpenseBookResponse(new DateOnly(2026, 1, 1), new DateOnly(2026, 1, 31),
-            new()
-            {
-                new(Id(621), "621", "Rent"),
-                new(Id(622), "622", "Salaries"),
-                new(Id(631), "631", "Utilities"),
-            },
-            new()
-            {
-                new(E(11), new DateOnly(2026, 1, 2), "BILL-0001", "Prime Properties L.L.C.", new() { 1000.00m, 0.00m, 0.00m }, 1000.00m),
-                new(E(12), new DateOnly(2026, 1, 31), null, null, new() { 0.00m, 3000.00m, 0.00m }, 3000.00m),
-                new(E(13), new DateOnly(2026, 1, 15), "BILL-0002", "KEDS J.S.C.", new() { 0.00m, 0.00m, 240.00m }, 240.00m),
-            },
-            new() { 1000.00m, 3000.00m, 240.00m }));
-    }
-
-    [Produces(ExcelExportService.XlsxContentType)]
-    [HttpGet("expense-book/export", Name = "ExpenseBookExport")]
-    [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult ExpenseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
-    {
-        // CONTRACT STUB — replaced in T8
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        return StubExport("Expense Book", $"expense-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
     [HttpGet("checks")]
