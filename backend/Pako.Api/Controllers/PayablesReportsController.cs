@@ -20,11 +20,13 @@ public class PayablesReportsController : ControllerBase
 
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
+    private readonly VendorLedgerService _vendors;
 
-    public PayablesReportsController(IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
+    public PayablesReportsController(IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, VendorLedgerService vendors)
     {
         _localizer = localizer;
         _access = access;
+        _vendors = vendors;
     }
 
     private ObjectResult ReportNotAvailableForScopedUser() =>
@@ -36,51 +38,85 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, fileName);
     }
 
-    // CONTRACT STUB — replaced in T12
     [HttpGet("vendors/synthetic")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<VendorSyntheticResponse> VendorSynthetic(
+    public async Task<ActionResult<VendorSyntheticResponse>> VendorSynthetic(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] bool includeZero = false)
     {
-        var lines = new List<VendorBalanceLine>
+        if (from > to)
         {
-            new(PrimeId, "Prime Properties L.L.C.", 500.00m, 500.00m, 1180.00m, 1180.00m),
-            new(KedsId, "KEDS J.S.C.", 0.00m, 0.00m, 240.00m, 240.00m),
-            new(TelekomId, "Telekomi i Kosoves J.S.C.", 100.00m, 100.00m, 354.00m, 354.00m),
-            new(SuppliesId, "Kosova Office Supplies SH.P.K.", 0.00m, 450.00m, 150.00m, -300.00m),
-        };
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
+        }
+
+        var lines = await _vendors.BalancesAsync(companyId, from, to, includeZero);
         return Ok(new VendorSyntheticResponse(from, to, lines, lines.Sum(l => l.Closing)));
     }
 
-    // CONTRACT STUB — replaced in T12
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("vendors/synthetic/export", Name = "VendorSyntheticExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult VendorSyntheticExport(
-        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] bool includeZero = false) =>
-        Export("Vendor Balances", $"vendor-synthetic-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx", "Vendor");
-
-    // CONTRACT STUB — replaced in T12
-    [HttpGet("vendors/{partnerId:guid}/statement")]
-    [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<VendorStatementResponse> VendorStatement(
-        Guid companyId, Guid partnerId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    public async Task<IActionResult> VendorSyntheticExport(
+        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] bool includeZero = false)
     {
-        var rows = new List<VendorStatementRow>
+        if (from > to)
         {
-            new(new DateOnly(2026, 1, 2), "Bill", "BILL-0001", "Office rent January 2026", 0.00m, 1180.00m, 1680.00m),
-            new(new DateOnly(2026, 1, 10), "Payment", "PAY-0001", "Bank transfer", 500.00m, 0.00m, 1180.00m),
-        };
-        return Ok(new VendorStatementResponse(partnerId, "Prime Properties L.L.C.", from, to, 500.00m, rows, 1180.00m));
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
+        }
+
+        var lines = await _vendors.BalancesAsync(companyId, from, to, includeZero);
+        var rows = lines
+            .Select(l => (IReadOnlyList<object?>)new object?[] { l.Name, l.Opening, l.Debit, l.Credit, l.Closing })
+            .ToList();
+        rows.Add(new object?[] { "Total", lines.Sum(l => l.Opening), lines.Sum(l => l.Debit), lines.Sum(l => l.Credit), lines.Sum(l => l.Closing) });
+        var bytes = ExcelExportService.BuildWorkbook(
+            "Vendor Balances", new[] { "Vendor", "Opening", "Debit", "Credit", "Closing" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"vendor-synthetic-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    // CONTRACT STUB — replaced in T12
+    [HttpGet("vendors/{partnerId:guid}/statement")]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
+    public async Task<ActionResult<VendorStatementResponse>> VendorStatement(
+        Guid companyId, Guid partnerId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        if (from > to)
+        {
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
+        }
+
+        var statement = await _vendors.StatementAsync(companyId, partnerId, from, to);
+        if (statement is null)
+        {
+            return NotFound(new { error = _localizer["VendorNotFound"].Value });
+        }
+
+        return Ok(statement);
+    }
+
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("vendors/{partnerId:guid}/statement/export", Name = "VendorStatementExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult VendorStatementExport(
-        Guid companyId, Guid partnerId, [FromQuery] DateOnly from, [FromQuery] DateOnly to) =>
-        Export("Vendor Statement", $"vendor-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx", "Date");
+    public async Task<IActionResult> VendorStatementExport(
+        Guid companyId, Guid partnerId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
+    {
+        if (from > to)
+        {
+            return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
+        }
+
+        var statement = await _vendors.StatementAsync(companyId, partnerId, from, to);
+        if (statement is null)
+        {
+            return NotFound(new { error = _localizer["VendorNotFound"].Value });
+        }
+
+        var rows = new List<IReadOnlyList<object?>> { new object?[] { from, "Opening", null, null, null, null, statement.Opening } };
+        rows.AddRange(statement.Rows.Select(r =>
+            (IReadOnlyList<object?>)new object?[] { r.Date, r.Type, r.DocumentNumber, r.Description, r.Debit, r.Credit, r.Balance }));
+        rows.Add(new object?[] { to, "Closing", null, null, null, null, statement.Closing });
+        var bytes = ExcelExportService.BuildWorkbook(
+            "Vendor Statement", new[] { "Date", "Type", "Document", "Description", "Debit", "Credit", "Balance" }, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"vendor-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
+    }
 
     // CONTRACT STUB — replaced in T13
     [HttpGet("payables-aging")]

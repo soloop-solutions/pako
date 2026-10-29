@@ -18,14 +18,17 @@ public class ReportChecksController : ControllerBase
     private readonly CompanyAccessContext _access;
     private readonly LedgerAggregator _ledger;
     private readonly TaxReportService _tax;
+    private readonly VendorLedgerService _vendors;
 
     public ReportChecksController(
-        IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger, TaxReportService tax)
+        IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger, TaxReportService tax,
+        VendorLedgerService vendors)
     {
         _localizer = localizer;
         _access = access;
         _ledger = ledger;
         _tax = tax;
+        _vendors = vendors;
     }
 
     [HttpGet("checks")]
@@ -51,6 +54,9 @@ public class ReportChecksController : ControllerBase
         var salesVat = (await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true)).Sum(r => r.VatAmount);
         var purchaseVat = (await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false)).Sum(r => r.VatAmount);
 
+        var payablesControl = await _vendors.PayablesControlBalanceAsync(companyId, to);
+        var vendorTotal = (await _vendors.BalancesAsync(companyId, DateOnly.MinValue, to, includeZero: false)).Sum(l => l.Closing);
+
         var checks = new[]
         {
             ReportReconciler.Equal("balance-sheet-balances", balanceSheet.TotalAssets, balanceSheet.TotalLiabilities + balanceSheet.TotalEquity),
@@ -58,6 +64,7 @@ public class ReportChecksController : ControllerBase
             ReportReconciler.Equal("cash-flow-closes", cashFlow.Closing, cashFlow.Result.ClosingComputed),
             ReportReconciler.Equal("trial-balance-balances", cumulative.Sum(s => s.Debit), cumulative.Sum(s => s.Credit)),
             ReportReconciler.Equal("books-match-vat-return", vat.TotalOutputVat - vat.TotalInputVat, salesVat - purchaseVat),
+            ReportReconciler.Equal("vendor-total-matches-payables", payablesControl, vendorTotal),
         };
 
         return Ok(new ReportChecksResponse(from, to, checks.Select(c => new ReportCheck(c.Key, c.Passed, c.Expected, c.Actual)).ToList()));

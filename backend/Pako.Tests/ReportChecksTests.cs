@@ -38,7 +38,8 @@ public class ReportChecksTests : IAsyncLifetime
 
     private static ReportChecksController Controller(PakoDbContext db, CompanyAccessContext? access = null) =>
         new(new NullStringLocalizer<ErrorMessages>(), access ?? CompanyAccessContext.Unrestricted(),
-            new LedgerAggregator(db), new TaxReportService(db, access ?? CompanyAccessContext.Unrestricted()));
+            new LedgerAggregator(db), new TaxReportService(db, access ?? CompanyAccessContext.Unrestricted()),
+            new VendorLedgerService(db, access ?? CompanyAccessContext.Unrestricted()));
 
     private async Task<(PakoDbContext Db, Guid CompanyId, Dictionary<string, Guid> Accounts, Guid JournalId)> SeedMixedScenario()
     {
@@ -169,14 +170,14 @@ public class ReportChecksTests : IAsyncLifetime
         Assert.IsType<ReportChecksResponse>(Assert.IsType<OkObjectResult>((await controller.Checks(companyId, from, to)).Result).Value);
 
     [Fact]
-    public async Task Checks_BalancedScenario_AllFiveChecksPass()
+    public async Task Checks_BalancedScenario_AllSixChecksPass()
     {
         var (db, companyId, _, _) = await SeedMixedScenario();
 
         var response = await Run(Controller(db), companyId, Jan1, Dec31);
 
         Assert.Equal(
-            new[] { "balance-sheet-balances", "net-profit-consistent", "cash-flow-closes", "trial-balance-balances", "books-match-vat-return" },
+            new[] { "balance-sheet-balances", "net-profit-consistent", "cash-flow-closes", "trial-balance-balances", "books-match-vat-return", "vendor-total-matches-payables" },
             response.Checks.Select(c => c.Key));
         Assert.All(response.Checks, c => Assert.True(c.Passed, c.Key));
 
@@ -191,6 +192,47 @@ public class ReportChecksTests : IAsyncLifetime
         Assert.Equal(2400m, byKey["trial-balance-balances"].Actual);
         Assert.Equal(91.52m, byKey["books-match-vat-return"].Expected);
         Assert.Equal(91.52m, byKey["books-match-vat-return"].Actual);
+        Assert.Equal(400m, byKey["vendor-total-matches-payables"].Expected);
+        Assert.Equal(400m, byKey["vendor-total-matches-payables"].Actual);
+    }
+
+    [Fact]
+    public async Task Checks_VendorTotalMatchesPayables()
+    {
+        var (db, companyId, _, _) = await SeedMixedScenario();
+
+        var check = (await Run(Controller(db), companyId, Jan1, Dec31)).Checks.Single(c => c.Key == "vendor-total-matches-payables");
+
+        Assert.True(check.Passed);
+        Assert.Equal(400m, check.Expected);
+        Assert.Equal(400m, check.Actual);
+    }
+
+    [Fact]
+    public async Task Checks_UnpartneredPayableLine_FailsVendorCheck()
+    {
+        var (db, companyId, accounts, journalId) = await SeedMixedScenario();
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            JournalId = journalId,
+            Date = new DateOnly(2026, 4, 1),
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = accounts["6000"], Debit = 100m, Credit = 0m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = accounts["2000"], Debit = 0m, Credit = 100m }
+            }
+        };
+        entry.State = JournalEntryState.Posted;
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        var check = (await Run(Controller(db), companyId, Jan1, Dec31)).Checks.Single(c => c.Key == "vendor-total-matches-payables");
+
+        Assert.False(check.Passed);
+        Assert.Equal(500m, check.Expected);
+        Assert.Equal(400m, check.Actual);
     }
 
     [Fact]
@@ -274,7 +316,7 @@ public class ReportChecksTests : IAsyncLifetime
 
         var response = await Run(Controller(db), company.Id, Jan1, Dec31);
 
-        Assert.Equal(5, response.Checks.Count);
+        Assert.Equal(6, response.Checks.Count);
         Assert.All(response.Checks, c =>
         {
             Assert.True(c.Passed, c.Key);
