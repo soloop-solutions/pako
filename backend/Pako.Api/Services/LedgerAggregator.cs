@@ -1,11 +1,14 @@
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Contracts;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Services;
 
 public record AccountSums(Account Account, decimal Debit, decimal Credit);
+
+public record CashFlowComputation(decimal Opening, decimal NetIncome, decimal Closing, CashFlowResult Result);
 
 public record MonthlyAccountSums(Account Account, int Month, decimal Debit, decimal Credit);
 
@@ -89,6 +92,27 @@ public class LedgerAggregator(PakoDbContext db)
         return new BalanceSheetResponse(
             asOf, assets, liabilities, equity, currentEarnings,
             assets.Sum(l => l.Amount), liabilities.Sum(l => l.Amount), equity.Sum(l => l.Amount));
+    }
+
+    public async Task<CashFlowComputation> CashFlowAsync(Guid companyId, DateOnly from, DateOnly to)
+    {
+        static decimal CashBalance(IEnumerable<AccountSums> sums) =>
+            sums.Where(s => s.Account.AccountType == AccountType.Cash).Sum(s => s.Debit - s.Credit);
+
+        var opening = from == DateOnly.MinValue ? 0m : CashBalance(await SumsByAccountAsync(companyId, null, from.AddDays(-1)));
+        var closing = CashBalance(await SumsByAccountAsync(companyId, null, to));
+        var period = await SumsByAccountAsync(companyId, from, to);
+
+        var movements = period
+            .Where(s => s.Account.AccountType is not (AccountType.Cash or AccountType.CurrentYearEarnings or AccountType.OffBalance)
+                && !AccountTypeDerivation.IsIncome(s.Account.AccountType)
+                && !AccountTypeDerivation.IsExpense(s.Account.AccountType)
+                && (s.Debit != 0m || s.Credit != 0m))
+            .Select(s => new AccountMovement(s.Account.Id, s.Account.Code, s.Account.Name, s.Account.CashFlowCategory, s.Debit, s.Credit))
+            .OrderBy(m => m.Code, StringComparer.Ordinal);
+
+        var netIncome = NetIncome(period);
+        return new CashFlowComputation(opening, netIncome, closing, CashFlowStatement.Calculate(netIncome, movements, opening, closing));
     }
 
     public static decimal NetIncome(IEnumerable<AccountSums> sums) =>

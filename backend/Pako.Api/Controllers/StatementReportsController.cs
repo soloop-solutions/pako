@@ -183,23 +183,11 @@ public class StatementReportsController : ControllerBase
             return InvalidDateRange();
         }
 
-        static decimal CashBalance(IEnumerable<AccountSums> sums) =>
-            sums.Where(s => s.Account.AccountType == AccountType.Cash).Sum(s => s.Debit - s.Credit);
-
-        var opening = from == DateOnly.MinValue ? 0m : CashBalance(await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1)));
-        var closing = CashBalance(await _ledger.SumsByAccountAsync(companyId, null, to));
-        var period = await _ledger.SumsByAccountAsync(companyId, from, to);
-
-        var movements = period
-            .Where(s => s.Account.AccountType is not (AccountType.Cash or AccountType.CurrentYearEarnings or AccountType.OffBalance)
-                && !AccountTypeDerivation.IsIncome(s.Account.AccountType)
-                && !AccountTypeDerivation.IsExpense(s.Account.AccountType)
-                && (s.Debit != 0m || s.Credit != 0m))
-            .Select(s => new AccountMovement(s.Account.Id, s.Account.Code, s.Account.Name, s.Account.CashFlowCategory, s.Debit, s.Credit))
-            .OrderBy(m => m.Code, StringComparer.Ordinal);
-
-        var netIncome = LedgerAggregator.NetIncome(period);
-        var result = CashFlowStatement.Calculate(netIncome, movements, opening, closing);
+        var computed = await _ledger.CashFlowAsync(companyId, from, to);
+        var opening = computed.Opening;
+        var netIncome = computed.NetIncome;
+        var closing = computed.Closing;
+        var result = computed.Result;
 
         static List<CashFlowLine> Lines(IEnumerable<AccountMovement> list) =>
             list.Select(m => new CashFlowLine(m.AccountId, m.Code, m.Name, m.Credit - m.Debit)).ToList();
@@ -294,23 +282,5 @@ public class StatementReportsController : ControllerBase
 
         var bytes = ExcelExportService.BuildWorkbook("Equity Statement", new[] { "Section", "Account Code", "Account Name", "Amount" }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"equity-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
-    }
-
-    [HttpGet("checks")]
-    [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<ReportChecksResponse> Checks(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
-    {
-        // CONTRACT STUB — replaced in T9
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        return Ok(new ReportChecksResponse(new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31), new()
-        {
-            new("trialBalanceBalanced", true, 0.00m, 0.00m),
-            new("balanceSheetBalanced", true, 130000.00m, 130000.00m),
-            new("cashFlowReconciles", true, 45000.00m, 45000.00m),
-        }));
     }
 }
