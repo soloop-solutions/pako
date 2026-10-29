@@ -191,6 +191,7 @@
   <data name="UserNotCompanyMember" xml:space="preserve"><value>That user is not a member of this company.</value></data>
   <data name="AssignedPartnerNotFound" xml:space="preserve"><value>One or more partners were not found in this company.</value></data>
   <data name="PartnerNotAssigned" xml:space="preserve"><value>You are not assigned to this partner.</value></data>
+  <data name="ReportDateRangeInvalid" xml:space="preserve"><value>The start date cannot be after the end date.</value></data>
   <data name="ReportNotAvailableForScopedUser" xml:space="preserve"><value>This report covers every partner and is not available to users limited to assigned partners.</value></data>
   <data name="ContractEndBeforeStart" xml:space="preserve"><value>Contract end date cannot be before its start date.</value></data>
   <data name="ContractOverlaps" xml:space="preserve"><value>This contract overlaps another contract of the same employee.</value></data>

@@ -31,47 +31,6 @@ public class StatementReportsController : ControllerBase
         File(ExcelExportService.BuildWorkbook(sheet, new[] { "Report" }, new List<IReadOnlyList<object?>> { new object?[] { "stub" } }),
             ExcelExportService.XlsxContentType, file);
 
-    [HttpGet("general-ledger")]
-    [RequireCompanyAccess(module: AccessModule.Reports)]
-    public ActionResult<PaginatedResponse<GeneralLedgerLine>> GeneralLedger(
-        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to,
-        [FromQuery] Guid? accountId, [FromQuery] Guid? partnerId,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
-        [FromQuery] string? search = null, [FromQuery] string? sort = null)
-    {
-        // CONTRACT STUB — replaced in T4
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        var entryId = Guid.Parse("5b1f0c2e-1a11-4c01-9a01-000000000001");
-        var partner = Guid.Parse("5b1f0c2e-1a11-4c01-9a02-000000000001");
-        var items = new List<GeneralLedgerLine>
-        {
-            new(entryId, "JE-2026-0001", new DateOnly(2026, 1, 5), "INV-0001", "120", "Trade receivables", partner, "Alba Trade SH.P.K.", "Sales invoice INV-0001", 1180.00m, 0.00m),
-            new(entryId, "JE-2026-0001", new DateOnly(2026, 1, 5), "INV-0001", "701", "Revenue from sales", null, null, "Sales invoice INV-0001", 0.00m, 1000.00m),
-            new(entryId, "JE-2026-0001", new DateOnly(2026, 1, 5), "INV-0001", "450", "VAT payable", null, null, "Sales invoice INV-0001", 0.00m, 180.00m),
-        };
-        return Ok(new PaginatedResponse<GeneralLedgerLine>(items, 3, 1, 50));
-    }
-
-    [Produces(ExcelExportService.XlsxContentType)]
-    [HttpGet("general-ledger/export", Name = "GeneralLedgerExport")]
-    [RequireCompanyAccess(module: AccessModule.Reports)]
-    public IActionResult GeneralLedgerExport(
-        Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to,
-        [FromQuery] Guid? accountId, [FromQuery] Guid? partnerId)
-    {
-        // CONTRACT STUB — replaced in T4
-        if (_access.IsPartnerRestricted)
-        {
-            return ReportNotAvailableForScopedUser();
-        }
-
-        return StubExport("General Ledger", $"general-ledger-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
-    }
-
     [HttpGet("profit-and-loss/monthly")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public ActionResult<MonthlyProfitAndLossResponse> MonthlyProfitAndLoss(Guid companyId, [FromQuery] int year)
