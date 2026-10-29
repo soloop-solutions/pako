@@ -192,7 +192,7 @@ public class StatementReportsController : ControllerBase
         static decimal CashBalance(IEnumerable<AccountSums> sums) =>
             sums.Where(s => s.Account.AccountType == AccountType.Cash).Sum(s => s.Debit - s.Credit);
 
-        var opening = CashBalance(await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1)));
+        var opening = from == DateOnly.MinValue ? 0m : CashBalance(await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1)));
         var closing = CashBalance(await _ledger.SumsByAccountAsync(companyId, null, to));
         var period = await _ledger.SumsByAccountAsync(companyId, from, to);
 
@@ -262,7 +262,7 @@ public class StatementReportsController : ControllerBase
             return InvalidDateRange();
         }
 
-        var prior = await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1));
+        var prior = from == DateOnly.MinValue ? new List<AccountSums>() : await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1));
         var opening =
             prior.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType)).Sum(s => s.Debit - s.Credit) -
             prior.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType)).Sum(s => s.Credit - s.Debit);

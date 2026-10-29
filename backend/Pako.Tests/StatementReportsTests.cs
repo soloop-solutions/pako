@@ -358,4 +358,30 @@ public class StatementReportsTests : IAsyncLifetime
         Assert.Equal("Closing Equity", sheet.Cell(last, 3).GetString());
         Assert.Equal(5900m, sheet.Cell(last, 4).GetValue<decimal>());
     }
+
+    [Fact]
+    public async Task CashFlow_FromMinValue_ReturnsZeroOpeningAndSucceeds()
+    {
+        var s = await SeedFlowAsync();
+        var result = await Statements(s.Db).CashFlow(s.CompanyId, DateOnly.MinValue, Dec31);
+        var r = Assert.IsType<CashFlowResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+        Assert.Equal(0m, r.OpeningCash);
+        Assert.Equal(6400m, r.ClosingCash);
+        Assert.Equal(6400m, r.NetChange);
+        Assert.Equal(0m, r.Difference);
+    }
+
+    [Fact]
+    public async Task Equity_FromMinValue_ReturnsZeroOpeningAndSucceeds()
+    {
+        var s = await SeedFlowAsync();
+        var result = await Statements(s.Db).EquityStatement(s.CompanyId, DateOnly.MinValue, Dec31);
+        var r = Assert.IsType<EquityStatementResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        var bs = await new LedgerAggregator(s.Db).BalanceSheetAsync(s.CompanyId, Dec31);
+
+        Assert.Equal(0m, r.OpeningEquity);
+        Assert.Equal(5900m, r.ClosingEquity);
+        Assert.Equal(bs.TotalEquity, r.ClosingEquity);
+    }
 }
