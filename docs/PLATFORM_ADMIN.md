@@ -8,11 +8,25 @@ Status: built on `feat/hr-sys-ado`, 2026-10-30, uncommitted.
 The level above every company. A **platform administrator** runs PAKO itself. Company administrators,
 by contrast, manage one company's users (see `USER_ACCESS_PLAN.md`).
 
+## First run: the first administrator
+
+`PlatformBootstrap` runs on API startup, after migrations. While the database has no active platform
+administrator, it creates the account in `Platform:BootstrapAdmin` (`Email` and `Password`). If that
+email already has an account, it is promoted and its password is never changed. As soon as any
+administrator exists it does nothing, so it runs once per database and can't be used to take over a
+working installation.
+- **Development:** `appsettings.Development.json` sets `test@test.com` / `Test123!`, so everyone who
+  pulls the code can sign in as an administrator.
+- **Production:** the base `appsettings.json` leaves it empty. Set `Platform__BootstrapAdmin__Email` and
+  `Platform__BootstrapAdmin__Password` as environment variables for the first start, sign in, change the
+  password, then remove them.
+
 ## Who is a platform administrator
 
 `AppUser.IsPlatformAdmin`:
-- **Bootstrap:** any account listed in `Platform:AdminEmails` in appsettings becomes an administrator the next
-  time it signs in. In development the list is `adonis@test.com`.
+- **First run:** see above (`Platform:BootstrapAdmin`).
+- **Configuration:** any account listed in `Platform:AdminEmails` becomes an administrator the next time it
+  signs in, and can't be demoted from the panel. The list is empty by default.
 - **From the panel:** an administrator can appoint others under **Users**. An administrator can't disable
   their own account or remove their own rights.
 

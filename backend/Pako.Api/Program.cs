@@ -89,6 +89,7 @@ builder.Services.AddScoped<Pako.Api.Services.PartnerStatementService>();
 builder.Services.AddScoped<Pako.Api.Services.UserAdminService>();
 builder.Services.AddScoped<Pako.Api.Services.DashboardService>();
 builder.Services.AddScoped<Pako.Api.Services.PlatformAdminService>();
+builder.Services.AddScoped<PlatformBootstrap>();
 
 // E7/E8: email outbox + background jobs. Email:Mode=Log (default) never sends; Smtp needs
 // Email:Host etc., with the password from the environment (Email__Password).
@@ -138,6 +139,8 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PakoDbContext>();
     db.Database.Migrate();
+    // The first administrator, once per database (docs/PLATFORM_ADMIN.md "First run").
+    await scope.ServiceProvider.GetRequiredService<PlatformBootstrap>().RunAsync();
 }
 
 // Configure the HTTP request pipeline.

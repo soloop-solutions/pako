@@ -283,6 +283,50 @@ public class PlatformAdminTests : IAsyncLifetime
         Assert.True((await seed.Users.FindByIdAsync(configured.Id.ToString()))!.IsPlatformAdmin);
     }
 
+    private static PlatformBootstrap Bootstrap(Seed seed, string? email, string? password) =>
+        new(seed.Db, seed.Users,
+            Options.Create(new PlatformOptions { BootstrapAdmin = new BootstrapAdminOptions { Email = email, Password = password } }),
+            NullLogger<PlatformBootstrap>.Instance);
+
+    [Fact]
+    public async Task FirstRun_CreatesTheConfiguredAdministrator_OnlyWhileThereIsNone()
+    {
+        var seed = await SeedAsync();
+        // The seed already has an administrator: nothing happens.
+        Assert.Equal(PlatformBootstrap.Outcome.AlreadyHasAdministrator, await Bootstrap(seed, "test@test.com", "Test123!").RunAsync());
+        Assert.Null(await seed.Users.FindByEmailAsync("test@test.com"));
+
+        // A database without one (the seed admin demoted directly): the configured account is created.
+        seed.Admin.IsPlatformAdmin = false;
+        await seed.Users.UpdateAsync(seed.Admin);
+        Assert.Equal(PlatformBootstrap.Outcome.Created, await Bootstrap(seed, "test@test.com", "Test123!").RunAsync());
+        var created = await seed.Users.FindByEmailAsync("test@test.com");
+        Assert.True(created!.IsPlatformAdmin);
+        Assert.Null(created.CompanyLimit);
+        Assert.True(await seed.Users.CheckPasswordAsync(created, "Test123!"));
+
+        // Every later start: there is an administrator now.
+        Assert.Equal(PlatformBootstrap.Outcome.AlreadyHasAdministrator, await Bootstrap(seed, "test@test.com", "Test123!").RunAsync());
+    }
+
+    [Fact]
+    public async Task FirstRun_PromotesAnExistingAccount_WithoutTouchingItsPassword()
+    {
+        var seed = await SeedAsync();
+        seed.Admin.IsPlatformAdmin = false;
+        await seed.Users.UpdateAsync(seed.Admin);
+        var existing = new AppUser { Id = Guid.NewGuid(), Email = "test@test.com", UserName = "test@test.com", CompanyLimit = 0 };
+        await seed.Users.CreateAsync(existing, "Own-Passw0rd!");
+
+        Assert.Equal(PlatformBootstrap.Outcome.Promoted, await Bootstrap(seed, "test@test.com", "Test123!").RunAsync());
+        var user = await seed.Users.FindByEmailAsync("test@test.com");
+        Assert.True(user!.IsPlatformAdmin);
+        Assert.Null(user.CompanyLimit);
+        Assert.True(await seed.Users.CheckPasswordAsync(user, "Own-Passw0rd!"));
+        Assert.False(await seed.Users.CheckPasswordAsync(user, "Test123!"));
+        Assert.Equal(PlatformBootstrap.Outcome.NotConfigured, await Bootstrap(seed, null, null).RunAsync());
+    }
+
     private static AuthorizationFilterContext AuthorizationContext(Guid userId)
     {
         var httpContext = new DefaultHttpContext
