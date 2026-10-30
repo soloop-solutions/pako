@@ -20,6 +20,9 @@ public class EmployeeContract
     public decimal MonthlyGrossSalary { get; set; }
     public EmploymentType EmploymentType { get; set; } = EmploymentType.FullTime;
     public decimal WeeklyHours { get; set; } = 40m;
+
+    // Last day of the probation period (puna provuese), if any; drives the E8 reminder.
+    public DateOnly? ProbationEndDate { get; set; }
     public string? JobTitle { get; set; }
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

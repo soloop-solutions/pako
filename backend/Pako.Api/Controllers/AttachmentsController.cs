@@ -25,13 +25,11 @@ public class AttachmentsController : ControllerBase
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
 
-    // HR module: the owner type is only known at runtime, so the attribute can't name a module.
-    // Every action is left at AccessModule.None and checks the owner itself (CanAccessOwnerAsync):
-    // a ClientStaff user needs Read on the owner's module and, when partner-scoped, the owner must
-    // reference a visible partner — anything else is a 404, same as a missing owner. Writes stay
-    // AccessModule.None on purpose, which the filter already denies to every ClientStaff user:
-    // attaching/removing evidence on a posted document is a bookkeeper action, not a sales or
-    // purchasing one, until someone decides otherwise.
+    // The owner type is only known at runtime, so the attribute can't name an area. Every action
+    // checks the owner itself (CanAccessOwnerAsync): View on the owner's area to read, Edit to
+    // attach or remove (docs/USER_ACCESS_PLAN.md), and, when partner-scoped, the owner must
+    // reference a visible partner — anything else is a 404, same as a missing owner. A read-only
+    // member (ClientViewer) resolves to View everywhere, so it can never attach or remove.
     public AttachmentsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
     {
         _db = db;
@@ -59,7 +57,7 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess] // Edit on the owner's area is checked per owner below
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(AttachmentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<AttachmentResponse>> Upload(Guid companyId, [FromForm] UploadAttachmentRequest request)
@@ -93,7 +91,7 @@ public class AttachmentsController : ControllerBase
         }
 
         if (!await OwnerBelongsToCompanyAsync(companyId, parsedOwnerType, request.OwnerId) ||
-            !await CanAccessOwnerAsync(companyId, parsedOwnerType, request.OwnerId))
+            !await CanAccessOwnerAsync(companyId, parsedOwnerType, request.OwnerId, AccessLevel.Write))
         {
             return BadRequest(_localizer["AttachmentOwnerNotFound"].Value);
         }
@@ -136,11 +134,11 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess] // Edit on the owner's area is checked per owner below
     public async Task<ActionResult> Delete(Guid companyId, Guid id)
     {
         var attachment = await _db.Attachments.FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);
-        if (attachment is null || !await CanAccessOwnerAsync(companyId, attachment.OwnerType, attachment.OwnerId))
+        if (attachment is null || !await CanAccessOwnerAsync(companyId, attachment.OwnerType, attachment.OwnerId, AccessLevel.Write))
         {
             return NotFound();
         }
@@ -164,16 +162,18 @@ public class AttachmentsController : ControllerBase
         AttachmentOwnerType.Invoice => AccessModule.Sales,
         AttachmentOwnerType.Bill => AccessModule.Purchases,
         AttachmentOwnerType.JournalEntry => AccessModule.Accounting,
-        // Partner records themselves are reference data every staff user may read.
+        AttachmentOwnerType.Partner => AccessModule.Partners,
+        AttachmentOwnerType.ExpenseClaim => AccessModule.Hr,
         _ => AccessModule.None
     };
 
     // Unrestricted callers short-circuit to true (existence is checked separately where it
     // matters). A journal entry has no single partner to scope by, so a partner-scoped user is
     // always denied one — Department.LevelFor already forces their Accounting to None.
-    private async Task<bool> CanAccessOwnerAsync(Guid companyId, AttachmentOwnerType ownerType, Guid ownerId)
+    // Reading needs View on the owner's area; attaching or removing evidence needs Edit there.
+    private async Task<bool> CanAccessOwnerAsync(Guid companyId, AttachmentOwnerType ownerType, Guid ownerId, AccessLevel required = AccessLevel.Read)
     {
-        if (_access.Department is { } department && department.LevelFor(ModuleFor(ownerType)) < AccessLevel.Read)
+        if (_access.LevelFor(ModuleFor(ownerType)) < required)
         {
             return false;
         }

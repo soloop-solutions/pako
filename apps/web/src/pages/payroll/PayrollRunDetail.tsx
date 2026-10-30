@@ -1,11 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { AlertTriangle, Download, Printer } from "lucide-react";
+import { AlertTriangle, Download, FileDown, Printer } from "lucide-react";
 import { useMemo, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
-import type { FileResponse, PayrollRunDetailResponse, PayslipDetailResponse } from "@pako/shared";
+import type { PayrollRunDetailResponse, PayslipDetailResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -27,21 +27,11 @@ import {
 } from "@/lib/payroll-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 import { PayrollRunActions } from "@/pages/payroll/PayrollRunActions";
+import { downloadFileResponse } from "@/lib/download";
 import { Payslip, PayslipPrintPortal } from "@/pages/payroll/Payslip";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 const PAYSLIPS_GRID_ID = "payslips";
-
-// Same technique as Reports.tsx's sales/purchase-book export: the xlsx is built server-side.
-function downloadFileResponse(file: FileResponse, fallbackFileName: string): void {
-  const url = URL.createObjectURL(file.data);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = file.fileName ?? fallbackFileName;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  URL.revokeObjectURL(url);
-}
 
 function todayIso(): string {
   const now = new Date();
@@ -63,6 +53,7 @@ export function PayrollRunDetail() {
   const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
+  const { canWrite, canApprove } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedPayslipId = searchParams.get("payslip");
@@ -72,7 +63,7 @@ export function PayrollRunDetail() {
   const [payOpen, setPayOpen] = useState(false);
   const [paidOn, setPaidOn] = useState(todayIso);
   const [paymentMethodId, setPaymentMethodId] = useState("");
-  const [exporting, setExporting] = useState<"register" | "edi" | null>(null);
+  const [exporting, setExporting] = useState<"register" | "edi" | "zip" | null>(null);
   const [printTarget, setPrintTarget] = useState<"all" | string | null>(null);
 
   const runKey = ["payrollRun", companyId, id] as const;
@@ -183,13 +174,27 @@ export function PayrollRunDetail() {
     payMutation.mutate({ paidOn, cashOrBankAccountId: method.ledgerAccountId });
   }
 
-  async function handleExport(kind: "register" | "edi") {
+  async function downloadPayslipPdf(line: PayslipDetailResponse) {
+    if (!companyId || !id || !run) return;
+    setActionError(null);
+    try {
+      downloadFileResponse(await apiClient.payslipPdf(companyId, id, line.id), `payslip-${run.periodStart.slice(0, 7)}.pdf`);
+    } catch (err) {
+      setActionError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.exportError" })));
+    }
+  }
+
+  async function handleExport(kind: "register" | "edi" | "zip") {
     if (!companyId || !id || !run) return;
     setExporting(kind);
     setActionError(null);
     try {
-      const file = kind === "register" ? await apiClient.payrollRegisterExport(companyId, id) : await apiClient.payrollEdiExport(companyId, id);
       const month = run.periodStart.slice(0, 7);
+      if (kind === "zip") {
+        downloadFileResponse(await apiClient.payslipsZip(companyId, id), `payslips-${month}.zip`);
+        return;
+      }
+      const file = kind === "register" ? await apiClient.payrollRegisterExport(companyId, id) : await apiClient.payrollEdiExport(companyId, id);
       downloadFileResponse(file, kind === "register" ? `payroll-register-${month}.xlsx` : `payroll-edi-${month}.xlsx`);
     } catch (err) {
       setActionError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.exportError" })));
@@ -253,6 +258,13 @@ export function PayrollRunDetail() {
         meta: { groupable: true },
         cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
+      {
+        accessorKey: "costCenterName",
+        header: intl.formatMessage({ id: "payroll.payslip.costCenter" }),
+        enableGrouping: true,
+        meta: { groupable: true },
+        cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
+      },
       amountColumn("baseSalary", "payroll.payslip.baseSalary"),
       {
         id: "days",
@@ -294,20 +306,31 @@ export function PayrollRunDetail() {
         enableGrouping: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <Button
-            size="xs"
-            variant="ghost"
-            className="h-6"
-            aria-label={intl.formatMessage({ id: "payroll.payslip.printOne" }, { name: row.original.employeeName })}
-            onClick={() => printPayslips(row.original.id)}
-          >
-            <Printer className="size-3.5" />
-          </Button>
+          <div className="flex justify-end">
+            <Button
+              size="xs"
+              variant="ghost"
+              className="h-6"
+              aria-label={intl.formatMessage({ id: "payroll.payslip.downloadOne" }, { name: row.original.employeeName })}
+              onClick={() => void downloadPayslipPdf(row.original)}
+            >
+              <FileDown className="size-3.5" />
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              className="h-6"
+              aria-label={intl.formatMessage({ id: "payroll.payslip.printOne" }, { name: row.original.employeeName })}
+              onClick={() => printPayslips(row.original.id)}
+            >
+              <Printer className="size-3.5" />
+            </Button>
+          </div>
         ),
       },
     ];
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [intl]);
+  }, [intl, companyId, id, run?.periodStart]);
 
   if (!activeCompany || !run) {
     const loadError = runQuery.isError ? getApiErrorMessage(runQuery.error, intl.formatMessage({ id: "payrollRunDetail.loadError" })) : null;
@@ -376,7 +399,13 @@ export function PayrollRunDetail() {
               </div>
             </div>
             <div className="flex flex-col items-end gap-2">
-              <PayrollRunActions state={run.state} busyAction={busyAction} onAction={handleAction} />
+              <PayrollRunActions
+                state={run.state}
+                busyAction={busyAction}
+                onAction={handleAction}
+                canEdit={canWrite("payroll")}
+                canApprove={canApprove("payroll")}
+              />
               <div className="flex flex-wrap gap-2">
                 <Button type="button" size="xs" variant="outline" disabled={exporting !== null} onClick={() => void handleExport("register")}>
                   <Download className="size-3.5" />
@@ -385,6 +414,10 @@ export function PayrollRunDetail() {
                 <Button type="button" size="xs" variant="outline" disabled={exporting !== null} onClick={() => void handleExport("edi")}>
                   <Download className="size-3.5" />
                   {intl.formatMessage({ id: exporting === "edi" ? "reports.exportingReport" : "payroll.exportEdi" })}
+                </Button>
+                <Button type="button" size="xs" variant="outline" disabled={exporting !== null || run.lines.length === 0} onClick={() => void handleExport("zip")}>
+                  <FileDown className="size-3.5" />
+                  {intl.formatMessage({ id: exporting === "zip" ? "reports.exportingReport" : "payroll.payslip.downloadAll" })}
                 </Button>
                 <Button type="button" size="xs" variant="outline" disabled={run.lines.length === 0} onClick={() => printPayslips("all")}>
                   <Printer className="size-3.5" />

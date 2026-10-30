@@ -62,6 +62,12 @@ public class Company
 
     // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 1, R01 / 50_Profiles).
     public string FunctionalCurrency { get; set; } = "EUR";
+
+    // docs/PLATFORM_ADMIN.md: the modules this company may use, set by a platform administrator,
+    // and who created it (counted against their company limit).
+    public AppModule EnabledModules { get; set; } = AppModule.All;
+    public Guid? CreatedByUserId { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public CompanyProfile EnabledProfiles { get; set; } = CompanyProfile.Core;
 
     // C2: every company seeded so far is VAT-registered (the 26 VAT/WHT tax definitions are

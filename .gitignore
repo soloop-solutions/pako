@@ -7,3 +7,6 @@ node_modules/
 # Claude Code local state
 .claude/scheduled_tasks.lock
 .claude/settings.local.json
+
+# E7: emails written by Email:Mode=Log in development
+backend/Pako.Api/dev-mail/

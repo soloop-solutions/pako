@@ -352,11 +352,11 @@ public class PayrollCalculationServiceTests
         Assert.Equal(3000m, brackets[0].UpperBoundEurPerYear);
         Assert.Equal(0.00m, brackets[0].Rate);
 
-        Assert.Equal(3000.01m, brackets[1].LowerBoundEurPerYear);
+        Assert.Equal(3000m, brackets[1].LowerBoundEurPerYear);
         Assert.Equal(5400m, brackets[1].UpperBoundEurPerYear);
         Assert.Equal(0.08m, brackets[1].Rate);
 
-        Assert.Equal(5400.01m, brackets[2].LowerBoundEurPerYear);
+        Assert.Equal(5400m, brackets[2].LowerBoundEurPerYear);
         Assert.Null(brackets[2].UpperBoundEurPerYear);
         Assert.Equal(0.10m, brackets[2].Rate);
     }

@@ -7,6 +7,8 @@ type AuthContextValue = {
   auth: StoredAuth | null;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
+  // docs/USER_ACCESS_PLAN.md: accepting an invitation signs the person in.
+  acceptInvitation: (token: string, fullName: string | undefined, password: string) => Promise<void>;
   logout: () => void;
 };
 
@@ -38,13 +40,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(next);
   }
 
+  async function acceptInvitation(token: string, fullName: string | undefined, password: string) {
+    const response = await apiClient.acceptInvitation({ token, fullName, password });
+    const next = { token: response.token, userId: response.userId, email: response.email };
+    setStoredAuth(next);
+    setAuth(next);
+  }
+
   function logout() {
     clearStoredAuth();
     setAuth(null);
   }
 
   return (
-    <AuthContext.Provider value={{ auth, login, register, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ auth, login, register, acceptInvitation, logout }}>{children}</AuthContext.Provider>
   );
 }
 

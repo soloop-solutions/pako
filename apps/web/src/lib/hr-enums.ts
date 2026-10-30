@@ -4,7 +4,8 @@
 
 import type { IntlShape } from "react-intl";
 
-export const AccessLevel = { None: 0, Read: 1, Write: 2 } as const;
+// Approve (docs/USER_ACCESS_PLAN.md) = Write + post/approve/pay/cancel.
+export const AccessLevel = { None: 0, Read: 1, Write: 2, Approve: 3 } as const;
 export type AccessLevelValue = (typeof AccessLevel)[keyof typeof AccessLevel];
 
 export const PartnerScope = { All: 0, Assigned: 1 } as const;

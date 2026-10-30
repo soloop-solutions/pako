@@ -70,6 +70,10 @@ public class CompanyAccountDefaults
     // 222100 Other Employee Liabilities — after-tax payroll deductions.
     public Guid? PayrollDeductionsAccountId { get; set; }
 
+    // 111100 Employee Receivables — salary advances and loans to employees (G10). Null on older
+    // companies: resolved by code at use time.
+    public Guid? EmployeeAdvancesAccountId { get; set; }
+
     // 60_Posting_Rules R10 (AUTO, Stage 4): RC18 generates Dr 113300 / Cr 210300 automatically.
     // Both CORE-profile, always present, so required like the first five roles above.
     public Guid ReverseChargeInputVatAccountId { get; set; }

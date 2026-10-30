@@ -20,6 +20,7 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(e => e.JobTitle).HasMaxLength(128);
         builder.Property(e => e.Iban).HasMaxLength(34);
         builder.Property(e => e.BankName).HasMaxLength(128);
+        builder.Property(e => e.PreferredLanguage).IsRequired().HasMaxLength(8).HasDefaultValue("sq");
         builder.Property(e => e.MonthlyGrossSalary).HasColumnType("numeric(18,2)");
         builder.Property(e => e.IsPrimaryEmployer).HasDefaultValue(true);
         builder.Property(e => e.PensionExempt).HasDefaultValue(false);

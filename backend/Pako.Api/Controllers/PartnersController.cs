@@ -6,6 +6,7 @@ using Npgsql;
 using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Infrastructure;
@@ -205,4 +206,16 @@ public class PartnersController : ControllerBase
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,
         p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit);
+
+    // J15: the partner's account statement. Readable by anyone who can see the partner — including
+    // partner-restricted staff for their assigned partners, who get 404 for any other partner.
+    [HttpGet("{id:guid}/statement", Name = "GetPartnerStatement")]
+    [RequireCompanyAccess(module: AccessModule.Partners)]
+    public async Task<ActionResult<PartnerStatementResponse>> Statement(
+        Guid companyId, Guid id, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromServices] PartnerStatementService statements)
+    {
+        if (!_access.CanSeePartner(id) || to < from) return NotFound();
+        var statement = await statements.StatementAsync(companyId, id, from, to);
+        return statement is null ? NotFound() : Ok(statement);
+    }
 }

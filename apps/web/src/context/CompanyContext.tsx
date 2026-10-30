@@ -1,11 +1,22 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from "react";
-import type { CompanyResponse } from "@pako/shared";
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import type { CompanyResponse, UpdateCompanyProfileRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
-import { getLastOpenedMap, recordCompanyOpened } from "@/lib/company-last-opened";
+import { recordCompanyOpened } from "@/lib/company-last-opened";
+import { CompanyPresence, newTabId } from "@/lib/company-presence";
 
 const ACTIVE_COMPANY_KEY = "pako.activeCompanyId";
+
+export type CreateCompanyOptions = {
+  isVatRegistered?: boolean;
+  /** The rest of the company details, saved right after the company is created. */
+  profile?: UpdateCompanyProfileRequest;
+};
+
+/** The company exists even when profileError is set: only its details failed to save. */
+export type CreatedCompany = { company: CompanyResponse; profileError: unknown };
 
 type CompanyContextValue = {
   companies: CompanyResponse[];
@@ -14,7 +25,16 @@ type CompanyContextValue = {
   loading: boolean;
   error: string | null;
   setActiveCompanyId: (id: string) => void;
-  createCompany: (name: string, firmId?: string) => Promise<void>;
+  /** The company list has been fetched at least once for this sign-in. */
+  loaded: boolean;
+  /** Leaves the active company: the user goes back to the lobby to pick one. */
+  leaveCompany: () => void;
+  /** Companies this user has open in other tabs or windows (only one may be open at a time). */
+  companiesOpenElsewhere: () => Promise<string[]>;
+  /** Set when this tab's company was closed because another tab opened a different one. */
+  replacedBy: { closedId: string; openedId: string } | null;
+  clearReplacedNotice: () => void;
+  createCompany: (name: string, firmId?: string, options?: CreateCompanyOptions) => Promise<CreatedCompany>;
   refresh: () => Promise<void>;
 };
 
@@ -22,12 +42,52 @@ const CompanyContext = createContext<CompanyContextValue | null>(null);
 
 export function CompanyProvider({ children }: { children: ReactNode }) {
   const { auth } = useAuth();
+  const queryClient = useQueryClient();
   const [companies, setCompanies] = useState<CompanyResponse[]>([]);
   const [activeCompanyId, setActiveCompanyIdState] = useState<string | null>(() =>
     sessionStorage.getItem(ACTIVE_COMPANY_KEY),
   );
   const [loading, setLoading] = useState(false);
+  // True once the company list has been fetched for this sign-in (successfully or not).
+  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [replacedBy, setReplacedBy] = useState<{ closedId: string; openedId: string } | null>(null);
+
+  // One company at a time across this browser's tabs and windows (see lib/company-presence).
+  const tabId = useRef(newTabId());
+  const activeRef = useRef(activeCompanyId);
+  activeRef.current = activeCompanyId;
+  const presence = useRef<CompanyPresence | null>(null);
+  const userId = auth?.userId ?? null;
+  useEffect(() => {
+    if (!userId) return;
+    presence.current = new CompanyPresence(userId, tabId.current, () => activeRef.current, (newCompanyId) => {
+      const closedId = activeRef.current;
+      setActiveCompanyIdState(null);
+      sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
+      // Nothing of the closed company may stay in memory.
+      queryClient.clear();
+      if (closedId) setReplacedBy({ closedId, openedId: newCompanyId });
+    });
+    // A tab restored on reload keeps its company only if no other tab has a different one open.
+    let cancelled = false;
+    const restored = activeRef.current;
+    if (restored) {
+      void presence.current.openElsewhere().then((open) => {
+        const other = open.find((id) => id !== restored);
+        if (!cancelled && other && activeRef.current === restored) {
+          setActiveCompanyIdState(null);
+          sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
+          setReplacedBy({ closedId: restored, openedId: other });
+        }
+      });
+    }
+    return () => {
+      cancelled = true;
+      presence.current?.close();
+      presence.current = null;
+    };
+  }, [userId, queryClient]);
 
   const refresh = useCallback(async () => {
     if (!auth) return;
@@ -40,6 +100,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       setError(getApiErrorMessage(err, "Could not load companies."));
     } finally {
       setLoading(false);
+      setLoaded(true);
     }
   }, [auth]);
 
@@ -48,61 +109,45 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
       void refresh();
     } else {
       setCompanies([]);
+      setLoaded(false);
       setActiveCompanyIdState(null);
       sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
     }
   }, [auth, refresh]);
 
   useEffect(() => {
-    if (activeCompanyId && companies.length > 0 && !companies.some((c) => c.id === activeCompanyId)) {
+    if (activeCompanyId && loaded && !companies.some((c) => c.id === activeCompanyId)) {
       setActiveCompanyIdState(null);
       sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
     }
-  }, [activeCompanyId, companies]);
-
-  // Auto-select: single company, or last-opened, when no company is active.
-  // Skip archived companies for auto-selection.
-  useEffect(() => {
-    if (activeCompanyId || companies.length === 0 || !auth) return;
-
-    const active = companies.filter((c) => !c.isArchived);
-    if (active.length === 0) return;
-
-    if (active.length === 1) {
-      const id = active[0].id;
-      setActiveCompanyIdState(id);
-      sessionStorage.setItem(ACTIVE_COMPANY_KEY, id);
-      recordCompanyOpened(auth.userId, id);
-      return;
-    }
-
-    // Multiple companies: pick the most recently opened one
-    const lastOpened = getLastOpenedMap(auth.userId);
-    let bestId: string | null = null;
-    let bestTime = "";
-    for (const c of active) {
-      const t = lastOpened[c.id];
-      if (t && t > bestTime) {
-        bestTime = t;
-        bestId = c.id;
-      }
-    }
-    if (bestId) {
-      setActiveCompanyIdState(bestId);
-      sessionStorage.setItem(ACTIVE_COMPANY_KEY, bestId);
-    }
-  }, [activeCompanyId, companies, auth]);
+  }, [activeCompanyId, companies, loaded]);
 
   function setActiveCompanyId(id: string) {
     setActiveCompanyIdState(id);
+    setReplacedBy(null);
     sessionStorage.setItem(ACTIVE_COMPANY_KEY, id);
+    presence.current?.announceOpened(id);
     if (auth) recordCompanyOpened(auth.userId, id);
   }
 
-  async function createCompany(name: string, firmId?: string) {
-    const created = await apiClient.companies({ name, firmId });
+  function leaveCompany() {
+    setActiveCompanyIdState(null);
+    sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
+  }
+
+  // Companies are created only from the lobby, which then opens the new one.
+  async function createCompany(name: string, firmId?: string, options?: CreateCompanyOptions): Promise<CreatedCompany> {
+    const created = await apiClient.companies({ name, firmId, isVatRegistered: options?.isVatRegistered });
+    let profileError: unknown = null;
+    if (options?.profile) {
+      try {
+        await apiClient.profile(created.id, options.profile);
+      } catch (err) {
+        profileError = err;
+      }
+    }
     await refresh();
-    setActiveCompanyId(created.id);
+    return { company: created, profileError };
   }
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null;
@@ -114,8 +159,13 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         activeCompanyId,
         activeCompany,
         loading,
+        loaded,
         error,
         setActiveCompanyId,
+        leaveCompany,
+        companiesOpenElsewhere: () => presence.current?.openElsewhere() ?? Promise.resolve([]),
+        replacedBy,
+        clearReplacedNotice: () => setReplacedBy(null),
         createCompany,
         refresh,
       }}

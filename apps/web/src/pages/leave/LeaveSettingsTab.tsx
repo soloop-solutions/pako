@@ -191,6 +191,8 @@ function LeaveTypeForm({
   );
   const [payPercent, setPayPercent] = useState(initial ? String(initial.payPercent) : "100");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
+  const [carryMax, setCarryMax] = useState(initial?.carryOverMaxDays == null ? "" : String(initial.carryOverMaxDays));
+  const [carryExpiry, setCarryExpiry] = useState(initial?.carryOverExpiryMonth == null ? "" : String(initial.carryOverExpiryMonth));
   const [localError, setLocalError] = useState<string | null>(null);
 
   function parseNumber(raw: string): number {
@@ -213,8 +215,14 @@ function LeaveTypeForm({
       setLocalError(intl.formatMessage({ id: "leave.types.invalidPayPercent" }));
       return;
     }
+    const carryOverMaxDays = carryMax.trim() === "" ? undefined : parseNumber(carryMax);
+    const carryOverExpiryMonth = carryExpiry === "" ? undefined : Number(carryExpiry);
+    if (carryOverMaxDays !== undefined && (!Number.isFinite(carryOverMaxDays) || carryOverMaxDays < 0)) {
+      setLocalError(intl.formatMessage({ id: "leave.balances.invalidDays" }));
+      return;
+    }
     setLocalError(null);
-    onSubmit({ code: code.trim(), name: name.trim(), defaultAnnualDays: days, payPercent: pay, isActive });
+    onSubmit({ code: code.trim(), name: name.trim(), defaultAnnualDays: days, payPercent: pay, isActive, carryOverMaxDays, carryOverExpiryMonth });
   }
 
   const shownError = localError ?? error;
@@ -251,6 +259,33 @@ function LeaveTypeForm({
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-type-pay">{intl.formatMessage({ id: "leave.field.payPercent" })}</Label>
               <Input id="leave-type-pay" inputMode="decimal" className="text-right tabular-nums" value={payPercent} onChange={(e) => setPayPercent(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="leave-type-carry">{intl.formatMessage({ id: "leave.field.carryOverMaxDays" })}</Label>
+              <Input
+                id="leave-type-carry"
+                inputMode="decimal"
+                className="text-right tabular-nums"
+                value={carryMax}
+                onChange={(e) => setCarryMax(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "leave.types.carryOverHint" })}</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="leave-type-carry-expiry">{intl.formatMessage({ id: "leave.field.carryOverExpiryMonth" })}</Label>
+              <select
+                id="leave-type-carry-expiry"
+                className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                value={carryExpiry}
+                onChange={(e) => setCarryExpiry(e.target.value)}
+              >
+                <option value="">{intl.formatMessage({ id: "leave.types.carryNeverExpires" })}</option>
+                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                  <option key={m} value={String(m)}>
+                    {intl.formatMessage({ id: "leave.types.carryExpiresEndOf" }, { month: intl.formatDate(new Date(2000, m - 1, 1), { month: "long" }) })}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">

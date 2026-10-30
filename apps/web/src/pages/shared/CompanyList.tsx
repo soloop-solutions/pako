@@ -21,7 +21,7 @@ type CompanyListProps = {
 export function CompanyList({ titleKey = "companies.title", descriptionKey = "companies.description" }: CompanyListProps) {
   const intl = useIntl();
   const { auth } = useAuth();
-  const { companies, activeCompanyId, loading, error, setActiveCompanyId, refresh } = useCompany();
+  const { companies, activeCompanyId, loading, error, refresh } = useCompany();
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [showArchived, setShowArchived] = useState(false);
@@ -158,18 +158,6 @@ export function CompanyList({ titleKey = "companies.title", descriptionKey = "co
                         ? intl.formatMessage({ id: "companies.unarchive" })
                         : intl.formatMessage({ id: "companies.archive" })}
                     </Button>
-                    {!company.isArchived && (
-                      <Button
-                        variant={company.id === activeCompanyId ? "secondary" : "outline"}
-                        size="sm"
-                        onClick={() => setActiveCompanyId(company.id)}
-                        disabled={company.id === activeCompanyId}
-                      >
-                        {company.id === activeCompanyId
-                          ? intl.formatMessage({ id: "common.active" })
-                          : intl.formatMessage({ id: "companies.setActive" })}
-                      </Button>
-                    )}
                   </div>
                 </div>
                 {expanded.has(key) && <MembersPanel scope="company" scopeId={company.id} />}

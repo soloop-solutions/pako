@@ -1,3 +1,5 @@
+import { AcceptInvitation } from "@/pages/AcceptInvitation";
+import { ForgotPassword, ResetPassword } from "@/pages/PasswordReset";
 import type { ComponentType } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
@@ -16,7 +18,8 @@ import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
 import { PayrollRunDetail } from "@/pages/payroll/PayrollRunDetail";
 import { EmployeeDetail } from "@/pages/hr/EmployeeDetail";
-import { Register } from "@/pages/Register";
+import { RequestAccount } from "@/pages/RequestAccount";
+import { PlatformAdmin } from "@/pages/platform/PlatformAdmin";
 
 // react-router reuses the same component instance across `:id` param changes — it does not
 // remount just because the URL param did. That's wrong for an instance-tab route: switching
@@ -44,9 +47,15 @@ export function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/register" element={<Register />} />
+              {/* No self-registration (docs/PLATFORM_ADMIN.md): people request an account. */}
+              <Route path="/register" element={<Navigate to="/request-account" replace />} />
+              <Route path="/request-account" element={<RequestAccount />} />
+              <Route path="/accept-invite" element={<AcceptInvitation />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route element={<RequireAuth />}>
                 <Route path="/select-company" element={<CompanySelect />} />
+                <Route path="/platform" element={<PlatformAdmin />} />
                 <Route element={<RequireCompany />}>
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Landing />} />

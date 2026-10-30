@@ -33,6 +33,11 @@ vi.mock("@/api/client", async (importOriginal) => {
   };
 });
 
+// The grid posts only with Accounting: Approve (docs/USER_ACCESS_PLAN.md); these tests have it.
+vi.mock("@/hooks/useMyAccess", () => ({
+  useMyAccess: () => ({ access: null, isLoading: false, isStaff: false, canSee: () => true, canWrite: () => true, canApprove: () => true }),
+}));
+
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({ activeCompany: { id: "company-1", name: "Test Company" } }),
 }));

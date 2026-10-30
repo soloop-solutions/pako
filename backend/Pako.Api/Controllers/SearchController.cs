@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
+using Pako.Domain.Hr;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -13,7 +14,17 @@ public class SearchController : ControllerBase
 {
     private readonly PakoDbContext _db;
 
-    public SearchController(PakoDbContext db) => _db = db;
+    private readonly CompanyAccessContext _access;
+
+    public SearchController(PakoDbContext db, CompanyAccessContext access)
+    {
+        _db = db;
+        _access = access;
+    }
+
+    // Search returns only what the caller could open anyway: areas their role (and the company's
+    // modules) allow, and only the partners their partner scope shows.
+    private bool CanRead(AccessModule area) => _access.LevelFor(area) >= AccessLevel.Read;
 
     public record SearchResultItem(string Id, string Label, string Category, string? Url);
     public record SearchResponse(List<SearchResultItem> Results);
@@ -34,7 +45,7 @@ public class SearchController : ControllerBase
         var results = new List<SearchResultItem>();
 
         // Search invoices by number
-        var invoices = await _db.Invoices.AsNoTracking()
+        var invoices = !CanRead(AccessModule.Sales) ? [] : await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .Where(i => i.CompanyId == companyId && i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern))
             .OrderByDescending(i => i.CreatedAt)
             .Take(limit)
@@ -52,7 +63,7 @@ public class SearchController : ControllerBase
         }
 
         // Search bills by vendor reference
-        var bills = await _db.Bills.AsNoTracking()
+        var bills = !CanRead(AccessModule.Purchases) ? [] : await _db.Bills.AsNoTracking().VisibleTo(_access)
             .Where(b => b.CompanyId == companyId && b.VendorReference != null && EF.Functions.ILike(b.VendorReference, pattern))
             .OrderByDescending(b => b.CreatedAt)
             .Take(limit)
@@ -69,7 +80,7 @@ public class SearchController : ControllerBase
         }
 
         // Search partners by name
-        var partners = await _db.Partners.AsNoTracking()
+        var partners = !CanRead(AccessModule.Partners) ? [] : await _db.Partners.AsNoTracking().VisibleTo(_access)
             .Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern))
             .OrderBy(p => p.Name)
             .Take(limit)
@@ -82,7 +93,7 @@ public class SearchController : ControllerBase
         }
 
         // Search accounts by code or name
-        var accounts = await _db.Accounts.AsNoTracking()
+        var accounts = !CanRead(AccessModule.Accounting) ? [] : await _db.Accounts.AsNoTracking()
             .Where(a => a.CompanyId == companyId && (EF.Functions.ILike(a.Code, pattern) || EF.Functions.ILike(a.Name, pattern)))
             .OrderBy(a => a.Code)
             .Take(limit)
@@ -95,7 +106,7 @@ public class SearchController : ControllerBase
         }
 
         // Search items by name (code is numeric, search by name only)
-        var items = await _db.Items.AsNoTracking()
+        var items = !CanRead(AccessModule.Items) ? [] : await _db.Items.AsNoTracking()
             .Where(i => i.CompanyId == companyId && EF.Functions.ILike(i.Name, pattern))
             .OrderBy(i => i.Code)
             .Take(limit)

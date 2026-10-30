@@ -45,7 +45,7 @@ public class FirmAccessFilter : IAsyncActionFilter
         }
 
         var membership = await _db.Memberships.AsNoTracking()
-            .Where(m => m.UserId == userId && m.FirmId == firmId)
+            .Where(m => m.UserId == userId && m.FirmId == firmId && m.IsActive)
             .FirstOrDefaultAsync();
 
         if (membership is null || (_adminOnly && membership.Role != MembershipRole.FirmAdmin))

@@ -24,10 +24,9 @@ import {
   payrollAdjustmentKindLabel,
 } from "@/lib/payroll-enums";
 import { AdjustmentForm } from "@/pages/payroll/AdjustmentForm";
+import { CommissionBasisDialog } from "@/pages/payroll/CommissionBasisDialog";
 
 const GRID_ID = "payrollAdjustments";
-// listEmployees is paged; 200 matches the cap other pickers in this app use for a plain <select>.
-const EMPLOYEE_PICKER_PAGE_SIZE = 200;
 
 type PayrollAdjustmentsProps = {
   companyId: string;
@@ -47,19 +46,21 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
+  const [commissionNotice, setCommissionNotice] = useState<string | null>(null);
+  const [basisFor, setBasisFor] = useState<PayrollAdjustmentResponse | null>(null);
 
   const adjustmentsKey = ["payrollAdjustments", companyId, period] as const;
   const adjustmentsQuery = useQuery({
     queryKey: adjustmentsKey,
     queryFn: () => apiClient.listPayrollAdjustments(companyId, period, undefined),
   });
+  // Only asks whether the company has any active employee — the form's picker searches itself.
   const employeesQuery = useQuery({
-    queryKey: ["employees", "picker", companyId],
-    queryFn: () => apiClient.listEmployees(companyId, 1, EMPLOYEE_PICKER_PAGE_SIZE, undefined, undefined, undefined, false),
+    queryKey: ["employees", companyId, "any"],
+    queryFn: () => apiClient.listEmployees(companyId, 1, 1, undefined, undefined, undefined, false, false),
   });
 
   const adjustments = useMemo(() => adjustmentsQuery.data ?? [], [adjustmentsQuery.data]);
-  const employees = useMemo(() => employeesQuery.data?.items ?? [], [employeesQuery.data]);
   const editing = editingId ? adjustments.find((a) => a.id === editingId) ?? null : null;
 
   async function refresh() {
@@ -89,6 +90,22 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
     onError: (err: unknown) => setRowError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.adjustment.deleteError" }))),
   });
 
+  const commissionMutation = useMutation({
+    mutationFn: () => apiClient.calculateCommissions(companyId, { period }),
+    onSuccess: async (results) => {
+      setRowError(null);
+      const created = results.filter((r) => !r.locked && r.amount > 0).length;
+      const locked = results.filter((r) => r.locked).length;
+      setCommissionNotice(
+        results.length === 0
+          ? intl.formatMessage({ id: "commission.calculate.none" })
+          : intl.formatMessage({ id: "commission.calculate.done" }, { created, locked, total: results.length }),
+      );
+      await refresh();
+    },
+    onError: (err: unknown) => setRowError(getApiErrorMessage(err, intl.formatMessage({ id: "commission.calculate.error" }))),
+  });
+
   function handleDelete(adjustment: PayrollAdjustmentResponse) {
     const confirmed = window.confirm(
       intl.formatMessage(
@@ -116,7 +133,17 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
       {
         accessorKey: "description",
         header: intl.formatMessage({ id: "payroll.adjustment.description" }),
-        cell: ({ getValue }) => (getValue() as string | undefined) || "—",
+        cell: ({ row, getValue }) =>
+          row.original.commissionPlanId ? (
+            <button type="button" className="text-left text-primary hover:underline" onClick={() => setBasisFor(row.original)}>
+              {intl.formatMessage(
+                { id: "commission.descriptionWithBasis" },
+                { plan: (getValue() as string | undefined) ?? "", basis: formatAmount(row.original.commissionBasisAmount ?? 0) },
+              )}
+            </button>
+          ) : (
+            (getValue() as string | undefined) || "—"
+          ),
       },
       {
         accessorKey: "hours",
@@ -233,6 +260,9 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
                   }}
                 />
               </div>
+              <Button size="sm" variant="outline" disabled={commissionMutation.isPending} onClick={() => commissionMutation.mutate()}>
+                {intl.formatMessage({ id: "commission.calculate" })}
+              </Button>
               {!formOpen && !editing && (
                 <Button
                   size="sm"
@@ -253,7 +283,18 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
               <AlertDescription>{loadError}</AlertDescription>
             </Alert>
           )}
-          {employeesQuery.isSuccess && employees.length === 0 && (
+          {commissionNotice && (
+            <Alert>
+              <AlertDescription>{commissionNotice}</AlertDescription>
+            </Alert>
+          )}
+          <CommissionBasisDialog
+            companyId={companyId}
+            adjustmentId={basisFor?.id ?? null}
+            title={basisFor ? intl.formatMessage({ id: "commission.basis.title" }, { employee: basisFor.employeeName }) : ""}
+            onClose={() => setBasisFor(null)}
+          />
+          {employeesQuery.isSuccess && employeesQuery.data.total === 0 && (
             <p className="text-sm text-muted-foreground">
               {intl.formatMessage(
                 { id: "payroll.adjustment.noEmployees" },
@@ -274,7 +315,7 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
               </p>
               <AdjustmentForm
                 key={editing?.id ?? "new"}
-                employees={employees}
+                companyId={companyId}
                 period={period}
                 initial={editing}
                 submitting={saveMutation.isPending}

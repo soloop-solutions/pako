@@ -27,7 +27,13 @@ public record PayrollPostingAccounts(
     Guid? BonusExpenseAccountId = null,
     Guid? EmployerPensionExpenseAccountId = null,
     Guid? EmployerPensionPayableAccountId = null,
-    Guid? DeductionsPayableAccountId = null);
+    Guid? DeductionsPayableAccountId = null,
+    // G10: loan/advance repayments credit employee receivables (111100). Null = they post with
+    // the other deductions.
+    Guid? EmployeeAdvancesAccountId = null,
+    // H13: where each employee's reimbursed expense-claim bills sit (payable account + the
+    // employee's partner). Required for every slip that carries a reimbursement.
+    IReadOnlyDictionary<Guid, (Guid AccountId, Guid PartnerId)>? ReimbursementPayables = null);
 
 public class PayrollRun
 {
@@ -42,6 +48,9 @@ public class PayrollRun
     public Guid? ApprovedByUserId { get; set; }
     public DateTime? ApprovedAt { get; set; }
     public string? Notes { get; set; }
+    // The statutory values (PayrollParameters, as JSON) the slips were computed with — set on
+    // create and recompute, so editing a rate later never changes how this run reads.
+    public string? ParametersSnapshot { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public List<PayslipLine> Lines { get; set; } = new();
@@ -136,11 +145,41 @@ public class PayrollRun
             }
         }
 
+        // H13: reimbursements clear the employee's expense-claim bills (Dr payable, their partner);
+        // net pay payable carries the cash.
+        foreach (var line in Lines.Where(l => l.ReimbursementAmount != 0m))
+        {
+            if (accounts.ReimbursementPayables?.TryGetValue(line.EmployeeId, out var payable) != true)
+            {
+                throw new InvalidOperationException($"Payroll run {Id}: no payable account for the reimbursement of employee {line.EmployeeId}.");
+            }
+
+            lines.Add(new JournalEntryLine
+            {
+                Id = Guid.NewGuid(),
+                AccountId = payable.AccountId,
+                PartnerId = payable.PartnerId,
+                EmployeeId = line.EmployeeId,
+                Debit = line.ReimbursementAmount,
+                Credit = 0m,
+                Description = "Expense claim reimbursement"
+            });
+        }
+
         var sumPit = Lines.Sum(l => l.PitAmount);
         var sumEmployeePension = Lines.Sum(l => l.EmployeePensionAmount);
         var sumEmployerPension = Lines.Sum(l => l.EmployerPensionAmount);
         var sumDeductions = Lines.Sum(l => l.DeductionsAmount);
         var sumNetPay = Lines.Sum(l => l.NetPay);
+        if (accounts.EmployeeAdvancesAccountId is { } advancesId)
+        {
+            var sumLoanRepayments = Lines.Sum(l => l.LoanRepaymentAmount);
+            if (sumLoanRepayments != 0m)
+            {
+                AddCredit(lines, advancesId, sumLoanRepayments, "Employee loan repayments");
+                sumDeductions -= sumLoanRepayments;
+            }
+        }
 
         AddCredit(lines, accounts.PitPayableAccountId, sumPit, "PIT payable");
         if (accounts.EmployerPensionPayableAccountId is { } employerPayableId)

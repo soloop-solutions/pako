@@ -5,9 +5,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services.Notifications;
 using Pako.Domain.Companies;
+using Pako.Domain.Notifications;
 using Pako.Infrastructure;
 using Pako.Infrastructure.Identity;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -18,17 +21,20 @@ public class CompanyMembersController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly UserManager<AppUser> _userManager;
+    private readonly NotificationOutbox _outbox;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public CompanyMembersController(PakoDbContext db, UserManager<AppUser> userManager, IStringLocalizer<ErrorMessages> localizer)
+    public CompanyMembersController(
+        PakoDbContext db, UserManager<AppUser> userManager, NotificationOutbox outbox, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _userManager = userManager;
+        _outbox = outbox;
         _localizer = localizer;
     }
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Users)]
     public async Task<ActionResult<List<MemberResponse>>> List(Guid companyId)
     {
         var company = await _db.Companies.AsNoTracking().FirstAsync(c => c.Id == companyId);
@@ -91,7 +97,22 @@ public class CompanyMembersController : ControllerBase
         }
 
         var membership = Membership.ForCompany(user.Id, companyId, request.Role);
+        if (request.Role == MembershipRole.ClientStaff)
+        {
+            // docs/USER_ACCESS_PLAN.md: staff added here start on the built-in Employee role; the
+            // administration dashboard gives them more.
+            membership.CompanyRoleId = await _db.CompanyRoles
+                .Where(r => r.CompanyId == companyId && r.BuiltInKey == "employee")
+                .Select(r => (Guid?)r.Id)
+                .FirstOrDefaultAsync();
+        }
+
         _db.Memberships.Add(membership);
+
+        var companyName = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.Name).FirstAsync();
+        await _outbox.EnqueueAsync(companyId, NotificationTemplates.StaffInvitation,
+            new[] { new NotificationRecipient(user.Email!, employee?.PreferredLanguage ?? NotificationOutbox.DefaultCulture) },
+            new Dictionary<string, string> { ["company"] = companyName });
         await _db.SaveChangesAsync();
 
         return StatusCode(StatusCodes.Status201Created, new MemberResponse(membership.Id, user.Id, user.Email!, membership.Role));

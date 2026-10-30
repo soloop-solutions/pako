@@ -215,4 +215,223 @@
   <data name="StaffNeedsEmployee" xml:space="preserve"><value>A staff member must be linked to an employee.</value></data>
   <data name="LeaveTypeCodeRequired" xml:space="preserve"><value>Leave type code is required.</value></data>
   <data name="LeaveTypeNameRequired" xml:space="preserve"><value>Leave type name is required.</value></data>
+  <data name="CostCenterCodeRequired" xml:space="preserve"><value>Cost center code is required (max 16 characters).</value></data>
+  <data name="CostCenterNameRequired" xml:space="preserve"><value>Cost center name is required.</value></data>
+  <data name="CostCenterCodeTaken" xml:space="preserve"><value>Another cost center already uses code {0}.</value></data>
+  <data name="StatutoryParameterUnknownKey" xml:space="preserve"><value>Unknown statutory parameter.</value></data>
+  <data name="StatutoryParameterValueInvalid" xml:space="preserve"><value>The value must be zero or more, and rates must be below 1 (e.g. 0.05 for 5%).</value></data>
+  <data name="StatutoryParameterDuplicate" xml:space="preserve"><value>This parameter already has a value from that date.</value></data>
+  <data name="PdfPayslipTitle" xml:space="preserve"><value>Payslip</value></data>
+  <data name="PdfAnnualStatementTitle" xml:space="preserve"><value>Annual income statement</value></data>
+  <data name="PdfAnnualStatementYear" xml:space="preserve"><value>Year {0}</value></data>
+  <data name="PdfAnnualStatementEmpty" xml:space="preserve"><value>No posted payroll for this year.</value></data>
+  <data name="PdfEmployee" xml:space="preserve"><value>Employee</value></data>
+  <data name="PdfPersonalNumber" xml:space="preserve"><value>Personal number</value></data>
+  <data name="PdfDepartment" xml:space="preserve"><value>Department</value></data>
+  <data name="PdfEmployerType" xml:space="preserve"><value>Employer</value></data>
+  <data name="PdfPrimaryEmployer" xml:space="preserve"><value>Primary employer</value></data>
+  <data name="PdfSecondaryEmployer" xml:space="preserve"><value>Secondary employer</value></data>
+  <data name="PdfDays" xml:space="preserve"><value>Paid days / working days</value></data>
+  <data name="PdfDaysValue" xml:space="preserve"><value>{0} / {1}</value></data>
+  <data name="PdfEarnings" xml:space="preserve"><value>Earnings</value></data>
+  <data name="PdfBaseSalary" xml:space="preserve"><value>Base salary (paid days)</value></data>
+  <data name="PdfBonuses" xml:space="preserve"><value>Bonuses and commissions</value></data>
+  <data name="PdfOtherAdditions" xml:space="preserve"><value>Other additions</value></data>
+  <data name="PdfGross" xml:space="preserve"><value>Gross salary</value></data>
+  <data name="PdfWithholdings" xml:space="preserve"><value>Withholdings and deductions</value></data>
+  <data name="PdfEmployeePension" xml:space="preserve"><value>Employee pension contribution</value></data>
+  <data name="PdfPitPrimary" xml:space="preserve"><value>Personal income tax</value></data>
+  <data name="PdfPitSecondary" xml:space="preserve"><value>Personal income tax — secondary employer</value></data>
+  <data name="PdfDeductions" xml:space="preserve"><value>Deductions</value></data>
+  <data name="PdfAdjustments" xml:space="preserve"><value>Items included this month</value></data>
+  <data name="PdfNetPay" xml:space="preserve"><value>Net pay</value></data>
+  <data name="PdfEmployerContributions" xml:space="preserve"><value>Employer contributions (not deducted from pay)</value></data>
+  <data name="PdfEmployerPension" xml:space="preserve"><value>Employer pension contribution</value></data>
+  <data name="PdfEmployerSignature" xml:space="preserve"><value>Employer</value></data>
+  <data name="PdfEmployeeSignature" xml:space="preserve"><value>Employee</value></data>
+  <data name="PdfMonth" xml:space="preserve"><value>Month</value></data>
+  <data name="PdfPit" xml:space="preserve"><value>PIT</value></data>
+  <data name="PdfTotal" xml:space="preserve"><value>Total</value></data>
+  <data name="PayrollKind_Bonus" xml:space="preserve"><value>Bonus</value></data>
+  <data name="PayrollKind_Commission" xml:space="preserve"><value>Commission</value></data>
+  <data name="PayrollKind_Allowance" xml:space="preserve"><value>Allowance</value></data>
+  <data name="PayrollKind_Overtime" xml:space="preserve"><value>Overtime</value></data>
+  <data name="PayrollKind_NightWork" xml:space="preserve"><value>Night work</value></data>
+  <data name="PayrollKind_WeekendWork" xml:space="preserve"><value>Weekend work</value></data>
+  <data name="PayrollKind_HolidayWork" xml:space="preserve"><value>Public holiday work</value></data>
+  <data name="PayrollKind_Deduction" xml:space="preserve"><value>Deduction</value></data>
+  <data name="Email_Footer" xml:space="preserve"><value>This message was sent automatically by PAKO. Notification settings: {appUrl}/settings</value></data>
+  <data name="Email_Decision_Approved" xml:space="preserve"><value>approved</value></data>
+  <data name="Email_Decision_Rejected" xml:space="preserve"><value>rejected</value></data>
+  <data name="Email_LeaveSubmitted_Subject" xml:space="preserve"><value>Leave request: {employee}, {start} – {end}</value></data>
+  <data name="Email_LeaveSubmitted_Body" xml:space="preserve"><value>{employee} has requested {days} working day(s) of {type} from {start} to {end}.
+
+Reason: {reason}
+
+Review it in PAKO: {appUrl}/leave</value></data>
+  <data name="Email_LeaveDecided_Subject" xml:space="preserve"><value>Your leave request was {decision}</value></data>
+  <data name="Email_LeaveDecided_Body" xml:space="preserve"><value>Hello {employee},
+
+Your request for {type} from {start} to {end} ({days} working day(s)) was {decision}.</value></data>
+  <data name="Email_PayslipReady_Subject" xml:space="preserve"><value>Your payslip for {month} — {company}</value></data>
+  <data name="Email_PayslipReady_Body" xml:space="preserve"><value>Hello {employee},
+
+Your payslip for {month} from {company} is attached as a PDF.</value></data>
+  <data name="Email_StaffInvitation_Subject" xml:space="preserve"><value>You now have access to {company} in PAKO</value></data>
+  <data name="Email_StaffInvitation_Body" xml:space="preserve"><value>You have been given access to {company} in PAKO.
+
+Sign in with this email address: {appUrl}/login</value></data>
+  <data name="Email_EdiDeadline_Subject" xml:space="preserve"><value>{company}: payroll for {month} not posted — EDI due {dueDate}</value></data>
+  <data name="Email_EdiDeadline_Body" xml:space="preserve"><value>The payroll for {month} at {company} has not been posted yet. The EDI wage declaration is due on {dueDate} ({daysLeft} day(s) left).
+
+Open payroll: {appUrl}/payroll</value></data>
+  <data name="Email_ContractEnding_Subject" xml:space="preserve"><value>Contract ending: {employee} on {endDate}</value></data>
+  <data name="Email_ContractEnding_Body" xml:space="preserve"><value>The employment contract of {employee} ends on {endDate}. Renew it or record the end of employment in PAKO.</value></data>
+  <data name="Email_ProbationEnding_Subject" xml:space="preserve"><value>Probation ending: {employee} on {endDate}</value></data>
+  <data name="Email_ProbationEnding_Body" xml:space="preserve"><value>The probation period of {employee} ends on {endDate}.</value></data>
+  <data name="Email_ProfileChangeRequested_Subject" xml:space="preserve"><value>{employee} asked to change their {field}</value></data>
+  <data name="Email_ProfileChangeRequested_Body" xml:space="preserve"><value>{employee} asked to change their {field}. The change applies only after HR approves it.
+
+Review it in PAKO: {appUrl}/employees</value></data>
+  <data name="Email_ProfileChangeDecided_Subject" xml:space="preserve"><value>Your {field} change was {decision}</value></data>
+  <data name="Email_ProfileChangeDecided_Body" xml:space="preserve"><value>Hello {employee},
+
+Your request to change your {field} was {decision}.</value></data>
+  <data name="Email_ExpenseClaimSubmitted_Subject" xml:space="preserve"><value>Expense claim from {employee}: {total}</value></data>
+  <data name="Email_ExpenseClaimSubmitted_Body" xml:space="preserve"><value>{employee} submitted an expense claim of {total} ({lines} item(s)).
+
+Review it in PAKO: {appUrl}/expense-claims</value></data>
+  <data name="Email_ExpenseClaimDecided_Subject" xml:space="preserve"><value>Your expense claim of {total} was {decision}</value></data>
+  <data name="Email_ExpenseClaimDecided_Body" xml:space="preserve"><value>Hello {employee},
+
+Your expense claim of {total} was {decision}. {note}</value></data>
+  <data name="Email_FirmPayrollDigest_Subject" xml:space="preserve"><value>{firm}: payroll status for {month}</value></data>
+  <data name="Email_FirmPayrollDigest_Body" xml:space="preserve"><value>Payroll status for {month} across your clients (EDI due {dueDate}):
+
+{summary}
+
+Open the dashboard: {appUrl}/firm-payroll</value></data>
+  <data name="ProbationEndInvalid" xml:space="preserve"><value>The probation end must fall within the contract and at most six months after its start.</value></data>
+  <data name="LeaveCarryOverInvalid" xml:space="preserve"><value>Carry-over days must be zero or more and the expiry month between 1 and 12.</value></data>
+  <data name="Email_Field_BankAccount" xml:space="preserve"><value>bank account (IBAN)</value></data>
+  <data name="NoEmployeeForUser" xml:space="preserve"><value>Your login is not linked to an employee in this company. Ask HR to link it.</value></data>
+  <data name="NotYourReport" xml:space="preserve"><value>This request belongs to someone who does not report to you.</value></data>
+  <data name="OnlyOwnPendingLeaveCancels" xml:space="preserve"><value>You can cancel only your own requests that are still pending.</value></data>
+  <data name="ProfileChangeNotPending" xml:space="preserve"><value>This change has already been decided.</value></data>
+  <data name="CannotApproveOwnChange" xml:space="preserve"><value>You cannot approve a change to your own bank account. Ask another HR member.</value></data>
+  <data name="LoanRepaymentIsAutomatic" xml:space="preserve"><value>Loan repayments are taken by payroll from the loan itself. Change the loan's installment instead.</value></data>
+  <data name="LoanPrincipalInvalid" xml:space="preserve"><value>The amount must be more than zero, with at most two decimals.</value></data>
+  <data name="LoanInstallmentInvalid" xml:space="preserve"><value>The monthly installment must be more than zero and no more than the amount.</value></data>
+  <data name="NoEmployeeAdvancesAccount" xml:space="preserve"><value>No employee receivables account (111100) to post to. Add it to the chart of accounts.</value></data>
+  <data name="LoanNotActive" xml:space="preserve"><value>Only an active loan can be cancelled.</value></data>
+  <data name="LoanHasRepayments" xml:space="preserve"><value>Payroll has already recovered part of this loan, so it can no longer be cancelled.</value></data>
+  <data name="CommissionPlanNameRequired" xml:space="preserve"><value>The plan needs a name.</value></data>
+  <data name="CommissionPlanNameTaken" xml:space="preserve"><value>Another commission plan already has this name.</value></data>
+  <data name="CommissionRateInvalid" xml:space="preserve"><value>The rate must be between 0 and 1 (e.g. 0.03 for 3%), and the threshold zero or more.</value></data>
+  <data name="PayrollKind_LoanRepayment" xml:space="preserve"><value>Loan repayment</value></data>
+  <data name="CommissionPlanNotFound" xml:space="preserve"><value>That commission plan does not exist in this company.</value></data>
+  <data name="ExpenseClaimNotEditable" xml:space="preserve"><value>This claim has been submitted and can no longer be changed.</value></data>
+  <data name="ExpenseClaimTitleRequired" xml:space="preserve"><value>Give the claim a title (up to 200 characters).</value></data>
+  <data name="ExpenseClaimLinesRequired" xml:space="preserve"><value>Add at least one receipt line (at most 100).</value></data>
+  <data name="ExpenseClaimLineDescriptionRequired" xml:space="preserve"><value>Every line needs a description.</value></data>
+  <data name="ExpenseClaimLineAmountInvalid" xml:space="preserve"><value>Every amount must be more than zero, with at most two decimals.</value></data>
+  <data name="ExpenseClaimAccountInvalid" xml:space="preserve"><value>Choose an expense category from the list.</value></data>
+  <data name="ExpenseClaimTaxInvalid" xml:space="preserve"><value>Choose a VAT rate from the list, or none.</value></data>
+  <data name="ExpenseClaimNotSubmitted" xml:space="preserve"><value>Only a submitted claim can be approved or rejected.</value></data>
+  <data name="ExpenseClaimBillNotPosted" xml:space="preserve"><value>The claim's bill must be posted (in Purchases) before it can be reimbursed.</value></data>
+  <data name="ExpenseClaimAlreadyReimbursed" xml:space="preserve"><value>This claim has already been reimbursed in full.</value></data>
+  <data name="ExpenseClaimAlreadyScheduled" xml:space="preserve"><value>A payroll reimbursement for this claim is already waiting for a run.</value></data>
+  <data name="ExpenseReceiptInvalid" xml:space="preserve"><value>Attach an image or PDF of up to 10 MB.</value></data>
+  <data name="PayrollKind_Reimbursement" xml:space="preserve"><value>Expense reimbursement (not taxed)</value></data>
+  <data name="PdfReimbursements" xml:space="preserve"><value>Expense reimbursements (not taxed)</value></data>
+  <data name="PdfLoanRepayments" xml:space="preserve"><value>of which loan/advance repayments</value></data>
+  <data name="ReimbursementFromClaimOnly" xml:space="preserve"><value>Expense reimbursements are scheduled from the expense claim. You can delete this one, not edit it.</value></data>
+  <data name="Email_PayrollStatus_Done" xml:space="preserve"><value>posted</value></data>
+  <data name="Email_PayrollStatus_Overdue" xml:space="preserve"><value>OVERDUE</value></data>
+  <data name="Email_PayrollStatus_DueSoon" xml:space="preserve"><value>due within 5 days</value></data>
+  <data name="Email_PayrollStatus_Open" xml:space="preserve"><value>not posted yet</value></data>
+  <data name="Email_PayrollStatus_NoRun" xml:space="preserve"><value>no payroll run</value></data>
+  <data name="TimeEntryHoursInvalid" xml:space="preserve"><value>Hours must be more than 0 and at most 24, with at most two decimals.</value></data>
+  <data name="TimeEntryApproved" xml:space="preserve"><value>This entry is part of an approved month and can't be deleted.</value></data>
+  <data name="TimesheetAdjustmentDescription" xml:space="preserve"><value>From approved timesheets</value></data>
+  <data name="TimesheetImportTooLarge" xml:space="preserve"><value>The file has too many lines (at most 10,000).</value></data>
+  <data name="TimesheetImportColumns" xml:space="preserve"><value>Expected at least: personal number or email, date, hours.</value></data>
+  <data name="TimesheetImportUnknownEmployee" xml:space="preserve"><value>No active employee with personal number or email {0}.</value></data>
+  <data name="TimesheetImportDate" xml:space="preserve"><value>The date must be yyyy-MM-dd or dd.MM.yyyy.</value></data>
+  <data name="TimesheetImportKind" xml:space="preserve"><value>Kind must be Regular, Overtime, Night, Weekend or Holiday (or left empty).</value></data>
+  <data name="TimesheetImportFile" xml:space="preserve"><value>Attach a CSV file of up to 5 MB.</value></data>
+  <data name="RoleNameRequired" xml:space="preserve"><value>Give the role a name (up to 80 characters).</value></data>
+  <data name="RoleNameTaken" xml:space="preserve"><value>Another role already has this name.</value></data>
+  <data name="RoleNotFound" xml:space="preserve"><value>That role does not exist.</value></data>
+  <data name="RoleInUse" xml:space="preserve"><value>Users still have this role. Give them another role first.</value></data>
+  <data name="RoleRequired" xml:space="preserve"><value>Choose a role, or make the user an administrator.</value></data>
+  <data name="InviteEmailInvalid" xml:space="preserve"><value>Enter a valid email address.</value></data>
+  <data name="InvitationNotFound" xml:space="preserve"><value>That invitation is no longer open.</value></data>
+  <data name="InvitationInvalid" xml:space="preserve"><value>This invitation link is invalid, already used or expired. Ask your administrator for a new one.</value></data>
+  <data name="InvitationWrongPassword" xml:space="preserve"><value>This email already has a PAKO account. Enter that account's password to join.</value></data>
+  <data name="MemberNotFound" xml:space="preserve"><value>That user is not a member of this company.</value></data>
+  <data name="LastAdministrator" xml:space="preserve"><value>The company must keep at least one active administrator.</value></data>
+  <data name="CannotDeactivateSelf" xml:space="preserve"><value>You can't deactivate or remove yourself. Ask another administrator.</value></data>
+  <data name="AccountLocked" xml:space="preserve"><value>Too many wrong passwords. The account is locked for 15 minutes — or reset your password.</value></data>
+  <data name="ResetLinkInvalid" xml:space="preserve"><value>This reset link is invalid or expired. Ask for a new one.</value></data>
+  <data name="Email_UserInvitation_Subject" xml:space="preserve"><value>{inviter} invited you to {company} in PAKO</value></data>
+  <data name="Email_UserInvitation_Body" xml:space="preserve"><value>{inviter} has given you access to {company} in PAKO.
+
+Accept the invitation and set your password: {link}
+
+The link works once and expires in {days} days.</value></data>
+  <data name="Email_PasswordReset_Subject" xml:space="preserve"><value>Reset your PAKO password</value></data>
+  <data name="Email_PasswordReset_Body" xml:space="preserve"><value>Someone asked to reset the password of this PAKO account.
+
+Set a new password: {link}
+
+If it wasn't you, ignore this email — your password stays the same.</value></data>
+  <data name="DashboardInvalidPeriod" xml:space="preserve">
+    <value>The period is not valid: the start must be on or before the end, and a period can be at most ten years.</value>
+  </data>
+  <data name="DashboardInvalidLayout" xml:space="preserve">
+    <value>The dashboard layout has a widget or chart type that does not exist, a width outside 1–4, or more than 40 widgets.</value>
+  </data>
+  <data name="ModuleDisabled" xml:space="preserve">
+    <value>This module is not enabled for this company. A platform administrator can turn it on.</value>
+  </data>
+  <data name="AccountDisabled" xml:space="preserve">
+    <value>This account has been disabled. Contact the PAKO administrator.</value>
+  </data>
+  <data name="SelfRegistrationDisabled" xml:space="preserve">
+    <value>Accounts are created by the PAKO administrator. Use “Request an account” to ask for one.</value>
+  </data>
+  <data name="AccountRequestInvalid" xml:space="preserve">
+    <value>Check the request: a name and a valid email are required, and between 1 and 100 companies.</value>
+  </data>
+  <data name="AccountRequestNotFound" xml:space="preserve">
+    <value>That account request doesn't exist.</value>
+  </data>
+  <data name="AccountRequestDecided" xml:space="preserve">
+    <value>That account request has already been decided.</value>
+  </data>
+  <data name="AccountRequestEmailTaken" xml:space="preserve">
+    <value>An account with this email already exists. Reject the request, or manage the existing user instead.</value>
+  </data>
+  <data name="CompanyLimitInvalid" xml:space="preserve">
+    <value>The company limit can't be negative.</value>
+  </data>
+  <data name="CompanyLimitReached" xml:space="preserve">
+    <value>You have reached your limit of {0} companies. Ask the PAKO administrator to raise it.</value>
+  </data>
+  <data name="PlatformUserNotFound" xml:space="preserve">
+    <value>That user doesn't exist.</value>
+  </data>
+  <data name="PlatformCannotChangeSelf" xml:space="preserve">
+    <value>You can't disable yourself or remove your own administrator rights.</value>
+  </data>
+  <data name="ModulesInvalid" xml:space="preserve">
+    <value>Unknown module. Use sales, purchases, accounting, reports, hr or payroll.</value>
+  </data>
+  <data name="PayrollNeedsHr" xml:space="preserve">
+    <value>Payroll needs the HR module: employees live in HR.</value>
+  </data>
+  <data name="PasswordResetNotAllowed" xml:space="preserve">
+    <value>For security, you can reset the password only of staff who belong to this company alone — not of administrators or people with access to other companies. They can use “Forgot password” on the sign-in page.</value>
+  </data>
 </root>

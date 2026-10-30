@@ -1,4 +1,9 @@
 import { hrEn, hrSq } from "@/i18n/messages.hr";
+import { meEn, meSq } from "@/i18n/messages.me";
+import { adminEn, adminSq } from "@/i18n/messages.admin";
+import { dashboardEn, dashboardSq } from "@/i18n/messages.dashboard";
+import { lobbyEn, lobbySq } from "@/i18n/messages.lobby";
+import { platformEn, platformSq } from "@/i18n/messages.platform";
 import { leaveEn, leaveSq } from "@/i18n/messages.leave";
 import { payrollEn, payrollSq } from "@/i18n/messages.payroll";
 
@@ -1365,6 +1370,16 @@ export const en: Record<string, string> = {
   "favorites.frequentlyUsed": "Frequently Used",
   "favorites.addToFavorites": "Add to favorites",
   "favorites.removeFromFavorites": "Remove from favorites",
+  "nav.costCenters": "Cost centers",
+  "nav.costCenters.description": "Analytic cost centers that departments and journal lines are tagged with.",
+  "costCenters.new": "New cost center",
+  "costCenters.edit": "Edit {code}",
+  "costCenters.nameEn": "Name (English)",
+  "costCenters.nameEnHint": "Optional — defaults to the name.",
+  "costCenters.loadError": "Could not load cost centers.",
+  "costCenters.saveError": "Could not save the cost center.",
+  "costCenters.empty": "No cost centers yet.",
+  "costCenters.searchPlaceholder": "Search cost centers…",
 };
 
 export const sq: Record<string, string> = {
@@ -2730,10 +2745,20 @@ export const sq: Record<string, string> = {
   "favorites.frequentlyUsed": "T\u00eb p\u00ebrdorura shpesh",
   "favorites.addToFavorites": "Shto te favoritet",
   "favorites.removeFromFavorites": "Hiq nga favoritet",
+  "nav.costCenters": "Qendrat e kostos",
+  "nav.costCenters.description": "Qendrat analitike të kostos me të cilat etiketohen departamentet dhe rreshtat e ditarit.",
+  "costCenters.new": "Qendër e re kostoje",
+  "costCenters.edit": "Ndrysho {code}",
+  "costCenters.nameEn": "Emri (anglisht)",
+  "costCenters.nameEnHint": "Opsionale — merr emrin si parazgjedhje.",
+  "costCenters.loadError": "Qendrat e kostos nuk u ngarkuan.",
+  "costCenters.saveError": "Qendra e kostos nuk u ruajt.",
+  "costCenters.empty": "Ende nuk ka qendra kostoje.",
+  "costCenters.searchPlaceholder": "Kërko qendra kostoje…",
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
-Object.assign(en, hrEn, payrollEn, leaveEn);
-Object.assign(sq, hrSq, payrollSq, leaveSq);
+Object.assign(en, hrEn, payrollEn, leaveEn, meEn, adminEn, dashboardEn, lobbyEn, platformEn);
+Object.assign(sq, hrSq, payrollSq, leaveSq, meSq, adminSq, dashboardSq, lobbySq, platformSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

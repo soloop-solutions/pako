@@ -2,6 +2,7 @@ using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Domain.Payroll;
+using Pako.Localization.Xk;
 
 namespace Pako.Tests;
 
@@ -9,7 +10,7 @@ namespace Pako.Tests;
 // payslip builder (proration, leave, adjustments), the split posting and the run workflow.
 public class HrPayrollDomainTests
 {
-    private static readonly PayrollStatutoryRates Rates = PayrollRunComposer.KosovoRates();
+    private static readonly PayrollStatutoryRates Rates = StatutoryParameterResolver.Resolve(KosovoStatutoryDefaults.All, new DateOnly(2026, 10, 1)).ToRates();
     private static readonly IReadOnlySet<DateOnly> NoHolidays = new HashSet<DateOnly>();
     private readonly PayrollCalculationService _calculation = new();
 

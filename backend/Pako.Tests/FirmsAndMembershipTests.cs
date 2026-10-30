@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services.Notifications;
 using Pako.Api.Controllers;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
@@ -230,7 +231,7 @@ public class FirmsAndMembershipTests : IAsyncLifetime
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 
-        var controller = new CompanyMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
+        var controller = new CompanyMembersController(db, userManager, new NotificationOutbox(db), new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(company.Id, new AddMemberRequest("ghost@example.com", MembershipRole.ClientViewer));
 
         Assert.IsType<NotFoundObjectResult>(result.Result);
@@ -263,7 +264,7 @@ public class FirmsAndMembershipTests : IAsyncLifetime
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 
-        var controller = new CompanyMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
+        var controller = new CompanyMembersController(db, userManager, new NotificationOutbox(db), new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(company.Id, new AddMemberRequest("member@example.com", MembershipRole.ClientViewer));
 
         var created = Assert.IsType<MemberResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
@@ -281,7 +282,7 @@ public class FirmsAndMembershipTests : IAsyncLifetime
         db.Companies.Add(company);
         await db.SaveChangesAsync();
 
-        var controller = new CompanyMembersController(db, userManager, new NullStringLocalizer<ErrorMessages>());
+        var controller = new CompanyMembersController(db, userManager, new NotificationOutbox(db), new NullStringLocalizer<ErrorMessages>());
         var result = await controller.Create(company.Id, new AddMemberRequest("someone@example.com", MembershipRole.FirmAdmin));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);

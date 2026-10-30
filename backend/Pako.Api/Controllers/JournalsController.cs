@@ -69,7 +69,7 @@ public class JournalsController : ControllerBase
     // prerequisites this repo doesn't have), so there is nothing to check; a documented gap, not
     // a silently skipped one.
     [HttpPost("{journalId:guid}/secure")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(module: AccessModule.Accounting, approve: true)]
     public async Task<ActionResult<SecureJournalResponse>> Secure(Guid companyId, Guid journalId, SecureJournalRequest request)
     {
         var journal = await _db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.Id == journalId && j.CompanyId == companyId);

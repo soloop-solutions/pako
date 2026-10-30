@@ -1,9 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import type { MemberResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,7 @@ type MembersPanelProps = {
 
 export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
   const intl = useIntl();
+  const queryClient = useQueryClient();
   const { auth } = useAuth();
   const roleValues = scope === "company" ? companyMemberRoleValues : firmMemberRoleValues;
 
@@ -44,18 +46,6 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
   const [addError, setAddError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const isStaffRole = scope === "company" && role === CLIENT_STAFF;
-
-  // HR module: a Staff member is linked to an employee record, and only employees with no login yet
-  // can be picked. 200 is the API's page-size ceiling.
-  const unlinkedEmployeesQuery = useQuery({
-    queryKey: ["employees", scopeId, "unlinked"],
-    queryFn: async () => {
-      const result = await apiClient.listEmployees(scopeId, 1, 200, undefined, "name", undefined, false);
-      return result.items.filter((e) => !e.userId);
-    },
-    enabled: isStaffRole,
-  });
-  const unlinkedEmployees = unlinkedEmployeesQuery.data ?? [];
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -86,7 +76,8 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
       }
       setEmail("");
       setEmployeeId("");
-      if (isStaffRole) await unlinkedEmployeesQuery.refetch();
+      // The linked employee now has a login, so it leaves the Staff picker.
+      if (isStaffRole) await queryClient.invalidateQueries({ queryKey: ["employees", scopeId] });
       await refresh();
     } catch (err) {
       setAddError(getApiErrorMessage(err, intl.formatMessage({ id: "members.addError" })));
@@ -164,22 +155,14 @@ export function MembersPanel({ scope, scopeId }: MembersPanelProps) {
           {isStaffRole && (
             <div className="flex flex-col gap-2">
               <Label htmlFor={`${scope}-${scopeId}-member-employee`}>{intl.formatMessage({ id: "hr.members.employee" })}</Label>
-              <Select
+              {/* Only employees with no login yet can be linked to a new Staff member. */}
+              <EmployeePicker
                 id={`${scope}-${scopeId}-member-employee`}
                 className="w-56"
+                companyId={scopeId}
+                withoutLogin
                 value={employeeId}
-                onValueChange={(v) => setEmployeeId(v)}
-                placeholder={intl.formatMessage({
-                  id: unlinkedEmployeesQuery.isPending
-                    ? "common.loading"
-                    : unlinkedEmployees.length === 0
-                      ? "hr.members.noUnlinkedEmployees"
-                      : "hr.members.selectEmployee",
-                })}
-                options={unlinkedEmployees.map((employee) => ({
-                  value: employee.id,
-                  label: employee.name,
-                }))}
+                onChange={(id) => setEmployeeId(id)}
               />
             </div>
           )}

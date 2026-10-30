@@ -1,22 +1,20 @@
 import { useCallback, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Moon, Sun } from "lucide-react";
+import { Building2 } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Outlet, useNavigate } from "react-router-dom";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
+import { AccountMenu } from "@/components/layout/AccountMenu";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
-import { CompanySwitchDialog } from "@/components/layout/CompanySwitchDialog";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TabStrip } from "@/components/layout/TabStrip";
 import { Button } from "@/components/ui/button";
-import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Toaster } from "@/components/ui/sonner";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { TabsProvider, useTabs } from "@/context/TabsContext";
-import { useTheme } from "@/context/ThemeContext";
 
 function UnsavedChangesWarning({
   onDiscard,
@@ -53,69 +51,23 @@ function AppShell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { auth, logout } = useAuth();
-  const { companies, activeCompanyId, activeCompany, setActiveCompanyId } = useCompany();
-  const { theme, toggle } = useTheme();
+  const { activeCompany, leaveCompany } = useCompany();
   const { tabs } = useTabs();
-
-  const [switchTarget, setSwitchTarget] = useState<{ id: string; name: string } | null>(null);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
-  const [pendingTargetId, setPendingTargetId] = useState<string | null>(null);
 
-  const hasDirtyTabs = tabs.some((t) => t.dirty);
-
-  const handleCompanySelectorChange = useCallback(
-    (targetId: string) => {
-      if (targetId === activeCompanyId) return;
-
-      // For single-company users or first company selection, switch directly
-      if (!activeCompanyId) {
-        setActiveCompanyId(targetId);
-        navigate("/dashboard", { replace: true });
-        return;
-      }
-
-      const target = companies.find((c) => c.id === targetId);
-      if (!target) return;
-
-      // Check for unsaved changes first
-      if (hasDirtyTabs) {
-        setPendingTargetId(targetId);
-        setShowUnsavedWarning(true);
-        return;
-      }
-
-      // Show password confirmation
-      setSwitchTarget({ id: targetId, name: target.name });
-    },
-    [activeCompanyId, companies, hasDirtyTabs, setActiveCompanyId, navigate],
-  );
-
-  const handleUnsavedDiscard = useCallback(() => {
+  // The company is changed only in the lobby: leaving the company drops its data from the cache
+  // and returns to the lobby, where the next one is chosen.
+  const exitToLobby = useCallback(() => {
     setShowUnsavedWarning(false);
-    if (!pendingTargetId) return;
-    const target = companies.find((c) => c.id === pendingTargetId);
-    if (!target) return;
-    setSwitchTarget({ id: pendingTargetId, name: target.name });
-    setPendingTargetId(null);
-  }, [pendingTargetId, companies]);
-
-  const handleUnsavedStay = useCallback(() => {
-    setShowUnsavedWarning(false);
-    setPendingTargetId(null);
-  }, []);
-
-  const handleSwitchConfirm = useCallback(() => {
-    if (!switchTarget) return;
-    setActiveCompanyId(switchTarget.id);
-    setSwitchTarget(null);
-    // Invalidate all queries to force fresh data for the new company
+    leaveCompany();
     queryClient.clear();
-    navigate("/dashboard", { replace: true });
-  }, [switchTarget, setActiveCompanyId, queryClient, navigate]);
+    navigate("/select-company", { replace: true });
+  }, [leaveCompany, queryClient, navigate]);
 
-  const handleSwitchCancel = useCallback(() => {
-    setSwitchTarget(null);
-  }, []);
+  const requestExit = useCallback(() => {
+    if (tabs.some((t) => t.dirty)) setShowUnsavedWarning(true);
+    else exitToLobby();
+  }, [tabs, exitToLobby]);
 
   return (
     <>
@@ -129,45 +81,22 @@ function AppShell() {
           <header className="flex h-12 shrink-0 items-center justify-between border-b px-6">
             <div className="flex items-center gap-3">
               <span className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.kosovoAccountingPlatform" })}</span>
-              {companies.length > 0 && (
-                <SearchableSelect
-                  aria-label={intl.formatMessage({ id: "common.selectCompany" })}
-                  className="h-8 w-48"
-                  value={activeCompanyId ?? ""}
-                  onChange={handleCompanySelectorChange}
-                  placeholder={intl.formatMessage({ id: "common.selectCompany" })}
-                  searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-                  noResultsText={intl.formatMessage({ id: "common.noResults" })}
-                  options={companies
-                    .filter((company) => !company.isArchived)
-                    .map((company) => ({
-                      value: company.id,
-                      label: company.name,
-                    }))}
-                />
-              )}
               {activeCompany && (
-                <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1">
+                <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1" data-testid="active-company">
                   <Building2 className="size-3.5 text-primary" />
                   <span className="text-xs font-semibold text-primary">{activeCompany.name}</span>
                 </div>
               )}
             </div>
             <div className="flex items-center gap-3">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                aria-label={intl.formatMessage({ id: theme === "dark" ? "common.theme.light" : "common.theme.dark" })}
-                onClick={toggle}
-              >
-                {theme === "dark" ? <Sun className="size-4" /> : <Moon className="size-4" />}
-              </Button>
+              <ThemeToggleButton />
               <LanguageSwitcher />
-              <span className="text-sm text-muted-foreground">{auth?.email}</span>
-              <Button variant="outline" size="sm" onClick={logout}>
-                {intl.formatMessage({ id: "common.logOut" })}
-              </Button>
+              <AccountMenu
+                email={auth?.email}
+                companyName={activeCompany?.name}
+                onChangeCompany={requestExit}
+                onLogout={logout}
+              />
             </div>
           </header>
           <TabStrip />
@@ -178,19 +107,9 @@ function AppShell() {
         </div>
       </div>
       <GlobalSearch />
-      <Toaster />
 
       {showUnsavedWarning && (
-        <UnsavedChangesWarning onDiscard={handleUnsavedDiscard} onStay={handleUnsavedStay} />
-      )}
-
-      {switchTarget && activeCompany && (
-        <CompanySwitchDialog
-          currentCompanyName={activeCompany.name}
-          targetCompanyName={switchTarget.name}
-          onConfirm={handleSwitchConfirm}
-          onCancel={handleSwitchCancel}
-        />
+        <UnsavedChangesWarning onDiscard={exitToLobby} onStay={() => setShowUnsavedWarning(false)} />
       )}
     </>
   );

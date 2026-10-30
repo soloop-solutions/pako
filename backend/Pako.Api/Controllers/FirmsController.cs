@@ -54,7 +54,7 @@ public class FirmsController : ControllerBase
         var userId = CurrentUserId;
 
         var firmIds = await _db.Memberships.AsNoTracking()
-            .Where(m => m.UserId == userId && m.FirmId != null)
+            .Where(m => m.UserId == userId && m.FirmId != null && m.IsActive)
             .Select(m => m.FirmId!.Value)
             .ToListAsync();
 

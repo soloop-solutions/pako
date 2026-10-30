@@ -15,6 +15,13 @@ public class Membership
     public Guid? CompanyId { get; set; }
     public MembershipRole Role { get; set; }
 
+    // docs/USER_ACCESS_PLAN.md: what a ClientStaff user may do (ignored for other roles).
+    public Guid? CompanyRoleId { get; set; }
+
+    // A deactivated membership grants nothing; the next request after deactivation is refused.
+    public bool IsActive { get; set; } = true;
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     public static Membership ForFirm(Guid userId, Guid firmId, MembershipRole role)
     {
         if (!FirmRoles.Contains(role))

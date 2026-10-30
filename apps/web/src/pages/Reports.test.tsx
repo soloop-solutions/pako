@@ -43,6 +43,7 @@ vi.mock("@/context/CompanyContext", () => ({
     loading: false,
     error: null,
     setActiveCompanyId: vi.fn(),
+    leaveCompany: vi.fn(),
     createCompany: vi.fn(),
     refresh: vi.fn(),
   }),

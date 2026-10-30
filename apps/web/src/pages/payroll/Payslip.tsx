@@ -4,7 +4,14 @@ import { useIntl } from "react-intl";
 import type { PayslipDetailResponse } from "@pako/shared";
 
 import { cn } from "@/lib/utils";
-import { formatAmount, formatPayrollMonth, isDeductionKind, isHourBasedKind, payrollAdjustmentKindLabel } from "@/lib/payroll-enums";
+import {
+  formatAmount,
+  formatPayrollMonth,
+  isDeductionKind,
+  isHourBasedKind,
+  PayrollAdjustmentKind,
+  payrollAdjustmentKindLabel,
+} from "@/lib/payroll-enums";
 
 type PayslipProps = {
   companyName: string;
@@ -45,7 +52,8 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export function Payslip({ companyName, periodStart, periodEnd, line, className }: PayslipProps) {
   const intl = useIntl();
   const money = (value: number) => formatAmount(value);
-  const additions = line.adjustments.filter((a) => !isDeductionKind(a.kind));
+  // Reimbursements are not earnings: they are listed on their own, outside gross.
+  const additions = line.adjustments.filter((a) => !isDeductionKind(a.kind) && a.kind !== PayrollAdjustmentKind.Reimbursement);
   const deductions = line.adjustments.filter((a) => isDeductionKind(a.kind));
 
   function adjustmentLabel(kind: number, description: string | undefined, hours: number | undefined, multiplier: number | undefined) {
@@ -119,7 +127,16 @@ export function Payslip({ companyName, periodStart, periodEnd, line, className }
           <Row key={a.id} indent label={adjustmentLabel(a.kind, a.description, a.hours, a.rateMultiplier)} value={money(a.amount)} />
         ))}
         <Row label={intl.formatMessage({ id: "payroll.payslip.deductions" })} value={money(line.deductionsAmount)} />
+        {(line.loanRepaymentAmount ?? 0) !== 0 && (
+          <Row indent muted label={intl.formatMessage({ id: "payroll.payslip.loanRepayments" })} value={money(line.loanRepaymentAmount ?? 0)} />
+        )}
       </Section>
+
+      {(line.reimbursementAmount ?? 0) !== 0 && (
+        <Section title={intl.formatMessage({ id: "payroll.payslip.reimbursements" })}>
+          <Row label={intl.formatMessage({ id: "payroll.payslip.reimbursements" })} value={money(line.reimbursementAmount ?? 0)} />
+        </Section>
+      )}
 
       <div className="flex items-baseline justify-between border-y-2 border-foreground py-1.5 text-sm font-semibold">
         <span>{intl.formatMessage({ id: "payroll.payslip.netPay" })}</span>

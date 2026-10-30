@@ -10,7 +10,10 @@ public enum AttachmentOwnerType
     Invoice,
     Bill,
     JournalEntry,
-    Partner
+    Partner,
+
+    // H13: receipts on an expense claim (uploaded through self-service, copied to the bill).
+    ExpenseClaim
 }
 
 // Stored inline in Postgres (Content bytea), not on local disk or external object storage — this

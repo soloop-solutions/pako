@@ -11,6 +11,10 @@ public class PayrollAdjustmentConfiguration : IEntityTypeConfiguration<PayrollAd
         builder.ToTable("payroll_adjustments");
         builder.HasKey(a => a.Id);
         builder.Property(a => a.Kind).HasConversion<string>().HasMaxLength(16);
+        builder.Property(a => a.CommissionBasisAmount).HasColumnType("numeric(18,2)");
+        builder.HasOne<EmployeeLoan>().WithMany().HasForeignKey(a => a.EmployeeLoanId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasIndex(a => a.EmployeeLoanId);
+        builder.HasIndex(a => a.ExpenseClaimId);
         builder.Property(a => a.Description).HasMaxLength(256);
         builder.Property(a => a.Hours).HasColumnType("numeric(8,2)");
         builder.Property(a => a.RateMultiplier).HasColumnType("numeric(6,4)");

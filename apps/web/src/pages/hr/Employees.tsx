@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { ProfileChangesPanel } from "@/pages/hr/ProfileChangesPanel";
 import { employeeWarningLabel } from "@/lib/hr-enums";
 
 const GRID_ID = "employees";
@@ -26,7 +27,7 @@ export function Employees() {
   const intl = useIntl();
   const navigate = useNavigate();
   const { activeCompanyId } = useCompany();
-  const { canWrite } = useMyAccess();
+  const { canWrite, canApprove } = useMyAccess();
   const urlState = useDataGridUrlState(GRID_ID, 50);
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -58,6 +59,7 @@ export function Employees() {
         sort,
         departmentId || undefined,
         includeInactive,
+        false,
       ),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
@@ -177,6 +179,8 @@ export function Employees() {
           <AlertDescription>{loadError}</AlertDescription>
         </Alert>
       )}
+
+      <ProfileChangesPanel companyId={activeCompanyId} canDecide={canApprove("hr")} />
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">

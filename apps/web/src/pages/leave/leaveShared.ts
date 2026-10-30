@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import type { EmployeeDetailResponse, LeaveTypeResponse } from "@pako/shared";
+import type { LeaveTypeResponse } from "@pako/shared";
 
 import { apiClient } from "@/api/client";
 
@@ -59,21 +59,6 @@ export function yearOptions(selected: number): number[] {
   const now = currentYear();
   const years = new Set<number>([now - 2, now - 1, now, now + 1, selected]);
   return [...years].sort((a, b) => b - a);
-}
-
-// The employee picker loads one page of 200 (the API's max page size) active employees. A company
-// with more than that needs a searchable picker — flagged in the HR plan, not built here.
-export const EMPLOYEE_PICKER_PAGE_SIZE = 200;
-
-export function useLeaveEmployees(companyId: string | null) {
-  return useQuery({
-    queryKey: ["leave", "employees", companyId],
-    queryFn: async (): Promise<EmployeeDetailResponse[]> => {
-      const result = await apiClient.listEmployees(companyId as string, 1, EMPLOYEE_PICKER_PAGE_SIZE, undefined, undefined, undefined, false);
-      return result.items;
-    },
-    enabled: !!companyId,
-  });
 }
 
 export function leaveTypesQueryKey(companyId: string | null) {

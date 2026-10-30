@@ -20,8 +20,10 @@ public class AuditController : ControllerBase
         Guid Id, string EntityType, string EntityId, string Action,
         string? UserId, DateTime OccurredAtUtc, string? Changes);
 
+    // The trail records changes to every kind of record (salaries, invoices, users), so only company
+    // administrators may read it.
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(adminOnly: true)]
     public async Task<ActionResult<List<AuditEntryResponse>>> List(
         Guid companyId,
         [FromQuery] string? entityType,
