@@ -19,7 +19,7 @@ describe("ChecksPanel", () => {
     m.checks.mockResolvedValue(fixture);
   });
 
-  it("renders the five checks for the selected period, the failing one in amber", async () => {
+  it("renders the six checks for the selected period, the failing one in amber", async () => {
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
     expect(await screen.findByText("Cash flow closes")).toBeInTheDocument();
     expect(m.checks).toHaveBeenCalledWith("c1", "2026-01-01", "2026-12-31");
@@ -29,10 +29,11 @@ describe("ChecksPanel", () => {
       "Cash flow closes",
       "Trial balance balances",
       "Books match VAT return",
+      "Vendor balances match payables",
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(screen.getAllByText("Passed").length).toBe(4);
+    expect(screen.getAllByText("Passed").length).toBe(5);
     const failing = screen.getByText("Cash flow closes").closest("[data-check]") as HTMLElement;
     expect(failing).toHaveAttribute("data-passed", "false");
     expect(failing.className).toContain("amber");
