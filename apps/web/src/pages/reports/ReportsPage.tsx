@@ -13,10 +13,13 @@ import { EquityTab } from "./EquityTab";
 import { ExpenseBookTab } from "./ExpenseBookTab";
 import { GeneralLedgerTab } from "./GeneralLedgerTab";
 import { MonthlyPnlTab } from "./MonthlyPnlTab";
+import { PayablesAgingTab } from "./PayablesAgingTab";
 import { PnlTab } from "./PnlTab";
 import { PurchaseBookTab } from "./PurchaseBookTab";
+import { PurchasesTab } from "./PurchasesTab";
 import { SalesBookTab } from "./SalesBookTab";
 import { VatTab } from "./VatTab";
+import { VendorsTab } from "./VendorsTab";
 import { useBalanceSheetReport } from "./useBalanceSheetReport";
 import { useCashFlowReport } from "./useCashFlowReport";
 import { useDebtReport } from "./useDebtReport";
@@ -24,10 +27,13 @@ import { useEquityStatementReport } from "./useEquityStatementReport";
 import { useExpenseBookReport } from "./useExpenseBookReport";
 import { useGeneralLedgerReport } from "./useGeneralLedgerReport";
 import { useMonthlyPnlReport } from "./useMonthlyPnlReport";
+import { usePayablesAgingReport } from "./usePayablesAgingReport";
 import { usePnlReport } from "./usePnlReport";
 import { usePurchaseBookReport } from "./usePurchaseBookReport";
+import { usePurchasesReport } from "./usePurchasesReport";
 import { useSalesBookReport } from "./useSalesBookReport";
 import { useVatReport } from "./useVatReport";
+import { useVendorsReport } from "./useVendorsReport";
 
 type Tab =
   | "pnl"
@@ -40,7 +46,10 @@ type Tab =
   | "monthly-pnl"
   | "cash-flow"
   | "equity"
-  | "expense-book";
+  | "expense-book"
+  | "vendors"
+  | "payables-aging"
+  | "purchases";
 
 export function Reports() {
   const intl = useIntl();
@@ -59,6 +68,9 @@ export function Reports() {
     { key: "cash-flow", labelKey: "reports.cashFlow" },
     { key: "equity", labelKey: "reports.equityStatement" },
     { key: "expense-book", labelKey: "reports.expenseBook" },
+    { key: "vendors", labelKey: "reports.vendors" },
+    { key: "payables-aging", labelKey: "reports.payablesAging" },
+    { key: "purchases", labelKey: "reports.purchases" },
   ];
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -86,6 +98,9 @@ export function Reports() {
   const cashFlowReport = useCashFlowReport(companyId, tab === "cash-flow");
   const equityReport = useEquityStatementReport(companyId, tab === "equity");
   const expenseBookReport = useExpenseBookReport(companyId, tab === "expense-book");
+  const vendorsReport = useVendorsReport(companyId, tab === "vendors");
+  const payablesAgingReport = usePayablesAgingReport(companyId, tab === "payables-aging");
+  const purchasesReport = usePurchasesReport(companyId, tab === "purchases");
 
   if (!activeCompany) {
     return (
@@ -141,6 +156,13 @@ export function Reports() {
       {tab === "equity" && <EquityTab report={equityReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />}
       {tab === "expense-book" && (
         <ExpenseBookTab report={expenseBookReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
+      )}
+      {tab === "vendors" && (
+        <VendorsTab report={vendorsReport} companyId={activeCompany.id} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
+      )}
+      {tab === "payables-aging" && <PayablesAgingTab report={payablesAgingReport} companyName={activeCompany.name} />}
+      {tab === "purchases" && (
+        <PurchasesTab report={purchasesReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
       )}
     </div>
   );
