@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AccountRequestResponse } from "@pako/shared";
 import { Copy } from "lucide-react";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { useUrlParam } from "@/pages/platform/useUrlParam";
+
+const GRID_ID = "platform-requests";
 
 // Mirrors AccountRequestStatus (numeric in the query, a string in responses).
 const statuses = [
@@ -31,12 +34,15 @@ const statuses = [
 export function AccountRequestsTab() {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string>) => intl.formatMessage({ id }, values);
-  const [statusKey, setStatusKey] = useUrlParam("status", "pending");
+  // Changing the status starts again from page 1 (the grid's page parameter is cleared with it).
+  const [statusKey, setStatusKey] = useUrlParam("status", "pending", [`${GRID_ID}.page`]);
   const status = statuses.find((s) => s.key === statusKey) ?? statuses[0];
+  const grid = useDataGridUrlState(GRID_ID, 50);
   const [open, setOpen] = useState<AccountRequestResponse | null>(null);
   const query = useQuery({
-    queryKey: ["platform", "requests", status.key],
-    queryFn: () => apiClient.listAccountRequests(status.value),
+    queryKey: ["platform", "requests", status.key, grid.page, grid.pageSize, grid.globalFilter],
+    queryFn: () => apiClient.listAccountRequests(status.value, grid.globalFilter || undefined, grid.page, grid.pageSize),
+    placeholderData: keepPreviousData,
   });
   const date = (v: string | undefined) => (v ? intl.formatDate(new Date(v), { dateStyle: "medium", timeStyle: "short" }) : "—");
 
@@ -83,10 +89,12 @@ export function AccountRequestsTab() {
         ))}
       </div>
       <DataGrid
-        gridId="platform-requests"
+        gridId={GRID_ID}
         columns={columns}
-        data={query.data ?? []}
-        rowCount={query.data?.length ?? 0}
+        data={query.data?.items ?? []}
+        rowCount={query.data?.total ?? 0}
+        enableGlobalFilter
+        globalFilterPlaceholder={t("platform.requests.search")}
         isLoading={query.isPending}
         getRowId={(r) => r.id}
         onRowClick={setOpen}

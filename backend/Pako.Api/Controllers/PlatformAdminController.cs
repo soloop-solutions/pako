@@ -26,8 +26,9 @@ public class PlatformAdminController : ControllerBase
     public async Task<ActionResult<PlatformOverviewResponse>> Overview() => Ok(await _platform.OverviewAsync());
 
     [HttpGet("users", Name = "ListPlatformUsers")]
-    public async Task<ActionResult<List<PlatformUserResponse>>> Users([FromQuery] string? search = null) =>
-        Ok(await _platform.ListUsersAsync(search));
+    public async Task<ActionResult<PaginatedResponse<PlatformUserResponse>>> Users(
+        [FromQuery] string? search = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50) =>
+        Ok(await _platform.ListUsersAsync(search, page, pageSize));
 
     [HttpPut("users/{userId:guid}", Name = "UpdatePlatformUser")]
     public async Task<IActionResult> UpdateUser(Guid userId, UpdatePlatformUserRequest request)
@@ -37,8 +38,14 @@ public class PlatformAdminController : ControllerBase
     }
 
     [HttpGet("account-requests", Name = "ListAccountRequests")]
-    public async Task<ActionResult<List<AccountRequestResponse>>> Requests([FromQuery] AccountRequestStatus? status = null) =>
-        Ok(await _platform.ListRequestsAsync(status));
+    public async Task<ActionResult<PaginatedResponse<AccountRequestResponse>>> Requests(
+        [FromQuery] AccountRequestStatus? status = null, [FromQuery] string? search = null,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50) =>
+        Ok(await _platform.ListRequestsAsync(status, search, page, pageSize));
+
+    // For the badge on the Account requests tab.
+    [HttpGet("account-requests/pending-count", Name = "CountPendingAccountRequests")]
+    public async Task<ActionResult<int>> PendingCount() => Ok(await _platform.PendingRequestCountAsync());
 
     [HttpPost("account-requests/{id:guid}/approve", Name = "ApproveAccountRequest")]
     public async Task<ActionResult<ApproveAccountRequestResponse>> Approve(Guid id, ApproveAccountRequestRequest request)
@@ -54,9 +61,14 @@ public class PlatformAdminController : ControllerBase
         return error is null ? Ok(result) : BadRequest(error);
     }
 
+    [HttpGet("audit", Name = "ListPlatformAudit")]
+    public async Task<ActionResult<PaginatedResponse<PlatformAuditResponse>>> Audit([FromQuery] int page = 1, [FromQuery] int pageSize = 50) =>
+        Ok(await _platform.AuditAsync(page, pageSize));
+
     [HttpGet("companies", Name = "ListPlatformCompanies")]
-    public async Task<ActionResult<List<PlatformCompanyResponse>>> Companies([FromQuery] string? search = null, [FromQuery] Guid? createdBy = null) =>
-        Ok(await _platform.ListCompaniesAsync(search, createdBy));
+    public async Task<ActionResult<PaginatedResponse<PlatformCompanyResponse>>> Companies(
+        [FromQuery] string? search = null, [FromQuery] Guid? createdBy = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50) =>
+        Ok(await _platform.ListCompaniesAsync(search, createdBy, page, pageSize));
 
     [HttpPut("companies/{companyId:guid}/modules", Name = "UpdateCompanyModules")]
     public async Task<ActionResult<PlatformCompanyResponse>> UpdateModules(Guid companyId, UpdateCompanyModulesRequest request)

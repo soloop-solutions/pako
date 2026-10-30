@@ -73,10 +73,7 @@ public class MyAccessController : ControllerBase
         }
 
         var isAdmin = _access.Roles.Any(r => r is MembershipRole.FirmAdmin or MembershipRole.ClientAdmin);
-        var roleName = _access.Roles.Contains(MembershipRole.FirmAdmin) ? "FirmAdmin"
-            : _access.Roles.Contains(MembershipRole.FirmAccountant) ? "FirmAccountant"
-            : _access.Roles.Contains(MembershipRole.ClientAdmin) ? "Administrator"
-            : "ReadOnly";
+        var roleName = MembershipRoles.StrongestLabel(_access.Roles);
         return Ok(new MyAccessResponse(
             IsStaff: false,
             CanWrite: _access.LevelFor(AccessModule.Sales) >= AccessLevel.Write,

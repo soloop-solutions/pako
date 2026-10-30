@@ -434,4 +434,7 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="PasswordResetNotAllowed" xml:space="preserve">
     <value>For security, you can reset the password only of staff who belong to this company alone — not of administrators or people with access to other companies. They can use “Forgot password” on the sign-in page.</value>
   </data>
+  <data name="PlatformAdminFromConfig" xml:space="preserve">
+    <value>This administrator is set in the server configuration (Platform:AdminEmails). Remove them there to take away their rights.</value>
+  </data>
 </root>

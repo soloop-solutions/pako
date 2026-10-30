@@ -33,11 +33,13 @@ vi.mock("@/api/client", async () => {
             postedInvoices: 220, invoicesLast30Days: 20, postedBills: 185, employees: 14, payrollRuns: 21 },
         ],
       }),
-      listAccountRequests: async () => [request],
+      listAccountRequests: async () => ({ items: [request], total: 1, page: 1, pageSize: 50 }),
+      countPendingAccountRequests: async () => 1,
+      listPlatformAudit: async () => ({ items: [], total: 0, page: 1, pageSize: 50 }),
       approveAccountRequest: (...args: unknown[]) => approve(...(args as [])),
-      listPlatformCompanies: async () => [company],
+      listPlatformCompanies: async () => ({ items: [company], total: 1, page: 1, pageSize: 50 }),
       updateCompanyModules: (...args: unknown[]) => updateModules(...(args as [])),
-      listPlatformUsers: async () => [],
+      listPlatformUsers: async () => ({ items: [], total: 0, page: 1, pageSize: 50 }),
     },
   };
 });
@@ -100,5 +102,16 @@ describe("Administration panel", () => {
     expect(within(dialog).getByRole("checkbox", { name: /^Payroll/ })).not.toBeChecked();
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateModules).toHaveBeenCalledWith("c1", { modules: ["sales", "purchases", "accounting", "reports"] }));
+  });
+
+  it("moves between tabs with the arrow keys and records every change under Activity", async () => {
+    renderAt("/platform");
+    const overview = await screen.findByRole("tab", { name: "Overview" });
+    expect(overview).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tab", { name: "Users" })).toHaveAttribute("tabindex", "-1");
+    fireEvent.keyDown(overview, { key: "End" });
+    expect(await screen.findByRole("tab", { name: "Activity", selected: true })).toBeInTheDocument();
+    expect(await screen.findByText("No administration changes yet.")).toBeInTheDocument();
+    expect(screen.getByRole("tabpanel")).toHaveAttribute("aria-labelledby", "platform-tab-activity");
   });
 });

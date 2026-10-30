@@ -2679,6 +2679,48 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("account_requests", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Platform.PlatformAuditEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("ActorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Details")
+                        .HasColumnType("jsonb");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TargetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TargetLabel")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("TargetType")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredAtUtc");
+
+                    b.HasIndex("TargetType", "TargetId");
+
+                    b.ToTable("platform_audit_entries", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Reconciliation.Reconciliation", b =>
                 {
                     b.Property<Guid>("Id")

@@ -9344,14 +9344,24 @@ export class PakoApiClient {
 
     /**
      * @param search (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
      * @return OK
      */
-    listPlatformUsers(search: string | undefined): Promise<PlatformUserResponse[]> {
+    listPlatformUsers(search: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPlatformUserResponse> {
         let url_ = this.baseUrl + "/api/platform/users?";
         if (search === null)
             throw new globalThis.Error("The parameter 'search' cannot be null.");
         else if (search !== undefined)
             url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -9366,13 +9376,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processListPlatformUsers(response: Response): Promise<PlatformUserResponse[]> {
+    protected processListPlatformUsers(response: Response): Promise<PaginatedResponseOfPlatformUserResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PlatformUserResponse[];
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPlatformUserResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -9380,7 +9390,7 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<PlatformUserResponse[]>(null as any);
+        return Promise.resolve<PaginatedResponseOfPlatformUserResponse>(null as any);
     }
 
     /**
@@ -9425,14 +9435,29 @@ export class PakoApiClient {
 
     /**
      * @param status (optional) 
+     * @param search (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
      * @return OK
      */
-    listAccountRequests(status: number | undefined): Promise<AccountRequestResponse[]> {
+    listAccountRequests(status: number | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfAccountRequestResponse> {
         let url_ = this.baseUrl + "/api/platform/account-requests?";
         if (status === null)
             throw new globalThis.Error("The parameter 'status' cannot be null.");
         else if (status !== undefined)
             url_ += "status=" + encodeURIComponent("" + status) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -9447,13 +9472,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processListAccountRequests(response: Response): Promise<AccountRequestResponse[]> {
+    protected processListAccountRequests(response: Response): Promise<PaginatedResponseOfAccountRequestResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountRequestResponse[];
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfAccountRequestResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -9461,7 +9486,43 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<AccountRequestResponse[]>(null as any);
+        return Promise.resolve<PaginatedResponseOfAccountRequestResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    countPendingAccountRequests(): Promise<number> {
+        let url_ = this.baseUrl + "/api/platform/account-requests/pending-count";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCountPendingAccountRequests(_response);
+        });
+    }
+
+    protected processCountPendingAccountRequests(response: Response): Promise<number> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as number;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<number>(null as any);
     }
 
     /**
@@ -9551,11 +9612,59 @@ export class PakoApiClient {
     }
 
     /**
-     * @param search (optional) 
-     * @param createdBy (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
      * @return OK
      */
-    listPlatformCompanies(search: string | undefined, createdBy: string | undefined): Promise<PlatformCompanyResponse[]> {
+    listPlatformAudit(page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPlatformAuditResponse> {
+        let url_ = this.baseUrl + "/api/platform/audit?";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPlatformAudit(_response);
+        });
+    }
+
+    protected processListPlatformAudit(response: Response): Promise<PaginatedResponseOfPlatformAuditResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPlatformAuditResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfPlatformAuditResponse>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @param createdBy (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listPlatformCompanies(search: string | undefined, createdBy: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPlatformCompanyResponse> {
         let url_ = this.baseUrl + "/api/platform/companies?";
         if (search === null)
             throw new globalThis.Error("The parameter 'search' cannot be null.");
@@ -9565,6 +9674,14 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'createdBy' cannot be null.");
         else if (createdBy !== undefined)
             url_ += "createdBy=" + encodeURIComponent("" + createdBy) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -9579,13 +9696,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processListPlatformCompanies(response: Response): Promise<PlatformCompanyResponse[]> {
+    protected processListPlatformCompanies(response: Response): Promise<PaginatedResponseOfPlatformCompanyResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PlatformCompanyResponse[];
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPlatformCompanyResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -9593,7 +9710,7 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<PlatformCompanyResponse[]>(null as any);
+        return Promise.resolve<PaginatedResponseOfPlatformCompanyResponse>(null as any);
     }
 
     /**
@@ -12778,6 +12895,15 @@ export interface OverrideNumberRequest {
     [key: string]: any;
 }
 
+export interface PaginatedResponseOfAccountRequestResponse {
+    items: AccountRequestResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
 export interface PaginatedResponseOfEmployeeDetailResponse {
     items: EmployeeDetailResponse[];
     total: number;
@@ -12807,6 +12933,33 @@ export interface PaginatedResponseOfLeaveRequestResponse {
 
 export interface PaginatedResponseOfNotificationLogResponse {
     items: NotificationLogResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfPlatformAuditResponse {
+    items: PlatformAuditResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfPlatformCompanyResponse {
+    items: PlatformCompanyResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfPlatformUserResponse {
+    items: PlatformUserResponse[];
     total: number;
     page: number;
     pageSize: number;
@@ -12976,6 +13129,19 @@ export interface PayslipDetailResponse {
 
 export interface PinFavoriteRequest {
     isPinned: boolean;
+
+    [key: string]: any;
+}
+
+export interface PlatformAuditResponse {
+    id: string;
+    occurredAt: string;
+    actorEmail: string | undefined;
+    action: string;
+    targetType: string;
+    targetId: string;
+    targetLabel: string;
+    details: string | undefined;
 
     [key: string]: any;
 }

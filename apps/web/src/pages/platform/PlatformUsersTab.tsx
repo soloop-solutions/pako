@@ -1,32 +1,34 @@
 import { useMemo, useState } from "react";
-import { useUrlParam } from "@/pages/platform/useUrlParam";
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PlatformUserResponse } from "@pako/shared";
-import { Search } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { UserAccessForm } from "@/pages/platform/UserAccessForm";
+
+const GRID_ID = "platform-users";
 
 // Every PAKO account: who they are, how many companies they created against their limit, how many
 // companies they can open, and whether the account is active.
 export function PlatformUsersTab() {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string>) => intl.formatMessage({ id }, values);
-  const [search, setSearch] = useUrlParam("q");
+  // Page, page size and search live in the URL (the grid's own state); the API pages the list.
+  const grid = useDataGridUrlState(GRID_ID, 50);
   const [editing, setEditing] = useState<PlatformUserResponse | null>(null);
-  const query = useQuery({ queryKey: ["platform", "users"], queryFn: () => apiClient.listPlatformUsers(undefined) });
+  const query = useQuery({
+    queryKey: ["platform", "users", grid.page, grid.pageSize, grid.globalFilter],
+    queryFn: () => apiClient.listPlatformUsers(grid.globalFilter || undefined, grid.page, grid.pageSize),
+    placeholderData: keepPreviousData,
+  });
   const date = (v: string | undefined) => (v ? intl.formatDate(new Date(v), { dateStyle: "medium" }) : "—");
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (query.data ?? []).filter((u) => !q || u.email.toLowerCase().includes(q) || (u.fullName ?? "").toLowerCase().includes(q));
-  }, [query.data, search]);
+  const rows = query.data?.items ?? [];
 
   const columns = useMemo<ColumnDef<PlatformUserResponse>[]>(
     () => [
@@ -72,15 +74,13 @@ export function PlatformUsersTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("platform.users.search")} aria-label={t("platform.users.search")} />
-      </div>
       <DataGrid
-        gridId="platform-users"
+        gridId={GRID_ID}
         columns={columns}
         data={rows}
-        rowCount={rows.length}
+        rowCount={query.data?.total ?? 0}
+        enableGlobalFilter
+        globalFilterPlaceholder={t("platform.users.search")}
         isLoading={query.isPending}
         getRowId={(u) => u.id}
         getRowClassName={(u) => (u.isDisabled ? "text-muted-foreground" : undefined)}

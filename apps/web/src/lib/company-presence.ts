@@ -7,20 +7,27 @@
 
 type Message =
   | { type: "ping"; userId: string; from: string; requestId: string }
-  | { type: "pong"; userId: string; from: string; requestId: string; companyId: string }
+  | { type: "pong"; userId: string; from: string; requestId: string; companyId: string; unsaved: boolean }
   | { type: "opened"; userId: string; from: string; companyId: string };
 
 const CHANNEL = "pako.company-presence";
 
+/** A company open in another tab or window, and whether that tab has unsaved edits. */
+export interface OpenElsewhere {
+  companyId: string;
+  unsaved: boolean;
+}
+
 export class CompanyPresence {
   private channel: BroadcastChannel | null;
-  private waiting = new Map<string, Set<string>>();
+  private waiting = new Map<string, Map<string, boolean>>();
 
   constructor(
     private readonly userId: string,
     private readonly tabId: string,
     private readonly getActive: () => string | null,
     private readonly onReplaced: (newCompanyId: string) => void,
+    private readonly hasUnsaved: () => boolean = () => false,
   ) {
     this.channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(CHANNEL);
     if (this.channel) this.channel.onmessage = (event: MessageEvent<Message>) => this.receive(event.data);
@@ -34,25 +41,26 @@ export class CompanyPresence {
     if (!message || message.userId !== this.userId || message.from === this.tabId) return;
     const active = this.getActive();
     if (message.type === "ping" && active) {
-      this.send({ type: "pong", userId: this.userId, from: this.tabId, requestId: message.requestId, companyId: active });
+      this.send({ type: "pong", userId: this.userId, from: this.tabId, requestId: message.requestId, companyId: active, unsaved: this.hasUnsaved() });
     } else if (message.type === "pong") {
       // Each question has its own id, so overlapping questions never steal each other's answers.
-      this.waiting.get(message.requestId)?.add(message.companyId);
+      const found = this.waiting.get(message.requestId);
+      if (found) found.set(message.companyId, (found.get(message.companyId) ?? false) || message.unsaved);
     } else if (message.type === "opened" && active && active !== message.companyId) {
       this.onReplaced(message.companyId);
     }
   }
 
   /** Companies open in this user's other tabs and windows right now. */
-  async openElsewhere(timeoutMs = 250): Promise<string[]> {
+  async openElsewhere(timeoutMs = 250): Promise<OpenElsewhere[]> {
     if (!this.channel) return [];
-    const found = new Set<string>();
+    const found = new Map<string, boolean>();
     const requestId = newTabId();
     this.waiting.set(requestId, found);
     this.send({ type: "ping", userId: this.userId, from: this.tabId, requestId });
     await new Promise((resolve) => setTimeout(resolve, timeoutMs));
     this.waiting.delete(requestId);
-    return [...found];
+    return [...found].map(([companyId, unsaved]) => ({ companyId, unsaved }));
   }
 
   /** Tells the other tabs this one now has the company open; tabs in another company close theirs. */

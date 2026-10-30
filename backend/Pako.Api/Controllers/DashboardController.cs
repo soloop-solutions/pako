@@ -141,7 +141,21 @@ public class DashboardController : ControllerBase
         layout.WidgetsJson = JsonSerializer.Serialize(widgets, Json);
         layout.UpdatedAt = DateTime.UtcNow;
         layout.UpdatedByUserId = _access.UserId;
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException) when (_db.Entry(layout).State == EntityState.Added)
+        {
+            // Someone saved the company's first layout at the same moment: update theirs instead.
+            _db.Entry(layout).State = EntityState.Detached;
+            var existing = await _db.DashboardLayouts.FirstAsync(d => d.CompanyId == companyId);
+            existing.WidgetsJson = layout.WidgetsJson;
+            existing.UpdatedAt = layout.UpdatedAt;
+            existing.UpdatedByUserId = layout.UpdatedByUserId;
+            await _db.SaveChangesAsync();
+            layout = existing;
+        }
 
         return Ok(new DashboardLayoutResponse(widgets, false, true, layout.UpdatedAt));
     }

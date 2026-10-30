@@ -42,3 +42,8 @@ public record AccountantUsageResponse(
 public record PlatformOverviewResponse(
     int Users, int AccountantCount, int PlatformAdmins, int DisabledUsers, int Companies, int PendingRequests,
     int InvoicesLast30Days, int ActiveUsersLast30Days, List<AccountantUsageResponse> Accountants);
+
+// One platform administration action. Action: ApproveRequest, RejectRequest, UpdateUser, UpdateModules.
+// Details is JSON ({ before, after } or { note }).
+public record PlatformAuditResponse(
+    Guid Id, DateTime OccurredAt, string? ActorEmail, string Action, string TargetType, Guid TargetId, string TargetLabel, string? Details);

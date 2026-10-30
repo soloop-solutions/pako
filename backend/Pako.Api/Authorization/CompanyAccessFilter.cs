@@ -78,6 +78,7 @@ public class CompanyAccessFilter : IAsyncActionFilter
         var memberships = await _db.Memberships.AsNoTracking()
             .Where(m => m.UserId == userId && m.IsActive &&
                 (m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId)))
+            .OrderBy(m => m.CreatedAt)
             .Select(m => new { m.Role, m.CompanyRoleId })
             .ToListAsync();
         var roles = memberships.Select(m => m.Role).ToList();

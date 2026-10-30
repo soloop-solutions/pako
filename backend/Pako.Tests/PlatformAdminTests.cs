@@ -86,7 +86,7 @@ public class PlatformAdminTests : IAsyncLifetime
         Assert.Null(await seed.Platform.SubmitRequestAsync(Request("root@pako.test")));
         Assert.NotNull(await seed.Platform.SubmitRequestAsync(Request("not-an-email")));
 
-        var pending = Assert.Single(await seed.Platform.ListRequestsAsync(AccountRequestStatus.Pending));
+        var pending = Assert.Single((await seed.Platform.ListRequestsAsync(AccountRequestStatus.Pending, null, 1, 50)).Items);
         Assert.Equal(3, pending.RequestedCompanies);
 
         var (approved, error) = await seed.Platform.ApproveAsync(pending.Id, new ApproveAccountRequestRequest(2, "Welcome"), seed.Admin.Id);
@@ -232,6 +232,55 @@ public class PlatformAdminTests : IAsyncLifetime
         var result = await off.Register(new RegisterRequest("new@x.test", Password));
         Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(result.Result).StatusCode);
         Assert.Null(await seed.Users.FindByEmailAsync("new@x.test"));
+    }
+
+    [Fact]
+    public async Task Lists_ArePaged_AndEveryAdministrationChangeIsInTheAuditTrail()
+    {
+        var seed = await SeedAsync();
+        for (var i = 0; i < 5; i++)
+        {
+            await seed.Users.CreateAsync(new AppUser { Id = Guid.NewGuid(), Email = $"u{i}@page.test", UserName = $"u{i}@page.test" }, Password);
+        }
+        var first = await seed.Platform.ListUsersAsync("page.test", 1, 2);
+        Assert.Equal(5, first.Total);
+        Assert.Equal(new[] { "u0@page.test", "u1@page.test" }, first.Items.Select(u => u.Email));
+        Assert.Equal("u4@page.test", Assert.Single((await seed.Platform.ListUsersAsync("page.test", 3, 2)).Items).Email);
+
+        var target = (await seed.Platform.ListUsersAsync("u1@page.test", 1, 10)).Items.Single();
+        Assert.Null(await seed.Platform.UpdateUserAsync(target.Id, new UpdatePlatformUserRequest(4, true, false), seed.Admin.Id));
+        var company = new Company { Id = Guid.NewGuid(), Name = "Audited Co" };
+        seed.Db.Companies.Add(company);
+        await seed.Db.SaveChangesAsync();
+        await seed.Platform.UpdateModulesAsync(company.Id, new List<string> { "sales" }, seed.Admin.Id);
+
+        var audit = await seed.Platform.AuditAsync(1, 50);
+        Assert.Equal(2, audit.Total);
+        var modules = audit.Items[0];
+        Assert.Equal(("UpdateModules", "Audited Co", "root@pako.test"), (modules.Action, modules.TargetLabel, modules.ActorEmail));
+        // jsonb reformats stored JSON, so read it rather than match text.
+        using var moduleDetails = System.Text.Json.JsonDocument.Parse(modules.Details!);
+        Assert.Equal("sales", Assert.Single(moduleDetails.RootElement.GetProperty("after").EnumerateArray()).GetString());
+        var user = audit.Items[1];
+        Assert.Equal(("UpdateUser", "u1@page.test"), (user.Action, user.TargetLabel));
+        using var userDetails = System.Text.Json.JsonDocument.Parse(user.Details!);
+        Assert.True(userDetails.RootElement.GetProperty("after").GetProperty("isDisabled").GetBoolean());
+        Assert.False(userDetails.RootElement.GetProperty("before").GetProperty("isDisabled").GetBoolean());
+    }
+
+    [Fact]
+    public async Task AnAdministratorFromConfiguration_CanNotBeDemotedFromThePanel()
+    {
+        var seed = await SeedAsync();
+        var configured = new AppUser { Id = Guid.NewGuid(), Email = "boss@pako.test", UserName = "boss@pako.test", IsPlatformAdmin = true };
+        await seed.Users.CreateAsync(configured, Password);
+        var userAdmin = new UserAdminService(seed.Db, seed.Users, new NotificationOutbox(seed.Db),
+            Options.Create(new EmailOptions { AppBaseUrl = "https://app.test" }), new NullStringLocalizer<ErrorMessages>());
+        var platform = new PlatformAdminService(seed.Db, seed.Users, userAdmin, new NullStringLocalizer<ErrorMessages>(),
+            NullLogger<PlatformAdminService>.Instance, Options.Create(new PlatformOptions { AdminEmails = { "boss@pako.test" } }));
+
+        Assert.NotNull(await platform.UpdateUserAsync(configured.Id, new UpdatePlatformUserRequest(null, false, false), seed.Admin.Id));
+        Assert.True((await seed.Users.FindByIdAsync(configured.Id.ToString()))!.IsPlatformAdmin);
     }
 
     private static AuthorizationFilterContext AuthorizationContext(Guid userId)

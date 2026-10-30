@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { formatAmount, formatPayrollMonth } from "@/lib/payroll-enums";
+import { cn } from "@/lib/utils";
 
 const statusVariant: Record<string, "success" | "destructive" | "warning" | "outline"> = {
   Done: "success",
@@ -52,7 +53,10 @@ export function FirmPayroll() {
       {
         accessorKey: "runState",
         header: intl.formatMessage({ id: "firmPayroll.run" }),
-        cell: ({ getValue }) => (getValue() as string | undefined) ?? intl.formatMessage({ id: "firmPayroll.noRun" }),
+        cell: ({ getValue }) => {
+          const state = getValue() as string | undefined;
+          return state ? intl.formatMessage({ id: `payroll.state.${state.toLowerCase()}` }) : intl.formatMessage({ id: "firmPayroll.noRun" });
+        },
       },
       {
         accessorKey: "totalGross",
@@ -60,7 +64,14 @@ export function FirmPayroll() {
         meta: { numeric: true },
         cell: ({ getValue }) => (getValue() == null ? "—" : formatAmount(getValue() as number)),
       },
-      { accessorKey: "ediDueDate", header: intl.formatMessage({ id: "firmPayroll.ediDue" }) },
+      {
+        accessorKey: "ediDueDate",
+        header: intl.formatMessage({ id: "firmPayroll.ediDue" }),
+        cell: ({ getValue }) => {
+          const due = getValue() as string | undefined;
+          return due ? intl.formatDate(new Date(`${due}T00:00`), { dateStyle: "medium" }) : "—";
+        },
+      },
       {
         accessorKey: "daysRemaining",
         header: intl.formatMessage({ id: "firmPayroll.daysLeft" }),
@@ -110,7 +121,9 @@ export function FirmPayroll() {
           rowCount={rows.length}
           isLoading={overviewQuery.isPending}
           getRowId={(row) => row.companyId}
-          getRowClassName={(row) => (row.status === "Overdue" ? "bg-destructive/5" : undefined)}
+          // Only the open company's row opens its payroll (companies change in the company list), so
+          // the other rows don't pretend to be clickable.
+          getRowClassName={(row) => cn(row.status === "Overdue" && "bg-destructive/5", row.companyId !== activeCompanyId && "cursor-default!")}
           // The company changes only in the lobby, so only the current company's row opens its payroll.
           onRowClick={(row) => {
             if (row.companyId === activeCompanyId) navigate(row.runId ? `/payroll/${row.runId}` : "/payroll");

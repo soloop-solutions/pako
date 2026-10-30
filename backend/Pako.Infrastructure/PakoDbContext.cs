@@ -76,6 +76,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<CompanyRole> CompanyRoles => Set<CompanyRole>();
     public DbSet<DashboardLayout> DashboardLayouts => Set<DashboardLayout>();
     public DbSet<Pako.Domain.Platform.AccountRequest> AccountRequests => Set<Pako.Domain.Platform.AccountRequest>();
+    public DbSet<Pako.Domain.Platform.PlatformAuditEntry> PlatformAuditEntries => Set<Pako.Domain.Platform.PlatformAuditEntry>();
     public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

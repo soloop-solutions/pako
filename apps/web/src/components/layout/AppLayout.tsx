@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { useIntl } from "react-intl";
@@ -12,10 +12,13 @@ import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TabStrip } from "@/components/layout/TabStrip";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { TabsProvider, useTabs } from "@/context/TabsContext";
 
+// Leaving the company with unsaved edits: a real dialog (focus stays inside, Escape or a click
+// outside means "stay"), so it works by keyboard and with screen readers.
 function UnsavedChangesWarning({
   onDiscard,
   onStay,
@@ -25,24 +28,22 @@ function UnsavedChangesWarning({
 }) {
   const intl = useIntl();
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onStay}>
-      <div
-        className="mx-4 w-full max-w-sm rounded-lg border bg-card p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-        role="alertdialog"
-        aria-modal="true"
-      >
-        <p className="mb-4 text-sm">{intl.formatMessage({ id: "companySwitch.unsavedWarning" })}</p>
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={onStay}>
+    <Dialog open onOpenChange={(open) => !open && onStay()}>
+      <DialogContent className="sm:max-w-sm" role="alertdialog">
+        <DialogHeader>
+          <DialogTitle>{intl.formatMessage({ id: "lobby.exit" })}</DialogTitle>
+          <DialogDescription>{intl.formatMessage({ id: "companySwitch.unsavedWarning" })}</DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button type="button" variant="outline" onClick={onStay} autoFocus>
             {intl.formatMessage({ id: "companySwitch.stayHere" })}
           </Button>
           <Button type="button" variant="destructive" onClick={onDiscard}>
             {intl.formatMessage({ id: "companySwitch.discardAndSwitch" })}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -51,9 +52,16 @@ function AppShell() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { auth, logout } = useAuth();
-  const { activeCompany, leaveCompany } = useCompany();
+  const { activeCompany, leaveCompany, setHasUnsavedWork } = useCompany();
   const { tabs } = useTabs();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
+  const hasDirtyTabs = tabs.some((t) => t.dirty);
+
+  // Other windows ask before opening a different company; tell them if edits here would be lost.
+  useEffect(() => {
+    setHasUnsavedWork(hasDirtyTabs);
+    return () => setHasUnsavedWork(false);
+  }, [hasDirtyTabs, setHasUnsavedWork]);
 
   // The company is changed only in the lobby: leaving the company drops its data from the cache
   // and returns to the lobby, where the next one is chosen.

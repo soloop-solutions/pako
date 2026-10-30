@@ -5,7 +5,7 @@ import type { CompanyResponse, UpdateCompanyProfileRequest } from "@pako/shared"
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
 import { recordCompanyOpened } from "@/lib/company-last-opened";
-import { CompanyPresence, newTabId } from "@/lib/company-presence";
+import { CompanyPresence, newTabId, type OpenElsewhere } from "@/lib/company-presence";
 
 const ACTIVE_COMPANY_KEY = "pako.activeCompanyId";
 
@@ -30,9 +30,11 @@ type CompanyContextValue = {
   /** Leaves the active company: the user goes back to the lobby to pick one. */
   leaveCompany: () => void;
   /** Companies this user has open in other tabs or windows (only one may be open at a time). */
-  companiesOpenElsewhere: () => Promise<string[]>;
+  companiesOpenElsewhere: () => Promise<OpenElsewhere[]>;
   /** Set when this tab's company was closed because another tab opened a different one. */
-  replacedBy: { closedId: string; openedId: string } | null;
+  replacedBy: { closedId: string; openedId: string; lostUnsaved: boolean } | null;
+  /** The app shell reports whether any open tab has unsaved edits (shared with other windows). */
+  setHasUnsavedWork: (value: boolean) => void;
   clearReplacedNotice: () => void;
   createCompany: (name: string, firmId?: string, options?: CreateCompanyOptions) => Promise<CreatedCompany>;
   refresh: () => Promise<void>;
@@ -51,7 +53,11 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   // True once the company list has been fetched for this sign-in (successfully or not).
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [replacedBy, setReplacedBy] = useState<{ closedId: string; openedId: string } | null>(null);
+  const [replacedBy, setReplacedBy] = useState<{ closedId: string; openedId: string; lostUnsaved: boolean } | null>(null);
+  const unsavedRef = useRef(false);
+  const setHasUnsavedWork = useCallback((value: boolean) => {
+    unsavedRef.current = value;
+  }, []);
 
   // One company at a time across this browser's tabs and windows (see lib/company-presence).
   const tabId = useRef(newTabId());
@@ -62,23 +68,25 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!userId) return;
     presence.current = new CompanyPresence(userId, tabId.current, () => activeRef.current, (newCompanyId) => {
+      const lostUnsaved = unsavedRef.current;
+      unsavedRef.current = false;
       const closedId = activeRef.current;
       setActiveCompanyIdState(null);
       sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
       // Nothing of the closed company may stay in memory.
       queryClient.clear();
-      if (closedId) setReplacedBy({ closedId, openedId: newCompanyId });
-    });
+      if (closedId) setReplacedBy({ closedId, openedId: newCompanyId, lostUnsaved });
+    }, () => unsavedRef.current);
     // A tab restored on reload keeps its company only if no other tab has a different one open.
     let cancelled = false;
     const restored = activeRef.current;
     if (restored) {
       void presence.current.openElsewhere().then((open) => {
-        const other = open.find((id) => id !== restored);
+        const other = open.find((o) => o.companyId !== restored)?.companyId;
         if (!cancelled && other && activeRef.current === restored) {
           setActiveCompanyIdState(null);
           sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
-          setReplacedBy({ closedId: restored, openedId: other });
+          setReplacedBy({ closedId: restored, openedId: other, lostUnsaved: false });
         }
       });
     }
@@ -166,6 +174,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
         companiesOpenElsewhere: () => presence.current?.openElsewhere() ?? Promise.resolve([]),
         replacedBy,
         clearReplacedNotice: () => setReplacedBy(null),
+        setHasUnsavedWork,
         createCompany,
         refresh,
       }}

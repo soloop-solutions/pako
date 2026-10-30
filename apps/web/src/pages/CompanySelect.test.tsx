@@ -24,8 +24,8 @@ const company = {
   error: null,
   setActiveCompanyId: vi.fn(),
   leaveCompany: vi.fn(),
-  companiesOpenElsewhere: vi.fn(async (): Promise<string[]> => []),
-  replacedBy: null as { closedId: string; openedId: string } | null,
+  companiesOpenElsewhere: vi.fn(async (): Promise<{ companyId: string; unsaved: boolean }[]> => []),
+  replacedBy: null as { closedId: string; openedId: string; lostUnsaved: boolean } | null,
   clearReplacedNotice: vi.fn(),
   createCompany: vi.fn(async (name: string) => ({ company: { id: "new", name, isArchived: false } as CompanyResponse, profileError: null })),
   refresh: vi.fn(),
@@ -129,19 +129,20 @@ describe("Company lobby", () => {
   });
 
   it("allows only one company at a time: opening another asks first, since it closes the one open elsewhere", async () => {
-    company.companiesOpenElsewhere.mockResolvedValue(["c1"]);
+    company.companiesOpenElsewhere.mockResolvedValue([{ companyId: "c1", unsaved: true }]);
     renderAt("/select-company");
     fireEvent.click(screen.getByText("Dardania Market"));
 
     const dialog = await screen.findByRole("dialog");
     expect(dialog).toHaveTextContent("Pako Demo Sh.p.k. is open in another tab or window. Opening Dardania Market here will close Pako Demo Sh.p.k. there.");
+    expect(within(dialog).getByRole("alert")).toHaveTextContent("Pako Demo Sh.p.k. has unsaved changes in that window");
     expect(company.setActiveCompanyId).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Open Dardania Market" }));
     expect(company.setActiveCompanyId).toHaveBeenCalledWith("c2");
   });
 
   it("the same company open elsewhere is fine", async () => {
-    company.companiesOpenElsewhere.mockResolvedValue(["c2"]);
+    company.companiesOpenElsewhere.mockResolvedValue([{ companyId: "c2", unsaved: false }]);
     renderAt("/select-company");
     fireEvent.click(screen.getByText("Dardania Market"));
     await waitFor(() => expect(company.setActiveCompanyId).toHaveBeenCalledWith("c2"));
@@ -149,9 +150,11 @@ describe("Company lobby", () => {
   });
 
   it("explains why a company was closed in this tab", () => {
-    company.replacedBy = { closedId: "c1", openedId: "c2" };
+    company.replacedBy = { closedId: "c1", openedId: "c2", lostUnsaved: true };
     renderAt("/select-company");
-    expect(screen.getByText(/Pako Demo Sh.p.k. was closed here because Dardania Market was opened in another tab or window/)).toBeInTheDocument();
+    expect(screen.getByText(/Pako Demo Sh.p.k. was closed here because Dardania Market was opened in another tab or window/)).toHaveTextContent(
+      "Changes you hadn't saved were discarded.",
+    );
   });
 
   it("stops new companies at the account's limit, and shows administrators the way to the panel", async () => {

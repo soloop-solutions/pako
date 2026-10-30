@@ -96,10 +96,29 @@ The panel is at `/platform`, opened from the company list. Every `api/platform/*
 - **Disabled modules:** checked only after membership, so an outsider can't probe a company's modules.
 - **Company limit:** the check holds a per-user lock, so parallel requests can't overshoot it.
 
+## Activity (platform audit trail)
+
+Every change made in the panel is written to `platform_audit_entries` in the same save as the change
+itself:
+- approving or rejecting an account request;
+- changing a user's limit, disabled flag or administrator rights;
+- switching a company's modules.
+
+Each entry records who, when, the target (email or company name at the time), and the before and after
+values. The **Activity** tab lists them, newest first (`GET api/platform/audit`). Entries are never
+updated or deleted.
+
+## Lists
+
+Users, account requests and companies are paged on the server (`?page=&pageSize=&search=`, using the
+standard `{ items, total, page, pageSize }` shape). Page, page size and search live in the URL. The tab
+badge uses `GET api/platform/account-requests/pending-count`.
+
+## Administrators from configuration
+
+An administrator listed in `Platform:AdminEmails` is re-appointed at every sign-in, so the panel refuses
+to remove their rights (`PlatformAdminFromConfig`). Remove them from the configuration instead.
+
 ## Not done yet
 
-- **Audit trail:** platform actions are logged (`ILogger`) but not written to the audit trail, which is
-  company-scoped.
 - **Email alerts:** administrators aren't notified of new requests; the panel shows a pending count.
-- **Paging:** the platform lists (users, requests, companies) are not paged yet. That's fine at today's scale,
-  but needed before many thousands of rows.

@@ -158,14 +158,7 @@ public class UserAdminService
         {
             var user = users.GetValueOrDefault(m.UserId);
             var employee = employees.GetValueOrDefault(m.UserId);
-            var access = m.Role switch
-            {
-                MembershipRole.ClientAdmin => "Administrator",
-                MembershipRole.ClientViewer => "ReadOnly",
-                MembershipRole.FirmAdmin => "FirmAdmin",
-                MembershipRole.FirmAccountant => "FirmAccountant",
-                _ => "Role"
-            };
+            var access = MembershipRoles.AccessLabel(m.Role);
             return new CompanyUserResponse(m.Id, null, m.UserId, user?.Email ?? string.Empty, user?.FullName ?? employee?.Name, access,
                 m.CompanyRoleId, m.CompanyRoleId is { } r ? roles.GetValueOrDefault(r) : null, employee?.Id, employee?.Name,
                 m.IsActive ? "Active" : "Deactivated", user?.LastLoginAt, null, m.FirmId != null, m.UserId == currentUserId);

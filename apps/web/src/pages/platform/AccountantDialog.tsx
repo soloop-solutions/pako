@@ -14,7 +14,7 @@ export function AccountantDialog({ accountant, onClose }: { accountant: Accounta
   const t = (id: string) => intl.formatMessage({ id });
   const companies = useQuery({
     queryKey: ["platform", "companies", "by", accountant.userId],
-    queryFn: () => apiClient.listPlatformCompanies(undefined, accountant.userId),
+    queryFn: () => apiClient.listPlatformCompanies(undefined, accountant.userId, 1, 200),
   });
   const n = (v: number) => intl.formatNumber(v);
 
@@ -23,11 +23,11 @@ export function AccountantDialog({ accountant, onClose }: { accountant: Accounta
       <div className="flex flex-col gap-6">
         <section className="flex flex-col gap-2">
           <h3 className="text-sm font-semibold">{t("platform.accountant.companies")}</h3>
-          {(companies.data ?? []).length === 0 ? (
+          {(companies.data?.items ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">{companies.isPending ? t("platform.loading") : t("platform.accountant.noCompanies")}</p>
           ) : (
             <ul className="flex flex-col divide-y rounded-md border">
-              {companies.data!.map((c) => (
+              {companies.data!.items.map((c) => (
                 <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
                   <span className="font-medium">
                     {c.name}

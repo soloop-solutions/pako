@@ -22,7 +22,7 @@ describe("company presence across tabs", () => {
     tab("u1", "A", { id: "c1" });
     tab("u2", "X", { id: "c9" }); // someone else's session is ignored
     const { presence } = tab("u1", "B", { id: null });
-    expect(await presence.openElsewhere(100)).toEqual(["c1"]);
+    expect(await presence.openElsewhere(100)).toEqual([{ companyId: "c1", unsaved: false }]);
   });
 
   it("opening a different company closes it in the other tabs; the same company does not", async () => {
@@ -44,7 +44,13 @@ describe("company presence across tabs", () => {
     tab("u1", "A", { id: "c1" });
     const { presence } = tab("u1", "B", { id: null });
     const [first, second] = await Promise.all([presence.openElsewhere(120), presence.openElsewhere(60)]);
-    expect(first).toEqual(["c1"]);
-    expect(second).toEqual(["c1"]);
+    expect(first).toEqual([{ companyId: "c1", unsaved: false }]);
+    expect(second).toEqual([{ companyId: "c1", unsaved: false }]);
+  });
+
+  it("tells the asking tab when the other tab has unsaved edits", async () => {
+    tabs.push(new CompanyPresence("u1", "A", () => "c1", () => undefined, () => true));
+    const { presence } = tab("u1", "B", { id: null });
+    expect(await presence.openElsewhere(100)).toEqual([{ companyId: "c1", unsaved: true }]);
   });
 });

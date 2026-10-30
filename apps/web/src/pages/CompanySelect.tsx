@@ -47,7 +47,7 @@ export function CompanySelect() {
   const queryClient = useQueryClient();
   const { auth, logout } = useAuth();
   const { companies, loading, activeCompanyId, setActiveCompanyId, leaveCompany, companiesOpenElsewhere, replacedBy, clearReplacedNotice } = useCompany();
-  const [conflict, setConflict] = useState<{ target: CompanyResponse; openName: string } | null>(null);
+  const [conflict, setConflict] = useState<{ target: CompanyResponse; openName: string; unsaved: boolean } | null>(null);
   const [checking, setChecking] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>(storedView);
@@ -111,8 +111,8 @@ export function CompanySelect() {
     if (checking) return;
     setChecking(company.id);
     try {
-      const other = (await companiesOpenElsewhere()).find((id) => id !== company.id);
-      if (other) setConflict({ target: company, openName: nameOf(other) });
+      const other = (await companiesOpenElsewhere()).find((o) => o.companyId !== company.id);
+      if (other) setConflict({ target: company, openName: nameOf(other.companyId), unsaved: other.unsaved });
       else enter(company);
     } finally {
       setChecking(null);
@@ -177,7 +177,10 @@ export function CompanySelect() {
         {replacedBy && (
           <Alert className="mb-4">
             <AlertDescription className="flex items-start justify-between gap-3">
-              <span>{t("lobby.replaced", { closed: nameOf(replacedBy.closedId), opened: nameOf(replacedBy.openedId) })}</span>
+              <span>
+                {t("lobby.replaced", { closed: nameOf(replacedBy.closedId), opened: nameOf(replacedBy.openedId) })}
+                {replacedBy.lostUnsaved && ` ${t("lobby.replacedUnsaved")}`}
+              </span>
               <button type="button" className="text-xs underline" onClick={clearReplacedNotice}>
                 {t("dashboard.suggest.dismiss")}
               </button>
@@ -305,6 +308,11 @@ export function CompanySelect() {
             <DialogDescription>
               {conflict && t("lobby.oneAtATime.message", { open: conflict.openName, target: conflict.target.name })}
             </DialogDescription>
+            {conflict?.unsaved && (
+              <p className="rounded-md border border-warning-border bg-warning px-3 py-2 text-sm text-warning-foreground" role="alert">
+                {t("lobby.oneAtATime.unsaved", { open: conflict.openName })}
+              </p>
+            )}
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConflict(null)}>

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Building2, ClipboardList, LayoutDashboard, LogOut, ShieldCheck, Users } from "lucide-react";
+import { ArrowLeft, Building2, ClipboardList, History, LayoutDashboard, LogOut, ShieldCheck, Users } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 
@@ -11,6 +11,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/hooks/useAccount";
 import { cn } from "@/lib/utils";
 import { AccountRequestsTab } from "@/pages/platform/AccountRequestsTab";
+import { PlatformActivityTab } from "@/pages/platform/PlatformActivityTab";
 import { PlatformCompaniesTab } from "@/pages/platform/PlatformCompaniesTab";
 import { PlatformOverviewTab } from "@/pages/platform/PlatformOverviewTab";
 import { PlatformUsersTab } from "@/pages/platform/PlatformUsersTab";
@@ -20,6 +21,7 @@ const tabs = [
   { key: "users", icon: Users },
   { key: "requests", icon: ClipboardList },
   { key: "companies", icon: Building2 },
+  { key: "activity", icon: History },
 ] as const;
 type Tab = (typeof tabs)[number]["key"];
 
@@ -36,14 +38,17 @@ export function PlatformAdmin() {
   const tab: Tab = (tabs.map((x) => x.key) as string[]).includes(params.get("tab") ?? "") ? (params.get("tab") as Tab) : "overview";
   const pendingQuery = useQuery({
     queryKey: ["platform", "requests", "pending"],
-    queryFn: () => apiClient.listAccountRequests(0),
+    queryFn: () => apiClient.countPendingAccountRequests(),
     enabled: account.data?.isPlatformAdmin === true,
   });
+
+  // Each tab starts clean: its own filters and paging don't follow you to the next tab.
+  const select = (key: Tab) => setParams(key === "overview" ? {} : { tab: key }, { replace: true });
 
   if (account.isPending) return null;
   if (!account.data?.isPlatformAdmin) return <Navigate to="/select-company" replace />;
 
-  const pending = pendingQuery.data?.length ?? 0;
+  const pending = pendingQuery.data ?? 0;
 
   return (
     <div className="flex min-h-screen flex-col bg-muted/30">
@@ -74,16 +79,39 @@ export function PlatformAdmin() {
           <h1 className="text-2xl font-semibold">{t("platform.title")}</h1>
           <p className="mt-1 text-sm text-muted-foreground">{t("platform.subtitle")}</p>
         </div>
-        <nav className="mb-5 flex flex-wrap gap-1 border-b" role="tablist" aria-label={t("platform.title")}>
+        {/* WAI-ARIA tabs: arrow keys (and Home/End) move between tabs, only the selected tab is in the
+            Tab order, and each tab controls its panel. */}
+        <div
+          className="mb-5 flex flex-wrap gap-1 border-b"
+          role="tablist"
+          aria-label={t("platform.title")}
+          onKeyDown={(e) => {
+            const keys = tabs.map((x) => x.key);
+            const index = keys.indexOf(tab);
+            const next =
+              e.key === "ArrowRight" ? keys[(index + 1) % keys.length]
+              : e.key === "ArrowLeft" ? keys[(index - 1 + keys.length) % keys.length]
+              : e.key === "Home" ? keys[0]
+              : e.key === "End" ? keys[keys.length - 1]
+              : null;
+            if (!next) return;
+            e.preventDefault();
+            select(next);
+            document.getElementById(`platform-tab-${next}`)?.focus();
+          }}
+        >
           {tabs.map(({ key, icon: Icon }) => (
             <button
               key={key}
+              id={`platform-tab-${key}`}
               type="button"
               role="tab"
               aria-selected={tab === key}
-              onClick={() => setParams(key === "overview" ? {} : { tab: key }, { replace: true })}
+              aria-controls={`platform-panel-${key}`}
+              tabIndex={tab === key ? 0 : -1}
+              onClick={() => select(key)}
               className={cn(
-                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium",
+                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                 tab === key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
               )}
             >
@@ -94,12 +122,15 @@ export function PlatformAdmin() {
               )}
             </button>
           ))}
-        </nav>
+        </div>
 
-        {tab === "overview" && <PlatformOverviewTab onOpenRequests={() => setParams({ tab: "requests" }, { replace: true })} />}
-        {tab === "users" && <PlatformUsersTab />}
-        {tab === "requests" && <AccountRequestsTab />}
-        {tab === "companies" && <PlatformCompaniesTab />}
+        <div role="tabpanel" id={`platform-panel-${tab}`} aria-labelledby={`platform-tab-${tab}`}>
+          {tab === "overview" && <PlatformOverviewTab onOpenRequests={() => select("requests")} />}
+          {tab === "users" && <PlatformUsersTab />}
+          {tab === "requests" && <AccountRequestsTab />}
+          {tab === "companies" && <PlatformCompaniesTab />}
+          {tab === "activity" && <PlatformActivityTab />}
+        </div>
       </main>
     </div>
   );

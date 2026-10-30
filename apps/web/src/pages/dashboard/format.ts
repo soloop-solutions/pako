@@ -1,6 +1,7 @@
 import { useIntl, type IntlShape } from "react-intl";
 
 import type { Format } from "@/pages/dashboard/charts";
+import { parseIso } from "@/pages/dashboard/period";
 
 // Display formatting for the dashboard. Numbers render exactly as the API sent them.
 
@@ -23,18 +24,16 @@ export function useFormatters(): Formatters {
 
 // A bucket's axis label: "12 Oct" for days and weeks, "Oct 26" for months, "Q3 26" for quarters.
 export function bucketLabel(intl: IntlShape, start: string, granularity: string): string {
-  const [y, m, d] = start.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
+  const date = parseIso(start) ?? new Date(start);
+  const y = date.getFullYear();
+  const m = date.getMonth() + 1;
   if (granularity === "month") return intl.formatDate(date, { month: "short", year: "2-digit" });
   if (granularity === "quarter") return `Q${Math.floor((m - 1) / 3) + 1} ${String(y).slice(2)}`;
   return intl.formatDate(date, { day: "numeric", month: "short" });
 }
 
 export function rangeLabel(intl: IntlShape, from: string, to: string): string {
-  const parse = (s: string) => {
-    const [y, m, d] = s.split("-").map(Number);
-    return new Date(y, m - 1, d);
-  };
+  const parse = (s: string) => parseIso(s) ?? new Date(s);
   const a = parse(from);
   const b = parse(to);
   const lastOfMonth = new Date(b.getFullYear(), b.getMonth() + 1, 0).getDate() === b.getDate();

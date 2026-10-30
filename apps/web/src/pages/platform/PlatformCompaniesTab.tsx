@@ -1,38 +1,37 @@
 import { useMemo, useState } from "react";
-import { useUrlParam } from "@/pages/platform/useUrlParam";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PlatformCompanyResponse } from "@pako/shared";
-import { Search } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 // The modules a company can have, in the order they appear in the app. Partners, items, settings,
 // users and the dashboard are always on.
 export const MODULES = ["sales", "purchases", "accounting", "reports", "hr", "payroll"] as const;
 
+const GRID_ID = "platform-companies";
+
 // Every company on PAKO, who created it, what it uses, and which modules it has.
 export function PlatformCompaniesTab() {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string>) => intl.formatMessage({ id }, values);
-  const [search, setSearch] = useUrlParam("q");
+  const grid = useDataGridUrlState(GRID_ID, 50);
   const [editing, setEditing] = useState<PlatformCompanyResponse | null>(null);
-  const query = useQuery({ queryKey: ["platform", "companies"], queryFn: () => apiClient.listPlatformCompanies(undefined, undefined) });
+  const query = useQuery({
+    queryKey: ["platform", "companies", grid.page, grid.pageSize, grid.globalFilter],
+    queryFn: () => apiClient.listPlatformCompanies(grid.globalFilter || undefined, undefined, grid.page, grid.pageSize),
+    placeholderData: keepPreviousData,
+  });
   const date = (v: string | undefined) => (v ? intl.formatDate(new Date(v), { dateStyle: "medium" }) : "—");
 
-  const rows = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return (query.data ?? []).filter(
-      (c) => !q || c.name.toLowerCase().includes(q) || (c.businessNumber ?? "").includes(q) || (c.createdByEmail ?? "").toLowerCase().includes(q),
-    );
-  }, [query.data, search]);
+  const rows = query.data?.items ?? [];
 
   const columns = useMemo<ColumnDef<PlatformCompanyResponse>[]>(
     () => [
@@ -72,15 +71,13 @@ export function PlatformCompaniesTab() {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative max-w-sm">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("platform.companies.search")} aria-label={t("platform.companies.search")} />
-      </div>
       <DataGrid
-        gridId="platform-companies"
+        gridId={GRID_ID}
         columns={columns}
         data={rows}
-        rowCount={rows.length}
+        rowCount={query.data?.total ?? 0}
+        enableGlobalFilter
+        globalFilterPlaceholder={t("platform.companies.search")}
         isLoading={query.isPending}
         getRowId={(c) => c.id}
         onRowClick={setEditing}

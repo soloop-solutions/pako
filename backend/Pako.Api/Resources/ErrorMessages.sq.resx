@@ -434,4 +434,7 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="PasswordResetNotAllowed" xml:space="preserve">
     <value>Për siguri, mund të rivendosni fjalëkalimin vetëm të stafit që i përket vetëm kësaj kompanie — jo të administratorëve ose të atyre me qasje në kompani të tjera. Ata mund të përdorin “Keni harruar fjalëkalimin” në faqen e hyrjes.</value>
   </data>
+  <data name="PlatformAdminFromConfig" xml:space="preserve">
+    <value>Ky administrator është caktuar në konfigurimin e serverit (Platform:AdminEmails). Hiqeni prej andej për t'i marrë të drejtat.</value>
+  </data>
 </root>

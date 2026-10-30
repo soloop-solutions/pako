@@ -21,6 +21,8 @@ export const lobbyEn: Record<string, string> = {
   "lobby.oneAtATime.title": "Only one company at a time",
   "lobby.oneAtATime.message": "{open} is open in another tab or window. Opening {target} here will close {open} there.",
   "lobby.oneAtATime.confirm": "Open {target}",
+  "lobby.oneAtATime.unsaved": "{open} has unsaved changes in that window. They will be lost if you continue — go back and save them first.",
+  "lobby.replacedUnsaved": "Changes you hadn't saved were discarded.",
   "lobby.replaced": "{closed} was closed here because {opened} was opened in another tab or window. Only one company can be open at a time.",
   "lobby.detailsNotSaved": "The company was created, but its details were not saved. Finish them in Settings → Company profile.",
 };
@@ -45,6 +47,8 @@ export const lobbySq: Record<string, string> = {
   "lobby.oneAtATime.title": "Vetëm një kompani njëkohësisht",
   "lobby.oneAtATime.message": "{open} është e hapur në një skedë ose dritare tjetër. Nëse hapni {target} këtu, {open} do të mbyllet atje.",
   "lobby.oneAtATime.confirm": "Hap {target}",
+  "lobby.oneAtATime.unsaved": "{open} ka ndryshime të paruajtura në atë dritare. Do të humbin nëse vazhdoni — kthehuni dhe ruajini së pari.",
+  "lobby.replacedUnsaved": "Ndryshimet që nuk i kishit ruajtur u hodhën poshtë.",
   "lobby.replaced": "{closed} u mbyll këtu sepse {opened} u hap në një skedë ose dritare tjetër. Vetëm një kompani mund të jetë e hapur njëkohësisht.",
   "lobby.detailsNotSaved": "Kompania u krijua, por të dhënat e saj nuk u ruajtën. Plotësojini te Cilësimet → Profili i kompanisë.",
 };

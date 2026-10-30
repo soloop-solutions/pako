@@ -23,3 +23,18 @@ public class AccountRequestConfiguration : IEntityTypeConfiguration<AccountReque
         builder.HasIndex(r => r.Email);
     }
 }
+
+public class PlatformAuditEntryConfiguration : IEntityTypeConfiguration<PlatformAuditEntry>
+{
+    public void Configure(EntityTypeBuilder<PlatformAuditEntry> builder)
+    {
+        builder.ToTable("platform_audit_entries");
+        builder.HasKey(e => e.Id);
+        builder.Property(e => e.Action).IsRequired().HasMaxLength(32);
+        builder.Property(e => e.TargetType).IsRequired().HasMaxLength(32);
+        builder.Property(e => e.TargetLabel).IsRequired().HasMaxLength(256);
+        builder.Property(e => e.Details).HasColumnType("jsonb");
+        builder.HasIndex(e => e.OccurredAtUtc);
+        builder.HasIndex(e => new { e.TargetType, e.TargetId });
+    }
+}
