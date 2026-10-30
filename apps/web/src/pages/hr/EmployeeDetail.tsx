@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import type { DepartmentResponse, EmployeeDetailResponse, SaveEmployeeRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,11 +20,14 @@ import { employeeWarningLabel } from "@/lib/hr-enums";
 import { EmployeeAnnualStatement } from "@/pages/hr/EmployeeAnnualStatement";
 import { EmployeeContracts } from "@/pages/hr/EmployeeContracts";
 import { EmployeePartnerAccess } from "@/pages/hr/EmployeePartnerAccess";
+import { EmployeeLoansPanel } from "@/pages/payroll/EmployeeLoans";
 
-const SECTIONS = ["personal", "employment", "pay", "contracts", "partners", "statement"] as const;
+const SECTIONS = ["personal", "employment", "pay", "contracts", "partners", "loans", "statement"] as const;
 type Section = (typeof SECTIONS)[number];
 /** Sections edited through the one employee form (and its single Save button). */
 const FORM_SECTIONS: Section[] = ["personal", "employment", "pay"];
+// docs/USER_ACCESS_PLAN.md: salary history, loans and the annual income statement are pay data.
+const PAY_SECTIONS: Section[] = ["contracts", "loans", "statement"];
 
 export function EmployeeDetail() {
   const intl = useIntl();
@@ -39,12 +43,6 @@ export function EmployeeDetail() {
   const departmentsQuery = useQuery({
     queryKey: ["departments", activeCompanyId],
     queryFn: () => apiClient.listDepartments(activeCompanyId as string),
-    enabled: !!activeCompanyId,
-  });
-  // Manager picker. 200 is the API's page-size ceiling.
-  const employeesQuery = useQuery({
-    queryKey: ["employees", activeCompanyId, "picker"],
-    queryFn: () => apiClient.listEmployees(activeCompanyId as string, 1, 200, undefined, "name", undefined, false),
     enabled: !!activeCompanyId,
   });
 
@@ -90,7 +88,6 @@ export function EmployeeDetail() {
         companyId={activeCompanyId}
         employee={isNew ? null : (employeeQuery.data ?? null)}
         departments={departmentsQuery.data ?? []}
-        employees={employeesQuery.data?.items ?? []}
       />
     </div>
   );
@@ -112,6 +109,9 @@ interface FormState {
   isActive: boolean;
   isPrimaryEmployer: boolean;
   pensionExempt: boolean;
+  receivePayslipsByEmail: boolean;
+  preferredLanguage: string;
+  commissionPlanId: string;
   monthlyGrossSalary: string;
   iban: string;
   bankName: string;
@@ -135,6 +135,9 @@ function initialState(employee: EmployeeDetailResponse | null): FormState {
     isActive: employee?.isActive ?? true,
     isPrimaryEmployer: employee?.isPrimaryEmployer ?? true,
     pensionExempt: employee?.pensionExempt ?? false,
+    receivePayslipsByEmail: employee?.receivePayslipsByEmail ?? false,
+    preferredLanguage: employee?.preferredLanguage ?? "sq",
+    commissionPlanId: employee?.commissionPlanId ?? "",
     monthlyGrossSalary: employee ? String(employee.monthlyGrossSalary) : "",
     iban: employee?.iban ?? "",
     bankName: employee?.bankName ?? "",
@@ -145,18 +148,17 @@ function EmployeeEditor({
   companyId,
   employee,
   departments,
-  employees,
 }: {
   companyId: string;
   employee: EmployeeDetailResponse | null;
   departments: DepartmentResponse[];
-  employees: EmployeeDetailResponse[];
 }) {
   const intl = useIntl();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { canWrite, isStaff } = useMyAccess();
+  const { canWrite, canSee, isStaff } = useMyAccess();
+  const canSeePay = canSee("payroll");
   const isNew = employee === null;
   const readOnly = !canWrite("hr");
 
@@ -179,6 +181,10 @@ function EmployeeEditor({
 
   const initial = useMemo(() => initialState(employee), [employee]);
   const [form, setForm] = useState<FormState>(initial);
+  const commissionPlansQuery = useQuery({
+    queryKey: ["commissionPlans", companyId],
+    queryFn: () => apiClient.listCommissionPlans(companyId),
+  });
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
@@ -189,7 +195,6 @@ function EmployeeEditor({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  const managerOptions = employees.filter((e) => e.id !== employee?.id);
   const department = departments.find((d) => d.id === (employee?.departmentId ?? ""));
 
   const saveMutation = useMutation({
@@ -237,6 +242,9 @@ function EmployeeEditor({
       isPrimaryEmployer: form.isPrimaryEmployer,
       pensionExempt: form.pensionExempt,
       isActive: form.isActive,
+      receivePayslipsByEmail: form.receivePayslipsByEmail,
+      preferredLanguage: form.preferredLanguage,
+      commissionPlanId: form.commissionPlanId || undefined,
     });
   }
 
@@ -278,7 +286,7 @@ function EmployeeEditor({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
-          {SECTIONS.map((s) => {
+          {SECTIONS.filter((s) => canSeePay || !PAY_SECTIONS.includes(s)).map((s) => {
             const unavailable = isNew && !FORM_SECTIONS.includes(s);
             return (
               <Button
@@ -374,16 +382,15 @@ function EmployeeEditor({
                     <Input id="emp-job-title" disabled={readOnly} value={form.jobTitle} onChange={(e) => set("jobTitle", e.target.value)} />
                   </Field>
                   <Field id="emp-manager" label={intl.formatMessage({ id: "hr.employee.manager" })}>
-                    <Select
+                    <EmployeePicker
                       id="emp-manager"
+                      companyId={companyId}
                       disabled={readOnly}
+                      excludeId={employee?.id}
                       value={form.managerId}
-                      onValueChange={(v) => set("managerId", v)}
-                      placeholder={intl.formatMessage({ id: "common.notSet" })}
-                      options={managerOptions.map((m) => ({
-                        value: m.id,
-                        label: m.name,
-                      }))}
+                      selectedName={employee && form.managerId === employee.managerId ? employee.managerName : undefined}
+                      emptyLabel={intl.formatMessage({ id: "common.notSet" })}
+                      onChange={(id) => set("managerId", id)}
                     />
                   </Field>
                   <Field id="emp-hire-date" label={intl.formatMessage({ id: "hr.employee.hireDate" })}>
@@ -425,12 +432,37 @@ function EmployeeEditor({
                     <input type="checkbox" disabled={readOnly} checked={form.pensionExempt} onChange={(e) => set("pensionExempt", e.target.checked)} />
                     {intl.formatMessage({ id: "hr.employee.pensionExempt" })}
                   </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      disabled={readOnly}
+                      checked={form.receivePayslipsByEmail}
+                      onChange={(e) => set("receivePayslipsByEmail", e.target.checked)}
+                    />
+                    {intl.formatMessage({ id: "hr.employee.receivePayslipsByEmail" })}
+                  </label>
+                  <label className="flex items-center gap-2 text-sm">
+                    {intl.formatMessage({ id: "hr.employee.preferredLanguage" })}
+                    <select
+                      className="h-7 rounded-md border bg-transparent px-1 text-sm"
+                      disabled={readOnly}
+                      value={form.preferredLanguage}
+                      onChange={(e) => set("preferredLanguage", e.target.value)}
+                    >
+                      <option value="sq">Shqip</option>
+                      <option value="en">English</option>
+                    </select>
+                  </label>
                 </div>
                 <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.primaryEmployerHint" })}</p>
               </div>
             )}
 
-            {section === "pay" && (
+            {section === "pay" && employee?.payDataHidden && (
+              <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "hr.employee.payDataHidden" })}</p>
+            )}
+
+            {section === "pay" && !employee?.payDataHidden && (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <Field
                   id="emp-salary"
@@ -455,6 +487,24 @@ function EmployeeEditor({
                 </Field>
                 <Field id="emp-bank" label={intl.formatMessage({ id: "hr.employee.bankName" })}>
                   <Input id="emp-bank" disabled={readOnly} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
+                </Field>
+                <Field id="emp-commission" label={intl.formatMessage({ id: "hr.employee.commissionPlan" })} hint={intl.formatMessage({ id: "hr.employee.commissionPlanHint" })}>
+                  <select
+                    id="emp-commission"
+                    className="h-9 rounded-md border bg-transparent px-2 text-sm"
+                    disabled={readOnly}
+                    value={form.commissionPlanId}
+                    onChange={(e) => set("commissionPlanId", e.target.value)}
+                  >
+                    <option value="">{intl.formatMessage({ id: "hr.employee.noCommission" })}</option>
+                    {(commissionPlansQuery.data ?? [])
+                      .filter((p) => p.isActive || p.id === form.commissionPlanId)
+                      .map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                  </select>
                 </Field>
               </div>
             )}
@@ -487,6 +537,7 @@ function EmployeeEditor({
         {employee && section === "partners" && (
           <EmployeePartnerAccess companyId={companyId} employee={employee} department={department} readOnly={readOnly || isStaff} />
         )}
+        {employee && section === "loans" && <EmployeeLoansPanel companyId={companyId} employeeId={employee.id} />}
         {employee && section === "statement" && <EmployeeAnnualStatement companyId={companyId} employeeId={employee.id} />}
       </CardContent>
     </Card>

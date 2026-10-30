@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { EmployeeDetailResponse, PayrollAdjustmentResponse, SavePayrollAdjustmentRequest } from "@pako/shared";
+import type { PayrollAdjustmentResponse, SavePayrollAdjustmentRequest } from "@pako/shared";
 
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +17,7 @@ import {
 } from "@/lib/payroll-enums";
 
 type AdjustmentFormProps = {
-  employees: Pick<EmployeeDetailResponse, "id" | "name">[];
+  companyId: string;
   // First day of the selected month — the API normalises any date in the month anyway.
   period: string;
   initial?: PayrollAdjustmentResponse | null;
@@ -33,7 +34,7 @@ function toInput(value: number | undefined | null): string {
 // Add/edit form for one bonus, allowance, hour-based premium or deduction. Hour-based kinds send
 // hours (+ an optional multiplier); the API turns them into an amount from the employee's hourly
 // rate. Every other kind sends the amount as typed.
-export function AdjustmentForm({ employees, period, initial, submitting = false, error, onSubmit, onCancel }: AdjustmentFormProps) {
+export function AdjustmentForm({ companyId, period, initial, submitting = false, error, onSubmit, onCancel }: AdjustmentFormProps) {
   const intl = useIntl();
   const [employeeId, setEmployeeId] = useState(initial?.employeeId ?? "");
   const [kind, setKind] = useState<number>(initial?.kind ?? PayrollAdjustmentKind.Bonus);
@@ -95,15 +96,12 @@ export function AdjustmentForm({ employees, period, initial, submitting = false,
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div className="flex flex-col gap-1.5 lg:col-span-2">
           <Label htmlFor={`${idPrefix}-employee`}>{intl.formatMessage({ id: "payroll.adjustment.employee" })}</Label>
-          <Select
+          <EmployeePicker
             id={`${idPrefix}-employee`}
+            companyId={companyId}
             value={employeeId}
-            onValueChange={(v) => setEmployeeId(v)}
-            placeholder={intl.formatMessage({ id: "payroll.adjustment.selectEmployee" })}
-            options={employees.map((employee) => ({
-              value: employee.id,
-              label: employee.name,
-            }))}
+            selectedName={initial && employeeId === initial.employeeId ? initial.employeeName : undefined}
+            onChange={(id) => setEmployeeId(id)}
           />
         </div>
         <div className="flex flex-col gap-1.5">

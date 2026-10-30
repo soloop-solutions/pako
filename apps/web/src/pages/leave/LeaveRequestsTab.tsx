@@ -6,6 +6,7 @@ import { useSearchParams } from "react-router-dom";
 import type { LeaveRequestResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,9 +22,9 @@ import {
   formatDateTime,
   isLeaveState,
   leaveRequestActions,
-  useLeaveEmployees,
   useLeaveTypes,
 } from "@/pages/leave/leaveShared";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 const GRID_ID = "leaveRequests";
 const DEFAULT_PAGE_SIZE = 50;
@@ -33,6 +34,7 @@ type RowAction = "approve" | "reject" | "cancel";
 
 export function LeaveRequestsTab({ companyId }: { companyId: string }) {
   const intl = useIntl();
+  const { canApprove } = useMyAccess();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const grid = useDataGridUrlState(GRID_ID, DEFAULT_PAGE_SIZE);
@@ -46,7 +48,6 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
   const [actionError, setActionError] = useState<string | null>(null);
   const [confirmCancelId, setConfirmCancelId] = useState<string | null>(null);
 
-  const employeesQuery = useLeaveEmployees(companyId);
   const typesQuery = useLeaveTypes(companyId);
 
   const requestsQuery = useQuery({
@@ -153,6 +154,11 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
         cell: ({ row }) => {
           const request = row.original;
           const allowed = leaveRequestActions(request.state);
+          // Approving and rejecting need HR: Approve (docs/USER_ACCESS_PLAN.md).
+          if (!canApprove("hr")) {
+            allowed.approve = false;
+            allowed.reject = false;
+          }
           const busy = actionMutation.isPending;
           return (
             <div className="flex justify-end gap-1">
@@ -201,7 +207,6 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
     [intl, actionMutation.isPending, confirmCancelId],
   );
 
-  const employees = employeesQuery.data ?? [];
   const page = requestsQuery.data;
   const loadError = requestsQuery.isError
     ? getApiErrorMessage(requestsQuery.error, intl.formatMessage({ id: "leave.requests.loadError" }))
@@ -227,7 +232,7 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
               ]}
             />
           </div>
-          <EmployeeFilter value={employeeFilter} onChange={(v) => setFilter("employee", v)} employees={employees} />
+          <EmployeeFilter companyId={companyId} value={employeeFilter} onChange={(v) => setFilter("employee", v)} />
         </div>
         <Button onClick={() => setFormOpen((open) => !open)}>{intl.formatMessage({ id: "leave.requests.new" })}</Button>
       </div>
@@ -235,7 +240,6 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
       {formOpen && (
         <NewLeaveRequestForm
           companyId={companyId}
-          employees={employees}
           leaveTypes={(typesQuery.data ?? []).filter((t) => t.isActive)}
           defaultEmployeeId={employeeFilter}
           onDone={async () => {
@@ -272,28 +276,25 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
 }
 
 export function EmployeeFilter({
+  companyId,
   value,
   onChange,
-  employees,
 }: {
+  companyId: string;
   value: string;
   onChange: (value: string) => void;
-  employees: { id: string; name: string }[];
 }) {
   const intl = useIntl();
   return (
     <div className="flex flex-col gap-1">
       <Label htmlFor="leave-employee-filter">{intl.formatMessage({ id: "leave.field.employee" })}</Label>
-      <Select
+      <EmployeePicker
         id="leave-employee-filter"
         className="w-56"
+        companyId={companyId}
         value={value}
-        onValueChange={(v) => onChange(v)}
-        placeholder={intl.formatMessage({ id: "leave.filter.allEmployees" })}
-        options={employees.map((e) => ({
-          value: e.id,
-          label: e.name,
-        }))}
+        onChange={(id) => onChange(id)}
+        emptyLabel={intl.formatMessage({ id: "leave.filter.allEmployees" })}
       />
     </div>
   );
@@ -301,14 +302,12 @@ export function EmployeeFilter({
 
 function NewLeaveRequestForm({
   companyId,
-  employees,
   leaveTypes,
   defaultEmployeeId,
   onDone,
   onCancel,
 }: {
   companyId: string;
-  employees: { id: string; name: string }[];
   leaveTypes: { id: string; code: string; name: string }[];
   defaultEmployeeId: string;
   onDone: () => Promise<void>;
@@ -363,16 +362,7 @@ function NewLeaveRequestForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-new-employee">{intl.formatMessage({ id: "leave.field.employee" })}</Label>
-              <Select
-                id="leave-new-employee"
-                value={employeeId}
-                onValueChange={(v) => setEmployeeId(v)}
-                placeholder={intl.formatMessage({ id: "leave.form.selectEmployee" })}
-                options={employees.map((e) => ({
-                  value: e.id,
-                  label: e.name,
-                }))}
-              />
+              <EmployeePicker id="leave-new-employee" companyId={companyId} value={employeeId} onChange={(id) => setEmployeeId(id)} />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-new-type">{intl.formatMessage({ id: "leave.field.type" })}</Label>

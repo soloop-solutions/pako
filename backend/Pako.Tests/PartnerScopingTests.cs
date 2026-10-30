@@ -344,7 +344,15 @@ public class PartnerScopingTests : IAsyncLifetime
         db.Employees.Add(employee);
         db.Partners.Add(partner);
         db.EmployeePartnerAssignments.Add(new EmployeePartnerAssignment { Id = Guid.NewGuid(), CompanyId = company.Id, EmployeeId = employee.Id, PartnerId = partner.Id });
-        db.Memberships.Add(Membership.ForCompany(staffUserId, company.Id, MembershipRole.ClientStaff));
+        // docs/USER_ACCESS_PLAN.md: staff access comes from the membership's role.
+        var role = new CompanyRole
+        {
+            Id = Guid.NewGuid(), CompanyId = company.Id, Name = "Sales", SalesAccess = salesAccess, PartnerScope = PartnerScope.Assigned
+        };
+        db.CompanyRoles.Add(role);
+        var membership = Membership.ForCompany(staffUserId, company.Id, MembershipRole.ClientStaff);
+        membership.CompanyRoleId = role.Id;
+        db.Memberships.Add(membership);
         await db.SaveChangesAsync();
 
         return (db, company.Id, staffUserId, employee.Id, partner.Id);
@@ -377,8 +385,10 @@ public class PartnerScopingTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Filter_ClientStaffWithoutEmployeeRecord_Forbidden()
+    public async Task Filter_ClientStaffWithoutEmployeeOrRole_ReferenceDataOnly_NoSelfService()
     {
+        // docs/USER_ACCESS_PLAN.md: a staff user with no role is treated like the built-in Employee
+        // role — general reference data, no module, and no "My HR" without an employee record.
         var db = await NewContextAsync();
         var company = new Company { Id = Guid.NewGuid(), Name = "Staff Co" };
         var userId = Guid.NewGuid();
@@ -386,9 +396,12 @@ public class PartnerScopingTests : IAsyncLifetime
         db.Memberships.Add(Membership.ForCompany(userId, company.Id, MembershipRole.ClientStaff));
         await db.SaveChangesAsync();
 
-        var (result, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.None);
-
-        Assert.IsType<ForbidResult>(result);
+        var (reference, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.None);
+        Assert.Null(reference);
+        var (sales, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.Sales);
+        Assert.IsType<ForbidResult>(sales);
+        var (self, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.Self);
+        Assert.IsType<ForbidResult>(self);
     }
 
     [Fact]
@@ -409,5 +422,56 @@ public class PartnerScopingTests : IAsyncLifetime
 
         var (writeResult, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: true, AccessModule.Sales);
         Assert.IsType<ForbidResult>(writeResult);
+    }
+
+    // Every action on these controllers exposes partner or payee data, so it must name a module:
+    // an unannotated endpoint is readable by every staff user (CompanyAccessFilter), including
+    // partner-restricted ones.
+    [Theory]
+    [InlineData(typeof(WithholdingTaxController), AccessModule.Accounting)]
+    public void PartnerDataControllers_GateEveryActionOnAModule(Type controller, AccessModule expected)
+    {
+        var actions = controller.GetMethods(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.DeclaredOnly)
+            .Where(m => m.GetCustomAttributes(typeof(Microsoft.AspNetCore.Mvc.Routing.HttpMethodAttribute), true).Length > 0)
+            .ToList();
+        Assert.NotEmpty(actions);
+
+        foreach (var action in actions)
+        {
+            var attribute = (RequireCompanyAccessAttribute?)Attribute.GetCustomAttribute(action, typeof(RequireCompanyAccessAttribute));
+            Assert.True(attribute is not null, $"{controller.Name}.{action.Name} has no [RequireCompanyAccess].");
+            Assert.True(expected.Equals(attribute!.Arguments![2]), $"{controller.Name}.{action.Name} is not gated on {expected}.");
+        }
+    }
+
+    // J15: the partner statement is partner-centric, so scoped staff may read it — for their own
+    // partners only.
+    [Fact]
+    public async Task ScopedStaff_ReadsTheStatementOfAnAssignedPartner_404ForAnyOther()
+    {
+        var s = await SeedAsync();
+        var access = ScopedTo(s, Guid.NewGuid(), s.PartnerA);
+        var controller = new PartnersController(s.Db, Localizer, access);
+        var statements = new PartnerStatementService(s.Db);
+        var from = new DateOnly(2026, 1, 1);
+        var to = new DateOnly(2026, 12, 31);
+
+        var statement = Assert.IsType<PartnerStatementResponse>(Assert.IsType<OkObjectResult>(
+            (await controller.Statement(s.CompanyId, s.PartnerA, from, to, statements)).Result).Value);
+
+        // Prices are VAT-inclusive by default: A owes 1,000 on the invoice; we owe A 400 on the bill.
+        Assert.Equal(0m, statement.OpeningBalance);
+        Assert.Equal(1000m, statement.TotalDebit);
+        Assert.Equal(400m, statement.TotalCredit);
+        Assert.Equal(600m, statement.ClosingBalance);
+        Assert.Equal(600m, statement.Lines[^1].Balance);
+
+        Assert.IsType<NotFoundResult>((await controller.Statement(s.CompanyId, s.PartnerB, from, to, statements)).Result);
+
+        // Opening balance carries everything before the period.
+        var later = Assert.IsType<PartnerStatementResponse>(Assert.IsType<OkObjectResult>(
+            (await controller.Statement(s.CompanyId, s.PartnerA, new DateOnly(2026, 2, 15), to, statements)).Result).Value);
+        Assert.Equal(1000m, later.OpeningBalance);
+        Assert.Equal(600m, later.ClosingBalance);
     }
 }

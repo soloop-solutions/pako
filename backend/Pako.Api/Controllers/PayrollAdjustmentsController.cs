@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Hr;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
@@ -30,7 +31,7 @@ public class PayrollAdjustmentsController : ControllerBase
 
     // Unpaged: scoped to one month (or one employee), which bounds it to a screenful.
     [HttpGet(Name = "ListPayrollAdjustments")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<ActionResult<List<PayrollAdjustmentResponse>>> List(
         Guid companyId, [FromQuery] DateOnly? period = null, [FromQuery] Guid? employeeId = null)
     {
@@ -44,7 +45,7 @@ public class PayrollAdjustmentsController : ControllerBase
     }
 
     [HttpPost(Name = "CreatePayrollAdjustment")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     [ProducesResponseType(typeof(PayrollAdjustmentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PayrollAdjustmentResponse>> Create(Guid companyId, SavePayrollAdjustmentRequest request)
     {
@@ -60,7 +61,7 @@ public class PayrollAdjustmentsController : ControllerBase
     }
 
     [HttpPut("{id:guid}", Name = "UpdatePayrollAdjustment")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     public async Task<ActionResult<PayrollAdjustmentResponse>> Update(Guid companyId, Guid id, SavePayrollAdjustmentRequest request)
     {
         var adjustment = await _db.PayrollAdjustments.FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);
@@ -76,7 +77,7 @@ public class PayrollAdjustmentsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}", Name = "DeletePayrollAdjustment")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     public async Task<IActionResult> Delete(Guid companyId, Guid id)
     {
         var adjustment = await _db.PayrollAdjustments.FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);
@@ -88,20 +89,68 @@ public class PayrollAdjustmentsController : ControllerBase
         return NoContent();
     }
 
-    public static PayrollAdjustmentResponse ToResponse(PayrollAdjustment a, string employeeName) => new(
-        a.Id, a.EmployeeId, employeeName, a.Period, a.Kind, a.Description, a.Hours, a.RateMultiplier, a.Amount, a.PayrollRunId);
+    // G11: (re)creates this month's commission adjustments from each employee's plan. HR reviews and
+    // edits them like any other adjustment before the run is created.
+    [HttpPost("calculate-commissions", Name = "CalculateCommissions")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
+    public async Task<ActionResult<List<CommissionResultResponse>>> CalculateCommissions(
+        Guid companyId, CalculateCommissionsRequest request, [FromServices] CommissionService commissions) =>
+        Ok(await commissions.CalculateAsync(companyId, request.Period));
 
-    public static decimal DefaultMultiplier(PayrollAdjustmentKind kind) => kind switch
+    // The documents behind a computed commission (drill-down).
+    [HttpGet("{id:guid}/commission-basis", Name = "GetCommissionBasis")]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
+    public async Task<ActionResult<List<CommissionBasisItemResponse>>> CommissionBasis(
+        Guid companyId, Guid id, [FromServices] CommissionService commissions)
     {
-        PayrollAdjustmentKind.Overtime => KosovoPayrollRules.OvertimeMultiplier,
-        PayrollAdjustmentKind.NightWork => KosovoPayrollRules.NightWorkPremium,
-        PayrollAdjustmentKind.WeekendWork => KosovoPayrollRules.WeekendWorkPremium,
-        PayrollAdjustmentKind.HolidayWork => KosovoPayrollRules.HolidayWorkPremium,
-        _ => 1m
-    };
+        var adjustment = await _db.PayrollAdjustments.AsNoTracking().FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);
+        if (adjustment?.CommissionPlanId is not { } planId) return NotFound();
+        var plan = await _db.CommissionPlans.AsNoTracking().FirstAsync(p => p.Id == planId);
+        return Ok(await commissions.BasisAsync(companyId, adjustment.EmployeeId, plan.Basis, adjustment.Period,
+            adjustment.Period.AddMonths(1).AddDays(-1)));
+    }
+
+    // Hours × hourly rate (salary in force that month ÷ its weekly hours × 52/12) × premium
+    // multiplier — the default for the kind unless one is given. Shared with timesheets (G12).
+    internal static async Task<(decimal Amount, decimal Multiplier)> HourBasedAmountAsync(
+        PakoDbContext db, Guid companyId, Employee employee, DateOnly period, PayrollAdjustmentKind kind, decimal hours, decimal? multiplier)
+    {
+        var monthEnd = period.AddMonths(1).AddDays(-1);
+        var contract = await db.EmployeeContracts.AsNoTracking()
+            .Where(c => c.EmployeeId == employee.Id && c.StartDate <= monthEnd && (c.EndDate == null || c.EndDate >= period))
+            .OrderByDescending(c => c.StartDate)
+            .FirstOrDefaultAsync();
+
+        // Premiums and the standard week in force at the end of that month.
+        var parameters = await new PayrollParameterProvider(db).ForCompanyAsync(companyId, monthEnd);
+        var applied = multiplier is > 0m ? multiplier.Value : parameters.DefaultMultiplier(kind);
+        var amount = PayrollAdjustment.AmountFromHours(
+            contract?.MonthlyGrossSalary ?? employee.MonthlyGrossSalary,
+            contract?.WeeklyHours ?? parameters.StandardWeeklyHours,
+            hours,
+            applied);
+        return (amount, applied);
+    }
+
+    public static PayrollAdjustmentResponse ToResponse(PayrollAdjustment a, string employeeName) => new(
+        a.Id, a.EmployeeId, employeeName, a.Period, a.Kind, a.Description, a.Hours, a.RateMultiplier, a.Amount, a.PayrollRunId,
+        a.EmployeeLoanId, a.CommissionPlanId, a.CommissionBasisAmount);
+
 
     private async Task<ActionResult?> ApplyAsync(Guid companyId, PayrollAdjustment adjustment, SavePayrollAdjustmentRequest request)
     {
+        // Loan repayments come from the loan (G10), never from a hand-typed adjustment.
+        if (request.Kind == PayrollAdjustmentKind.LoanRepayment || adjustment.IsLoanRepayment)
+        {
+            return BadRequest(_localizer["LoanRepaymentIsAutomatic"].Value);
+        }
+
+        // Reimbursements are scheduled from the expense claim (H13); they can be deleted, not typed.
+        if (request.Kind == PayrollAdjustmentKind.Reimbursement || adjustment.IsReimbursement)
+        {
+            return BadRequest(_localizer["ReimbursementFromClaimOnly"].Value);
+        }
+
         var employee = await _db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == request.EmployeeId && e.CompanyId == companyId);
         if (employee is null) return BadRequest(_localizer["EmployeeNotFound"].Value);
 
@@ -114,20 +163,9 @@ public class PayrollAdjustmentsController : ControllerBase
         {
             if (request.Hours is not > 0m) return BadRequest(_localizer["AdjustmentHoursRequired"].Value);
 
-            // The hourly rate comes from the salary in force for that month.
-            var monthEnd = period.AddMonths(1).AddDays(-1);
-            var contract = await _db.EmployeeContracts.AsNoTracking()
-                .Where(c => c.EmployeeId == employee.Id && c.StartDate <= monthEnd && (c.EndDate == null || c.EndDate >= period))
-                .OrderByDescending(c => c.StartDate)
-                .FirstOrDefaultAsync();
-
             hours = request.Hours;
-            multiplier = request.RateMultiplier is > 0m ? request.RateMultiplier : DefaultMultiplier(request.Kind);
-            amount = PayrollAdjustment.AmountFromHours(
-                contract?.MonthlyGrossSalary ?? employee.MonthlyGrossSalary,
-                contract?.WeeklyHours ?? KosovoPayrollRules.StandardWeeklyHours,
-                hours.Value,
-                multiplier.Value);
+            (amount, var applied) = await HourBasedAmountAsync(_db, companyId, employee, period, request.Kind, hours.Value, request.RateMultiplier);
+            multiplier = applied;
         }
         else
         {

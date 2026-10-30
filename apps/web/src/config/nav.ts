@@ -23,8 +23,19 @@ import {
   BadgePercent,
   UserRound,
   Network,
+  Target,
   CalendarDays,
   Wallet,
+  FileUser,
+  Palmtree,
+  IdCard,
+  HandCoins,
+  Percent,
+  ReceiptText,
+  Gauge,
+  Clock,
+  ScrollText,
+  ShieldCheck,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -41,9 +52,21 @@ import { Customers } from "@/pages/partners/Customers";
 import { Partners } from "@/pages/partners/Partners";
 import { Vendors } from "@/pages/partners/Vendors";
 import { Payroll } from "@/pages/payroll/Payroll";
+import { CommissionPlans } from "@/pages/payroll/CommissionPlans";
+import { EmployeeLoans } from "@/pages/payroll/EmployeeLoans";
 import { Employees } from "@/pages/hr/Employees";
 import { Departments } from "@/pages/hr/Departments";
+import { CostCenters } from "@/pages/ledger/CostCenters";
 import { Leave } from "@/pages/leave/Leave";
+import { MyLeave } from "@/pages/me/MyLeave";
+import { MyExpenses } from "@/pages/me/MyExpenses";
+import { ExpenseClaims } from "@/pages/hr/ExpenseClaims";
+import { FirmPayroll } from "@/pages/hr/FirmPayroll";
+import { Timesheets } from "@/pages/hr/Timesheets";
+import { PartnerStatement } from "@/pages/partners/PartnerStatement";
+import { UsersAndRoles } from "@/pages/admin/UsersAndRoles";
+import { MyPayslips } from "@/pages/me/MyPayslips";
+import { MyProfile } from "@/pages/me/MyProfile";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
@@ -56,7 +79,19 @@ import { YearEnd } from "@/pages/YearEnd";
  * backend's AccessModule). Unset = visible to everyone with company access. Display only — the
  * API enforces every rule itself.
  */
-export type NavModule = "sales" | "purchases" | "partners" | "accounting" | "reports" | "hr";
+export type NavModule =
+  | "sales"
+  | "purchases"
+  | "partners"
+  | "accounting"
+  | "reports"
+  | "hr"
+  | "self"
+  // docs/USER_ACCESS_PLAN.md areas.
+  | "items"
+  | "payroll"
+  | "settings"
+  | "users";
 
 export type NavItem = {
   titleKey: string;
@@ -201,7 +236,55 @@ export const topNavItems: NavItem[] = [dashboardItem];
 /** Top-level items rendered below every category. */
 export const bottomNavItems: NavItem[] = [companyProfileItem, companiesItem, settingsItem];
 
+// Sidebar order agreed with the product owner (2026-10-30): Favourites, Items, Customers, Sales,
+// Purchases, Bank & Cash, then Accounting, HR, My HR, Reports, Administration; Settings sits in the
+// bottom items. Favourites and the Dashboard link are rendered by the Sidebar above these.
 export const navCategories: NavCategory[] = [
+  {
+    id: "items",
+    labelKey: "sidebar.category.items",
+    items: [
+      {
+        titleKey: "nav.items",
+        path: "/items",
+        icon: Package,
+        descriptionKey: "nav.items.description",
+        Element: Items,
+        module: "items",
+      },
+    ],
+  },
+  {
+    // Customers and the partner register (Konsumatorët); each item keeps its own access area.
+    id: "customers",
+    labelKey: "sidebar.category.customers",
+    items: [
+      {
+        titleKey: "nav.customers",
+        path: "/customers",
+        icon: UserCheck,
+        descriptionKey: "nav.customers.description",
+        Element: Customers,
+        module: "sales",
+      },
+      {
+        titleKey: "nav.partners",
+        path: "/partners",
+        icon: BookUser,
+        descriptionKey: "nav.partners.description",
+        Element: Partners,
+        module: "partners",
+      },
+      {
+        titleKey: "nav.partnerStatement",
+        path: "/partner-statement",
+        icon: ScrollText,
+        descriptionKey: "nav.partnerStatement.description",
+        Element: PartnerStatement,
+        module: "partners",
+      },
+    ],
+  },
   {
     id: "sales",
     labelKey: "sidebar.category.sales",
@@ -223,13 +306,6 @@ export const navCategories: NavCategory[] = [
         icon: FileClock,
         descriptionKey: "nav.proforma.description",
         Element: Proforma,
-      },
-      {
-        titleKey: "nav.customers",
-        path: "/customers",
-        icon: UserCheck,
-        descriptionKey: "nav.customers.description",
-        Element: Customers,
       },
     ],
   },
@@ -258,6 +334,21 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
+    // Banka & Arka: bank and cash work — reconciliation today, bank statement import next.
+    id: "bankCash",
+    labelKey: "sidebar.category.bankCash",
+    items: [
+      {
+        titleKey: "nav.reconciliation",
+        path: "/reconciliation",
+        icon: GitMerge,
+        descriptionKey: "nav.reconciliation.description",
+        Element: Reconciliation,
+        module: "accounting",
+      },
+    ],
+  },
+  {
     id: "accounting",
     labelKey: "sidebar.category.accounting",
     module: "accounting",
@@ -271,32 +362,11 @@ export const navCategories: NavCategory[] = [
       },
       chartOfAccountsItem,
       {
-        titleKey: "nav.reconciliation",
-        path: "/reconciliation",
-        icon: GitMerge,
-        descriptionKey: "nav.reconciliation.description",
-        Element: Reconciliation,
-      },
-    ],
-  },
-  {
-    id: "registers",
-    labelKey: "sidebar.category.registers",
-    items: [
-      {
-        titleKey: "nav.items",
-        path: "/items",
-        icon: Package,
-        descriptionKey: "nav.items.description",
-        Element: Items,
-      },
-      {
-        titleKey: "nav.partners",
-        path: "/partners",
-        icon: BookUser,
-        descriptionKey: "nav.partners.description",
-        Element: Partners,
-        module: "partners",
+        titleKey: "nav.costCenters",
+        path: "/cost-centers",
+        icon: Target,
+        descriptionKey: "nav.costCenters.description",
+        Element: CostCenters,
       },
     ],
   },
@@ -325,6 +395,45 @@ export const navCategories: NavCategory[] = [
         icon: Wallet,
         descriptionKey: "nav.payroll.description",
         Element: Payroll,
+        module: "payroll",
+      },
+      {
+        titleKey: "nav.employeeLoans",
+        path: "/employee-loans",
+        icon: HandCoins,
+        descriptionKey: "nav.employeeLoans.description",
+        Element: EmployeeLoans,
+        module: "payroll",
+      },
+      {
+        titleKey: "nav.commissionPlans",
+        path: "/commission-plans",
+        icon: Percent,
+        descriptionKey: "nav.commissionPlans.description",
+        Element: CommissionPlans,
+        module: "payroll",
+      },
+      {
+        titleKey: "nav.timesheets",
+        path: "/timesheets",
+        icon: Clock,
+        descriptionKey: "nav.timesheets.description",
+        Element: Timesheets,
+      },
+      {
+        titleKey: "nav.expenseClaims",
+        path: "/expense-claims",
+        icon: ReceiptText,
+        descriptionKey: "nav.expenseClaims.description",
+        Element: ExpenseClaims,
+      },
+      {
+        titleKey: "nav.firmPayroll",
+        path: "/firm-payroll",
+        icon: Gauge,
+        descriptionKey: "nav.firmPayroll.description",
+        Element: FirmPayroll,
+        module: "payroll",
       },
       {
         titleKey: "nav.leave",
@@ -332,6 +441,42 @@ export const navCategories: NavCategory[] = [
         icon: CalendarDays,
         descriptionKey: "nav.leave.description",
         Element: Leave,
+      },
+    ],
+  },
+  {
+    // F9 self-service: shown to anyone whose login is linked to an employee of the company.
+    id: "myHr",
+    labelKey: "sidebar.category.myHr",
+    module: "self",
+    items: [
+      {
+        titleKey: "nav.myPayslips",
+        path: "/my/payslips",
+        icon: FileUser,
+        descriptionKey: "nav.myPayslips.description",
+        Element: MyPayslips,
+      },
+      {
+        titleKey: "nav.myLeave",
+        path: "/my/leave",
+        icon: Palmtree,
+        descriptionKey: "nav.myLeave.description",
+        Element: MyLeave,
+      },
+      {
+        titleKey: "nav.myExpenses",
+        path: "/my/expenses",
+        icon: ReceiptText,
+        descriptionKey: "nav.myExpenses.description",
+        Element: MyExpenses,
+      },
+      {
+        titleKey: "nav.myProfile",
+        path: "/my/profile",
+        icon: IdCard,
+        descriptionKey: "nav.myProfile.description",
+        Element: MyProfile,
       },
     ],
   },
@@ -360,6 +505,21 @@ export const navCategories: NavCategory[] = [
         icon: BadgePercent,
         descriptionKey: "nav.withholdingTax.description",
         Element: WithholdingTax,
+      },
+    ],
+  },
+  {
+    // docs/USER_ACCESS_PLAN.md: the administration dashboard.
+    id: "administration",
+    labelKey: "sidebar.category.administration",
+    module: "users",
+    items: [
+      {
+        titleKey: "nav.usersAndRoles",
+        path: "/admin/users",
+        icon: ShieldCheck,
+        descriptionKey: "nav.usersAndRoles.description",
+        Element: UsersAndRoles,
       },
     ],
   },

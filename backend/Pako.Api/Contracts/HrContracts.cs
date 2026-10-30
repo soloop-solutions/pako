@@ -58,7 +58,12 @@ public record SaveEmployeeRequest(
     decimal MonthlyGrossSalary,
     bool IsPrimaryEmployer = true,
     bool PensionExempt = false,
-    bool IsActive = true);
+    bool IsActive = true,
+    // E7. Null keeps the stored value, so older clients don't silently switch these off.
+    bool? ReceivePayslipsByEmail = null,
+    string? PreferredLanguage = null,
+    // G11. Sent with every save like DepartmentId; null = no commission.
+    Guid? CommissionPlanId = null);
 
 public record EmployeeDetailResponse(
     Guid Id,
@@ -87,9 +92,16 @@ public record EmployeeDetailResponse(
     bool PensionExempt,
     bool IsActive,
     int AssignedPartnerCount,
-    List<string> Warnings);
+    List<string> Warnings,
+    bool ReceivePayslipsByEmail = false,
+    string PreferredLanguage = "sq",
+    Guid? CommissionPlanId = null,
+    // True when the caller has no Payroll access: salary, IBAN and bank are blanked.
+    bool PayDataHidden = false);
 
-public record SetEmployeePartnersRequest(List<Guid> PartnerIds);
+// G11: EffectiveFrom (default today) dates the change, so commission on a partner that moves
+// between employees is split on that day.
+public record SetEmployeePartnersRequest(List<Guid> PartnerIds, DateOnly? EffectiveFrom = null);
 
 public record EmployeePartnerResponse(Guid PartnerId, string Name, bool IsCustomer, bool IsVendor);
 
@@ -102,7 +114,8 @@ public record SaveEmployeeContractRequest(
     EmploymentType EmploymentType,
     decimal WeeklyHours,
     string? JobTitle,
-    string? Notes);
+    string? Notes,
+    DateOnly? ProbationEndDate = null);
 
 public record EmployeeContractResponse(
     Guid Id,
@@ -114,7 +127,8 @@ public record EmployeeContractResponse(
     decimal WeeklyHours,
     string? JobTitle,
     string? Notes,
-    bool IsCurrent);
+    bool IsCurrent,
+    DateOnly? ProbationEndDate = null);
 
 // ---- Payroll adjustments (bonuses, overtime, deductions) ----
 
@@ -140,7 +154,11 @@ public record PayrollAdjustmentResponse(
     decimal? Hours,
     decimal? RateMultiplier,
     decimal Amount,
-    Guid? PayrollRunId);
+    Guid? PayrollRunId,
+    // G10/G11: where a generated adjustment came from.
+    Guid? EmployeeLoanId = null,
+    Guid? CommissionPlanId = null,
+    decimal? CommissionBasisAmount = null);
 
 // ---- Payroll runs ----
 
@@ -163,7 +181,14 @@ public record PayslipDetailResponse(
     decimal DeductionsAmount,
     decimal NetPay,
     bool IsPrimaryEmployer,
-    List<PayrollAdjustmentResponse> Adjustments);
+    List<PayrollAdjustmentResponse> Adjustments,
+    // Snapshot of the department's cost center when the slip was built ("CODE Name"); null if none.
+    Guid? CostCenterId = null,
+    string? CostCenterName = null,
+    // G10/H13: the loan-repayment part of DeductionsAmount, and untaxed expense reimbursements
+    // included in NetPay.
+    decimal LoanRepaymentAmount = 0m,
+    decimal ReimbursementAmount = 0m);
 
 public record PayrollRunTotals(
     decimal Gross,
@@ -186,7 +211,10 @@ public record PayrollRunDetailResponse(
     string? Notes,
     PayrollRunTotals Totals,
     List<PayslipDetailResponse> Lines,
-    List<string> Warnings);
+    List<string> Warnings,
+    // The statutory values the slips were computed with; null on list rows and on runs created
+    // before parameters were snapshotted.
+    PayrollParameters? Parameters = null);
 
 public record PayPayrollRunRequest(DateOnly PaidOn, Guid CashOrBankAccountId);
 
@@ -215,9 +243,14 @@ public record AnnualEmployeeStatementResponse(
 
 // ---- Leave ----
 
-public record SaveLeaveTypeRequest(string Code, string Name, decimal? DefaultAnnualDays, decimal PayPercent, bool IsActive = true);
+public record SaveLeaveTypeRequest(
+    string Code, string Name, decimal? DefaultAnnualDays, decimal PayPercent, bool IsActive = true,
+    // F9 carry-over; null = no carry-over / carried days never lapse.
+    decimal? CarryOverMaxDays = null, int? CarryOverExpiryMonth = null);
 
-public record LeaveTypeResponse(Guid Id, string Code, string Name, decimal? DefaultAnnualDays, decimal PayPercent, bool IsActive);
+public record LeaveTypeResponse(
+    Guid Id, string Code, string Name, decimal? DefaultAnnualDays, decimal PayPercent, bool IsActive,
+    decimal? CarryOverMaxDays = null, int? CarryOverExpiryMonth = null);
 
 public record SaveLeaveAllocationRequest(Guid EmployeeId, Guid LeaveTypeId, int Year, decimal Days);
 
@@ -230,7 +263,16 @@ public record LeaveBalanceResponse(
     decimal Allocated,
     decimal Taken,
     decimal Pending,
-    decimal Remaining);
+    decimal Remaining,
+    // True when the allocation is an employee-specific override rather than the type's default.
+    bool IsOverride,
+    // F9: Allocated includes CarriedOver; ExpiredCarryOver is the unused part of it that lapsed on
+    // CarryOverExpiresOn. Remaining = Allocated − Taken − Pending − ExpiredCarryOver.
+    decimal CarriedOver = 0m,
+    decimal ExpiredCarryOver = 0m,
+    DateOnly? CarryOverExpiresOn = null);
+
+public record LeaveCarryOverResponse(int FromYear, int AllocationsUpdated);
 
 public record CreateLeaveRequestRequest(Guid EmployeeId, Guid LeaveTypeId, DateOnly StartDate, DateOnly EndDate, string? Reason);
 
@@ -260,7 +302,12 @@ public record ModuleAccessResponse(
     AccessLevel Partners,
     AccessLevel Accounting,
     AccessLevel Reports,
-    AccessLevel Hr);
+    AccessLevel Hr,
+    // docs/USER_ACCESS_PLAN.md areas added with company roles.
+    AccessLevel Items = AccessLevel.None,
+    AccessLevel Payroll = AccessLevel.None,
+    AccessLevel Settings = AccessLevel.None,
+    AccessLevel Users = AccessLevel.None);
 
 // What the web needs to hide nav items and buttons. IsStaff=false means classic role access:
 // Modules reflect the role (Write for write-capable roles, Read for ClientViewer).
@@ -272,4 +319,12 @@ public record MyAccessResponse(
     string? DepartmentName,
     bool PartnerRestricted,
     int AssignedPartnerCount,
-    ModuleAccessResponse Modules);
+    ModuleAccessResponse Modules,
+    // F9: the employee record linked to this login in this company (any role), which unlocks
+    // "My HR"; IsTeamManager = someone active reports to them (team leave approvals).
+    Guid? LinkedEmployeeId = null,
+    bool IsTeamManager = false,
+    // The role shown in the header ("Administrator", "Accountant", a custom role…), and whether
+    // the administration dashboard is available.
+    string? RoleName = null,
+    bool CanManageUsers = false);

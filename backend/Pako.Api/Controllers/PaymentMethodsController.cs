@@ -42,7 +42,7 @@ public class PaymentMethodsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
     [ProducesResponseType(typeof(PaymentMethodResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PaymentMethodResponse>> Create(Guid companyId, CreatePaymentMethodRequest request)
     {

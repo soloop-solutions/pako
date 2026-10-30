@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Hr;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
@@ -42,7 +43,9 @@ public class EmployeesController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] string? sort = null,
         [FromQuery] Guid? departmentId = null,
-        [FromQuery] bool includeInactive = false)
+        [FromQuery] bool includeInactive = false,
+        // Only employees with no login yet — the pool a new Staff member can be linked to.
+        [FromQuery] bool withoutLogin = false)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
@@ -50,6 +53,7 @@ public class EmployeesController : ControllerBase
         var query = _db.Employees.AsNoTracking().Where(e => e.CompanyId == companyId);
         if (!includeInactive) query = query.Where(e => e.IsActive);
         if (departmentId is { } dept) query = query.Where(e => e.DepartmentId == dept);
+        if (withoutLogin) query = query.Where(e => e.UserId == null);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var pattern = $"%{search.Trim()}%";
@@ -91,7 +95,8 @@ public class EmployeesController : ControllerBase
     [ProducesResponseType(typeof(EmployeeDetailResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<EmployeeDetailResponse>> Create(Guid companyId, SaveEmployeeRequest request)
     {
-        if (_access.IsStaffAccess && (request.UserId is not null || request.DepartmentId is not null)) return Forbid();
+        // Linking a login is user management (Users & roles), never an HR edit.
+        if (_access.IsStaffAccess && request.UserId is not null) return Forbid();
 
         var employee = new Employee { Id = Guid.NewGuid(), CompanyId = companyId };
         var error = await ApplyAsync(companyId, employee, request);
@@ -110,7 +115,9 @@ public class EmployeesController : ControllerBase
         var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
         if (employee is null) return NotFound();
 
-        if (_access.IsStaffAccess && (request.UserId != employee.UserId || request.DepartmentId != employee.DepartmentId)) return Forbid();
+        // Departments no longer grant access (roles do), so HR may move people between them; the
+        // login link stays with user management.
+        if (_access.IsStaffAccess && request.UserId != employee.UserId) return Forbid();
 
         var error = await ApplyAsync(companyId, employee, request);
         if (error is not null) return error;
@@ -142,22 +149,40 @@ public class EmployeesController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
     public async Task<ActionResult<List<EmployeePartnerResponse>>> SetPartners(Guid companyId, Guid id, SetEmployeePartnersRequest request)
     {
-        if (_access.IsStaffAccess) return Forbid();
+        // Assignments decide what a partner-scoped user can see: an access change, so only user
+        // managers (admins, or a role with Users: Approve) make it.
+        if (_access.IsStaffAccess && _access.Role?.CanManageUsers != true) return Forbid();
         if (!await _db.Employees.AnyAsync(e => e.Id == id && e.CompanyId == companyId)) return NotFound();
 
         var requested = request.PartnerIds.Distinct().ToList();
         var found = await _db.Partners.Where(p => p.CompanyId == companyId && requested.Contains(p.Id)).CountAsync();
         if (found != requested.Count) return BadRequest(_localizer["AssignedPartnerNotFound"].Value);
 
+        var effectiveFrom = request.EffectiveFrom ?? DateOnly.FromDateTime(DateTime.UtcNow);
         var existing = await _db.EmployeePartnerAssignments.Where(a => a.EmployeeId == id).ToListAsync();
-        _db.EmployeePartnerAssignments.RemoveRange(existing.Where(a => !requested.Contains(a.PartnerId)));
+        foreach (var removed in existing.Where(a => !requested.Contains(a.PartnerId)))
+        {
+            // Keep the ended assignment for commission history (G11), then drop the live one.
+            _db.EmployeePartnerAssignmentPeriods.Add(new EmployeePartnerAssignmentPeriod
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = companyId,
+                EmployeeId = id,
+                PartnerId = removed.PartnerId,
+                AssignedFrom = removed.AssignedFrom,
+                AssignedTo = removed.AssignedFrom is { } from && from > effectiveFrom.AddDays(-1) ? from : effectiveFrom.AddDays(-1)
+            });
+            _db.EmployeePartnerAssignments.Remove(removed);
+        }
+
         var existingIds = existing.Select(a => a.PartnerId).ToHashSet();
         _db.EmployeePartnerAssignments.AddRange(requested.Where(p => !existingIds.Contains(p)).Select(p => new EmployeePartnerAssignment
         {
             Id = Guid.NewGuid(),
             CompanyId = companyId,
             EmployeeId = id,
-            PartnerId = p
+            PartnerId = p,
+            AssignedFrom = effectiveFrom
         }));
         await _db.SaveChangesAsync();
 
@@ -167,7 +192,7 @@ public class EmployeesController : ControllerBase
     // ---- Contracts (salary history) ----
 
     [HttpGet("{id:guid}/contracts", Name = "ListEmployeeContracts")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<ActionResult<List<EmployeeContractResponse>>> ListContracts(Guid companyId, Guid id)
     {
         if (!await _db.Employees.AnyAsync(e => e.Id == id && e.CompanyId == companyId)) return NotFound();
@@ -182,7 +207,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/contracts", Name = "CreateEmployeeContract")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     [ProducesResponseType(typeof(EmployeeContractResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<EmployeeContractResponse>> CreateContract(Guid companyId, Guid id, SaveEmployeeContractRequest request)
     {
@@ -199,7 +224,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpPut("{id:guid}/contracts/{contractId:guid}", Name = "UpdateEmployeeContract")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     public async Task<ActionResult<EmployeeContractResponse>> UpdateContract(Guid companyId, Guid id, Guid contractId, SaveEmployeeContractRequest request)
     {
         var contract = await _db.EmployeeContracts.FirstOrDefaultAsync(c => c.Id == contractId && c.EmployeeId == id && c.CompanyId == companyId);
@@ -213,7 +238,7 @@ public class EmployeesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}/contracts/{contractId:guid}", Name = "DeleteEmployeeContract")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     public async Task<IActionResult> DeleteContract(Guid companyId, Guid id, Guid contractId)
     {
         var contract = await _db.EmployeeContracts.FirstOrDefaultAsync(c => c.Id == contractId && c.EmployeeId == id && c.CompanyId == companyId);
@@ -235,6 +260,13 @@ public class EmployeesController : ControllerBase
             .ToListAsync();
         if (others.Any(c => c.Overlaps(request.StartDate, request.EndDate))) return BadRequest(_localizer["ContractOverlaps"].Value);
 
+        // Kosovo Law on Labour art. 13: probation is at most six months and inside the contract.
+        if (request.ProbationEndDate is { } probation &&
+            (probation < request.StartDate || probation > request.StartDate.AddMonths(6) || (request.EndDate is { } e && probation > e)))
+        {
+            return BadRequest(_localizer["ProbationEndInvalid"].Value);
+        }
+
         contract.StartDate = request.StartDate;
         contract.EndDate = request.EndDate;
         contract.MonthlyGrossSalary = request.MonthlyGrossSalary;
@@ -242,11 +274,13 @@ public class EmployeesController : ControllerBase
         contract.WeeklyHours = request.WeeklyHours;
         contract.JobTitle = string.IsNullOrWhiteSpace(request.JobTitle) ? null : request.JobTitle.Trim();
         contract.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        contract.ProbationEndDate = request.ProbationEndDate;
         return null;
     }
 
     private static EmployeeContractResponse ToContractResponse(EmployeeContract c, DateOnly today) => new(
-        c.Id, c.EmployeeId, c.StartDate, c.EndDate, c.MonthlyGrossSalary, c.EmploymentType, c.WeeklyHours, c.JobTitle, c.Notes, c.CoversDate(today));
+        c.Id, c.EmployeeId, c.StartDate, c.EndDate, c.MonthlyGrossSalary, c.EmploymentType, c.WeeklyHours, c.JobTitle, c.Notes, c.CoversDate(today),
+        c.ProbationEndDate);
 
     // ---- Shared ----
 
@@ -254,11 +288,19 @@ public class EmployeesController : ControllerBase
     {
         var name = Employee.DisplayName(request.FirstName, request.LastName, request.Name);
         if (name.Length == 0) return BadRequest(_localizer["EmployeeNameRequired"].Value);
-        if (request.MonthlyGrossSalary <= 0) return BadRequest(_localizer["SalaryMustBePositive"].Value);
-        if (request.MonthlyGrossSalary != Math.Round(request.MonthlyGrossSalary, 2))
-            return BadRequest(_localizer["SalaryExcessivePrecision"].Value);
-        if (request.MonthlyGrossSalary > 1_000_000m)
-            return BadRequest(_localizer["SalaryExceedsMaximum"].Value);
+
+        // Pay data (salary, IBAN, bank) belongs to Payroll: without Payroll Edit it is neither
+        // validated nor changed — HR saves keep whatever payroll set (a new employee starts at 0
+        // and shows the MissingSalary warning until payroll fills it in).
+        var canEditPay = _access.LevelFor(AccessModule.Payroll) >= AccessLevel.Write;
+        if (canEditPay)
+        {
+            if (request.MonthlyGrossSalary <= 0) return BadRequest(_localizer["SalaryMustBePositive"].Value);
+            if (request.MonthlyGrossSalary != Math.Round(request.MonthlyGrossSalary, 2))
+                return BadRequest(_localizer["SalaryExcessivePrecision"].Value);
+            if (request.MonthlyGrossSalary > 1_000_000m)
+                return BadRequest(_localizer["SalaryExceedsMaximum"].Value);
+        }
         if (request.HireDate is { } hire && request.TerminationDate is { } term && term < hire)
         {
             return BadRequest(_localizer["TerminationBeforeHire"].Value);
@@ -274,8 +316,13 @@ public class EmployeesController : ControllerBase
             }
         }
 
-        string? iban = null;
-        if (!string.IsNullOrWhiteSpace(request.Iban))
+        string? iban = employee.Iban;
+        if (canEditPay)
+        {
+            iban = null;
+        }
+
+        if (canEditPay && !string.IsNullOrWhiteSpace(request.Iban))
         {
             iban = EmployeeValidation.NormalizeIban(request.Iban);
             if (!EmployeeValidation.IsValidIban(iban)) return BadRequest(_localizer["IbanInvalid"].Value);
@@ -319,12 +366,23 @@ public class EmployeesController : ControllerBase
         employee.DepartmentId = request.DepartmentId;
         employee.ManagerId = request.ManagerId;
         employee.UserId = request.UserId;
-        employee.Iban = iban;
-        employee.BankName = Clean(request.BankName);
-        employee.MonthlyGrossSalary = request.MonthlyGrossSalary;
+        if (canEditPay)
+        {
+            employee.Iban = iban;
+            employee.BankName = Clean(request.BankName);
+            employee.MonthlyGrossSalary = request.MonthlyGrossSalary;
+        }
         employee.IsPrimaryEmployer = request.IsPrimaryEmployer;
         employee.PensionExempt = request.PensionExempt;
         employee.IsActive = request.IsActive;
+        if (request.ReceivePayslipsByEmail is { } byEmail) employee.ReceivePayslipsByEmail = byEmail;
+        if (request.CommissionPlanId is { } planId && !await _db.CommissionPlans.AnyAsync(p => p.Id == planId && p.CompanyId == companyId))
+        {
+            return BadRequest(_localizer["CommissionPlanNotFound"].Value);
+        }
+
+        employee.CommissionPlanId = request.CommissionPlanId;
+        if (request.PreferredLanguage is "sq" or "en") employee.PreferredLanguage = request.PreferredLanguage;
         return null;
     }
 
@@ -361,7 +419,12 @@ public class EmployeesController : ControllerBase
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Count);
 
-        var minimumWage = KosovoPayrollRules.MinimumWageOn(today);
+        var parameters = await new PayrollParameterProvider(_db).ForCompanyAsync(companyId, today);
+        var minimumWage = parameters.MinimumWage > 0m ? parameters.MinimumWage : (decimal?)null;
+
+        // Without Payroll View the pay fields are blanked (QuickBooks/Odoo both keep pay data out of
+        // plain HR access) — docs/USER_ACCESS_PLAN.md §2.
+        var payVisible = _access.LevelFor(AccessModule.Payroll) >= AccessLevel.Read;
 
         return employees.Select(e =>
         {
@@ -371,6 +434,8 @@ public class EmployeesController : ControllerBase
             if (e.IsActive && isFullTime && minimumWage is { } min && currentSalary < min) warnings.Add("BelowMinimumWage");
             if (e.PersonalNumber is null) warnings.Add("MissingPersonalNumber");
             if (e.Iban is null) warnings.Add("MissingIban");
+            if (currentSalary <= 0m) warnings.Add("MissingSalary");
+            if (!payVisible) warnings.RemoveAll(w => w is "BelowMinimumWage" or "MissingIban");
 
             return new EmployeeDetailResponse(
                 e.Id,
@@ -391,15 +456,19 @@ public class EmployeesController : ControllerBase
                 e.ManagerId is { } m ? managerNames.GetValueOrDefault(m) : null,
                 e.UserId,
                 e.UserId is { } u ? userEmails.GetValueOrDefault(u) : null,
-                e.Iban,
-                e.BankName,
-                e.MonthlyGrossSalary,
-                currentSalary,
+                payVisible ? e.Iban : null,
+                payVisible ? e.BankName : null,
+                payVisible ? e.MonthlyGrossSalary : 0m,
+                payVisible ? currentSalary : 0m,
                 e.IsPrimaryEmployer,
                 e.PensionExempt,
                 e.IsActive,
                 partnerCounts.GetValueOrDefault(e.Id),
-                warnings);
+                warnings,
+                e.ReceivePayslipsByEmail,
+                e.PreferredLanguage,
+                e.CommissionPlanId,
+                PayDataHidden: !payVisible);
         }).ToList();
     }
 }

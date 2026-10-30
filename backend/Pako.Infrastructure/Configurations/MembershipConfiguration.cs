@@ -15,5 +15,7 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
         builder.HasOne<Company>().WithMany().HasForeignKey(m => m.CompanyId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(m => new { m.UserId, m.CompanyId });
         builder.HasIndex(m => new { m.UserId, m.FirmId });
+        // A role in use can't be deleted (the dashboard asks to move its users first).
+        builder.HasOne<CompanyRole>().WithMany().HasForeignKey(m => m.CompanyRoleId).OnDelete(DeleteBehavior.Restrict);
     }
 }

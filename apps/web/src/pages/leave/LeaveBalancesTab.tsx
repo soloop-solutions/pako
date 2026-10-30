@@ -6,8 +6,10 @@ import { useSearchParams } from "react-router-dom";
 import type { LeaveBalanceResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -15,7 +17,8 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { EmployeeFilter } from "@/pages/leave/LeaveRequestsTab";
-import { parseYear, remainingTone, useLeaveEmployees, useLeaveTypes, yearOptions } from "@/pages/leave/leaveShared";
+import { parseYear, remainingTone, useLeaveTypes, yearOptions } from "@/pages/leave/leaveShared";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 const GRID_ID = "leaveBalances";
 
@@ -33,12 +36,13 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const { canApprove } = useMyAccess();
+  const [notice, setNotice] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   // Enter commits (or Escape reverts) and the input then blurs — the ref stops that blur from
   // committing a second time.
   const committingRef = useRef(false);
 
-  const employeesQuery = useLeaveEmployees(companyId);
   const typesQuery = useLeaveTypes(companyId);
 
   const balancesQuery = useQuery({
@@ -69,10 +73,30 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "leave.balances.saveError" }))),
   });
 
+  const carryOverMutation = useMutation({
+    mutationFn: () => apiClient.runLeaveCarryOver(companyId, year),
+    onSuccess: async (result) => {
+      setError(null);
+      setNotice(intl.formatMessage({ id: "leave.balances.carryOverDone" }, { count: result.allocationsUpdated, year: year + 1 }));
+      await queryClient.invalidateQueries({ queryKey: ["leave", "balances"] });
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "leave.balances.saveError" }))),
+  });
+
+  const resetMutation = useMutation({
+    mutationFn: (row: LeaveBalanceResponse) => apiClient.resetLeaveAllocation(companyId, row.employeeId, row.leaveTypeId, year),
+    onSuccess: async () => {
+      setError(null);
+      await queryClient.invalidateQueries({ queryKey: ["leave", "balances"] });
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "leave.balances.saveError" }))),
+  });
+
   function startEdit(row: LeaveBalanceResponse) {
     committingRef.current = false;
     setEditingKey(balanceKey(row));
-    setDraft(String(row.allocated));
+    // The editable figure is the year's own entitlement; carried-over days are on top of it.
+    setDraft(String(row.allocated - (row.carriedOver ?? 0)));
     setError(null);
   }
 
@@ -133,14 +157,49 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
             );
           }
           return (
-            <button
-              type="button"
-              className="w-full text-right tabular-nums underline decoration-dotted decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground"
-              title={intl.formatMessage({ id: "leave.balances.editHint" })}
-              onClick={() => startEdit(balance)}
-            >
-              {balance.allocated}
-            </button>
+            <div className="flex items-center justify-end gap-1.5">
+              {balance.isOverride && (
+                <>
+                  <Badge variant="secondary" title={intl.formatMessage({ id: "leave.balances.customHint" })}>
+                    {intl.formatMessage({ id: "leave.balances.custom" })}
+                  </Badge>
+                  <button
+                    type="button"
+                    className="text-xs text-muted-foreground hover:text-foreground hover:underline"
+                    disabled={resetMutation.isPending}
+                    onClick={() => resetMutation.mutate(balance)}
+                  >
+                    {intl.formatMessage({ id: "leave.balances.resetToDefault" })}
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                className="text-right tabular-nums underline decoration-dotted decoration-muted-foreground/60 underline-offset-2 hover:decoration-foreground"
+                title={intl.formatMessage({ id: "leave.balances.editHint" })}
+                onClick={() => startEdit(balance)}
+              >
+                {balance.allocated}
+              </button>
+            </div>
+          );
+        },
+      },
+      {
+        id: "carriedOver",
+        accessorFn: (row) => row.carriedOver ?? 0,
+        header: intl.formatMessage({ id: "leave.field.carriedOver" }),
+        meta: { numeric: true },
+        enableGrouping: false,
+        cell: ({ row }) => {
+          const carried = row.original.carriedOver ?? 0;
+          const expired = row.original.expiredCarryOver ?? 0;
+          if (carried === 0) return <span className="text-muted-foreground">{"\u2014"}</span>;
+          return (
+            <span title={row.original.carryOverExpiresOn ? intl.formatMessage({ id: "leave.balances.carryExpires" }, { date: row.original.carryOverExpiresOn }) : undefined}>
+              {carried}
+              {expired > 0 && <span className="ml-1 text-xs text-destructive line-through">{expired}</span>}
+            </span>
           );
         },
       },
@@ -169,7 +228,7 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, editingKey, draft, allocationMutation.isPending],
+    [intl, editingKey, draft, allocationMutation.isPending, resetMutation.isPending],
   );
 
   const balances = balancesQuery.data ?? [];
@@ -194,19 +253,37 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
               }))}
             />
           </div>
-          <EmployeeFilter value={employeeFilter} onChange={(v) => setParam("employee", v)} employees={employeesQuery.data ?? []} />
+          <EmployeeFilter companyId={companyId} value={employeeFilter} onChange={(v) => setParam("employee", v)} />
         </div>
-        <Button variant="outline" onClick={() => setFormOpen((open) => !open)}>
-          {intl.formatMessage({ id: "leave.balances.setAllocation" })}
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            hidden={!canApprove("hr")}
+            disabled={carryOverMutation.isPending}
+            onClick={() => {
+              if (window.confirm(intl.formatMessage({ id: "leave.balances.carryOverConfirm" }, { year, next: year + 1 }))) carryOverMutation.mutate();
+            }}
+          >
+            {intl.formatMessage({ id: "leave.balances.carryOver" }, { year })}
+          </Button>
+          <Button variant="outline" onClick={() => setFormOpen((open) => !open)}>
+            {intl.formatMessage({ id: "leave.balances.setAllocation" })}
+          </Button>
+        </div>
       </div>
+
+      {notice && (
+        <Alert>
+          <AlertDescription>{notice}</AlertDescription>
+        </Alert>
+      )}
 
       <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "leave.balances.hint" })}</p>
 
       {formOpen && (
         <SetAllocationForm
           year={year}
-          employees={employeesQuery.data ?? []}
+          companyId={companyId}
           leaveTypes={(typesQuery.data ?? []).filter((t) => t.isActive)}
           defaultEmployeeId={employeeFilter}
           submitting={allocationMutation.isPending}
@@ -243,7 +320,7 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
 
 function SetAllocationForm({
   year,
-  employees,
+  companyId,
   leaveTypes,
   defaultEmployeeId,
   submitting,
@@ -251,7 +328,7 @@ function SetAllocationForm({
   onCancel,
 }: {
   year: number;
-  employees: { id: string; name: string }[];
+  companyId: string;
   leaveTypes: { id: string; code: string; name: string }[];
   defaultEmployeeId: string;
   submitting: boolean;
@@ -289,16 +366,7 @@ function SetAllocationForm({
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-alloc-employee">{intl.formatMessage({ id: "leave.field.employee" })}</Label>
-              <Select
-                id="leave-alloc-employee"
-                value={employeeId}
-                onValueChange={(v) => setEmployeeId(v)}
-                placeholder={intl.formatMessage({ id: "leave.form.selectEmployee" })}
-                options={employees.map((e) => ({
-                  value: e.id,
-                  label: e.name,
-                }))}
-              />
+              <EmployeePicker id="leave-alloc-employee" companyId={companyId} value={employeeId} onChange={(id) => setEmployeeId(id)} />
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-alloc-type">{intl.formatMessage({ id: "leave.field.type" })}</Label>

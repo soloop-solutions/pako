@@ -5,12 +5,15 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Domain.Hr;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 using Pako.Localization.Xk;
 
 namespace Pako.Api.Controllers;
 
+// Gated on Accounting: entries name the people and businesses paid (personal numbers, rent,
+// interest), so partner-restricted staff — who never get Accounting — can't read them.
 [ApiController]
 [Route("api/companies/{companyId:guid}/withholding-tax")]
 [Authorize]
@@ -26,7 +29,7 @@ public class WithholdingTaxController : ControllerBase
     }
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<WithholdingTaxListResponse>> List(
         Guid companyId,
         [FromQuery] int year,
@@ -72,12 +75,12 @@ public class WithholdingTaxController : ControllerBase
     }
 
     [HttpGet("countries")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public ActionResult<WithholdingTaxCountryListResponse> Countries(Guid companyId) =>
         Ok(new WithholdingTaxCountryListResponse(AtkCountries.Names.ToList(), AtkCountries.Default));
 
     [HttpGet("{entryId:guid}")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<WithholdingTaxEntryResponse>> Get(Guid companyId, Guid entryId)
     {
         var entry = await _db.WithholdingTaxEntries.AsNoTracking()
@@ -88,7 +91,7 @@ public class WithholdingTaxController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(WithholdingTaxEntryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<WithholdingTaxEntryResponse>> Create(Guid companyId, SaveWithholdingTaxEntryRequest request)
     {
@@ -106,7 +109,7 @@ public class WithholdingTaxController : ControllerBase
     }
 
     [HttpPut("{entryId:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<WithholdingTaxEntryResponse>> Update(Guid companyId, Guid entryId, SaveWithholdingTaxEntryRequest request)
     {
         var entry = await _db.WithholdingTaxEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.CompanyId == companyId);
@@ -123,7 +126,7 @@ public class WithholdingTaxController : ControllerBase
     }
 
     [HttpDelete("{entryId:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<IActionResult> Delete(Guid companyId, Guid entryId)
     {
         var entry = await _db.WithholdingTaxEntries.FirstOrDefaultAsync(e => e.Id == entryId && e.CompanyId == companyId);
@@ -136,7 +139,7 @@ public class WithholdingTaxController : ControllerBase
 
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("export", Name = "WithholdingTaxExport")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> Export(Guid companyId, [FromQuery] int year)
     {
         if (year is < 2000 or > 2100) return BadRequest(_localizer["WithholdingTaxYearInvalid"].Value);

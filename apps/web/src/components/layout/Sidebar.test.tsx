@@ -63,7 +63,8 @@ describe("Sidebar module access", () => {
       departmentName: "Sales",
       partnerRestricted: true,
       assignedPartnerCount: 3,
-      modules: { ...FULL, hr: 0, accounting: 0 },
+      // Payroll is its own area since roles (docs/USER_ACCESS_PLAN.md); this user has none.
+      modules: { ...FULL, hr: 0, payroll: 0, accounting: 0 },
     });
     renderSidebar();
 

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -6,8 +7,10 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Api.Services.Notifications;
 using Pako.Domain.Hr;
 using Pako.Domain.Ledger;
+using Pako.Domain.Notifications;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
 
@@ -23,20 +26,28 @@ public class PayrollRunsController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly PayrollRunComposer _composer;
+    private readonly PayslipDocumentService _documents;
+    private readonly NotificationOutbox _outbox;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ExpenseClaimService _claims;
 
-    public PayrollRunsController(PakoDbContext db, PayrollRunComposer composer, IStringLocalizer<ErrorMessages> localizer)
+    public PayrollRunsController(
+        PakoDbContext db, PayrollRunComposer composer, PayslipDocumentService documents, NotificationOutbox outbox,
+        IStringLocalizer<ErrorMessages> localizer, ExpenseClaimService? claims = null)
     {
         _db = db;
         _composer = composer;
+        _documents = documents;
+        _outbox = outbox;
         _localizer = localizer;
+        _claims = claims ?? new ExpenseClaimService(db, outbox, localizer);
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     // Unpaged: one run per month, so even ten years of history is ~120 rows.
     [HttpGet(Name = "ListPayrollRuns")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<ActionResult<List<PayrollRunDetailResponse>>> List(Guid companyId)
     {
         var runs = await _db.PayrollRuns.AsNoTracking()
@@ -50,7 +61,7 @@ public class PayrollRunsController : ControllerBase
     }
 
     [HttpGet("{id:guid}", Name = "GetPayrollRun")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Get(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.AsNoTracking()
@@ -62,7 +73,7 @@ public class PayrollRunsController : ControllerBase
     }
 
     [HttpPost(Name = "CreatePayrollRun")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     [ProducesResponseType(typeof(PayrollRunDetailResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Create(Guid companyId, CreatePayrollRunRequest request)
     {
@@ -83,6 +94,7 @@ public class PayrollRunsController : ControllerBase
             CompanyId = companyId,
             PeriodStart = request.PeriodStart,
             PeriodEnd = request.PeriodEnd,
+            ParametersSnapshot = PayrollParameterProvider.Serialize(composed.Parameters),
             Lines = composed.Lines
         };
         foreach (var adjustment in composed.ConsumedAdjustments)
@@ -98,7 +110,7 @@ public class PayrollRunsController : ControllerBase
 
     // Re-reads HR data (salaries, adjustments, leave) into a Draft run.
     [HttpPost("{id:guid}/recompute", Name = "RecomputePayrollRun")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Recompute(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
@@ -116,6 +128,7 @@ public class PayrollRunsController : ControllerBase
         }
 
         _db.PayslipLines.AddRange(composed.Lines);
+        run.ParametersSnapshot = PayrollParameterProvider.Serialize(composed.Parameters);
         foreach (var adjustment in composed.ConsumedAdjustments)
         {
             adjustment.PayrollRunId = run.Id;
@@ -128,7 +141,7 @@ public class PayrollRunsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}", Name = "DeletePayrollRun")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Payroll)]
     public async Task<IActionResult> Delete(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
@@ -142,7 +155,7 @@ public class PayrollRunsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve", Name = "ApprovePayrollRun")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll, approve: true)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Approve(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
@@ -162,7 +175,7 @@ public class PayrollRunsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/return-to-draft", Name = "ReturnPayrollRunToDraft")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll, approve: true)]
     public async Task<ActionResult<PayrollRunDetailResponse>> ReturnToDraft(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
@@ -184,7 +197,7 @@ public class PayrollRunsController : ControllerBase
     // Posting books to the ledger, so it needs Accounting write as well as HR for staff — a
     // partner-scoped staff user never has Accounting, so can prepare payroll but never post it.
     [HttpPost("{id:guid}/post", Name = "PostPayrollRun")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(module: AccessModule.Payroll, approve: true)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Post(Guid companyId, Guid id)
     {
         var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
@@ -225,7 +238,9 @@ public class PayrollRunsController : ControllerBase
                 defaults.BonusExpenseAccountId,
                 defaults.EmployerPensionExpenseAccountId,
                 defaults.EmployerPensionPayableAccountId,
-                defaults.PayrollDeductionsAccountId));
+                defaults.PayrollDeductionsAccountId,
+                await new EmployeeLoanService(_db).AdvancesAccountIdAsync(companyId),
+                await ReimbursementPayablesAsync(companyId, payrollRun, defaults.PayableAccountId)));
         }
         catch (Exception ex) when (
             ex is InvalidOperationException or
@@ -243,14 +258,58 @@ public class PayrollRunsController : ControllerBase
         journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
         _db.JournalEntries.Add(journalEntry);
+        await QueuePayslipEmailsAsync(companyId, payrollRun);
+        await _db.SaveChangesAsync();
+        await new EmployeeLoanService(_db).SettleRepaidAsync(payrollRun.Id);
+        await _claims.SettleReimbursementsAsync(companyId, payrollRun.Id, journalEntry.Id);
         await _db.SaveChangesAsync();
 
         return Ok(await ToDetailAsync(companyId, payrollRun, new List<string>()));
     }
 
+    // H13: the payable account and partner each reimbursed employee's claim bills sit on.
+    private async Task<IReadOnlyDictionary<Guid, (Guid AccountId, Guid PartnerId)>?> ReimbursementPayablesAsync(
+        Guid companyId, PayrollRun run, Guid defaultPayableAccountId)
+    {
+        var employeeIds = run.Lines.Where(l => l.ReimbursementAmount != 0m).Select(l => l.EmployeeId).ToList();
+        if (employeeIds.Count == 0) return null;
+
+        var partners = await _db.Partners.AsNoTracking()
+            .Where(p => p.CompanyId == companyId && p.EmployeeId != null && employeeIds.Contains(p.EmployeeId.Value))
+            .Select(p => new { EmployeeId = p.EmployeeId!.Value, p.Id, p.PayableAccountId })
+            .ToListAsync();
+        return partners.ToDictionary(p => p.EmployeeId, p => (p.PayableAccountId ?? defaultPayableAccountId, p.Id));
+    }
+
+    // E7: once posted, a payslip is final — email it (PDF attached at send time) to every employee
+    // who opted in and has an address. Queued in the same SaveChanges as the posting.
+    private async Task QueuePayslipEmailsAsync(Guid companyId, PayrollRun run)
+    {
+        var employeeIds = run.Lines.Select(l => l.EmployeeId).ToList();
+        var employees = await _db.Employees.AsNoTracking()
+            .Where(e => employeeIds.Contains(e.Id) && e.ReceivePayslipsByEmail)
+            .ToListAsync();
+        if (employees.Count == 0) return;
+
+        var companyName = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.Name).FirstAsync();
+        foreach (var employee in employees)
+        {
+            if (await _outbox.EmployeeAsync(employee) is not { } recipient) continue;
+            var line = run.Lines.First(l => l.EmployeeId == employee.Id);
+            await _outbox.EnqueueAsync(companyId, NotificationTemplates.PayslipReady, new[] { recipient },
+                new Dictionary<string, string>
+                {
+                    ["employee"] = employee.Name,
+                    ["company"] = companyName,
+                    ["month"] = run.PeriodStart.ToString("MM.yyyy", CultureInfo.InvariantCulture)
+                },
+                NotificationAttachments.PayslipLine, line.Id);
+        }
+    }
+
     // Net pay leaves the bank in one transfer (bank batch). Dr 220100 / Cr the bank or cash account.
     [HttpPost("{id:guid}/pay", Name = "PayPayrollRun")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(module: AccessModule.Payroll, approve: true)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Pay(Guid companyId, Guid id, PayPayrollRunRequest request)
     {
         var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
@@ -304,7 +363,7 @@ public class PayrollRunsController : ControllerBase
     // Payroll register: one row per payslip, every component.
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("{id:guid}/register/export", Name = "PayrollRegisterExport")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> RegisterExport(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.AsNoTracking().Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
@@ -332,7 +391,7 @@ public class PayrollRunsController : ControllerBase
     // the live EDI form before relying on it for upload (same caveat as ExcelExportService).
     [Produces(ExcelExportService.XlsxContentType)]
     [HttpGet("{id:guid}/edi/export", Name = "PayrollEdiExport")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> EdiExport(Guid companyId, Guid id)
     {
         var run = await _db.PayrollRuns.AsNoTracking().Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
@@ -357,53 +416,92 @@ public class PayrollRunsController : ControllerBase
     // The yearly income and withholding statement each employee needs for their own annual
     // return (due 31 March). Posted and Paid runs only — a Draft isn't income yet.
     [HttpGet("annual-statement/{employeeId:guid}", Name = "GetAnnualEmployeeStatement")]
-    [RequireCompanyAccess(module: AccessModule.Hr)]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<ActionResult<AnnualEmployeeStatementResponse>> AnnualStatement(Guid companyId, Guid employeeId, [FromQuery] int year)
     {
-        var employee = await _db.Employees.AsNoTracking().FirstOrDefaultAsync(e => e.Id == employeeId && e.CompanyId == companyId);
-        if (employee is null) return NotFound();
-
-        var yearStart = new DateOnly(year, 1, 1);
-        var yearEnd = new DateOnly(year, 12, 31);
-        var months = await (
-            from l in _db.PayslipLines.AsNoTracking()
-            join r in _db.PayrollRuns.AsNoTracking() on l.PayrollRunId equals r.Id
-            where r.CompanyId == companyId && l.EmployeeId == employeeId &&
-                (r.State == PayrollRunState.Posted || r.State == PayrollRunState.Paid) &&
-                r.PeriodEnd >= yearStart && r.PeriodEnd <= yearEnd
-            orderby r.PeriodStart
-            select new AnnualEmployeeStatementMonth(r.PeriodStart, r.PeriodEnd, l.GrossSalary, l.EmployeePensionAmount,
-                l.EmployerPensionAmount, l.PitAmount, l.NetPay)).ToListAsync();
-
-        return Ok(new AnnualEmployeeStatementResponse(
-            employee.Id, employee.Name, employee.PersonalNumber, year, months,
-            months.Sum(m => m.GrossSalary), months.Sum(m => m.EmployeePension), months.Sum(m => m.EmployerPension),
-            months.Sum(m => m.Pit), months.Sum(m => m.NetPay)));
+        var statement = await _documents.AnnualStatementAsync(companyId, employeeId, year);
+        return statement is null ? NotFound() : Ok(statement);
     }
 
+    [Produces(PayslipPdfRenderer.PdfContentType)]
+    [HttpGet("annual-statement/{employeeId:guid}/pdf", Name = "AnnualEmployeeStatementPdf")]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
+    public async Task<IActionResult> AnnualStatementPdf(Guid companyId, Guid employeeId, [FromQuery] int year)
+    {
+        var statement = await _documents.AnnualStatementAsync(companyId, employeeId, year);
+        if (statement is null) return NotFound();
+
+        var bytes = PayslipPdfRenderer.RenderAnnualStatement(
+            await _documents.IssuerAsync(companyId), statement, Label, CultureInfo.CurrentUICulture);
+        return File(bytes, PayslipPdfRenderer.PdfContentType, $"annual-statement-{year}-{statement.PersonalNumber ?? statement.EmployeeId.ToString()}.pdf");
+    }
+
+    // D6: one payslip as PDF, rendered from the run's snapshot (nothing is recomputed).
+    [Produces(PayslipPdfRenderer.PdfContentType)]
+    [HttpGet("{id:guid}/payslips/{lineId:guid}/pdf", Name = "PayslipPdf")]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
+    public async Task<IActionResult> PayslipPdf(Guid companyId, Guid id, Guid lineId)
+    {
+        var document = (await _documents.LoadRunAsync(companyId, id, lineId: lineId)).SingleOrDefault();
+        if (document is null) return NotFound();
+
+        var bytes = PayslipPdfRenderer.RenderPayslip(document, Label, CultureInfo.CurrentUICulture);
+        return File(bytes, PayslipPdfRenderer.PdfContentType, PayslipPdfRenderer.FileName(document));
+    }
+
+    // D6: every payslip of the run, one PDF each, zipped.
+    [Produces(PayslipPdfRenderer.ZipContentType)]
+    [HttpGet("{id:guid}/payslips/zip", Name = "PayslipsZip")]
+    [RequireCompanyAccess(module: AccessModule.Payroll)]
+    public async Task<IActionResult> PayslipsZip(Guid companyId, Guid id)
+    {
+        var documents = await _documents.LoadRunAsync(companyId, id);
+        if (documents.Count == 0) return NotFound();
+
+        var bytes = PayslipPdfRenderer.RenderPayslipZip(documents, Label, CultureInfo.CurrentUICulture);
+        return File(bytes, PayslipPdfRenderer.ZipContentType, $"payslips-{documents[0].PeriodStart:yyyyMM}.zip");
+    }
+
+    private string Label(string key) => _localizer[key].Value;
+
+    // Hand-entered adjustments go back to the pool; generated loan repayments are deleted (the
+    // next compose generates them again from the loan's balance).
     private async Task ReleaseAdjustmentsAsync(Guid runId)
     {
         var adjustments = await _db.PayrollAdjustments.Where(a => a.PayrollRunId == runId).ToListAsync();
         foreach (var adjustment in adjustments)
         {
-            adjustment.PayrollRunId = null;
+            if (adjustment.IsLoanRepayment)
+            {
+                _db.PayrollAdjustments.Remove(adjustment);
+            }
+            else
+            {
+                adjustment.PayrollRunId = null;
+            }
         }
     }
 
-    private record Lookups(
+    internal record Lookups(
         Dictionary<Guid, (string Name, string? PersonalNumber)> Employees,
-        Dictionary<Guid, string> Departments);
+        Dictionary<Guid, string> Departments,
+        Dictionary<Guid, string> CostCenters);
 
-    private async Task<Lookups> LookupsAsync(Guid companyId)
+    private Task<Lookups> LookupsAsync(Guid companyId) => LookupsAsync(_db, companyId);
+
+    internal static async Task<Lookups> LookupsAsync(PakoDbContext db, Guid companyId)
     {
-        var employees = await _db.Employees.AsNoTracking()
+        var employees = await db.Employees.AsNoTracking()
             .Where(e => e.CompanyId == companyId)
             .Select(e => new { e.Id, e.Name, e.PersonalNumber })
             .ToDictionaryAsync(e => e.Id, e => (e.Name, e.PersonalNumber));
-        var departments = await _db.Departments.AsNoTracking()
+        var departments = await db.Departments.AsNoTracking()
             .Where(d => d.CompanyId == companyId)
             .ToDictionaryAsync(d => d.Id, d => d.Name);
-        return new Lookups(employees, departments);
+        var costCenters = await db.CostCenters.AsNoTracking()
+            .Where(c => c.CompanyId == companyId)
+            .ToDictionaryAsync(c => c.Id, c => c.Code + " " + c.Name);
+        return new Lookups(employees, departments, costCenters);
     }
 
     private async Task<PayrollRunDetailResponse> ToDetailAsync(Guid companyId, PayrollRun run, List<string> warnings)
@@ -419,7 +517,7 @@ public class PayrollRunsController : ControllerBase
         return ToResponse(run, lookups, adjustments, warnings, includeLines: true);
     }
 
-    private static PayrollRunDetailResponse ToResponse(
+    internal static PayrollRunDetailResponse ToResponse(
         PayrollRun r, Lookups lookups, List<PayrollAdjustment> adjustments, List<string> warnings, bool includeLines)
     {
         var totals = new PayrollRunTotals(
@@ -445,13 +543,18 @@ public class PayrollRunsController : ControllerBase
                         l.IsPrimaryEmployer,
                         adjustments.Where(a => a.EmployeeId == l.EmployeeId)
                             .Select(a => PayrollAdjustmentsController.ToResponse(a, employee.Name ?? string.Empty))
-                            .ToList());
+                            .ToList(),
+                        l.CostCenterId,
+                        l.CostCenterId is { } c ? lookups.CostCenters.GetValueOrDefault(c) : null,
+                        l.LoanRepaymentAmount,
+                        l.ReimbursementAmount);
                 })
                 .OrderBy(l => l.EmployeeName)
                 .ToList();
 
         return new PayrollRunDetailResponse(
             r.Id, r.PeriodStart, r.PeriodEnd, r.State.ToString(), r.JournalEntryId, r.PaymentJournalEntryId, r.PaidOn,
-            r.ApprovedAt, r.Notes, totals, lines, warnings);
+            r.ApprovedAt, r.Notes, totals, lines, warnings,
+            includeLines ? PayrollParameterProvider.Deserialize(r.ParametersSnapshot) : null);
     }
 }

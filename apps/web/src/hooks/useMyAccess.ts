@@ -14,6 +14,8 @@ export interface MyAccess {
   isStaff: boolean;
   canSee: (module: NavModule) => boolean;
   canWrite: (module: NavModule) => boolean;
+  /** Post, approve/reject, pay, cancel — the Approve level of docs/USER_ACCESS_PLAN.md. */
+  canApprove: (module: NavModule) => boolean;
 }
 
 export const myAccessQueryKey = (companyId: string | null) => ["myAccess", companyId] as const;
@@ -35,9 +37,13 @@ export function useMyAccess(): MyAccess {
   const access = query.data ?? null;
 
   function level(module: NavModule): number {
-    if (!access) return AccessLevel.Write;
+    // "My HR" is for members linked to an employee; hidden until the answer says so.
+    if (module === "self") return access?.linkedEmployeeId ? AccessLevel.Write : AccessLevel.None;
+    // The administration dashboard likewise stays hidden until the answer allows it.
+    if (module === "users" && !access) return AccessLevel.None;
+    if (!access) return AccessLevel.Approve;
     const value = access.modules?.[module];
-    return typeof value === "number" ? value : AccessLevel.Write;
+    return typeof value === "number" ? value : AccessLevel.Approve;
   }
 
   return {
@@ -46,5 +52,6 @@ export function useMyAccess(): MyAccess {
     isStaff: access?.isStaff ?? false,
     canSee: (module) => level(module) > AccessLevel.None,
     canWrite: (module) => level(module) >= AccessLevel.Write,
+    canApprove: (module) => level(module) >= AccessLevel.Approve,
   };
 }

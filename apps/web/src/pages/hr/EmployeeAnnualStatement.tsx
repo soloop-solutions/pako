@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { FileDown } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
 import type { AnnualEmployeeStatementMonth } from "@pako/shared";
@@ -8,8 +9,10 @@ import type { AnnualEmployeeStatementMonth } from "@pako/shared";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
+import { downloadFileResponse } from "@/lib/download";
 
 const YEAR_PARAM = "year";
 const YEARS_BACK = 6;
@@ -22,7 +25,7 @@ function money(value: number): string {
  * Annual income statement (Kosovo employers hand one to each employee by 31 March). Every amount,
  * totals included, renders exactly as the API returns it.
  */
-export function EmployeeAnnualStatement({ companyId, employeeId }: { companyId: string; employeeId: string }) {
+export function EmployeeAnnualStatement({ companyId, employeeId }: { companyId: string; employeeId?: string }) {
   const intl = useIntl();
   const [searchParams, setSearchParams] = useSearchParams();
   const thisYear = new Date().getFullYear();
@@ -31,10 +34,29 @@ export function EmployeeAnnualStatement({ companyId, employeeId }: { companyId: 
   if (!years.includes(year)) years.push(year);
 
   const statementQuery = useQuery({
-    queryKey: ["employeeStatement", companyId, employeeId, year],
-    queryFn: () => apiClient.getAnnualEmployeeStatement(companyId, employeeId, year),
+    queryKey: ["employeeStatement", companyId, employeeId ?? "me", year],
+    // No employeeId = the signed-in employee's own statement (self-service).
+    queryFn: () =>
+      employeeId ? apiClient.getAnnualEmployeeStatement(companyId, employeeId, year) : apiClient.getMyAnnualStatement(companyId, year),
   });
   const statement = statementQuery.data;
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  async function downloadPdf() {
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const file = employeeId
+        ? await apiClient.annualEmployeeStatementPdf(companyId, employeeId, year)
+        : await apiClient.myAnnualStatementPdf(companyId, year);
+      downloadFileResponse(file, `annual-statement-${year}.pdf`);
+    } catch (err) {
+      setDownloadError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.exportError" })));
+    } finally {
+      setDownloading(false);
+    }
+  }
 
   const columns = useMemo<ColumnDef<AnnualEmployeeStatementMonth>[]>(() => {
     const amount = (key: keyof AnnualEmployeeStatementMonth, labelId: string): ColumnDef<AnnualEmployeeStatementMonth> => ({
@@ -91,7 +113,17 @@ export function EmployeeAnnualStatement({ companyId, employeeId }: { companyId: 
           />
         </div>
         <p className="pb-1 text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.statement.hint" })}</p>
+        <Button type="button" size="xs" variant="outline" className="ml-auto" disabled={downloading} onClick={() => void downloadPdf()}>
+          <FileDown className="size-3.5" />
+          {intl.formatMessage({ id: "hr.statement.downloadPdf" })}
+        </Button>
       </div>
+
+      {downloadError && (
+        <Alert variant="destructive">
+          <AlertDescription>{downloadError}</AlertDescription>
+        </Alert>
+      )}
 
       {statementQuery.isError && (
         <Alert variant="destructive">

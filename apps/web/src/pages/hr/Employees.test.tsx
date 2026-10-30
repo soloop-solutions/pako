@@ -81,7 +81,7 @@ describe("Employees", () => {
   it("passes the URL filters and sort to the API and hides New employee for read-only HR access", async () => {
     renderPage("/employees?employees.dept=dept-9&employees.inactive=1&employees.sort=-salary&employees.q=arta");
     await waitFor(() =>
-      expect(listEmployees).toHaveBeenCalledWith(COMPANY_ID, 1, 50, "arta", "-salary", "dept-9", true),
+      expect(listEmployees).toHaveBeenCalledWith(COMPANY_ID, 1, 50, "arta", "-salary", "dept-9", true, false),
     );
     await waitFor(() => expect(getMyAccess).toHaveBeenCalled());
     await waitFor(() => expect(screen.queryByRole("button", { name: "New employee" })).not.toBeInTheDocument());

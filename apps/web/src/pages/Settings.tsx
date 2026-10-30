@@ -1,4 +1,5 @@
 import { useIntl } from "react-intl";
+import { Link } from "react-router-dom";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,8 +7,9 @@ import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
+import { NotificationSettings } from "@/pages/settings/NotificationSettings";
 import { NumberingSettings } from "@/pages/settings/NumberingSettings";
-import { MembersPanel } from "@/pages/shared/MembersPanel";
+import { StatutoryParametersSettings } from "@/pages/settings/StatutoryParametersSettings";
 
 export function Settings() {
   const intl = useIntl();
@@ -40,7 +42,19 @@ export function Settings() {
         </CardHeader>
         <CardContent>
           {activeCompany ? (
-            <MembersPanel scope="company" scopeId={activeCompany.id} />
+            // docs/USER_ACCESS_PLAN.md: users and roles moved to the administration dashboard.
+            <p className="text-sm">
+              {intl.formatMessage(
+                { id: "settings.accessMoved" },
+                {
+                  link: (chunks) => (
+                    <Link className="text-primary underline" to="/admin/users">
+                      {chunks}
+                    </Link>
+                  ),
+                },
+              )}
+            </p>
           ) : (
             <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
           )}
@@ -50,6 +64,10 @@ export function Settings() {
       {activeCompany && <NumberingSettings companyId={activeCompany.id} />}
 
       {activeCompany && <LockDatesSettings companyId={activeCompany.id} />}
+
+      {activeCompany && <NotificationSettings companyId={activeCompany.id} />}
+
+      {activeCompany?.firmId && <StatutoryParametersSettings firmId={activeCompany.firmId} />}
     </div>
   );
 }

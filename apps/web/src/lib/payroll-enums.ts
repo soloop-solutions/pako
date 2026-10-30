@@ -17,6 +17,10 @@ export const PayrollAdjustmentKind = {
   WeekendWork: 5,
   HolidayWork: 6,
   Deduction: 7,
+  // G10: generated from an employee loan by payroll — never offered in the adjustment form.
+  LoanRepayment: 8,
+  // H13: scheduled from an expense claim — outside gross, added to net.
+  Reimbursement: 9,
 } as const;
 
 export type PayrollAdjustmentKindValue = (typeof PayrollAdjustmentKind)[keyof typeof PayrollAdjustmentKind];
@@ -30,6 +34,8 @@ const KIND_KEYS: Record<PayrollAdjustmentKindValue, string> = {
   5: "payroll.kind.weekendWork",
   6: "payroll.kind.holidayWork",
   7: "payroll.kind.deduction",
+  8: "payroll.kind.loanRepayment",
+  9: "payroll.kind.reimbursement",
 };
 
 export const PAYROLL_ADJUSTMENT_KINDS: PayrollAdjustmentKindValue[] = [0, 1, 2, 3, 4, 5, 6, 7];
@@ -51,7 +57,7 @@ export function isHourBasedKind(kind: number): boolean {
 }
 
 export function isDeductionKind(kind: number): boolean {
-  return kind === PayrollAdjustmentKind.Deduction;
+  return kind === PayrollAdjustmentKind.Deduction || kind === PayrollAdjustmentKind.LoanRepayment;
 }
 
 // Labour Law 03/L-212 premiums, mirrored from KosovoPayrollRules for display only.

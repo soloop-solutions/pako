@@ -50,7 +50,7 @@ public class NumberSeriesController : ControllerBase
     // continues from where it was, preserving monotonicity. The old pattern's already-issued
     // documents keep their numbers (D3: never renumber issued documents).
     [HttpPut("{seriesId:guid}")]
-    [RequireCompanyAccess(writeAccess: true, adminOnly: true)]
+    [RequireCompanyAccess(module: AccessModule.Settings, approve: true)]
     public async Task<ActionResult<NumberSeriesResponse>> UpdatePattern(
         Guid companyId, Guid seriesId, UpdateNumberSeriesPatternRequest request)
     {

@@ -73,7 +73,7 @@ public class BillsController : ControllerBase
     // (VendorReference is free vendor-supplied text, not PAKO-minted), so the guard is just
     // State/JournalEntryId, unlike Invoice's three-field check.
     [HttpPost("{id:guid}/discard")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
+    [RequireCompanyAccess(module: AccessModule.Purchases, approve: true)]
     public async Task<IActionResult> Discard(Guid companyId, Guid id)
     {
         var bill = await _db.Bills.VisibleTo(_access).FirstOrDefaultAsync(b => b.Id == id && b.CompanyId == companyId);
@@ -415,7 +415,7 @@ public class BillsController : ControllerBase
 
     // A5 (v2 release): mirror of InvoicesController.EditPosted.
     [HttpPatch("{id:guid}")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
+    [RequireCompanyAccess(module: AccessModule.Purchases, approve: true)]
     public async Task<ActionResult<BillResponse>> EditPosted(Guid companyId, Guid id, EditPostedBillRequest request)
     {
         var bill = await _db.Bills.VisibleTo(_access).Include(b => b.Lines)
@@ -473,7 +473,7 @@ public class BillsController : ControllerBase
     // sequence — see InvoicesController.RecordPayment's comment; this is the AP mirror (Debit
     // AP / Credit Cash-or-Bank instead of Debit Cash-or-Bank / Credit AR).
     [HttpPost("{id:guid}/record-payment")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
+    [RequireCompanyAccess(module: AccessModule.Purchases, approve: true)]
     [ProducesResponseType(typeof(RecordPaymentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<RecordPaymentResponse>> RecordPayment(Guid companyId, Guid id, RecordPaymentRequest request)
     {
@@ -622,7 +622,7 @@ public class BillsController : ControllerBase
     // AP mirror of InvoicesController.ApplyCreditNote — feeds the vendor credit note's own AP
     // line to ReconciliationCreator as the settlement line.
     [HttpPost("{id:guid}/apply-credit-note")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
+    [RequireCompanyAccess(module: AccessModule.Purchases, approve: true)]
     [ProducesResponseType(typeof(ApplyCreditNoteResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ApplyCreditNoteResponse>> ApplyCreditNote(Guid companyId, Guid id, ApplyCreditNoteRequest request)
     {
@@ -827,7 +827,7 @@ public class BillsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/post")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
+    [RequireCompanyAccess(module: AccessModule.Purchases, approve: true)]
     public async Task<ActionResult<BillResponse>> Post(Guid companyId, Guid id)
     {
         // Track A (v2 release): Bill never had a numbering counter to protect (VendorReference is

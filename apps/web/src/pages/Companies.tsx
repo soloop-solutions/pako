@@ -8,20 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { SearchableSelect } from "@/components/ui/searchable-select";
 import { FormDialog } from "@/components/shared/FormDialog";
-import { useCompany } from "@/context/CompanyContext";
 import { CompanyList } from "@/pages/shared/CompanyList";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
 
 export function Companies() {
   const intl = useIntl();
-  const { createCompany } = useCompany();
-  const [companyDialogOpen, setCompanyDialogOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [firmId, setFirmId] = useState("");
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
 
   const [firms, setFirms] = useState<FirmResponse[]>([]);
   const [firmsLoading, setFirmsLoading] = useState(false);
@@ -62,22 +54,6 @@ export function Companies() {
     });
   }
 
-  async function handleCreate(event: FormEvent) {
-    event.preventDefault();
-    setCreateError(null);
-    setCreating(true);
-    try {
-      await createCompany(name.trim(), firmId || undefined);
-      setName("");
-      setFirmId("");
-      setCompanyDialogOpen(false);
-    } catch (err) {
-      setCreateError(getApiErrorMessage(err, intl.formatMessage({ id: "companies.createError" })));
-    } finally {
-      setCreating(false);
-    }
-  }
-
   async function handleCreateFirm(event: FormEvent) {
     event.preventDefault();
     setCreateFirmError(null);
@@ -96,59 +72,8 @@ export function Companies() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <CompanyList />
-        <Button onClick={() => { setCompanyDialogOpen(true); setCreateError(null); setName(""); setFirmId(""); }}>
-          {intl.formatMessage({ id: "companies.createCompanyButton" })}
-        </Button>
-      </div>
-
-      <FormDialog
-        open={companyDialogOpen}
-        onOpenChange={(open) => { if (!open) { setCompanyDialogOpen(false); setCreateError(null); } }}
-        title={intl.formatMessage({ id: "companies.createCompany" })}
-        description={intl.formatMessage({ id: "companies.createCompanyDescription" })}
-        size="sm"
-        dirty={name.trim().length > 0}
-      >
-        <form className="flex flex-col gap-4" onSubmit={handleCreate}>
-          {createError && (
-            <Alert variant="destructive">
-              <AlertDescription>{createError}</AlertDescription>
-            </Alert>
-          )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="company-name">{intl.formatMessage({ id: "companies.companyName" })}</Label>
-            <Input id="company-name" required value={name} onChange={(event) => setName(event.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="company-firm">{intl.formatMessage({ id: "companies.firmOptional" })}</Label>
-            <SearchableSelect
-              id="company-firm"
-              value={firmId}
-              onChange={setFirmId}
-              placeholder={intl.formatMessage({ id: "companies.directCompany" })}
-              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-              noResultsText={intl.formatMessage({ id: "common.noResults" })}
-              emptyOptionLabel={intl.formatMessage({ id: "companies.directCompany" })}
-              options={firms.map((firm) => ({
-                value: firm.id,
-                label: firm.name,
-              }))}
-            />
-          </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => { setCompanyDialogOpen(false); setCreateError(null); }}>
-              {intl.formatMessage({ id: "common.cancel" })}
-            </Button>
-            <Button type="submit" disabled={creating || name.trim().length === 0}>
-              {creating
-                ? intl.formatMessage({ id: "companies.creating" })
-                : intl.formatMessage({ id: "companies.createCompanyButton" })}
-            </Button>
-          </div>
-        </form>
-      </FormDialog>
+      {/* New companies are created in the lobby, the only place the company changes. */}
+      <CompanyList />
 
       <Card>
         <CardHeader>

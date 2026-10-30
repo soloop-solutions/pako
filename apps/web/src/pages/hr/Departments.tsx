@@ -35,15 +35,14 @@ export function Departments() {
     queryFn: () => apiClient.listDepartments(activeCompanyId as string),
     enabled: !!activeCompanyId,
   });
-  // Manager picker. 200 is the API's page-size ceiling.
-  const employeesQuery = useQuery({
-    queryKey: ["employees", activeCompanyId, "picker"],
-    queryFn: () => apiClient.listEmployees(activeCompanyId as string, 1, 200, undefined, "name", undefined, false),
+  const costCentersQuery = useQuery({
+    queryKey: ["costCenters", activeCompanyId],
+    queryFn: () => apiClient.listCostCenters(activeCompanyId as string),
     enabled: !!activeCompanyId,
   });
 
   const departments = useMemo(() => departmentsQuery.data ?? [], [departmentsQuery.data]);
-  const employees = useMemo(() => employeesQuery.data?.items ?? [], [employeesQuery.data]);
+  const costCenters = useMemo(() => costCentersQuery.data ?? [], [costCentersQuery.data]);
   const editing = editingId ? departments.find((d) => d.id === editingId) ?? null : null;
 
   async function refresh() {
@@ -179,7 +178,8 @@ export function Departments() {
             <DepartmentForm
               mode="create"
               departments={departments}
-              employees={employees}
+              companyId={activeCompanyId}
+              costCenters={costCenters}
               readOnly={false}
               submitting={createMutation.isPending}
               error={mutationError}
@@ -201,7 +201,8 @@ export function Departments() {
               mode="edit"
               initial={editing}
               departments={departments}
-              employees={employees}
+              companyId={activeCompanyId}
+              costCenters={costCenters}
               readOnly={readOnly}
               submitting={updateMutation.isPending}
               deleting={deleteMutation.isPending}

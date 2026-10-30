@@ -59,8 +59,10 @@ public class PayslipBuilder
             : monthlySalary * paidDays / periodWorkingDays;
 
         var bonus = data.Adjustments.Where(a => a.IsBonus).Sum(a => a.Amount);
-        var otherAdditions = data.Adjustments.Where(a => !a.IsBonus && !a.IsDeduction).Sum(a => a.Amount);
+        var otherAdditions = data.Adjustments.Where(a => !a.IsBonus && !a.IsDeduction && !a.IsReimbursement).Sum(a => a.Amount);
+        var reimbursements = Math.Round(data.Adjustments.Where(a => a.IsReimbursement).Sum(a => a.Amount), 2, MidpointRounding.AwayFromZero);
         var deductions = data.Adjustments.Where(a => a.IsDeduction).Sum(a => a.Amount);
+        var loanRepayments = data.Adjustments.Where(a => a.IsLoanRepayment).Sum(a => a.Amount);
 
         var result = _calculation.Compute(
             new PayslipInput(baseSalary, bonus + otherAdditions, deductions, employee.IsPrimaryEmployer, employee.PensionExempt),
@@ -82,7 +84,9 @@ public class PayslipBuilder
             EmployeePensionAmount = result.EmployeePensionAmount,
             EmployerPensionAmount = result.EmployerPensionAmount,
             DeductionsAmount = result.Deductions,
-            NetPay = result.NetPay,
+            LoanRepaymentAmount = Math.Round(loanRepayments, 2, MidpointRounding.AwayFromZero),
+            NetPay = result.NetPay + reimbursements,
+            ReimbursementAmount = reimbursements,
             IsPrimaryEmployer = employee.IsPrimaryEmployer
         };
     }

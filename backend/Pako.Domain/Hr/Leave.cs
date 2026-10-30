@@ -14,6 +14,12 @@ public class LeaveType
     // the employer-paid part of maternity, 0 for unpaid. Payroll deducts (100 - PayPercent)%.
     public decimal PayPercent { get; set; } = 100m;
     public bool IsActive { get; set; } = true;
+
+    // F9 year-end carry-over: at most this many unused days move to next year (null = none), and
+    // they lapse if not used by the end of CarryOverExpiryMonth of that year (null = never).
+    // Kosovo Law on Labour art. 32: unused annual leave may be used until 30 June (month 6).
+    public decimal? CarryOverMaxDays { get; set; }
+    public int? CarryOverExpiryMonth { get; set; }
 }
 
 public class LeaveAllocation
@@ -23,7 +29,18 @@ public class LeaveAllocation
     public Guid EmployeeId { get; set; }
     public Guid LeaveTypeId { get; set; }
     public int Year { get; set; }
+
+    // The entitlement for the year. Used only when HasCustomDays; otherwise the type's default
+    // applies (a row can exist just to hold carried-over days).
     public decimal Days { get; set; }
+    public bool HasCustomDays { get; set; } = true;
+
+    // Days carried in from the previous year (null = carry-over not run for this row yet) and the
+    // date they lapse if unused.
+    public decimal? CarriedOverDays { get; set; }
+    public DateOnly? CarriedOverExpiresOn { get; set; }
+
+    public decimal EntitlementDays(LeaveType type) => HasCustomDays ? Days : type.DefaultAnnualDays ?? 0m;
 }
 
 public enum LeaveRequestState

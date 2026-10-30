@@ -153,9 +153,8 @@ describe("Leave — requests tab", () => {
     renderLeave();
 
     fireEvent.click(await screen.findByRole("button", { name: "New leave request" }));
-    // Open the Employee popover-select and pick "Arta Krasniqi"
-    fireEvent.click(screen.getByLabelText("Employee", { selector: "#leave-new-employee" }));
-    fireEvent.mouseDown(await screen.findByRole("option", { name: "Arta Krasniqi" }));
+    fireEvent.focus(screen.getByLabelText("Employee", { selector: "#leave-new-employee" }));
+    fireEvent.click(await screen.findByRole("option", { name: "Arta Krasniqi" }));
     // Open the Leave type popover-select and pick "ANNUAL — Annual leave"
     fireEvent.click(screen.getByLabelText("Leave type", { selector: "#leave-new-type" }));
     fireEvent.mouseDown(await screen.findByRole("option", { name: /Annual leave/ }));

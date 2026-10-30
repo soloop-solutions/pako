@@ -84,7 +84,7 @@ public class InvoicesController : ControllerBase
     // exception, and even that goes through this dedicated POST action rather than a DELETE verb,
     // so InvoicesControllerTests' "no delete route exists" guarantee stays literally true.
     [HttpPost("{id:guid}/discard")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     public async Task<IActionResult> Discard(Guid companyId, Guid id)
     {
         var invoice = await _db.Invoices.VisibleTo(_access).FirstOrDefaultAsync(i => i.Id == id && i.CompanyId == companyId);
@@ -516,7 +516,7 @@ public class InvoicesController : ControllerBase
     // OnlyDueDateOrInternalNotesChanged carve-out on SaveChangesAsync — the backstop half of this
     // guard, since this action itself never touches any other field to begin with.
     [HttpPatch("{id:guid}")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     public async Task<ActionResult<InvoiceResponse>> EditPosted(Guid companyId, Guid id, EditPostedInvoiceRequest request)
     {
         var invoice = await _db.Invoices.VisibleTo(_access).Include(i => i.Lines)
@@ -576,7 +576,7 @@ public class InvoicesController : ControllerBase
     // invalid cashOrBankAccountId, or the reconciliation itself failing Fix 1's line-capacity
     // check) leaves nothing persisted instead of an orphaned Posted journal entry.
     [HttpPost("{id:guid}/record-payment")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     [ProducesResponseType(typeof(RecordPaymentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<RecordPaymentResponse>> RecordPayment(Guid companyId, Guid id, RecordPaymentRequest request)
     {
@@ -738,7 +738,7 @@ public class InvoicesController : ControllerBase
     // free (see CLAUDE.md's backend fixes pass), and the partner-match check in
     // ReconciliationValidator already covers "same partner as the target invoice."
     [HttpPost("{id:guid}/apply-credit-note")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     [ProducesResponseType(typeof(ApplyCreditNoteResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ApplyCreditNoteResponse>> ApplyCreditNote(Guid companyId, Guid id, ApplyCreditNoteRequest request)
     {
@@ -829,7 +829,7 @@ public class InvoicesController : ControllerBase
     // but only the net portion was ever credited to Customer Deposits; VAT accounts are not
     // touched again here.
     [HttpPost("{id:guid}/apply-down-payment")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     [ProducesResponseType(typeof(ApplyDownPaymentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ApplyDownPaymentResponse>> ApplyDownPayment(Guid companyId, Guid id, ApplyDownPaymentRequest request)
     {
@@ -1115,7 +1115,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/post")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     public async Task<ActionResult<InvoiceResponse>> Post(Guid companyId, Guid id)
     {
         // Company.NextInvoiceNumber is reserved via a read-increment-write on the Company row
@@ -1163,7 +1163,7 @@ public class InvoicesController : ControllerBase
             }
 
             AuditController.Stage(_db, companyId, "Invoice", invoice.Id.ToString(),
-                "Posted", CurrentUserId.ToString(), $"Number: {invoice.InvoiceNumber}, Type: {invoice.DocumentType}");
+                "Post", CurrentUserId.ToString(), $"Number: {invoice.InvoiceNumber}, Type: {invoice.DocumentType}");
 
             await _db.SaveChangesAsync();
 
@@ -1490,7 +1490,7 @@ public class InvoicesController : ControllerBase
     }
 
     [HttpGet("partner/{partnerId:guid}/credit-exposure")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<CreditExposureResponse>> CreditExposure(Guid companyId, Guid partnerId)
     {
         var partner = await _db.Partners.AsNoTracking()

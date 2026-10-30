@@ -34,11 +34,14 @@ import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/Apply
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 export function BillDetail() {
   const intl = useIntl();
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
+  // docs/USER_ACCESS_PLAN.md: posting and payments need Purchases: Approve.
+  const { canApprove } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
 
   const [bill, setBill] = useState<BillResponse | null>(null);
@@ -323,7 +326,7 @@ export function BillDetail() {
             <p className="font-medium">{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
           </div>
 
-          {bill.state === "Draft" && (
+          {bill.state === "Draft" && canApprove("purchases") && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "billDetail.posting" }) : intl.formatMessage({ id: "billDetail.postBill" })}
@@ -382,7 +385,7 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && balance && balance.outstanding > 0 && (
+      {bill.state === "Posted" && balance && balance.outstanding > 0 && canApprove("purchases") && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -410,7 +413,7 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && (
+      {bill.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("purchases") && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "billDetail.applyCreditNote" })}</CardTitle>

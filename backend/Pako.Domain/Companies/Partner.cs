@@ -17,6 +17,10 @@ public class Partner
     public string? FiscalNumber { get; set; }
     public bool IsVatRegistered { get; set; }
 
+    // H13: set on the partner auto-created for an employee, which expense-claim bills are issued
+    // to. Unique per company.
+    public Guid? EmployeeId { get; set; }
+
     // B8: per-partner control account override. Null falls back to the company's own
     // ReceivableAccountId/PayableAccountId (CompanyAccountDefaults) — same "override wins,
     // company default otherwise" chain B6 established for Item's default accounts. Not validated

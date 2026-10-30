@@ -3,17 +3,18 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useCompany } from "@/context/CompanyContext";
 
 /**
- * Redirects to the company selection screen when the user has multiple companies
- * but none is currently active. Single-company users are auto-selected by CompanyContext.
+ * The app always runs inside one company, chosen in the lobby (/select-company). Without an active
+ * company — after signing in, or after leaving a company — the user is sent back to the lobby.
+ * Nothing is picked automatically, even for a single company.
  */
 export function RequireCompany() {
-  const { companies, activeCompanyId, loading } = useCompany();
+  const { activeCompanyId, loading, loaded } = useCompany();
 
-  // Still loading companies — don't redirect yet
-  if (loading) return null;
+  // Still loading companies — or a reload restored the active company before the list arrived —
+  // render nothing rather than a page that briefly has no company.
+  if (loading || (activeCompanyId && !loaded)) return null;
 
-  // Multiple companies but none selected → pick one
-  if (companies.length > 1 && !activeCompanyId) {
+  if (!activeCompanyId) {
     return <Navigate to="/select-company" replace />;
   }
 

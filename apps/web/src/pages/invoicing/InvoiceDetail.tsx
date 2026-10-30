@@ -41,6 +41,7 @@ import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 export function InvoiceDetail() {
   const intl = useIntl();
@@ -48,6 +49,8 @@ export function InvoiceDetail() {
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
   const { auth } = useAuth();
+  // docs/USER_ACCESS_PLAN.md: posting and payments need Sales: Approve.
+  const { canApprove } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
 
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
@@ -382,7 +385,7 @@ export function InvoiceDetail() {
             </div>
           )}
 
-          {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && (
+          {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}
@@ -441,7 +444,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && balance && balance.outstanding > 0 && (
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && canApprove("sales") && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -469,7 +472,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && (
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("sales") && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyCreditNote" })}</CardTitle>
@@ -488,7 +491,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && (
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && canApprove("sales") && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyDownPayment" })}</CardTitle>

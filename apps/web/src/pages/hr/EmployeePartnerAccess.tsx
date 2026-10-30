@@ -31,6 +31,8 @@ export function EmployeePartnerAccess({
   const [selected, setSelected] = useState<Set<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // G11: the day the change takes effect — commission on a moved partner is split on it.
+  const [effectiveFrom, setEffectiveFrom] = useState("");
 
   const assignedQueryKey = ["employeePartners", companyId, employee.id] as const;
   const assignedQuery = useQuery({
@@ -55,7 +57,8 @@ export function EmployeePartnerAccess({
   }, [partnersQuery.data, search]);
 
   const saveMutation = useMutation({
-    mutationFn: () => apiClient.setEmployeePartners(companyId, employee.id, { partnerIds: [...current] }),
+    mutationFn: () =>
+      apiClient.setEmployeePartners(companyId, employee.id, { partnerIds: [...current], effectiveFrom: effectiveFrom || undefined }),
     onSuccess: async (result) => {
       setError(null);
       setSaved(true);
@@ -128,6 +131,17 @@ export function EmployeePartnerAccess({
         </span>
         {!readOnly && (
           <div className="ml-auto flex gap-2">
+            {dirty && (
+              <label className="flex items-center gap-1 text-xs text-muted-foreground">
+                {intl.formatMessage({ id: "hr.partnerAccess.effectiveFrom" })}
+                <input
+                  type="date"
+                  className="h-7 rounded-md border bg-transparent px-1 text-xs"
+                  value={effectiveFrom}
+                  onChange={(e) => setEffectiveFrom(e.target.value)}
+                />
+              </label>
+            )}
             {dirty && (
               <Button type="button" variant="outline" size="sm" onClick={() => setSelected(null)}>
                 {intl.formatMessage({ id: "hr.employee.discardChanges" })}

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
+using Pako.Domain.Hr;
 using Pako.Domain.Invoicing;
 using Pako.Infrastructure;
 
@@ -19,16 +20,22 @@ public class TimelineController : ControllerBase
 {
     private readonly PakoDbContext _db;
 
-    public TimelineController(PakoDbContext db) => _db = db;
+    private readonly CompanyAccessContext _access;
+
+    public TimelineController(PakoDbContext db, CompanyAccessContext access)
+    {
+        _db = db;
+        _access = access;
+    }
 
     public record TimelineEvent(string EventType, string Description, DateTime OccurredAt, string? RelatedDocumentId, string? RelatedDocumentLabel);
     public record TimelineResponse(List<TimelineEvent> Events);
 
     [HttpGet("invoice/{invoiceId:guid}")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<TimelineResponse>> InvoiceTimeline(Guid companyId, Guid invoiceId)
     {
-        var invoice = await _db.Invoices.AsNoTracking()
+        var invoice = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .FirstOrDefaultAsync(i => i.Id == invoiceId && i.CompanyId == companyId);
         if (invoice is null) return NotFound();
 
