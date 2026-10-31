@@ -77,9 +77,14 @@ public class VatDeclarationController : ControllerBase
 
         var refund = refundRequested ?? 0m;
         var result = await new VatDeclarationService(_db, _access).ComputeAsync(companyId, year, month, carriedCredit, refund);
-        if (refund < 0m || refund > result.RemainingCredit)
+        if (refund < 0m)
         {
-            return (null, null, BadRequest(new { error = _localizer["VatDeclarationRefundInvalid"].Value }));
+            return (null, null, BadRequest(new { error = _localizer["VatDeclarationRefundNegative"].Value }));
+        }
+
+        if (refund > result.RemainingCredit)
+        {
+            return (null, null, BadRequest(new { error = _localizer["VatDeclarationRefundExceedsCredit"].Value }));
         }
 
         var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);

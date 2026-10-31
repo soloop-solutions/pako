@@ -915,4 +915,6 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="VatDeclarationPeriodInvalid" xml:space="preserve"><value>The month must be between 1 and 12 and the year between 2000 and 2100.</value></data>
   <data name="VatDeclarationCarriedCreditInvalid" xml:space="preserve"><value>The carried credit cannot be negative.</value></data>
   <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>The refund request must be between 0 and the remaining credit balance.</value></data>
+  <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>The refund requested cannot exceed the remaining credit ([69]).</value></data>
+  <data name="VatDeclarationRefundNegative" xml:space="preserve"><value>The refund requested cannot be negative.</value></data>
 </root>

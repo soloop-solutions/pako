@@ -405,6 +405,69 @@ public class VatDeclarationTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>((await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, null, 500m)).Result);
     }
 
+    [Theory]
+    [InlineData("en", "The refund requested cannot exceed the remaining credit ([69]).")]
+    [InlineData("sq", "Rimbursimi i kërkuar nuk mund të tejkalojë kreditin e mbetur ([69]).")]
+    public async Task Declaration_RefundAboveRemainingCredit_ReturnsSpecificLocalizedMessage(string culture, string expected)
+    {
+        var s = await SeedAsync();
+        var previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo(culture);
+        try
+        {
+            var bad = Assert.IsType<BadRequestObjectResult>((await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, null, 500m)).Result);
+
+            Assert.Equal(expected, ErrorOf(bad));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Theory]
+    [InlineData("en", "The refund requested cannot be negative.")]
+    [InlineData("sq", "Rimbursimi i kërkuar nuk mund të jetë negativ.")]
+    public async Task Declaration_NegativeRefund_ReturnsSpecificLocalizedMessage(string culture, string expected)
+    {
+        var s = await SeedAsync();
+        var previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo(culture);
+        try
+        {
+            var bad = Assert.IsType<BadRequestObjectResult>((await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, null, -1m)).Result);
+
+            Assert.Equal(expected, ErrorOf(bad));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Theory]
+    [InlineData("en", "The carried credit cannot be negative.")]
+    [InlineData("sq", "Kreditimi i bartur nuk mund të jetë negativ.")]
+    public async Task Declaration_NegativeCarriedCredit_ReturnsSpecificLocalizedMessage(string culture, string expected)
+    {
+        var s = await SeedAsync();
+        var previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo(culture);
+        try
+        {
+            var bad = Assert.IsType<BadRequestObjectResult>((await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, -5m, null)).Result);
+
+            Assert.Equal(expected, ErrorOf(bad));
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    private static string ErrorOf(BadRequestObjectResult bad) =>
+        (string)bad.Value!.GetType().GetProperty("error")!.GetValue(bad.Value)!;
+
     [Fact]
     public async Task Declaration_ForbiddenForPartnerRestrictedUser()
     {
