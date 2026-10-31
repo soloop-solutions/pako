@@ -70,7 +70,7 @@ public class ReportsController : ControllerBase
         return Ok(new ProfitAndLossResponse(from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("profit-and-loss/export", Name = "ProfitAndLossExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> ProfitAndLossExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -107,7 +107,7 @@ public class ReportsController : ControllerBase
         return Ok(await _ledger.BalanceSheetAsync(companyId, asOf));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("balance-sheet/export", Name = "BalanceSheetExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> BalanceSheetExport(Guid companyId, [FromQuery] DateOnly asOf)
@@ -147,7 +147,7 @@ public class ReportsController : ControllerBase
         return Ok(await _tax.VatReturnAsync(companyId, from, to));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("vat-return/export", Name = "VatReturnExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VatReturnExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -196,7 +196,7 @@ public class ReportsController : ControllerBase
         return Ok(new SalesBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("sales-book/export", Name = "SalesBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -239,7 +239,7 @@ public class ReportsController : ControllerBase
         return Ok(new PurchaseBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("purchase-book/export", Name = "PurchaseBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)

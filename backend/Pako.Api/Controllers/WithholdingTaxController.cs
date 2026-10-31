@@ -137,7 +137,7 @@ public class WithholdingTaxController : ControllerBase
         return NoContent();
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("export", Name = "WithholdingTaxExport")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> Export(Guid companyId, [FromQuery] int year)

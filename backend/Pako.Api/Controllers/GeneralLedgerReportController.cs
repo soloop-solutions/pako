@@ -82,7 +82,7 @@ public class GeneralLedgerReportController : ControllerBase
         return Ok(new GeneralLedgerResponse(rows, total, page, pageSize, totalDebit, totalCredit));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("general-ledger/export", Name = "GeneralLedgerExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> GeneralLedgerExport(

@@ -50,7 +50,7 @@ public class JournalEntriesController : ControllerBase
     // B11: any journal entry, exported for the paper record — account code/name and partner name
     // resolved here rather than reusing JournalEntryResponse's raw account/partner ids, since a
     // spreadsheet meant to be read on paper needs the readable identifiers, not Guids.
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("{id:guid}/export", Name = "JournalEntryExport")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> Export(Guid companyId, Guid id)

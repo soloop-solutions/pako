@@ -73,7 +73,7 @@ public class StatementReportsController : ControllerBase
             pnl.TotalIncome, pnl.TotalCostOfRevenue, pnl.TotalExpenses));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("profit-and-loss/monthly/export", Name = "MonthlyProfitAndLossExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> MonthlyProfitAndLossExport(Guid companyId, [FromQuery] int year)
@@ -148,7 +148,7 @@ public class StatementReportsController : ControllerBase
             Totals(assets), Totals(liabilities), Totals(equity)));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("balance-sheet/comparative/export", Name = "BalanceSheetComparativeExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> BalanceSheetComparativeExport(
@@ -208,7 +208,7 @@ public class StatementReportsController : ControllerBase
             result.NetChange, closing, result.Difference));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("cash-flow/export", Name = "CashFlowExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> CashFlowExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -271,7 +271,7 @@ public class StatementReportsController : ControllerBase
         return Ok(new EquityStatementResponse(from, to, opening, netIncome, movements, closing));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("equity-statement/export", Name = "EquityStatementExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> EquityStatementExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)

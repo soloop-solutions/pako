@@ -41,7 +41,7 @@ public class PayablesReportsController : ControllerBase
         return Ok(new VendorSyntheticResponse(from, to, lines, lines.Sum(l => l.Closing)));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("vendors/synthetic/export", Name = "VendorSyntheticExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VendorSyntheticExport(
@@ -81,7 +81,7 @@ public class PayablesReportsController : ControllerBase
         return Ok(statement);
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("vendors/{partnerId:guid}/statement/export", Name = "VendorStatementExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VendorStatementExport(
@@ -119,7 +119,7 @@ public class PayablesReportsController : ControllerBase
         return Ok(await _vendors.PayablesAgingAsync(companyId, date));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("payables-aging/export", Name = "PayablesAgingExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PayablesAgingExport(Guid companyId, [FromQuery] DateOnly asOf)
@@ -150,7 +150,7 @@ public class PayablesReportsController : ControllerBase
         return Ok(new PurchaseByVendorResponse(from, to, lines, totals.Net, lines.Sum(l => l.DiscountAmount), totals.Vat, totals.Gross));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("purchases/by-vendor/export", Name = "PurchasesByVendorExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchasesByVendorExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -184,7 +184,7 @@ public class PayablesReportsController : ControllerBase
         return Ok(new PurchaseByItemResponse(from, to, lines, totals.Net, totals.Vat, totals.Gross));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("purchases/by-item/export", Name = "PurchasesByItemExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchasesByItemExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -228,7 +228,7 @@ public class PayablesReportsController : ControllerBase
         return Ok(new PurchaseTransactionsResponse(items, all.Count, page, pageSize, totals.Net, totals.Vat, totals.Gross));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("purchases/transactions/export", Name = "PurchaseTransactionsExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseTransactionsExport(

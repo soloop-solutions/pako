@@ -82,7 +82,7 @@ public class LedgerController : ControllerBase
         return Ok(result);
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("trial-balance/export", Name = "TrialBalanceExport")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> TrialBalanceExport(Guid companyId, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)

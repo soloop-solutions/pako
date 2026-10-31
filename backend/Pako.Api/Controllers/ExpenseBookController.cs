@@ -47,7 +47,7 @@ public class ExpenseBookController : ControllerBase
         return Ok(await BuildAsync(companyId, from, to));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("expense-book/export", Name = "ExpenseBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> ExpenseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)

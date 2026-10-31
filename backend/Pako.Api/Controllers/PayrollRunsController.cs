@@ -365,7 +365,7 @@ public class PayrollRunsController : ControllerBase
     }
 
     // Payroll register: one row per payslip, every component.
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("{id:guid}/register/export", Name = "PayrollRegisterExport")]
     [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> RegisterExport(Guid companyId, Guid id)
@@ -393,7 +393,7 @@ public class PayrollRunsController : ControllerBase
     // The per-employee figures ATK's monthly EDI wage & pension declaration asks for, in that
     // order. ATK publishes no import layout this repo has seen — confirm the column order against
     // the live EDI form before relying on it for upload (same caveat as ExcelExportService).
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("{id:guid}/edi/export", Name = "PayrollEdiExport")]
     [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> EdiExport(Guid companyId, Guid id)

@@ -39,7 +39,7 @@ public class VatDeclarationController : ControllerBase
         return error is not null ? error : Ok(response);
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("vat-declaration/export", Name = "VatDeclarationExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> Export(
