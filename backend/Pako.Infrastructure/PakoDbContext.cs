@@ -88,6 +88,16 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Pako.Domain.Inventory.ItemCost> ItemCosts => Set<Pako.Domain.Inventory.ItemCost>();
     public DbSet<Pako.Domain.Inventory.StockDocument> StockDocuments => Set<Pako.Domain.Inventory.StockDocument>();
     public DbSet<Pako.Domain.Inventory.StockDocumentLine> StockDocumentLines => Set<Pako.Domain.Inventory.StockDocumentLine>();
+    public DbSet<Pako.Domain.Bills.PurchaseOrder> PurchaseOrders => Set<Pako.Domain.Bills.PurchaseOrder>();
+    public DbSet<Pako.Domain.Bills.PurchaseOrderLine> PurchaseOrderLines => Set<Pako.Domain.Bills.PurchaseOrderLine>();
+    public DbSet<Pako.Domain.Inventory.Lot> Lots => Set<Pako.Domain.Inventory.Lot>();
+    public DbSet<Pako.Domain.Inventory.LotBalance> LotBalances => Set<Pako.Domain.Inventory.LotBalance>();
+    public DbSet<Pako.Domain.Inventory.StockMoveLot> StockMoveLots => Set<Pako.Domain.Inventory.StockMoveLot>();
+    public DbSet<Pako.Domain.Inventory.ReceiptMatch> ReceiptMatches => Set<Pako.Domain.Inventory.ReceiptMatch>();
+    public DbSet<Pako.Domain.Inventory.PriceList> PriceLists => Set<Pako.Domain.Inventory.PriceList>();
+    public DbSet<Pako.Domain.Inventory.PriceListPrice> PriceListPrices => Set<Pako.Domain.Inventory.PriceListPrice>();
+    public DbSet<Pako.Domain.Inventory.PriceChange> PriceChanges => Set<Pako.Domain.Inventory.PriceChange>();
+    public DbSet<Pako.Domain.Inventory.PriceChangeLine> PriceChangeLines => Set<Pako.Domain.Inventory.PriceChangeLine>();
     public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

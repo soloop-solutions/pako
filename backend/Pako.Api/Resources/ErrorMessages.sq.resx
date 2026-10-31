@@ -191,6 +191,9 @@
   <data name="UserNotCompanyMember" xml:space="preserve"><value>Ky përdorues nuk është anëtar i kësaj kompanie.</value></data>
   <data name="AssignedPartnerNotFound" xml:space="preserve"><value>Një ose më shumë partnerë nuk u gjetën në këtë kompani.</value></data>
   <data name="PartnerNotAssigned" xml:space="preserve"><value>Ju nuk jeni i caktuar për këtë partner.</value></data>
+  <data name="ReportDateRangeInvalid" xml:space="preserve"><value>Data e fillimit nuk mund të jetë pas datës së përfundimit.</value></data>
+  <data name="VendorNotFound" xml:space="preserve"><value>Furnitori nuk u gjet.</value></data>
+  <data name="ReportYearInvalid" xml:space="preserve"><value>Viti duhet të jetë midis 1 dhe 9999.</value></data>
   <data name="ReportNotAvailableForScopedUser" xml:space="preserve"><value>Ky raport përfshin të gjithë partnerët dhe nuk është i disponueshëm për përdoruesit e kufizuar te partnerët e caktuar.</value></data>
   <data name="ContractEndBeforeStart" xml:space="preserve"><value>Data e përfundimit të kontratës nuk mund të jetë para datës së fillimit.</value></data>
   <data name="ContractOverlaps" xml:space="preserve"><value>Kjo kontratë mbivendoset me një kontratë tjetër të të njëjtit punonjës.</value></data>
@@ -547,5 +550,734 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   </data>
   <data name="WarehouseNotFound" xml:space="preserve">
     <value>Kjo magazinë nuk ekziston ose është mbyllur.</value>
+  </data>
+  <data name="Export_Common_Section" xml:space="preserve">
+    <value>Seksioni</value>
+  </data>
+  <data name="Export_Common_AccountCode" xml:space="preserve">
+    <value>Shifra</value>
+  </data>
+  <data name="Export_Common_AccountName" xml:space="preserve">
+    <value>Emërtimi</value>
+  </data>
+  <data name="Export_Common_Amount" xml:space="preserve">
+    <value>Shuma</value>
+  </data>
+  <data name="Export_Common_Total" xml:space="preserve">
+    <value>Gjithsejt</value>
+  </data>
+  <data name="Export_Common_Date" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="Export_Common_Debit" xml:space="preserve">
+    <value>Debi</value>
+  </data>
+  <data name="Export_Common_Credit" xml:space="preserve">
+    <value>Kredi</value>
+  </data>
+  <data name="Export_Common_Opening" xml:space="preserve">
+    <value>Gjendja fillestare</value>
+  </data>
+  <data name="Export_Common_Closing" xml:space="preserve">
+    <value>Gjendja përfundimtare</value>
+  </data>
+  <data name="Export_Common_Description" xml:space="preserve">
+    <value>Përshkrimi</value>
+  </data>
+  <data name="Export_Common_Partner" xml:space="preserve">
+    <value>Partneri</value>
+  </data>
+  <data name="Export_Common_Vendor" xml:space="preserve">
+    <value>Furnitori</value>
+  </data>
+  <data name="Export_Common_Net" xml:space="preserve">
+    <value>Vlera pa TVSH</value>
+  </data>
+  <data name="Export_Common_Vat" xml:space="preserve">
+    <value>TVSH</value>
+  </data>
+  <data name="Export_Common_Gross" xml:space="preserve">
+    <value>Vlera me TVSH</value>
+  </data>
+  <data name="Export_Common_Discount" xml:space="preserve">
+    <value>Zbritja</value>
+  </data>
+  <data name="Export_Common_Document" xml:space="preserve">
+    <value>Dokumenti</value>
+  </data>
+  <data name="Export_Common_Type" xml:space="preserve">
+    <value>Tipi</value>
+  </data>
+  <data name="Export_Common_Quantity" xml:space="preserve">
+    <value>Sasia</value>
+  </data>
+  <data name="Export_Common_Unit" xml:space="preserve">
+    <value>Njësia</value>
+  </data>
+  <data name="Export_Common_UnitPrice" xml:space="preserve">
+    <value>Çmimi për njësi</value>
+  </data>
+  <data name="Export_Common_ItemCode" xml:space="preserve">
+    <value>Shifra e artikullit</value>
+  </data>
+  <data name="Export_Common_Balance" xml:space="preserve">
+    <value>Bilanci</value>
+  </data>
+  <data name="Export_Common_From" xml:space="preserve">
+    <value>Nga</value>
+  </data>
+  <data name="Export_Common_To" xml:space="preserve">
+    <value>Deri</value>
+  </data>
+  <data name="Export_Common_Current" xml:space="preserve">
+    <value>Aktuale</value>
+  </data>
+  <data name="Export_Common_Prior" xml:space="preserve">
+    <value>Më parë</value>
+  </data>
+  <data name="Export_Common_Difference" xml:space="preserve">
+    <value>Diferenca</value>
+  </data>
+  <data name="Export_Common_Income" xml:space="preserve">
+    <value>Të hyrat</value>
+  </data>
+  <data name="Export_Common_Expenses" xml:space="preserve">
+    <value>Shpenzimet</value>
+  </data>
+  <data name="Export_Common_Assets" xml:space="preserve">
+    <value>Asete</value>
+  </data>
+  <data name="Export_Common_Liabilities" xml:space="preserve">
+    <value>Detyrimet</value>
+  </data>
+  <data name="Export_Common_Equity" xml:space="preserve">
+    <value>Ekuiteti</value>
+  </data>
+  <data name="Export_Common_NetIncome" xml:space="preserve">
+    <value>Fitimi/Humbja neto</value>
+  </data>
+  <data name="Export_Common_TotalIncome" xml:space="preserve">
+    <value>Gjithsejt të hyrat</value>
+  </data>
+  <data name="Export_Common_TotalExpenses" xml:space="preserve">
+    <value>Gjithsejt shpenzimet</value>
+  </data>
+  <data name="Export_Common_TotalAssets" xml:space="preserve">
+    <value>Gjithsejt asete</value>
+  </data>
+  <data name="Export_Common_TotalLiabilities" xml:space="preserve">
+    <value>Gjithsejt detyrime</value>
+  </data>
+  <data name="Export_Common_TotalEquity" xml:space="preserve">
+    <value>Gjithsejt ekuiteti</value>
+  </data>
+  <data name="Export_Vat_Direction" xml:space="preserve">
+    <value>Drejtimi</value>
+  </data>
+  <data name="Export_Vat_TaxCode" xml:space="preserve">
+    <value>Kodi i tatimit</value>
+  </data>
+  <data name="Export_Vat_Rate" xml:space="preserve">
+    <value>Shkalla</value>
+  </data>
+  <data name="Export_Vat_Output" xml:space="preserve">
+    <value>TVSH e daljes</value>
+  </data>
+  <data name="Export_Vat_Input" xml:space="preserve">
+    <value>TVSH e hyrjes</value>
+  </data>
+  <data name="Export_Vat_TotalOutput" xml:space="preserve">
+    <value>Gjithsejt TVSH e daljes</value>
+  </data>
+  <data name="Export_Vat_TotalInput" xml:space="preserve">
+    <value>Gjithsejt TVSH e hyrjes</value>
+  </data>
+  <data name="Export_Vat_NetDue" xml:space="preserve">
+    <value>TVSH neto për pagesë</value>
+  </data>
+  <data name="Export_Pnl_CostOfRevenue" xml:space="preserve">
+    <value>Kostoja e mallit të shitur</value>
+  </data>
+  <data name="Export_Pnl_GrossProfit" xml:space="preserve">
+    <value>Fitimi bruto</value>
+  </data>
+  <data name="Export_Cf_OpeningCash" xml:space="preserve">
+    <value>Gjendja fillestare e parasë</value>
+  </data>
+  <data name="Export_Cf_ClosingCash" xml:space="preserve">
+    <value>Gjendja përfundimtare e parasë</value>
+  </data>
+  <data name="Export_Cf_Operating" xml:space="preserve">
+    <value>Operacionale</value>
+  </data>
+  <data name="Export_Cf_Investing" xml:space="preserve">
+    <value>Investuese</value>
+  </data>
+  <data name="Export_Cf_Financing" xml:space="preserve">
+    <value>Financiale</value>
+  </data>
+  <data name="Export_Cf_Summary" xml:space="preserve">
+    <value>Përmbledhje</value>
+  </data>
+  <data name="Export_Cf_NetChange" xml:space="preserve">
+    <value>Ndryshimi neto</value>
+  </data>
+  <data name="Export_Cf_TotalOperating" xml:space="preserve">
+    <value>Gjithsejt rregullime operacionale</value>
+  </data>
+  <data name="Export_Cf_TotalInvesting" xml:space="preserve">
+    <value>Gjithsejt investuese</value>
+  </data>
+  <data name="Export_Cf_TotalFinancing" xml:space="preserve">
+    <value>Gjithsejt financiale</value>
+  </data>
+  <data name="Export_Eq_OpeningEquity" xml:space="preserve">
+    <value>Ekuiteti fillestar</value>
+  </data>
+  <data name="Export_Eq_ClosingEquity" xml:space="preserve">
+    <value>Ekuiteti përfundimtar</value>
+  </data>
+  <data name="Export_Eq_Result" xml:space="preserve">
+    <value>Rezultati</value>
+  </data>
+  <data name="Export_Eq_Movements" xml:space="preserve">
+    <value>Lëvizjet</value>
+  </data>
+  <data name="Export_Gl_Entry" xml:space="preserve">
+    <value>Regjistrimi</value>
+  </data>
+  <data name="Export_Gl_DocumentType" xml:space="preserve">
+    <value>Lloji i dokumentit</value>
+  </data>
+  <data name="Export_Gl_DocumentNumber" xml:space="preserve">
+    <value>Numri i dokumentit</value>
+  </data>
+  <data name="Export_Gl_AccountCode" xml:space="preserve">
+    <value>Shifra e llogarisë</value>
+  </data>
+  <data name="Export_Gl_AccountName" xml:space="preserve">
+    <value>Emërtimi i llogarisë</value>
+  </data>
+  <data name="Export_Ap_Bill" xml:space="preserve">
+    <value>Fatura e blerjes</value>
+  </data>
+  <data name="Export_Ap_IssueDate" xml:space="preserve">
+    <value>Data e lëshimit</value>
+  </data>
+  <data name="Export_Ap_DueDate" xml:space="preserve">
+    <value>Afati i pagesës</value>
+  </data>
+  <data name="Export_Ap_Outstanding" xml:space="preserve">
+    <value>E papaguar</value>
+  </data>
+  <data name="Export_Ap_Bucket" xml:space="preserve">
+    <value>Grupi</value>
+  </data>
+  <data name="Export_Sheet_Pnl" xml:space="preserve">
+    <value>Fitimi dhe Humbja</value>
+  </data>
+  <data name="Export_Sheet_BalanceSheet" xml:space="preserve">
+    <value>Bilanci i gjendjes</value>
+  </data>
+  <data name="Export_Sheet_VatReturn" xml:space="preserve">
+    <value>Deklarata e TVSH-së</value>
+  </data>
+  <data name="Export_Sheet_TrialBalance" xml:space="preserve">
+    <value>Gjendja e llogarive</value>
+  </data>
+  <data name="Export_Sheet_MonthlyPnl" xml:space="preserve">
+    <value>Fitimi dhe humbja mujore</value>
+  </data>
+  <data name="Export_Sheet_ComparativeBalanceSheet" xml:space="preserve">
+    <value>Bilanci krahasues</value>
+  </data>
+  <data name="Export_Sheet_CashFlow" xml:space="preserve">
+    <value>Rrjedha e parasë</value>
+  </data>
+  <data name="Export_Sheet_EquityStatement" xml:space="preserve">
+    <value>Ekuiteti i Pronarëve</value>
+  </data>
+  <data name="Export_Sheet_GeneralLedger" xml:space="preserve">
+    <value>Libri i madh</value>
+  </data>
+  <data name="Export_Sheet_ExpenseBook" xml:space="preserve">
+    <value>Libri i shpenzimeve</value>
+  </data>
+  <data name="Export_Sheet_VendorBalances" xml:space="preserve">
+    <value>Sintetika e furnitorëve</value>
+  </data>
+  <data name="Export_Sheet_VendorStatement" xml:space="preserve">
+    <value>Analitika e furnitorit</value>
+  </data>
+  <data name="Export_Sheet_PayablesAging" xml:space="preserve">
+    <value>Vjetërsia e borxheve</value>
+  </data>
+  <data name="Export_Sheet_PurchasesByVendor" xml:space="preserve">
+    <value>Blerjet sipas furnitorit</value>
+  </data>
+  <data name="Export_Sheet_PurchasesByItem" xml:space="preserve">
+    <value>Blerjet sipas artikujve</value>
+  </data>
+  <data name="Export_Sheet_PurchaseTransactions" xml:space="preserve">
+    <value>Detajet e transaksioneve</value>
+  </data>
+  <data name="Export_Month_1" xml:space="preserve">
+    <value>Jan</value>
+  </data>
+  <data name="Export_Month_2" xml:space="preserve">
+    <value>Shk</value>
+  </data>
+  <data name="Export_Month_3" xml:space="preserve">
+    <value>Mar</value>
+  </data>
+  <data name="Export_Month_4" xml:space="preserve">
+    <value>Pri</value>
+  </data>
+  <data name="Export_Month_5" xml:space="preserve">
+    <value>Maj</value>
+  </data>
+  <data name="Export_Month_6" xml:space="preserve">
+    <value>Qer</value>
+  </data>
+  <data name="Export_Month_7" xml:space="preserve">
+    <value>Kor</value>
+  </data>
+  <data name="Export_Month_8" xml:space="preserve">
+    <value>Gus</value>
+  </data>
+  <data name="Export_Month_9" xml:space="preserve">
+    <value>Sht</value>
+  </data>
+  <data name="Export_Month_10" xml:space="preserve">
+    <value>Tet</value>
+  </data>
+  <data name="Export_Month_11" xml:space="preserve">
+    <value>Nën</value>
+  </data>
+  <data name="Export_Month_12" xml:space="preserve">
+    <value>Dhj</value>
+  </data>
+  <data name="Export_VatDecl_B9" xml:space="preserve"><value>Shitjet e liruara pa të drejtë kreditimi</value></data>
+  <data name="Export_VatDecl_B10" xml:space="preserve"><value>Shitjet e liruara me të drejtë kreditimi</value></data>
+  <data name="Export_VatDecl_B11" xml:space="preserve"><value>Eksportet</value></data>
+  <data name="Export_VatDecl_B12" xml:space="preserve"><value>Shitjet e tatueshme me normën 18%</value></data>
+  <data name="Export_VatDecl_B14" xml:space="preserve"><value>Shitjet e tatueshme me normën 8%</value></data>
+  <data name="Export_VatDecl_B16" xml:space="preserve"><value>Nota debitore e lëshuar dhe nota kreditore e pranuar me normën 18%</value></data>
+  <data name="Export_VatDecl_B18" xml:space="preserve"><value>Nota debitore e lëshuar dhe nota kreditore e pranuar me normën 8%</value></data>
+  <data name="Export_VatDecl_B20" xml:space="preserve"><value>Fatura e borxhit të keq e pranuar dhe inkasimi I B.K me normën 18%</value></data>
+  <data name="Export_VatDecl_B22" xml:space="preserve"><value>Fatura e borxhit të keq e pranuar dhe inkasimi I B.K me normën 8%</value></data>
+  <data name="Export_VatDecl_B24" xml:space="preserve"><value>Rregullimet për të rritur TVSH-në me normën 18%</value></data>
+  <data name="Export_VatDecl_B26" xml:space="preserve"><value>Rregullimet për të rritur TVSH-në me normën 8%</value></data>
+  <data name="Export_VatDecl_B28" xml:space="preserve"><value>Blerjet që i nënshtrohen ngarkeses së kundërt me normën 18%</value></data>
+  <data name="Export_VatDecl_B30" xml:space="preserve"><value>Totali i tvsh-se se llogaritur</value></data>
+  <data name="Export_VatDecl_B31" xml:space="preserve"><value>Blerjet, importet pa TVSH</value></data>
+  <data name="Export_VatDecl_B32" xml:space="preserve"><value>Blerjet, importet investive pa TVSH</value></data>
+  <data name="Export_VatDecl_B33" xml:space="preserve"><value>Blerjet, importet me TVSH jo të zbritshme</value></data>
+  <data name="Export_VatDecl_B34" xml:space="preserve"><value>Blerjet, importet investive me TVSH jo të zbritshme</value></data>
+  <data name="Export_VatDecl_B35" xml:space="preserve"><value>Importet me normën 18%</value></data>
+  <data name="Export_VatDecl_B37" xml:space="preserve"><value>Importet me normën 8%</value></data>
+  <data name="Export_VatDecl_B39" xml:space="preserve"><value>Importet investive me normën 18%</value></data>
+  <data name="Export_VatDecl_B41" xml:space="preserve"><value>Importet investive me normën 8%</value></data>
+  <data name="Export_VatDecl_B43" xml:space="preserve"><value>Blerjet vendore me normën 18%</value></data>
+  <data name="Export_VatDecl_B45" xml:space="preserve"><value>Blerjet vendore me normën 8%</value></data>
+  <data name="Export_VatDecl_B47" xml:space="preserve"><value>Blerjet investive vendore me normën 18%</value></data>
+  <data name="Export_VatDecl_B49" xml:space="preserve"><value>Blerjet investive vendore me normën 8%</value></data>
+  <data name="Export_VatDecl_B51" xml:space="preserve"><value>Blerjet nga fermerët vendor (aplikimi i Normës së sheshtë 8%)</value></data>
+  <data name="Export_VatDecl_B53" xml:space="preserve"><value>Nota debitore e pranuar, nota kreditore e lëshuar me normën 18%</value></data>
+  <data name="Export_VatDecl_B55" xml:space="preserve"><value>Nota debitore e pranuar, nota kreditore e lëshuar me normën 8%</value></data>
+  <data name="Export_VatDecl_B57" xml:space="preserve"><value>Fatura e B.K e lëshuar, pagesa e borxhit të keq me normën 18%</value></data>
+  <data name="Export_VatDecl_B59" xml:space="preserve"><value>Fatura e B.K e lëshuar, pagesa e borxhit të keq me normën 8%</value></data>
+  <data name="Export_VatDecl_B61" xml:space="preserve"><value>Rregullimet për të ulur TVSH-në me normën 18%</value></data>
+  <data name="Export_VatDecl_B63" xml:space="preserve"><value>Rregullimet për të ulur TVSH-në me normën 8%</value></data>
+  <data name="Export_VatDecl_B65" xml:space="preserve"><value>E drejta e kreditimit të TVSH-së në lidhje me N.K me normën 18%</value></data>
+  <data name="Export_VatDecl_B67" xml:space="preserve"><value>Totali i tvsh-së së zbritshme</value></data>
+  <data name="Export_VatDecl_B68" xml:space="preserve"><value>Kreditimi i Tvsh-së i bartur nga periudha paraprake</value></data>
+  <data name="Export_VatDecl_B69" xml:space="preserve"><value>Balanca kreditore e mbetur 69 = ((67+68)-30)&gt;0</value></data>
+  <data name="Export_VatDecl_B70" xml:space="preserve"><value>Kërkesa për rimbursim</value></data>
+  <data name="Export_VatDecl_B71" xml:space="preserve"><value>Kreditimi i TVSH-së për periudhën pasues 71 =(69-70)</value></data>
+  <data name="Export_VatDecl_B72" xml:space="preserve"><value>TVSH për pagesë 72 =(30-67-68)&gt;0</value></data>
+  <data name="Export_VatDecl_Title" xml:space="preserve"><value>FORMULARI I DEKLARIMIT DHE PAGESËS SË TVSH</value></data>
+  <data name="Export_VatDecl_Period" xml:space="preserve"><value>Periudha tatimore</value></data>
+  <data name="Export_VatDecl_FiscalNumber" xml:space="preserve"><value>Numri Fiskal</value></data>
+  <data name="Export_VatDecl_TaxpayerName" xml:space="preserve"><value>Emri i personit të tatueshem</value></data>
+  <data name="Export_VatDecl_Address" xml:space="preserve"><value>Adresa e personit</value></data>
+  <data name="Export_VatDecl_ContactName" xml:space="preserve"><value>Emri i personit kontaktues</value></data>
+  <data name="Export_VatDecl_ContactNumber" xml:space="preserve"><value>Numri i personit kontaktues</value></data>
+  <data name="Export_VatDecl_NoTransactions" xml:space="preserve"><value>Vendos "X" nëse gjatë kësaj periudhe nuk është bërë asnjë transaksion</value></data>
+  <data name="Export_VatDecl_Box" xml:space="preserve"><value>Kutia</value></data>
+  <data name="Export_VatDecl_Description" xml:space="preserve"><value>Përshkrimi</value></data>
+  <data name="Export_VatDecl_Base" xml:space="preserve"><value>Baza (pa TVSH)</value></data>
+  <data name="Export_VatDecl_Vat" xml:space="preserve"><value>TVSH</value></data>
+  <data name="Export_VatDecl_Section_Sales" xml:space="preserve"><value>Shitjet</value></data>
+  <data name="Export_VatDecl_Section_Purchases" xml:space="preserve"><value>Blerjet</value></data>
+  <data name="Export_VatDecl_Section_Calculation" xml:space="preserve"><value>Kalkulimi</value></data>
+  <data name="Export_Sheet_VatDeclaration" xml:space="preserve"><value>Deklarata e TVSH-së (formulari)</value></data>
+  <data name="VatDeclarationPeriodInvalid" xml:space="preserve"><value>Muaji duhet të jetë midis 1 dhe 12 dhe viti midis 2000 dhe 2100.</value></data>
+  <data name="VatDeclarationCarriedCreditInvalid" xml:space="preserve"><value>Kreditimi i bartur nuk mund të jetë negativ.</value></data>
+  <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>Kërkesa për rimbursim duhet të jetë midis 0 dhe balancës kreditore të mbetur.</value></data>
+  <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>Rimbursimi i kërkuar nuk mund të tejkalojë kreditin e mbetur ([69]).</value></data>
+  <data name="VatDeclarationRefundNegative" xml:space="preserve"><value>Rimbursimi i kërkuar nuk mund të jetë negativ.</value></data>
+  <data name="Export_Common_TotalLiabilitiesAndEquity" xml:space="preserve">
+    <value>Gjithsejt detyrimet dhe ekuiteti</value>
+  </data>
+  <data name="Export_Common_TotalCostOfRevenue" xml:space="preserve">
+    <value>Gjithsejt kostoja e shitjes</value>
+  </data>
+  <data name="Export_Sheet_Matrix" xml:space="preserve">
+    <value>Matrica</value>
+  </data>
+  <data name="Export_Sheet_DebtAging" xml:space="preserve">
+    <value>Vjetërsia e borxhit</value>
+  </data>
+  <data name="Export_Common_Customer" xml:space="preserve">
+    <value>Klienti</value>
+  </data>
+  <data name="Export_Debt_Invoice" xml:space="preserve">
+    <value>Fatura</value>
+  </data>
+  <data name="Export_Debt_GraceDays" xml:space="preserve">
+    <value>Ditët e faljes</value>
+  </data>
+  <data name="Export_Enum_Bucket_Current" xml:space="preserve">
+    <value>Pa vonuar</value>
+  </data>
+  <data name="Export_Enum_Bucket_WithinGrace" xml:space="preserve">
+    <value>Brenda periudhës së faljes</value>
+  </data>
+  <data name="Export_Enum_Bucket_Overdue" xml:space="preserve">
+    <value>Të vonuara</value>
+  </data>
+  <data name="Export_Enum_Bucket_Over360" xml:space="preserve">
+    <value>Mbi 360</value>
+  </data>
+  <data name="Export_Enum_DocType_Invoice" xml:space="preserve">
+    <value>Faturë</value>
+  </data>
+  <data name="Export_Enum_DocType_CreditNote" xml:space="preserve">
+    <value>Notë kreditore</value>
+  </data>
+  <data name="Export_Enum_DocType_DebitNote" xml:space="preserve">
+    <value>Notë debitore</value>
+  </data>
+  <data name="Export_Enum_DocType_DownPayment" xml:space="preserve">
+    <value>Paradhënie</value>
+  </data>
+  <data name="Export_Enum_DocType_SalesReturn" xml:space="preserve">
+    <value>Kthim shitjeje</value>
+  </data>
+  <data name="Export_Enum_DocType_Proforma" xml:space="preserve">
+    <value>Profaturë</value>
+  </data>
+  <data name="Export_Enum_DocType_Bill" xml:space="preserve">
+    <value>Faturë blerjeje</value>
+  </data>
+  <data name="Export_Enum_DocType_SupplierCreditNote" xml:space="preserve">
+    <value>Notë kreditore e furnitorit</value>
+  </data>
+  <data name="Export_Enum_DocType_PurchaseReturn" xml:space="preserve">
+    <value>Kthim blerjeje</value>
+  </data>
+  <data name="Export_Enum_DocType_Other" xml:space="preserve">
+    <value>Tjetër</value>
+  </data>
+  <data name="Export_Enum_DocType_Payment" xml:space="preserve">
+    <value>Pagesë</value>
+  </data>
+  <data name="Export_Enum_DocType_Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="Export_Enum_Journal_Sale" xml:space="preserve">
+    <value>Shitje</value>
+  </data>
+  <data name="Export_Enum_Journal_Purchase" xml:space="preserve">
+    <value>Blerje</value>
+  </data>
+  <data name="Export_Enum_Journal_Cash" xml:space="preserve">
+    <value>Arkë</value>
+  </data>
+  <data name="Export_Enum_Journal_Bank" xml:space="preserve">
+    <value>Banka</value>
+  </data>
+  <data name="Export_Enum_Journal_General" xml:space="preserve">
+    <value>Të përgjithshme</value>
+  </data>
+  <data name="Export_Enum_Journal_Miscellaneous" xml:space="preserve">
+    <value>Të ndryshme</value>
+  </data>
+  <data name="Export_Tb_TotalGroup" xml:space="preserve">
+    <value>Gjithsejt {0}</value>
+  </data>
+  <data name="Export_Tb_Class" xml:space="preserve">
+    <value>Klasa {0}</value>
+  </data>
+  <data name="Export_Common_OperatingExpenses" xml:space="preserve">
+    <value>Shpenzimet operative</value>
+  </data>
+  <data name="Export_Common_TotalOperatingExpenses" xml:space="preserve">
+    <value>Gjithsejt shpenzimet operative</value>
+  </data>
+  <data name="PdfCountSheetTitle" xml:space="preserve">
+    <value>Lista e inventarizimit</value>
+  </data>
+  <data name="PdfCountSheetSubtitle" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PdfCountSheetCode" xml:space="preserve">
+    <value>Kodi</value>
+  </data>
+  <data name="PdfCountSheetItem" xml:space="preserve">
+    <value>Artikulli</value>
+  </data>
+  <data name="PdfCountSheetUnit" xml:space="preserve">
+    <value>Njësia</value>
+  </data>
+  <data name="PdfCountSheetBook" xml:space="preserve">
+    <value>Sasia në libër</value>
+  </data>
+  <data name="PdfCountSheetCounted" xml:space="preserve">
+    <value>E numëruar</value>
+  </data>
+  <data name="PdfCountSheetDifference" xml:space="preserve">
+    <value>Diferenca</value>
+  </data>
+  <data name="PdfCountSheetNote" xml:space="preserve">
+    <value>Shënim</value>
+  </data>
+  <data name="PdfCountSheetCountedBy" xml:space="preserve">
+    <value>Numëroi (emri, nënshkrimi)</value>
+  </data>
+  <data name="PdfCountSheetCheckedBy" xml:space="preserve">
+    <value>Kontrolloi (emri, nënshkrimi)</value>
+  </data>
+  <data name="StockVatRepayment" xml:space="preserve">
+    <value>TVSH e zbritur e kthyer për mallra të humbura</value>
+  </data>
+  <data name="StockWriteDownValueRequired" xml:space="preserve">
+    <value>Shkruani vlerën neto të realizueshme për njësi (0 ose më shumë) në çdo rresht.</value>
+  </data>
+  <data name="StockWriteDownLaterExists" xml:space="preserve">
+    <value>Për një nga këta artikuj është postuar tashmë një zhvlerësim me datë më të vonshme. Postoni zhvlerësimet sipas datës.</value>
+  </data>
+  <data name="StockDocumentWriteDown" xml:space="preserve">
+    <value>Zhvlerësim</value>
+  </data>
+  <data name="PriceChangePosted" xml:space="preserve">
+    <value>Ky nivelim është postuar tashmë dhe nuk mund të ndryshohet.</value>
+  </data>
+  <data name="PriceListNotFound" xml:space="preserve">
+    <value>Zgjidhni një listë çmimesh aktive.</value>
+  </data>
+  <data name="PriceChangeItemNotFound" xml:space="preserve">
+    <value>Një nga artikujt nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="PriceChangePrice" xml:space="preserve">
+    <value>Çmimet duhet të jenë 0 ose më shumë.</value>
+  </data>
+  <data name="PriceListName" xml:space="preserve">
+    <value>Jepini listës së çmimeve një emër (deri në 120 shkronja).</value>
+  </data>
+  <data name="PriceListNameTaken" xml:space="preserve">
+    <value>Një listë tjetër çmimesh e ka tashmë këtë emër.</value>
+  </data>
+  <data name="PriceListWarehouseTaken" xml:space="preserve">
+    <value>Ajo magazinë ka tashmë një listë çmimesh (ose lista e kompanisë ekziston). Çdo magazinë ka të shumtën një.</value>
+  </data>
+  <data name="PdfPriceChangeTitle" xml:space="preserve">
+    <value>Nivelim i çmimeve</value>
+  </data>
+  <data name="PdfPriceChangeSubtitle" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="PdfDraft" xml:space="preserve">
+    <value>Draft</value>
+  </data>
+  <data name="PdfPriceChangeQuantity" xml:space="preserve">
+    <value>Në stok</value>
+  </data>
+  <data name="PdfPriceChangeOld" xml:space="preserve">
+    <value>Çmimi i vjetër</value>
+  </data>
+  <data name="PdfPriceChangeNew" xml:space="preserve">
+    <value>Çmimi i ri</value>
+  </data>
+  <data name="PdfPriceChangeDifference" xml:space="preserve">
+    <value>Diferenca</value>
+  </data>
+  <data name="PdfPriceChangeTotal" xml:space="preserve">
+    <value>Diferenca gjithsej: {0}</value>
+  </data>
+  <data name="PdfPriceChangePreparedBy" xml:space="preserve">
+    <value>Përgatiti (emri, nënshkrimi)</value>
+  </data>
+  <data name="PdfPriceChangeApprovedBy" xml:space="preserve">
+    <value>Miratoi (emri, nënshkrimi)</value>
+  </data>
+  <data name="BillPurchaseOrderLineInvalid" xml:space="preserve">
+    <value>Një rresht i referohet një porosie blerjeje që nuk është porosi e konfirmuar nga ky furnitor.</value>
+  </data>
+  <data name="PurchaseOrderNotDraft" xml:space="preserve">
+    <value>Vetëm një porosi blerjeje draft mund të ndryshohet ose fshihet.</value>
+  </data>
+  <data name="PurchaseOrderNotConfirmed" xml:space="preserve">
+    <value>Vetëm një porosi blerjeje e konfirmuar mund të mbyllet ose anulohet.</value>
+  </data>
+  <data name="PurchaseOrderHasBills" xml:space="preserve">
+    <value>Nga kjo porosi janë bërë tashmë fatura; mbylleni në vend që ta anuloni.</value>
+  </data>
+  <data name="PurchaseOrderFromLowStock" xml:space="preserve">
+    <value>Krijuar nga lista e stokut të ulët.</value>
+  </data>
+  <data name="PurchaseOrderNoLines" xml:space="preserve">
+    <value>Shtoni të paktën një rresht.</value>
+  </data>
+  <data name="PurchaseOrderVendorRequired" xml:space="preserve">
+    <value>Zgjidhni një furnitor.</value>
+  </data>
+  <data name="PurchaseOrderExpectedBeforeDate" xml:space="preserve">
+    <value>Data e pritur nuk mund të jetë para datës së porosisë.</value>
+  </data>
+  <data name="PurchaseOrderLineDescription" xml:space="preserve">
+    <value>Një rresht pa artikull ka nevojë për përshkrim.</value>
+  </data>
+  <data name="StockReceiptMatched" xml:space="preserve">
+    <value>Faturuar kundrejt fletëpranimit</value>
+  </data>
+  <data name="StockDocumentReceipt" xml:space="preserve">
+    <value>Fletëpranim</value>
+  </data>
+  <data name="PurchaseOrderNothingToReceive" xml:space="preserve">
+    <value>Të gjitha rreshtat me stok të kësaj porosie janë pranuar.</value>
+  </data>
+  <data name="LineUnitUnknown" xml:space="preserve">
+    <value>"{0}" nuk është njësi e këtij artikulli. Përdorni njësinë bazë ose njësinë e blerjes/shitjes të caktuar te artikulli.</value>
+  </data>
+  <data name="ItemUnitInvalid" xml:space="preserve">
+    <value>Njësia e blerjes ose e shitjes ka nevojë për emrin e vet (jo njësinë bazë) dhe sa njësi bazë përmban (më shumë se 0).</value>
+  </data>
+  <data name="StockLotRequired" xml:space="preserve">
+    <value>{0} përcillet sipas lotit: shkruani numrin e lotit (dhe datën e skadimit) të mallit të pranuar.</value>
+  </data>
+  <data name="StockLotNotAvailable" xml:space="preserve">
+    <value>Loti {0} i {1} nuk ka aq sasi në këtë magazinë.</value>
+  </data>
+  <data name="StockLotsLocked" xml:space="preserve">
+    <value>Përcjellja sipas lotit nuk mund të ndizet ose fiket pasi stoku i këtij artikulli ka lëvizur.</value>
+  </data>
+  <data name="Export_Stock_Col_Code" xml:space="preserve">
+    <value>Shifra</value>
+  </data>
+  <data name="Export_Stock_Col_Name" xml:space="preserve">
+    <value>Emërtimi</value>
+  </data>
+  <data name="Export_Stock_Col_Category" xml:space="preserve">
+    <value>Grupi</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningQty" xml:space="preserve">
+    <value>Sasia fillestare</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningValue" xml:space="preserve">
+    <value>Vlera fillestare</value>
+  </data>
+  <data name="Export_Stock_Col_InQty" xml:space="preserve">
+    <value>Sasia hyrëse</value>
+  </data>
+  <data name="Export_Stock_Col_InValue" xml:space="preserve">
+    <value>Vlera hyrëse</value>
+  </data>
+  <data name="Export_Stock_Col_OutQty" xml:space="preserve">
+    <value>Sasia dalëse</value>
+  </data>
+  <data name="Export_Stock_Col_OutValue" xml:space="preserve">
+    <value>Vlera dalëse</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingQty" xml:space="preserve">
+    <value>Sasia përfundimtare</value>
+  </data>
+  <data name="Export_Stock_Col_AverageCost" xml:space="preserve">
+    <value>Çmimi mesatar</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingValue" xml:space="preserve">
+    <value>Vlera përfundimtare</value>
+  </data>
+  <data name="Export_Stock_Col_SellPrice" xml:space="preserve">
+    <value>Çmimi i shitjes</value>
+  </data>
+  <data name="Export_Stock_Col_Markup" xml:space="preserve">
+    <value>Marzha %</value>
+  </data>
+  <data name="Export_Stock_Col_Quantity" xml:space="preserve">
+    <value>Sasia</value>
+  </data>
+  <data name="Export_Stock_Col_Value" xml:space="preserve">
+    <value>Vlera</value>
+  </data>
+  <data name="Export_Stock_Col_MinimumStock" xml:space="preserve">
+    <value>Stoku minimal</value>
+  </data>
+  <data name="Export_Stock_Col_AsOf" xml:space="preserve">
+    <value>Më datë</value>
+  </data>
+  <data name="Export_Stock_Col_StockValue" xml:space="preserve">
+    <value>Vlera e stokut</value>
+  </data>
+  <data name="Export_Stock_Col_LedgerValue" xml:space="preserve">
+    <value>Vlera në libër</value>
+  </data>
+  <data name="Export_Stock_Col_MoveType" xml:space="preserve">
+    <value>Lloji i lëvizjes</value>
+  </data>
+  <data name="Export_Stock_Col_Source" xml:space="preserve">
+    <value>Burimi</value>
+  </data>
+  <data name="Export_Stock_Col_Reference" xml:space="preserve">
+    <value>Referenca</value>
+  </data>
+  <data name="Export_Stock_Col_FromLocation" xml:space="preserve">
+    <value>Nga vendndodhja</value>
+  </data>
+  <data name="Export_Stock_Col_ToLocation" xml:space="preserve">
+    <value>Te vendndodhja</value>
+  </data>
+  <data name="Export_Stock_Col_UnitCost" xml:space="preserve">
+    <value>Kostoja për njësi</value>
+  </data>
+  <data name="Export_Stock_Col_RunningQty" xml:space="preserve">
+    <value>Sasia në rend</value>
+  </data>
+  <data name="Export_Stock_Col_RunningValue" xml:space="preserve">
+    <value>Vlera në rend</value>
+  </data>
+  <data name="Export_Stock_Sheet_Movements" xml:space="preserve">
+    <value>Lëvizja e stokut</value>
+  </data>
+  <data name="Export_Stock_Sheet_Levels" xml:space="preserve">
+    <value>Gjendja e artikujve</value>
+  </data>
+  <data name="Export_Stock_Sheet_Valuation" xml:space="preserve">
+    <value>Vlerësimi i stokut</value>
+  </data>
+  <data name="Export_Stock_Sheet_ItemCard" xml:space="preserve">
+    <value>Kartela e artikullit</value>
+  </data>
+  <data name="Export_Stock_Kind_Receipt" xml:space="preserve">
+    <value>Hyrje</value>
+  </data>
+  <data name="Export_Stock_Kind_Issue" xml:space="preserve">
+    <value>Dalje</value>
+  </data>
+  <data name="Export_Stock_Kind_Transfer" xml:space="preserve">
+    <value>Transferim</value>
+  </data>
+  <data name="Export_Stock_Kind_Revaluation" xml:space="preserve">
+    <value>Rivlerësim</value>
+  </data>
+  <data name="Export_Stock_Source_Bill" xml:space="preserve">
+    <value>Fatura e blerjes</value>
+  </data>
+  <data name="Export_Stock_Source_Invoice" xml:space="preserve">
+    <value>Fatura e shitjes</value>
+  </data>
+  <data name="Export_Stock_Source_StockDocument" xml:space="preserve">
+    <value>Dokument stoku</value>
   </data>
 </root>

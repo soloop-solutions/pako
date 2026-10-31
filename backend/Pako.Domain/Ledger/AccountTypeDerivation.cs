@@ -111,4 +111,13 @@ public static class AccountTypeDerivation
         (3, _) or (_, 23) => CashFlowCategory.Financing,
         _ => CashFlowCategory.Operating
     };
+
+    public static bool IsOperatingExpense(AccountType t) => IsExpense(t) && t != AccountType.CostOfRevenue;
+
+    public const string OpeningBalanceClearingCode = "390100";
+
+    public static CashFlowCategory EffectiveCashFlowCategory(string code, CashFlowCategory stored) =>
+        stored != CashFlowCategory.None ? stored
+        : code == OpeningBalanceClearingCode ? CashFlowCategory.Operating
+        : CashFlowCategory.None;
 }

@@ -1,6 +1,6 @@
 // F11 (attachments) — pure, framework-free validation shared by the real drop-zone component
-// (src/pages/shared/AttachmentsPanel.tsx) and the fully mocked upload handler
-// (src/mocks/attachmentsHandlers.ts), so the two can never silently drift on what's accepted.
+// (src/pages/shared/AttachmentsPanel.tsx) and its tests, so they can't drift on what's accepted.
+// The API (AttachmentsController) enforces its own limit.
 
 export const ATTACHMENT_MAX_SIZE_BYTES = 10 * 1024 * 1024;
 

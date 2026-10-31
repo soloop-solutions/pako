@@ -10,7 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
+import { YearEndStockCheck } from "@/pages/inventory/YearEndStockCheck";
 import { buildRollForward, type RollForward } from "@/pages/year-end/rollForward";
 
 // F12, Part 1 — a real, read-only roll-forward VIEW, not a "close the year" action. There is zero
@@ -30,6 +32,7 @@ function equationOk(assets: number, liabilities: number, equity: number): boolea
 export function YearEnd() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
+  const { canSee } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
   const printRef = useRef<HTMLDivElement>(null);
 
@@ -118,6 +121,8 @@ export function YearEnd() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+
+          {period && year != null && canSee("inventory") && <YearEndStockCheck year={year} />}
 
           {rollForward && period && (
             <>

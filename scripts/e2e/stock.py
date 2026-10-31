@@ -8,10 +8,13 @@ against a dev database. Covers:
   - a sale refused for lack of stock, then a sale with its cost of goods sold;
   - averaging on a purchase;
   - a transfer to a second warehouse;
-  - a count, and write-offs (ATK notice, VAT repayment);
-  - the tracking lock;
+  - a count with its printable PDF sheet, and write-offs (ATK notice, input VAT reversed, attachment);
+  - a write-down to net realisable value; the year-end count check;
+  - the tracking lock; the low-stock list with the usual supplier;
   - selling below zero under "warn";
-  - the stock-to-ledger tie-out and the margin report.
+  - the stock-to-ledger tie-out and the margin report;
+  - a price list with a posted price change; a purchase order billed in part, then received on a
+    receipt (GRNI).
 Standard library only.
 
     python3 scripts/e2e/stock.py                    # API at http://127.0.0.1:5248
@@ -35,7 +38,7 @@ CHECKS = 0
 
 # Enums travel as numbers (no string enum converter in Pako.Api).
 GOODS = 0
-OPENING, TRANSFER, COUNT, WRITE_OFF = 0, 1, 2, 3
+OPENING, TRANSFER, COUNT, WRITE_OFF, WRITE_DOWN = 0, 1, 2, 3, 4
 POSTED = 1
 DAMAGED, THEFT = 1, 2
 BLOCK, WARN = 0, 1
@@ -59,6 +62,28 @@ def call(method, path, token=None, body=None, headers=None):
             return json.loads(payload) if payload else None
     except urllib.error.HTTPError as error:
         raise ApiError(error.code, f"{method} {path}: " + error.read().decode(errors="replace")) from None
+
+
+def raw(method, path, token, data=None, content_type=None):
+    """A request whose body or response isn't JSON (multipart upload, PDF download)."""
+    headers = {"Authorization": f"Bearer {token}", "Accept-Language": "en"}
+    if content_type:
+        headers["Content-Type"] = content_type
+    request = urllib.request.Request(API + path, data=data, method=method, headers=headers)
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return response.status, response.read()
+    except urllib.error.HTTPError as error:
+        raise ApiError(error.code, f"{method} {path}: " + error.read().decode(errors="replace")) from None
+
+
+def upload(path, token, fields, filename, content, content_type):
+    boundary = uuid.uuid4().hex
+    parts = [f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode() for k, v in fields.items()]
+    parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"File\"; filename=\"{filename}\"\r\n"
+                 f"Content-Type: {content_type}\r\n\r\n".encode() + content + b"\r\n")
+    body = b"".join(parts) + f"--{boundary}--\r\n".encode()
+    return raw("POST", path, token, body, f"multipart/form-data; boundary={boundary}")
 
 
 def check(condition, message):
@@ -162,6 +187,8 @@ def main():
     # ---- Count: 11 in the book, 10 counted ----
     sheet = call("GET", f"{c}/stock-documents/count-sheet?warehouseId={main_wh}&date={d3.isoformat()}", token)
     check(sheet[0]["bookQuantity"] == 11, "the count sheet shows 11 in the main warehouse")
+    status, pdf = raw("GET", f"{c}/stock-documents/count-sheet/pdf?warehouseId={main_wh}&date={d3.isoformat()}&blind=true", token)
+    check(status == 200 and pdf[:4] == b"%PDF", "the blind count sheet prints as a PDF")
     count = document({"type": COUNT, "date": d3.isoformat(), "lines": [{"itemId": item["id"], "quantity": 10}]})
     check(count["number"].startswith("INVR-") and count["lines"][0]["difference"] == -1, "the count posts a shortage of 1")
 
@@ -176,6 +203,21 @@ def main():
     theft = document({"type": WRITE_OFF, "date": d3.isoformat(), "warehouseId": shop, "reason": THEFT,
                       "lines": [{"itemId": item["id"], "quantity": 1}]})
     check(theft["number"].startswith("NJP-") and theft["vatRepaymentDue"], "a theft write-off flags the input VAT to repay")
+    status, _ = upload(f"{c}/attachments", token, {"OwnerType": "StockDocument", "OwnerId": theft["id"]},
+                       "police-report.pdf", b"%PDF-1.4 report", "application/pdf")
+    files = call("GET", f"{c}/attachments?ownerType=5&ownerId={theft['id']}", token)
+    check(status == 201 and [f["fileName"] for f in files] == ["police-report.pdf"], "the police report is attached to the write-off")
+    # 1 laptop at 118.75 average: 18% of it is the input VAT given back.
+    check(theft["vatRepaid"] == 21.38, f"the theft reversed 21.38 of input VAT (got {theft['vatRepaid']})")
+
+    # ---- Write-down to net realisable value (IAS 2) ----
+    write_down = document({"type": WRITE_DOWN, "date": d3.isoformat(), "lines": [{"itemId": item["id"], "quantity": 0, "unitCost": 100}]})
+    line = write_down["lines"][0]
+    check(write_down["number"].startswith("ZHV-") and line["allowanceAfter"] == 18.75 * line["bookQuantity"],
+          "a write-down to 100 a unit sets the allowance to 18.75 per unit in stock")
+    v = valuation()
+    check(v["writeDownAllowance"] == write_down["totalValue"] and v["netValue"] == v["stockValue"] - v["writeDownAllowance"],
+          "the valuation shows the allowance and the net stock value")
 
     # ---- Locks ----
     expect_status(400, lambda: call("PUT", f"{c}/items/{item['id']}", token, {
@@ -189,7 +231,8 @@ def main():
     on_hand = call("GET", f"{c}/inventory/on-hand?itemIds={item['id']}&warehouseId={main_wh}", token)
     check(on_hand[0]["quantity"] == -2, "under 'warn' a sale of 12 of 10 leaves -2")
     low = call("GET", f"{c}/inventory/stock?belowMinimum=true", token)["items"]
-    check(len(low) == 1, "the item shows on the low-stock report")
+    check(len(low) == 1 and low[0]["usualSupplierName"] == "Vendor" and low[0]["shortBy"] == 3,
+          "the low-stock report names the usual supplier and the shortfall")
 
     # ---- Reports ----
     v = valuation()
@@ -198,6 +241,63 @@ def main():
     check(margin["netSales"] == 3200 and margin["rows"][0]["quantity"] == 16, "margin covers 16 sold for 3,200 net")
     card = call("GET", f"{c}/inventory/items/{item['id']}/card?from={d0.isoformat()}&to={today.isoformat()}", token)
     check(card["closingQuantity"] == 2 and len(card["rows"]) >= 7, "the item card lists every move, closing at 2")
+
+    # ---- Price lists and a price change (Nivelim) ----
+    retail = call("POST", f"{c}/price-lists", token, {"name": "Retail", "warehouseId": None})
+    change = call("POST", f"{c}/price-changes", token, {"priceListId": retail["id"], "date": d0.isoformat(),
+                                                         "lines": [{"itemId": item["id"], "newPrice": 250}]})
+    change = call("POST", f"{c}/price-changes/{change['id']}/post", token)
+    check(change["number"].startswith("NIV-") and change["lines"][0]["oldPrice"] == 236,
+          "a price change replaces the item's 236 with 250 and keeps the old price on record")
+    resolved = call("GET", f"{c}/prices/resolve?itemIds={item['id']}&date={today.isoformat()}", token)
+    check(resolved[0]["price"] == 250 and resolved[0]["source"] == "company", "invoices now start from the price list")
+
+    # ---- Purchase order → bill ----
+    order = call("POST", f"{c}/purchase-orders", token, {"partnerId": vendor, "date": d3.isoformat(), "expectedDate": None,
+                                                           "lines": [{"itemId": item["id"], "description": "Laptop", "quantity": 5,
+                                                                      "unitPrice": 153.4, "taxDefinitionId": b18}]})
+    order = call("POST", f"{c}/purchase-orders/{order['id']}/confirm", token)
+    check(order["number"].startswith("PO-") and order["state"] == 1, "a purchase order is confirmed and numbered")
+    bill = call("POST", f"{c}/bills", token, {
+        "partnerId": vendor, "vendorReference": f"PO-B-{RUN}", "issueDate": today.isoformat(), "dueDate": today.isoformat(),
+        "lines": [{"description": "Laptop", "quantity": 3, "unitPrice": 153.4, "taxDefinitionId": b18, "expenseAccountId": None,
+                   "itemId": item["id"], "purchaseOrderLineId": order["lines"][0]["id"]}]})
+    call("POST", f"{c}/bills/{bill['id']}/post", token)
+    order = call("GET", f"{c}/purchase-orders/{order['id']}", token)
+    check(order["progress"] == "partly" and order["lines"][0]["billed"] == 3 and order["lines"][0]["remaining"] == 2,
+          "billing 3 of 5 leaves the order partly billed with 2 to come")
+
+    # ---- Receipt before the bill (GRNI) ----
+    receipt_id = call("POST", f"{c}/purchase-orders/{order['id']}/receipt", token)
+    receipt = call("POST", f"{c}/stock-documents/{receipt_id}/post", token)
+    check(receipt["number"].startswith("FP-") and receipt["lines"][0]["quantity"] == 2,
+          "the receipt takes only the 2 laptops the bill didn't already bring in")
+    grni = call("GET", f"{c}/inventory/grni?asOf={today.isoformat()}", token)
+    check(grni["difference"] == 0 and grni["openValue"] > 0, "open receipts tie to the 120800 balance")
+    v = valuation()
+    check(v["difference"] == 0, "stock still ties to the ledger after the receipt")
+
+    # ---- Lots and expiry ----
+    milk = call("POST", f"{c}/items", token, {"name": "Milk", "unit": "l", "type": GOODS, "defaultTaxDefinitionId": s18,
+                                               "defaultUnitPrice": 1.2, "trackInventory": True, "trackLots": True})
+    for lot, expiry, qty in (("M-2", (today + timedelta(days=60)).isoformat(), 10), ("M-1", (today + timedelta(days=5)).isoformat(), 10)):
+        b = call("POST", f"{c}/bills", token, {
+            "partnerId": vendor, "vendorReference": f"MILK-{lot}-{RUN}", "issueDate": today.isoformat(), "dueDate": today.isoformat(),
+            "lines": [{"description": "Milk", "quantity": qty, "unitPrice": 0.59, "taxDefinitionId": b18, "expenseAccountId": None,
+                       "itemId": milk["id"], "lotNumber": lot, "expiryDate": expiry}]})
+        call("POST", f"{c}/bills/{b['id']}/post", token)
+    inv = call("POST", f"{c}/invoices", token, {"partnerId": customer, "issueDate": today.isoformat(), "dueDate": today.isoformat(),
+                                                 "lines": [{"description": "Milk", "quantity": 12, "unitPrice": 1.2, "taxDefinitionId": s18,
+                                                            "revenueAccountId": None, "itemId": milk["id"]}]})
+    call("POST", f"{c}/invoices/{inv['id']}/post", token)
+    lots = {l["lotNumber"]: l["quantity"] for l in call("GET", f"{c}/inventory/lots?itemId={milk['id']}", token)}
+    check(lots == {"M-2": 8}, f"selling 12 empties the lot expiring first and takes 2 from the next (got {lots})")
+    soon = call("GET", f"{c}/inventory/lots?expiringBefore={(today + timedelta(days=30)).isoformat()}", token)
+    check(all(l["itemId"] != milk["id"] for l in soon), "nothing of the milk left expires within 30 days")
+
+    year_end = call("GET", f"{c}/inventory/year-end-check?year={today.year}", token)
+    check(year_end["tracksStock"] and year_end["warehousesWithoutCount"] == ["Shop"],
+          "year end names the warehouse that was never counted")
 
     print(f"\nAll {CHECKS} checks passed.")
 

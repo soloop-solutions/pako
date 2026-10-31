@@ -9,6 +9,7 @@ using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
@@ -22,12 +23,18 @@ public class ReportsController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
+    private readonly LedgerAggregator _ledger;
+    private readonly TaxReportService _tax;
+    private readonly ExportLabels _labels;
 
-    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
+    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger, ExportLabels labels)
     {
+        _labels = labels;
         _db = db;
         _localizer = localizer;
         _access = access;
+        _ledger = ledger;
+        _tax = new TaxReportService(db, access);
     }
 
     // HR module: the sales/purchase books and debt aging are per-document and are filtered to the
@@ -36,6 +43,9 @@ public class ReportsController : ControllerBase
     // refused outright. Exports call their JSON action, so they inherit the same 403.
     private ObjectResult ReportNotAvailableForScopedUser() =>
         StatusCode(StatusCodes.Status403Forbidden, _localizer["ReportNotAvailableForScopedUser"].Value);
+
+    private BadRequestObjectResult InvalidDateRange() =>
+        BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
 
     [HttpGet("profit-and-loss")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
@@ -47,7 +57,12 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await SumsByAccountAsync(companyId, from, to);
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
+        var sums = await _ledger.SumsByAccountAsync(companyId, from, to);
 
         var income = sums.Where(s => AccountTypeDerivation.IsIncome(s.Account.AccountType))
             .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
@@ -58,13 +73,24 @@ public class ReportsController : ControllerBase
             .OrderBy(l => l.AccountCode)
             .ToList();
 
+        var costOfRevenue = sums.Where(s => s.Account.AccountType == AccountType.CostOfRevenue)
+            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
+            .OrderBy(l => l.AccountCode)
+            .ToList();
+
+        var operatingExpenses = expenses.Where(l => costOfRevenue.All(c => c.AccountId != l.AccountId)).ToList();
+
         var totalIncome = income.Sum(l => l.Amount);
         var totalExpenses = expenses.Sum(l => l.Amount);
+        var gross = PeriodProfitAndLoss.Calculate(
+            income.Select(l => l.Amount), costOfRevenue.Select(l => l.Amount), operatingExpenses.Select(l => l.Amount));
 
-        return Ok(new ProfitAndLossResponse(from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses));
+        return Ok(new ProfitAndLossResponse(
+            from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses,
+            costOfRevenue, gross.TotalCostOfRevenue, gross.GrossProfit, operatingExpenses, gross.TotalOperatingExpenses));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("profit-and-loss/export", Name = "ProfitAndLossExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> ProfitAndLossExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -75,15 +101,21 @@ public class ReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
-        rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { "Income", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Income", null, "Total Income", response.TotalIncome });
-        rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { "Expenses", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Expenses", null, "Total Expenses", response.TotalExpenses });
-        rows.Add(new object?[] { null, null, "Net Income", response.NetIncome });
+        var income = _labels["Common_Income"];
+        var costOfRevenue = _labels["Pnl_CostOfRevenue"];
+        var operatingExpenses = _labels["Common_OperatingExpenses"];
+        rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { income, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { income, null, _labels["Common_TotalIncome"], response.TotalIncome });
+        rows.AddRange(response.CostOfRevenue.Select(l => (IReadOnlyList<object?>)new object?[] { costOfRevenue, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { costOfRevenue, null, _labels["Common_TotalCostOfRevenue"], response.TotalCostOfRevenue });
+        rows.Add(new object?[] { null, null, _labels["Pnl_GrossProfit"], response.GrossProfit });
+        rows.AddRange(response.OperatingExpenses.Select(l => (IReadOnlyList<object?>)new object?[] { operatingExpenses, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { operatingExpenses, null, _labels["Common_TotalOperatingExpenses"], response.TotalOperatingExpenses });
+        rows.Add(new object?[] { null, null, _labels["Common_NetIncome"], response.NetIncome });
 
-        var bytes = ExcelExportService.BuildWorkbook("Profit and Loss", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_Pnl"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"profit-and-loss-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -96,43 +128,10 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await SumsByAccountAsync(companyId, from: null, to: asOf);
-
-        var assets = sums.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType))
-            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
-            .OrderBy(l => l.AccountCode)
-            .ToList();
-        var liabilities = sums.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType))
-            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
-            .OrderBy(l => l.AccountCode)
-            .ToList();
-        // CurrentYearEarnings is excluded here and added back below as a computed line — R05
-        // blocks manual postings to it, so its own ledger balance is always zero; the real net
-        // income figure is what belongs on the balance sheet, attributed to that real account.
-        var equity = sums.Where(s => s.Account.AccountType == AccountType.Equity)
-            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Credit - s.Debit))
-            .OrderBy(l => l.AccountCode)
-            .ToList();
-
-        // B13: the real CurrentYearEarnings account (304100) every v2-seeded company has, rather
-        // than a synthetic Guid.Empty/"3999" row — falls back to the old synthetic row only if a
-        // company genuinely has none (the legacy 16-account template some tests still seed from).
-        var currentEarnings = NetIncome(sums);
-        var currentYearEarningsAccount = await _db.Accounts.AsNoTracking()
-            .FirstOrDefaultAsync(a => a.CompanyId == companyId && a.AccountType == AccountType.CurrentYearEarnings);
-        equity.Add(currentYearEarningsAccount is { } cye
-            ? new ReportLine(cye.Id, cye.Code, cye.Name, currentEarnings)
-            : new ReportLine(Guid.Empty, "3999", "Current Earnings", currentEarnings));
-
-        var totalAssets = assets.Sum(l => l.Amount);
-        var totalLiabilities = liabilities.Sum(l => l.Amount);
-        var totalEquity = equity.Sum(l => l.Amount);
-
-        return Ok(new BalanceSheetResponse(
-            asOf, assets, liabilities, equity, currentEarnings, totalAssets, totalLiabilities, totalEquity));
+        return Ok(await _ledger.BalanceSheetAsync(companyId, asOf));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("balance-sheet/export", Name = "BalanceSheetExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> BalanceSheetExport(Guid companyId, [FromQuery] DateOnly asOf)
@@ -143,16 +142,21 @@ public class ReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
-        rows.AddRange(response.Assets.Select(l => (IReadOnlyList<object?>)new object?[] { "Assets", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Assets", null, "Total Assets", response.TotalAssets });
-        rows.AddRange(response.Liabilities.Select(l => (IReadOnlyList<object?>)new object?[] { "Liabilities", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Liabilities", null, "Total Liabilities", response.TotalLiabilities });
-        rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { "Equity", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Equity", null, "Total Equity", response.TotalEquity });
+        var assets = _labels["Common_Assets"];
+        var liabilities = _labels["Common_Liabilities"];
+        var equity = _labels["Common_Equity"];
+        rows.AddRange(response.Assets.Select(l => (IReadOnlyList<object?>)new object?[] { assets, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { assets, null, _labels["Common_TotalAssets"], response.TotalAssets });
+        rows.AddRange(response.Liabilities.Select(l => (IReadOnlyList<object?>)new object?[] { liabilities, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { liabilities, null, _labels["Common_TotalLiabilities"], response.TotalLiabilities });
+        rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { equity, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { equity, null, _labels["Common_TotalEquity"], response.TotalEquity });
+        rows.Add(new object?[] { null, null, _labels["Common_TotalLiabilitiesAndEquity"], response.TotalLiabilitiesAndEquity });
+        rows.Add(new object?[] { null, null, _labels["Common_Difference"], response.Difference });
 
-        var bytes = ExcelExportService.BuildWorkbook("Balance Sheet", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_BalanceSheet"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-{asOf:yyyyMMdd}.xlsx");
     }
 
@@ -166,62 +170,15 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var repartitionAccountsByTax = (await _db.TaxRepartitionLines.AsNoTracking()
-                .Select(r => new { r.TaxDefinitionId, r.AccountId })
-                .ToListAsync())
-            .Select(r => (r.TaxDefinitionId, r.AccountId))
-            .ToHashSet();
-
-        var taxedLines = await _db.JournalEntryLines.AsNoTracking()
-            .Where(l => l.JournalEntry!.CompanyId == companyId
-                && l.JournalEntry.State == JournalEntryState.Posted
-                && l.JournalEntry.Date >= from && l.JournalEntry.Date <= to
-                && l.TaxId != null)
-            .Select(l => new { TaxId = l.TaxId!.Value, l.AccountId, l.Debit, l.Credit })
-            .ToListAsync();
-
-        var taxPostingLines = taxedLines.Where(l => repartitionAccountsByTax.Contains((l.TaxId, l.AccountId)));
-
-        var grouped = taxPostingLines
-            .GroupBy(l => l.TaxId)
-            .Select(g => new { TaxDefinitionId = g.Key, Debit = g.Sum(l => l.Debit), Credit = g.Sum(l => l.Credit) })
-            .ToList();
-
-        var taxDefinitionIds = grouped.Select(g => g.TaxDefinitionId).ToList();
-        var taxDefinitions = await _db.TaxDefinitions.AsNoTracking()
-            .Where(t => taxDefinitionIds.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id);
-
-        var output = new List<VatReturnLine>();
-        var input = new List<VatReturnLine>();
-
-        foreach (var g in grouped)
+        if (from > to)
         {
-            if (!taxDefinitions.TryGetValue(g.TaxDefinitionId, out var taxDefinition))
-            {
-                continue;
-            }
-
-            if (taxDefinition.Scope == TaxScope.Sale)
-            {
-                output.Add(new VatReturnLine(taxDefinition.Id, taxDefinition.Name, taxDefinition.Rate, g.Credit - g.Debit));
-            }
-            else if (taxDefinition.Scope == TaxScope.Purchase)
-            {
-                input.Add(new VatReturnLine(taxDefinition.Id, taxDefinition.Name, taxDefinition.Rate, g.Debit - g.Credit));
-            }
+            return InvalidDateRange();
         }
 
-        output = output.OrderBy(l => l.Name).ToList();
-        input = input.OrderBy(l => l.Name).ToList();
-
-        var totalOutput = output.Sum(l => l.Amount);
-        var totalInput = input.Sum(l => l.Amount);
-
-        return Ok(new VatReturnResponse(from, to, output, input, totalOutput, totalInput, totalOutput - totalInput));
+        return Ok(await _tax.VatReturnAsync(companyId, from, to));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("vat-return/export", Name = "VatReturnExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VatReturnExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -232,15 +189,15 @@ public class ReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Direction", "Tax Code", "Rate", "Amount" };
+        var headers = new[] { _labels["Vat_Direction"], _labels["Vat_TaxCode"], _labels["Vat_Rate"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
-        rows.AddRange(response.OutputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Output", l.Name, l.Rate, l.Amount }));
-        rows.Add(new object?[] { "Output", null, "Total Output VAT", response.TotalOutputVat });
-        rows.AddRange(response.InputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Input", l.Name, l.Rate, l.Amount }));
-        rows.Add(new object?[] { "Input", null, "Total Input VAT", response.TotalInputVat });
-        rows.Add(new object?[] { null, null, "Net VAT Due", response.NetVatDue });
+        rows.AddRange(response.OutputVat.Select(l => (IReadOnlyList<object?>)new object?[] { _labels["Vat_Output"], l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { _labels["Vat_Output"], null, _labels["Vat_TotalOutput"], response.TotalOutputVat });
+        rows.AddRange(response.InputVat.Select(l => (IReadOnlyList<object?>)new object?[] { _labels["Vat_Input"], l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { _labels["Vat_Input"], null, _labels["Vat_TotalInput"], response.TotalInputVat });
+        rows.Add(new object?[] { null, null, _labels["Vat_NetDue"], response.NetVatDue });
 
-        var bytes = ExcelExportService.BuildWorkbook("VAT Return", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_VatReturn"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"vat-return-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -252,7 +209,12 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<SalesBookResponse>> SalesBook(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true);
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
+        var rows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true);
         var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
 
         var lines = rows
@@ -263,23 +225,29 @@ public class ReportsController : ControllerBase
                 return new SalesBookLine(
                     r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
                     partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
-                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount,
+                    ReportSourceKinds.ForInvoice(r.DocumentType), r.DocumentId);
             })
             .ToList();
 
         return Ok(new SalesBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("sales-book/export", Name = "SalesBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         var vatRegistered = await ResolveVatRegisteredAsync(companyId);
-        var salesRows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true, includeUnbooked: true);
+        var salesRows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true, includeUnbooked: true);
         var purchaseRows = vatRegistered
-            ? await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false)
-            : new List<TaxBookRow>();
+            ? await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false)
+            : new List<TaxReportService.TaxBookRow>();
         var partnersById = await PartnersByIdAsync(salesRows.Concat(purchaseRows).Select(r => r.PartnerId));
 
         var book = AtkBookMapper.SalesBook(
@@ -295,7 +263,12 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<PurchaseBookResponse>> PurchaseBook(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false);
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
+        var rows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false);
         var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
 
         var lines = rows
@@ -306,20 +279,26 @@ public class ReportsController : ControllerBase
                 return new PurchaseBookLine(
                     r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
                     partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
-                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount,
+                    ReportSourceKinds.ForBill(r.DocumentType), r.DocumentId);
             })
             .ToList();
 
         return Ok(new PurchaseBookResponse(from, to, lines, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount)));
     }
 
-    [Produces(ExcelExportService.XlsxContentType)]
+    [ProducesXlsx]
     [HttpGet("purchase-book/export", Name = "PurchaseBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         var vatRegistered = await ResolveVatRegisteredAsync(companyId);
-        var rows = await BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false, includeUnbooked: true);
+        var rows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false, includeUnbooked: true);
         var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
 
         var book = AtkBookMapper.PurchaseBook(vatRegistered, rows.Select(ToAtkRow), partnersById);
@@ -373,175 +352,12 @@ public class ReportsController : ControllerBase
     private async Task<bool> ResolveVatRegisteredAsync(Guid companyId) =>
         await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.IsVatRegistered).FirstOrDefaultAsync();
 
-    private static AtkTaxRow ToAtkRow(TaxBookRow r) =>
+    private static AtkTaxRow ToAtkRow(TaxReportService.TaxBookRow r) =>
         new(r.DocumentId, r.DocumentNumber, r.IssueDate, r.PartnerId, r.VatCode, r.Rate, r.NetAmount,
             r.Direction, r.DeductiblePercent, r.IsReverseCharge, r.AtkBook, r.DocumentType);
 
     private Task<Dictionary<Guid, Partner>> PartnersByIdAsync(IEnumerable<Guid> partnerIds) =>
         _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id);
-
-    private record TaxBookRow(
-        Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType,
-        Guid PartnerId, string VatCode, decimal Rate, decimal NetAmount, decimal VatAmount,
-        TaxDirection? Direction = null, decimal? DeductiblePercent = null, bool IsReverseCharge = false, TaxAtkBook? AtkBook = null);
-
-    // Shared by SalesBook (Invoice-sourced, AtkBook.Shitje, Credit-normal per
-    // DocumentLineCalculator's creditsOnNormalSide=true for invoices) and PurchaseBook
-    // (Bill-sourced, AtkBook.Blerje/BlerjeImport/BlerjeInvestime, Debit-normal for bills) —
-    // same shape, opposite sign convention, exactly mirroring DocumentLineCalculator's own
-    // Invoice-vs-Bill split rather than VatReturn's TaxDefinition.Scope (Scope collapses every
-    // reverse-charge code to TaxScope.Both, which VatReturn's Sale/Purchase branches silently
-    // drop — this method sources the sign from which document type owns the entry instead, so it
-    // doesn't inherit that gap).
-    private async Task<List<TaxBookRow>> BuildTaxBookRowsAsync(Guid companyId, DateOnly from, DateOnly to, bool isSalesBook, bool includeUnbooked = false)
-    {
-        var atkBooks = isSalesBook
-            ? new[] { TaxAtkBook.Shitje }
-            : new[] { TaxAtkBook.Blerje, TaxAtkBook.BlerjeImport, TaxAtkBook.BlerjeInvestime };
-
-        var taxDefinitions = await _db.TaxDefinitions.AsNoTracking()
-            .Where(t => t.CompanyId == companyId && t.AtkBook != null && atkBooks.Contains(t.AtkBook!.Value))
-            .Include(t => t.RepartitionLines)
-            .ToListAsync();
-        var taxDefinitionsById = taxDefinitions.ToDictionary(t => t.Id);
-        var taxIds = taxDefinitionsById.Keys.ToHashSet();
-        var repartitionAccountsByTax = taxDefinitions
-            .SelectMany(t => t.RepartitionLines.Select(r => (t.Id, r.AccountId)))
-            .ToHashSet();
-
-        var defaults = await _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
-        var reverseChargeInputAccountId = defaults?.ReverseChargeInputVatAccountId;
-        var reverseChargeOutputAccountId = defaults?.ReverseChargeOutputVatAccountId;
-
-        List<(Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType, Guid PartnerId, Guid? JournalEntryId)> documents;
-        if (isSalesBook)
-        {
-            documents = (await _db.Invoices.AsNoTracking().VisibleTo(_access)
-                    .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate >= from && i.IssueDate <= to)
-                    .Select(i => new { i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType, i.PartnerId, i.JournalEntryId })
-                    .ToListAsync())
-                .Select(i => (i.Id, i.InvoiceNumber, i.IssueDate, i.DocumentType.ToString(), i.PartnerId, i.JournalEntryId))
-                .ToList();
-        }
-        else
-        {
-            documents = (await _db.Bills.AsNoTracking().VisibleTo(_access)
-                    .Where(b => b.CompanyId == companyId && b.State == Pako.Domain.Bills.BillState.Posted && b.IssueDate >= from && b.IssueDate <= to)
-                    .Select(b => new { b.Id, b.VendorReference, b.IssueDate, b.DocumentType, b.PartnerId, b.JournalEntryId })
-                    .ToListAsync())
-                .Select(b => (b.Id, b.VendorReference, b.IssueDate, b.DocumentType.ToString(), b.PartnerId, b.JournalEntryId))
-                .ToList();
-        }
-
-        var journalEntryIds = documents.Where(d => d.JournalEntryId != null).Select(d => d.JournalEntryId!.Value).ToList();
-        var lines = await _db.JournalEntryLines.AsNoTracking()
-            .Where(l => journalEntryIds.Contains(l.JournalEntryId) && l.TaxId != null && taxIds.Contains(l.TaxId!.Value))
-            .Select(l => new { l.JournalEntryId, TaxId = l.TaxId!.Value, l.AccountId, l.Debit, l.Credit })
-            .ToListAsync();
-        var linesByJournalEntry = lines.ToLookup(l => l.JournalEntryId);
-
-        var rows = new List<TaxBookRow>();
-        foreach (var doc in documents)
-        {
-            if (doc.JournalEntryId is not { } jeId)
-            {
-                continue;
-            }
-
-            foreach (var taxGroup in linesByJournalEntry[jeId].GroupBy(l => l.TaxId))
-            {
-                var taxDefinition = taxDefinitionsById[taxGroup.Key];
-                var net = 0m;
-                var vat = 0m;
-
-                foreach (var line in taxGroup)
-                {
-                    var signedAmount = isSalesBook ? line.Credit - line.Debit : line.Debit - line.Credit;
-
-                    // Known limitation: RC18/RC00 (reverse charge) post two self-balancing lines —
-                    // debit input VAT, credit output VAT, same amount — so only the input side
-                    // counts toward this book's VAT figure; the output side is excluded from both
-                    // buckets rather than miscounted as a net purchase amount. VatReturn has the
-                    // same reverse-charge gap today (Scope.Both matches neither of its Sale/
-                    // Purchase branches, so these codes are silently absent there entirely) — this
-                    // book is a strict improvement: the document still appears, net amount intact.
-                    if (reverseChargeOutputAccountId is { } outId && line.AccountId == outId)
-                    {
-                        continue;
-                    }
-
-                    if (reverseChargeInputAccountId is { } inId && line.AccountId == inId)
-                    {
-                        vat += signedAmount;
-                    }
-                    else if (repartitionAccountsByTax.Contains((taxGroup.Key, line.AccountId)))
-                    {
-                        vat += signedAmount;
-                    }
-                    else
-                    {
-                        net += signedAmount;
-                    }
-                }
-
-                if (net == 0m && vat == 0m)
-                {
-                    continue;
-                }
-
-                rows.Add(new TaxBookRow(
-                    doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
-                    doc.PartnerId, taxDefinition.Code ?? string.Empty, taxDefinition.Rate, net, vat,
-                    taxDefinition.Direction, taxDefinition.DeductiblePercent, taxDefinition.IsReverseCharge, taxDefinition.AtkBook));
-            }
-        }
-
-        if (includeUnbooked)
-        {
-            var allTaxDefinitions = await _db.TaxDefinitions.AsNoTracking()
-                .Where(t => t.CompanyId == companyId)
-                .Include(t => t.RepartitionLines)
-                .ToListAsync();
-            var taxAccountIds = allTaxDefinitions.SelectMany(t => t.RepartitionLines.Select(r => r.AccountId)).ToHashSet();
-            if (reverseChargeInputAccountId is { } rcIn) taxAccountIds.Add(rcIn);
-            if (reverseChargeOutputAccountId is { } rcOut) taxAccountIds.Add(rcOut);
-
-            var bookAccountIds = (await _db.Accounts.AsNoTracking()
-                    .Where(a => a.CompanyId == companyId && !a.IsControl)
-                    .Select(a => new { a.Id, a.AccountType })
-                    .ToListAsync())
-                .Where(a => !taxAccountIds.Contains(a.Id) && (isSalesBook
-                    ? AccountTypeDerivation.IsIncome(a.AccountType)
-                    : (AccountTypeDerivation.IsExpense(a.AccountType) && a.AccountType != AccountType.Depreciation)
-                        || a.AccountType is AccountType.FixedAsset or AccountType.NonCurrentAsset or AccountType.CurrentAsset))
-                .Select(a => a.Id)
-                .ToHashSet();
-
-            var entryIds = documents.Where(d => d.JournalEntryId != null).Select(d => d.JournalEntryId!.Value).ToList();
-            var unbookedLines = await _db.JournalEntryLines.AsNoTracking()
-                .Where(l => entryIds.Contains(l.JournalEntryId) && bookAccountIds.Contains(l.AccountId)
-                    && (l.TaxId == null || !taxIds.Contains(l.TaxId.Value)))
-                .Select(l => new { l.JournalEntryId, l.Debit, l.Credit })
-                .ToListAsync();
-            var netByEntry = unbookedLines
-                .GroupBy(l => l.JournalEntryId)
-                .ToDictionary(g => g.Key, g => g.Sum(l => isSalesBook ? l.Credit - l.Debit : l.Debit - l.Credit));
-
-            foreach (var doc in documents)
-            {
-                var net = doc.JournalEntryId is { } entryId ? netByEntry.GetValueOrDefault(entryId) : 0m;
-                var hasRows = rows.Any(r => r.DocumentId == doc.DocumentId);
-                if (net != 0m || !hasRows)
-                {
-                    rows.Add(new TaxBookRow(
-                        doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
-                        doc.PartnerId, string.Empty, 0m, net, 0m));
-                }
-            }
-        }
-
-        return rows;
-    }
 
     [HttpGet("cit-addback")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
@@ -553,7 +369,12 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
-        var sums = await SumsByAccountAsync(companyId, from, to);
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
+        var sums = await _ledger.SumsByAccountAsync(companyId, from, to);
 
         var nonDeductible = sums.Where(s => s.Account.CitDeductibility == CitDeductibility.Non)
             .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
@@ -584,9 +405,9 @@ public class ReportsController : ControllerBase
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;
 
         var invoices = await _db.Invoices.AsNoTracking().VisibleTo(_access)
-            .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted
+            .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate <= today
                 && (i.DocumentType == DocumentType.Invoice || i.DocumentType == DocumentType.DebitNote))
-            .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
+            .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId, i.DocumentType })
             .ToListAsync();
 
         // B8: an invoice's AR line lives on its partner's resolved receivable account (override
@@ -612,10 +433,12 @@ public class ReportsController : ControllerBase
             .ToDictionary(g => (g.JournalEntryId, g.AccountId), g => g.Total);
 
         var invoiceIds = invoices.Select(i => i.Id).ToList();
-        var reconciledByInvoiceId = await _db.Reconciliations.AsNoTracking()
-            .Where(r => r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value))
-            .GroupBy(r => r.InvoiceId!.Value)
-            .Select(g => new { InvoiceId = g.Key, Reconciled = g.Sum(r => r.Amount) })
+        var reconciledByInvoiceId = await (
+                from r in _db.Reconciliations.AsNoTracking()
+                join l in _db.JournalEntryLines.AsNoTracking() on r.JournalEntryLineId equals l.Id
+                where r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value) && l.JournalEntry!.Date <= today
+                group r by r.InvoiceId!.Value into g
+                select new { InvoiceId = g.Key, Reconciled = g.Sum(x => x.Amount) })
             .ToDictionaryAsync(g => g.InvoiceId, g => g.Reconciled);
 
         var lines = new List<DebtAgingLine>();
@@ -635,7 +458,7 @@ public class ReportsController : ControllerBase
 
             lines.Add(new DebtAgingLine(
                 invoice.Id, invoice.InvoiceNumber, invoice.PartnerId, invoice.IssueDate, invoice.DueDate,
-                invoice.GraceDays, outstanding, bucket));
+                invoice.GraceDays, outstanding, bucket, ReportSourceKinds.ForInvoice(invoice.DocumentType), invoice.Id));
         }
 
         lines = lines.OrderBy(l => l.DueDate).ToList();
@@ -648,35 +471,40 @@ public class ReportsController : ControllerBase
             lines.Where(l => l.Bucket == "Overdue").Sum(l => l.Outstanding)));
     }
 
-    private async Task<List<(Account Account, decimal Debit, decimal Credit)>> SumsByAccountAsync(
-        Guid companyId, DateOnly? from, DateOnly to)
+    [ProducesXlsx]
+    [HttpGet("debt-aging/export", Name = "DebtAgingExport")]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
+    public async Task<IActionResult> DebtAgingExport(Guid companyId, [FromQuery] DateOnly? asOf = null)
     {
-        var query = _db.JournalEntryLines.AsNoTracking()
-            .Where(l => l.JournalEntry!.CompanyId == companyId
-                && l.JournalEntry.State == JournalEntryState.Posted
-                && l.JournalEntry.Date <= to);
-        if (from is { } f)
+        var result = await DebtAging(companyId, asOf);
+        if (result.Result is not OkObjectResult ok || ok.Value is not DebtAgingResponse response)
         {
-            query = query.Where(l => l.JournalEntry!.Date >= f);
+            return result.Result!;
         }
 
-        var sums = await query
-            .GroupBy(l => l.AccountId)
-            .Select(g => new { AccountId = g.Key, Debit = g.Sum(l => l.Debit), Credit = g.Sum(l => l.Credit) })
-            .ToListAsync();
+        var partnerIds = response.Lines.Select(l => l.PartnerId).ToList();
+        var partnerNames = await _db.Partners.AsNoTracking()
+            .Where(p => partnerIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name);
 
-        var accountIds = sums.Select(s => s.AccountId).ToList();
-        var accounts = await _db.Accounts.AsNoTracking()
-            .Where(a => accountIds.Contains(a.Id))
-            .ToDictionaryAsync(a => a.Id);
-
-        return sums
-            .Where(s => accounts.ContainsKey(s.AccountId))
-            .Select(s => (accounts[s.AccountId], s.Debit, s.Credit))
+        var headers = new[]
+        {
+            _labels["Debt_Invoice"], _labels["Common_Customer"], _labels["Ap_IssueDate"], _labels["Ap_DueDate"],
+            _labels["Debt_GraceDays"], _labels["Ap_Outstanding"], _labels["Ap_Bucket"]
+        };
+        var rows = response.Lines
+            .Select(l => (IReadOnlyList<object?>)new object?[]
+            {
+                l.InvoiceNumber, partnerNames.GetValueOrDefault(l.PartnerId, string.Empty), l.IssueDate, l.DueDate,
+                l.GraceDays, l.Outstanding, _labels.Bucket(l.Bucket)
+            })
             .ToList();
-    }
+        var total = _labels["Common_Total"];
+        rows.Add(new object?[] { total, null, null, null, null, response.TotalCurrent, _labels.Bucket("Current") });
+        rows.Add(new object?[] { total, null, null, null, null, response.TotalWithinGrace, _labels.Bucket("WithinGrace") });
+        rows.Add(new object?[] { total, null, null, null, null, response.TotalOverdue, _labels.Bucket("Overdue") });
 
-    private static decimal NetIncome(IEnumerable<(Account Account, decimal Debit, decimal Credit)> sums) =>
-        sums.Where(s => AccountTypeDerivation.IsIncome(s.Account.AccountType)).Sum(s => s.Credit - s.Debit) -
-        sums.Where(s => AccountTypeDerivation.IsExpense(s.Account.AccountType)).Sum(s => s.Debit - s.Credit);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_DebtAging"], headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"debt-aging-{response.AsOf:yyyyMMdd}.xlsx");
+    }
 }

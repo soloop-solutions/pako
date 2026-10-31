@@ -65,6 +65,8 @@ describe("buildRollForward", () => {
       totalAssets: 1000,
       totalLiabilities: 400,
       totalEquity: 600,
+      totalLiabilitiesAndEquity: 1000,
+      difference: 0,
     };
     const ending: BalanceSheetResponse = {
       asOf: "2026-12-31",
@@ -75,6 +77,8 @@ describe("buildRollForward", () => {
       totalAssets: 1500,
       totalLiabilities: 300,
       totalEquity: 900,
+      totalLiabilitiesAndEquity: 1200,
+      difference: 300,
     };
 
     const rollForward = buildRollForward(beginning, ending);

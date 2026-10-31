@@ -60,7 +60,8 @@ public class StockReportService
                 "month" => $"{inv.IssueDate:yyyy-MM}",
                 _ => itemNames.GetValueOrDefault(l.ItemId!.Value) ?? "?",
             };
-            return (Key: key, Label: label, Quantity: sign * l.Quantity, Net: sign * net, Cost: sign * costByLine[l.Id]);
+            // Quantities in base units (§12 P7), so a box and a piece add up correctly.
+            return (Key: key, Label: label, Quantity: sign * l.Quantity * l.UnitFactor, Net: sign * net, Cost: sign * costByLine[l.Id]);
         })).ToList();
 
         var rows = lines.GroupBy(l => l.Key).Select(g =>

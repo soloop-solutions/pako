@@ -1,0 +1,14 @@
+{
+  "items": [
+    { "date": "2026-01-02", "documentNumber": "BILL-0001", "documentType": "Bill", "partnerName": "Prime Properties L.L.C.", "itemCode": null, "description": "Office rent January 2026", "quantity": 1.00, "unitPrice": 1000.00, "netAmount": 1000.00, "vatAmount": 180.00, "grossAmount": 1180.00, "documentId": "5b1f0c2e-1a11-4c01-9a05-000000000001", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000001", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "itemId": null },
+    { "date": "2026-01-08", "documentNumber": "BILL-0005", "documentType": "Bill", "partnerName": "Kosova Office Supplies SH.P.K.", "itemCode": "ITM-0007", "description": "A4 printer paper", "quantity": 40.00, "unitPrice": 9.50, "netAmount": 380.00, "vatAmount": 68.40, "grossAmount": 448.40, "documentId": "5b1f0c2e-1a11-4c01-9a05-000000000005", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000005", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000004", "itemId": "5b1f0c2e-1a11-4c01-9a07-000000000007" },
+    { "date": "2026-01-15", "documentNumber": "BILL-0002", "documentType": "Bill", "partnerName": "KEDS J.S.C.", "itemCode": "SRV-ELE", "description": "Electricity", "quantity": 1200.00, "unitPrice": 0.169492, "netAmount": 203.39, "vatAmount": 36.61, "grossAmount": 240.00, "documentId": "5b1f0c2e-1a11-4c01-9a05-000000000002", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000002", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "itemId": "5b1f0c2e-1a11-4c01-9a07-000000000008" },
+    { "date": "2026-01-20", "documentNumber": "BILL-0006", "documentType": "Bill", "partnerName": "Telekomi i Kosoves J.S.C.", "itemCode": "SRV-NET", "description": "Internet and telephony", "quantity": 1.00, "unitPrice": 300.00, "netAmount": 300.00, "vatAmount": 54.00, "grossAmount": 354.00, "documentId": "5b1f0c2e-1a11-4c01-9a05-000000000006", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000006", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "itemId": "5b1f0c2e-1a11-4c01-9a07-000000000009" }
+  ],
+  "total": 4,
+  "page": 1,
+  "pageSize": 50,
+  "totalNet": 1883.39,
+  "totalVat": 339.01,
+  "totalGross": 2222.40
+}

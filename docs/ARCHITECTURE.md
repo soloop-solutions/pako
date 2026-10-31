@@ -220,9 +220,37 @@ the hash itself is ever activated.
 
 - `ReportsController`: P&L, balance sheet (with a synthetic "Current Earnings" line so
   Assets == Liabilities + Equity always holds, proven not just asserted), VAT return (output vs.
-  input VAT), and a CIT add-back report (non-deductible/limited expense accounts). All computed
-  queries over `JournalEntryLine` grouped by `AccountType`/`TaxDefinition` and date range — no
-  stored/duplicated report tables, no separate `Pako.Domain/Reporting/` folder was needed.
+  input VAT), a CIT add-back report (non-deductible/limited expense accounts), sales/purchase
+  books and debt aging. All computed queries over `JournalEntryLine` grouped by
+  `AccountType`/`TaxDefinition` and date range — no stored/duplicated report tables.
+- **Report suite** (branch `feat/report-suite`), full table in `docs/REPORTS.md`. Controllers in
+  `Pako.Api/Controllers`: `GeneralLedgerReportController`, `StatementReportsController` (monthly P&L,
+  comparative balance sheet, cash flow, equity), `ExpenseBookController`, `VatDeclarationController`,
+  `PayablesReportsController` (vendors, aging, purchases), `ReportChecksController`, and
+  `LedgerController` (trial balance).
+- Services in `Pako.Api/Services`: `LedgerAggregator` (sums by account, balance sheet, cash flow),
+  `TaxReportService` (tax-book rows), `VendorLedgerService`, `AtkBookMapper` / `VatDeclarationService`
+  (ATK boxes), `ExportLabels`, `ExcelExportService`, `AtkTaxBookWorkbook`, `VatDeclarationWorkbook`.
+- Pure calculators in `Pako.Domain/Reporting` (`MonthlyProfitAndLoss`, `CashFlowStatement`,
+  `EquityStatement`, `ComparativeStatement`, `VatDeclaration`, `PayablesAgingMatrix`,
+  `TrialBalanceCalculator`, `ReportReconciler`, ...). Money math stays here.
+- Stock reports (additive files, the inventory module is another developer's): `StockMovementsReportController`
+  (`reports/stock/movements` + `/export`, via `StockMovementsService` and `Pako.Domain.Reporting.StockMovementsCalculator`),
+  `StockReportExportsController` (`levels/export`, `valuation/export`, `items/{itemId}/card/export`, via
+  `StockReportDataService`, which duplicates `InventoryController`'s JSON queries). Check 7
+  `stock-total-matches-inventory-accounts` is in `ReportChecksController`. Web: `StockMovementsTab.tsx`, export buttons in
+  `pages/inventory/StockReports.tsx` and `ItemCardDialog.tsx`.
+- Row click-through: `ReportSourceResolver` (`Pako.Api/Services`, kinds in `ReportSourceKinds`) resolves a
+  journal entry to its business document, falling back to the entry itself; report row records carry
+  `SourceKind`/`SourceId` and account, partner and item ids. The web turns them into routes in
+  `apps/web/src/lib/entityLinks.ts` and `DataGrid` `getRowLink`; `?open=<id>` and `?entry=<id>` deep links open the
+  editor or the read-only entry dialog. Detail and per-report table in `docs/REPORTS.md`.
+- P&L response also carries `OperatingExpenses`/`TotalOperatingExpenses`; `PayablesAgingResponse` carries `TotalOutstanding`.
+- Export pipeline: action marked `[ProducesXlsx]`, labels via `ExportLabels` (`Export_*` keys in
+  `Resources/ErrorMessages.resx` and `.sq.resx`, language from `Accept-Language`), workbook built by
+  `ExcelExportService.BuildWorkbook` (ATK books and VAT declaration use their own workbook writers).
+- Web: `apps/web/src/pages/reports/` (one `*Tab.tsx` per report, `ReportsPage.tsx`, `ChecksPanel.tsx`);
+  contract fixtures in `apps/web/src/mocks/*.json`.
 
 ### `Fiscal` — **plug-in point built, `SefProvider` still a stub**
 

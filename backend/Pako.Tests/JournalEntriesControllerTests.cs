@@ -33,7 +33,7 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         var user = new ClaimsPrincipal(new ClaimsIdentity(
             new[] { new Claim(ClaimTypes.NameIdentifier, TestUserId.ToString()) }, "TestAuth"));
 
-        return new JournalEntriesController(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        return new JournalEntriesController(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = user } }
         };

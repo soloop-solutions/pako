@@ -1,10 +1,10 @@
 // docs/INVENTORY_PLAN.md. Pako.Api doesn't emit enum member names (see ledger-enums.ts), so these
 // arrive as plain numbers. Order must match backend/Pako.Domain/Inventory exactly, by hand.
 
-export const StockDocumentType = { Opening: 0, Transfer: 1, Count: 2, WriteOff: 3 } as const;
+export const StockDocumentType = { Opening: 0, Transfer: 1, Count: 2, WriteOff: 3, WriteDown: 4, Receipt: 5 } as const;
 export type StockDocumentTypeValue = (typeof StockDocumentType)[keyof typeof StockDocumentType];
-export const STOCK_DOCUMENT_TYPES: StockDocumentTypeValue[] = [0, 1, 2, 3];
-export const stockDocumentTypeKey = (t: number) => ["opening", "transfer", "count", "writeOff"][t] ?? "opening";
+export const STOCK_DOCUMENT_TYPES: StockDocumentTypeValue[] = [5, 0, 1, 2, 3, 4];
+export const stockDocumentTypeKey = (t: number) => ["opening", "transfer", "count", "writeOff", "writeDown", "receipt"][t] ?? "opening";
 
 export const StockDocumentState = { Draft: 0, Posted: 1 } as const;
 
@@ -20,3 +20,6 @@ export const stockMoveKindKey = (k: number) => ["receipt", "issue", "transfer", 
 export const StockMoveSource = { Bill: 0, Invoice: 1, StockDocument: 2 } as const;
 
 export const NegativeStockPolicy = { Block: 0, Warn: 1 } as const;
+
+// §12 P4 price changes (Nivelim).
+export const PriceChangeState = { Draft: 0, Posted: 1 } as const;

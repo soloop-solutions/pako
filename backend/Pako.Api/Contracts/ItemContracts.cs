@@ -15,7 +15,14 @@ public record CreateItemRequest(
     // docs/INVENTORY_PLAN.md: category (D9), stock tracking (D5, Goods only), low-stock threshold.
     Guid? CategoryId = null,
     bool TrackInventory = false,
-    decimal? MinimumStock = null);
+    decimal? MinimumStock = null,
+    // §12 P8: quantities per lot with expiry dates (stock-tracked goods only).
+    bool TrackLots = false,
+    // §12 P7: optional purchase and sales units, each a named multiple of Unit (the base unit).
+    string? PurchaseUnit = null,
+    decimal? PurchaseUnitFactor = null,
+    string? SalesUnit = null,
+    decimal? SalesUnitFactor = null);
 
 public record UpdateItemRequest(
     string Name,
@@ -29,7 +36,14 @@ public record UpdateItemRequest(
     string? Description = null,
     Guid? CategoryId = null,
     bool TrackInventory = false,
-    decimal? MinimumStock = null);
+    decimal? MinimumStock = null,
+    // §12 P8: quantities per lot with expiry dates (stock-tracked goods only).
+    bool TrackLots = false,
+    // §12 P7: optional purchase and sales units, each a named multiple of Unit (the base unit).
+    string? PurchaseUnit = null,
+    decimal? PurchaseUnitFactor = null,
+    string? SalesUnit = null,
+    decimal? SalesUnitFactor = null);
 
 public record AddBarcodeRequest(string Barcode);
 
@@ -52,7 +66,12 @@ public record ItemResponse(
     bool TrackInventory = false,
     decimal? MinimumStock = null,
     // True once stock has moved: tracking can't be switched off and the type can't change.
-    bool HasStockMoves = false);
+    bool HasStockMoves = false,
+    bool TrackLots = false,
+    string? PurchaseUnit = null,
+    decimal? PurchaseUnitFactor = null,
+    string? SalesUnit = null,
+    decimal? SalesUnitFactor = null);
 
 // B7: the one paginated-list shape — ?page=&pageSize=&search=&sort= in, { items, total, page,
 // pageSize } out. Proved here on Items (including the 35,000-row/index-backed verify criterion);

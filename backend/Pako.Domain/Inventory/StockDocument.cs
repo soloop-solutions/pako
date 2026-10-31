@@ -11,7 +11,15 @@ public enum StockDocumentType
     // A physical count (inventarizimi): counted vs book quantity becomes shortage/overage moves.
     Count,
     // Goods taken out of use: expired, damaged, stolen, destroyed (D14).
-    WriteOff
+    WriteOff,
+    // Phase 2 (IAS 2 §28–33, IFRS for SMEs §13.19): stock worth less than it cost. Each line gives an
+    // item's net realisable value per unit; the allowance on 120900 is brought to
+    // quantity × (average cost − NRV). Moves no stock and leaves the average cost alone.
+    WriteDown,
+    // §12 P6: goods from a vendor counted in before the bill arrives (fletëpranim). Stock comes in at
+    // the entered net cost against 120800 (goods received, not invoiced); the vendor's bill later
+    // clears 120800 for the matched quantity (ReceiptMatch) instead of adding the stock again.
+    Receipt
 }
 
 public enum StockDocumentState
@@ -46,6 +54,8 @@ public class StockDocument
     public Guid WarehouseId { get; set; }
     // Transfers only.
     public Guid? DestinationWarehouseId { get; set; }
+    // Receipts only: the vendor the goods came from.
+    public Guid? PartnerId { get; set; }
     public WriteOffReason? Reason { get; set; }
     // D14: destruction of expired or damaged goods needs written notice to ATK 10 days before.
     public DateOnly? AtkNoticeDate { get; set; }
@@ -66,11 +76,23 @@ public class StockDocumentLine
     public Guid ItemId { get; set; }
     // Opening, transfer, write-off: the quantity. Count: the counted quantity.
     public decimal Quantity { get; set; }
-    // Opening only: the cost per unit.
+    // Opening: the cost per unit. Write-down: the net realisable value per unit.
     public decimal? UnitCost { get; set; }
     // Count only, set when posted: the book quantity at the count date and the difference.
+    // Write-down: BookQuantity is the company-wide quantity at the date.
     public decimal? BookQuantity { get; set; }
     public decimal? Difference { get; set; }
+    // Write-down, set when posted: the average cost at the date, the allowance the item should carry
+    // and the change posted to bring it there (negative = a reversal).
+    public decimal? AverageCost { get; set; }
+    public decimal? AllowanceAfter { get; set; }
+    public decimal? Amount { get; set; }
+    // Receipts: the purchase order line the goods were ordered on, if any.
+    public Guid? PurchaseOrderLineId { get; set; }
+    // §12 P8, items that track lots: the lot received (opening, receipt, count overage) or taken
+    // from (write-off, transfer, count shortage; the earliest expiry first when empty).
+    public string? LotNumber { get; set; }
+    public DateOnly? ExpiryDate { get; set; }
     public string? Note { get; set; }
     public StockDocument? StockDocument { get; set; }
 }

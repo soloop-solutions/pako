@@ -48,10 +48,10 @@ const ACME = {
   creditLimit: 5000,
 };
 
-function renderPage() {
+function renderPage(entry = "/") {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={[entry]}>
       <IntlProviderWrapper>
         <QueryClientProvider client={queryClient}>
           <Partners />
@@ -84,6 +84,18 @@ describe("Partners", () => {
     partnersUpdate.mockReset();
     partnersAll.mockResolvedValue([ACME]);
     accountsAll.mockResolvedValue([RECEIVABLE_ACCOUNT, PAYABLE_ACCOUNT]);
+  });
+
+  it("opens the editor for ?open=<id>", async () => {
+    renderPage("/partners?open=partner-1");
+    expect(await screen.findByLabelText("Credit limit")).toHaveValue(5000);
+    expect(screen.getByText("Edit Acme Corp")).toBeInTheDocument();
+  });
+
+  it("ignores an unknown ?open id", async () => {
+    renderPage("/partners?open=nope");
+    expect(await screen.findByText("Acme Corp")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Credit limit")).not.toBeInTheDocument();
   });
 
   it("lists a partner with its real fields (receivable account, terms, credit limit)", async () => {

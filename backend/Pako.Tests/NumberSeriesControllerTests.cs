@@ -299,7 +299,7 @@ public class NumberSeriesControllerTests : IAsyncLifetime
         await db.SaveChangesAsync();
 
         var actionTokenService = new ActionTokenService();
-        var controller = new JournalEntriesController(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        var controller = new JournalEntriesController(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()))
         {
             ControllerContext = new ControllerContext
             {

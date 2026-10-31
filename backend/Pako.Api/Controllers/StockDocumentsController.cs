@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -49,7 +50,8 @@ public class StockDocumentsController : ControllerBase
         var total = await query.CountAsync();
         var documents = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(d => new { d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, d.DestinationWarehouseId, Lines = d.Lines.Count })
+            .Select(d => new { d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, d.DestinationWarehouseId, Lines = d.Lines.Count,
+                WriteDown = d.Lines.Sum(l => l.Amount ?? 0m) })
             .ToListAsync();
         var ids = documents.Select(d => d.Id).ToList();
         var values = await _db.StockMoves.AsNoTracking()
@@ -59,7 +61,9 @@ public class StockDocumentsController : ControllerBase
         var warehouses = await _db.Warehouses.AsNoTracking().Where(w => w.CompanyId == companyId).ToDictionaryAsync(w => w.Id, w => w.Name);
         return Ok(new PaginatedResponse<StockDocumentSummaryResponse>(documents.Select(d => new StockDocumentSummaryResponse(
             d.Id, d.Type, d.State, d.Number, d.Date, warehouses.GetValueOrDefault(d.WarehouseId) ?? "?",
-            d.DestinationWarehouseId is { } dest ? warehouses.GetValueOrDefault(dest) : null, d.Lines, values.GetValueOrDefault(d.Id))).ToList(),
+            d.DestinationWarehouseId is { } dest ? warehouses.GetValueOrDefault(dest) : null, d.Lines,
+            // A write-down moves no stock: its value is the allowance change.
+            d.Type == StockDocumentType.WriteDown ? d.WriteDown : values.GetValueOrDefault(d.Id))).ToList(),
             total, page, pageSize));
     }
 
@@ -140,6 +144,7 @@ public class StockDocumentsController : ControllerBase
         }
         catch (Exception ex) when (ex is StockException or InvalidOperationException
             or Pako.Domain.Ledger.AccountingLockDateViolationException or Pako.Domain.Ledger.HardLockDateViolationException
+            or Pako.Domain.Ledger.TaxLockDateViolationException
             or Pako.Domain.Ledger.UnbalancedJournalEntryException)
         {
             return BadRequest(ex.Message);
@@ -152,12 +157,33 @@ public class StockDocumentsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<ActionResult<List<CountSheetRowResponse>>> CountSheet(Guid companyId, [FromQuery] Guid warehouseId, [FromQuery] DateOnly date)
     {
-        if (!await _db.Warehouses.AnyAsync(w => w.Id == warehouseId && w.CompanyId == companyId)) return NotFound();
+        var rows = await CountSheetRowsAsync(companyId, warehouseId, date);
+        return rows is null ? NotFound() : Ok(rows);
+    }
+
+    // The count sheet to print and count against. ?blind=true leaves out the book quantity.
+    [Produces(PayslipPdfRenderer.PdfContentType)]
+    [HttpGet("count-sheet/pdf", Name = "GetCountSheetPdf")]
+    [RequireCompanyAccess(module: AccessModule.Inventory)]
+    public async Task<IActionResult> CountSheetPdf(Guid companyId, [FromQuery] Guid warehouseId, [FromQuery] DateOnly date, [FromQuery] bool blind = false)
+    {
+        var rows = await CountSheetRowsAsync(companyId, warehouseId, date);
+        if (rows is null) return NotFound();
+        var warehouse = await _db.Warehouses.AsNoTracking().FirstAsync(w => w.Id == warehouseId);
+        var company = await _db.Companies.AsNoTracking().FirstAsync(c => c.Id == companyId);
+        var bytes = StockPdfRenderer.RenderCountSheet(DocumentIssuer.From(company), warehouse.Name, date, blind, rows,
+            key => _localizer[key].Value, CultureInfo.CurrentUICulture);
+        return File(bytes, PayslipPdfRenderer.PdfContentType, $"count-sheet-{warehouse.Code}-{date:yyyyMMdd}.pdf");
+    }
+
+    private async Task<List<CountSheetRowResponse>?> CountSheetRowsAsync(Guid companyId, Guid warehouseId, DateOnly date)
+    {
+        if (!await _db.Warehouses.AnyAsync(w => w.Id == warehouseId && w.CompanyId == companyId)) return null;
         var location = await _stock.StockLocationAsync(companyId, warehouseId);
         var items = await _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId && i.TrackInventory && i.Type == Pako.Domain.Companies.ItemType.Goods)
             .OrderBy(i => i.Code).Select(i => new { i.Id, i.Code, i.Name, i.Unit }).ToListAsync();
         var book = await _stock.QuantitiesAtAsync(location.Id, items.Select(i => i.Id).ToList(), date);
-        return Ok(items.Select(i => new CountSheetRowResponse(i.Id, i.Code, i.Name, i.Unit, book.GetValueOrDefault(i.Id))).ToList());
+        return items.Select(i => new CountSheetRowResponse(i.Id, i.Code, i.Name, i.Unit, book.GetValueOrDefault(i.Id))).ToList();
     }
 
     private Task<StockDocument?> Load(Guid companyId, Guid id, bool tracking)

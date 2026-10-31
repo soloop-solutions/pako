@@ -11,10 +11,13 @@ import { Input } from "@/components/ui/input";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 import { itemTypeLabel } from "@/lib/item-types";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { cn } from "@/lib/utils";
+import { ItemCardPanel } from "@/pages/inventory/ItemCardDialog";
 import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
@@ -27,7 +30,7 @@ export function Items() {
   const urlState = useDataGridUrlState(ITEMS_GRID_ID, 50);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useOpenParam();
   const [createFormKey, setCreateFormKey] = useState(0);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -72,6 +75,9 @@ export function Items() {
     enabled: !!activeCompanyId,
   });
   const categories = categoriesQuery.data ?? [];
+  const [stockTabFor, setStockTabFor] = useState<string | null>(null);
+  const editTab: "details" | "stock" = stockTabFor !== null && stockTabFor === editingId ? "stock" : "details";
+  const setEditTab = (tab: "details" | "stock") => setStockTabFor(tab === "stock" ? editingId : null);
   // B13: AccountType widened to Odoo's real 19 values — Income/Expense are each now a family of
   // types (e.g. Expense/OtherExpense/Depreciation/CostOfRevenue), not one bucket.
   const incomeAccounts = useMemo(() => accounts.filter((a) => isIncomeAccountType(a.accountType)), [accounts]);
@@ -83,7 +89,10 @@ export function Items() {
   const inventoryAccounts = useMemo(() => accounts.filter((a) => a.accountType === AccountType.CurrentAsset), [accounts]);
 
   async function refreshItems() {
-    await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["item", activeCompanyId] }),
+    ]);
   }
 
   const createMutation = useMutation({
@@ -102,6 +111,11 @@ export function Items() {
         categoryId: fields.categoryId,
         trackInventory: fields.trackInventory,
         minimumStock: fields.minimumStock,
+        trackLots: fields.trackLots,
+        purchaseUnit: fields.purchaseUnit,
+        purchaseUnitFactor: fields.purchaseUnitFactor,
+        salesUnit: fields.salesUnit,
+        salesUnitFactor: fields.salesUnitFactor,
       });
     },
     onSuccess: async () => {
@@ -131,6 +145,11 @@ export function Items() {
         categoryId: vars.fields.categoryId,
         trackInventory: vars.fields.trackInventory,
         minimumStock: vars.fields.minimumStock,
+        trackLots: vars.fields.trackLots,
+        purchaseUnit: vars.fields.purchaseUnit,
+        purchaseUnitFactor: vars.fields.purchaseUnitFactor,
+        salesUnit: vars.fields.salesUnit,
+        salesUnitFactor: vars.fields.salesUnitFactor,
       });
     },
     onSuccess: async () => {
@@ -173,7 +192,15 @@ export function Items() {
 
   const items = itemsQuery.data?.items ?? [];
   const total = itemsQuery.data?.total ?? 0;
-  const editingItem = editingId ? items.find((i) => i.id === editingId) : undefined;
+  const pageItem = editingId ? items.find((i) => i.id === editingId) : undefined;
+  const linkedItemQuery = useQuery({
+    queryKey: ["item", activeCompanyId, editingId],
+    queryFn: () => apiClient.itemsGET2(activeCompanyId as string, editingId as string),
+    enabled: !!activeCompanyId && !!editingId && !itemsQuery.isPending && !pageItem,
+    retry: false,
+  });
+  const editingItem = pageItem ?? (editingId ? linkedItemQuery.data : undefined);
+  const hasStockTab = showStock && !!editingItem?.trackInventory;
 
   const columns = useMemo<ColumnDef<ItemResponse>[]>(
     () => [
@@ -322,7 +349,7 @@ export function Items() {
         ),
       },
     ],
-    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts],
+    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts, setEditingId],
   );
 
   if (!activeCompanyId) {
@@ -389,27 +416,51 @@ export function Items() {
         open={editingItem !== undefined}
         onOpenChange={(open) => { if (!open) { setEditingId(null); setEditError(null); setDirty(false); } }}
         title={editingItem ? intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name }) : ""}
-        size="lg"
+        size={editTab === "stock" && hasStockTab ? "xl" : "lg"}
         dirty={dirty}
       >
-        {editingItem && (
-          <ItemForm
-            key={editingItem.id}
-            mode="edit"
-            taxes={taxes}
-            incomeAccounts={incomeAccounts}
-            expenseAccounts={expenseAccounts}
-            inventoryAccounts={inventoryAccounts}
-          categories={categories}
-          showStock={showStock}
-            initial={editingItem}
-            submitting={updateMutation.isPending}
-            error={editError}
-            onSubmit={(fields) => updateMutation.mutate({ id: editingItem.id, fields })}
-            onCancel={() => { setEditingId(null); setEditError(null); setDirty(false); }}
-            onDirtyChange={setDirty}
-          />
+        {editingItem && hasStockTab && (
+          // docs/INVENTORY_PLAN.md §5.6: a stock-tracked item also shows its item card.
+          <div role="tablist" aria-label={intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name })} className="mb-3 flex gap-1 border-b">
+            {(["details", "stock"] as const).map((tab) => (
+              <button
+                key={tab}
+                type="button"
+                role="tab"
+                aria-selected={editTab === tab}
+                onClick={() => setEditTab(tab)}
+                className={cn(
+                  "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
+                  editTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {intl.formatMessage({ id: `items.tab.${tab}` })}
+              </button>
+            ))}
+          </div>
         )}
+        {editingItem && (
+          // Kept mounted while the Stock tab shows, so unsaved edits survive switching tabs.
+          <div className={editTab === "stock" && hasStockTab ? "hidden" : undefined}>
+            <ItemForm
+              key={editingItem.id}
+              mode="edit"
+              taxes={taxes}
+              incomeAccounts={incomeAccounts}
+              expenseAccounts={expenseAccounts}
+              inventoryAccounts={inventoryAccounts}
+              categories={categories}
+              showStock={showStock}
+              initial={editingItem}
+              submitting={updateMutation.isPending}
+              error={editError}
+              onSubmit={(fields) => updateMutation.mutate({ id: editingItem.id, fields })}
+              onCancel={() => { setEditingId(null); setEditError(null); setDirty(false); }}
+              onDirtyChange={setDirty}
+            />
+          </div>
+        )}
+        {editingItem && hasStockTab && editTab === "stock" && <ItemCardPanel itemId={editingItem.id} linkRows={false} />}
       </FormDialog>
 
       <DataGrid

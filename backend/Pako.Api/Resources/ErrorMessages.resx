@@ -191,6 +191,9 @@
   <data name="UserNotCompanyMember" xml:space="preserve"><value>That user is not a member of this company.</value></data>
   <data name="AssignedPartnerNotFound" xml:space="preserve"><value>One or more partners were not found in this company.</value></data>
   <data name="PartnerNotAssigned" xml:space="preserve"><value>You are not assigned to this partner.</value></data>
+  <data name="ReportDateRangeInvalid" xml:space="preserve"><value>The start date cannot be after the end date.</value></data>
+  <data name="VendorNotFound" xml:space="preserve"><value>Vendor not found.</value></data>
+  <data name="ReportYearInvalid" xml:space="preserve"><value>The year must be between 1 and 9999.</value></data>
   <data name="ReportNotAvailableForScopedUser" xml:space="preserve"><value>This report covers every partner and is not available to users limited to assigned partners.</value></data>
   <data name="ContractEndBeforeStart" xml:space="preserve"><value>Contract end date cannot be before its start date.</value></data>
   <data name="ContractOverlaps" xml:space="preserve"><value>This contract overlaps another contract of the same employee.</value></data>
@@ -547,5 +550,734 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   </data>
   <data name="WarehouseNotFound" xml:space="preserve">
     <value>That warehouse doesn't exist or is closed.</value>
+  </data>
+  <data name="Export_Common_Section" xml:space="preserve">
+    <value>Section</value>
+  </data>
+  <data name="Export_Common_AccountCode" xml:space="preserve">
+    <value>Account Code</value>
+  </data>
+  <data name="Export_Common_AccountName" xml:space="preserve">
+    <value>Account Name</value>
+  </data>
+  <data name="Export_Common_Amount" xml:space="preserve">
+    <value>Amount</value>
+  </data>
+  <data name="Export_Common_Total" xml:space="preserve">
+    <value>Total</value>
+  </data>
+  <data name="Export_Common_Date" xml:space="preserve">
+    <value>Date</value>
+  </data>
+  <data name="Export_Common_Debit" xml:space="preserve">
+    <value>Debit</value>
+  </data>
+  <data name="Export_Common_Credit" xml:space="preserve">
+    <value>Credit</value>
+  </data>
+  <data name="Export_Common_Opening" xml:space="preserve">
+    <value>Opening</value>
+  </data>
+  <data name="Export_Common_Closing" xml:space="preserve">
+    <value>Closing</value>
+  </data>
+  <data name="Export_Common_Description" xml:space="preserve">
+    <value>Description</value>
+  </data>
+  <data name="Export_Common_Partner" xml:space="preserve">
+    <value>Partner</value>
+  </data>
+  <data name="Export_Common_Vendor" xml:space="preserve">
+    <value>Vendor</value>
+  </data>
+  <data name="Export_Common_Net" xml:space="preserve">
+    <value>Net</value>
+  </data>
+  <data name="Export_Common_Vat" xml:space="preserve">
+    <value>VAT</value>
+  </data>
+  <data name="Export_Common_Gross" xml:space="preserve">
+    <value>Gross</value>
+  </data>
+  <data name="Export_Common_Discount" xml:space="preserve">
+    <value>Discount</value>
+  </data>
+  <data name="Export_Common_Document" xml:space="preserve">
+    <value>Document</value>
+  </data>
+  <data name="Export_Common_Type" xml:space="preserve">
+    <value>Type</value>
+  </data>
+  <data name="Export_Common_Quantity" xml:space="preserve">
+    <value>Quantity</value>
+  </data>
+  <data name="Export_Common_Unit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="Export_Common_UnitPrice" xml:space="preserve">
+    <value>Unit Price</value>
+  </data>
+  <data name="Export_Common_ItemCode" xml:space="preserve">
+    <value>Item Code</value>
+  </data>
+  <data name="Export_Common_Balance" xml:space="preserve">
+    <value>Balance</value>
+  </data>
+  <data name="Export_Common_From" xml:space="preserve">
+    <value>From</value>
+  </data>
+  <data name="Export_Common_To" xml:space="preserve">
+    <value>To</value>
+  </data>
+  <data name="Export_Common_Current" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="Export_Common_Prior" xml:space="preserve">
+    <value>Prior</value>
+  </data>
+  <data name="Export_Common_Difference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="Export_Common_Income" xml:space="preserve">
+    <value>Income</value>
+  </data>
+  <data name="Export_Common_Expenses" xml:space="preserve">
+    <value>Expenses</value>
+  </data>
+  <data name="Export_Common_Assets" xml:space="preserve">
+    <value>Assets</value>
+  </data>
+  <data name="Export_Common_Liabilities" xml:space="preserve">
+    <value>Liabilities</value>
+  </data>
+  <data name="Export_Common_Equity" xml:space="preserve">
+    <value>Equity</value>
+  </data>
+  <data name="Export_Common_NetIncome" xml:space="preserve">
+    <value>Net Income</value>
+  </data>
+  <data name="Export_Common_TotalIncome" xml:space="preserve">
+    <value>Total Income</value>
+  </data>
+  <data name="Export_Common_TotalExpenses" xml:space="preserve">
+    <value>Total Expenses</value>
+  </data>
+  <data name="Export_Common_TotalAssets" xml:space="preserve">
+    <value>Total Assets</value>
+  </data>
+  <data name="Export_Common_TotalLiabilities" xml:space="preserve">
+    <value>Total Liabilities</value>
+  </data>
+  <data name="Export_Common_TotalEquity" xml:space="preserve">
+    <value>Total Equity</value>
+  </data>
+  <data name="Export_Vat_Direction" xml:space="preserve">
+    <value>Direction</value>
+  </data>
+  <data name="Export_Vat_TaxCode" xml:space="preserve">
+    <value>Tax Code</value>
+  </data>
+  <data name="Export_Vat_Rate" xml:space="preserve">
+    <value>Rate</value>
+  </data>
+  <data name="Export_Vat_Output" xml:space="preserve">
+    <value>Output</value>
+  </data>
+  <data name="Export_Vat_Input" xml:space="preserve">
+    <value>Input</value>
+  </data>
+  <data name="Export_Vat_TotalOutput" xml:space="preserve">
+    <value>Total Output VAT</value>
+  </data>
+  <data name="Export_Vat_TotalInput" xml:space="preserve">
+    <value>Total Input VAT</value>
+  </data>
+  <data name="Export_Vat_NetDue" xml:space="preserve">
+    <value>Net VAT Due</value>
+  </data>
+  <data name="Export_Pnl_CostOfRevenue" xml:space="preserve">
+    <value>Cost of Revenue</value>
+  </data>
+  <data name="Export_Pnl_GrossProfit" xml:space="preserve">
+    <value>Gross Profit</value>
+  </data>
+  <data name="Export_Cf_OpeningCash" xml:space="preserve">
+    <value>Opening Cash</value>
+  </data>
+  <data name="Export_Cf_ClosingCash" xml:space="preserve">
+    <value>Closing Cash</value>
+  </data>
+  <data name="Export_Cf_Operating" xml:space="preserve">
+    <value>Operating</value>
+  </data>
+  <data name="Export_Cf_Investing" xml:space="preserve">
+    <value>Investing</value>
+  </data>
+  <data name="Export_Cf_Financing" xml:space="preserve">
+    <value>Financing</value>
+  </data>
+  <data name="Export_Cf_Summary" xml:space="preserve">
+    <value>Summary</value>
+  </data>
+  <data name="Export_Cf_NetChange" xml:space="preserve">
+    <value>Net Change</value>
+  </data>
+  <data name="Export_Cf_TotalOperating" xml:space="preserve">
+    <value>Total Operating Adjustments</value>
+  </data>
+  <data name="Export_Cf_TotalInvesting" xml:space="preserve">
+    <value>Total Investing</value>
+  </data>
+  <data name="Export_Cf_TotalFinancing" xml:space="preserve">
+    <value>Total Financing</value>
+  </data>
+  <data name="Export_Eq_OpeningEquity" xml:space="preserve">
+    <value>Opening Equity</value>
+  </data>
+  <data name="Export_Eq_ClosingEquity" xml:space="preserve">
+    <value>Closing Equity</value>
+  </data>
+  <data name="Export_Eq_Result" xml:space="preserve">
+    <value>Result</value>
+  </data>
+  <data name="Export_Eq_Movements" xml:space="preserve">
+    <value>Movements</value>
+  </data>
+  <data name="Export_Gl_Entry" xml:space="preserve">
+    <value>Entry</value>
+  </data>
+  <data name="Export_Gl_DocumentType" xml:space="preserve">
+    <value>Document type</value>
+  </data>
+  <data name="Export_Gl_DocumentNumber" xml:space="preserve">
+    <value>Document number</value>
+  </data>
+  <data name="Export_Gl_AccountCode" xml:space="preserve">
+    <value>Account code</value>
+  </data>
+  <data name="Export_Gl_AccountName" xml:space="preserve">
+    <value>Account name</value>
+  </data>
+  <data name="Export_Ap_Bill" xml:space="preserve">
+    <value>Bill</value>
+  </data>
+  <data name="Export_Ap_IssueDate" xml:space="preserve">
+    <value>Issue date</value>
+  </data>
+  <data name="Export_Ap_DueDate" xml:space="preserve">
+    <value>Due date</value>
+  </data>
+  <data name="Export_Ap_Outstanding" xml:space="preserve">
+    <value>Outstanding</value>
+  </data>
+  <data name="Export_Ap_Bucket" xml:space="preserve">
+    <value>Bucket</value>
+  </data>
+  <data name="Export_Sheet_Pnl" xml:space="preserve">
+    <value>Profit and Loss</value>
+  </data>
+  <data name="Export_Sheet_BalanceSheet" xml:space="preserve">
+    <value>Balance Sheet</value>
+  </data>
+  <data name="Export_Sheet_VatReturn" xml:space="preserve">
+    <value>VAT Return</value>
+  </data>
+  <data name="Export_Sheet_TrialBalance" xml:space="preserve">
+    <value>Trial Balance</value>
+  </data>
+  <data name="Export_Sheet_MonthlyPnl" xml:space="preserve">
+    <value>Monthly P&amp;L</value>
+  </data>
+  <data name="Export_Sheet_ComparativeBalanceSheet" xml:space="preserve">
+    <value>Comparative Balance Sheet</value>
+  </data>
+  <data name="Export_Sheet_CashFlow" xml:space="preserve">
+    <value>Cash Flow</value>
+  </data>
+  <data name="Export_Sheet_EquityStatement" xml:space="preserve">
+    <value>Equity Statement</value>
+  </data>
+  <data name="Export_Sheet_GeneralLedger" xml:space="preserve">
+    <value>General Ledger</value>
+  </data>
+  <data name="Export_Sheet_ExpenseBook" xml:space="preserve">
+    <value>Expense Book</value>
+  </data>
+  <data name="Export_Sheet_VendorBalances" xml:space="preserve">
+    <value>Vendor Balances</value>
+  </data>
+  <data name="Export_Sheet_VendorStatement" xml:space="preserve">
+    <value>Vendor Statement</value>
+  </data>
+  <data name="Export_Sheet_PayablesAging" xml:space="preserve">
+    <value>Payables Aging</value>
+  </data>
+  <data name="Export_Sheet_PurchasesByVendor" xml:space="preserve">
+    <value>Purchases by Vendor</value>
+  </data>
+  <data name="Export_Sheet_PurchasesByItem" xml:space="preserve">
+    <value>Purchases by Item</value>
+  </data>
+  <data name="Export_Sheet_PurchaseTransactions" xml:space="preserve">
+    <value>Purchase Transactions</value>
+  </data>
+  <data name="Export_Month_1" xml:space="preserve">
+    <value>Jan</value>
+  </data>
+  <data name="Export_Month_2" xml:space="preserve">
+    <value>Feb</value>
+  </data>
+  <data name="Export_Month_3" xml:space="preserve">
+    <value>Mar</value>
+  </data>
+  <data name="Export_Month_4" xml:space="preserve">
+    <value>Apr</value>
+  </data>
+  <data name="Export_Month_5" xml:space="preserve">
+    <value>May</value>
+  </data>
+  <data name="Export_Month_6" xml:space="preserve">
+    <value>Jun</value>
+  </data>
+  <data name="Export_Month_7" xml:space="preserve">
+    <value>Jul</value>
+  </data>
+  <data name="Export_Month_8" xml:space="preserve">
+    <value>Aug</value>
+  </data>
+  <data name="Export_Month_9" xml:space="preserve">
+    <value>Sep</value>
+  </data>
+  <data name="Export_Month_10" xml:space="preserve">
+    <value>Oct</value>
+  </data>
+  <data name="Export_Month_11" xml:space="preserve">
+    <value>Nov</value>
+  </data>
+  <data name="Export_Month_12" xml:space="preserve">
+    <value>Dec</value>
+  </data>
+  <data name="Export_VatDecl_B9" xml:space="preserve"><value>Exempt sales without right of credit</value></data>
+  <data name="Export_VatDecl_B10" xml:space="preserve"><value>Exempt sales with right of credit</value></data>
+  <data name="Export_VatDecl_B11" xml:space="preserve"><value>Exports</value></data>
+  <data name="Export_VatDecl_B12" xml:space="preserve"><value>Taxable sales at 18%</value></data>
+  <data name="Export_VatDecl_B14" xml:space="preserve"><value>Taxable sales at 8%</value></data>
+  <data name="Export_VatDecl_B16" xml:space="preserve"><value>Debit notes issued and credit notes received at 18%</value></data>
+  <data name="Export_VatDecl_B18" xml:space="preserve"><value>Debit notes issued and credit notes received at 8%</value></data>
+  <data name="Export_VatDecl_B20" xml:space="preserve"><value>Bad debt invoices received and bad debt recovery at 18%</value></data>
+  <data name="Export_VatDecl_B22" xml:space="preserve"><value>Bad debt invoices received and bad debt recovery at 8%</value></data>
+  <data name="Export_VatDecl_B24" xml:space="preserve"><value>Adjustments increasing VAT at 18%</value></data>
+  <data name="Export_VatDecl_B26" xml:space="preserve"><value>Adjustments increasing VAT at 8%</value></data>
+  <data name="Export_VatDecl_B28" xml:space="preserve"><value>Purchases subject to reverse charge at 18%</value></data>
+  <data name="Export_VatDecl_B30" xml:space="preserve"><value>Total VAT calculated</value></data>
+  <data name="Export_VatDecl_B31" xml:space="preserve"><value>Purchases and imports without VAT</value></data>
+  <data name="Export_VatDecl_B32" xml:space="preserve"><value>Investment purchases and imports without VAT</value></data>
+  <data name="Export_VatDecl_B33" xml:space="preserve"><value>Purchases and imports with non-deductible VAT</value></data>
+  <data name="Export_VatDecl_B34" xml:space="preserve"><value>Investment purchases and imports with non-deductible VAT</value></data>
+  <data name="Export_VatDecl_B35" xml:space="preserve"><value>Imports at 18%</value></data>
+  <data name="Export_VatDecl_B37" xml:space="preserve"><value>Imports at 8%</value></data>
+  <data name="Export_VatDecl_B39" xml:space="preserve"><value>Investment imports at 18%</value></data>
+  <data name="Export_VatDecl_B41" xml:space="preserve"><value>Investment imports at 8%</value></data>
+  <data name="Export_VatDecl_B43" xml:space="preserve"><value>Domestic purchases at 18%</value></data>
+  <data name="Export_VatDecl_B45" xml:space="preserve"><value>Domestic purchases at 8%</value></data>
+  <data name="Export_VatDecl_B47" xml:space="preserve"><value>Domestic investment purchases at 18%</value></data>
+  <data name="Export_VatDecl_B49" xml:space="preserve"><value>Domestic investment purchases at 8%</value></data>
+  <data name="Export_VatDecl_B51" xml:space="preserve"><value>Purchases from domestic farmers (8% flat rate)</value></data>
+  <data name="Export_VatDecl_B53" xml:space="preserve"><value>Debit notes received and credit notes issued at 18%</value></data>
+  <data name="Export_VatDecl_B55" xml:space="preserve"><value>Debit notes received and credit notes issued at 8%</value></data>
+  <data name="Export_VatDecl_B57" xml:space="preserve"><value>Bad debt invoices issued and bad debt payments at 18%</value></data>
+  <data name="Export_VatDecl_B59" xml:space="preserve"><value>Bad debt invoices issued and bad debt payments at 8%</value></data>
+  <data name="Export_VatDecl_B61" xml:space="preserve"><value>Adjustments decreasing VAT at 18%</value></data>
+  <data name="Export_VatDecl_B63" xml:space="preserve"><value>Adjustments decreasing VAT at 8%</value></data>
+  <data name="Export_VatDecl_B65" xml:space="preserve"><value>Right of VAT credit on reverse charge at 18%</value></data>
+  <data name="Export_VatDecl_B67" xml:space="preserve"><value>Total deductible VAT</value></data>
+  <data name="Export_VatDecl_B68" xml:space="preserve"><value>VAT credit carried from the previous period</value></data>
+  <data name="Export_VatDecl_B69" xml:space="preserve"><value>Remaining credit balance, 69 = ((67+68)-30) &gt; 0</value></data>
+  <data name="Export_VatDecl_B70" xml:space="preserve"><value>Refund request</value></data>
+  <data name="Export_VatDecl_B71" xml:space="preserve"><value>VAT credit for the next period, 71 = (69-70)</value></data>
+  <data name="Export_VatDecl_B72" xml:space="preserve"><value>VAT payable, 72 = (30-67-68) &gt; 0</value></data>
+  <data name="Export_VatDecl_Title" xml:space="preserve"><value>VAT Declaration and Payment Form</value></data>
+  <data name="Export_VatDecl_Period" xml:space="preserve"><value>Tax period</value></data>
+  <data name="Export_VatDecl_FiscalNumber" xml:space="preserve"><value>Fiscal number</value></data>
+  <data name="Export_VatDecl_TaxpayerName" xml:space="preserve"><value>Taxpayer name</value></data>
+  <data name="Export_VatDecl_Address" xml:space="preserve"><value>Taxpayer address</value></data>
+  <data name="Export_VatDecl_ContactName" xml:space="preserve"><value>Contact person name</value></data>
+  <data name="Export_VatDecl_ContactNumber" xml:space="preserve"><value>Contact person number</value></data>
+  <data name="Export_VatDecl_NoTransactions" xml:space="preserve"><value>Mark X if no transaction was made during this period</value></data>
+  <data name="Export_VatDecl_Box" xml:space="preserve"><value>Box</value></data>
+  <data name="Export_VatDecl_Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Export_VatDecl_Base" xml:space="preserve"><value>Base (excl. VAT)</value></data>
+  <data name="Export_VatDecl_Vat" xml:space="preserve"><value>VAT</value></data>
+  <data name="Export_VatDecl_Section_Sales" xml:space="preserve"><value>Sales</value></data>
+  <data name="Export_VatDecl_Section_Purchases" xml:space="preserve"><value>Purchases</value></data>
+  <data name="Export_VatDecl_Section_Calculation" xml:space="preserve"><value>Calculation</value></data>
+  <data name="Export_Sheet_VatDeclaration" xml:space="preserve"><value>VAT Declaration</value></data>
+  <data name="VatDeclarationPeriodInvalid" xml:space="preserve"><value>The month must be between 1 and 12 and the year between 2000 and 2100.</value></data>
+  <data name="VatDeclarationCarriedCreditInvalid" xml:space="preserve"><value>The carried credit cannot be negative.</value></data>
+  <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>The refund request must be between 0 and the remaining credit balance.</value></data>
+  <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>The refund requested cannot exceed the remaining credit ([69]).</value></data>
+  <data name="VatDeclarationRefundNegative" xml:space="preserve"><value>The refund requested cannot be negative.</value></data>
+  <data name="Export_Common_TotalLiabilitiesAndEquity" xml:space="preserve">
+    <value>Total liabilities and equity</value>
+  </data>
+  <data name="Export_Common_TotalCostOfRevenue" xml:space="preserve">
+    <value>Total cost of revenue</value>
+  </data>
+  <data name="Export_Sheet_Matrix" xml:space="preserve">
+    <value>Matrix</value>
+  </data>
+  <data name="Export_Sheet_DebtAging" xml:space="preserve">
+    <value>Debt Aging</value>
+  </data>
+  <data name="Export_Common_Customer" xml:space="preserve">
+    <value>Customer</value>
+  </data>
+  <data name="Export_Debt_Invoice" xml:space="preserve">
+    <value>Invoice</value>
+  </data>
+  <data name="Export_Debt_GraceDays" xml:space="preserve">
+    <value>Grace days</value>
+  </data>
+  <data name="Export_Enum_Bucket_Current" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="Export_Enum_Bucket_WithinGrace" xml:space="preserve">
+    <value>Within grace</value>
+  </data>
+  <data name="Export_Enum_Bucket_Overdue" xml:space="preserve">
+    <value>Overdue</value>
+  </data>
+  <data name="Export_Enum_Bucket_Over360" xml:space="preserve">
+    <value>Over360</value>
+  </data>
+  <data name="Export_Enum_DocType_Invoice" xml:space="preserve">
+    <value>Invoice</value>
+  </data>
+  <data name="Export_Enum_DocType_CreditNote" xml:space="preserve">
+    <value>CreditNote</value>
+  </data>
+  <data name="Export_Enum_DocType_DebitNote" xml:space="preserve">
+    <value>DebitNote</value>
+  </data>
+  <data name="Export_Enum_DocType_DownPayment" xml:space="preserve">
+    <value>DownPayment</value>
+  </data>
+  <data name="Export_Enum_DocType_SalesReturn" xml:space="preserve">
+    <value>SalesReturn</value>
+  </data>
+  <data name="Export_Enum_DocType_Proforma" xml:space="preserve">
+    <value>Proforma</value>
+  </data>
+  <data name="Export_Enum_DocType_Bill" xml:space="preserve">
+    <value>Bill</value>
+  </data>
+  <data name="Export_Enum_DocType_SupplierCreditNote" xml:space="preserve">
+    <value>SupplierCreditNote</value>
+  </data>
+  <data name="Export_Enum_DocType_PurchaseReturn" xml:space="preserve">
+    <value>PurchaseReturn</value>
+  </data>
+  <data name="Export_Enum_DocType_Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Export_Enum_DocType_Payment" xml:space="preserve">
+    <value>Payment</value>
+  </data>
+  <data name="Export_Enum_DocType_Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="Export_Enum_Journal_Sale" xml:space="preserve">
+    <value>Sale</value>
+  </data>
+  <data name="Export_Enum_Journal_Purchase" xml:space="preserve">
+    <value>Purchase</value>
+  </data>
+  <data name="Export_Enum_Journal_Cash" xml:space="preserve">
+    <value>Cash</value>
+  </data>
+  <data name="Export_Enum_Journal_Bank" xml:space="preserve">
+    <value>Bank</value>
+  </data>
+  <data name="Export_Enum_Journal_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Export_Enum_Journal_Miscellaneous" xml:space="preserve">
+    <value>Miscellaneous</value>
+  </data>
+  <data name="Export_Tb_TotalGroup" xml:space="preserve">
+    <value>Total {0}</value>
+  </data>
+  <data name="Export_Tb_Class" xml:space="preserve">
+    <value>Class {0}</value>
+  </data>
+  <data name="Export_Common_OperatingExpenses" xml:space="preserve">
+    <value>Operating Expenses</value>
+  </data>
+  <data name="Export_Common_TotalOperatingExpenses" xml:space="preserve">
+    <value>Total Operating Expenses</value>
+  </data>
+  <data name="PdfCountSheetTitle" xml:space="preserve">
+    <value>Stock count sheet</value>
+  </data>
+  <data name="PdfCountSheetSubtitle" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PdfCountSheetCode" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="PdfCountSheetItem" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="PdfCountSheetUnit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="PdfCountSheetBook" xml:space="preserve">
+    <value>Book qty</value>
+  </data>
+  <data name="PdfCountSheetCounted" xml:space="preserve">
+    <value>Counted</value>
+  </data>
+  <data name="PdfCountSheetDifference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="PdfCountSheetNote" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="PdfCountSheetCountedBy" xml:space="preserve">
+    <value>Counted by (name, signature)</value>
+  </data>
+  <data name="PdfCountSheetCheckedBy" xml:space="preserve">
+    <value>Checked by (name, signature)</value>
+  </data>
+  <data name="StockVatRepayment" xml:space="preserve">
+    <value>Input VAT repaid on lost goods</value>
+  </data>
+  <data name="StockWriteDownValueRequired" xml:space="preserve">
+    <value>Enter the net realisable value per unit (0 or more) on every line.</value>
+  </data>
+  <data name="StockWriteDownLaterExists" xml:space="preserve">
+    <value>A later write-down is already posted for one of these items. Post write-downs in date order.</value>
+  </data>
+  <data name="StockDocumentWriteDown" xml:space="preserve">
+    <value>Write-down</value>
+  </data>
+  <data name="PriceChangePosted" xml:space="preserve">
+    <value>This price change is already posted and can't be changed.</value>
+  </data>
+  <data name="PriceListNotFound" xml:space="preserve">
+    <value>Choose an active price list.</value>
+  </data>
+  <data name="PriceChangeItemNotFound" xml:space="preserve">
+    <value>One of the items doesn't exist in this company.</value>
+  </data>
+  <data name="PriceChangePrice" xml:space="preserve">
+    <value>Prices must be 0 or more.</value>
+  </data>
+  <data name="PriceListName" xml:space="preserve">
+    <value>Give the price list a name (up to 120 characters).</value>
+  </data>
+  <data name="PriceListNameTaken" xml:space="preserve">
+    <value>Another price list already has this name.</value>
+  </data>
+  <data name="PriceListWarehouseTaken" xml:space="preserve">
+    <value>That warehouse already has a price list (or the company-wide list exists). Each warehouse has at most one.</value>
+  </data>
+  <data name="PdfPriceChangeTitle" xml:space="preserve">
+    <value>Price change (Nivelim)</value>
+  </data>
+  <data name="PdfPriceChangeSubtitle" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="PdfDraft" xml:space="preserve">
+    <value>Draft</value>
+  </data>
+  <data name="PdfPriceChangeQuantity" xml:space="preserve">
+    <value>On hand</value>
+  </data>
+  <data name="PdfPriceChangeOld" xml:space="preserve">
+    <value>Old price</value>
+  </data>
+  <data name="PdfPriceChangeNew" xml:space="preserve">
+    <value>New price</value>
+  </data>
+  <data name="PdfPriceChangeDifference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="PdfPriceChangeTotal" xml:space="preserve">
+    <value>Total difference: {0}</value>
+  </data>
+  <data name="PdfPriceChangePreparedBy" xml:space="preserve">
+    <value>Prepared by (name, signature)</value>
+  </data>
+  <data name="PdfPriceChangeApprovedBy" xml:space="preserve">
+    <value>Approved by (name, signature)</value>
+  </data>
+  <data name="BillPurchaseOrderLineInvalid" xml:space="preserve">
+    <value>A line points at a purchase order that isn't a confirmed order from this vendor.</value>
+  </data>
+  <data name="PurchaseOrderNotDraft" xml:space="preserve">
+    <value>Only a draft purchase order can be changed or deleted.</value>
+  </data>
+  <data name="PurchaseOrderNotConfirmed" xml:space="preserve">
+    <value>Only a confirmed purchase order can be closed or cancelled.</value>
+  </data>
+  <data name="PurchaseOrderHasBills" xml:space="preserve">
+    <value>Bills were already made from this order; close it instead of cancelling.</value>
+  </data>
+  <data name="PurchaseOrderFromLowStock" xml:space="preserve">
+    <value>Created from the low-stock list.</value>
+  </data>
+  <data name="PurchaseOrderNoLines" xml:space="preserve">
+    <value>Add at least one line.</value>
+  </data>
+  <data name="PurchaseOrderVendorRequired" xml:space="preserve">
+    <value>Choose a vendor.</value>
+  </data>
+  <data name="PurchaseOrderExpectedBeforeDate" xml:space="preserve">
+    <value>The expected date can't be before the order date.</value>
+  </data>
+  <data name="PurchaseOrderLineDescription" xml:space="preserve">
+    <value>A line without an item needs a description.</value>
+  </data>
+  <data name="StockReceiptMatched" xml:space="preserve">
+    <value>Billed against receipt</value>
+  </data>
+  <data name="StockDocumentReceipt" xml:space="preserve">
+    <value>Receipt</value>
+  </data>
+  <data name="PurchaseOrderNothingToReceive" xml:space="preserve">
+    <value>Every stock-tracked line of this order has been received.</value>
+  </data>
+  <data name="LineUnitUnknown" xml:space="preserve">
+    <value>"{0}" is not a unit of this item. Use its base unit or the purchase/sales unit set on the item.</value>
+  </data>
+  <data name="ItemUnitInvalid" xml:space="preserve">
+    <value>A purchase or sales unit needs its own name (not the base unit) and how many base units it holds (more than 0).</value>
+  </data>
+  <data name="StockLotRequired" xml:space="preserve">
+    <value>{0} is tracked by lot: enter the lot number (and expiry date) of the goods received.</value>
+  </data>
+  <data name="StockLotNotAvailable" xml:space="preserve">
+    <value>Lot {0} of {1} doesn't have that much in this warehouse.</value>
+  </data>
+  <data name="StockLotsLocked" xml:space="preserve">
+    <value>Lot tracking can't be switched on or off once this item's stock has moved.</value>
+  </data>
+  <data name="Export_Stock_Col_Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="Export_Stock_Col_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Export_Stock_Col_Category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningQty" xml:space="preserve">
+    <value>Opening quantity</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningValue" xml:space="preserve">
+    <value>Opening value</value>
+  </data>
+  <data name="Export_Stock_Col_InQty" xml:space="preserve">
+    <value>Quantity in</value>
+  </data>
+  <data name="Export_Stock_Col_InValue" xml:space="preserve">
+    <value>Value in</value>
+  </data>
+  <data name="Export_Stock_Col_OutQty" xml:space="preserve">
+    <value>Quantity out</value>
+  </data>
+  <data name="Export_Stock_Col_OutValue" xml:space="preserve">
+    <value>Value out</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingQty" xml:space="preserve">
+    <value>Closing quantity</value>
+  </data>
+  <data name="Export_Stock_Col_AverageCost" xml:space="preserve">
+    <value>Average cost</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingValue" xml:space="preserve">
+    <value>Closing value</value>
+  </data>
+  <data name="Export_Stock_Col_SellPrice" xml:space="preserve">
+    <value>Sell price (ex VAT)</value>
+  </data>
+  <data name="Export_Stock_Col_Markup" xml:space="preserve">
+    <value>Markup %</value>
+  </data>
+  <data name="Export_Stock_Col_Quantity" xml:space="preserve">
+    <value>Quantity</value>
+  </data>
+  <data name="Export_Stock_Col_Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Export_Stock_Col_MinimumStock" xml:space="preserve">
+    <value>Minimum stock</value>
+  </data>
+  <data name="Export_Stock_Col_AsOf" xml:space="preserve">
+    <value>As of</value>
+  </data>
+  <data name="Export_Stock_Col_StockValue" xml:space="preserve">
+    <value>Stock value</value>
+  </data>
+  <data name="Export_Stock_Col_LedgerValue" xml:space="preserve">
+    <value>Ledger value</value>
+  </data>
+  <data name="Export_Stock_Col_MoveType" xml:space="preserve">
+    <value>Move type</value>
+  </data>
+  <data name="Export_Stock_Col_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Export_Stock_Col_Reference" xml:space="preserve">
+    <value>Reference</value>
+  </data>
+  <data name="Export_Stock_Col_FromLocation" xml:space="preserve">
+    <value>From location</value>
+  </data>
+  <data name="Export_Stock_Col_ToLocation" xml:space="preserve">
+    <value>To location</value>
+  </data>
+  <data name="Export_Stock_Col_UnitCost" xml:space="preserve">
+    <value>Unit cost</value>
+  </data>
+  <data name="Export_Stock_Col_RunningQty" xml:space="preserve">
+    <value>Running quantity</value>
+  </data>
+  <data name="Export_Stock_Col_RunningValue" xml:space="preserve">
+    <value>Running value</value>
+  </data>
+  <data name="Export_Stock_Sheet_Movements" xml:space="preserve">
+    <value>Stock Movements</value>
+  </data>
+  <data name="Export_Stock_Sheet_Levels" xml:space="preserve">
+    <value>Stock Levels</value>
+  </data>
+  <data name="Export_Stock_Sheet_Valuation" xml:space="preserve">
+    <value>Stock Valuation</value>
+  </data>
+  <data name="Export_Stock_Sheet_ItemCard" xml:space="preserve">
+    <value>Item Card</value>
+  </data>
+  <data name="Export_Stock_Kind_Receipt" xml:space="preserve">
+    <value>Receipt</value>
+  </data>
+  <data name="Export_Stock_Kind_Issue" xml:space="preserve">
+    <value>Issue</value>
+  </data>
+  <data name="Export_Stock_Kind_Transfer" xml:space="preserve">
+    <value>Transfer</value>
+  </data>
+  <data name="Export_Stock_Kind_Revaluation" xml:space="preserve">
+    <value>Revaluation</value>
+  </data>
+  <data name="Export_Stock_Source_Bill" xml:space="preserve">
+    <value>Purchase bill</value>
+  </data>
+  <data name="Export_Stock_Source_Invoice" xml:space="preserve">
+    <value>Sales invoice</value>
+  </data>
+  <data name="Export_Stock_Source_StockDocument" xml:space="preserve">
+    <value>Stock document</value>
   </data>
 </root>

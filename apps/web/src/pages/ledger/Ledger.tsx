@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useSearchParams } from "react-router-dom";
@@ -14,10 +15,25 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { PrintButton } from "@/components/shared/PrintButton";
+import { accountPath } from "@/lib/entityLinks";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
+import { JournalEntryDialog } from "@/pages/ledger/JournalEntryDialog";
 import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
+import { downloadFileResponse } from "@/pages/reports/helpers";
+import { ExportButton } from "@/pages/reports/shared";
 
 const TRIAL_BALANCE_GRID_ID = "trialBalance";
+
+function moneyColumn(key: keyof TrialBalanceLine & string, header: string): ColumnDef<TrialBalanceLine> {
+  return {
+    accessorKey: key,
+    header,
+    meta: { numeric: true },
+    enableColumnFilter: false,
+    cell: ({ getValue }) => (getValue() as number).toFixed(2),
+  };
+}
 
 export function Ledger() {
   const intl = useIntl();
@@ -36,14 +52,30 @@ export function Ledger() {
   const fromDate = searchParams.get("fromDate") ?? "";
   const toDate = searchParams.get("toDate") ?? "";
   const sortOrder = searchParams.get("sortOrder") ?? "newest";
+  const tbFrom = searchParams.get("tbFrom") ?? "";
+  const tbTo = searchParams.get("tbTo") ?? "";
+  const hasTrialBalancePeriod = !!(tbFrom || tbTo);
+  const [exportingTrialBalance, setExportingTrialBalance] = useState(false);
+  const [openEntryId, setOpenEntryId] = useOpenParam("entry");
+  const openEntry = openEntryId ? (entries.find((e) => e.id === openEntryId) ?? null) : null;
+
+  const latestParams = useRef(searchParams);
+  useEffect(() => {
+    latestParams.current = searchParams;
+  }, [searchParams]);
+
+  function updateParams(mutate: (params: URLSearchParams) => void) {
+    const next = new URLSearchParams(latestParams.current);
+    mutate(next);
+    latestParams.current = next;
+    setSearchParams(next, { replace: true });
+  }
 
   function setDateFilter(key: string, value: string) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      return next;
-    }, { replace: true });
+    updateParams((params) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    });
   }
 
   const filteredEntries = useMemo(() => {
@@ -65,7 +97,7 @@ export function Ledger() {
         apiClient.accountsAll(companyId),
         apiClient.journalsAll(companyId),
         apiClient.journalEntriesAll(companyId),
-        apiClient.trialBalance(companyId),
+        apiClient.trialBalance(companyId, tbFrom || undefined, tbTo || undefined),
       ]);
       setAccounts(accountsResult);
       setJournals(journalsResult);
@@ -76,7 +108,26 @@ export function Ledger() {
     } finally {
       setLoading(false);
     }
-  }, [companyId, intl]);
+  }, [companyId, intl, tbFrom, tbTo]);
+
+  const totalsQuery = useQuery({
+    queryKey: ["trialBalanceTotals", companyId, tbFrom, tbTo] as const,
+    queryFn: () => apiClient.trialBalanceTotals(companyId as string, tbFrom || undefined, tbTo || undefined),
+    enabled: !!companyId,
+  });
+  const totals = totalsQuery.data;
+
+  async function exportTrialBalance() {
+    if (!companyId) return;
+    setExportingTrialBalance(true);
+    try {
+      downloadFileResponse(await apiClient.trialBalanceExport(companyId, tbFrom || undefined, tbTo || undefined), "trial-balance.xlsx");
+    } catch (err) {
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.exportError" })));
+    } finally {
+      setExportingTrialBalance(false);
+    }
+  }
 
   useEffect(() => {
     void refresh();
@@ -92,6 +143,7 @@ export function Ledger() {
         accessorKey: "accountName",
         header: intl.formatMessage({ id: "ledger.account" }),
       },
+      ...(hasTrialBalancePeriod ? [moneyColumn("opening", intl.formatMessage({ id: "ledger.opening" }))] : []),
       {
         accessorKey: "debit",
         header: () => <>{intl.formatMessage({ id: "ledger.debit" })}<AccountingTooltip termKey="tooltip.debit" /></>,
@@ -106,15 +158,11 @@ export function Ledger() {
         enableColumnFilter: false,
         cell: ({ getValue }) => (getValue() as number).toFixed(2),
       },
-      {
-        accessorKey: "balance",
-        header: intl.formatMessage({ id: "ledger.balance" }),
-        meta: { numeric: true },
-        enableColumnFilter: false,
-        cell: ({ getValue }) => (getValue() as number).toFixed(2),
-      },
+      hasTrialBalancePeriod
+        ? moneyColumn("closing", intl.formatMessage({ id: "ledger.closing" }))
+        : moneyColumn("balance", intl.formatMessage({ id: "ledger.balance" })),
     ],
-    [intl],
+    [intl, hasTrialBalancePeriod],
   );
 
   if (!activeCompany) {
@@ -213,7 +261,8 @@ export function Ledger() {
               </Button>
             )}
           </div>
-          <JournalEntriesTable companyId={activeCompany.id} entries={filteredEntries} journals={journals} onPosted={refresh} isLoading={loading} />
+          <JournalEntriesTable companyId={activeCompany.id} entries={filteredEntries} journals={journals} onPosted={refresh} isLoading={loading} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
+          <JournalEntryDialog entry={openEntry} accounts={accounts} journals={journals} onClose={() => setOpenEntryId(null)} />
         </CardContent>
       </Card>
 
@@ -224,7 +273,36 @@ export function Ledger() {
               <CardTitle>{intl.formatMessage({ id: "ledger.trialBalance" })}<AccountingTooltip termKey="tooltip.trialBalance" /></CardTitle>
               <CardDescription>{intl.formatMessage({ id: "ledger.trialBalanceDescription" })}</CardDescription>
             </div>
-            {trialBalance.length > 0 && <PrintButton contentRef={trialBalancePrintRef} />}
+            {trialBalance.length > 0 && (
+              <div className="flex items-center gap-2">
+                <ExportButton onClick={() => void exportTrialBalance()} loading={exportingTrialBalance} />
+                <PrintButton contentRef={trialBalancePrintRef} />
+              </div>
+            )}
+          </div>
+          <div className="flex flex-wrap items-end gap-4 pt-2">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="trial-balance-from" className="text-xs">{intl.formatMessage({ id: "reports.from" })}</Label>
+              <Input id="trial-balance-from" type="date" value={tbFrom} onChange={(e) => setDateFilter("tbFrom", e.target.value)} className="h-8 w-40" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="trial-balance-to" className="text-xs">{intl.formatMessage({ id: "reports.to" })}</Label>
+              <Input id="trial-balance-to" type="date" value={tbTo} onChange={(e) => setDateFilter("tbTo", e.target.value)} className="h-8 w-40" />
+            </div>
+            {hasTrialBalancePeriod && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  updateParams((params) => {
+                    params.delete("tbFrom");
+                    params.delete("tbTo");
+                  });
+                }}
+              >
+                {intl.formatMessage({ id: "ledger.clearFilters" })}
+              </Button>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -235,9 +313,24 @@ export function Ledger() {
             rowCount={trialBalance.length}
             isLoading={loading}
             getRowId={(row) => row.accountId}
+            getRowLink={(row) => accountPath(row.accountId)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "ledger.noPostedEntries" })}
             exportFileName="trial-balance"
+            footerRow={
+              totals
+                ? {
+                    label: intl.formatMessage({ id: "common.total" }),
+                    cells: {
+                      opening: totals.opening.toFixed(2),
+                      debit: totals.debit.toFixed(2),
+                      credit: totals.credit.toFixed(2),
+                      closing: totals.closing.toFixed(2),
+                      balance: totals.closing.toFixed(2),
+                    },
+                  }
+                : undefined
+            }
             manualFiltering={false}
             manualSorting={false}
             manualGrouping={false}

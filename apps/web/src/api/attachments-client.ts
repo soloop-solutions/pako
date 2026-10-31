@@ -1,15 +1,10 @@
-// PROVISIONAL — F11 attachments. No generated client method exists (no AttachmentsController on
-// the real backend at all — see src/mocks/attachmentsHandlers.ts) so this is a small hand-written
-// wrapper unblocking AttachmentsPanel.tsx against that mock, same pattern as
-// src/api/cost-centers-client.ts / src/api/partners-client.ts.
-//
-// Delete this file once the backend lands a real AttachmentsController and
-// `pnpm generate:api-client` produces real methods for it — replace the call site
-// (AttachmentsPanel.tsx) with the generated `apiClient.*` equivalents.
+// Attachments on documents, through the real generic AttachmentsController
+// (api/companies/{companyId}/attachments?ownerType=&ownerId=). The download stays a plain
+// authorized fetch because the generated `download` method returns no body.
 
-import { API_BASE_URL, authorizedFetch } from "@/api/client";
+import { API_BASE_URL, apiClient, authorizedFetch, getApiErrorMessage } from "@/api/client";
 
-export type AttachmentDocumentKind = "invoice" | "bill";
+export type AttachmentDocumentKind = "invoice" | "bill" | "stockDocument";
 
 export interface Attachment {
   id: string;
@@ -19,29 +14,23 @@ export interface Attachment {
   uploadedAt: string;
 }
 
-function basePath(companyId: string, documentKind: AttachmentDocumentKind, documentId: string): string {
-  const segment = documentKind === "invoice" ? "invoices" : "bills";
-  return `${API_BASE_URL}/api/companies/${companyId}/${segment}/${documentId}/attachments`;
-}
+// Pako.Domain.Attachments.AttachmentOwnerType: listed by number, uploaded by name.
+const OWNER: Record<AttachmentDocumentKind, { value: number; name: string }> = {
+  invoice: { value: 0, name: "Invoice" },
+  bill: { value: 1, name: "Bill" },
+  stockDocument: { value: 5, name: "StockDocument" },
+};
 
-async function readErrorMessage(response: Response, fallback: string): Promise<string> {
-  const text = await response.text();
-  if (!text) return fallback;
-  try {
-    const parsed = JSON.parse(text);
-    if (typeof parsed === "string" && parsed) return parsed;
-  } catch {
-    return text;
-  }
-  return fallback;
+function toAttachment(a: { id: string; fileName: string; contentType: string; sizeBytes: number; uploadedAtUtc: string }): Attachment {
+  return { id: a.id, fileName: a.fileName, contentType: a.contentType, sizeBytes: a.sizeBytes, uploadedAt: a.uploadedAtUtc };
 }
 
 export async function fetchAttachments(companyId: string, documentKind: AttachmentDocumentKind, documentId: string): Promise<Attachment[]> {
-  const response = await authorizedFetch(basePath(companyId, documentKind, documentId));
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, `Could not load attachments (status ${response.status}).`));
+  try {
+    return (await apiClient.attachmentsAll(companyId, OWNER[documentKind].value, documentId)).map(toAttachment);
+  } catch (err) {
+    throw new Error(getApiErrorMessage(err, "Could not load attachments."));
   }
-  return (await response.json()) as Attachment[];
 }
 
 export async function uploadAttachment(
@@ -50,43 +39,33 @@ export async function uploadAttachment(
   documentId: string,
   file: File,
 ): Promise<Attachment> {
-  const formData = new FormData();
-  formData.append("file", file);
-  // Sent as a separate plain field, not relied on from the multipart part's own filename — some
-  // fetch/FormData implementations don't reliably round-trip a Blob part's filename (confirmed
-  // while building this mock's test coverage: Node's undici-backed fetch, used by vitest's jsdom
-  // environment, silently drops it to "blob"). A real backend accepting multipart uploads should
-  // still prefer the Content-Disposition filename when present; this field is the reliable
-  // fallback both this mock and, eventually, a browser-only path can count on.
-  formData.append("fileName", file.name);
-  const response = await authorizedFetch(basePath(companyId, documentKind, documentId), { method: "POST", body: formData });
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, `Could not upload "${file.name}".`));
+  try {
+    return toAttachment(await apiClient.attachmentsPOST(companyId, OWNER[documentKind].name, documentId, { data: file, fileName: file.name }));
+  } catch (err) {
+    throw new Error(getApiErrorMessage(err, `Could not upload "${file.name}".`));
   }
-  return (await response.json()) as Attachment;
 }
 
 export async function deleteAttachment(
   companyId: string,
-  documentKind: AttachmentDocumentKind,
-  documentId: string,
+  _documentKind: AttachmentDocumentKind,
+  _documentId: string,
   attachmentId: string,
 ): Promise<void> {
-  const response = await authorizedFetch(`${basePath(companyId, documentKind, documentId)}/${attachmentId}`, { method: "DELETE" });
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "Could not delete this attachment."));
+  try {
+    await apiClient.attachmentsDELETE(companyId, attachmentId);
+  } catch (err) {
+    throw new Error(getApiErrorMessage(err, "Could not delete this attachment."));
   }
 }
 
 export async function fetchAttachmentContent(
   companyId: string,
-  documentKind: AttachmentDocumentKind,
-  documentId: string,
+  _documentKind: AttachmentDocumentKind,
+  _documentId: string,
   attachmentId: string,
 ): Promise<Blob> {
-  const response = await authorizedFetch(`${basePath(companyId, documentKind, documentId)}/${attachmentId}/content`);
-  if (!response.ok) {
-    throw new Error(await readErrorMessage(response, "Could not load this file."));
-  }
+  const response = await authorizedFetch(`${API_BASE_URL}/api/companies/${companyId}/attachments/${attachmentId}/download`);
+  if (!response.ok) throw new Error("Could not load this file.");
   return response.blob();
 }

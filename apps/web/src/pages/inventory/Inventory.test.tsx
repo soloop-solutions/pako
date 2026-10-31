@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { StockLevels } from "@/pages/inventory/StockLevels";
 import { StockReports } from "@/pages/inventory/StockReports";
 import { Warehouses } from "@/pages/inventory/Warehouses";
 
@@ -14,6 +15,8 @@ const listWarehouses = vi.fn();
 const createWarehouse = vi.fn();
 const getStockSettings = vi.fn();
 const getStockValuation = vi.fn();
+const listStockLevels = vi.fn();
+const listItemCategories = vi.fn();
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -25,6 +28,8 @@ vi.mock("@/api/client", async (importOriginal) => {
       createWarehouse: (...args: unknown[]) => createWarehouse(...args),
       getStockSettings: (...args: unknown[]) => getStockSettings(...args),
       getStockValuation: (...args: unknown[]) => getStockValuation(...args),
+      listStockLevels: (...args: unknown[]) => listStockLevels(...args),
+      listItemCategories: (...args: unknown[]) => listItemCategories(...args),
     },
   };
 });
@@ -124,5 +129,37 @@ describe("Stock reports", () => {
     expect(await screen.findByText("Laptop")).toBeInTheDocument();
     expect(screen.getByText(/Stock and ledger don't agree/)).toBeInTheDocument();
     expect(screen.getByText("120100 Goods for Sale")).toBeInTheDocument();
+  });
+});
+
+describe("Stock levels", () => {
+  beforeEach(() => {
+    listWarehouses.mockReset();
+    listStockLevels.mockReset();
+    listItemCategories.mockReset();
+    listWarehouses.mockResolvedValue([MAIN]);
+    listItemCategories.mockResolvedValue([]);
+    listStockLevels.mockResolvedValue({
+      items: [{
+        itemId: "i1", itemCode: 1, itemName: "Laptop", unit: "copë", categoryName: undefined, quantity: 3, averageCost: 100, value: 300,
+        minimumStock: 5, belowMinimum: true, warehouses: [], usualSupplierId: "p1", usualSupplierName: "Euro Import", shortBy: 2,
+      }],
+      total: 1, page: 1, pageSize: 50,
+    });
+  });
+
+  it("names the usual supplier and how far an item is below its minimum", async () => {
+    renderWith(<StockLevels />);
+    expect(await screen.findByText("Euro Import")).toBeInTheDocument();
+    expect(screen.getByText("Below minimum")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Short by/ })).toBeInTheDocument();
+  });
+
+  it("asks the API for the low-stock list when the filter is ticked", async () => {
+    renderWith(<StockLevels />);
+    await screen.findByText("Euro Import");
+    fireEvent.click(screen.getByLabelText("Only below minimum"));
+    await waitFor(() => expect(listStockLevels).toHaveBeenLastCalledWith(
+      "11111111-1111-1111-1111-111111111111", undefined, undefined, undefined, true, 1, 50));
   });
 });

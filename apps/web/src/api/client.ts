@@ -48,6 +48,7 @@ export function getApiErrorMessage(err: unknown, fallback?: string): string {
         if (Array.isArray(parsed)) return parsed.join(", ");
         // Handle ProblemDetails / validation errors
         if (typeof parsed === "object" && parsed !== null) {
+          if (typeof parsed.error === "string" && parsed.error) return parsed.error;
           if (parsed.detail) return parsed.detail;
           if (parsed.title) return parsed.title;
           if (parsed.errors) {

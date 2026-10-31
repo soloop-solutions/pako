@@ -11,11 +11,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { formatAmount } from "@/lib/payroll-enums";
+import { stockMoveSourcePath } from "@/lib/entityLinks";
 import { stockMoveKindKey } from "@/lib/stock-enums";
+import { ExportButton } from "@/pages/reports/shared";
+import { useReportExport } from "@/pages/reports/useReportExport";
 
 // The item card (kartela e artikullit): every stock move of one item with the running quantity,
 // average cost and value after it — the audit trail behind every stock figure.
 export function ItemCardDialog({ itemId, title, onClose }: { itemId: string; title: string; onClose: () => void }) {
+  const intl = useIntl();
+  return (
+    <FormDialog open onOpenChange={(open) => !open && onClose()} title={title} description={intl.formatMessage({ id: "stock.card.title" })} size="xl">
+      <ItemCardPanel itemId={itemId} />
+    </FormDialog>
+  );
+}
+
+// The card itself, also shown as the "Stock" tab of the item editor.
+export function ItemCardPanel({ itemId, linkRows = true }: { itemId: string; linkRows?: boolean }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const { activeCompanyId } = useCompany();
@@ -27,6 +40,10 @@ export function ItemCardDialog({ itemId, title, onClose }: { itemId: string; tit
     enabled: !!activeCompanyId,
   });
   const card = query.data;
+  const exporter = useReportExport(
+    () => apiClient.itemCardExport(activeCompanyId as string, itemId, from || undefined, to || undefined),
+    "item-card.xlsx",
+  );
   const qty = (v: number) => (v === 0 ? "" : intl.formatNumber(v));
 
   const columns = useMemo<ColumnDef<ItemCardRowResponse>[]>(
@@ -47,40 +64,41 @@ export function ItemCardDialog({ itemId, title, onClose }: { itemId: string; tit
   );
 
   return (
-    <FormDialog open onOpenChange={(open) => !open && onClose()} title={title} description={t("stock.card.title")} size="xl">
-      <div className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="card-from">{t("dashboard.period.from")}</Label>
-            <Input id="card-from" type="date" className="h-8 w-40" value={from} onChange={(e) => setFrom(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="card-to">{t("dashboard.period.to")}</Label>
-            <Input id="card-to" type="date" className="h-8 w-40" value={to} onChange={(e) => setTo(e.target.value)} />
-          </div>
-          {card && (
-            <p className="ml-auto text-sm text-muted-foreground tnum">
-              {intl.formatMessage({ id: "stock.card.summary" }, {
-                openQty: intl.formatNumber(card.openingQuantity), openValue: formatAmount(card.openingValue),
-                closeQty: intl.formatNumber(card.closingQuantity), closeValue: formatAmount(card.closingValue),
-              })}
-            </p>
-          )}
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="card-from">{t("dashboard.period.from")}</Label>
+          <Input id="card-from" type="date" className="h-8 w-40" value={from} onChange={(e) => setFrom(e.target.value)} />
         </div>
-        <DataGrid
-          gridId="item-card"
-          columns={columns}
-          data={card?.rows ?? []}
-          rowCount={card?.rows.length ?? 0}
-          isLoading={query.isPending}
-          getRowId={(r) => r.moveId}
-          emptyMessage={t("stock.card.empty")}
-          exportFileName="item-card"
-          manualFiltering={false}
-          manualSorting={false}
-          manualGrouping={false}
-        />
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="card-to">{t("dashboard.period.to")}</Label>
+          <Input id="card-to" type="date" className="h-8 w-40" value={to} onChange={(e) => setTo(e.target.value)} />
+        </div>
+        <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
+        {card && (
+          <p className="ml-auto text-sm text-muted-foreground tnum">
+            {intl.formatMessage({ id: "stock.card.summary" }, {
+              openQty: intl.formatNumber(card.openingQuantity), openValue: formatAmount(card.openingValue),
+              closeQty: intl.formatNumber(card.closingQuantity), closeValue: formatAmount(card.closingValue),
+            })}
+          </p>
+        )}
       </div>
-    </FormDialog>
+      {exporter.exportError && <p role="alert" className="text-sm text-destructive">{exporter.exportError}</p>}
+      <DataGrid
+        gridId="item-card"
+        columns={columns}
+        data={card?.rows ?? []}
+        rowCount={card?.rows.length ?? 0}
+        isLoading={query.isPending}
+        getRowId={(r) => r.moveId}
+        getRowLink={linkRows ? (r) => stockMoveSourcePath(r.sourceType, r.sourceId) : undefined}
+        emptyMessage={t("stock.card.empty")}
+        exportFileName="item-card"
+        manualFiltering={false}
+        manualSorting={false}
+        manualGrouping={false}
+      />
+    </div>
   );
 }

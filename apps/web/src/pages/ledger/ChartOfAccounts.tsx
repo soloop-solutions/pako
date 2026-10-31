@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
 import {
   CitDeductibility,
@@ -55,7 +56,7 @@ export function ChartOfAccounts() {
   );
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useOpenParam();
   const [confirmingDeactivateId, setConfirmingDeactivateId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -312,7 +313,7 @@ export function ChartOfAccounts() {
         },
       },
     ],
-    [intl, confirmingDeactivateId, deactivateMutation],
+    [intl, confirmingDeactivateId, deactivateMutation, setEditingId],
   );
 
   if (!activeCompanyId) {

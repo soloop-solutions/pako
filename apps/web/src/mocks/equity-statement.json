@@ -1,0 +1,10 @@
+{
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "openingEquity": 45000.00,
+  "netIncome": 45000.00,
+  "movements": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000560", "accountCode": "560", "accountName": "Retained earnings (dividends paid)", "amount": -20000.00 }
+  ],
+  "closingEquity": 70000.00
+}

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -159,7 +160,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task ProfitAndLoss_SplitsIncomeAndExpensesAndComputesNetIncome()
     {
         var (db, companyId) = await SeedMixedScenario();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.ProfitAndLoss(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -186,7 +187,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task BalanceSheet_AssetsEqualLiabilitiesPlusEquity_ForMixedScenario()
     {
         var (db, companyId) = await SeedMixedScenario();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.BalanceSheet(companyId, new DateOnly(2026, 12, 31));
 
@@ -199,6 +200,8 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal(1508.48m, response.TotalEquity);
 
         Assert.Equal(response.TotalAssets, response.TotalLiabilities + response.TotalEquity);
+        Assert.Equal(2061.02m, response.TotalLiabilitiesAndEquity);
+        Assert.Equal(0m, response.Difference);
 
         Assert.Contains(response.Equity, l => l.AccountName == "Current Earnings" && l.Amount == 508.48m);
     }
@@ -207,7 +210,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task VatReturn_SeparatesOutputAndInputAndComputesNetDue()
     {
         var (db, companyId) = await SeedMixedScenario();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.VatReturn(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -284,7 +287,7 @@ public class ReportsControllerTests : IAsyncLifetime
     {
         var issueDate = new DateOnly(2026, 1, 1);
         var (db, companyId, invoiceId, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         // Due date is 2026-01-31; asOf here is the due date itself, still Current.
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 1, 31));
@@ -303,7 +306,7 @@ public class ReportsControllerTests : IAsyncLifetime
     {
         var issueDate = new DateOnly(2026, 1, 1);
         var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         // Day 34 (2026-02-04): 4 days past the 2026-01-31 due date, still inside the 5-day grace.
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 4));
@@ -320,7 +323,7 @@ public class ReportsControllerTests : IAsyncLifetime
     {
         var issueDate = new DateOnly(2026, 1, 1);
         var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         // Day 36 (2026-02-06): due date + grace (2026-02-05) has passed — now real debt.
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 6));
@@ -340,7 +343,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var (db, companyId, invoiceId, receivableJournalEntryLineId) = await SeedUnpaidInvoiceWithTerms(issueDate, paymentTermDays: 30, graceDays: 5);
         db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, receivableJournalEntryLineId, 500m));
         await db.SaveChangesAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.DebtAging(companyId, new DateOnly(2026, 2, 6));
 
@@ -398,7 +401,7 @@ public class ReportsControllerTests : IAsyncLifetime
         db.JournalEntries.Add(invoiceEntry);
         await db.SaveChangesAsync();
 
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.DebtAging(company.Id, new DateOnly(2026, 1, 31));
 
@@ -469,7 +472,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task SalesBook_IncludesPostedInvoiceWithVatCode()
     {
         var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.SalesBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -491,7 +494,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task PurchaseBook_IncludesPostedBillWithVatCode()
     {
         var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.PurchaseBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -506,13 +509,43 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal(400m, line.GrossAmount);
     }
 
+    [Fact]
+    public async Task SalesBookAndPurchaseBook_LinesCarrySourceKindAndId()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var sales = Assert.IsType<SalesBookResponse>(Assert.IsType<OkObjectResult>((await controller.SalesBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31))).Result).Value);
+        var purchases = Assert.IsType<PurchaseBookResponse>(Assert.IsType<OkObjectResult>((await controller.PurchaseBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31))).Result).Value);
+
+        var sale = Assert.Single(sales.Lines);
+        Assert.Equal(ReportSourceKinds.Invoice, sale.SourceKind);
+        Assert.Equal(sale.InvoiceId, sale.SourceId);
+        var purchase = Assert.Single(purchases.Lines);
+        Assert.Equal(ReportSourceKinds.Bill, purchase.SourceKind);
+        Assert.Equal(purchase.BillId, purchase.SourceId);
+    }
+
+    [Fact]
+    public async Task DebtAging_LinesCarrySourceKindAndId()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 6, 1))).Result).Value);
+
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(ReportSourceKinds.Invoice, line.SourceKind);
+        Assert.Equal(line.InvoiceId, line.SourceId);
+    }
+
     // B11: the export wrapper is a thin pass-through over the JSON action's own data — this proves
     // the file it hands back is actually a valid, readable workbook containing that same row.
     [Fact]
     public async Task SalesBookExport_ReturnsXlsxWithMatchingRow()
     {
         var (db, companyId, invoiceNumber, _) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -534,7 +567,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task PurchaseBookExport_ReturnsXlsxWithMatchingRow()
     {
         var (db, companyId, _, vendorReference) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.PurchaseBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -557,7 +590,7 @@ public class ReportsControllerTests : IAsyncLifetime
         var company = await db.Companies.SingleAsync(c => c.Id == companyId);
         company.IsVatRegistered = false;
         await db.SaveChangesAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.SalesBookExport(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
@@ -574,7 +607,7 @@ public class ReportsControllerTests : IAsyncLifetime
     public async Task SalesBook_ExcludesInvoiceOutsideDateRange()
     {
         var (db, companyId, _, _) = await SeedBookScenarioAsync();
-        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.SalesBook(companyId, new DateOnly(2026, 4, 1), new DateOnly(2026, 12, 31));
 
@@ -586,7 +619,7 @@ public class ReportsControllerTests : IAsyncLifetime
     private static readonly DateOnly To = new(2026, 12, 31);
 
     private static ReportsController ControllerWithHttp(PakoDbContext db) =>
-        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
+        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>())) { ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() } };
 
     private static ClosedXML.Excel.IXLWorksheet Sheet(IActionResult result)
     {
@@ -797,6 +830,122 @@ public class ReportsControllerTests : IAsyncLifetime
 
             Assert.Equal(vat ? postedInvoices + rc18Bills : postedInvoices, DataRows(Sheet(await controller.SalesBookExport(companyId, From, To))));
             Assert.Equal(postedBills, DataRows(Sheet(await controller.PurchaseBookExport(companyId, From, To))));
+        }
+    }
+
+    [Fact]
+    public async Task DebtAging_ExcludesInvoicesIssuedAfterAsOf()
+    {
+        var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(new DateOnly(2026, 1, 1), paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var before = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2025, 12, 31))).Result).Value);
+        var onIssue = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 1, 1))).Result).Value);
+
+        Assert.Empty(before.Lines);
+        Assert.Equal(0m, before.TotalCurrent);
+        Assert.Single(onIssue.Lines);
+    }
+
+    [Fact]
+    public async Task DebtAging_IgnoresPaymentsAfterAsOf()
+    {
+        var (db, companyId, invoiceId, _) = await SeedUnpaidInvoiceWithTerms(new DateOnly(2026, 1, 1), paymentTermDays: 30, graceDays: 5);
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        var receivableId = (await db.CompanyAccountDefaults.SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        var cash = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1000", Name = "Bank", AccountType = AccountType.Cash };
+        db.Accounts.Add(cash);
+        var journal = await db.Journals.SingleAsync(j => j.CompanyId == companyId);
+        var paymentLine = new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivableId, Credit = 500m };
+        var payment = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journal.Id, Date = new DateOnly(2026, 2, 20),
+            Lines = { paymentLine, new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 500m } }
+        };
+        payment.Post(company);
+        db.JournalEntries.Add(payment);
+        db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, paymentLine.Id, 500m));
+        await db.SaveChangesAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var beforePayment = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 2, 6))).Result).Value);
+        var afterPayment = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 2, 20))).Result).Value);
+
+        var line = Assert.Single(beforePayment.Lines);
+        Assert.Equal(500m, line.Outstanding);
+        Assert.Empty(afterPayment.Lines);
+    }
+
+    [Fact]
+    public async Task ProfitAndLoss_WithoutCostOfRevenue_GrossProfitEqualsIncome()
+    {
+        var (db, companyId) = await SeedMixedScenario();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var response = Assert.IsType<ProfitAndLossResponse>(Assert.IsType<OkObjectResult>((await controller.ProfitAndLoss(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31))).Result).Value);
+
+        Assert.Empty(response.CostOfRevenue);
+        Assert.Equal(0m, response.TotalCostOfRevenue);
+        Assert.Equal(847.46m, response.GrossProfit);
+    }
+
+    [Fact]
+    public async Task BalanceSheetExport_ListsLiabilitiesAndEquityTotalAndDifferenceRows()
+    {
+        var (db, companyId) = await SeedMixedScenario();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (var (culture, total, difference) in new[] { ("en", "Total liabilities and equity", "Difference"), ("sq", "Gjithsejt detyrimet dhe ekuiteti", "Diferenca") })
+            {
+                CultureInfo.CurrentUICulture = new CultureInfo(culture);
+                var file = Assert.IsType<FileContentResult>(await controller.BalanceSheetExport(companyId, new DateOnly(2026, 12, 31)));
+                using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+                var sheet = workbook.Worksheet(1);
+                Assert.Equal(2061.02m, sheet.RowsUsed().Single(r => r.Cell(3).GetString() == total).Cell(4).GetValue<decimal>());
+                Assert.Equal(0m, sheet.RowsUsed().Single(r => r.Cell(3).GetString() == difference).Cell(4).GetValue<decimal>());
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Fact]
+    public async Task DebtAgingExport_HasCustomerNamesAndTranslatedBucketsWithTotals()
+    {
+        var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(new DateOnly(2026, 1, 1), paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (var (culture, sheetName, header, customerHeader, bucket, total) in new[]
+            {
+                ("en", "Debt Aging", "Invoice", "Customer", "Within grace", "Total"),
+                ("sq", "Vjetërsia e borxhit", "Fatura", "Klienti", "Brenda periudhës së faljes", "Gjithsejt")
+            })
+            {
+                CultureInfo.CurrentUICulture = new CultureInfo(culture);
+                var file = Assert.IsType<FileContentResult>(await controller.DebtAgingExport(companyId, new DateOnly(2026, 2, 4)));
+                Assert.Equal("debt-aging-20260204.xlsx", file.FileDownloadName);
+                using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+                var sheet = workbook.Worksheet(1);
+                Assert.Equal(sheetName, sheet.Name);
+                Assert.Equal(header, sheet.Cell(1, 1).GetString());
+                Assert.Equal(customerHeader, sheet.Cell(1, 2).GetString());
+                Assert.Equal("Customer Co", sheet.Cell(2, 2).GetString());
+                Assert.Equal(500m, sheet.Cell(2, 6).GetValue<decimal>());
+                Assert.Equal(bucket, sheet.Cell(2, 7).GetString());
+                var totals = sheet.RowsUsed().Where(r => r.Cell(1).GetString() == total).ToList();
+                Assert.Equal(3, totals.Count);
+                Assert.Equal(500m, totals.Sum(r => r.Cell(6).GetValue<decimal>()));
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
         }
     }
 }

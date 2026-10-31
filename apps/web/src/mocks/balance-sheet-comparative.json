@@ -1,0 +1,22 @@
+{
+  "asOf": "2026-12-31",
+  "compareTo": "2025-12-31",
+  "assets": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000100", "accountCode": "100", "accountName": "Cash and bank", "current": 45000.00, "prior": 30000.00, "difference": 15000.00 },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000120", "accountCode": "120", "accountName": "Trade receivables", "current": 25000.00, "prior": 20000.00, "difference": 5000.00 },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000210", "accountCode": "210", "accountName": "Fixed assets", "current": 60000.00, "prior": 50000.00, "difference": 10000.00 }
+  ],
+  "liabilities": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000400", "accountCode": "400", "accountName": "Trade payables", "current": 20000.00, "prior": 15000.00, "difference": 5000.00 },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000410", "accountCode": "410", "accountName": "Bank loan", "current": 40000.00, "prior": 40000.00, "difference": 0.00 }
+  ],
+  "equity": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000500", "accountCode": "500", "accountName": "Share capital", "current": 10000.00, "prior": 10000.00, "difference": 0.00 },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000560", "accountCode": "560", "accountName": "Retained earnings", "current": 60000.00, "prior": 35000.00, "difference": 25000.00 }
+  ],
+  "totalAssets": 130000.00,
+  "totalLiabilitiesAndEquity": 130000.00,
+  "assetsTotals": { "current": 130000.00, "prior": 100000.00, "difference": 30000.00 },
+  "liabilitiesTotals": { "current": 60000.00, "prior": 55000.00, "difference": 5000.00 },
+  "equityTotals": { "current": 70000.00, "prior": 45000.00, "difference": 25000.00 }
+}
