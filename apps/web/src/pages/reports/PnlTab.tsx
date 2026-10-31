@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
+import { accountPath } from "@/lib/entityLinks";
+import { LinkedRow } from "./LinkedRow";
 import { DrillAmount, ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { usePnlReport } from "./usePnlReport";
@@ -69,11 +71,11 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                 </TableHeader>
                 <TableBody>
                   {pnl.income.map((line) => (
-                    <TableRow key={line.accountId}>
+                    <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                       <TableCell>{line.accountCode}</TableCell>
                       <TableCell>{line.accountName}</TableCell>
                       <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
-                    </TableRow>
+                    </LinkedRow>
                   ))}
                 </TableBody>
               </Table>
@@ -91,11 +93,11 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                   </TableHeader>
                   <TableBody>
                     {pnl.costOfRevenue.map((line) => (
-                      <TableRow key={line.accountId}>
+                      <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                         <TableCell>{line.accountCode}</TableCell>
                         <TableCell>{line.accountName}</TableCell>
                         <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
-                      </TableRow>
+                      </LinkedRow>
                     ))}
                   </TableBody>
                 </Table>
@@ -113,11 +115,11 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                 </TableHeader>
                 <TableBody>
                   {pnl.operatingExpenses.map((line) => (
-                    <TableRow key={line.accountId}>
+                    <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                       <TableCell>{line.accountCode}</TableCell>
                       <TableCell>{line.accountName}</TableCell>
                       <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
-                    </TableRow>
+                    </LinkedRow>
                   ))}
                 </TableBody>
               </Table>

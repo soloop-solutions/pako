@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { cn } from "@/lib/utils";
+import { accountPath } from "@/lib/entityLinks";
+import { LinkedRow } from "./LinkedRow";
 import { DrillAmount, ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import { ComparativeBalanceSheet } from "./ComparativeBalanceSheet";
@@ -83,11 +85,11 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
                   </TableHeader>
                   <TableBody>
                     {lines.map((line) => (
-                      <TableRow key={line.accountId}>
+                      <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                         <TableCell>{line.accountCode}</TableCell>
                         <TableCell>{line.accountName}</TableCell>
                         <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
-                      </TableRow>
+                      </LinkedRow>
                     ))}
                   </TableBody>
                 </Table>

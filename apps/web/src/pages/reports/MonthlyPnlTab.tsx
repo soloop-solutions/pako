@@ -5,6 +5,7 @@ import type { MonthlyReportLine } from "@pako/shared";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { accountPath } from "@/lib/entityLinks";
 
 import { ReportGrid, type ReportRow } from "./ReportGrid";
 import { ReportShell } from "./ReportShell";
@@ -42,6 +43,7 @@ export function MonthlyPnlTab({ report, companyName, accountingLockDate }: { rep
         code: line.accountCode,
         label: line.accountName,
         values: [...line.months, line.total],
+        href: accountPath(line.accountId),
       })),
       { key: `${key}-total`, kind: "summary", label: intl.formatMessage({ id: totalTitleId }), values: [...byMonth, total] },
     ];

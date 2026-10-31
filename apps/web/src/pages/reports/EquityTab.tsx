@@ -1,6 +1,8 @@
 import { useMemo } from "react";
 import { useIntl } from "react-intl";
 
+import { accountPath } from "@/lib/entityLinks";
+
 import { ReportGrid, type ReportRow } from "./ReportGrid";
 import { DateRangeFields, ReportShell } from "./ReportShell";
 import type { useEquityStatementReport } from "./useEquityStatementReport";
@@ -15,7 +17,7 @@ export function EquityTab({ report, companyName, accountingLockDate }: { report:
       { key: "opening", kind: "summary", label: intl.formatMessage({ id: "reports.openingEquity" }), values: [data.openingEquity] },
       { key: "net-income", kind: "line", label: intl.formatMessage({ id: "reports.netIncomeLabel" }), values: [data.netIncome] },
       { key: "movements", kind: "section", label: intl.formatMessage({ id: "reports.equityMovements" }), values: [] },
-      ...data.movements.map((line): ReportRow => ({ key: `m-${line.accountId}`, kind: "line", code: line.accountCode, label: line.accountName, values: [line.amount] })),
+      ...data.movements.map((line): ReportRow => ({ key: `m-${line.accountId}`, kind: "line", code: line.accountCode, label: line.accountName, values: [line.amount], href: accountPath(line.accountId) })),
       { key: "closing", kind: "summary", label: intl.formatMessage({ id: "reports.closingEquity" }), values: [data.closingEquity] },
     ];
   }, [data, intl]);

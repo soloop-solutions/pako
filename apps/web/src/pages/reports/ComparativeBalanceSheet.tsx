@@ -3,6 +3,8 @@ import { useIntl } from "react-intl";
 
 import type { BalanceSheetComparativeResponse, ComparativeLine, ComparativeTotals } from "@pako/shared";
 
+import { accountPath } from "@/lib/entityLinks";
+
 import { formatAmount } from "./helpers";
 import { ReportGrid, type ReportRow } from "./ReportGrid";
 
@@ -18,6 +20,7 @@ export function ComparativeBalanceSheet({ data }: { data: BalanceSheetComparativ
         code: line.accountCode,
         label: line.accountName,
         values: [line.current, line.prior, line.difference],
+        href: accountPath(line.accountId),
       })),
       { key: `${key}-total`, kind: "summary", label: intl.formatMessage({ id: totalTitleId }), values: [totals.current, totals.prior, totals.difference] },
     ];

@@ -12,6 +12,11 @@ function LocationProbe() {
   return createElement("div", { "data-testid": "location" }, location.search);
 }
 
+function RouteProbe() {
+  const location = useLocation();
+  return createElement("div", { "data-testid": "route" }, location.pathname + location.search);
+}
+
 export function renderReports(initialEntry: string): ReturnType<typeof render> {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
@@ -21,7 +26,7 @@ export function renderReports(initialEntry: string): ReturnType<typeof render> {
       createElement(
         IntlProviderWrapper,
         null,
-        createElement(QueryClientProvider, { client: queryClient }, createElement(Reports), createElement(LocationProbe)),
+        createElement(QueryClientProvider, { client: queryClient }, createElement(Reports), createElement(LocationProbe), createElement(RouteProbe)),
       ),
     ),
   );

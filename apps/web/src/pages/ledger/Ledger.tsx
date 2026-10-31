@@ -15,6 +15,7 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { PrintButton } from "@/components/shared/PrintButton";
+import { accountPath } from "@/lib/entityLinks";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
 import { JournalEntryDialog } from "@/pages/ledger/JournalEntryDialog";
@@ -312,6 +313,7 @@ export function Ledger() {
             rowCount={trialBalance.length}
             isLoading={loading}
             getRowId={(row) => row.accountId}
+            getRowLink={(row) => accountPath(row.accountId)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "ledger.noPostedEntries" })}
             exportFileName="trial-balance"

@@ -13,6 +13,7 @@ export interface ReportRow {
   code?: string;
   label: string;
   values: (number | undefined)[];
+  href?: string | null;
 }
 
 const ROW_CLASS: Record<ReportRow["kind"], string | undefined> = {
@@ -64,7 +65,7 @@ export function ReportGrid({ gridId, rows, valueHeaders, rowLink }: ReportGridPr
       defaultPageSize={1000}
       pageSizeOptions={[1000]}
       getRowClassName={(row) => ROW_CLASS[row.kind]}
-      getRowLink={rowLink}
+      getRowLink={rowLink ?? ((row) => row.href ?? null)}
     />
   );
 }

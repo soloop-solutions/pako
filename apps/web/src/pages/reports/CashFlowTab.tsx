@@ -4,6 +4,7 @@ import { useIntl } from "react-intl";
 import type { CashFlowLine } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { accountPath } from "@/lib/entityLinks";
 
 import { formatAmount } from "./helpers";
 import { ReportGrid, type ReportRow } from "./ReportGrid";
@@ -18,7 +19,7 @@ export function CashFlowTab({ report, companyName, accountingLockDate }: { repor
     if (!data) return [];
     const section = (key: string, titleId: string, lines: CashFlowLine[]): ReportRow[] => [
       { key, kind: "section", label: intl.formatMessage({ id: titleId }), values: [] },
-      ...lines.map((line): ReportRow => ({ key: `${key}-${line.accountId}`, kind: "line", code: line.accountCode, label: line.accountName, values: [line.amount] })),
+      ...lines.map((line): ReportRow => ({ key: `${key}-${line.accountId}`, kind: "line", code: line.accountCode, label: line.accountName, values: [line.amount], href: accountPath(line.accountId) })),
     ];
     return [
       { key: "opening", kind: "summary", label: intl.formatMessage({ id: "reports.openingCash" }), values: [data.openingCash] },
