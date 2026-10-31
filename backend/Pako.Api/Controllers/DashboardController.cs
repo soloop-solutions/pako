@@ -32,7 +32,7 @@ public class DashboardController : ControllerBase
         var catalog = new Dictionary<string, string[]>();
         foreach (var kpi in new[] { "revenue", "expenses", "netProfit", "grossProfit", "netMargin", "cash", "receivables",
                      "payables", "overdueReceivables", "overduePayables", "salesNet", "purchasesNet", "invoiceCount",
-                     "averageInvoice", "payrollCost", "headcount" })
+                     "averageInvoice", "payrollCost", "headcount", "stockValue", "lowStock", "stockMargin" })
         {
             catalog[$"kpi.{kpi}"] = tiles;
         }
@@ -49,6 +49,7 @@ public class DashboardController : ControllerBase
         catalog["receivablesAging"] = ["column", "stacked", "table"];
         catalog["payablesAging"] = ["column", "stacked", "table"];
         catalog["headcountByDepartment"] = ["bar", "table"];
+        catalog["stockByItem"] = ["bar", "table"];
         return catalog;
     }
 

@@ -37,7 +37,10 @@ public class DashboardService
         _db = db;
         _access = access;
         _tax = tax;
+        _stock = new StockReportService(db, access, tax);
     }
+
+    private readonly StockReportService _stock;
 
     private record Period(DateOnly From, DateOnly To, List<(DateOnly Start, DateOnly End)> Buckets);
 
@@ -49,7 +52,8 @@ public class DashboardService
             Sales: _access.LevelFor(AccessModule.Sales) >= AccessLevel.Read,
             Purchases: _access.LevelFor(AccessModule.Purchases) >= AccessLevel.Read,
             Payroll: _access.LevelFor(AccessModule.Payroll) >= AccessLevel.Read,
-            Hr: _access.LevelFor(AccessModule.Hr) >= AccessLevel.Read);
+            Hr: _access.LevelFor(AccessModule.Hr) >= AccessLevel.Read,
+            Inventory: _access.LevelFor(AccessModule.Inventory) >= AccessLevel.Read);
 
         var resolvedGranularity = ResolveGranularity(from, to, granularity);
         var current = new Period(from, to, Buckets(from, to, resolvedGranularity));
@@ -68,6 +72,7 @@ public class DashboardService
         var receivablesAging = new List<DashboardAgingBucket>();
         var payablesAging = new List<DashboardAgingBucket>();
         var headcountByDepartment = new List<DashboardRankItem>();
+        var stockByItem = new List<DashboardRankItem>();
 
         if (sections.Finance)
         {
@@ -237,10 +242,34 @@ public class DashboardService
                 .ToList();
         }
 
+        if (sections.Inventory)
+        {
+            // docs/INVENTORY_PLAN.md: stock value at the close of the period (and of each bucket, for the
+            // sparkline), items below their minimum, and the gross margin on stock-tracked sales.
+            var dates = current.Buckets.Select(b => b.End).Append(to).ToList();
+            if (compare is not null) dates.Add(compare.To);
+            var positions = await _stock.PositionsAtAsync(companyId, dates);
+            decimal ValueAt(DateOnly day) => positions[day].Values.Sum(p => p.Value);
+            kpis.Add(Kpi("stockValue", ValueAt(to), compare is null ? null : ValueAt(compare.To),
+                current.Buckets.Select(b => ValueAt(b.End))));
+            kpis.Add(Kpi("lowStock", await _stock.BelowMinimumCountAsync(companyId, positions[to]), null, Array.Empty<decimal>()));
+            var margin = await _stock.MarginAsync(companyId, from, to, "item");
+            var previousMargin = compare is null ? null : await _stock.MarginAsync(companyId, compare.From, compare.To, "item");
+            kpis.Add(Kpi("stockMargin", margin.MarginPercent ?? 0, previousMargin is null ? null : previousMargin.MarginPercent ?? 0,
+                Array.Empty<decimal>()));
+
+            var names = await _stock.ItemNamesAsync(companyId);
+            var previousPositions = compare is null ? null : positions[compare.To];
+            stockByItem = Rank(positions[to].Where(p => names.ContainsKey(p.Key))
+                .Select(p => new DashboardRankItem(p.Key, names[p.Key], p.Value.Value,
+                    previousPositions is null ? null : previousPositions.TryGetValue(p.Key, out var prev) ? prev.Value : 0m)),
+                compare is not null);
+        }
+
         return new DashboardResponse(
             from, to, compare?.From, compare?.To, resolvedGranularity, sections, kpis, series, compareSeries,
             revenueByAccount, expensesByAccount, topCustomers, topVendors, topItems, receivablesAging, payablesAging,
-            headcountByDepartment);
+            headcountByDepartment, stockByItem);
     }
 
     // ---- Periods ----

@@ -14,6 +14,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 import { itemTypeLabel } from "@/lib/item-types";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
@@ -63,6 +64,14 @@ export function Items() {
 
   const taxes = useMemo<TaxDefinitionResponse[]>(() => taxesQuery.data ?? [], [taxesQuery.data]);
   const accounts = useMemo<AccountResponse[]>(() => accountsQuery.data ?? [], [accountsQuery.data]);
+  const { canSee } = useMyAccess();
+  const showStock = canSee("inventory");
+  const categoriesQuery = useQuery({
+    queryKey: ["itemCategories", activeCompanyId],
+    queryFn: () => apiClient.listItemCategories(activeCompanyId as string),
+    enabled: !!activeCompanyId,
+  });
+  const categories = categoriesQuery.data ?? [];
   // B13: AccountType widened to Odoo's real 19 values — Income/Expense are each now a family of
   // types (e.g. Expense/OtherExpense/Depreciation/CostOfRevenue), not one bucket.
   const incomeAccounts = useMemo(() => accounts.filter((a) => isIncomeAccountType(a.accountType)), [accounts]);
@@ -90,6 +99,9 @@ export function Items() {
         defaultExpenseAccountId: fields.defaultExpenseAccountId,
         defaultInventoryAccountId: fields.defaultInventoryAccountId,
         description: fields.description,
+        categoryId: fields.categoryId,
+        trackInventory: fields.trackInventory,
+        minimumStock: fields.minimumStock,
       });
     },
     onSuccess: async () => {
@@ -116,6 +128,9 @@ export function Items() {
         defaultExpenseAccountId: vars.fields.defaultExpenseAccountId,
         defaultInventoryAccountId: vars.fields.defaultInventoryAccountId,
         description: vars.fields.description,
+        categoryId: vars.fields.categoryId,
+        trackInventory: vars.fields.trackInventory,
+        minimumStock: vars.fields.minimumStock,
       });
     },
     onSuccess: async () => {
@@ -360,6 +375,8 @@ export function Items() {
           incomeAccounts={incomeAccounts}
           expenseAccounts={expenseAccounts}
           inventoryAccounts={inventoryAccounts}
+          categories={categories}
+          showStock={showStock}
           submitting={createMutation.isPending}
           error={createError}
           onSubmit={(fields) => createMutation.mutate(fields)}
@@ -383,6 +400,8 @@ export function Items() {
             incomeAccounts={incomeAccounts}
             expenseAccounts={expenseAccounts}
             inventoryAccounts={inventoryAccounts}
+          categories={categories}
+          showStock={showStock}
             initial={editingItem}
             submitting={updateMutation.isPending}
             error={editError}

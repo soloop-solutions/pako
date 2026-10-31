@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, ItemCategoryResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,9 @@ export interface ItemFormFields {
   defaultRevenueAccountId?: string;
   defaultExpenseAccountId?: string;
   defaultInventoryAccountId?: string;
+  categoryId?: string;
+  trackInventory: boolean;
+  minimumStock?: number;
 }
 
 interface ItemFormProps {
@@ -30,6 +33,10 @@ interface ItemFormProps {
   incomeAccounts: AccountResponse[];
   expenseAccounts: AccountResponse[];
   inventoryAccounts: AccountResponse[];
+  /** docs/INVENTORY_PLAN.md D9: product categories (empty hides the field). */
+  categories?: ItemCategoryResponse[];
+  /** Show "Track stock" / minimum stock: the company has the Inventory module and the user can see it. */
+  showStock?: boolean;
   initial?: ItemResponse;
   submitting: boolean;
   error: string | null;
@@ -44,6 +51,8 @@ export function ItemForm({
   incomeAccounts,
   expenseAccounts,
   inventoryAccounts,
+  categories = [],
+  showStock = false,
   initial,
   submitting,
   error,
@@ -68,6 +77,12 @@ export function ItemForm({
   const [revenueAccountId, setRevenueAccountId] = useState(initial?.defaultRevenueAccountId ?? "");
   const [expenseAccountId, setExpenseAccountId] = useState(initial?.defaultExpenseAccountId ?? "");
   const [inventoryAccountId, setInventoryAccountId] = useState(initial?.defaultInventoryAccountId ?? "");
+  const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+  const [trackInventory, setTrackInventory] = useState(initial?.trackInventory ?? false);
+  const [minimumStock, setMinimumStock] = useState(initial?.minimumStock != null ? String(initial.minimumStock) : "");
+  // Tracking can't be switched once stock has moved: the ledger and the stock card would disagree.
+  const trackingLocked = initial?.hasStockMoves ?? false;
+  const canTrack = type === ItemType.Goods;
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -81,6 +96,9 @@ export function ItemForm({
       defaultRevenueAccountId: revenueAccountId || undefined,
       defaultExpenseAccountId: expenseAccountId || undefined,
       defaultInventoryAccountId: inventoryAccountId || undefined,
+      categoryId: categoryId || undefined,
+      trackInventory: canTrack && trackInventory,
+      minimumStock: canTrack && trackInventory && minimumStock ? parseFloat(minimumStock) : undefined,
     });
   }
 
@@ -196,6 +214,61 @@ export function ItemForm({
           />
         </div>
       </div>
+
+      {(categories.length > 0 || (showStock && canTrack)) && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {categories.length > 0 && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="item-category">{intl.formatMessage({ id: "items.category" })}</Label>
+              <SearchableSelect
+                id="item-category"
+                value={categoryId}
+                onChange={setCategoryId}
+                placeholder={intl.formatMessage({ id: "items.noCategory" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "items.noCategory" })}
+                options={categories.filter((c) => c.isActive || c.id === categoryId).map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </div>
+          )}
+          {showStock && canTrack && (
+            <>
+              <div className="flex flex-col gap-1">
+                <Label className="invisible" aria-hidden>{intl.formatMessage({ id: "items.trackInventory" })}</Label>
+                <label className="flex h-9 items-center gap-2 text-sm" title={intl.formatMessage({ id: trackingLocked ? "items.trackInventory.locked" : "items.trackInventory.hint" })}>
+                  <input
+                    id="item-track"
+                    type="checkbox"
+                    checked={trackInventory}
+                    disabled={trackingLocked}
+                    onChange={(e) => setTrackInventory(e.target.checked)}
+                  />
+                  {intl.formatMessage({ id: "items.trackInventory" })}
+                </label>
+                <p className="text-xs text-muted-foreground">
+                  {intl.formatMessage({ id: trackingLocked ? "items.trackInventory.locked" : "items.trackInventory.hint" })}
+                </p>
+              </div>
+              {trackInventory && (
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="item-minimum">{intl.formatMessage({ id: "items.minimumStock" })}</Label>
+                  <Input
+                    id="item-minimum"
+                    type="number"
+                    min="0"
+                    step="any"
+                    className="text-right tabular-nums"
+                    value={minimumStock}
+                    onChange={(e) => setMinimumStock(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.minimumStock.hint" })}</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={submitting || !name.trim() || !unit.trim()}>

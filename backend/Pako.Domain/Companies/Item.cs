@@ -32,5 +32,13 @@ public class Item
     public Guid? DefaultInventoryAccountId { get; set; }
     public decimal? DefaultUnitPrice { get; set; }
 
+    // docs/INVENTORY_PLAN.md: the category supplies the accounts when the item doesn't (D9); a
+    // tracked Goods item carries stock — bills and invoices move it and cost of goods sold is posted.
+    // Untracked items keep posting exactly as before (D5).
+    public Guid? CategoryId { get; set; }
+    public bool TrackInventory { get; set; }
+    // Below this, the item shows on the low-stock report.
+    public decimal? MinimumStock { get; set; }
+
     public List<ItemBarcode> Barcodes { get; set; } = new();
 }

@@ -20,6 +20,8 @@ import { partnerOptionLabel } from "@/lib/partners";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
+import { OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { useStockOnHand } from "@/hooks/useStock";
 
 type Line = {
   description: string;
@@ -150,6 +152,8 @@ export function BillForm({
   const [issueDate, setIssueDate] = useState(editingBill?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(editingBill?.dueDate ?? today);
   const [internalNotes, setInternalNotes] = useState(editingBill?.internalNotes ?? "");
+  // docs/INVENTORY_PLAN.md §6: the warehouse stock-tracked lines arrive in ("" = the default one).
+  const [warehouseId, setWarehouseId] = useState(editingBill?.warehouseId ?? "");
   // C1/C5: PriceMode/inline-payment are Create-only features — UpdateBillRequest (the Draft-edit
   // path) doesn't carry either field, so this state is only read from the Create branch of
   // handleSubmit and its inputs are hidden while editing.
@@ -172,6 +176,8 @@ export function BillForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
+  const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
 
   // Auto-populate lines from the original bill when creating a Purchase Return. Only fires when:
   // 1. This form is fixed to PurchaseReturn (fixedDocumentType === 2)
@@ -295,6 +301,7 @@ export function BillForm({
           originalBillId: originalBillId || undefined,
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
+          warehouseId: warehouseId || undefined,
         });
         recordFavorites();
         onSaved?.();
@@ -308,6 +315,7 @@ export function BillForm({
           originalBillId: originalBillId || undefined,
           priceMode,
           lines: lineRequests,
+          warehouseId: warehouseId || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
@@ -407,6 +415,7 @@ export function BillForm({
           <Label htmlFor="bill-due-date">{intl.formatMessage({ id: "billForm.dueDate" })}</Label>
           <Input id="bill-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
         </div>
+        <WarehouseField id="bill-warehouse" value={warehouseId} onChange={setWarehouseId} />
       </div>
 
       {editingBill && (
@@ -452,7 +461,7 @@ export function BillForm({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}>
         {lines.map((line, index) => {
           const enteredAmount = lineEnteredAmount(line);
           const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
@@ -516,7 +525,7 @@ export function BillForm({
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="relative flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.qty" })}</Label>}
               <Input
                 type="number"
@@ -525,6 +534,14 @@ export function BillForm({
                 value={line.quantity}
                 onChange={(event) => updateLine(index, { quantity: event.target.value })}
               />
+              {selectedItem?.trackInventory && (
+                <OnHandHint
+                  className="absolute -bottom-4 right-0 whitespace-nowrap"
+                  onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
+                  requested={parseFloat(line.quantity) || 0}
+                  warnWhenShort={documentType === BillDocumentType.PurchaseReturn}
+                />
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && (

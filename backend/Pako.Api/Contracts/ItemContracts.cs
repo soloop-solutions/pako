@@ -11,7 +11,11 @@ public record CreateItemRequest(
     Guid? DefaultExpenseAccountId = null,
     Guid? DefaultInventoryAccountId = null,
     decimal? DefaultUnitPrice = null,
-    string? Description = null);
+    string? Description = null,
+    // docs/INVENTORY_PLAN.md: category (D9), stock tracking (D5, Goods only), low-stock threshold.
+    Guid? CategoryId = null,
+    bool TrackInventory = false,
+    decimal? MinimumStock = null);
 
 public record UpdateItemRequest(
     string Name,
@@ -22,7 +26,10 @@ public record UpdateItemRequest(
     Guid? DefaultExpenseAccountId = null,
     Guid? DefaultInventoryAccountId = null,
     decimal? DefaultUnitPrice = null,
-    string? Description = null);
+    string? Description = null,
+    Guid? CategoryId = null,
+    bool TrackInventory = false,
+    decimal? MinimumStock = null);
 
 public record AddBarcodeRequest(string Barcode);
 
@@ -40,7 +47,12 @@ public record ItemResponse(
     Guid? DefaultExpenseAccountId,
     Guid? DefaultInventoryAccountId,
     decimal? DefaultUnitPrice,
-    List<ItemBarcodeResponse> Barcodes);
+    List<ItemBarcodeResponse> Barcodes,
+    Guid? CategoryId = null,
+    bool TrackInventory = false,
+    decimal? MinimumStock = null,
+    // True once stock has moved: tracking can't be switched off and the type can't change.
+    bool HasStockMoves = false);
 
 // B7: the one paginated-list shape — ?page=&pageSize=&search=&sort= in, { items, total, page,
 // pageSize } out. Proved here on Items (including the 35,000-row/index-backed verify criterion);

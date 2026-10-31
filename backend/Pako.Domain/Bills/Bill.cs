@@ -45,6 +45,9 @@ public class Bill
     // GrossInclusive is the default (matches the pre-existing gross line-entry convention).
     public PriceMode PriceMode { get; set; } = PriceMode.GrossInclusive;
 
+    // docs/INVENTORY_PLAN.md: the warehouse stock-tracked lines arrive in; null = the company default.
+    public Guid? WarehouseId { get; set; }
+
     public List<BillLine> Lines { get; set; } = new();
 
     public JournalEntry Post(

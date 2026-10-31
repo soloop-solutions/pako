@@ -179,9 +179,14 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");
 
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OriginalBillId");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasIndex("CompanyId", "State");
 
@@ -548,6 +553,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<string>("InventoryAccess")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
                     b.Property<string>("ItemsAccess")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -692,6 +702,9 @@ namespace Pako.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Code")
                         .HasColumnType("integer");
 
@@ -716,10 +729,16 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<decimal?>("MinimumStock")
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("TrackInventory")
+                        .HasColumnType("boolean");
 
                     b.Property<int>("Type")
                         .HasColumnType("integer");
@@ -730,6 +749,8 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("character varying(32)");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
 
                     b.HasIndex("CompanyId", "Code")
                         .IsUnique();
@@ -1542,6 +1563,391 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("time_entries", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Inventory.ItemCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CogsAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ExpenseAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("InventoryAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("RevenueAccountId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("item_categories", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.ItemCost", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AverageCost")
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("LastMoveDate")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("ItemId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("item_costs", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockBalance", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LocationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("ItemId", "LocationId");
+
+                    b.HasIndex("LocationId");
+
+                    b.HasIndex("CompanyId", "LocationId");
+
+                    b.ToTable("stock_balances", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("AtkNoticeDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("DestinationWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Number")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("PostedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("PostedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DestinationWarehouseId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique()
+                        .HasFilter("\"Number\" IS NOT NULL");
+
+                    b.HasIndex("CompanyId", "Type", "Date");
+
+                    b.ToTable("stock_documents", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockDocumentLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("BookQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("Difference")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("StockDocumentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("UnitCost")
+                        .HasColumnType("numeric(18,6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("StockDocumentId");
+
+                    b.ToTable("stock_document_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockLocation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Usage")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "Usage", "WarehouseId");
+
+                    b.ToTable("stock_locations", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockMove", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AvgCostAfter")
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Correction")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("FromLocationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<decimal>("QtyAfter")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<long>("Sequence")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityAlwaysColumn(b.Property<long>("Sequence"));
+
+                    b.Property<Guid>("SourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("SourceLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SourceType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("ToLocationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitCost")
+                        .HasColumnType("numeric(18,6)");
+
+                    b.Property<decimal>("Value")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ValueAfter")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ValueDelta")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FromLocationId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ToLocationId");
+
+                    b.HasIndex("SourceType", "SourceId");
+
+                    b.HasIndex("CompanyId", "ItemId", "Date", "Sequence");
+
+                    b.ToTable("stock_moves", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockSettings", b =>
+                {
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CostMethod")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateOnly?>("CostMethodSince")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("DefaultWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("NegativeStock")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("CompanyId");
+
+                    b.HasIndex("DefaultWarehouseId");
+
+                    b.ToTable("stock_settings", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.Warehouse", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("warehouses", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Invoicing.DocumentEditAudit", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1635,9 +2041,14 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OriginalInvoiceId");
+
+                    b.HasIndex("WarehouseId");
 
                     b.HasIndex("CompanyId", "InvoiceNumber")
                         .IsUnique()
@@ -3112,6 +3523,11 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("OriginalBillId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Pako.Domain.Bills.BillLine", b =>
@@ -3154,6 +3570,14 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.Item", b =>
+                {
+                    b.HasOne("Pako.Domain.Inventory.ItemCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.ItemBarcode", b =>
@@ -3298,11 +3722,150 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Pako.Domain.Inventory.ItemCategory", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.ItemCost", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockBalance", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.StockLocation", null)
+                        .WithMany()
+                        .HasForeignKey("LocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockDocument", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("DestinationWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockDocumentLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.StockDocument", "StockDocument")
+                        .WithMany("Lines")
+                        .HasForeignKey("StockDocumentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("StockDocument");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockLocation", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockMove", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.StockLocation", null)
+                        .WithMany()
+                        .HasForeignKey("FromLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.StockLocation", null)
+                        .WithMany()
+                        .HasForeignKey("ToLocationId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockSettings", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("DefaultWarehouseId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.Warehouse", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Pako.Domain.Invoicing.Invoice", b =>
                 {
                     b.HasOne("Pako.Domain.Invoicing.Invoice", null)
                         .WithMany()
                         .HasForeignKey("OriginalInvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
@@ -3442,6 +4005,11 @@ namespace Pako.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Pako.Domain.Hr.ExpenseClaim", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.StockDocument", b =>
                 {
                     b.Navigation("Lines");
                 });

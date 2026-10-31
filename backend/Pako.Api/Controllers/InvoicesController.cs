@@ -143,6 +143,12 @@ public class InvoicesController : ControllerBase
             ? new Dictionary<Guid, Item>()
             : await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id) && i.CompanyId == companyId).ToDictionaryAsync(i => i.Id);
 
+        // docs/INVENTORY_PLAN.md D9: the item's category supplies accounts the item doesn't set.
+        var categoryIdsForLines = itemsById.Values.Where(i => i.CategoryId != null).Select(i => i.CategoryId!.Value).Distinct().ToList();
+        var categoriesById = categoryIdsForLines.Count == 0
+            ? new Dictionary<Guid, Pako.Domain.Inventory.ItemCategory>()
+            : await _db.ItemCategories.AsNoTracking().Where(c => categoryIdsForLines.Contains(c.Id)).ToDictionaryAsync(c => c.Id);
+
         var lines = new List<InvoiceLine>();
         var total = 0m;
         foreach (var line in requestLines)
@@ -196,7 +202,9 @@ public class InvoicesController : ControllerBase
             // "company fallback, not refuse the save" for an item with no default of its own.
             var revenueAccountId = documentType == DocumentType.DownPayment
                 ? depositsAccountId
-                : line.RevenueAccountId ?? item?.DefaultRevenueAccountId ?? defaultRevenueAccountId;
+                : line.RevenueAccountId ?? item?.DefaultRevenueAccountId
+                    ?? (item?.CategoryId is { } categoryId ? categoriesById.GetValueOrDefault(categoryId)?.RevenueAccountId : null)
+                    ?? defaultRevenueAccountId;
             if (!validAccountIds.Contains(revenueAccountId))
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["RevenueAccountNotBelongToCompany"], revenueAccountId)));
@@ -297,6 +305,7 @@ public class InvoicesController : ControllerBase
             PaymentTermDays = request.PaymentTermDays ?? partner.PaymentTermDays,
             GraceDays = request.GraceDays,
             InternalNotes = request.InternalNotes,
+            WarehouseId = request.WarehouseId,
             Lines = lines!
         };
 
@@ -503,6 +512,7 @@ public class InvoicesController : ControllerBase
         invoice.DocumentType = request.DocumentType;
         invoice.OriginalInvoiceId = request.OriginalInvoiceId;
         invoice.InternalNotes = request.InternalNotes;
+        invoice.WarehouseId = request.WarehouseId;
 
         await _db.SaveChangesAsync();
 
@@ -1436,10 +1446,30 @@ public class InvoicesController : ControllerBase
             }
         }
 
+        // docs/INVENTORY_PLAN.md §5.3: stock-tracked goods leave stock (invoice) or come back (sales
+        // return), and cost of goods sold is posted in the invoice's own entry. A refusal (not enough
+        // stock under Block) stops the posting before anything is saved.
+        StockService.StockPosting? stockPosting = null;
+        if (invoice.DocumentType is DocumentType.Invoice or DocumentType.SalesReturn)
+        {
+            try
+            {
+                stockPosting = await PostInvoiceStockAsync(company, invoice, journalEntry);
+            }
+            catch (StockException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         // B1: numbering from NumberSeries table, row-locked (gapless). Falls back to the old
         // Company counter via IDocumentNumberService on InMemory (tests).
         var docTypeKey = NumberSeriesService.DocumentTypeKey(invoice.DocumentType);
         invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(company.Id, docTypeKey, invoice.IssueDate);
+        foreach (var outcome in stockPosting?.Moves ?? [])
+        {
+            outcome.Move.Reference = invoice.InvoiceNumber;
+        }
         journalEntry.Reference = invoice.InvoiceNumber;
 
         journalEntry.PostedByUserId = CurrentUserId;
@@ -1448,6 +1478,52 @@ public class InvoicesController : ControllerBase
 
         _db.JournalEntries.Add(journalEntry);
         return null;
+    }
+
+    private async Task<StockService.StockPosting?> PostInvoiceStockAsync(Company company, Invoice invoice, JournalEntry journalEntry)
+    {
+        var stock = new StockService(_db, _localizer);
+        var tracked = await stock.TrackedItemsAsync(company.Id, invoice.Lines.Select(l => l.ItemId));
+        if (tracked.Count == 0) return null;
+        var accounts = await stock.AccountsForAsync(company.Id, tracked.Values);
+        var location = await stock.DocumentLocationAsync(company.Id, invoice.WarehouseId);
+        var customer = await stock.VirtualLocationAsync(company.Id, Pako.Domain.Inventory.LocationUsage.Customer);
+        var isReturn = invoice.DocumentType == DocumentType.SalesReturn;
+
+        // D13: returned goods come back at what they cost when the original invoice sold them.
+        var originalUnitCost = new Dictionary<Guid, decimal>();
+        if (isReturn && invoice.OriginalInvoiceId is { } originalId)
+        {
+            originalUnitCost = (await _db.StockMoves.AsNoTracking()
+                    .Where(m => m.SourceType == Pako.Domain.Inventory.StockMoveSource.Invoice && m.SourceId == originalId
+                        && m.Kind == Pako.Domain.Inventory.StockMoveKind.Issue && m.Quantity > 0)
+                    .GroupBy(m => m.ItemId)
+                    .Select(g => new { g.Key, Value = g.Sum(m => m.Value), Quantity = g.Sum(m => m.Quantity) })
+                    .ToListAsync())
+                .ToDictionary(g => g.Key, g => g.Value / g.Quantity);
+        }
+
+        var requests = new List<StockService.MoveRequest>();
+        foreach (var line in invoice.Lines.Where(l => l.ItemId is { } id && tracked.ContainsKey(id) && l.Quantity > 0))
+        {
+            var itemId = line.ItemId!.Value;
+            requests.Add(isReturn
+                ? new StockService.MoveRequest(itemId, Pako.Domain.Inventory.StockMoveKind.Receipt, customer.Id, location.Id, line.Quantity,
+                    originalUnitCost.TryGetValue(itemId, out var unit) ? Pako.Domain.Inventory.AverageCost.Money(unit * line.Quantity) : null, line.Id)
+                : new StockService.MoveRequest(itemId, Pako.Domain.Inventory.StockMoveKind.Issue, location.Id, customer.Id, line.Quantity, SourceLineId: line.Id));
+        }
+
+        var posting = await stock.ApplyAsync(company.Id, invoice.IssueDate, Pako.Domain.Inventory.StockMoveSource.Invoice, invoice.Id, null, requests);
+        var cogsLabel = _localizer[isReturn ? "StockGoodsReturned" : "StockCostOfGoodsSold"].Value;
+        foreach (var outcome in posting.Moves)
+        {
+            var a = accounts[outcome.Request.ItemId];
+            if (isReturn) StockService.AddPair(journalEntry, a.InventoryAccountId, a.CogsAccountId, outcome.Value, cogsLabel);
+            else StockService.AddPair(journalEntry, a.CogsAccountId, a.InventoryAccountId, outcome.Value, cogsLabel);
+        }
+        StockService.AddCorrections(journalEntry, posting, accounts,
+            posting.Moves.Select(m => (m.Request.ItemId, m.Correction)), _localizer["StockCostCorrection"].Value);
+        return posting;
     }
 
     // B8: total outstanding receivables for a partner across all posted invoices in a company.
@@ -1519,5 +1595,6 @@ public class InvoicesController : ControllerBase
         i.InternalNotes,
         i.PriceMode,
         i.PaymentTermDays,
-        i.GraceDays);
+        i.GraceDays,
+        i.WarehouseId);
 }

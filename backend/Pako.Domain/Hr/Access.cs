@@ -20,6 +20,8 @@ public enum AccessModule
     // docs/USER_ACCESS_PLAN.md areas added with company roles. Payroll split out of Hr so pay
     // data has its own gate (QuickBooks/Odoo both separate it).
     Payroll,
+    // docs/INVENTORY_PLAN.md D7: warehouses, stock documents, stock reports, and seeing cost/margin.
+    Inventory,
     Items,
     Settings,
     Users

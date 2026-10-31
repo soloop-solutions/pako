@@ -10,6 +10,7 @@ export const ACCESS_AREAS = [
   "purchases",
   "partners",
   "items",
+  "inventory",
   "accounting",
   "reports",
   "hr",
@@ -38,7 +39,7 @@ export function areaLabel(area: AccessArea, intl: IntlShape): string {
 }
 
 export function emptyLevels(): ModuleAccessResponse {
-  return { sales: 0, purchases: 0, partners: 0, accounting: 0, reports: 0, hr: 0, items: 0, payroll: 0, settings: 0, users: 0 };
+  return { sales: 0, purchases: 0, partners: 0, accounting: 0, reports: 0, hr: 0, items: 0, payroll: 0, settings: 0, users: 0, inventory: 0 };
 }
 
 // Which sidebar pages a set of levels opens — the "what will this person see" preview. The same

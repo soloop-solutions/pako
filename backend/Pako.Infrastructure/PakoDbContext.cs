@@ -77,6 +77,17 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<DashboardLayout> DashboardLayouts => Set<DashboardLayout>();
     public DbSet<Pako.Domain.Platform.AccountRequest> AccountRequests => Set<Pako.Domain.Platform.AccountRequest>();
     public DbSet<Pako.Domain.Platform.PlatformAuditEntry> PlatformAuditEntries => Set<Pako.Domain.Platform.PlatformAuditEntry>();
+
+    // docs/INVENTORY_PLAN.md
+    public DbSet<Pako.Domain.Inventory.ItemCategory> ItemCategories => Set<Pako.Domain.Inventory.ItemCategory>();
+    public DbSet<Pako.Domain.Inventory.Warehouse> Warehouses => Set<Pako.Domain.Inventory.Warehouse>();
+    public DbSet<Pako.Domain.Inventory.StockLocation> StockLocations => Set<Pako.Domain.Inventory.StockLocation>();
+    public DbSet<Pako.Domain.Inventory.StockSettings> StockSettings => Set<Pako.Domain.Inventory.StockSettings>();
+    public DbSet<Pako.Domain.Inventory.StockMove> StockMoves => Set<Pako.Domain.Inventory.StockMove>();
+    public DbSet<Pako.Domain.Inventory.StockBalance> StockBalances => Set<Pako.Domain.Inventory.StockBalance>();
+    public DbSet<Pako.Domain.Inventory.ItemCost> ItemCosts => Set<Pako.Domain.Inventory.ItemCost>();
+    public DbSet<Pako.Domain.Inventory.StockDocument> StockDocuments => Set<Pako.Domain.Inventory.StockDocument>();
+    public DbSet<Pako.Domain.Inventory.StockDocumentLine> StockDocumentLines => Set<Pako.Domain.Inventory.StockDocumentLine>();
     public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -307,7 +307,8 @@ public record ModuleAccessResponse(
     AccessLevel Items = AccessLevel.None,
     AccessLevel Payroll = AccessLevel.None,
     AccessLevel Settings = AccessLevel.None,
-    AccessLevel Users = AccessLevel.None);
+    AccessLevel Users = AccessLevel.None,
+    AccessLevel Inventory = AccessLevel.None);
 
 // What the web needs to hide nav items and buttons. IsStaff=false means classic role access:
 // Modules reflect the role (Write for write-capable roles, Read for ClientViewer).

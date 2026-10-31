@@ -76,7 +76,7 @@ public class ItemsController : ControllerBase
             .Take(pageSize)
             .ToListAsync();
 
-        return Ok(new PaginatedResponse<ItemResponse>(items.Select(ToResponse).ToList(), total, page, pageSize));
+        return Ok(new PaginatedResponse<ItemResponse>(items.Select(i => ToResponse(i)).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{itemId:guid}")]
@@ -103,6 +103,8 @@ public class ItemsController : ControllerBase
 
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
+        var stockError = await ValidateStockFieldsAsync(companyId, null, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock);
+        if (stockError is not null) return BadRequest(stockError);
 
         // B6: auto-assign the next ordinal code from the Item number series.
         var year = DateTime.UtcNow.Year;
@@ -122,7 +124,10 @@ public class ItemsController : ControllerBase
             DefaultRevenueAccountId = request.DefaultRevenueAccountId,
             DefaultExpenseAccountId = request.DefaultExpenseAccountId,
             DefaultInventoryAccountId = request.DefaultInventoryAccountId,
-            DefaultUnitPrice = request.DefaultUnitPrice
+            DefaultUnitPrice = request.DefaultUnitPrice,
+            CategoryId = request.CategoryId,
+            TrackInventory = request.TrackInventory && request.Type == ItemType.Goods,
+            MinimumStock = request.MinimumStock
         };
 
         _db.Items.Add(item);
@@ -148,6 +153,14 @@ public class ItemsController : ControllerBase
 
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
+        var stockError = await ValidateStockFieldsAsync(companyId, item, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock);
+        if (stockError is not null) return BadRequest(stockError);
+        // Moving the stock account of an item that carries stock would split its value over two
+        // accounts.
+        if (item.DefaultInventoryAccountId != request.DefaultInventoryAccountId && await _db.StockMoves.AnyAsync(m => m.ItemId == item.Id))
+        {
+            return BadRequest(_localizer["ItemInventoryAccountLocked"].Value);
+        }
 
         item.Name = request.Name.Trim();
         item.Description = request.Description?.Trim();
@@ -158,9 +171,12 @@ public class ItemsController : ControllerBase
         item.DefaultExpenseAccountId = request.DefaultExpenseAccountId;
         item.DefaultInventoryAccountId = request.DefaultInventoryAccountId;
         item.DefaultUnitPrice = request.DefaultUnitPrice;
+        item.CategoryId = request.CategoryId;
+        item.TrackInventory = request.TrackInventory && request.Type == ItemType.Goods;
+        item.MinimumStock = request.MinimumStock;
 
         await _db.SaveChangesAsync();
-        return Ok(ToResponse(item));
+        return Ok(ToResponse(item, await _db.StockMoves.AnyAsync(m => m.ItemId == item.Id)));
     }
 
     // B6: barcode management — add/remove barcodes per item.
@@ -230,9 +246,28 @@ public class ItemsController : ControllerBase
         return null;
     }
 
-    private static ItemResponse ToResponse(Item i) => new(
+    // docs/INVENTORY_PLAN.md: a category of this company; stock only for Goods (D8); once stock has
+    // moved, tracking stays on and the item stays Goods — its history must keep meaning something.
+    private async Task<string?> ValidateStockFieldsAsync(Guid companyId, Item? item, ItemType type, Guid? categoryId, bool track, decimal? minimum)
+    {
+        if (categoryId is { } c && !await _db.ItemCategories.AnyAsync(k => k.Id == c && k.CompanyId == companyId))
+        {
+            return _localizer["ItemCategoryNotFound"].Value;
+        }
+        if (minimum is < 0) return _localizer["StockDocumentQuantity"].Value;
+        if (track && type != ItemType.Goods) return _localizer["StockOnlyForGoods"].Value;
+        if (item is not null && item.TrackInventory && (!track || type != ItemType.Goods)
+            && await _db.StockMoves.AnyAsync(m => m.ItemId == item.Id))
+        {
+            return _localizer["StockTrackingLocked"].Value;
+        }
+        return null;
+    }
+
+    private static ItemResponse ToResponse(Item i, bool hasStockMoves = false) => new(
         i.Id, i.Code, i.Name, i.Description, i.Unit, i.Type,
         i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
-        i.Barcodes.Select(b => new ItemBarcodeResponse(b.Id, b.Barcode)).ToList());
+        i.Barcodes.Select(b => new ItemBarcodeResponse(b.Id, b.Barcode)).ToList(),
+        i.CategoryId, i.TrackInventory, i.MinimumStock, hasStockMoves);
 }

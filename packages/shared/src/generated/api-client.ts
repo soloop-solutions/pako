@@ -4453,6 +4453,612 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    listWarehouses(companyId: string): Promise<WarehouseResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/warehouses";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListWarehouses(_response);
+        });
+    }
+
+    protected processListWarehouses(response: Response): Promise<WarehouseResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WarehouseResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WarehouseResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    createWarehouse(companyId: string, body: SaveWarehouseRequest): Promise<WarehouseResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/warehouses";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateWarehouse(_response);
+        });
+    }
+
+    protected processCreateWarehouse(response: Response): Promise<WarehouseResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WarehouseResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WarehouseResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateWarehouse(companyId: string, warehouseId: string, body: SaveWarehouseRequest): Promise<WarehouseResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/warehouses/{warehouseId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (warehouseId === undefined || warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' must be defined.");
+        url_ = url_.replace("{warehouseId}", encodeURIComponent("" + warehouseId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateWarehouse(_response);
+        });
+    }
+
+    protected processUpdateWarehouse(response: Response): Promise<WarehouseResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WarehouseResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<WarehouseResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listItemCategories(companyId: string): Promise<ItemCategoryResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/categories";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListItemCategories(_response);
+        });
+    }
+
+    protected processListItemCategories(response: Response): Promise<ItemCategoryResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemCategoryResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemCategoryResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    createItemCategory(companyId: string, body: SaveItemCategoryRequest): Promise<ItemCategoryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/categories";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateItemCategory(_response);
+        });
+    }
+
+    protected processCreateItemCategory(response: Response): Promise<ItemCategoryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemCategoryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemCategoryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateItemCategory(companyId: string, categoryId: string, body: SaveItemCategoryRequest): Promise<ItemCategoryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/categories/{categoryId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (categoryId === undefined || categoryId === null)
+            throw new globalThis.Error("The parameter 'categoryId' must be defined.");
+        url_ = url_.replace("{categoryId}", encodeURIComponent("" + categoryId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateItemCategory(_response);
+        });
+    }
+
+    protected processUpdateItemCategory(response: Response): Promise<ItemCategoryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemCategoryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemCategoryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getStockSettings(companyId: string): Promise<StockSettingsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/settings";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetStockSettings(_response);
+        });
+    }
+
+    protected processGetStockSettings(response: Response): Promise<StockSettingsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockSettingsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockSettingsResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    saveStockSettings(companyId: string, body: SaveStockSettingsRequest): Promise<StockSettingsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/settings";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSaveStockSettings(_response);
+        });
+    }
+
+    protected processSaveStockSettings(response: Response): Promise<StockSettingsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockSettingsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockSettingsResponse>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @param warehouseId (optional) 
+     * @param categoryId (optional) 
+     * @param belowMinimum (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listStockLevels(companyId: string, search: string | undefined, warehouseId: string | undefined, categoryId: string | undefined, belowMinimum: boolean | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfStockLevelResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/stock?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (categoryId === null)
+            throw new globalThis.Error("The parameter 'categoryId' cannot be null.");
+        else if (categoryId !== undefined)
+            url_ += "categoryId=" + encodeURIComponent("" + categoryId) + "&";
+        if (belowMinimum === null)
+            throw new globalThis.Error("The parameter 'belowMinimum' cannot be null.");
+        else if (belowMinimum !== undefined)
+            url_ += "belowMinimum=" + encodeURIComponent("" + belowMinimum) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListStockLevels(_response);
+        });
+    }
+
+    protected processListStockLevels(response: Response): Promise<PaginatedResponseOfStockLevelResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfStockLevelResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfStockLevelResponse>(null as any);
+    }
+
+    /**
+     * @param itemIds (optional) 
+     * @param warehouseId (optional) 
+     * @return OK
+     */
+    getStockOnHand(companyId: string, itemIds: string[] | undefined, warehouseId: string | undefined): Promise<StockOnHandResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/on-hand?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemIds === null)
+            throw new globalThis.Error("The parameter 'itemIds' cannot be null.");
+        else if (itemIds !== undefined)
+            itemIds && itemIds.forEach(item => { url_ += "itemIds=" + encodeURIComponent("" + item) + "&"; });
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetStockOnHand(_response);
+        });
+    }
+
+    protected processGetStockOnHand(response: Response): Promise<StockOnHandResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockOnHandResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockOnHandResponse[]>(null as any);
+    }
+
+    /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @return OK
+     */
+    getItemCard(companyId: string, itemId: string, from: string | undefined, to: string | undefined): Promise<ItemCardResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/items/{itemId}/card?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemId === undefined || itemId === null)
+            throw new globalThis.Error("The parameter 'itemId' must be defined.");
+        url_ = url_.replace("{itemId}", encodeURIComponent("" + itemId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetItemCard(_response);
+        });
+    }
+
+    protected processGetItemCard(response: Response): Promise<ItemCardResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemCardResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemCardResponse>(null as any);
+    }
+
+    /**
+     * @param asOf (optional) 
+     * @return OK
+     */
+    getStockValuation(companyId: string, asOf: string | undefined): Promise<StockValuationResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/valuation?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (asOf === null)
+            throw new globalThis.Error("The parameter 'asOf' cannot be null.");
+        else if (asOf !== undefined)
+            url_ += "asOf=" + encodeURIComponent("" + asOf) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetStockValuation(_response);
+        });
+    }
+
+    protected processGetStockValuation(response: Response): Promise<StockValuationResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockValuationResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockValuationResponse>(null as any);
+    }
+
+    /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param groupBy (optional) 
+     * @return OK
+     */
+    getMarginReport(companyId: string, from: string | undefined, to: string | undefined, groupBy: string | undefined): Promise<MarginReportResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/margin?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (groupBy === null)
+            throw new globalThis.Error("The parameter 'groupBy' cannot be null.");
+        else if (groupBy !== undefined)
+            url_ += "groupBy=" + encodeURIComponent("" + groupBy) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetMarginReport(_response);
+        });
+    }
+
+    protected processGetMarginReport(response: Response): Promise<MarginReportResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as MarginReportResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MarginReportResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     invoicesAll(companyId: string): Promise<InvoiceResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices";
         if (companyId === undefined || companyId === null)
@@ -10819,6 +11425,326 @@ export class PakoApiClient {
     }
 
     /**
+     * @param type (optional) 
+     * @param search (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listStockDocuments(companyId: string, type: number | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfStockDocumentSummaryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (type === null)
+            throw new globalThis.Error("The parameter 'type' cannot be null.");
+        else if (type !== undefined)
+            url_ += "type=" + encodeURIComponent("" + type) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListStockDocuments(_response);
+        });
+    }
+
+    protected processListStockDocuments(response: Response): Promise<PaginatedResponseOfStockDocumentSummaryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfStockDocumentSummaryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfStockDocumentSummaryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    createStockDocument(companyId: string, body: SaveStockDocumentRequest): Promise<StockDocumentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateStockDocument(_response);
+        });
+    }
+
+    protected processCreateStockDocument(response: Response): Promise<StockDocumentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockDocumentResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockDocumentResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getStockDocument(companyId: string, id: string): Promise<StockDocumentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetStockDocument(_response);
+        });
+    }
+
+    protected processGetStockDocument(response: Response): Promise<StockDocumentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockDocumentResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockDocumentResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateStockDocument(companyId: string, id: string, body: SaveStockDocumentRequest): Promise<StockDocumentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateStockDocument(_response);
+        });
+    }
+
+    protected processUpdateStockDocument(response: Response): Promise<StockDocumentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockDocumentResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockDocumentResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    discardStockDocument(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDiscardStockDocument(_response);
+        });
+    }
+
+    protected processDiscardStockDocument(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    postStockDocument(companyId: string, id: string): Promise<StockDocumentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents/{id}/post";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPostStockDocument(_response);
+        });
+    }
+
+    protected processPostStockDocument(response: Response): Promise<StockDocumentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockDocumentResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockDocumentResponse>(null as any);
+    }
+
+    /**
+     * @param warehouseId (optional) 
+     * @param date (optional) 
+     * @return OK
+     */
+    getCountSheet(companyId: string, warehouseId: string | undefined, date: string | undefined): Promise<CountSheetRowResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents/count-sheet?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (date === null)
+            throw new globalThis.Error("The parameter 'date' cannot be null.");
+        else if (date !== undefined)
+            url_ += "date=" + encodeURIComponent("" + date) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetCountSheet(_response);
+        });
+    }
+
+    protected processGetCountSheet(response: Response): Promise<CountSheetRowResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CountSheetRowResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CountSheetRowResponse[]>(null as any);
+    }
+
+    /**
      * @return OK
      */
     taxes(companyId: string): Promise<TaxDefinitionResponse[]> {
@@ -11783,6 +12709,7 @@ export interface BillResponse {
     lines: BillLineResponse[];
     internalNotes: string | undefined;
     priceMode: number;
+    warehouseId?: string | undefined;
 
     [key: string]: any;
 }
@@ -11934,6 +12861,16 @@ export interface CostCenterResponse {
     [key: string]: any;
 }
 
+export interface CountSheetRowResponse {
+    itemId: string;
+    itemCode: number;
+    itemName: string;
+    unit: string;
+    bookQuantity: number;
+
+    [key: string]: any;
+}
+
 export interface CreateAccountRequest {
     code: string;
     name: string;
@@ -11989,6 +12926,7 @@ export interface CreateBillRequest {
     originalBillId?: string | undefined;
     priceMode?: number;
     payment?: CreateBillPaymentRequest | undefined;
+    warehouseId?: string | undefined;
 
     [key: string]: any;
 }
@@ -12053,6 +12991,7 @@ export interface CreateInvoiceRequest {
     graceDays?: number | undefined;
     payment?: CreateInvoicePaymentRequest | undefined;
     internalNotes?: string | undefined;
+    warehouseId?: string | undefined;
 
     [key: string]: any;
 }
@@ -12067,6 +13006,9 @@ export interface CreateItemRequest {
     defaultInventoryAccountId?: string | undefined;
     defaultUnitPrice?: number | undefined;
     description?: string | undefined;
+    categoryId?: string | undefined;
+    trackInventory?: boolean;
+    minimumStock?: number | undefined;
 
     [key: string]: any;
 }
@@ -12250,6 +13192,7 @@ export interface DashboardResponse {
     receivablesAging: DashboardAgingBucket[];
     payablesAging: DashboardAgingBucket[];
     headcountByDepartment: DashboardRankItem[];
+    stockByItem?: DashboardRankItem[] | undefined;
 
     [key: string]: any;
 }
@@ -12260,6 +13203,7 @@ export interface DashboardSections {
     purchases: boolean;
     payroll: boolean;
     hr: boolean;
+    inventory?: boolean;
 
     [key: string]: any;
 }
@@ -12620,6 +13564,7 @@ export interface InvoiceResponse {
     priceMode: number;
     paymentTermDays: number | undefined;
     graceDays: number | undefined;
+    warehouseId?: string | undefined;
 
     [key: string]: any;
 }
@@ -12627,6 +13572,55 @@ export interface InvoiceResponse {
 export interface ItemBarcodeResponse {
     id: string;
     barcode: string;
+
+    [key: string]: any;
+}
+
+export interface ItemCardResponse {
+    itemId: string;
+    itemCode: number;
+    itemName: string;
+    unit: string;
+    from: string | undefined;
+    to: string | undefined;
+    openingQuantity: number;
+    openingValue: number;
+    closingQuantity: number;
+    closingValue: number;
+    rows: ItemCardRowResponse[];
+
+    [key: string]: any;
+}
+
+export interface ItemCardRowResponse {
+    moveId: string;
+    date: string;
+    kind: number;
+    sourceType: number;
+    sourceId: string;
+    reference: string | undefined;
+    fromLocation: string;
+    toLocation: string;
+    quantityIn: number;
+    quantityOut: number;
+    unitCost: number;
+    value: number;
+    qtyAfter: number;
+    avgCostAfter: number;
+    valueAfter: number;
+
+    [key: string]: any;
+}
+
+export interface ItemCategoryResponse {
+    id: string;
+    name: string;
+    inventoryAccountId: string | undefined;
+    cogsAccountId: string | undefined;
+    revenueAccountId: string | undefined;
+    expenseAccountId: string | undefined;
+    isActive: boolean;
+    itemCount: number;
 
     [key: string]: any;
 }
@@ -12644,6 +13638,10 @@ export interface ItemResponse {
     defaultInventoryAccountId: string | undefined;
     defaultUnitPrice: number | undefined;
     barcodes: ItemBarcodeResponse[];
+    categoryId?: string | undefined;
+    trackInventory?: boolean;
+    minimumStock?: number | undefined;
+    hasStockMoves?: boolean;
 
     [key: string]: any;
 }
@@ -12760,6 +13758,31 @@ export interface LoginRequest {
     [key: string]: any;
 }
 
+export interface MarginReportResponse {
+    from: string;
+    to: string;
+    groupBy: string;
+    netSales: number;
+    cost: number;
+    margin: number;
+    marginPercent: number | undefined;
+    rows: MarginRowResponse[];
+
+    [key: string]: any;
+}
+
+export interface MarginRowResponse {
+    key: string;
+    label: string;
+    quantity: number;
+    netSales: number;
+    cost: number;
+    margin: number;
+    marginPercent: number | undefined;
+
+    [key: string]: any;
+}
+
 export interface MemberResponse {
     membershipId: string;
     userId: string;
@@ -12780,6 +13803,7 @@ export interface ModuleAccessResponse {
     payroll?: number;
     settings?: number;
     users?: number;
+    inventory?: number;
 
     [key: string]: any;
 }
@@ -12960,6 +13984,24 @@ export interface PaginatedResponseOfPlatformCompanyResponse {
 
 export interface PaginatedResponseOfPlatformUserResponse {
     items: PlatformUserResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfStockDocumentSummaryResponse {
+    items: StockDocumentSummaryResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfStockLevelResponse {
+    items: StockLevelResponse[];
     total: number;
     page: number;
     pageSize: number;
@@ -13486,6 +14528,17 @@ export interface SaveExpenseClaimRequest {
     [key: string]: any;
 }
 
+export interface SaveItemCategoryRequest {
+    name: string;
+    inventoryAccountId: string | undefined;
+    cogsAccountId: string | undefined;
+    revenueAccountId: string | undefined;
+    expenseAccountId: string | undefined;
+    isActive?: boolean;
+
+    [key: string]: any;
+}
+
 export interface SaveLeaveAllocationRequest {
     employeeId: string;
     leaveTypeId: string;
@@ -13532,12 +14585,41 @@ export interface SavePublicHolidayRequest {
     [key: string]: any;
 }
 
+export interface SaveStockDocumentRequest {
+    type: number;
+    date: string;
+    warehouseId: string;
+    lines: StockDocumentLineRequest[];
+    destinationWarehouseId?: string | undefined;
+    reason?: number | undefined;
+    atkNoticeDate?: string | undefined;
+    notes?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SaveStockSettingsRequest {
+    negativeStock: number;
+    defaultWarehouseId: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface SaveTimeEntryRequest {
     employeeId: string;
     date: string;
     hours: number;
     kind: number | undefined;
     note: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SaveWarehouseRequest {
+    code: string;
+    name: string;
+    address: string | undefined;
+    isActive?: boolean;
 
     [key: string]: any;
 }
@@ -13617,6 +14699,134 @@ export interface StatutoryParameterResponse {
     isOverride: boolean;
     needsVerification: boolean;
     source: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface StockDocumentLineRequest {
+    itemId: string;
+    quantity: number;
+    unitCost?: number | undefined;
+    note?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface StockDocumentLineResponse {
+    id: string;
+    itemId: string;
+    itemCode: number;
+    itemName: string;
+    unit: string;
+    quantity: number;
+    unitCost: number | undefined;
+    bookQuantity: number | undefined;
+    difference: number | undefined;
+    value: number | undefined;
+    note: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface StockDocumentResponse {
+    id: string;
+    type: number;
+    state: number;
+    number: string | undefined;
+    date: string;
+    warehouseId: string;
+    warehouseName: string;
+    destinationWarehouseId: string | undefined;
+    destinationWarehouseName: string | undefined;
+    reason: number | undefined;
+    atkNoticeDate: string | undefined;
+    notes: string | undefined;
+    totalValue: number;
+    vatRepaymentDue: boolean;
+    journalEntryId: string | undefined;
+    postedAt: string | undefined;
+    lines: StockDocumentLineResponse[];
+
+    [key: string]: any;
+}
+
+export interface StockDocumentSummaryResponse {
+    id: string;
+    type: number;
+    state: number;
+    number: string | undefined;
+    date: string;
+    warehouseName: string;
+    destinationWarehouseName: string | undefined;
+    lineCount: number;
+    totalValue: number;
+
+    [key: string]: any;
+}
+
+export interface StockLevelResponse {
+    itemId: string;
+    itemCode: number;
+    itemName: string;
+    unit: string;
+    categoryName: string | undefined;
+    quantity: number;
+    averageCost: number;
+    value: number;
+    minimumStock: number | undefined;
+    belowMinimum: boolean;
+    warehouses: WarehouseQuantityResponse[];
+
+    [key: string]: any;
+}
+
+export interface StockOnHandResponse {
+    itemId: string;
+    quantity: number;
+    available: number;
+
+    [key: string]: any;
+}
+
+export interface StockSettingsResponse {
+    costMethod: number;
+    costMethodSince: string | undefined;
+    costMethodLocked: boolean;
+    negativeStock: number;
+    defaultWarehouseId: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface StockValuationAccountResponse {
+    accountId: string;
+    code: string;
+    name: string;
+    stockValue: number;
+    ledgerValue: number;
+
+    [key: string]: any;
+}
+
+export interface StockValuationResponse {
+    asOf: string;
+    stockValue: number;
+    ledgerValue: number;
+    difference: number;
+    items: StockValuationRowResponse[];
+    accounts: StockValuationAccountResponse[];
+
+    [key: string]: any;
+}
+
+export interface StockValuationRowResponse {
+    itemId: string;
+    itemCode: number;
+    itemName: string;
+    unit: string;
+    quantity: number;
+    averageCost: number;
+    value: number;
 
     [key: string]: any;
 }
@@ -13744,6 +14954,7 @@ export interface UpdateBillRequest {
     documentType: number;
     originalBillId: string | undefined;
     internalNotes: string | undefined;
+    warehouseId?: string | undefined;
 
     [key: string]: any;
 }
@@ -13799,6 +15010,7 @@ export interface UpdateInvoiceRequest {
     documentType: number;
     originalInvoiceId: string | undefined;
     internalNotes: string | undefined;
+    warehouseId?: string | undefined;
 
     [key: string]: any;
 }
@@ -13813,6 +15025,9 @@ export interface UpdateItemRequest {
     defaultInventoryAccountId?: string | undefined;
     defaultUnitPrice?: number | undefined;
     description?: string | undefined;
+    categoryId?: string | undefined;
+    trackInventory?: boolean;
+    minimumStock?: number | undefined;
 
     [key: string]: any;
 }
@@ -13887,6 +15102,25 @@ export interface VatReturnResponse {
 
 export interface VerifyPasswordRequest {
     password: string;
+
+    [key: string]: any;
+}
+
+export interface WarehouseQuantityResponse {
+    warehouseId: string;
+    warehouseName: string;
+    quantity: number;
+
+    [key: string]: any;
+}
+
+export interface WarehouseResponse {
+    id: string;
+    code: string;
+    name: string;
+    address: string | undefined;
+    isActive: boolean;
+    isDefault: boolean;
 
     [key: string]: any;
 }

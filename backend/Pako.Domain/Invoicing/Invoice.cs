@@ -59,6 +59,9 @@ public class Invoice
     // InvoicesController.Update for the actual editability policy enforcement.
     public string? InternalNotes { get; set; }
 
+    // docs/INVENTORY_PLAN.md: the warehouse stock-tracked lines leave from; null = the company default.
+    public Guid? WarehouseId { get; set; }
+
     public List<InvoiceLine> Lines { get; set; } = new();
 
     public JournalEntry Post(

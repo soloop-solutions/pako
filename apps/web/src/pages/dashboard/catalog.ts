@@ -6,7 +6,7 @@ import type { DashboardResponse, DashboardWidgetConfig } from "@pako/shared";
 // refuses keys and visuals not listed here.
 
 export type Visual = "tile" | "sparkline" | "hero" | "line" | "area" | "column" | "bar" | "stacked" | "table";
-export type Section = "finance" | "sales" | "purchases" | "payroll" | "hr";
+export type Section = "finance" | "sales" | "purchases" | "payroll" | "hr" | "inventory";
 export type WidgetGroup = "headline" | "trends" | "rankings" | "cash" | "people";
 export type KpiFormat = "money" | "percent" | "count";
 
@@ -53,6 +53,10 @@ export const widgetCatalog: WidgetDef[] = [
   kpi("averageInvoice", ["sales"], "money", true, "tile"),
   kpi("payrollCost", ["payroll"], "money", false),
   kpi("headcount", ["hr"], "count", true),
+  // docs/INVENTORY_PLAN.md: stock figures, for companies with the Inventory module.
+  kpi("stockValue", ["inventory"], "money", true),
+  { ...kpi("lowStock", ["inventory"], "count", false, "tile"), comparable: false },
+  kpi("stockMargin", ["inventory"], "percent", true, "tile"),
   { key: "revenueTrend", group: "trends", sections: ["finance"], visuals: ["line", "area", "column"], recommended: "line", defaultSize: 2, comparable: true },
   { key: "revenueVsExpenses", group: "trends", sections: ["finance"], visuals: ["column", "line"], recommended: "column", defaultSize: 4, comparable: false },
   { key: "profitTrend", group: "trends", sections: ["finance"], visuals: ["column", "line", "area"], recommended: "column", defaultSize: 2, comparable: true },
@@ -66,6 +70,7 @@ export const widgetCatalog: WidgetDef[] = [
   { key: "receivablesAging", group: "cash", sections: ["finance", "sales"], visuals: ["column", "stacked", "table"], recommended: "column", defaultSize: 2, comparable: false },
   { key: "payablesAging", group: "cash", sections: ["finance", "purchases"], visuals: ["column", "stacked", "table"], recommended: "column", defaultSize: 2, comparable: false },
   { key: "headcountByDepartment", group: "people", sections: ["hr"], visuals: ["bar", "table"], recommended: "bar", defaultSize: 2, comparable: true },
+  { key: "stockByItem", group: "rankings", sections: ["inventory"], visuals: ["bar", "table"], recommended: "bar", defaultSize: 2, comparable: true },
 ];
 
 export const widgetGroups: WidgetGroup[] = ["headline", "trends", "cash", "rankings", "people"];
@@ -100,6 +105,10 @@ export const presets: { key: string; widgets: string[] }[] = [
   {
     key: "accountant",
     widgets: ["kpi.revenue", "kpi.expenses", "kpi.grossProfit", "kpi.netMargin", "revenueVsExpenses", "revenueBreakdown", "expenseBreakdown", "kpi.receivables", "kpi.payables", "receivablesAging", "payablesAging"],
+  },
+  {
+    key: "stock",
+    widgets: ["kpi.stockValue", "kpi.lowStock", "kpi.stockMargin", "kpi.salesNet", "stockByItem", "topItems"],
   },
   {
     key: "people",
@@ -150,6 +159,10 @@ export function suggestionsFor(
   }
   if (data.sections.sales && data.topItems.length > 0 && !has("topItems")) {
     out.push({ id: "items", messageId: "dashboard.suggest.topItems", action: { kind: "add", key: "topItems" } });
+  }
+  const lowStock = kpiValue("lowStock");
+  if (lowStock && lowStock > 0 && !has("kpi.lowStock")) {
+    out.push({ id: "lowStock", messageId: "dashboard.suggest.lowStock", values: { count: String(lowStock) }, action: { kind: "add", key: "kpi.lowStock" } });
   }
   if (data.sections.payroll && !has("payrollTrend") && !has("kpi.payrollCost")) {
     out.push({ id: "payroll", messageId: "dashboard.suggest.payroll", action: { kind: "add", key: "payrollTrend" } });

@@ -81,7 +81,8 @@ public class UserAdminService
     public static ModuleAccessResponse Levels(CompanyRole r) => new(
         r.LevelFor(AccessModule.Sales), r.LevelFor(AccessModule.Purchases), r.LevelFor(AccessModule.Partners),
         r.LevelFor(AccessModule.Accounting), r.LevelFor(AccessModule.Reports), r.LevelFor(AccessModule.Hr),
-        r.LevelFor(AccessModule.Items), r.LevelFor(AccessModule.Payroll), r.LevelFor(AccessModule.Settings), r.LevelFor(AccessModule.Users));
+        r.LevelFor(AccessModule.Items), r.LevelFor(AccessModule.Payroll), r.LevelFor(AccessModule.Settings), r.LevelFor(AccessModule.Users),
+        r.LevelFor(AccessModule.Inventory));
 
     public static CompanyRoleResponse ToResponse(CompanyRole r, int users) =>
         new(r.Id, r.Name, r.Description, r.BuiltInKey, Levels(r), r.PartnerScope, users);
@@ -117,6 +118,7 @@ public class UserAdminService
         role.Set(AccessModule.Payroll, l.Payroll);
         role.Set(AccessModule.Settings, l.Settings);
         role.Set(AccessModule.Users, l.Users);
+        role.Set(AccessModule.Inventory, l.Inventory);
 
         Audit(companyId, "CompanyRole", role.Id, isNew ? "Create" : "Update", actor);
         await _db.SaveChangesAsync();
