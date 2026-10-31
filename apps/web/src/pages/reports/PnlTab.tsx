@@ -78,6 +78,29 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                 </TableBody>
               </Table>
             </div>
+            {pnl.costOfRevenue.length > 0 && (
+              <div data-testid="pnl-cost-of-revenue">
+                <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.pnlCostOfRevenueSection" })}</h3>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{intl.formatMessage({ id: "common.code" })}</TableHead>
+                      <TableHead>{intl.formatMessage({ id: "ledger.account" })}</TableHead>
+                      <TableHead className="text-right">{intl.formatMessage({ id: "common.amount" })}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pnl.costOfRevenue.map((line) => (
+                      <TableRow key={line.accountId}>
+                        <TableCell>{line.accountCode}</TableCell>
+                        <TableCell>{line.accountName}</TableCell>
+                        <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
             <div>
               <h3 className="mb-2 text-sm font-medium">{intl.formatMessage({ id: "reports.expenses" })}<AccountingTooltip termKey="tooltip.expenses" /></h3>
               <Table>
@@ -101,6 +124,8 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
             </div>
             <div className="flex flex-col items-end gap-1 text-sm">
               <p>{intl.formatMessage({ id: "reports.totalIncome" }, { amount: pnl.totalIncome.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "reports.pnlTotalCostOfRevenue" }, { amount: pnl.totalCostOfRevenue.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "reports.pnlGrossProfit" }, { amount: pnl.grossProfit.toFixed(2) })}</p>
               <p>{intl.formatMessage({ id: "reports.totalExpenses" }, { amount: pnl.totalExpenses.toFixed(2) })}</p>
               <p className="font-medium">{intl.formatMessage({ id: "reports.netIncome" }, { amount: pnl.netIncome.toFixed(2) })}</p>
             </div>
