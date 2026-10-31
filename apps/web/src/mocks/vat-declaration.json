@@ -253,7 +253,7 @@
     {
       "number": "69",
       "section": "Calculation",
-      "label": "Remaining credit balance, 69 = ((67+68)-30) &gt; 0",
+      "label": "Remaining credit balance, 69 = ((67+68)-30) > 0",
       "base": null,
       "vat": 1146.57
     },
@@ -274,7 +274,7 @@
     {
       "number": "72",
       "section": "Calculation",
-      "label": "VAT payable, 72 = (30-67-68) &gt; 0",
+      "label": "VAT payable, 72 = (30-67-68) > 0",
       "base": null,
       "vat": 0.0
     }

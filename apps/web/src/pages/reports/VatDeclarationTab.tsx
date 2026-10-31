@@ -21,10 +21,6 @@ const SECTION_TITLES: Record<string, string> = {
   Calculation: "reports.vatDeclSection.Calculation",
 };
 
-function decodeEntities(text: string): string {
-  return text.replace(/&gt;/g, ">").replace(/&lt;/g, "<").replace(/&quot;/g, '"').replace(/&amp;/g, "&");
-}
-
 function lastDayOfMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 }
@@ -86,7 +82,7 @@ export function VatDeclarationTab({ report, companyName, taxLockDate }: { report
   const columns = useMemo<ColumnDef<VatDeclarationBox>[]>(
     () => [
       staticColumn<VatDeclarationBox>({ id: "number", header: intl.formatMessage({ id: "reports.vatDeclBox" }), accessorFn: (row) => row.number }),
-      staticColumn<VatDeclarationBox>({ id: "label", header: intl.formatMessage({ id: "common.description" }), accessorFn: (row) => row.label, cell: ({ row }) => decodeEntities(row.original.label) }),
+      staticColumn<VatDeclarationBox>({ id: "label", header: intl.formatMessage({ id: "common.description" }), accessorFn: (row) => row.label, cell: ({ row }) => row.original.label }),
       staticColumn<VatDeclarationBox>({
         id: "base",
         header: intl.formatMessage({ id: "reports.vatDeclBase" }),

@@ -437,6 +437,31 @@ public class VatDeclarationTests : IAsyncLifetime
     private static IXLRow BoxRow(IXLWorksheet sheet, string number) =>
         sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "[" + number + "]");
 
+    [Theory]
+    [InlineData("en")]
+    [InlineData("sq")]
+    public async Task Labels_InJsonAndExport_ContainNoHtmlEntities(string culture)
+    {
+        var s = await SeedAsync();
+        var entity = new System.Text.RegularExpressions.Regex("&[A-Za-z]+;");
+        var previous = CultureInfo.CurrentUICulture;
+        CultureInfo.CurrentUICulture = new CultureInfo(culture);
+        try
+        {
+            var response = await Run(s, 2026, 2);
+            Assert.All(response.Boxes, b => Assert.DoesNotMatch(entity, b.Label));
+            Assert.Contains(">", Find(response, "69").Label);
+            Assert.Contains(">", Find(response, "72").Label);
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+
+        var sheet = await ExportAsync(s, culture);
+        Assert.All(sheet.CellsUsed().Where(c => c.DataType == XLDataType.Text), c => Assert.DoesNotMatch(entity, c.GetString()));
+    }
+
     [Fact]
     public async Task Export_UnderSq_HasAlbanianTitleLabelsAndNumericCells()
     {
