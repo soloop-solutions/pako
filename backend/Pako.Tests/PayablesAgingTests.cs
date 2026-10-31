@@ -402,6 +402,7 @@ public class PayablesAgingTests : IAsyncLifetime
         }
 
         Assert.Equal(aging.Lines.Sum(l => l.Outstanding), aging.VendorMatrix.Sum(v => v.Total));
+        Assert.Equal(595m, aging.TotalOutstanding);
     }
 
     [Fact]

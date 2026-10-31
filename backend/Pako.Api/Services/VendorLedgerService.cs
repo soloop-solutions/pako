@@ -190,7 +190,7 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
                 AgingBuckets.Select((b, i) => new AgingBucketTotal(b, r.BucketAmounts[i])).ToList(),
                 r.Total))
             .ToList();
-        return new PayablesAgingResponse(asOf, lines, buckets, vendorMatrix);
+        return new PayablesAgingResponse(asOf, lines, buckets, vendorMatrix, matrix.GrandTotal);
     }
 
     private record PurchaseRow(
