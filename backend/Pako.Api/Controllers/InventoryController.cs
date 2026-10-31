@@ -240,6 +240,7 @@ public class InventoryController : ControllerBase
         var balances = await _db.StockBalances.AsNoTracking().Where(b => ids.Contains(b.ItemId)).ToListAsync();
         var categoryIds = page_.Where(i => i.CategoryId != null).Select(i => i.CategoryId!.Value).Distinct().ToList();
         var categories = await _db.ItemCategories.AsNoTracking().Where(k => categoryIds.Contains(k.Id)).ToDictionaryAsync(k => k.Id, k => k.Name);
+        var suppliers = await UsualSuppliersAsync(companyId, ids);
 
         var rows = page_.Select(i =>
         {
@@ -250,10 +251,32 @@ public class InventoryController : ControllerBase
             var quantity = warehouseId is { } wid ? perWarehouse.Where(w => w.WarehouseId == wid).Sum(w => w.Quantity) : cost?.Quantity ?? 0m;
             var average = cost?.AverageCost ?? 0m;
             var value = warehouseId is null ? cost?.Value ?? 0m : AverageCost.Money(quantity * average);
+            var onHand = cost?.Quantity ?? 0m;
+            var hasSupplier = suppliers.TryGetValue(i.Id, out var supplier);
             return new StockLevelResponse(i.Id, i.Code, i.Name, i.Unit, i.CategoryId is { } k ? categories.GetValueOrDefault(k) : null,
-                quantity, average, value, i.MinimumStock, i.MinimumStock is { } min && (cost?.Quantity ?? 0m) < min, perWarehouse);
+                quantity, average, value, i.MinimumStock, i.MinimumStock is { } min && onHand < min, perWarehouse,
+                hasSupplier ? supplier.Id : null, hasSupplier ? supplier.Name : null,
+                i.MinimumStock is { } m && onHand < m ? m - onHand : null);
         }).ToList();
         return Ok(new PaginatedResponse<StockLevelResponse>(rows, total, page, pageSize));
+    }
+
+    // The vendor each item was last bought from (latest posted purchase bill). Empty for callers
+    // who can't see purchases; partner-scoped callers only see their own vendors.
+    private async Task<Dictionary<Guid, (Guid Id, string Name)>> UsualSuppliersAsync(Guid companyId, List<Guid> itemIds)
+    {
+        if (_access.LevelFor(AccessModule.Purchases) < AccessLevel.Read) return new();
+        var latest = await _db.BillLines.AsNoTracking()
+            .Where(l => l.ItemId != null && itemIds.Contains(l.ItemId.Value) && l.Bill!.CompanyId == companyId
+                && l.Bill.State == Pako.Domain.Bills.BillState.Posted && l.Bill.DocumentType == Pako.Domain.Bills.DocumentType.Bill)
+            .Select(l => new { ItemId = l.ItemId!.Value, l.Bill!.PartnerId, l.Bill.IssueDate, l.Bill.CreatedAt })
+            .ToListAsync();
+        var byItem = latest.Where(l => _access.CanSeePartner(l.PartnerId))
+            .GroupBy(l => l.ItemId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(l => l.IssueDate).ThenByDescending(l => l.CreatedAt).First().PartnerId);
+        var partnerIds = byItem.Values.Distinct().ToList();
+        var names = await _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+        return byItem.ToDictionary(kv => kv.Key, kv => (kv.Value, names.GetValueOrDefault(kv.Value) ?? "?"));
     }
 
     // Quantity on hand per item in one warehouse, for the item picker on invoices and bills. Needs
@@ -314,7 +337,11 @@ public class InventoryController : ControllerBase
     public async Task<ActionResult<StockValuationResponse>> Valuation(Guid companyId, [FromQuery(Name = "asOf")] DateOnly? asOfDate = null)
     {
         // No date = today.
-        var asOf = asOfDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        return Ok(await ValuationAtAsync(companyId, asOfDate ?? DateOnly.FromDateTime(DateTime.UtcNow)));
+    }
+
+    private async Task<StockValuationResponse> ValuationAtAsync(Guid companyId, DateOnly asOf)
+    {
         // The last move on or before the date carries each item's totals (D10).
         var lastMoves = await _db.StockMoves.AsNoTracking()
             .Where(m => m.CompanyId == companyId && m.Date <= asOf)
@@ -341,7 +368,140 @@ public class InventoryController : ControllerBase
             stockByAccount.GetValueOrDefault(a.Id), ledger.GetValueOrDefault(a.Id))).ToList();
         var stockValue = rows.Sum(r => r.Value);
         var ledgerValue = accountResponses.Sum(a => a.LedgerValue);
-        return Ok(new StockValuationResponse(asOf, stockValue, ledgerValue, ledgerValue - stockValue, rows, accountResponses));
+        // Phase 2: write-downs to net realisable value sit on the 120900 allowance (a credit balance).
+        var allowanceId = await _stock.AccountIdByCodeAsync(companyId, StockService.WriteDownAllowanceCode);
+        var allowance = allowanceId is { } aid
+            ? await _db.JournalEntryLines.AsNoTracking()
+                .Where(l => l.AccountId == aid && l.JournalEntry!.CompanyId == companyId
+                    && l.JournalEntry.State != Pako.Domain.Ledger.JournalEntryState.Draft && l.JournalEntry.Date <= asOf)
+                .SumAsync(l => l.Credit - l.Debit)
+            : 0m;
+        return new StockValuationResponse(asOf, stockValue, ledgerValue, ledgerValue - stockValue, rows, accountResponses,
+            allowance, stockValue - allowance);
+    }
+
+    // ---- Lots and expiry (§12 P8) ----
+
+    // Lots on hand, the earliest expiry first. ?expiringBefore= keeps lots expiring on or before the
+    // date (the expired included) — the list to pull from the shelf and write off.
+    [HttpGet("lots", Name = "ListLotStock")]
+    [RequireCompanyAccess(module: AccessModule.Inventory)]
+    public async Task<ActionResult<List<LotStockResponse>>> Lots(Guid companyId, [FromQuery] Guid? itemId = null,
+        [FromQuery] Guid? warehouseId = null, [FromQuery] DateOnly? expiringBefore = null)
+    {
+        var locations = await _db.StockLocations.AsNoTracking()
+            .Where(l => l.CompanyId == companyId && l.WarehouseId != null && l.Usage == LocationUsage.Internal)
+            .ToDictionaryAsync(l => l.Id, l => l.WarehouseId!.Value);
+        var query = from b in _db.LotBalances.AsNoTracking()
+                    join lot in _db.Lots.AsNoTracking() on b.LotId equals lot.Id
+                    where b.CompanyId == companyId && b.Quantity > 0
+                    select new { b.LocationId, b.Quantity, Lot = lot };
+        if (itemId is { } item) query = query.Where(x => x.Lot.ItemId == item);
+        if (expiringBefore is { } before) query = query.Where(x => x.Lot.ExpiryDate != null && x.Lot.ExpiryDate <= before);
+        var rows = (await query.ToListAsync()).Where(x => locations.ContainsKey(x.LocationId)).ToList();
+        if (warehouseId is { } w) rows = rows.Where(x => locations[x.LocationId] == w).ToList();
+
+        var itemIds = rows.Select(r => r.Lot.ItemId).Distinct().ToList();
+        var items = await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id);
+        var costs = await _db.ItemCosts.AsNoTracking().Where(c => itemIds.Contains(c.ItemId)).ToDictionaryAsync(c => c.ItemId, c => c.AverageCost);
+        var warehouses = await _db.Warehouses.AsNoTracking().Where(x => x.CompanyId == companyId).ToDictionaryAsync(x => x.Id, x => x.Name);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return Ok(rows.Select(r =>
+        {
+            var i = items[r.Lot.ItemId];
+            var wid = locations[r.LocationId];
+            return new LotStockResponse(r.Lot.Id, r.Lot.Number, r.Lot.ExpiryDate, r.Lot.ExpiryDate is { } e ? e.DayNumber - today.DayNumber : null,
+                i.Id, i.Code, i.Name, i.Unit, wid, warehouses.GetValueOrDefault(wid) ?? "?", r.Quantity,
+                AverageCost.Money(r.Quantity * costs.GetValueOrDefault(i.Id)));
+        }).OrderBy(r => r.ExpiryDate ?? DateOnly.MaxValue).ThenBy(r => r.ItemCode).ThenBy(r => r.LotNumber).ToList());
+    }
+
+    // ---- Goods received, not invoiced (§12 P6) ----
+
+    [HttpGet("grni", Name = "GetGrniReport")]
+    [RequireCompanyAccess(module: AccessModule.Inventory)]
+    public async Task<ActionResult<GrniReportResponse>> Grni(Guid companyId, [FromQuery(Name = "asOf")] DateOnly? asOfDate = null)
+    {
+        var asOf = asOfDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var lines = await _db.StockDocumentLines.AsNoTracking()
+            .Where(l => l.StockDocument!.CompanyId == companyId && l.StockDocument.Type == StockDocumentType.Receipt
+                && l.StockDocument.State == StockDocumentState.Posted && l.StockDocument.Date <= asOf)
+            .Select(l => new { l.Id, l.ItemId, l.Quantity, l.UnitCost, l.StockDocumentId, l.StockDocument!.Number, l.StockDocument.Date, l.StockDocument.PartnerId })
+            .ToListAsync();
+        var ids = lines.Select(l => l.Id).ToList();
+        // Only bills dated on or before the date count as matched then.
+        var matched = await _db.ReceiptMatches.AsNoTracking()
+            .Where(m => ids.Contains(m.ReceiptLineId) && _db.Bills.Any(b => b.Id == m.BillId && b.IssueDate <= asOf))
+            .GroupBy(m => m.ReceiptLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity), Value = g.Sum(m => m.Value) })
+            .ToDictionaryAsync(g => g.Key);
+        var itemIds = lines.Select(l => l.ItemId).Distinct().ToList();
+        var items = await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id);
+        var partnerIds = lines.Where(l => l.PartnerId != null).Select(l => l.PartnerId!.Value).Distinct().ToList();
+        var partners = await _db.Partners.AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+
+        var rows = lines.Select(l =>
+        {
+            var m = matched.GetValueOrDefault(l.Id);
+            var billed = m?.Quantity ?? 0m;
+            var open = l.Quantity - billed;
+            // Open value is the receipt value less what bills took off 120800, so it ties to the ledger.
+            var value = AverageCost.Money(l.Quantity * (l.UnitCost ?? 0m)) - (m?.Value ?? 0m);
+            var item = items.GetValueOrDefault(l.ItemId);
+            return new GrniRowResponse(l.StockDocumentId, l.Number, l.Date, l.PartnerId ?? Guid.Empty,
+                l.PartnerId is { } p ? partners.GetValueOrDefault(p) ?? "?" : "?", l.ItemId, item?.Code ?? 0, item?.Name ?? "?",
+                l.Quantity, billed, open, l.UnitCost ?? 0m, value, asOf.DayNumber - l.Date.DayNumber);
+        }).Where(r => r.Open > 0 || r.OpenValue != 0).OrderBy(r => r.Date).ThenBy(r => r.ReceiptNumber).ToList();
+
+        var grniId = await _stock.AccountIdByCodeAsync(companyId, StockService.GoodsReceivedNotInvoicedCode);
+        var ledger = grniId is { } gid
+            ? await _db.JournalEntryLines.AsNoTracking()
+                .Where(l => l.AccountId == gid && l.JournalEntry!.CompanyId == companyId
+                    && l.JournalEntry.State != Pako.Domain.Ledger.JournalEntryState.Draft && l.JournalEntry.Date <= asOf)
+                .SumAsync(l => l.Credit - l.Debit)
+            : 0m;
+        var openValue = rows.Sum(r => r.OpenValue);
+        return Ok(new GrniReportResponse(asOf, openValue, ledger, ledger - openValue, rows));
+    }
+
+    // ---- Year end ----
+
+    [HttpGet("year-end-check", Name = "GetStockYearEndCheck")]
+    [RequireCompanyAccess(module: AccessModule.Inventory)]
+    public async Task<ActionResult<StockYearEndCheckResponse>> YearEndCheck(Guid companyId, [FromQuery] int year)
+    {
+        if (year < 2000 || year > 2100) return BadRequest(_localizer["DashboardInvalidPeriod"].Value);
+        var start = new DateOnly(year, 1, 1);
+        var end = new DateOnly(year, 12, 31);
+        var tracks = await _db.StockMoves.AnyAsync(m => m.CompanyId == companyId && m.Date <= end);
+
+        var counts = await _db.StockDocuments.AsNoTracking()
+            .Where(d => d.CompanyId == companyId && d.Type == StockDocumentType.Count && d.State == StockDocumentState.Posted
+                && d.Date >= start && d.Date <= end)
+            .Select(d => new { d.WarehouseId, d.Date, d.Number })
+            .ToListAsync();
+        // A warehouse needs a count when it held stock at some point in the year.
+        var locations = await _db.StockLocations.AsNoTracking()
+            .Where(l => l.CompanyId == companyId && l.WarehouseId != null && l.Usage == LocationUsage.Internal)
+            .ToDictionaryAsync(l => l.Id, l => l.WarehouseId!.Value);
+        var used = (await _db.StockMoves.AsNoTracking()
+                .Where(m => m.CompanyId == companyId && m.Date <= end)
+                .Select(m => new { m.FromLocationId, m.ToLocationId })
+                .Distinct()
+                .ToListAsync())
+            .SelectMany(m => new[] { m.FromLocationId, m.ToLocationId })
+            .Where(locations.ContainsKey).Select(l => locations[l]).ToHashSet();
+        var warehouses = await _db.Warehouses.AsNoTracking().Where(w => w.CompanyId == companyId && used.Contains(w.Id))
+            .OrderBy(w => w.Code).ToListAsync();
+        var rows = warehouses.Select(w =>
+        {
+            var last = counts.Where(k => k.WarehouseId == w.Id).OrderByDescending(k => k.Date).FirstOrDefault();
+            return new YearEndWarehouseCount(w.Id, w.Name, last?.Date, last?.Number);
+        }).ToList();
+
+        var valuation = await ValuationAtAsync(companyId, end);
+        return Ok(new StockYearEndCheckResponse(year, tracks, rows,
+            rows.Where(r => r.LastCountDate is null).Select(r => r.WarehouseName).ToList(),
+            valuation.StockValue, valuation.LedgerValue, valuation.Difference));
     }
 
     // ---- Gross margin ----

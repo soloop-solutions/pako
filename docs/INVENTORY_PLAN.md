@@ -1,7 +1,7 @@
 # Stock & inventory — analysis and plan
 
 Status: **master plan, 2026-10-31.** The decisions are taken in §9 and the build order is in §11.
-Phase 1 is built (one item partly open); status is tracked in §11.
+Phase 1 is complete (§11). Phase 2 is built except FIFO (§12).
 
 This plan is based on three pieces of research done for this document:
 - the Odoo **19.0** source (`addons/stock`, `stock_account`, `purchase_stock`, `sale_stock`,
@@ -489,22 +489,91 @@ belongs to.
 - [x] 5. **Read APIs and reports.** Warehouses, categories, settings, stock list, item card,
   valuation at a date, stock vs ledger, low stock, margin.
 - [x] 6. **Tests.** Postgres, every posting path, back-dating, concurrency, negative stock, rounding.
-  *Status:* `AverageCostTests` (11) and `StockTests` (11) on Postgres. Concurrency relies on the
-  `item_costs` row lock (`SELECT … FOR UPDATE`) and the company lock on posting; there is no
-  parallel-posting test yet.
+  *Status:* `AverageCostTests` (11) and `StockTests` (14) on Postgres, including four sales racing
+  for the same stock on separate connections (`ParallelSales_ForTheSameStock_NeverOversell`).
 
 **Web**
 - [x] 7. **Stock section.** Stock list, item card, documents (opening, transfer, count, write-off),
   warehouses, categories, stock settings.
-- [ ] 8. **Items, bills, invoices.** The item form's category, tracking and minimum stock, plus a
+- [x] 8. **Items, bills, invoices.** The item form's category, tracking and minimum stock, plus a
   stock tab. The warehouse on bills and invoices. On-hand quantity in the item picker.
   Over-quantity warning.
-  *Status:* done except the stock tab on the item form; the item card opens from Stock levels.
-  On-hand shows under each line's quantity rather than inside the picker.
+  *Status:* the item editor has a Stock tab (the item card) for stock-tracked items. On-hand shows
+  under each line's quantity rather than inside the picker.
 - [x] 9. **Reports and access.** Reports, dashboard widgets (stock value, low stock, margin), the
   Inventory area in roles, the Inventory module in the admin panel.
 - [x] 10. **Demo data and e2e.** `seed_demo.py` with categories, warehouses, opening stock and
   stock-tracked bills and invoices; `scripts/e2e/stock.py`.
 
-Verified 2026-10-31: backend 700 tests, web 248 tests, typecheck/lint/build, `scripts/e2e/stock.py`
-(22 checks), and a full `seed_demo.py` run whose stock value ties to account 120100 to the cent.
+Gaps closed after the first merge: write-off attachments (D14) through the real attachments API —
+which also moved invoice and bill attachments off their browser mock; the low-stock list names
+each item's usual supplier (latest posted purchase bill) and the shortfall, grouped by supplier;
+the count sheet prints as a PDF, optionally blind (without book quantities).
+
+Verified 2026-10-31: backend 703 tests, web 250 tests, typecheck/lint/build, `scripts/e2e/stock.py`
+(24 checks), and a full `seed_demo.py` run whose stock value ties to account 120100 to the cent.
+
+## 12. Phase 2 build order and status
+
+Ordered so each step stands on its own and the riskiest changes to posting come last.
+
+- [x] P1. **Input VAT on lost goods (D14).** A theft or unexplained-loss write-off reverses the
+  input VAT in its own entry: Dr 520100 / Cr the deductible input VAT account, tagged with the tax
+  code of the item's latest purchase bill (B18 when it was never bought on a bill). The VAT return
+  reads tax-coded journal lines, so the month's deductible VAT drops by that amount. Non-deductible
+  VAT (113900) is never reversed. A locked VAT period refuses the post. *Open:* the ATK purchase
+  book's adjustment box 61 is not emitted yet (the book is built from bills only).
+- [x] P2. **Year-end count check.** `inventory/year-end-check?year=` lists every warehouse that
+  held stock in the year with its last posted count, the ones with none, and stock vs ledger on
+  31 December. Shown on the Year end page.
+- [x] P3. **Write-downs to net realisable value (IAS 2).** A `WriteDown` stock document: each line
+  gives NRV per unit; the item's allowance becomes quantity × (average cost − NRV), floored at
+  zero, and the change is posted Dr 520300 / Cr 120900 (or reversed). No stock moves; average cost
+  unchanged. Write-downs post in date order per item. The valuation shows the allowance and the
+  net value.
+- [x] P4. **Sales price lists and "Nivelim".** A price list per company, optionally per warehouse
+  (shop), VAT-inclusive, with dated prices per item. A price-change document (Nivelim) lists old
+  price, new price and the quantity on hand in that warehouse, prints as the shelf record, and on
+  posting makes the new prices current from its date. No ledger entry (stock is carried at cost).
+  Invoices take the item's price from the warehouse's price list when there is one.
+  *Built:* `price-lists`, `price-changes` (draft → post, NIV- numbers, printable record) and
+  `prices/resolve` (shop list → company list → item price), used by the invoice line picker.
+- [x] P5. **Purchase orders.** Vendor, dates, lines (item, quantity, expected price); draft →
+  confirmed → partly received/billed → closed, or cancelled. A bill can be created from a PO and
+  its lines keep the link, so ordered vs billed quantity is tracked (soft match: a difference
+  warns, never blocks). The low-stock list creates one draft PO per usual supplier.
+  *Built:* `purchase-orders` (PO- numbers on confirm; close, cancel while unbilled), bill lines
+  carry `PurchaseOrderLineId` (validated: confirmed order, same vendor), billed / in-draft /
+  remaining per line read from the bills, "Create bill for the rest", and
+  `purchase-orders/from-low-stock` at the last purchase price.
+- [x] P6. **Receipt notes (GRNI, 120800).** Goods counted in before the bill arrives: Dr stock /
+  Cr 120800 at the PO price (or an entered cost). The bill then debits 120800 for the matched
+  quantity; a price difference adjusts the stock value while the goods are in stock and goes to
+  cost of goods sold for what was already sold. 120800 must age to zero; a report lists open
+  receipts. Delivery notes (goods out before the invoice) follow the same pattern on the sales side.
+  *Built:* a `Receipt` stock document (FP- numbers, vendor, optional order line), posted Dr stock /
+  Cr 120800. A vendor bill matches open receipts automatically by vendor and item (the ordered
+  line first, then the oldest receipt), records each match (`receipt_matches`), clears 120800 at
+  the receipt cost and revalues the stock by any price gap. Orders show received quantities
+  (receipts plus goods a bill brought in directly) and create the draft receipt for the rest.
+  `inventory/grni?asOf=` lists open receipts and ties them to 120800. *Not built:* delivery notes
+  on the sales side.
+- [x] P7. **Units of measure.** Each item keeps one base (stock) unit; purchase and sale units are
+  named multiples of it (box = 24). Document lines carry the unit and quantity as entered; stock
+  moves always in base units.
+  *Built:* item `PurchaseUnit`/`SalesUnit` with factors; invoice and bill lines take `UnitName`
+  (validated against the item) and store `UnitName`/`UnitFactor`, so changing an item's units
+  never rewrites past documents. Stock, receipt matching, returns and the margin report use
+  quantity × factor. Purchase-order and stock-document lines stay in base units.
+- [x] P8. **Lots and expiry dates.** Optional per item. Receipts record the lot and expiry; issues
+  take the earliest expiry first (FEFO) unless a lot is chosen; quantities per lot per warehouse;
+  an expiry report feeds the write-off flow.
+  *Built:* `Item.TrackLots` (fixed once stock moved); lots sit beside the cost engine — each stock
+  move records its lot allocations (`stock_move_lots`) and `lot_balances` keep quantity per lot
+  per location. Receipts (bills, receipt/opening documents, count overages) must name the lot;
+  issues take the named lot or the earliest expiry first; transfers carry the lots; a sales
+  return goes back to the lot it was sold from. `inventory/lots?expiringBefore=` is the expiry
+  report. Average cost stays per item.
+- [ ] P9. **FIFO.** *(Deferred: the POS analysis was prioritised; AVCO stays the only method.)* A second cost method, chosen before the first stock movement (D1 lock still
+  applies). Cost layers per item; issues consume the oldest layers; back-dated documents replay the
+  layers from that date, as AVCO does today.

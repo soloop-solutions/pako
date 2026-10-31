@@ -210,6 +210,11 @@ public class InvoicesController : ControllerBase
                 return (null, 0m, BadRequest(string.Format(_localizer["RevenueAccountNotBelongToCompany"], revenueAccountId)));
             }
 
+            if (StockService.ResolveUnit(item, line.UnitName) is not { } unit)
+            {
+                return (null, 0m, BadRequest(string.Format(_localizer["LineUnitUnknown"].Value, line.UnitName)));
+            }
+
             total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
 
             lines.Add(new InvoiceLine
@@ -221,7 +226,10 @@ public class InvoicesController : ControllerBase
                 DiscountPercent = discountPercent,
                 TaxDefinitionId = taxDefinitionId,
                 RevenueAccountId = revenueAccountId,
-                ItemId = line.ItemId
+                ItemId = line.ItemId,
+                UnitName = unit.Name,
+                UnitFactor = unit.Factor,
+                LotNumber = string.IsNullOrWhiteSpace(line.LotNumber) ? null : line.LotNumber.Trim()
             });
         }
 
@@ -1233,7 +1241,10 @@ public class InvoicesController : ControllerBase
                 DiscountPercent = l.DiscountPercent,
                 TaxDefinitionId = l.TaxDefinitionId,
                 RevenueAccountId = l.RevenueAccountId,
-                ItemId = l.ItemId
+                ItemId = l.ItemId,
+                UnitName = l.UnitName,
+                UnitFactor = l.UnitFactor,
+                LotNumber = l.LotNumber
             }).ToList()
         };
 
@@ -1503,14 +1514,32 @@ public class InvoicesController : ControllerBase
                 .ToDictionary(g => g.Key, g => g.Value / g.Quantity);
         }
 
+        // §12 P8: returned goods go back into the lot they were sold from, unless the line names one.
+        var originalLots = new Dictionary<Guid, string>();
+        if (isReturn && invoice.OriginalInvoiceId is { } soldOn)
+        {
+            originalLots = (await (from m in _db.StockMoves.AsNoTracking()
+                                   join ml in _db.StockMoveLots.AsNoTracking() on m.Id equals ml.StockMoveId
+                                   join lot in _db.Lots.AsNoTracking() on ml.LotId equals lot.Id
+                                   where m.SourceType == Pako.Domain.Inventory.StockMoveSource.Invoice && m.SourceId == soldOn
+                                   select new { m.ItemId, lot.Number, lot.ExpiryDate, lot.CreatedAt }).ToListAsync())
+                // The lot the sale took from first: earliest expiry, as the sale allocated (FEFO).
+                .GroupBy(x => x.ItemId).ToDictionary(g => g.Key, g => g
+                    .OrderBy(x => x.ExpiryDate ?? DateOnly.MaxValue).ThenBy(x => x.CreatedAt).ThenBy(x => x.Number).First().Number);
+        }
+
         var requests = new List<StockService.MoveRequest>();
         foreach (var line in invoice.Lines.Where(l => l.ItemId is { } id && tracked.ContainsKey(id) && l.Quantity > 0))
         {
             var itemId = line.ItemId!.Value;
+            // §12 P7: stock moves in base units.
+            var quantity = line.Quantity * line.UnitFactor;
             requests.Add(isReturn
-                ? new StockService.MoveRequest(itemId, Pako.Domain.Inventory.StockMoveKind.Receipt, customer.Id, location.Id, line.Quantity,
-                    originalUnitCost.TryGetValue(itemId, out var unit) ? Pako.Domain.Inventory.AverageCost.Money(unit * line.Quantity) : null, line.Id)
-                : new StockService.MoveRequest(itemId, Pako.Domain.Inventory.StockMoveKind.Issue, location.Id, customer.Id, line.Quantity, SourceLineId: line.Id));
+                ? new StockService.MoveRequest(itemId, Pako.Domain.Inventory.StockMoveKind.Receipt, customer.Id, location.Id, quantity,
+                    originalUnitCost.TryGetValue(itemId, out var unit) ? Pako.Domain.Inventory.AverageCost.Money(unit * quantity) : null, line.Id,
+                    line.LotNumber ?? originalLots.GetValueOrDefault(itemId))
+                : new StockService.MoveRequest(itemId, Pako.Domain.Inventory.StockMoveKind.Issue, location.Id, customer.Id, quantity, SourceLineId: line.Id,
+                    LotNumber: line.LotNumber));
         }
 
         var posting = await stock.ApplyAsync(company.Id, invoice.IssueDate, Pako.Domain.Inventory.StockMoveSource.Invoice, invoice.Id, null, requests);
@@ -1591,7 +1620,7 @@ public class InvoicesController : ControllerBase
         i.DocumentType,
         i.OriginalInvoiceId,
         i.JournalEntryId,
-        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId)).ToList(),
+        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber)).ToList(),
         i.InternalNotes,
         i.PriceMode,
         i.PaymentTermDays,

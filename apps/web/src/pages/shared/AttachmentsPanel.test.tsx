@@ -4,13 +4,47 @@ import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vite
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 
-// F11 — attachments is fully mocked (see src/mocks/attachmentsHandlers.ts), so this exercises the
-// real screen against that mock the same way src/pages/ledger/ChartOfAccounts.test.tsx does for
-// F2. No Playwright/browser-automation tool is available this session, so this is the primary
-// verification — see the task report for what was, and was not, verified.
+// F11 — the real screen against an in-memory stand-in for the generated attachment endpoints
+// (attachmentsAll / attachmentsPOST / attachmentsDELETE, and the download fetch), so it also checks
+// what the client sends: the owner type and id of the document.
 
 const COMPANY_ID = "11111111-1111-1111-1111-111111111111";
 const INVOICE_ID = "22222222-2222-2222-2222-222222222222";
+
+type Stored = { id: string; ownerType: string; ownerId: string; fileName: string; contentType: string; sizeBytes: number; uploadedAtUtc: string; blob: Blob };
+const store: Stored[] = [];
+const OWNER_NAMES = ["Invoice", "Bill", "JournalEntry", "Partner", "ExpenseClaim", "StockDocument"];
+const toResponse = (a: Stored) => ({
+  id: a.id, ownerType: a.ownerType, ownerId: a.ownerId, fileName: a.fileName, contentType: a.contentType, sizeBytes: a.sizeBytes, uploadedAtUtc: a.uploadedAtUtc,
+});
+
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return {
+    ...actual,
+    authorizedFetch: async (url: string) => {
+      const id = String(url).split("/attachments/")[1]?.split("/")[0];
+      const found = store.find((a) => a.id === id);
+      return found ? new Response(found.blob, { status: 200 }) : new Response(null, { status: 404 });
+    },
+    apiClient: {
+      ...actual.apiClient,
+      attachmentsAll: async (_c: string, ownerType: number, ownerId: string) =>
+        store.filter((a) => a.ownerType === OWNER_NAMES[ownerType] && a.ownerId === ownerId).map(toResponse),
+      attachmentsPOST: async (_c: string, ownerType: string, ownerId: string, file: { data: File; fileName: string }) => {
+        const record: Stored = {
+          id: crypto.randomUUID(), ownerType, ownerId, fileName: file.fileName, contentType: file.data.type,
+          sizeBytes: file.data.size, uploadedAtUtc: new Date().toISOString(), blob: file.data,
+        };
+        store.push(record);
+        return toResponse(record);
+      },
+      attachmentsDELETE: async (_c: string, id: string) => {
+        store.splice(store.findIndex((a) => a.id === id), 1);
+      },
+    },
+  };
+});
 
 let objectUrlCounter = 0;
 
@@ -23,11 +57,12 @@ beforeAll(() => {
 });
 
 beforeEach(() => {
+  store.length = 0;
   vi.spyOn(window, "open").mockImplementation(() => null);
 });
 
 afterEach(() => {
-  vi.restoreAllMocks();
+  vi.mocked(window.open).mockRestore();
 });
 
 function renderPanel(documentId = INVOICE_ID) {
@@ -144,6 +179,7 @@ describe("AttachmentsPanel", () => {
     dropFile(makeImageFile("persists.png"));
     await waitFor(() => expect(screen.getByText("persists.png")).toBeInTheDocument());
 
+    expect(store[0]).toMatchObject({ ownerType: "Invoice", ownerId: INVOICE_ID });
     first.unmount();
 
     const second = renderPanel();

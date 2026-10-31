@@ -16,11 +16,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAttachmentSize, isImageAttachmentType, validateAttachmentFile } from "@/lib/attachment-validation";
 import { cn } from "@/lib/utils";
-import { setAttachmentsMockActive } from "@/mocks/attachmentsMockFlag";
-import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
 
-// F11 — see src/mocks/attachmentsHandlers.ts for the invented contract this talks to. Shared
-// between InvoiceDetail.tsx and BillDetail.tsx, same composition style as RecordPaymentForm.tsx/
+// F11 — files on a document, through the real AttachmentsController. Shared between
+// InvoiceDetail.tsx, BillDetail.tsx and StockDocumentDetail.tsx, same composition style as RecordPaymentForm.tsx/
 // ApplyCreditNoteForm.tsx/EditPostedFieldsForm.tsx on those pages.
 type AttachmentsPanelProps = {
   companyId: string;
@@ -37,9 +35,7 @@ export function AttachmentsPanel({ companyId, documentKind, documentId }: Attach
   const fileInputRef = useRef<HTMLInputElement>(null);
   // One object URL per attachment id, created lazily and reused — shared by the grid thumbnail,
   // the selected-item preview and "open original", so a given file's bytes are only ever fetched
-  // and turned into an object URL once per mount. Revoked on unmount only; the underlying file
-  // content itself lives in src/mocks/attachmentsMockFlag.ts's module-level store, which is NOT
-  // cleared on unmount — that's what makes an attachment survive navigating away and back.
+  // and turned into an object URL once per mount. Revoked on unmount.
   const objectUrlCache = useRef<Map<string, string>>(new Map());
 
   const [attachments, setAttachments] = useState<AttachmentWithPreview[]>([]);
@@ -82,24 +78,10 @@ export function AttachmentsPanel({ companyId, documentKind, documentId }: Attach
     }
   }, [companyId, documentKind, documentId, getContentUrl, intl]);
 
-  // The shared mock Service Worker isn't guaranteed to already be running — a screen that lands
-  // here directly (not via Partners/Items/Ledger, which each also start it) would otherwise fire
-  // real fetches against the mocked attachments endpoints and get real 404s. Partners.tsx/
-  // JournalEntryGrid.tsx face the same gap but gate a TanStack `useQuery`'s declarative `enabled`
-  // on a `mockReady` flag; this screen fetches manually via `refresh()`, so
-  // the equivalent is awaiting the same promise before calling it, in one effect — not a second
-  // effect keyed on a `mockReady` state, which raced against `refresh()`'s own state updates
-  // (only surfaced as a flaky test under full-suite load, not in isolation).
   useEffect(() => {
-    setAttachmentsMockActive(true);
-    let cancelled = false;
     const cache = objectUrlCache.current;
-    void ensureAccountsMockWorkerStarted().then(() => {
-      if (!cancelled) void refresh();
-    });
+    void refresh();
     return () => {
-      cancelled = true;
-      setAttachmentsMockActive(false);
       for (const url of cache.values()) URL.revokeObjectURL(url);
       cache.clear();
     };

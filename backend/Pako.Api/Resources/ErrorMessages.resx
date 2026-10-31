@@ -1016,4 +1016,151 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="Export_Common_TotalOperatingExpenses" xml:space="preserve">
     <value>Total Operating Expenses</value>
   </data>
+  <data name="PdfCountSheetTitle" xml:space="preserve">
+    <value>Stock count sheet</value>
+  </data>
+  <data name="PdfCountSheetSubtitle" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PdfCountSheetCode" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="PdfCountSheetItem" xml:space="preserve">
+    <value>Item</value>
+  </data>
+  <data name="PdfCountSheetUnit" xml:space="preserve">
+    <value>Unit</value>
+  </data>
+  <data name="PdfCountSheetBook" xml:space="preserve">
+    <value>Book qty</value>
+  </data>
+  <data name="PdfCountSheetCounted" xml:space="preserve">
+    <value>Counted</value>
+  </data>
+  <data name="PdfCountSheetDifference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="PdfCountSheetNote" xml:space="preserve">
+    <value>Note</value>
+  </data>
+  <data name="PdfCountSheetCountedBy" xml:space="preserve">
+    <value>Counted by (name, signature)</value>
+  </data>
+  <data name="PdfCountSheetCheckedBy" xml:space="preserve">
+    <value>Checked by (name, signature)</value>
+  </data>
+  <data name="StockVatRepayment" xml:space="preserve">
+    <value>Input VAT repaid on lost goods</value>
+  </data>
+  <data name="StockWriteDownValueRequired" xml:space="preserve">
+    <value>Enter the net realisable value per unit (0 or more) on every line.</value>
+  </data>
+  <data name="StockWriteDownLaterExists" xml:space="preserve">
+    <value>A later write-down is already posted for one of these items. Post write-downs in date order.</value>
+  </data>
+  <data name="StockDocumentWriteDown" xml:space="preserve">
+    <value>Write-down</value>
+  </data>
+  <data name="PriceChangePosted" xml:space="preserve">
+    <value>This price change is already posted and can't be changed.</value>
+  </data>
+  <data name="PriceListNotFound" xml:space="preserve">
+    <value>Choose an active price list.</value>
+  </data>
+  <data name="PriceChangeItemNotFound" xml:space="preserve">
+    <value>One of the items doesn't exist in this company.</value>
+  </data>
+  <data name="PriceChangePrice" xml:space="preserve">
+    <value>Prices must be 0 or more.</value>
+  </data>
+  <data name="PriceListName" xml:space="preserve">
+    <value>Give the price list a name (up to 120 characters).</value>
+  </data>
+  <data name="PriceListNameTaken" xml:space="preserve">
+    <value>Another price list already has this name.</value>
+  </data>
+  <data name="PriceListWarehouseTaken" xml:space="preserve">
+    <value>That warehouse already has a price list (or the company-wide list exists). Each warehouse has at most one.</value>
+  </data>
+  <data name="PdfPriceChangeTitle" xml:space="preserve">
+    <value>Price change (Nivelim)</value>
+  </data>
+  <data name="PdfPriceChangeSubtitle" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="PdfDraft" xml:space="preserve">
+    <value>Draft</value>
+  </data>
+  <data name="PdfPriceChangeQuantity" xml:space="preserve">
+    <value>On hand</value>
+  </data>
+  <data name="PdfPriceChangeOld" xml:space="preserve">
+    <value>Old price</value>
+  </data>
+  <data name="PdfPriceChangeNew" xml:space="preserve">
+    <value>New price</value>
+  </data>
+  <data name="PdfPriceChangeDifference" xml:space="preserve">
+    <value>Difference</value>
+  </data>
+  <data name="PdfPriceChangeTotal" xml:space="preserve">
+    <value>Total difference: {0}</value>
+  </data>
+  <data name="PdfPriceChangePreparedBy" xml:space="preserve">
+    <value>Prepared by (name, signature)</value>
+  </data>
+  <data name="PdfPriceChangeApprovedBy" xml:space="preserve">
+    <value>Approved by (name, signature)</value>
+  </data>
+  <data name="BillPurchaseOrderLineInvalid" xml:space="preserve">
+    <value>A line points at a purchase order that isn't a confirmed order from this vendor.</value>
+  </data>
+  <data name="PurchaseOrderNotDraft" xml:space="preserve">
+    <value>Only a draft purchase order can be changed or deleted.</value>
+  </data>
+  <data name="PurchaseOrderNotConfirmed" xml:space="preserve">
+    <value>Only a confirmed purchase order can be closed or cancelled.</value>
+  </data>
+  <data name="PurchaseOrderHasBills" xml:space="preserve">
+    <value>Bills were already made from this order; close it instead of cancelling.</value>
+  </data>
+  <data name="PurchaseOrderFromLowStock" xml:space="preserve">
+    <value>Created from the low-stock list.</value>
+  </data>
+  <data name="PurchaseOrderNoLines" xml:space="preserve">
+    <value>Add at least one line.</value>
+  </data>
+  <data name="PurchaseOrderVendorRequired" xml:space="preserve">
+    <value>Choose a vendor.</value>
+  </data>
+  <data name="PurchaseOrderExpectedBeforeDate" xml:space="preserve">
+    <value>The expected date can't be before the order date.</value>
+  </data>
+  <data name="PurchaseOrderLineDescription" xml:space="preserve">
+    <value>A line without an item needs a description.</value>
+  </data>
+  <data name="StockReceiptMatched" xml:space="preserve">
+    <value>Billed against receipt</value>
+  </data>
+  <data name="StockDocumentReceipt" xml:space="preserve">
+    <value>Receipt</value>
+  </data>
+  <data name="PurchaseOrderNothingToReceive" xml:space="preserve">
+    <value>Every stock-tracked line of this order has been received.</value>
+  </data>
+  <data name="LineUnitUnknown" xml:space="preserve">
+    <value>"{0}" is not a unit of this item. Use its base unit or the purchase/sales unit set on the item.</value>
+  </data>
+  <data name="ItemUnitInvalid" xml:space="preserve">
+    <value>A purchase or sales unit needs its own name (not the base unit) and how many base units it holds (more than 0).</value>
+  </data>
+  <data name="StockLotRequired" xml:space="preserve">
+    <value>{0} is tracked by lot: enter the lot number (and expiry date) of the goods received.</value>
+  </data>
+  <data name="StockLotNotAvailable" xml:space="preserve">
+    <value>Lot {0} of {1} doesn't have that much in this warehouse.</value>
+  </data>
+  <data name="StockLotsLocked" xml:space="preserve">
+    <value>Lot tracking can't be switched on or off once this item's stock has moved.</value>
+  </data>
 </root>

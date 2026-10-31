@@ -21,6 +21,10 @@ public class StockService
     public const string ShortageAccountCode = "520100";
     public const string OverageAccountCode = "520200";
     public const string ScrapAccountCode = "520300";
+    // Phase 2: the contra-asset carrying write-downs to net realisable value (IAS 2).
+    public const string WriteDownAllowanceCode = "120900";
+    // §12 P6: goods received, not yet invoiced (credit balance until the bill arrives).
+    public const string GoodsReceivedNotInvoicedCode = "120800";
     // docs/INVENTORY_PLAN.md D3: created on first use, not part of the standard 233-account chart.
     public const string OpeningClearingAccountCode = "390100";
 
@@ -181,8 +185,10 @@ public class StockService
 
     // What a document asks to move. Value: receipts and revaluations carry their own value; issues
     // and transfers are valued here.
+    // §12 P8: LotNumber/ExpiryDate name the lot received into stock (required for items that track
+    // lots) or the lot to take from (optional; the earliest expiry first otherwise).
     public record MoveRequest(Guid ItemId, StockMoveKind Kind, Guid FromLocationId, Guid ToLocationId, decimal Quantity,
-        decimal? Value = null, Guid? SourceLineId = null);
+        decimal? Value = null, Guid? SourceLineId = null, string? LotNumber = null, DateOnly? ExpiryDate = null);
 
     public record MoveOutcome(MoveRequest Request, StockMove Move, decimal Value, decimal Correction);
 
@@ -300,6 +306,7 @@ public class StockService
             };
             _db.StockMoves.Add(move);
             await UpdateBalancesAsync(companyId, item.Id, request, locations);
+            await AllocateLotsAsync(companyId, item, request, move, locations);
             outcomes.Add(new MoveOutcome(request, move, result.MoveValue, result.Correction));
         }
 
@@ -358,6 +365,99 @@ public class StockService
         StockMoveKind.Revaluation => result.MoveValue,
         _ => 0m
     };
+
+    // ---- Lots (§12 P8) ----
+
+    // Records which lots a move took from or added to and keeps each lot's quantity per location.
+    // Into stock: the request must name the lot (created on first use, with its expiry). Out of
+    // stock: the named lot, or the earliest expiry first; a transfer carries the same lots across.
+    private async Task AllocateLotsAsync(Guid companyId, Item item, MoveRequest request, StockMove move, Dictionary<Guid, StockLocation> locations)
+    {
+        if (!item.TrackLots || request.Quantity <= 0 || request.Kind == StockMoveKind.Revaluation) return;
+        var from = locations.GetValueOrDefault(request.FromLocationId);
+        var to = locations.GetValueOrDefault(request.ToLocationId);
+        var outOfStock = from?.IsStock == true;
+        var intoStock = to?.IsStock == true;
+        if (!outOfStock && !intoStock) return;
+
+        List<(Lot Lot, decimal Quantity)> parts;
+        if (outOfStock)
+        {
+            parts = await TakeLotsAsync(item, from!.Id, request.Quantity, request.LotNumber);
+        }
+        else
+        {
+            if (string.IsNullOrWhiteSpace(request.LotNumber))
+            {
+                throw new StockException(string.Format(_localizer["StockLotRequired"].Value, item.Name));
+            }
+            parts = new() { (await LotAsync(companyId, item.Id, request.LotNumber.Trim(), request.ExpiryDate), request.Quantity) };
+        }
+
+        foreach (var (lot, quantity) in parts)
+        {
+            _db.StockMoveLots.Add(new StockMoveLot { Id = Guid.NewGuid(), StockMoveId = move.Id, LotId = lot.Id, Quantity = quantity });
+            if (outOfStock) (await LotBalanceAsync(companyId, lot, from!.Id)).Quantity -= quantity;
+            if (intoStock) (await LotBalanceAsync(companyId, lot, to!.Id)).Quantity += quantity;
+        }
+    }
+
+    private async Task<List<(Lot Lot, decimal Quantity)>> TakeLotsAsync(Item item, Guid locationId, decimal quantity, string? lotNumber)
+    {
+        await _db.Lots.Where(l => l.ItemId == item.Id).LoadAsync();
+        await _db.LotBalances.Where(b => b.ItemId == item.Id && b.LocationId == locationId).LoadAsync();
+        var lots = _db.Lots.Local.Where(l => l.ItemId == item.Id).ToDictionary(l => l.Id);
+        var available = _db.LotBalances.Local.Where(b => b.ItemId == item.Id && b.LocationId == locationId && b.Quantity > 0 && lots.ContainsKey(b.LotId))
+            .Select(b => (Lot: lots[b.LotId], b.Quantity))
+            .OrderBy(x => x.Lot.ExpiryDate ?? DateOnly.MaxValue).ThenBy(x => x.Lot.CreatedAt).ThenBy(x => x.Lot.Number)
+            .ToList();
+        if (!string.IsNullOrWhiteSpace(lotNumber))
+        {
+            var chosen = available.Where(x => string.Equals(x.Lot.Number, lotNumber.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+            if (chosen.Sum(x => x.Quantity) < quantity)
+            {
+                throw new StockException(string.Format(_localizer["StockLotNotAvailable"].Value, lotNumber.Trim(), item.Name));
+            }
+            available = chosen;
+        }
+
+        var parts = new List<(Lot, decimal)>();
+        var left = quantity;
+        foreach (var (lot, onHand) in available)
+        {
+            if (left <= 0) break;
+            var take = Math.Min(left, onHand);
+            parts.Add((lot, take));
+            left -= take;
+        }
+        // What no lot covers (selling below zero under "warn") moves without a lot.
+        return parts;
+    }
+
+    private async Task<Lot> LotAsync(Guid companyId, Guid itemId, string number, DateOnly? expiry)
+    {
+        var lot = _db.Lots.Local.FirstOrDefault(l => l.ItemId == itemId && string.Equals(l.Number, number, StringComparison.OrdinalIgnoreCase))
+            ?? await _db.Lots.FirstOrDefaultAsync(l => l.ItemId == itemId && l.Number.ToLower() == number.ToLower());
+        if (lot is not null)
+        {
+            // A lot keeps the expiry it was first received with; an empty one can be filled in.
+            lot.ExpiryDate ??= expiry;
+            return lot;
+        }
+        lot = new Lot { Id = Guid.NewGuid(), CompanyId = companyId, ItemId = itemId, Number = number, ExpiryDate = expiry };
+        _db.Lots.Add(lot);
+        return lot;
+    }
+
+    private async Task<LotBalance> LotBalanceAsync(Guid companyId, Lot lot, Guid locationId)
+    {
+        var balance = _db.LotBalances.Local.FirstOrDefault(b => b.LotId == lot.Id && b.LocationId == locationId)
+            ?? await _db.LotBalances.FirstOrDefaultAsync(b => b.LotId == lot.Id && b.LocationId == locationId);
+        if (balance is not null) return balance;
+        balance = new LotBalance { LotId = lot.Id, LocationId = locationId, CompanyId = companyId, ItemId = lot.ItemId };
+        _db.LotBalances.Add(balance);
+        return balance;
+    }
 
     private async Task UpdateBalancesAsync(Guid companyId, Guid itemId, MoveRequest request, Dictionary<Guid, StockLocation> locations)
     {
@@ -447,6 +547,17 @@ public class StockService
     // Adds a balanced Dr/Cr pair to a document's own journal entry (already validated and balanced;
     // a pair keeps it balanced, one-sided and non-negative). Zero is skipped; a negative amount
     // swaps the sides.
+    // §12 P7: the factor for a unit entered on a document line. Null or the item's base unit = 1;
+    // its purchase or sales unit = that unit's factor; anything else is not a unit of the item.
+    public static (string? Name, decimal Factor)? ResolveUnit(Item? item, string? unitName)
+    {
+        var name = string.IsNullOrWhiteSpace(unitName) ? null : unitName.Trim();
+        if (name is null || item is null || string.Equals(name, item.Unit, StringComparison.OrdinalIgnoreCase)) return (null, 1m);
+        if (item.PurchaseUnitFactor is { } pf && string.Equals(name, item.PurchaseUnit, StringComparison.OrdinalIgnoreCase)) return (item.PurchaseUnit, pf);
+        if (item.SalesUnitFactor is { } sf && string.Equals(name, item.SalesUnit, StringComparison.OrdinalIgnoreCase)) return (item.SalesUnit, sf);
+        return null;
+    }
+
     public static void AddPair(JournalEntry entry, Guid debitAccountId, Guid creditAccountId, decimal amount, string description)
     {
         amount = AverageCost.Money(amount);

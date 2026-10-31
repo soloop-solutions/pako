@@ -1,3 +1,4 @@
+import type { ItemResponse } from "@pako/shared";
 import { useIntl } from "react-intl";
 
 import { Label } from "@/components/ui/label";
@@ -21,6 +22,23 @@ export function WarehouseField({ id, value, onChange }: { id: string; value: str
         options={warehouses.map((w) => ({ value: w.id, label: `${w.code} · ${w.name}` }))}
       />
     </div>
+  );
+}
+
+// §12 P7: the unit a line's quantity is in, when the item has a purchase or sales unit besides its
+// base unit. "" = the base unit. Hidden for items with only one unit.
+export function LineUnitSelect({ item, value, onChange }: {
+  item: ItemResponse | undefined; value: string; onChange: (value: string) => void;
+}) {
+  const intl = useIntl();
+  if (!item || (!item.purchaseUnit && !item.salesUnit)) return null;
+  const options = [{ value: "", label: item.unit }];
+  if (item.purchaseUnit) options.push({ value: item.purchaseUnit, label: `${item.purchaseUnit} (${intl.formatNumber(item.purchaseUnitFactor ?? 1)})` });
+  if (item.salesUnit && item.salesUnit !== item.purchaseUnit) {
+    options.push({ value: item.salesUnit, label: `${item.salesUnit} (${intl.formatNumber(item.salesUnitFactor ?? 1)})` });
+  }
+  return (
+    <Select className="h-7 w-full text-xs" value={value} onValueChange={onChange} aria-label={intl.formatMessage({ id: "items.lineUnit" })} options={options} />
   );
 }
 

@@ -9,7 +9,11 @@ public record CreateInvoiceLineRequest(
     Guid? TaxDefinitionId,
     Guid? RevenueAccountId,
     decimal? DiscountPercent = null,
-    Guid? ItemId = null);
+    Guid? ItemId = null,
+    // §12 P7: the item unit the quantity is in (null = its base unit).
+    string? UnitName = null,
+    // §12 P8, items tracked by lot: the lot to sell from (the earliest expiry first when empty).
+    string? LotNumber = null);
 
 public record CreateInvoiceRequest(
     Guid PartnerId,
@@ -58,7 +62,10 @@ public record InvoiceLineResponse(
     Guid? TaxDefinitionId,
     Guid RevenueAccountId,
     decimal DiscountPercent,
-    Guid? ItemId);
+    Guid? ItemId,
+    string? UnitName = null,
+    decimal UnitFactor = 1m,
+    string? LotNumber = null);
 
 public record InvoiceResponse(
     Guid Id,

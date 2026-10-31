@@ -22,7 +22,8 @@ import { isIncomeAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
-import { OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
 
 type Line = {
@@ -33,6 +34,8 @@ type Line = {
   taxDefinitionId: string;
   itemId: string;
   revenueAccountId: string;
+  // §12 P7: the item unit the quantity is in (undefined = the base unit).
+  unitName?: string;
 };
 
 function emptyLine(defaultTaxId: string): Line {
@@ -185,6 +188,7 @@ export function InvoiceForm({
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? "",
           itemId: l.itemId ?? "",
+          unitName: l.unitName ?? undefined,
           revenueAccountId: l.revenueAccountId ?? "",
         }))
       : [emptyLine(defaultTaxId)],
@@ -222,6 +226,7 @@ export function InvoiceForm({
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? defaultTaxId,
           itemId: l.itemId ?? "",
+          unitName: l.unitName ?? undefined,
           revenueAccountId: l.revenueAccountId ?? "",
         }));
         setLines(populated);
@@ -304,7 +309,18 @@ export function InvoiceForm({
 
   function selectLineItem(index: number, itemId: string) {
     const item = items.find((i) => i.id === itemId);
-    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, partnerDrivenTaxId) : line)));
+    setLines((prev) => prev.map((line, i) => (i === index ? { ...applyItemDefaults(line, item, partnerDrivenTaxId), unitName: undefined } : line)));
+    // §12 P4: with price lists, the line starts from the shop's (or company's) price on the issue
+    // date instead of the item's own price. Returns keep the original invoice's prices.
+    if (item && !isSalesReturn) {
+      void apiClient.resolvePrices(companyId, [item.id], warehouseId || undefined, issueDate).then((prices) => {
+        const resolved = prices.find((p) => p.itemId === item.id);
+        if (!resolved || resolved.source === "item") return;
+        setLines((prev) => prev.map((line, i) => (i === index && line.itemId === item.id ? { ...line, unitPrice: String(resolved.price) } : line)));
+      }).catch(() => {
+        // The item's own price stays; nothing to report.
+      });
+    }
   }
 
   function addLine() {
@@ -363,6 +379,7 @@ export function InvoiceForm({
         taxDefinitionId: line.taxDefinitionId || undefined,
         revenueAccountId: line.revenueAccountId || undefined,
         itemId: line.itemId || undefined,
+        unitName: line.unitName || undefined,
       }));
 
       // Record entity selections for smart favorites (on successful save)
@@ -694,11 +711,12 @@ export function InvoiceForm({
                 value={line.quantity}
                 onChange={(event) => updateLine(index, { quantity: event.target.value })}
               />
+              <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
               {selectedItem?.trackInventory && (
                 <OnHandHint
                   className="absolute -bottom-4 right-0 whitespace-nowrap"
                   onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
-                  requested={parseFloat(line.quantity) || 0}
+                  requested={baseQuantity(selectedItem, line.unitName, parseFloat(line.quantity) || 0)}
                   warnWhenShort={documentType === InvoiceDocumentType.Invoice}
                 />
               )}

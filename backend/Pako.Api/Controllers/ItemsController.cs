@@ -103,7 +103,8 @@ public class ItemsController : ControllerBase
 
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
-        var stockError = await ValidateStockFieldsAsync(companyId, null, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock);
+        var stockError = await ValidateStockFieldsAsync(companyId, null, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock)
+            ?? ValidateUnits(request.Unit, request.PurchaseUnit, request.PurchaseUnitFactor, request.SalesUnit, request.SalesUnitFactor);
         if (stockError is not null) return BadRequest(stockError);
 
         // B6: auto-assign the next ordinal code from the Item number series.
@@ -127,7 +128,12 @@ public class ItemsController : ControllerBase
             DefaultUnitPrice = request.DefaultUnitPrice,
             CategoryId = request.CategoryId,
             TrackInventory = request.TrackInventory && request.Type == ItemType.Goods,
-            MinimumStock = request.MinimumStock
+            MinimumStock = request.MinimumStock,
+            TrackLots = request.TrackLots && request.TrackInventory && request.Type == ItemType.Goods,
+            PurchaseUnit = Blank(request.PurchaseUnit),
+            PurchaseUnitFactor = Blank(request.PurchaseUnit) is null ? null : request.PurchaseUnitFactor,
+            SalesUnit = Blank(request.SalesUnit),
+            SalesUnitFactor = Blank(request.SalesUnit) is null ? null : request.SalesUnitFactor
         };
 
         _db.Items.Add(item);
@@ -153,7 +159,10 @@ public class ItemsController : ControllerBase
 
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
-        var stockError = await ValidateStockFieldsAsync(companyId, item, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock);
+        var stockError = await ValidateStockFieldsAsync(companyId, item, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock)
+            ?? (item.TrackLots != (request.TrackLots && request.TrackInventory) && await _db.StockMoves.AnyAsync(m => m.ItemId == item.Id)
+                ? _localizer["StockLotsLocked"].Value : null)
+            ?? ValidateUnits(request.Unit, request.PurchaseUnit, request.PurchaseUnitFactor, request.SalesUnit, request.SalesUnitFactor);
         if (stockError is not null) return BadRequest(stockError);
         // Moving the stock account of an item that carries stock would split its value over two
         // accounts.
@@ -174,6 +183,12 @@ public class ItemsController : ControllerBase
         item.CategoryId = request.CategoryId;
         item.TrackInventory = request.TrackInventory && request.Type == ItemType.Goods;
         item.MinimumStock = request.MinimumStock;
+        item.TrackLots = request.TrackLots && item.TrackInventory;
+        // Lines keep the factor they were entered with, so changing a unit never rewrites history.
+        item.PurchaseUnit = Blank(request.PurchaseUnit);
+        item.PurchaseUnitFactor = item.PurchaseUnit is null ? null : request.PurchaseUnitFactor;
+        item.SalesUnit = Blank(request.SalesUnit);
+        item.SalesUnitFactor = item.SalesUnit is null ? null : request.SalesUnitFactor;
 
         await _db.SaveChangesAsync();
         return Ok(ToResponse(item, await _db.StockMoves.AnyAsync(m => m.ItemId == item.Id)));
@@ -264,10 +279,33 @@ public class ItemsController : ControllerBase
         return null;
     }
 
+    private static string? Blank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    // §12 P7: an alternative unit needs a name different from the base unit and a factor above zero.
+    private string? ValidateUnits(string baseUnit, string? purchaseUnit, decimal? purchaseFactor, string? salesUnit, decimal? salesFactor)
+    {
+        foreach (var (name, factor) in new[] { (purchaseUnit, purchaseFactor), (salesUnit, salesFactor) })
+        {
+            if (Blank(name) is not { } unit) continue;
+            if (unit.Length > 32 || string.Equals(unit, baseUnit.Trim(), StringComparison.OrdinalIgnoreCase)
+                || factor is not { } f || f <= 0 || f > 1_000_000m)
+            {
+                return _localizer["ItemUnitInvalid"].Value;
+            }
+        }
+        if (Blank(purchaseUnit) is { } p && Blank(salesUnit) is { } s2 && string.Equals(p, s2, StringComparison.OrdinalIgnoreCase)
+            && purchaseFactor != salesFactor)
+        {
+            return _localizer["ItemUnitInvalid"].Value;
+        }
+        return null;
+    }
+
     private static ItemResponse ToResponse(Item i, bool hasStockMoves = false) => new(
         i.Id, i.Code, i.Name, i.Description, i.Unit, i.Type,
         i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
         i.Barcodes.Select(b => new ItemBarcodeResponse(b.Id, b.Barcode)).ToList(),
-        i.CategoryId, i.TrackInventory, i.MinimumStock, hasStockMoves);
+        i.CategoryId, i.TrackInventory, i.MinimumStock, hasStockMoves, i.TrackLots,
+        i.PurchaseUnit, i.PurchaseUnitFactor, i.SalesUnit, i.SalesUnitFactor);
 }

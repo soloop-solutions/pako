@@ -154,6 +154,7 @@ public class AttachmentsController : ControllerBase
         AttachmentOwnerType.Bill => await _db.Bills.AnyAsync(b => b.Id == ownerId && b.CompanyId == companyId),
         AttachmentOwnerType.JournalEntry => await _db.JournalEntries.AnyAsync(e => e.Id == ownerId && e.CompanyId == companyId),
         AttachmentOwnerType.Partner => await _db.Partners.AnyAsync(p => p.Id == ownerId && p.CompanyId == companyId),
+        AttachmentOwnerType.StockDocument => await _db.StockDocuments.AnyAsync(d => d.Id == ownerId && d.CompanyId == companyId),
         _ => false
     };
 
@@ -164,6 +165,7 @@ public class AttachmentsController : ControllerBase
         AttachmentOwnerType.JournalEntry => AccessModule.Accounting,
         AttachmentOwnerType.Partner => AccessModule.Partners,
         AttachmentOwnerType.ExpenseClaim => AccessModule.Hr,
+        AttachmentOwnerType.StockDocument => AccessModule.Inventory,
         _ => AccessModule.None
     };
 
@@ -188,6 +190,8 @@ public class AttachmentsController : ControllerBase
             AttachmentOwnerType.Invoice => await _db.Invoices.VisibleTo(_access).AnyAsync(i => i.Id == ownerId && i.CompanyId == companyId),
             AttachmentOwnerType.Bill => await _db.Bills.VisibleTo(_access).AnyAsync(b => b.Id == ownerId && b.CompanyId == companyId),
             AttachmentOwnerType.Partner => _access.CanSeePartner(ownerId),
+            // Stock documents name no partner, so a partner scope doesn't narrow them.
+            AttachmentOwnerType.StockDocument => true,
             _ => false
         };
     }

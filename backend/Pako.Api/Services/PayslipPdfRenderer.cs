@@ -180,14 +180,14 @@ public static class PayslipPdfRenderer
         });
     }
 
-    private static void SetupPage(PageDescriptor page)
+    internal static void SetupPage(PageDescriptor page)
     {
         page.Size(PageSizes.A4);
         page.Margin(36);
         page.DefaultTextStyle(t => t.FontSize(9.5f));
     }
 
-    private static void Header(IContainer container, DocumentIssuer issuer, string title, string subtitle)
+    internal static void Header(IContainer container, DocumentIssuer issuer, string title, string subtitle)
     {
         container.BorderBottom(1).PaddingBottom(6).Row(row =>
         {

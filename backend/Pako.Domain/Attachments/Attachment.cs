@@ -13,7 +13,10 @@ public enum AttachmentOwnerType
     Partner,
 
     // H13: receipts on an expense claim (uploaded through self-service, copied to the bill).
-    ExpenseClaim
+    ExpenseClaim,
+
+    // docs/INVENTORY_PLAN.md D14: the ATK notice, police report or photos behind a write-off.
+    StockDocument
 }
 
 // Stored inline in Postgres (Content bytea), not on local disk or external object storage — this

@@ -1016,4 +1016,151 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="Export_Common_TotalOperatingExpenses" xml:space="preserve">
     <value>Gjithsejt shpenzimet operative</value>
   </data>
+  <data name="PdfCountSheetTitle" xml:space="preserve">
+    <value>Lista e inventarizimit</value>
+  </data>
+  <data name="PdfCountSheetSubtitle" xml:space="preserve">
+    <value>{0} · {1}</value>
+  </data>
+  <data name="PdfCountSheetCode" xml:space="preserve">
+    <value>Kodi</value>
+  </data>
+  <data name="PdfCountSheetItem" xml:space="preserve">
+    <value>Artikulli</value>
+  </data>
+  <data name="PdfCountSheetUnit" xml:space="preserve">
+    <value>Njësia</value>
+  </data>
+  <data name="PdfCountSheetBook" xml:space="preserve">
+    <value>Sasia në libër</value>
+  </data>
+  <data name="PdfCountSheetCounted" xml:space="preserve">
+    <value>E numëruar</value>
+  </data>
+  <data name="PdfCountSheetDifference" xml:space="preserve">
+    <value>Diferenca</value>
+  </data>
+  <data name="PdfCountSheetNote" xml:space="preserve">
+    <value>Shënim</value>
+  </data>
+  <data name="PdfCountSheetCountedBy" xml:space="preserve">
+    <value>Numëroi (emri, nënshkrimi)</value>
+  </data>
+  <data name="PdfCountSheetCheckedBy" xml:space="preserve">
+    <value>Kontrolloi (emri, nënshkrimi)</value>
+  </data>
+  <data name="StockVatRepayment" xml:space="preserve">
+    <value>TVSH e zbritur e kthyer për mallra të humbura</value>
+  </data>
+  <data name="StockWriteDownValueRequired" xml:space="preserve">
+    <value>Shkruani vlerën neto të realizueshme për njësi (0 ose më shumë) në çdo rresht.</value>
+  </data>
+  <data name="StockWriteDownLaterExists" xml:space="preserve">
+    <value>Për një nga këta artikuj është postuar tashmë një zhvlerësim me datë më të vonshme. Postoni zhvlerësimet sipas datës.</value>
+  </data>
+  <data name="StockDocumentWriteDown" xml:space="preserve">
+    <value>Zhvlerësim</value>
+  </data>
+  <data name="PriceChangePosted" xml:space="preserve">
+    <value>Ky nivelim është postuar tashmë dhe nuk mund të ndryshohet.</value>
+  </data>
+  <data name="PriceListNotFound" xml:space="preserve">
+    <value>Zgjidhni një listë çmimesh aktive.</value>
+  </data>
+  <data name="PriceChangeItemNotFound" xml:space="preserve">
+    <value>Një nga artikujt nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="PriceChangePrice" xml:space="preserve">
+    <value>Çmimet duhet të jenë 0 ose më shumë.</value>
+  </data>
+  <data name="PriceListName" xml:space="preserve">
+    <value>Jepini listës së çmimeve një emër (deri në 120 shkronja).</value>
+  </data>
+  <data name="PriceListNameTaken" xml:space="preserve">
+    <value>Një listë tjetër çmimesh e ka tashmë këtë emër.</value>
+  </data>
+  <data name="PriceListWarehouseTaken" xml:space="preserve">
+    <value>Ajo magazinë ka tashmë një listë çmimesh (ose lista e kompanisë ekziston). Çdo magazinë ka të shumtën një.</value>
+  </data>
+  <data name="PdfPriceChangeTitle" xml:space="preserve">
+    <value>Nivelim i çmimeve</value>
+  </data>
+  <data name="PdfPriceChangeSubtitle" xml:space="preserve">
+    <value>{0} · {1} · {2}</value>
+  </data>
+  <data name="PdfDraft" xml:space="preserve">
+    <value>Draft</value>
+  </data>
+  <data name="PdfPriceChangeQuantity" xml:space="preserve">
+    <value>Në stok</value>
+  </data>
+  <data name="PdfPriceChangeOld" xml:space="preserve">
+    <value>Çmimi i vjetër</value>
+  </data>
+  <data name="PdfPriceChangeNew" xml:space="preserve">
+    <value>Çmimi i ri</value>
+  </data>
+  <data name="PdfPriceChangeDifference" xml:space="preserve">
+    <value>Diferenca</value>
+  </data>
+  <data name="PdfPriceChangeTotal" xml:space="preserve">
+    <value>Diferenca gjithsej: {0}</value>
+  </data>
+  <data name="PdfPriceChangePreparedBy" xml:space="preserve">
+    <value>Përgatiti (emri, nënshkrimi)</value>
+  </data>
+  <data name="PdfPriceChangeApprovedBy" xml:space="preserve">
+    <value>Miratoi (emri, nënshkrimi)</value>
+  </data>
+  <data name="BillPurchaseOrderLineInvalid" xml:space="preserve">
+    <value>Një rresht i referohet një porosie blerjeje që nuk është porosi e konfirmuar nga ky furnitor.</value>
+  </data>
+  <data name="PurchaseOrderNotDraft" xml:space="preserve">
+    <value>Vetëm një porosi blerjeje draft mund të ndryshohet ose fshihet.</value>
+  </data>
+  <data name="PurchaseOrderNotConfirmed" xml:space="preserve">
+    <value>Vetëm një porosi blerjeje e konfirmuar mund të mbyllet ose anulohet.</value>
+  </data>
+  <data name="PurchaseOrderHasBills" xml:space="preserve">
+    <value>Nga kjo porosi janë bërë tashmë fatura; mbylleni në vend që ta anuloni.</value>
+  </data>
+  <data name="PurchaseOrderFromLowStock" xml:space="preserve">
+    <value>Krijuar nga lista e stokut të ulët.</value>
+  </data>
+  <data name="PurchaseOrderNoLines" xml:space="preserve">
+    <value>Shtoni të paktën një rresht.</value>
+  </data>
+  <data name="PurchaseOrderVendorRequired" xml:space="preserve">
+    <value>Zgjidhni një furnitor.</value>
+  </data>
+  <data name="PurchaseOrderExpectedBeforeDate" xml:space="preserve">
+    <value>Data e pritur nuk mund të jetë para datës së porosisë.</value>
+  </data>
+  <data name="PurchaseOrderLineDescription" xml:space="preserve">
+    <value>Një rresht pa artikull ka nevojë për përshkrim.</value>
+  </data>
+  <data name="StockReceiptMatched" xml:space="preserve">
+    <value>Faturuar kundrejt fletëpranimit</value>
+  </data>
+  <data name="StockDocumentReceipt" xml:space="preserve">
+    <value>Fletëpranim</value>
+  </data>
+  <data name="PurchaseOrderNothingToReceive" xml:space="preserve">
+    <value>Të gjitha rreshtat me stok të kësaj porosie janë pranuar.</value>
+  </data>
+  <data name="LineUnitUnknown" xml:space="preserve">
+    <value>"{0}" nuk është njësi e këtij artikulli. Përdorni njësinë bazë ose njësinë e blerjes/shitjes të caktuar te artikulli.</value>
+  </data>
+  <data name="ItemUnitInvalid" xml:space="preserve">
+    <value>Njësia e blerjes ose e shitjes ka nevojë për emrin e vet (jo njësinë bazë) dhe sa njësi bazë përmban (më shumë se 0).</value>
+  </data>
+  <data name="StockLotRequired" xml:space="preserve">
+    <value>{0} përcillet sipas lotit: shkruani numrin e lotit (dhe datën e skadimit) të mallit të pranuar.</value>
+  </data>
+  <data name="StockLotNotAvailable" xml:space="preserve">
+    <value>Loti {0} i {1} nuk ka aq sasi në këtë magazinë.</value>
+  </data>
+  <data name="StockLotsLocked" xml:space="preserve">
+    <value>Përcjellja sipas lotit nuk mund të ndizet ose fiket pasi stoku i këtij artikulli ka lëvizur.</value>
+  </data>
 </root>

@@ -1,10 +1,15 @@
 import { useMemo, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { StockLevelResponse } from "@pako/shared";
 import { useIntl } from "react-intl";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { ShoppingCart } from "lucide-react";
+import { toast } from "sonner";
 
-import { apiClient } from "@/api/client";
+import { apiClient, getApiErrorMessage } from "@/api/client";
+import { Button } from "@/components/ui/button";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +33,35 @@ export function StockLevels() {
   const grid = useDataGridUrlState(GRID_ID, 50);
   const [warehouseId, setWarehouseId] = useUrlParam("warehouse", "", [`${GRID_ID}.page`]);
   const [categoryId, setCategoryId] = useUrlParam("category", "", [`${GRID_ID}.page`]);
-  const [low, setLow] = useUrlParam("low", "", [`${GRID_ID}.page`]);
+  const [low] = useUrlParam("low", "", [`${GRID_ID}.page`]);
+  const [, setSearchParams] = useSearchParams();
+  // The low-stock view is the reorder list: one group per usual supplier.
+  const setLow = (on: boolean) =>
+    setSearchParams((prev) => {
+      const p = new URLSearchParams(prev);
+      p.delete(`${GRID_ID}.page`);
+      if (on) {
+        p.set("low", "1");
+        p.set(`${GRID_ID}.group`, "supplier");
+      } else {
+        p.delete("low");
+        if (p.get(`${GRID_ID}.group`) === "supplier") p.delete(`${GRID_ID}.group`);
+      }
+      return p;
+    }, { replace: true });
   const [cardItem, setCardItem] = useState<StockLevelResponse | null>(null);
+  const navigate = useNavigate();
+  const { canWrite } = useMyAccess();
+  // §12 P5: the reorder list becomes one draft purchase order per usual supplier.
+  const createOrders = useMutation({
+    mutationFn: () => apiClient.createPurchaseOrdersFromLowStock(activeCompanyId as string),
+    onSuccess: (result) => {
+      toast.success(intl.formatMessage({ id: "stock.lowStock.ordersCreated" }, { orders: result.purchaseOrderIds.length, items: result.items - result.itemsWithoutSupplier }));
+      if (result.itemsWithoutSupplier > 0) toast.warning(intl.formatMessage({ id: "stock.lowStock.noSupplier" }, { count: result.itemsWithoutSupplier }));
+      if (result.purchaseOrderIds.length > 0) navigate("/purchase-orders?state=0");
+    },
+    onError: (err: unknown) => toast.error(getApiErrorMessage(err, t("stock.lowStock.ordersError"))),
+  });
   const warehouses = useWarehouses().data ?? [];
   const categories = useQuery({
     queryKey: ["itemCategories", activeCompanyId],
@@ -75,6 +107,12 @@ export function StockLevels() {
         cell: ({ row }) => `${intl.formatNumber(row.original.quantity)} ${row.original.unit}`,
       },
       { accessorKey: "minimumStock", header: t("stock.col.minimum"), meta: { numeric: true }, cell: ({ getValue }) => (getValue() == null ? "—" : intl.formatNumber(getValue() as number)) },
+      { accessorKey: "shortBy", header: t("stock.col.shortBy"), meta: { numeric: true }, cell: ({ getValue }) => (getValue() == null ? "" : intl.formatNumber(getValue() as number)) },
+      {
+        id: "supplier",
+        accessorFn: (row) => row.usualSupplierName ?? t("stock.noSupplier"),
+        header: t("stock.col.supplier"),
+      },
       { accessorKey: "averageCost", header: t("stock.col.averageCost"), meta: { numeric: true }, cell: ({ getValue }) => intl.formatNumber(getValue() as number, { maximumFractionDigits: 4 }) },
       { accessorKey: "value", header: t("stock.col.value"), meta: { numeric: true }, cell: ({ getValue }) => formatAmount(getValue() as number) },
     ],
@@ -117,9 +155,15 @@ export function StockLevels() {
             </div>
           )}
           <label className="flex h-8 items-center gap-2 text-sm">
-            <input type="checkbox" checked={low === "1"} onChange={(e) => setLow(e.target.checked ? "1" : "")} />
+            <input type="checkbox" checked={low === "1"} onChange={(e) => setLow(e.target.checked)} />
             {t("stock.onlyBelowMinimum")}
           </label>
+          {low === "1" && canWrite("purchases") && (query.data?.total ?? 0) > 0 && (
+            <Button size="sm" variant="outline" className="ml-auto" disabled={createOrders.isPending} onClick={() => createOrders.mutate()}>
+              <ShoppingCart className="size-4" />
+              {t("stock.lowStock.createOrders")}
+            </Button>
+          )}
         </div>
         <DataGrid
           gridId={GRID_ID}
@@ -133,6 +177,8 @@ export function StockLevels() {
           globalFilterPlaceholder={t("stock.search")}
           emptyMessage={t("stock.empty")}
           exportFileName="stock"
+          // Grouping happens in the browser, and only in the low-stock view, which is a short list.
+          manualGrouping={low !== "1"}
         />
       </CardContent>
       {cardItem && <ItemCardDialog itemId={cardItem.itemId} title={`${cardItem.itemCode} · ${cardItem.itemName}`} onClose={() => setCardItem(null)} />}
