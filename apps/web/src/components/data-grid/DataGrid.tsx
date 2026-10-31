@@ -251,6 +251,9 @@ export function DataGrid<TData extends object>({
 
   const rows = table.getRowModel().rows;
   const visibleColumnCount = table.getVisibleLeafColumns().length;
+  const firstDataColumnId = table
+    .getVisibleLeafColumns()
+    .find((column) => column.id !== SELECT_COLUMN_ID && column.id !== ORDINAL_COLUMN_ID)?.id;
   const totalPages = Math.max(1, Math.ceil(rowCount / urlState.pageSize));
   const rangeFrom = rowCount === 0 ? 0 : urlState.skip + 1;
   const rangeTo = Math.min(rowCount, urlState.skip + urlState.pageSize);
@@ -492,7 +495,7 @@ export function DataGrid<TData extends object>({
           {!isLoading && footerRow && rows.length > 0 && (
             <tfoot>
               <tr className="h-8 border-t border-t-grid-header-border bg-totals text-totals-foreground font-semibold">
-                {table.getVisibleLeafColumns().map((column, index) => {
+                {table.getVisibleLeafColumns().map((column) => {
                   if (column.id === SELECT_COLUMN_ID || column.id === ORDINAL_COLUMN_ID) {
                     return <td key={column.id} className="h-8 py-1" />;
                   }
@@ -504,7 +507,7 @@ export function DataGrid<TData extends object>({
                       </td>
                     );
                   }
-                  const isFirstDataColumn = index === 1 + (enableRowSelection ? 1 : 0);
+                  const isFirstDataColumn = column.id === firstDataColumnId;
                   return (
                     <td key={column.id} className="h-8 px-2 py-1">
                       {isFirstDataColumn ? footerRow.label : null}
@@ -517,12 +520,12 @@ export function DataGrid<TData extends object>({
           {!isLoading && !footerRow && hasAggregatedColumn && rows.length > 0 && (
             <tfoot>
               <tr className="h-8 border-t border-t-grid-header-border bg-totals text-totals-foreground font-semibold">
-                {table.getVisibleLeafColumns().map((column, index) => {
+                {table.getVisibleLeafColumns().map((column) => {
                   if (column.id === SELECT_COLUMN_ID || column.id === ORDINAL_COLUMN_ID) {
                     return <td key={column.id} className="h-8 py-1" />;
                   }
                   const meta = column.columnDef.meta;
-                  const isFirstDataColumn = index === 1 + (enableRowSelection ? 1 : 0);
+                  const isFirstDataColumn = column.id === firstDataColumnId;
                   if (meta?.footerAggregate === "sum" || meta?.footerAggregate === "count") {
                     const aggregate = rows.reduce((total, row) => {
                       if (row.getIsGrouped()) return total;

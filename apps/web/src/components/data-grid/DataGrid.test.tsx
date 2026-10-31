@@ -74,3 +74,36 @@ describe("DataGrid global filter", () => {
     expect(screen.getByText("Accounts Payable")).toBeInTheDocument();
   });
 });
+
+describe("DataGrid footerRow", () => {
+  const FOOTER = { label: "Grand total", cells: { name: "99.00" } };
+
+  function footerCells() {
+    const footer = document.querySelector("tfoot tr") as HTMLElement;
+    return Array.from(footer.querySelectorAll("td")).map((td) => td.textContent);
+  }
+
+  it("labels the first data column with the ordinal present and renders cells keyed by column id", () => {
+    renderGrid({ footerRow: FOOTER });
+    expect(footerCells()).toEqual(["", "Grand total", "99.00"]);
+  });
+
+  it("still lands the label in the first visible data column when the ordinal column is hidden", () => {
+    localStorage.setItem("pako.dataGrid.test-grid.columnVisibility", JSON.stringify({ __ordinal: false }));
+    renderGrid({ footerRow: FOOTER });
+    expect(footerCells()).toEqual(["Grand total", "99.00"]);
+    localStorage.clear();
+  });
+
+  it("skips the selection column too", () => {
+    renderGrid({ footerRow: FOOTER, enableRowSelection: true });
+    expect(footerCells()).toEqual(["", "", "Grand total", "99.00"]);
+  });
+
+  it("moves the label when the first data column is hidden", () => {
+    localStorage.setItem("pako.dataGrid.test-grid.columnVisibility", JSON.stringify({ __ordinal: false, code: false }));
+    renderGrid({ footerRow: { label: "Grand total", cells: {} } });
+    expect(footerCells()).toEqual(["Grand total"]);
+    localStorage.clear();
+  });
+});
