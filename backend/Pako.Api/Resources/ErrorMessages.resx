@@ -1163,4 +1163,121 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="StockLotsLocked" xml:space="preserve">
     <value>Lot tracking can't be switched on or off once this item's stock has moved.</value>
   </data>
+  <data name="Export_Stock_Col_Code" xml:space="preserve">
+    <value>Code</value>
+  </data>
+  <data name="Export_Stock_Col_Name" xml:space="preserve">
+    <value>Name</value>
+  </data>
+  <data name="Export_Stock_Col_Category" xml:space="preserve">
+    <value>Category</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningQty" xml:space="preserve">
+    <value>Opening quantity</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningValue" xml:space="preserve">
+    <value>Opening value</value>
+  </data>
+  <data name="Export_Stock_Col_InQty" xml:space="preserve">
+    <value>Quantity in</value>
+  </data>
+  <data name="Export_Stock_Col_InValue" xml:space="preserve">
+    <value>Value in</value>
+  </data>
+  <data name="Export_Stock_Col_OutQty" xml:space="preserve">
+    <value>Quantity out</value>
+  </data>
+  <data name="Export_Stock_Col_OutValue" xml:space="preserve">
+    <value>Value out</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingQty" xml:space="preserve">
+    <value>Closing quantity</value>
+  </data>
+  <data name="Export_Stock_Col_AverageCost" xml:space="preserve">
+    <value>Average cost</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingValue" xml:space="preserve">
+    <value>Closing value</value>
+  </data>
+  <data name="Export_Stock_Col_SellPrice" xml:space="preserve">
+    <value>Sell price (ex VAT)</value>
+  </data>
+  <data name="Export_Stock_Col_Markup" xml:space="preserve">
+    <value>Markup %</value>
+  </data>
+  <data name="Export_Stock_Col_Quantity" xml:space="preserve">
+    <value>Quantity</value>
+  </data>
+  <data name="Export_Stock_Col_Value" xml:space="preserve">
+    <value>Value</value>
+  </data>
+  <data name="Export_Stock_Col_MinimumStock" xml:space="preserve">
+    <value>Minimum stock</value>
+  </data>
+  <data name="Export_Stock_Col_AsOf" xml:space="preserve">
+    <value>As of</value>
+  </data>
+  <data name="Export_Stock_Col_StockValue" xml:space="preserve">
+    <value>Stock value</value>
+  </data>
+  <data name="Export_Stock_Col_LedgerValue" xml:space="preserve">
+    <value>Ledger value</value>
+  </data>
+  <data name="Export_Stock_Col_MoveType" xml:space="preserve">
+    <value>Move type</value>
+  </data>
+  <data name="Export_Stock_Col_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Export_Stock_Col_Reference" xml:space="preserve">
+    <value>Reference</value>
+  </data>
+  <data name="Export_Stock_Col_FromLocation" xml:space="preserve">
+    <value>From location</value>
+  </data>
+  <data name="Export_Stock_Col_ToLocation" xml:space="preserve">
+    <value>To location</value>
+  </data>
+  <data name="Export_Stock_Col_UnitCost" xml:space="preserve">
+    <value>Unit cost</value>
+  </data>
+  <data name="Export_Stock_Col_RunningQty" xml:space="preserve">
+    <value>Running quantity</value>
+  </data>
+  <data name="Export_Stock_Col_RunningValue" xml:space="preserve">
+    <value>Running value</value>
+  </data>
+  <data name="Export_Stock_Sheet_Movements" xml:space="preserve">
+    <value>Stock Movements</value>
+  </data>
+  <data name="Export_Stock_Sheet_Levels" xml:space="preserve">
+    <value>Stock Levels</value>
+  </data>
+  <data name="Export_Stock_Sheet_Valuation" xml:space="preserve">
+    <value>Stock Valuation</value>
+  </data>
+  <data name="Export_Stock_Sheet_ItemCard" xml:space="preserve">
+    <value>Item Card</value>
+  </data>
+  <data name="Export_Stock_Kind_Receipt" xml:space="preserve">
+    <value>Receipt</value>
+  </data>
+  <data name="Export_Stock_Kind_Issue" xml:space="preserve">
+    <value>Issue</value>
+  </data>
+  <data name="Export_Stock_Kind_Transfer" xml:space="preserve">
+    <value>Transfer</value>
+  </data>
+  <data name="Export_Stock_Kind_Revaluation" xml:space="preserve">
+    <value>Revaluation</value>
+  </data>
+  <data name="Export_Stock_Source_Bill" xml:space="preserve">
+    <value>Purchase bill</value>
+  </data>
+  <data name="Export_Stock_Source_Invoice" xml:space="preserve">
+    <value>Sales invoice</value>
+  </data>
+  <data name="Export_Stock_Source_StockDocument" xml:space="preserve">
+    <value>Stock document</value>
+  </data>
 </root>

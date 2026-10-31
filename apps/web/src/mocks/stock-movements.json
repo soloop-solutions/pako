@@ -1,0 +1,49 @@
+{
+  "from": "2026-03-05",
+  "to": "2026-03-31",
+  "items": [
+    {
+      "itemId": "3f1d2c4e-6a7b-4c8d-9e0f-1a2b3c4d5e01",
+      "itemCode": 1,
+      "itemName": "Laptop",
+      "unit": "pc",
+      "categoryName": "Computers",
+      "openingQuantity": 10.0,
+      "openingValue": 1000.00,
+      "inQuantity": 10.0,
+      "inValue": 2000.00,
+      "outQuantity": 5.0,
+      "outValue": 750.00,
+      "closingQuantity": 15.0,
+      "averageCost": 150.0,
+      "closingValue": 2250.00,
+      "sellPriceExVat": 200.00,
+      "markupPercent": 33.33
+    },
+    {
+      "itemId": "3f1d2c4e-6a7b-4c8d-9e0f-1a2b3c4d5e02",
+      "itemCode": 2,
+      "itemName": "Mouse",
+      "unit": "pc",
+      "categoryName": null,
+      "openingQuantity": 3.0,
+      "openingValue": 150.00,
+      "inQuantity": 0.0,
+      "inValue": 0.00,
+      "outQuantity": 0.0,
+      "outValue": 0.00,
+      "closingQuantity": 3.0,
+      "averageCost": 50.0,
+      "closingValue": 150.00,
+      "sellPriceExVat": null,
+      "markupPercent": null
+    }
+  ],
+  "total": 2,
+  "page": 1,
+  "pageSize": 50,
+  "totalOpeningValue": 1150.00,
+  "totalInValue": 2000.00,
+  "totalOutValue": 750.00,
+  "totalClosingValue": 2400.00
+}

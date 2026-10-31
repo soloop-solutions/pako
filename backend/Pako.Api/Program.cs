@@ -95,6 +95,8 @@ builder.Services.AddScoped<Pako.Api.Services.DashboardService>();
 builder.Services.AddScoped<Pako.Api.Services.StockService>();
 builder.Services.AddScoped<Pako.Api.Services.StockDocumentService>();
 builder.Services.AddScoped<Pako.Api.Services.PriceListService>();
+builder.Services.AddScoped<Pako.Api.Services.StockMovementsService>();
+builder.Services.AddScoped<Pako.Api.Services.StockReportDataService>();
 builder.Services.AddScoped<Pako.Api.Services.PlatformAdminService>();
 builder.Services.AddScoped<PlatformBootstrap>();
 

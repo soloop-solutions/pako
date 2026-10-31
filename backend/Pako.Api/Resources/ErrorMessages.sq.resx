@@ -1163,4 +1163,121 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="StockLotsLocked" xml:space="preserve">
     <value>Përcjellja sipas lotit nuk mund të ndizet ose fiket pasi stoku i këtij artikulli ka lëvizur.</value>
   </data>
+  <data name="Export_Stock_Col_Code" xml:space="preserve">
+    <value>Shifra</value>
+  </data>
+  <data name="Export_Stock_Col_Name" xml:space="preserve">
+    <value>Emërtimi</value>
+  </data>
+  <data name="Export_Stock_Col_Category" xml:space="preserve">
+    <value>Grupi</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningQty" xml:space="preserve">
+    <value>Sasia fillestare</value>
+  </data>
+  <data name="Export_Stock_Col_OpeningValue" xml:space="preserve">
+    <value>Vlera fillestare</value>
+  </data>
+  <data name="Export_Stock_Col_InQty" xml:space="preserve">
+    <value>Sasia hyrëse</value>
+  </data>
+  <data name="Export_Stock_Col_InValue" xml:space="preserve">
+    <value>Vlera hyrëse</value>
+  </data>
+  <data name="Export_Stock_Col_OutQty" xml:space="preserve">
+    <value>Sasia dalëse</value>
+  </data>
+  <data name="Export_Stock_Col_OutValue" xml:space="preserve">
+    <value>Vlera dalëse</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingQty" xml:space="preserve">
+    <value>Sasia përfundimtare</value>
+  </data>
+  <data name="Export_Stock_Col_AverageCost" xml:space="preserve">
+    <value>Çmimi mesatar</value>
+  </data>
+  <data name="Export_Stock_Col_ClosingValue" xml:space="preserve">
+    <value>Vlera përfundimtare</value>
+  </data>
+  <data name="Export_Stock_Col_SellPrice" xml:space="preserve">
+    <value>Çmimi i shitjes</value>
+  </data>
+  <data name="Export_Stock_Col_Markup" xml:space="preserve">
+    <value>Marzha %</value>
+  </data>
+  <data name="Export_Stock_Col_Quantity" xml:space="preserve">
+    <value>Sasia</value>
+  </data>
+  <data name="Export_Stock_Col_Value" xml:space="preserve">
+    <value>Vlera</value>
+  </data>
+  <data name="Export_Stock_Col_MinimumStock" xml:space="preserve">
+    <value>Stoku minimal</value>
+  </data>
+  <data name="Export_Stock_Col_AsOf" xml:space="preserve">
+    <value>Më datë</value>
+  </data>
+  <data name="Export_Stock_Col_StockValue" xml:space="preserve">
+    <value>Vlera e stokut</value>
+  </data>
+  <data name="Export_Stock_Col_LedgerValue" xml:space="preserve">
+    <value>Vlera në libër</value>
+  </data>
+  <data name="Export_Stock_Col_MoveType" xml:space="preserve">
+    <value>Lloji i lëvizjes</value>
+  </data>
+  <data name="Export_Stock_Col_Source" xml:space="preserve">
+    <value>Burimi</value>
+  </data>
+  <data name="Export_Stock_Col_Reference" xml:space="preserve">
+    <value>Referenca</value>
+  </data>
+  <data name="Export_Stock_Col_FromLocation" xml:space="preserve">
+    <value>Nga vendndodhja</value>
+  </data>
+  <data name="Export_Stock_Col_ToLocation" xml:space="preserve">
+    <value>Te vendndodhja</value>
+  </data>
+  <data name="Export_Stock_Col_UnitCost" xml:space="preserve">
+    <value>Kostoja për njësi</value>
+  </data>
+  <data name="Export_Stock_Col_RunningQty" xml:space="preserve">
+    <value>Sasia në rend</value>
+  </data>
+  <data name="Export_Stock_Col_RunningValue" xml:space="preserve">
+    <value>Vlera në rend</value>
+  </data>
+  <data name="Export_Stock_Sheet_Movements" xml:space="preserve">
+    <value>Lëvizja e stokut</value>
+  </data>
+  <data name="Export_Stock_Sheet_Levels" xml:space="preserve">
+    <value>Gjendja e artikujve</value>
+  </data>
+  <data name="Export_Stock_Sheet_Valuation" xml:space="preserve">
+    <value>Vlerësimi i stokut</value>
+  </data>
+  <data name="Export_Stock_Sheet_ItemCard" xml:space="preserve">
+    <value>Kartela e artikullit</value>
+  </data>
+  <data name="Export_Stock_Kind_Receipt" xml:space="preserve">
+    <value>Hyrje</value>
+  </data>
+  <data name="Export_Stock_Kind_Issue" xml:space="preserve">
+    <value>Dalje</value>
+  </data>
+  <data name="Export_Stock_Kind_Transfer" xml:space="preserve">
+    <value>Transferim</value>
+  </data>
+  <data name="Export_Stock_Kind_Revaluation" xml:space="preserve">
+    <value>Rivlerësim</value>
+  </data>
+  <data name="Export_Stock_Source_Bill" xml:space="preserve">
+    <value>Fatura e blerjes</value>
+  </data>
+  <data name="Export_Stock_Source_Invoice" xml:space="preserve">
+    <value>Fatura e shitjes</value>
+  </data>
+  <data name="Export_Stock_Source_StockDocument" xml:space="preserve">
+    <value>Dokument stoku</value>
+  </data>
 </root>
