@@ -75,6 +75,7 @@ public class EmployeeLoansController : ControllerBase
         var advancesAccountId = await _loans.AdvancesAccountIdAsync(companyId);
         if (advancesAccountId is null) return BadRequest(_localizer["NoEmployeeAdvancesAccount"].Value);
 
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         var journal = await JournalResolver.GetAsync(_db, companyId, JournalResolver.SettlementJournalType(cashOrBank.AccountSubType));
         if (journal is null) return BadRequest(_localizer["NoJournalToPost"].Value);
 
@@ -122,6 +123,7 @@ public class EmployeeLoansController : ControllerBase
         _db.JournalEntries.Add(entry);
         _db.EmployeeLoans.Add(loan);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, (await ToResponsesAsync(new List<EmployeeLoan> { loan })).Single());
     }

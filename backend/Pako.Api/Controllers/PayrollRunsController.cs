@@ -210,6 +210,7 @@ public class PayrollRunsController : ControllerBase
         // B9: payroll isn't Sale/Purchase/Cash/Bank in nature — stays on General, the same journal
         // it always posted to, just resolved explicitly now that "the first journal for this
         // company" is ambiguous with five seeded.
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         var journal = await JournalResolver.GetAsync(_db, companyId, JournalType.General);
         if (journal is null) return BadRequest(_localizer["NoJournalToPost"].Value);
 
@@ -263,6 +264,7 @@ public class PayrollRunsController : ControllerBase
         await new EmployeeLoanService(_db).SettleRepaidAsync(payrollRun.Id);
         await _claims.SettleReimbursementsAsync(companyId, payrollRun.Id, journalEntry.Id);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return Ok(await ToDetailAsync(companyId, payrollRun, new List<string>()));
     }
@@ -330,6 +332,7 @@ public class PayrollRunsController : ControllerBase
         var defaults = await _db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
         if (defaults?.NetPayPayableAccountId is null) return BadRequest(_localizer["NoPayrollAccounts"].Value);
 
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         var journal = await JournalResolver.GetAsync(_db, companyId, JournalResolver.SettlementJournalType(cashOrBankAccount.AccountSubType));
         if (journal is null) return BadRequest(_localizer["NoJournalToPost"].Value);
 
@@ -356,6 +359,7 @@ public class PayrollRunsController : ControllerBase
 
         _db.JournalEntries.Add(journalEntry);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return Ok(await ToDetailAsync(companyId, payrollRun, new List<string>()));
     }
