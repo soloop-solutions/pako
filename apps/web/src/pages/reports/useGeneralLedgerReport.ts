@@ -4,6 +4,7 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 
+import { useClampPage } from "./useClampPage";
 import { useReportExport } from "./useReportExport";
 import { useReportPeriod } from "./useReportPeriod";
 
@@ -26,6 +27,8 @@ export function useGeneralLedgerReport(companyId: string | null, enabled: boolea
     enabled: enabled && !!companyId,
     placeholderData: keepPreviousData,
   });
+
+  useClampPage(grid, query.data?.total, !query.isPlaceholderData);
 
   const accounts = useQuery({
     queryKey: ["reports", "accounts", companyId] as const,

@@ -30,6 +30,8 @@ export function GeneralLedgerTab({ report, companyName, accountingLockDate }: { 
     return [
       col("date", intl.formatMessage({ id: "common.date" }), (row) => row.date),
       col("entryNumber", intl.formatMessage({ id: "reports.glEntryNumber" }), (row) => row.entryNumber ?? ""),
+      col("documentType", intl.formatMessage({ id: "reports.glDocumentType" }), (row) => row.documentType ?? ""),
+      col("documentNumber", intl.formatMessage({ id: "reports.glDocumentNumber" }), (row) => row.documentNumber ?? ""),
       col("reference", intl.formatMessage({ id: "common.reference" }), (row) => row.reference ?? ""),
       col("account", intl.formatMessage({ id: "common.code" }), (row) => row.accountCode),
       col("accountName", intl.formatMessage({ id: "ledger.account" }), (row) => row.accountName),
@@ -91,6 +93,14 @@ export function GeneralLedgerTab({ report, companyName, accountingLockDate }: { 
         getRowId={(row, index) => `${row.entryId}-${index}`}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: "reports.glSearchPlaceholder" })}
+        footerRow={
+          data
+            ? {
+                label: intl.formatMessage({ id: "common.total" }),
+                cells: { debit: formatAmount(data.totalDebit), credit: formatAmount(data.totalCredit) },
+              }
+            : undefined
+        }
       />
     </ReportShell>
   );

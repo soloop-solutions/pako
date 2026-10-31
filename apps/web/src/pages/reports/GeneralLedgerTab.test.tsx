@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import fixture from "@/mocks/general-ledger.json";
@@ -41,8 +41,8 @@ describe("GeneralLedgerTab", () => {
     renderReports(URL_);
     expect(await screen.findByText("Trade receivables")).toBeInTheDocument();
     expect(screen.getByText("Revenue from sales")).toBeInTheDocument();
-    expect(screen.getByText("1180.00")).toBeInTheDocument();
-    expect(screen.getByText("1000.00")).toBeInTheDocument();
+    expect(screen.getAllByText("1180.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1000.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Alba Trade SH.P.K.")).toBeInTheDocument();
     expect(m.generalLedger).toHaveBeenCalledWith("c1", "2026-01-01", "2026-12-31", undefined, undefined, 1, 50, undefined, undefined);
   });
@@ -79,5 +79,32 @@ describe("GeneralLedgerTab", () => {
     await waitFor(() =>
       expect(m.generalLedger).toHaveBeenCalledWith("c1", "2026-01-01", "2026-12-31", "a1", "p1", 1, 50, undefined, undefined),
     );
+  });
+
+  it("footer shows the server totals for the whole filtered set, not the page", async () => {
+    m.generalLedger.mockResolvedValue({ ...fixture, total: 120, totalDebit: 98765.43, totalCredit: 98765.43 });
+    renderReports(URL_);
+    await screen.findByText("Trade receivables");
+    const footer = document.querySelector("tfoot") as HTMLElement;
+    expect(within(footer).getAllByText("98765.43")).toHaveLength(2);
+    expect(within(footer).getByText("Total")).toBeInTheDocument();
+  });
+
+  it("shows the document type and document number columns", async () => {
+    renderReports(URL_);
+    await screen.findByText("Trade receivables");
+    expect(screen.getByRole("columnheader", { name: /Document type/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: /Document number/ })).toBeInTheDocument();
+    expect(screen.getAllByText("Invoice").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("INV-0001").length).toBeGreaterThan(0);
+  });
+
+  it("clamps a page beyond the last page back to the last page", async () => {
+    m.generalLedger.mockImplementation(async (...args: unknown[]) =>
+      args[5] === 1 ? { ...fixture, total: 22, page: 1, pageSize: 50 } : { ...fixture, items: [], total: 22, page: args[5], pageSize: 50 },
+    );
+    renderReports(`${URL_}&generalLedger.page=3&generalLedger.q=rent`);
+    await waitFor(() => expect(screen.getByTestId("location").textContent).not.toContain("generalLedger.page=3"));
+    expect(await screen.findByText("Trade receivables")).toBeInTheDocument();
   });
 });

@@ -40,6 +40,7 @@ function money<T extends object>(id: string, header: string, pick: (row: T) => n
 export function PurchasesTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof usePurchasesReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
   const { period, view } = report;
+  const totalLabel = intl.formatMessage({ id: "common.total" });
 
   const vendorColumns = useMemo<ColumnDef<PurchaseByVendorLine>[]>(
     () => [
@@ -142,22 +143,39 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
         <DataGrid<PurchaseByVendorLine>
           gridId="purchasesByVendor"
           columns={vendorColumns}
-          data={report.byVendor}
-          rowCount={report.byVendor.length}
+          data={report.byVendor.lines}
+          rowCount={report.byVendor.lines.length}
           getRowId={(row) => row.partnerId}
           defaultPageSize={1000}
           pageSizeOptions={[1000]}
+          footerRow={{
+            label: totalLabel,
+            cells: {
+              netAmount: formatAmount(report.byVendor.totalNet),
+              discountAmount: formatAmount(report.byVendor.totalDiscount),
+              vatAmount: formatAmount(report.byVendor.totalVat),
+              grossAmount: formatAmount(report.byVendor.totalGross),
+            },
+          }}
         />
       )}
       {view === "by-item" && report.byItem && (
         <DataGrid<PurchaseByItemLine>
           gridId="purchasesByItem"
           columns={itemColumns}
-          data={report.byItem}
-          rowCount={report.byItem.length}
+          data={report.byItem.lines}
+          rowCount={report.byItem.lines.length}
           getRowId={(row, index) => `${row.itemId ?? row.description}-${index}`}
           defaultPageSize={1000}
           pageSizeOptions={[1000]}
+          footerRow={{
+            label: totalLabel,
+            cells: {
+              netAmount: formatAmount(report.byItem.totalNet),
+              vatAmount: formatAmount(report.byItem.totalVat),
+              grossAmount: formatAmount(report.byItem.totalGross),
+            },
+          }}
         />
       )}
       {view === "transactions" && (
@@ -170,6 +188,18 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
           getRowId={(row, index) => `${row.documentNumber}-${index}`}
           enableGlobalFilter
           globalFilterPlaceholder={intl.formatMessage({ id: "reports.purchasesSearchPlaceholder" })}
+          footerRow={
+            report.transactions
+              ? {
+                  label: totalLabel,
+                  cells: {
+                    net: formatAmount(report.transactions.totalNet),
+                    vatAmount: formatAmount(report.transactions.totalVat),
+                    gross: formatAmount(report.transactions.totalGross),
+                  },
+                }
+              : undefined
+          }
         />
       )}
     </ReportShell>

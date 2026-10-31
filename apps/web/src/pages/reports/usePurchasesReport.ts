@@ -4,6 +4,7 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 
+import { useClampPage } from "./useClampPage";
 import { useReportExport } from "./useReportExport";
 import { useReportPeriod } from "./useReportPeriod";
 
@@ -42,6 +43,8 @@ export function usePurchasesReport(companyId: string | null, enabled: boolean) {
     enabled: active && view === "transactions",
     placeholderData: keepPreviousData,
   });
+  useClampPage(grid, transactions.data?.total, !transactions.isPlaceholderData);
+
   const partners = useQuery({
     queryKey: ["reports", "partners", companyId] as const,
     queryFn: () => apiClient.partnersAll(companyId as string),

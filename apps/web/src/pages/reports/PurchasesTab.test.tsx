@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import byItem from "@/mocks/purchases-by-item.json";
@@ -45,13 +45,18 @@ describe("PurchasesTab", () => {
     m.checks.mockResolvedValue({ from: "2026-01-01", to: "2026-01-31", checks: [] });
   });
 
-  it("defaults to the by-vendor view with fixture numbers and no totals row", async () => {
+  it("defaults to the by-vendor view with fixture numbers and the server totals row", async () => {
     renderReports(BASE);
     expect(await screen.findByText("Kosova Office Supplies SH.P.K.")).toBeInTheDocument();
     expect(m.purchasesByVendor).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31");
     expect(screen.getByText("448.40")).toBeInTheDocument();
     expect(screen.getByText("203.39")).toBeInTheDocument();
-    expect(screen.queryByText("Total")).not.toBeInTheDocument();
+    const footer = document.querySelector("tfoot") as HTMLElement;
+    expect(within(footer).getByText("Total")).toBeInTheDocument();
+    expect(within(footer).getByText("1883.39")).toBeInTheDocument();
+    expect(within(footer).getByText("20.00")).toBeInTheDocument();
+    expect(within(footer).getByText("339.01")).toBeInTheDocument();
+    expect(within(footer).getByText("2222.40")).toBeInTheDocument();
   });
 
   it("switches views through the URL", async () => {
@@ -109,5 +114,25 @@ describe("PurchasesTab", () => {
   it("shows LockNotice when the range ends on or before the accounting lock date", async () => {
     renderReports("/reports?tab=purchases&from=2026-01-01&to=2026-08-31");
     expect(await screen.findByText("This period is locked (accounting lock: 2026-08-31).")).toBeInTheDocument();
+  });
+
+  it("renders the server totals, not browser sums, in every view", async () => {
+    m.purchasesByVendor.mockResolvedValue({ ...byVendor, totalNet: 7777.77, totalDiscount: 1.11, totalVat: 2.22, totalGross: 3.33 });
+    m.purchasesByItem.mockResolvedValue({ ...byItem, totalNet: 4444.44, totalVat: 5.55, totalGross: 6.66 });
+    m.purchaseTransactions.mockResolvedValue({ ...transactions, total: 120, totalNet: 8888.88, totalVat: 9.99, totalGross: 10.1 });
+    renderReports(BASE);
+    await screen.findByText("Kosova Office Supplies SH.P.K.");
+    let footer = document.querySelector("tfoot") as HTMLElement;
+    ["7777.77", "1.11", "2.22", "3.33"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "By item" }));
+    await screen.findByText("SRV-ELE");
+    footer = document.querySelector("tfoot") as HTMLElement;
+    ["4444.44", "5.55", "6.66"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Transactions" }));
+    await screen.findByText("BILL-0005");
+    footer = document.querySelector("tfoot") as HTMLElement;
+    ["8888.88", "9.99", "10.10"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
   });
 });
