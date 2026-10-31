@@ -35,7 +35,9 @@ A final, real export is expected later and becomes the acceptance fixture for ea
 | 16 | Detajet e transaksioneve (furnitor) | missing | new: purchase lines with qty/price/VAT |
 | 17-19 | Gjendja e artikujve (summary, complete, item card) | missing | DEFERRED with the inventory module |
 
-## Inventory module — DEFERRED (decided 2026-10-29: stock and Normative come later)
+## Inventory module — OWNED BY ANOTHER DEVELOPER (decided 2026-10-31)
+
+Stock, inventory and the stock reports are built by another developer on `main` (see `docs/INVENTORY_PLAN.md`). This report suite does not build, extend or duplicate them. The text below is kept only as the record of what the competitor sample implied.
 
 Nothing in this section is built in this release. It is kept as the record of what the sample implies, so the later stock work starts from it.
 
