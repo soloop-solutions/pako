@@ -5,7 +5,9 @@ import { useIntl } from "react-intl";
 import type { VendorBalanceLine } from "@pako/shared";
 
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { partnerPath } from "@/lib/entityLinks";
 
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
@@ -37,13 +39,25 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
         meta: { numeric: true },
       });
     return [
-      staticColumn<VendorBalanceLine>({ id: "name", header: intl.formatMessage({ id: "common.vendor" }), accessorFn: (row) => row.name }),
+      staticColumn<VendorBalanceLine>({
+        id: "name",
+        header: intl.formatMessage({ id: "common.vendor" }),
+        accessorFn: (row) => row.name,
+        cell: ({ row }) => (
+          <span className="flex items-center justify-between gap-2">
+            <span>{row.original.name}</span>
+            <Button type="button" variant="outline" size="sm" className="h-6 px-2 text-xs" onClick={() => report.openVendor(row.original.partnerId)}>
+              {intl.formatMessage({ id: "reports.openStatement" })}
+            </Button>
+          </span>
+        ),
+      }),
       amount("opening", intl.formatMessage({ id: "reports.openingBalance" })),
       amount("debit", intl.formatMessage({ id: "ledger.debit" })),
       amount("credit", intl.formatMessage({ id: "ledger.credit" })),
       amount("closing", intl.formatMessage({ id: "reports.closingBalance" })),
     ];
-  }, [intl]);
+  }, [intl, report]);
 
   const hasNegativeClosing = data?.lines.some((line) => line.closing < 0) ?? false;
 
@@ -89,7 +103,7 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
             getRowId={(row) => row.partnerId}
             defaultPageSize={1000}
             pageSizeOptions={[1000]}
-            onRowClick={(row) => report.openVendor(row.partnerId)}
+            getRowLink={(row) => partnerPath(row.partnerId, "vendor")}
             getRowClassName={(row) => (row.closing < 0 ? "bg-amber-50/60" : undefined)}
             footerRow={footerRow}
           />

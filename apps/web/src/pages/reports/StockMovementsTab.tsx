@@ -8,6 +8,8 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+import { itemPath } from "@/lib/entityLinks";
+
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { DateRangeFields, ReportShell } from "./ReportShell";
@@ -103,6 +105,7 @@ export function StockMovementsTab({ report, companyName, accountingLockDate }: {
           rowCount={data?.total ?? 0}
           isLoading={report.loading && !data}
           getRowId={(row) => row.itemId}
+          getRowLink={(row) => itemPath(row.itemId)}
           enableGlobalFilter
           globalFilterPlaceholder={intl.formatMessage({ id: "reports.smSearchPlaceholder" })}
           emptyMessage={filtered ? undefined : intl.formatMessage({ id: "reports.smEmpty" })}

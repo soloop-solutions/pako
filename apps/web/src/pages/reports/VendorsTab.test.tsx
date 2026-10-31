@@ -82,9 +82,10 @@ describe("VendorsTab", () => {
     await waitFor(() => expect(m.vendorSyntheticExport).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", false));
   });
 
-  it("opens the statement drawer on row click and puts the vendor in the URL", async () => {
+  it("opens the statement drawer from the Statement button and puts the vendor in the URL", async () => {
     renderReports(URL_);
-    fireEvent.click(await screen.findByText("Prime Properties L.L.C."));
+    const row = (await screen.findByText("Prime Properties L.L.C.")).closest("tr") as HTMLElement;
+    fireEvent.click(within(row).getByRole("button", { name: "Statement" }));
     await waitFor(() => expect(m.vendorStatement).toHaveBeenCalledWith("c1", PRIME, "2026-01-01", "2026-01-31"));
     expect(screen.getByTestId("location").textContent).toContain(`vendor=${PRIME}`);
     const dialog = await screen.findByRole("dialog");

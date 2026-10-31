@@ -128,6 +128,7 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
                 data={data.vendorMatrix}
                 rowCount={data.vendorMatrix.length}
                 getRowId={(row) => row.partnerId}
+                getRowLink={(row) => partnerPath(row.partnerId, "vendor")}
                 defaultPageSize={1000}
                 pageSizeOptions={[1000]}
                 footerRow={{

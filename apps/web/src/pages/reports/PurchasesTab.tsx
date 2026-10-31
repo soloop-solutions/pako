@@ -155,6 +155,7 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
           data={report.byVendor.lines}
           rowCount={report.byVendor.lines.length}
           getRowId={(row) => row.partnerId}
+          getRowLink={(row) => partnerPath(row.partnerId, "vendor")}
           defaultPageSize={1000}
           pageSizeOptions={[1000]}
           footerRow={{
@@ -175,6 +176,7 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
           data={report.byItem.lines}
           rowCount={report.byItem.lines.length}
           getRowId={(row, index) => `${row.itemId ?? row.description}-${index}`}
+          getRowLink={(row) => itemPath(row.itemId)}
           defaultPageSize={1000}
           pageSizeOptions={[1000]}
           footerRow={{
