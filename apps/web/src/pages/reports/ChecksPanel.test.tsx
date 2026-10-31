@@ -21,7 +21,7 @@ describe("ChecksPanel", () => {
     m.checks.mockResolvedValue(fixture);
   });
 
-  it("renders the six checks for the selected period, the failing one in amber", async () => {
+  it("renders the seven checks for the selected period, the failing one in amber", async () => {
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
     expect(await screen.findByText("Cash flow closes")).toBeInTheDocument();
     expect(m.checks).toHaveBeenCalledWith("c1", "2026-01-01", "2026-12-31");
@@ -32,10 +32,11 @@ describe("ChecksPanel", () => {
       "Trial balance balances",
       "Books match VAT return",
       "Vendor balances match payables",
+      "Stock matches inventory accounts",
     ]) {
       expect(screen.getByText(label)).toBeInTheDocument();
     }
-    expect(screen.getAllByText("Passed").length).toBe(5);
+    expect(screen.getAllByText("Passed").length).toBe(6);
     const failing = screen.getByText("Cash flow closes").closest("[data-check]") as HTMLElement;
     expect(failing).toHaveAttribute("data-passed", "false");
     expect(failing.className).toContain("amber");
@@ -71,6 +72,12 @@ describe("ChecksPanel", () => {
     expect(other).not.toHaveTextContent("Reverse-charge");
   });
 
+  it("labels the stock check in Albanian too", async () => {
+    const { en, sq } = await import("@/i18n/messages");
+    expect(en["reports.checksLabel.stock-total-matches-inventory-accounts"]).toBe("Stock matches inventory accounts");
+    expect(sq["reports.checksLabel.stock-total-matches-inventory-accounts"]).toBeTruthy();
+  });
+
   it("keeps the normal pass badge for a passing books-match-vat-return", async () => {
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
     const vat = (await screen.findByText("Books match VAT return")).closest("[data-check]") as HTMLElement;
@@ -96,7 +103,7 @@ describe("ChecksPanel", () => {
 
   it("summarises the checks in one line and expands the details by default when one failed", async () => {
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
-    expect(await screen.findByText("6 checks: 5 passed, 1 failed")).toBeInTheDocument();
+    expect(await screen.findByText("7 checks: 6 passed, 1 failed")).toBeInTheDocument();
     expect(screen.getByText("Cash flow closes")).toBeVisible();
     fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
     expect(screen.queryByText("Cash flow closes")).not.toBeInTheDocument();
@@ -107,7 +114,7 @@ describe("ChecksPanel", () => {
   it("collapses the details by default when every check passed and expands on request", async () => {
     m.checks.mockResolvedValue({ ...fixture, checks: fixture.checks.map((c) => ({ ...c, passed: true })) });
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
-    expect(await screen.findByText("6 checks: all passed")).toBeInTheDocument();
+    expect(await screen.findByText("7 checks: all passed")).toBeInTheDocument();
     expect(screen.queryByText("Cash flow closes")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Show details" }));
     expect(screen.getByText("Cash flow closes")).toBeInTheDocument();
