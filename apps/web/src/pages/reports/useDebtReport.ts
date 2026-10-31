@@ -9,6 +9,7 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { today } from "./helpers";
+import { useReportExport } from "./useReportExport";
 
 export function useDebtReport(companyId: string | null) {
   const intl = useIntl();
@@ -44,5 +45,10 @@ export function useDebtReport(companyId: string | null) {
     return debtPartners.find((p) => p.id === partnerId)?.name ?? partnerId;
   }
 
-  return { debtAsOf, setDebtAsOf, debtAging, debtAsOfLoaded, debtError, debtLoading, loadDebtAging, debtPartnerName };
+  const exporter = useReportExport(
+    () => apiClient.debtAgingExport(companyId as string, debtAsOfLoaded as string),
+    `debt-aging_${debtAsOfLoaded}.xlsx`,
+  );
+
+  return { exporter, debtAsOf, setDebtAsOf, debtAging, debtAsOfLoaded, debtError, debtLoading, loadDebtAging, debtPartnerName };
 }

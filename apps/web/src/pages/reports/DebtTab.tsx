@@ -1,8 +1,6 @@
 import { useRef } from "react";
 import { useIntl } from "react-intl";
 
-import type { DebtAgingResponse } from "@pako/shared";
-
 import { PrintButton } from "@/components/shared/PrintButton";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -13,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { ExportButton, LockNotice } from "./shared";
-import { downloadRows, isOnOrBeforeLock, type ExcelRow } from "./helpers";
+import { isOnOrBeforeLock } from "./helpers";
 import type { useDebtReport } from "./useDebtReport";
 
 export function DebtTab({ report, accountingLockDate }: { report: ReturnType<typeof useDebtReport>; accountingLockDate: string | undefined }) {
@@ -22,33 +20,6 @@ export function DebtTab({ report, accountingLockDate }: { report: ReturnType<typ
   const { debtAsOf, setDebtAsOf, debtAging, debtAsOfLoaded, debtError, debtLoading, loadDebtAging, debtPartnerName } = report;
 
   const debtLocked = !!debtAsOfLoaded && isOnOrBeforeLock(debtAsOfLoaded, accountingLockDate);
-
-  function exportDebtAging() {
-    if (!debtAging || !debtAsOfLoaded) return;
-    const buckets: [string, DebtAgingResponse["lines"][number]["bucket"], number, string][] = [
-      ["reports.debtCurrent", "Current", debtAging.totalCurrent, "reports.totalCurrent"],
-      ["reports.debtWithinGrace", "WithinGrace", debtAging.totalWithinGrace, "reports.totalWithinGrace"],
-      ["reports.debtOverdue", "Overdue", debtAging.totalOverdue, "reports.totalOverdue"],
-    ];
-    const rows: ExcelRow[] = [[intl.formatMessage({ id: "reports.debtAging" }), debtAsOfLoaded], []];
-    for (const [titleKey, bucket, total, totalKey] of buckets) {
-      const lines = debtAging.lines.filter((line) => line.bucket === bucket);
-      rows.push(
-        [intl.formatMessage({ id: titleKey })],
-        [
-          intl.formatMessage({ id: "reports.debtInvoiceNumber" }),
-          intl.formatMessage({ id: "reports.debtCustomer" }),
-          intl.formatMessage({ id: "reports.debtDueDate" }),
-          intl.formatMessage({ id: "reports.debtOutstanding" }),
-        ],
-        ...lines.map((line): ExcelRow => [line.invoiceNumber ?? "-", debtPartnerName(line.partnerId), line.dueDate, line.outstanding]),
-        [intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })],
-        [],
-      );
-    }
-    if (debtLocked) rows.push([intl.formatMessage({ id: "reports.periodLockedAccounting" }, { date: accountingLockDate ?? "" })]);
-    downloadRows(rows, `debt-aging_${debtAsOfLoaded}`);
-  }
 
   return (
     <Card ref={printRef}>
@@ -65,15 +36,15 @@ export function DebtTab({ report, accountingLockDate }: { report: ReturnType<typ
           <Button onClick={loadDebtAging} disabled={debtLoading}>
             {debtLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
           </Button>
-          {debtAging && <ExportButton onClick={exportDebtAging} />}
+          {debtAging && <ExportButton onClick={() => void report.exporter.exportFile()} loading={report.exporter.exporting} />}
           {debtAging && <PrintButton contentRef={printRef} />}
         </div>
 
         {debtLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
 
-        {debtError && (
+        {(debtError || report.exporter.exportError) && (
           <Alert variant="destructive">
-            <AlertDescription>{debtError}</AlertDescription>
+            <AlertDescription>{debtError ?? report.exporter.exportError}</AlertDescription>
           </Alert>
         )}
 

@@ -12,6 +12,7 @@ const m = vi.hoisted(() => ({
   vatReturn: vi.fn(),
   vatReturnExport: vi.fn(),
   debtAging: vi.fn(),
+  debtAgingExport: vi.fn(),
   partnersAll: vi.fn(),
   checks: vi.fn(),
 }));
@@ -75,8 +76,7 @@ describe("legacy report tabs", () => {
     expect(exportRows).not.toHaveBeenCalled();
   });
 
-  it("debt export keeps its client file but uses the active language for every header", async () => {
-    localStorage.setItem("pako.language", "sq");
+  it("debt export comes from the server endpoint with the loaded as-of date", async () => {
     m.debtAging.mockResolvedValue({
       asOf: "2025-12-31",
       lines: [
@@ -86,15 +86,24 @@ describe("legacy report tabs", () => {
       totalWithinGrace: 0,
       totalOverdue: 1180,
     });
+    m.debtAgingExport.mockResolvedValue(fileResponse("debt.xlsx"));
     renderReports("/reports?tab=debt&asOf=2025-12-31");
-    fireEvent.click(screen.getByRole("button", { name: "Gjenero raportin" }));
+    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
     await screen.findByText("INV-0001");
-    fireEvent.click(screen.getByRole("button", { name: "Eksporto n\u00eb Excel" }));
-    await waitFor(() => expect(exportRows).toHaveBeenCalled());
-    const rows = exportRows.mock.calls[0][0] as (string | number)[][];
-    const flat = rows.flat().map(String);
-    expect(flat).toEqual(expect.arrayContaining(["Fatura", "Klienti", "Afati i pages\u00ebs", "T\u00eb papaguara"]));
-    expect(flat).not.toContain("Invoice");
-    expect(flat).not.toContain("Outstanding");
+    fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
+    await waitFor(() => expect(m.debtAgingExport).toHaveBeenCalledWith("c1", "2025-12-31"));
+    expect(exportRows).not.toHaveBeenCalled();
+  });
+
+  it("sales book takes its period from the URL", () => {
+    renderReports("/reports?tab=sales-book&from=2025-04-01&to=2025-04-30");
+    expect(screen.getByLabelText("From")).toHaveValue("2025-04-01");
+    expect(screen.getByLabelText("To")).toHaveValue("2025-04-30");
+  });
+
+  it("purchase book takes its period from the URL", () => {
+    renderReports("/reports?tab=purchase-book&from=2025-05-01&to=2025-05-31");
+    expect(screen.getByLabelText("From")).toHaveValue("2025-05-01");
+    expect(screen.getByLabelText("To")).toHaveValue("2025-05-31");
   });
 });
