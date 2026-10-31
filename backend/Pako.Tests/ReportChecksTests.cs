@@ -39,7 +39,7 @@ public class ReportChecksTests : IAsyncLifetime
     private static ReportChecksController Controller(PakoDbContext db, CompanyAccessContext? access = null) =>
         new(new NullStringLocalizer<ErrorMessages>(), access ?? CompanyAccessContext.Unrestricted(),
             new LedgerAggregator(db), new TaxReportService(db, access ?? CompanyAccessContext.Unrestricted()),
-            new VendorLedgerService(db, access ?? CompanyAccessContext.Unrestricted()));
+            new VendorLedgerService(db, access ?? CompanyAccessContext.Unrestricted()), StockReportTestSupport.DataService(db));
 
     private async Task<(PakoDbContext Db, Guid CompanyId, Dictionary<string, Guid> Accounts, Guid JournalId)> SeedMixedScenario()
     {
@@ -170,14 +170,14 @@ public class ReportChecksTests : IAsyncLifetime
         Assert.IsType<ReportChecksResponse>(Assert.IsType<OkObjectResult>((await controller.Checks(companyId, from, to)).Result).Value);
 
     [Fact]
-    public async Task Checks_BalancedScenario_AllSixChecksPass()
+    public async Task Checks_BalancedScenario_AllSevenChecksPass()
     {
         var (db, companyId, _, _) = await SeedMixedScenario();
 
         var response = await Run(Controller(db), companyId, Jan1, Dec31);
 
         Assert.Equal(
-            new[] { "balance-sheet-balances", "net-profit-consistent", "cash-flow-closes", "trial-balance-balances", "books-match-vat-return", "vendor-total-matches-payables" },
+            new[] { "balance-sheet-balances", "net-profit-consistent", "cash-flow-closes", "trial-balance-balances", "books-match-vat-return", "vendor-total-matches-payables", "stock-total-matches-inventory-accounts" },
             response.Checks.Select(c => c.Key));
         Assert.All(response.Checks, c => Assert.True(c.Passed, c.Key));
 
@@ -351,7 +351,7 @@ public class ReportChecksTests : IAsyncLifetime
 
         var response = await Run(Controller(db), company.Id, Jan1, Dec31);
 
-        Assert.Equal(6, response.Checks.Count);
+        Assert.Equal(7, response.Checks.Count);
         Assert.All(response.Checks, c =>
         {
             Assert.True(c.Passed, c.Key);
@@ -379,5 +379,42 @@ public class ReportChecksTests : IAsyncLifetime
         var result = await Controller(db, access).Checks(companyId, Jan1, Dec31);
 
         Assert.Equal(403, Assert.IsType<ObjectResult>(result.Result).StatusCode);
+    }
+
+    [Fact]
+    public async Task Checks_StockSeededCompany_StockMatchesTheInventoryAccounts()
+    {
+        var db = await NewContextAsync();
+        var c = await StockReportTestSupport.ScenarioAsync(db);
+
+        var response = await Run(Controller(db), c.Id, Jan1, Dec31);
+
+        var check = response.Checks.Single(x => x.Key == "stock-total-matches-inventory-accounts");
+        Assert.True(check.Passed);
+        Assert.Equal(2250m, check.Expected);
+        Assert.Equal(2250m, check.Actual);
+        Assert.Equal(7, response.Checks.Count);
+    }
+
+    [Fact]
+    public async Task Checks_AOneSidedManualLineOnTheInventoryAccount_FailsTheStockCheck()
+    {
+        var db = await NewContextAsync();
+        var c = await StockReportTestSupport.ScenarioAsync(db);
+        var company = db.Companies.Single(x => x.Id == c.Id);
+        var journal = db.Journals.First(j => j.CompanyId == c.Id);
+        var entry = new JournalEntry { Id = Guid.NewGuid(), CompanyId = c.Id, JournalId = journal.Id, Date = new DateOnly(2026, 3, 25) };
+        entry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = c.Account("120100"), Debit = 500m, Credit = 0m });
+        entry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = c.Account("500100"), Debit = 0m, Credit = 500m });
+        entry.Post(company);
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        var response = await Run(Controller(db), c.Id, Jan1, Dec31);
+
+        var check = response.Checks.Single(x => x.Key == "stock-total-matches-inventory-accounts");
+        Assert.False(check.Passed);
+        Assert.Equal(2250m, check.Expected);
+        Assert.Equal(2750m, check.Actual);
     }
 }

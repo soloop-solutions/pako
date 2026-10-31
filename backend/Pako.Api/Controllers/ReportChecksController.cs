@@ -19,16 +19,18 @@ public class ReportChecksController : ControllerBase
     private readonly LedgerAggregator _ledger;
     private readonly TaxReportService _tax;
     private readonly VendorLedgerService _vendors;
+    private readonly StockReportDataService _stock;
 
     public ReportChecksController(
         IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger, TaxReportService tax,
-        VendorLedgerService vendors)
+        VendorLedgerService vendors, StockReportDataService stock)
     {
         _localizer = localizer;
         _access = access;
         _ledger = ledger;
         _tax = tax;
         _vendors = vendors;
+        _stock = stock;
     }
 
     [HttpGet("checks")]
@@ -57,6 +59,9 @@ public class ReportChecksController : ControllerBase
         var payablesControl = await _vendors.PayablesControlBalanceAsync(companyId, to);
         var vendorTotal = (await _vendors.BalancesAsync(companyId, DateOnly.MinValue, to, includeZero: false)).Sum(l => l.Closing);
 
+        var hasStock = await _stock.HasTrackedItemsAsync(companyId);
+        var valuation = hasStock ? await _stock.ValuationAsync(companyId, to) : null;
+
         var checks = new[]
         {
             ReportReconciler.Equal("balance-sheet-balances", balanceSheet.TotalAssets, balanceSheet.TotalLiabilities + balanceSheet.TotalEquity),
@@ -65,6 +70,7 @@ public class ReportChecksController : ControllerBase
             ReportReconciler.Equal("trial-balance-balances", cumulative.Sum(s => s.Debit), cumulative.Sum(s => s.Credit)),
             ReportReconciler.Equal("books-match-vat-return", vat.TotalOutputVat - vat.TotalInputVat, salesVat - purchaseVat),
             ReportReconciler.Equal("vendor-total-matches-payables", payablesControl, vendorTotal),
+            ReportReconciler.Equal("stock-total-matches-inventory-accounts", valuation?.StockValue ?? 0m, valuation?.LedgerValue ?? 0m),
         };
 
         return Ok(new ReportChecksResponse(from, to, checks.Select(c => new ReportCheck(c.Key, c.Passed, c.Expected, c.Actual)).ToList()));

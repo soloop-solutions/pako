@@ -89,7 +89,7 @@ public class VendorReportsTests : IAsyncLifetime
 
     private static ReportChecksController Checks(PakoDbContext db) =>
         new(new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db),
-            new TaxReportService(db, CompanyAccessContext.Unrestricted()), new VendorLedgerService(db, CompanyAccessContext.Unrestricted()));
+            new TaxReportService(db, CompanyAccessContext.Unrestricted()), new VendorLedgerService(db, CompanyAccessContext.Unrestricted()), StockReportTestSupport.DataService(db));
 
     private static async Task<VendorSyntheticResponse> Synthetic(
         PayablesReportsController controller, Guid companyId, DateOnly from, DateOnly to, bool includeZero = false) =>
