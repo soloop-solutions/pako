@@ -205,7 +205,6 @@ describe("vendor statement drawer", () => {
 describe("sales and purchase books and debt aging", () => {
   async function run(url: string) {
     renderReports(url);
-    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
   }
 
   it("sales book: row opens the invoice", async () => {

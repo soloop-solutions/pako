@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { useSearchParams } from "react-router-dom";
 
 import type {
   ProfitAndLossResponse,
@@ -8,14 +7,18 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { startOfMonth, today } from "./helpers";
+import { useAutoRun } from "./useAutoRun";
 import { useReportExport } from "./useReportExport";
+import { useReportPeriod } from "./useReportPeriod";
 
-export function usePnlReport(companyId: string | null) {
+export function usePnlReport(companyId: string | null, enabled: boolean) {
   const intl = useIntl();
-  const [searchParams] = useSearchParams();
+  const { searchParams, setParams } = useReportPeriod();
+  const urlFrom = searchParams.get("from");
+  const urlTo = searchParams.get("to");
 
-  const [pnlFrom, setPnlFrom] = useState(() => searchParams.get("from") || startOfMonth());
-  const [pnlTo, setPnlTo] = useState(() => searchParams.get("to") || today());
+  const [pnlFrom, setPnlFrom] = useState(() => urlFrom || startOfMonth());
+  const [pnlTo, setPnlTo] = useState(() => urlTo || today());
   const [pnl, setPnl] = useState<ProfitAndLossResponse | null>(null);
   // The period the currently-displayed `pnl` was actually loaded for — set only on a successful
   // load, never from the live `pnlFrom`/`pnlTo` inputs. The lock badge and the exported file must
@@ -25,14 +28,30 @@ export function usePnlReport(companyId: string | null) {
   const [pnlError, setPnlError] = useState<string | null>(null);
   const [pnlLoading, setPnlLoading] = useState(false);
 
-  async function loadPnl() {
+  const loadedKey = useAutoRun(enabled && !!companyId, urlFrom || urlTo ? `${urlFrom || startOfMonth()}|${urlTo || today()}` : null, applyUrl);
+
+  function applyUrl() {
+    const from = urlFrom || startOfMonth();
+    const to = urlTo || today();
+    setPnlFrom(from);
+    setPnlTo(to);
+    void fetchPnl(from, to);
+  }
+
+  function loadPnl() {
+    setParams({ from: pnlFrom, to: pnlTo });
+    return fetchPnl(pnlFrom, pnlTo);
+  }
+
+  async function fetchPnl(from: string, to: string) {
     if (!companyId) return;
+    loadedKey.current = `${from}|${to}`;
     setPnlError(null);
     setPnlLoading(true);
     try {
-      const result = await apiClient.profitAndLoss(companyId, pnlFrom, pnlTo);
+      const result = await apiClient.profitAndLoss(companyId, from, to);
       setPnl(result);
-      setPnlPeriod({ from: pnlFrom, to: pnlTo });
+      setPnlPeriod({ from, to });
     } catch (err) {
       setPnlError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.pnlLoadError" })));
     } finally {

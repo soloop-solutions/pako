@@ -47,17 +47,17 @@ describe("legacy report tabs", () => {
     m.checks.mockResolvedValue({ from: "2025-01-01", to: "2025-03-31", checks: [] });
   });
 
-  it("P&L takes its period from the URL and exports from the server without running", async () => {
+  it("P&L takes its period from the URL, runs it, and exports from the server", async () => {
     renderReports("/reports?tab=pnl&from=2025-01-01&to=2025-03-31");
     expect(screen.getByLabelText("From")).toHaveValue("2025-01-01");
     expect(screen.getByLabelText("To")).toHaveValue("2025-03-31");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.profitAndLossExport).toHaveBeenCalledWith("c1", "2025-01-01", "2025-03-31"));
-    expect(m.profitAndLoss).not.toHaveBeenCalled();
+    expect(m.profitAndLoss).toHaveBeenCalledWith("c1", "2025-01-01", "2025-03-31");
     expect(exportRows).not.toHaveBeenCalled();
   });
 
-  it("VAT return takes its period from the URL and exports from the server without running", async () => {
+  it("VAT return takes its period from the URL, runs it, and exports from the server", async () => {
     renderReports("/reports?tab=vat&from=2025-02-01&to=2025-02-28");
     expect(screen.getByLabelText("From")).toHaveValue("2025-02-01");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
@@ -88,7 +88,6 @@ describe("legacy report tabs", () => {
     });
     m.debtAgingExport.mockResolvedValue(fileResponse("debt.xlsx"));
     renderReports("/reports?tab=debt&asOf=2025-12-31");
-    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
     await screen.findByText("INV-0001");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.debtAgingExport).toHaveBeenCalledWith("c1", "2025-12-31"));
@@ -125,7 +124,6 @@ describe("legacy report tabs", () => {
       netIncome: 2965.44,
     });
     renderReports("/reports?tab=pnl&from=2025-01-01&to=2025-03-31");
-    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
     const cost = await screen.findByTestId("pnl-cost-of-revenue");
     expect(within(cost).getByText("Cost of Goods Sold")).toBeInTheDocument();
     expect(within(cost).getByText("1234.56")).toBeInTheDocument();

@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { useSearchParams } from "react-router-dom";
 
 import type {
   SalesBookResponse,
@@ -8,27 +7,47 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { downloadFileResponse, startOfMonth, today } from "./helpers";
+import { useAutoRun } from "./useAutoRun";
+import { useReportPeriod } from "./useReportPeriod";
 
-export function useSalesBookReport(companyId: string | null) {
+export function useSalesBookReport(companyId: string | null, enabled: boolean) {
   const intl = useIntl();
-  const [searchParams] = useSearchParams();
+  const { searchParams, setParams } = useReportPeriod();
+  const urlFrom = searchParams.get("from");
+  const urlTo = searchParams.get("to");
 
-  const [salesBookFrom, setSalesBookFrom] = useState(() => searchParams.get("from") || startOfMonth());
-  const [salesBookTo, setSalesBookTo] = useState(() => searchParams.get("to") || today());
+  const [salesBookFrom, setSalesBookFrom] = useState(() => urlFrom || startOfMonth());
+  const [salesBookTo, setSalesBookTo] = useState(() => urlTo || today());
   const [salesBook, setSalesBook] = useState<SalesBookResponse | null>(null);
   const [salesBookPeriod, setSalesBookPeriod] = useState<{ from: string; to: string } | null>(null);
   const [salesBookError, setSalesBookError] = useState<string | null>(null);
   const [salesBookLoading, setSalesBookLoading] = useState(false);
   const [salesBookExporting, setSalesBookExporting] = useState(false);
 
-  async function loadSalesBook() {
+  const loadedKey = useAutoRun(enabled && !!companyId, urlFrom || urlTo ? `${urlFrom || startOfMonth()}|${urlTo || today()}` : null, applyUrl);
+
+  function applyUrl() {
+    const from = urlFrom || startOfMonth();
+    const to = urlTo || today();
+    setSalesBookFrom(from);
+    setSalesBookTo(to);
+    void fetchSalesBook(from, to);
+  }
+
+  function loadSalesBook() {
+    setParams({ from: salesBookFrom, to: salesBookTo });
+    return fetchSalesBook(salesBookFrom, salesBookTo);
+  }
+
+  async function fetchSalesBook(from: string, to: string) {
     if (!companyId) return;
+    loadedKey.current = `${from}|${to}`;
     setSalesBookError(null);
     setSalesBookLoading(true);
     try {
-      const result = await apiClient.salesBook(companyId, salesBookFrom, salesBookTo);
+      const result = await apiClient.salesBook(companyId, from, to);
       setSalesBook(result);
-      setSalesBookPeriod({ from: salesBookFrom, to: salesBookTo });
+      setSalesBookPeriod({ from, to });
     } catch (err) {
       setSalesBookError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.salesBookLoadError" })));
     } finally {

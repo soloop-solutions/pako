@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { useSearchParams } from "react-router-dom";
 
 import type {
   VatReturnResponse,
@@ -8,27 +7,47 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { startOfMonth, today } from "./helpers";
+import { useAutoRun } from "./useAutoRun";
 import { useReportExport } from "./useReportExport";
+import { useReportPeriod } from "./useReportPeriod";
 
-export function useVatReport(companyId: string | null) {
+export function useVatReport(companyId: string | null, enabled: boolean) {
   const intl = useIntl();
-  const [searchParams] = useSearchParams();
+  const { searchParams, setParams } = useReportPeriod();
+  const urlFrom = searchParams.get("from");
+  const urlTo = searchParams.get("to");
 
-  const [vatFrom, setVatFrom] = useState(() => searchParams.get("from") || startOfMonth());
-  const [vatTo, setVatTo] = useState(() => searchParams.get("to") || today());
+  const [vatFrom, setVatFrom] = useState(() => urlFrom || startOfMonth());
+  const [vatTo, setVatTo] = useState(() => urlTo || today());
   const [vatReturn, setVatReturn] = useState<VatReturnResponse | null>(null);
   const [vatPeriod, setVatPeriod] = useState<{ from: string; to: string } | null>(null);
   const [vatError, setVatError] = useState<string | null>(null);
   const [vatLoading, setVatLoading] = useState(false);
 
-  async function loadVatReturn() {
+  const loadedKey = useAutoRun(enabled && !!companyId, urlFrom || urlTo ? `${urlFrom || startOfMonth()}|${urlTo || today()}` : null, applyUrl);
+
+  function applyUrl() {
+    const from = urlFrom || startOfMonth();
+    const to = urlTo || today();
+    setVatFrom(from);
+    setVatTo(to);
+    void fetchVatReturn(from, to);
+  }
+
+  function loadVatReturn() {
+    setParams({ from: vatFrom, to: vatTo });
+    return fetchVatReturn(vatFrom, vatTo);
+  }
+
+  async function fetchVatReturn(from: string, to: string) {
     if (!companyId) return;
+    loadedKey.current = `${from}|${to}`;
     setVatError(null);
     setVatLoading(true);
     try {
-      const result = await apiClient.vatReturn(companyId, vatFrom, vatTo);
+      const result = await apiClient.vatReturn(companyId, from, to);
       setVatReturn(result);
-      setVatPeriod({ from: vatFrom, to: vatTo });
+      setVatPeriod({ from, to });
     } catch (err) {
       setVatError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.vatLoadError" })));
     } finally {

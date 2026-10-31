@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
-import { useSearchParams } from "react-router-dom";
 
 import type {
   PurchaseBookResponse,
@@ -8,27 +7,47 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { downloadFileResponse, startOfMonth, today } from "./helpers";
+import { useAutoRun } from "./useAutoRun";
+import { useReportPeriod } from "./useReportPeriod";
 
-export function usePurchaseBookReport(companyId: string | null) {
+export function usePurchaseBookReport(companyId: string | null, enabled: boolean) {
   const intl = useIntl();
-  const [searchParams] = useSearchParams();
+  const { searchParams, setParams } = useReportPeriod();
+  const urlFrom = searchParams.get("from");
+  const urlTo = searchParams.get("to");
 
-  const [purchaseBookFrom, setPurchaseBookFrom] = useState(() => searchParams.get("from") || startOfMonth());
-  const [purchaseBookTo, setPurchaseBookTo] = useState(() => searchParams.get("to") || today());
+  const [purchaseBookFrom, setPurchaseBookFrom] = useState(() => urlFrom || startOfMonth());
+  const [purchaseBookTo, setPurchaseBookTo] = useState(() => urlTo || today());
   const [purchaseBook, setPurchaseBook] = useState<PurchaseBookResponse | null>(null);
   const [purchaseBookPeriod, setPurchaseBookPeriod] = useState<{ from: string; to: string } | null>(null);
   const [purchaseBookError, setPurchaseBookError] = useState<string | null>(null);
   const [purchaseBookLoading, setPurchaseBookLoading] = useState(false);
   const [purchaseBookExporting, setPurchaseBookExporting] = useState(false);
 
-  async function loadPurchaseBook() {
+  const loadedKey = useAutoRun(enabled && !!companyId, urlFrom || urlTo ? `${urlFrom || startOfMonth()}|${urlTo || today()}` : null, applyUrl);
+
+  function applyUrl() {
+    const from = urlFrom || startOfMonth();
+    const to = urlTo || today();
+    setPurchaseBookFrom(from);
+    setPurchaseBookTo(to);
+    void fetchPurchaseBook(from, to);
+  }
+
+  function loadPurchaseBook() {
+    setParams({ from: purchaseBookFrom, to: purchaseBookTo });
+    return fetchPurchaseBook(purchaseBookFrom, purchaseBookTo);
+  }
+
+  async function fetchPurchaseBook(from: string, to: string) {
     if (!companyId) return;
+    loadedKey.current = `${from}|${to}`;
     setPurchaseBookError(null);
     setPurchaseBookLoading(true);
     try {
-      const result = await apiClient.purchaseBook(companyId, purchaseBookFrom, purchaseBookTo);
+      const result = await apiClient.purchaseBook(companyId, from, to);
       setPurchaseBook(result);
-      setPurchaseBookPeriod({ from: purchaseBookFrom, to: purchaseBookTo });
+      setPurchaseBookPeriod({ from, to });
     } catch (err) {
       setPurchaseBookError(getApiErrorMessage(err, intl.formatMessage({ id: "reports.purchaseBookLoadError" })));
     } finally {

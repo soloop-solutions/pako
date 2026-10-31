@@ -98,12 +98,12 @@ export function Reports() {
     );
   }
 
-  const pnlReport = usePnlReport(companyId);
-  const balanceSheetReport = useBalanceSheetReport(companyId);
-  const vatReport = useVatReport(companyId);
-  const debtReport = useDebtReport(companyId);
-  const salesBookReport = useSalesBookReport(companyId);
-  const purchaseBookReport = usePurchaseBookReport(companyId);
+  const pnlReport = usePnlReport(companyId, tab === "pnl");
+  const balanceSheetReport = useBalanceSheetReport(companyId, tab === "balance-sheet");
+  const vatReport = useVatReport(companyId, tab === "vat");
+  const debtReport = useDebtReport(companyId, tab === "debt");
+  const salesBookReport = useSalesBookReport(companyId, tab === "sales-book");
+  const purchaseBookReport = usePurchaseBookReport(companyId, tab === "purchase-book");
   const generalLedgerReport = useGeneralLedgerReport(companyId, tab === "general-ledger");
   const monthlyPnlReport = useMonthlyPnlReport(companyId, tab === "monthly-pnl");
   const cashFlowReport = useCashFlowReport(companyId, tab === "cash-flow");
