@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
+import { useSearchParams } from "react-router-dom";
 
 import type {
   BalanceSheetComparativeResponse,
@@ -12,8 +13,9 @@ import { useReportExport } from "./useReportExport";
 
 export function useBalanceSheetReport(companyId: string | null) {
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
 
-  const [asOf, setAsOf] = useState(today);
+  const [asOf, setAsOf] = useState(() => searchParams.get("asOf") || searchParams.get("to") || today());
   const [compareTo, setCompareTo] = useState("");
   const [comparative, setComparative] = useState<BalanceSheetComparativeResponse | null>(null);
   const [balanceSheet, setBalanceSheet] = useState<BalanceSheetResponse | null>(null);
@@ -43,10 +45,13 @@ export function useBalanceSheetReport(companyId: string | null) {
     }
   }
 
-  const comparativeExporter = useReportExport(
-    () => apiClient.balanceSheetComparativeExport(companyId as string, comparative?.asOf ?? asOf, comparative?.compareTo ?? compareTo),
-    "balance-sheet-comparative.xlsx",
+  const exporter = useReportExport(
+    () =>
+      compareTo
+        ? apiClient.balanceSheetComparativeExport(companyId as string, asOf, compareTo)
+        : apiClient.balanceSheetExport(companyId as string, asOf),
+    compareTo ? `balance-sheet-comparative_${asOf}.xlsx` : `balance-sheet_${asOf}.xlsx`,
   );
 
-  return { compareTo, setCompareTo, comparative, comparativeExporter, asOf, setAsOf, balanceSheet, balanceSheetAsOf, balanceSheetError, balanceSheetLoading, loadBalanceSheet };
+  return { compareTo, setCompareTo, comparative, exporter, asOf, setAsOf, balanceSheet, balanceSheetAsOf, balanceSheetError, balanceSheetLoading, loadBalanceSheet };
 }

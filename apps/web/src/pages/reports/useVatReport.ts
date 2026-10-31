@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
+import { useSearchParams } from "react-router-dom";
 
 import type {
   VatReturnResponse,
@@ -7,12 +8,14 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { startOfMonth, today } from "./helpers";
+import { useReportExport } from "./useReportExport";
 
 export function useVatReport(companyId: string | null) {
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
 
-  const [vatFrom, setVatFrom] = useState(startOfMonth);
-  const [vatTo, setVatTo] = useState(today);
+  const [vatFrom, setVatFrom] = useState(() => searchParams.get("from") || startOfMonth());
+  const [vatTo, setVatTo] = useState(() => searchParams.get("to") || today());
   const [vatReturn, setVatReturn] = useState<VatReturnResponse | null>(null);
   const [vatPeriod, setVatPeriod] = useState<{ from: string; to: string } | null>(null);
   const [vatError, setVatError] = useState<string | null>(null);
@@ -33,5 +36,10 @@ export function useVatReport(companyId: string | null) {
     }
   }
 
-  return { vatFrom, setVatFrom, vatTo, setVatTo, vatReturn, vatPeriod, vatError, vatLoading, loadVatReturn };
+  const exporter = useReportExport(
+    () => apiClient.vatReturnExport(companyId as string, vatFrom, vatTo),
+    `vat-return_${vatFrom}_${vatTo}.xlsx`,
+  );
+
+  return { vatFrom, setVatFrom, vatTo, setVatTo, vatReturn, vatPeriod, vatError, vatLoading, loadVatReturn, exporter };
 }

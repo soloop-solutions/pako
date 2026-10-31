@@ -11,39 +11,18 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { DrillAmount, ExportButton, LockNotice } from "./shared";
-import { downloadRows, isOnOrBeforeLock, type ExcelRow } from "./helpers";
+import { isOnOrBeforeLock } from "./helpers";
 import type { usePnlReport } from "./usePnlReport";
 
 export function PnlTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof usePnlReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
   const printRef = useRef<HTMLDivElement>(null);
-  const { pnlFrom, setPnlFrom, pnlTo, setPnlTo, pnl, pnlPeriod, pnlError, pnlLoading, loadPnl } = report;
+  const { pnlFrom, setPnlFrom, pnlTo, setPnlTo, pnl, pnlPeriod, pnlError, pnlLoading, loadPnl, exporter } = report;
 
   // Locked-ness is derived from the *loaded* period snapshot, not the live date inputs — otherwise
   // editing a date field without re-running would silently change the badge (and the export's
   // lock notice) while the table underneath kept showing the previously-loaded, still-current data.
   const pnlLocked = !!pnlPeriod && isOnOrBeforeLock(pnlPeriod.to, accountingLockDate);
-
-  function exportPnl() {
-    if (!pnl || !pnlPeriod) return;
-    const rows: ExcelRow[] = [
-      [intl.formatMessage({ id: "reports.profitAndLoss" }), `${pnlPeriod.from} – ${pnlPeriod.to}`],
-      [],
-      [intl.formatMessage({ id: "reports.income" })],
-      [intl.formatMessage({ id: "common.code" }), intl.formatMessage({ id: "ledger.account" }), intl.formatMessage({ id: "common.amount" })],
-      ...pnl.income.map((line): ExcelRow => [line.accountCode, line.accountName, line.amount]),
-      [],
-      [intl.formatMessage({ id: "reports.expenses" })],
-      [intl.formatMessage({ id: "common.code" }), intl.formatMessage({ id: "ledger.account" }), intl.formatMessage({ id: "common.amount" })],
-      ...pnl.expenses.map((line): ExcelRow => [line.accountCode, line.accountName, line.amount]),
-      [],
-      [intl.formatMessage({ id: "reports.totalIncome" }, { amount: pnl.totalIncome.toFixed(2) })],
-      [intl.formatMessage({ id: "reports.totalExpenses" }, { amount: pnl.totalExpenses.toFixed(2) })],
-      [intl.formatMessage({ id: "reports.netIncome" }, { amount: pnl.netIncome.toFixed(2) })],
-    ];
-    if (pnlLocked) rows.push([], [intl.formatMessage({ id: "reports.periodLockedAccounting" }, { date: accountingLockDate ?? "" })]);
-    downloadRows(rows, `profit-and-loss_${pnlPeriod.from}_${pnlPeriod.to}`);
-  }
 
   return (
     <Card ref={printRef}>
@@ -64,15 +43,15 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
           <Button onClick={loadPnl} disabled={pnlLoading}>
             {pnlLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
           </Button>
-          {pnl && <ExportButton onClick={exportPnl} />}
+          <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
           {pnl && <PrintButton contentRef={printRef} />}
         </div>
 
         {pnlLocked && <LockNotice lockDate={accountingLockDate ?? ""} messageId="reports.periodLockedAccounting" />}
 
-        {pnlError && (
+        {(pnlError || exporter.exportError) && (
           <Alert variant="destructive">
-            <AlertDescription>{pnlError}</AlertDescription>
+            <AlertDescription>{pnlError ?? exporter.exportError}</AlertDescription>
           </Alert>
         )}
 

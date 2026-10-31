@@ -1,8 +1,6 @@
 import { useRef } from "react";
 import { useIntl } from "react-intl";
 
-import type { BalanceSheetResponse } from "@pako/shared";
-
 import { PrintButton } from "@/components/shared/PrintButton";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -14,46 +12,16 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { cn } from "@/lib/utils";
 import { DrillAmount, ExportButton, LockNotice } from "./shared";
-import { downloadRows, isOnOrBeforeLock, type ExcelRow } from "./helpers";
+import { isOnOrBeforeLock } from "./helpers";
 import { ComparativeBalanceSheet } from "./ComparativeBalanceSheet";
 import type { useBalanceSheetReport } from "./useBalanceSheetReport";
 
 export function BalanceSheetTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof useBalanceSheetReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
   const printRef = useRef<HTMLDivElement>(null);
-  const { compareTo, setCompareTo, comparative, comparativeExporter, asOf, setAsOf, balanceSheet, balanceSheetAsOf, balanceSheetError, balanceSheetLoading, loadBalanceSheet } = report;
+  const { compareTo, setCompareTo, comparative, exporter, asOf, setAsOf, balanceSheet, balanceSheetAsOf, balanceSheetError, balanceSheetLoading, loadBalanceSheet } = report;
 
   const balanceSheetLocked = !!balanceSheetAsOf && isOnOrBeforeLock(balanceSheetAsOf, accountingLockDate);
-
-  function exportBalanceSheet() {
-    if (!balanceSheet || !balanceSheetAsOf) return;
-    const sections: [string, BalanceSheetResponse["assets"], number, string][] = [
-      ["reports.assets", balanceSheet.assets, balanceSheet.totalAssets, "reports.totalAssets"],
-      ["reports.liabilities", balanceSheet.liabilities, balanceSheet.totalLiabilities, "reports.totalLiabilities"],
-      ["reports.equity", balanceSheet.equity, balanceSheet.totalEquity, "reports.totalEquity"],
-    ];
-    const rows: ExcelRow[] = [[intl.formatMessage({ id: "reports.balanceSheet" }), balanceSheetAsOf], []];
-    for (const [titleKey, lines, total, totalKey] of sections) {
-      rows.push(
-        [intl.formatMessage({ id: titleKey })],
-        [intl.formatMessage({ id: "common.code" }), intl.formatMessage({ id: "ledger.account" }), intl.formatMessage({ id: "common.amount" })],
-        ...lines.map((line): ExcelRow => [line.accountCode, line.accountName, line.amount]),
-        [intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })],
-        [],
-      );
-    }
-    rows.push([
-      intl.formatMessage(
-        { id: "reports.balanceEquation" },
-        {
-          assets: balanceSheet.totalAssets.toFixed(2),
-          liabilitiesPlusEquity: (balanceSheet.totalLiabilities + balanceSheet.totalEquity).toFixed(2),
-        },
-      ),
-    ]);
-    if (balanceSheetLocked) rows.push([], [intl.formatMessage({ id: "reports.periodLockedAccounting" }, { date: accountingLockDate ?? "" })]);
-    downloadRows(rows, `balance-sheet_${balanceSheetAsOf}`);
-  }
 
   return (
     <Card ref={printRef}>
@@ -74,8 +42,7 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
           <Button onClick={loadBalanceSheet} disabled={balanceSheetLoading}>
             {balanceSheetLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
           </Button>
-          {balanceSheet && <ExportButton onClick={exportBalanceSheet} />}
-          {comparative && <ExportButton onClick={comparativeExporter.exportFile} loading={comparativeExporter.exporting} />}
+                    <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
           {(balanceSheet || comparative) && <PrintButton contentRef={printRef} />}
         </div>
 
@@ -87,9 +54,9 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
           </Alert>
         )}
 
-        {comparativeExporter.exportError && (
+        {exporter.exportError && (
           <Alert variant="destructive">
-            <AlertDescription>{comparativeExporter.exportError}</AlertDescription>
+            <AlertDescription>{exporter.exportError}</AlertDescription>
           </Alert>
         )}
 

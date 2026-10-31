@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
+import { useSearchParams } from "react-router-dom";
 
 import type {
   DebtAgingResponse,
@@ -11,8 +12,9 @@ import { today } from "./helpers";
 
 export function useDebtReport(companyId: string | null) {
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
 
-  const [debtAsOf, setDebtAsOf] = useState(today);
+  const [debtAsOf, setDebtAsOf] = useState(() => searchParams.get("asOf") || searchParams.get("to") || today());
   const [debtAging, setDebtAging] = useState<DebtAgingResponse | null>(null);
   const [debtAsOfLoaded, setDebtAsOfLoaded] = useState<string | null>(null);
   const [debtPartners, setDebtPartners] = useState<PartnerResponse[]>([]);

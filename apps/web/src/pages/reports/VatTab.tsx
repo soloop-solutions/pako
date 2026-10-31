@@ -11,36 +11,15 @@ import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { ExportButton, LockNotice } from "./shared";
-import { downloadRows, isOnOrBeforeLock, type ExcelRow } from "./helpers";
+import { isOnOrBeforeLock } from "./helpers";
 import type { useVatReport } from "./useVatReport";
 
 export function VatTab({ report, companyName, taxLockDate }: { report: ReturnType<typeof useVatReport>; companyName: string; taxLockDate: string | undefined }) {
   const intl = useIntl();
   const printRef = useRef<HTMLDivElement>(null);
-  const { vatFrom, setVatFrom, vatTo, setVatTo, vatReturn, vatPeriod, vatError, vatLoading, loadVatReturn } = report;
+  const { vatFrom, setVatFrom, vatTo, setVatTo, vatReturn, vatPeriod, vatError, vatLoading, loadVatReturn, exporter } = report;
 
   const vatLocked = !!vatPeriod && isOnOrBeforeLock(vatPeriod.to, taxLockDate);
-
-  function exportVatReturn() {
-    if (!vatReturn || !vatPeriod) return;
-    const rows: ExcelRow[] = [
-      [intl.formatMessage({ id: "reports.vatReturn" }), `${vatPeriod.from} – ${vatPeriod.to}`],
-      [],
-      [intl.formatMessage({ id: "reports.outputVat" })],
-      [intl.formatMessage({ id: "reports.tax" }), intl.formatMessage({ id: "reports.rate" }), intl.formatMessage({ id: "common.amount" })],
-      ...vatReturn.outputVat.map((line): ExcelRow => [line.name, `${(line.rate * 100).toFixed(0)}%`, line.amount]),
-      [],
-      [intl.formatMessage({ id: "reports.inputVat" })],
-      [intl.formatMessage({ id: "reports.tax" }), intl.formatMessage({ id: "reports.rate" }), intl.formatMessage({ id: "common.amount" })],
-      ...vatReturn.inputVat.map((line): ExcelRow => [line.name, `${(line.rate * 100).toFixed(0)}%`, line.amount]),
-      [],
-      [intl.formatMessage({ id: "reports.totalOutputVat" }, { amount: vatReturn.totalOutputVat.toFixed(2) })],
-      [intl.formatMessage({ id: "reports.totalInputVat" }, { amount: vatReturn.totalInputVat.toFixed(2) })],
-      [intl.formatMessage({ id: "reports.netVatDue" }, { amount: vatReturn.netVatDue.toFixed(2) })],
-    ];
-    if (vatLocked) rows.push([], [intl.formatMessage({ id: "reports.periodLockedTax" }, { date: taxLockDate ?? "" })]);
-    downloadRows(rows, `vat-return_${vatPeriod.from}_${vatPeriod.to}`);
-  }
 
   return (
     <Card ref={printRef}>
@@ -61,15 +40,15 @@ export function VatTab({ report, companyName, taxLockDate }: { report: ReturnTyp
           <Button onClick={loadVatReturn} disabled={vatLoading}>
             {vatLoading ? intl.formatMessage({ id: "reports.loadingReport" }) : intl.formatMessage({ id: "reports.runReport" })}
           </Button>
-          {vatReturn && <ExportButton onClick={exportVatReturn} />}
+          <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
           {vatReturn && <PrintButton contentRef={printRef} />}
         </div>
 
         {vatLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
 
-        {vatError && (
+        {(vatError || exporter.exportError) && (
           <Alert variant="destructive">
-            <AlertDescription>{vatError}</AlertDescription>
+            <AlertDescription>{vatError ?? exporter.exportError}</AlertDescription>
           </Alert>
         )}
 

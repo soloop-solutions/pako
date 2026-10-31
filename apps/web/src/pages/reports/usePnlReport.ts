@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
+import { useSearchParams } from "react-router-dom";
 
 import type {
   ProfitAndLossResponse,
@@ -7,12 +8,14 @@ import type {
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { startOfMonth, today } from "./helpers";
+import { useReportExport } from "./useReportExport";
 
 export function usePnlReport(companyId: string | null) {
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
 
-  const [pnlFrom, setPnlFrom] = useState(startOfMonth);
-  const [pnlTo, setPnlTo] = useState(today);
+  const [pnlFrom, setPnlFrom] = useState(() => searchParams.get("from") || startOfMonth());
+  const [pnlTo, setPnlTo] = useState(() => searchParams.get("to") || today());
   const [pnl, setPnl] = useState<ProfitAndLossResponse | null>(null);
   // The period the currently-displayed `pnl` was actually loaded for — set only on a successful
   // load, never from the live `pnlFrom`/`pnlTo` inputs. The lock badge and the exported file must
@@ -37,5 +40,10 @@ export function usePnlReport(companyId: string | null) {
     }
   }
 
-  return { pnlFrom, setPnlFrom, pnlTo, setPnlTo, pnl, pnlPeriod, pnlError, pnlLoading, loadPnl };
+  const exporter = useReportExport(
+    () => apiClient.profitAndLossExport(companyId as string, pnlFrom, pnlTo),
+    `profit-and-loss_${pnlFrom}_${pnlTo}.xlsx`,
+  );
+
+  return { pnlFrom, setPnlFrom, pnlTo, setPnlTo, pnl, pnlPeriod, pnlError, pnlLoading, loadPnl, exporter };
 }
