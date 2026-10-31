@@ -4564,7 +4564,7 @@ export class PakoApiClient {
      * @param sort (optional) 
      * @return OK
      */
-    generalLedger(companyId: string, from: string | undefined, to: string | undefined, accountId: string | undefined, partnerId: string | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfGeneralLedgerLine> {
+    generalLedger(companyId: string, from: string | undefined, to: string | undefined, accountId: string | undefined, partnerId: string | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<GeneralLedgerResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/general-ledger?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -4615,13 +4615,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processGeneralLedger(response: Response): Promise<PaginatedResponseOfGeneralLedgerLine> {
+    protected processGeneralLedger(response: Response): Promise<GeneralLedgerResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfGeneralLedgerLine;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as GeneralLedgerResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -4629,7 +4629,7 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<PaginatedResponseOfGeneralLedgerLine>(null as any);
+        return Promise.resolve<GeneralLedgerResponse>(null as any);
     }
 
     /**
@@ -7204,13 +7204,23 @@ export class PakoApiClient {
     }
 
     /**
+     * @param from (optional) 
+     * @param to (optional) 
      * @return OK
      */
-    trialBalance(companyId: string): Promise<TrialBalanceLine[]> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance";
+    trialBalance(companyId: string, from: string | undefined, to: string | undefined): Promise<TrialBalanceLine[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
         url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -7243,13 +7253,23 @@ export class PakoApiClient {
     }
 
     /**
+     * @param from (optional) 
+     * @param to (optional) 
      * @return OK
      */
-    trialBalanceExport(companyId: string): Promise<FileResponse> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance/export";
+    trialBalanceExport(companyId: string, from: string | undefined, to: string | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance/export?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
         url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -9467,7 +9487,7 @@ export class PakoApiClient {
      * @param to (optional) 
      * @return OK
      */
-    purchasesByVendor(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByVendorLine[]> {
+    purchasesByVendor(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByVendorResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchases/by-vendor?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -9494,13 +9514,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processPurchasesByVendor(response: Response): Promise<PurchaseByVendorLine[]> {
+    protected processPurchasesByVendor(response: Response): Promise<PurchaseByVendorResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseByVendorLine[];
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseByVendorResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -9508,7 +9528,7 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<PurchaseByVendorLine[]>(null as any);
+        return Promise.resolve<PurchaseByVendorResponse>(null as any);
     }
 
     /**
@@ -9570,7 +9590,7 @@ export class PakoApiClient {
      * @param to (optional) 
      * @return OK
      */
-    purchasesByItem(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByItemLine[]> {
+    purchasesByItem(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByItemResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchases/by-item?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -9597,13 +9617,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processPurchasesByItem(response: Response): Promise<PurchaseByItemLine[]> {
+    protected processPurchasesByItem(response: Response): Promise<PurchaseByItemResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseByItemLine[];
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseByItemResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -9611,7 +9631,7 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<PurchaseByItemLine[]>(null as any);
+        return Promise.resolve<PurchaseByItemResponse>(null as any);
     }
 
     /**
@@ -9678,7 +9698,7 @@ export class PakoApiClient {
      * @param sort (optional) 
      * @return OK
      */
-    purchaseTransactions(companyId: string, from: string | undefined, to: string | undefined, partnerId: string | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfPurchaseTransactionLine> {
+    purchaseTransactions(companyId: string, from: string | undefined, to: string | undefined, partnerId: string | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PurchaseTransactionsResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchases/transactions?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -9725,13 +9745,13 @@ export class PakoApiClient {
         });
     }
 
-    protected processPurchaseTransactions(response: Response): Promise<PaginatedResponseOfPurchaseTransactionLine> {
+    protected processPurchaseTransactions(response: Response): Promise<PurchaseTransactionsResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
             let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPurchaseTransactionLine;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseTransactionsResponse;
             return result200;
             });
         } else if (status !== 200 && status !== 204) {
@@ -9739,7 +9759,7 @@ export class PakoApiClient {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<PaginatedResponseOfPurchaseTransactionLine>(null as any);
+        return Promise.resolve<PurchaseTransactionsResponse>(null as any);
     }
 
     /**
@@ -13443,6 +13463,129 @@ export class PakoApiClient {
 
     /**
      * @param year (optional) 
+     * @param month (optional) 
+     * @param carriedCredit (optional) 
+     * @param refundRequested (optional) 
+     * @return OK
+     */
+    vatDeclaration(companyId: string, year: number | undefined, month: number | undefined, carriedCredit: number | undefined, refundRequested: number | undefined): Promise<VatDeclarationResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/vat-declaration?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        if (month === null)
+            throw new globalThis.Error("The parameter 'month' cannot be null.");
+        else if (month !== undefined)
+            url_ += "month=" + encodeURIComponent("" + month) + "&";
+        if (carriedCredit === null)
+            throw new globalThis.Error("The parameter 'carriedCredit' cannot be null.");
+        else if (carriedCredit !== undefined)
+            url_ += "carriedCredit=" + encodeURIComponent("" + carriedCredit) + "&";
+        if (refundRequested === null)
+            throw new globalThis.Error("The parameter 'refundRequested' cannot be null.");
+        else if (refundRequested !== undefined)
+            url_ += "refundRequested=" + encodeURIComponent("" + refundRequested) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processVatDeclaration(_response);
+        });
+    }
+
+    protected processVatDeclaration(response: Response): Promise<VatDeclarationResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as VatDeclarationResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<VatDeclarationResponse>(null as any);
+    }
+
+    /**
+     * @param year (optional) 
+     * @param month (optional) 
+     * @param carriedCredit (optional) 
+     * @param refundRequested (optional) 
+     * @return OK
+     */
+    vatDeclarationExport(companyId: string, year: number | undefined, month: number | undefined, carriedCredit: number | undefined, refundRequested: number | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/vat-declaration/export?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        if (month === null)
+            throw new globalThis.Error("The parameter 'month' cannot be null.");
+        else if (month !== undefined)
+            url_ += "month=" + encodeURIComponent("" + month) + "&";
+        if (carriedCredit === null)
+            throw new globalThis.Error("The parameter 'carriedCredit' cannot be null.");
+        else if (carriedCredit !== undefined)
+            url_ += "carriedCredit=" + encodeURIComponent("" + carriedCredit) + "&";
+        if (refundRequested === null)
+            throw new globalThis.Error("The parameter 'refundRequested' cannot be null.");
+        else if (refundRequested !== undefined)
+            url_ += "refundRequested=" + encodeURIComponent("" + refundRequested) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processVatDeclarationExport(_response);
+        });
+    }
+
+    protected processVatDeclarationExport(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
+     * @param year (optional) 
      * @param page (optional) 
      * @param pageSize (optional) 
      * @param search (optional) 
@@ -14976,6 +15119,19 @@ export interface GeneralLedgerLine {
     description: string | undefined;
     debit: number;
     credit: number;
+    documentType?: string | undefined;
+    documentNumber?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface GeneralLedgerResponse {
+    items: GeneralLedgerLine[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalDebit: number;
+    totalCredit: number;
 
     [key: string]: any;
 }
@@ -15448,15 +15604,6 @@ export interface PaginatedResponseOfEmployeeDetailResponse {
     [key: string]: any;
 }
 
-export interface PaginatedResponseOfGeneralLedgerLine {
-    items: GeneralLedgerLine[];
-    total: number;
-    page: number;
-    pageSize: number;
-
-    [key: string]: any;
-}
-
 export interface PaginatedResponseOfItemResponse {
     items: ItemResponse[];
     total: number;
@@ -15504,15 +15651,6 @@ export interface PaginatedResponseOfPlatformCompanyResponse {
 
 export interface PaginatedResponseOfPlatformUserResponse {
     items: PlatformUserResponse[];
-    total: number;
-    page: number;
-    pageSize: number;
-
-    [key: string]: any;
-}
-
-export interface PaginatedResponseOfPurchaseTransactionLine {
-    items: PurchaseTransactionLine[];
     total: number;
     page: number;
     pageSize: number;
@@ -15886,6 +16024,17 @@ export interface PurchaseByItemLine {
     [key: string]: any;
 }
 
+export interface PurchaseByItemResponse {
+    from: string;
+    to: string;
+    lines: PurchaseByItemLine[];
+    totalNet: number;
+    totalVat: number;
+    totalGross: number;
+
+    [key: string]: any;
+}
+
 export interface PurchaseByVendorLine {
     partnerId: string;
     name: string;
@@ -15893,6 +16042,18 @@ export interface PurchaseByVendorLine {
     discountAmount: number;
     vatAmount: number;
     grossAmount: number;
+
+    [key: string]: any;
+}
+
+export interface PurchaseByVendorResponse {
+    from: string;
+    to: string;
+    lines: PurchaseByVendorLine[];
+    totalNet: number;
+    totalDiscount: number;
+    totalVat: number;
+    totalGross: number;
 
     [key: string]: any;
 }
@@ -15909,6 +16070,18 @@ export interface PurchaseTransactionLine {
     netAmount: number;
     vatAmount: number;
     grossAmount: number;
+
+    [key: string]: any;
+}
+
+export interface PurchaseTransactionsResponse {
+    items: PurchaseTransactionLine[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalNet: number;
+    totalVat: number;
+    totalGross: number;
 
     [key: string]: any;
 }
@@ -16523,6 +16696,10 @@ export interface TrialBalanceLine {
     debit: number;
     credit: number;
     balance: number;
+    opening: number;
+    closing: number;
+    class: number | undefined;
+    groupName: string | undefined;
 
     [key: string]: any;
 }
@@ -16682,6 +16859,34 @@ export interface UpdatePlatformUserRequest {
 export interface UpdateProjectRequest {
     name: string;
     isActive: boolean;
+
+    [key: string]: any;
+}
+
+export interface VatDeclarationBox {
+    number: string;
+    section: string;
+    label: string;
+    base: number | undefined;
+    vat: number | undefined;
+
+    [key: string]: any;
+}
+
+export interface VatDeclarationResponse {
+    year: number;
+    month: number;
+    taxpayerName: string | undefined;
+    fiscalNumber: string | undefined;
+    address: string | undefined;
+    boxes: VatDeclarationBox[];
+    totalVatCalculated: number;
+    totalVatDeductible: number;
+    carriedCredit: number;
+    remainingCredit: number;
+    refundRequested: number;
+    creditForNextPeriod: number;
+    vatPayable: number;
 
     [key: string]: any;
 }
