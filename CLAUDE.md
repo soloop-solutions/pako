@@ -117,6 +117,15 @@ pnpm --filter web build
   reverse-charge purchases legitimately differ.
 - Contract changes: additive where possible; where a shape changed it was announced and the client
   regenerated in the same commit.
+- Row click-through: `ReportSourceResolver` (`Pako.Api/Services`) turns a journal entry into a
+  `SourceKind` (`ReportSourceKinds`: Invoice, SalesReturn, Bill, PurchaseReturn, PayrollRun,
+  StockDocument, JournalEntry as fallback) plus `SourceId`, always company-scoped. Report row records
+  carry these as trailing optional members next to `AccountId`/`PartnerId`/`ItemId`.
+- A new report gets row links by passing `getRowLink` (`DataGrid`) or `rowLink`/`ReportRow.href`
+  (`ReportGrid`) built with `apps/web/src/lib/entityLinks.ts` (`entityPath`, `accountPath`,
+  `partnerPath`, `itemPath`); never hand-write routes in a tab. Table in `docs/REPORTS.md`.
+- Records in `Pako.Api.Contracts` must not have a non-nullable struct with a default (`Guid X =
+  default`): it breaks `/openapi/v1.json`; use `Guid? X = null`. `ContractOpenApiSchemaTests` enforces it.
 
 ## Where the plan lives
 

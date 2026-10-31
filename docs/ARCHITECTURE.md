@@ -240,6 +240,11 @@ the hash itself is ever activated.
   `StockReportDataService`, which duplicates `InventoryController`'s JSON queries). Check 7
   `stock-total-matches-inventory-accounts` is in `ReportChecksController`. Web: `StockMovementsTab.tsx`, export buttons in
   `pages/inventory/StockReports.tsx` and `ItemCardDialog.tsx`.
+- Row click-through: `ReportSourceResolver` (`Pako.Api/Services`, kinds in `ReportSourceKinds`) resolves a
+  journal entry to its business document, falling back to the entry itself; report row records carry
+  `SourceKind`/`SourceId` and account, partner and item ids. The web turns them into routes in
+  `apps/web/src/lib/entityLinks.ts` and `DataGrid` `getRowLink`; `?open=<id>` and `?entry=<id>` deep links open the
+  editor or the read-only entry dialog. Detail and per-report table in `docs/REPORTS.md`.
 - P&L response also carries `OperatingExpenses`/`TotalOperatingExpenses`; `PayablesAgingResponse` carries `TotalOutstanding`.
 - Export pipeline: action marked `[ProducesXlsx]`, labels via `ExportLabels` (`Export_*` keys in
   `Resources/ErrorMessages.resx` and `.sq.resx`, language from `Accept-Language`), workbook built by

@@ -56,6 +56,113 @@ The seven checks below come back from `reports/checks`, tolerance 0.01.
 On real data they need accounts with `CashFlowCategory`, tax definitions with `AtkBook`, and no
 payable lines without a partner.
 
+## Click-through
+
+Clicking a report row opens the entity it represents. Row links are plain in-app routes built by
+`apps/web/src/lib/entityLinks.ts`; the backend supplies the ids.
+
+Backend: `ReportSourceResolver` (`Pako.Api/Services`) maps journal entries to a business document.
+The kind constants are `ReportSourceKinds` (`Pako.Api/Contracts`): `Invoice`, `SalesReturn`, `Bill`,
+`PurchaseReturn`, `PayrollRun`, `StockDocument`, `JournalEntry`. Invoice vs SalesReturn and Bill vs
+PurchaseReturn follow the document type, the same rule as `SearchController`. Every lookup is scoped
+to the company; an entry whose `SourceDocumentId` is not a document of that company (or of a type
+above) falls back to `JournalEntry` with the entry's own id. Used by `GeneralLedgerReportController`,
+`ExpenseBookController` and `VendorLedgerService`; the sales/purchase books, debt aging and purchase
+transactions set the kind straight from the document type, and payables aging always uses `Bill`.
+
+Fields added at the end of the report row records (all optional, default null):
+
+| Record | Added |
+| --- | --- |
+| `GeneralLedgerLine` | `AccountId`, `SourceKind`, `SourceId` |
+| `ExpenseBookRow` | `SourceKind`, `SourceId`, `PartnerId` |
+| `VendorStatementRow` | `SourceKind`, `SourceId` |
+| `PayablesAgingLine` | `SourceKind`, `SourceId` |
+| `DebtAgingLine` | `SourceKind`, `SourceId` |
+| `SalesBookLine` | `SourceKind`, `SourceId` |
+| `PurchaseBookLine` | `SourceKind`, `SourceId` |
+| `PurchaseTransactionLine` | `DocumentId`, `SourceKind`, `SourceId`, `PartnerId`, `ItemId` |
+
+`ContractOpenApiSchemaTests` forbids a non-nullable struct with a default value in any
+`Pako.Api.Contracts` record: it breaks `/openapi/v1.json`. `GeneralLedgerLine.AccountId` and
+`PurchaseTransactionLine.DocumentId` had to be `Guid?` for that reason.
+
+Web routes (`entityLinks.ts`):
+
+| Helper / kind | Route |
+| --- | --- |
+| `entityPath` `Invoice` | `/invoicing/:id` |
+| `entityPath` `SalesReturn` | `/sales-returns/:id` |
+| `entityPath` `Bill` | `/bills/:id` |
+| `entityPath` `PurchaseReturn` | `/purchase-returns/:id` |
+| `entityPath` `PayrollRun` | `/payroll/:id` |
+| `entityPath` `StockDocument` | `/stock-documents/:id` |
+| `entityPath` `JournalEntry` | `/ledger?entry=:id` |
+| `accountPath` | `/chart-of-accounts?open=:id` |
+| `partnerPath(id, "customer")` / `"vendor"` / none | `/customers?open=:id` / `/vendors?open=:id` / `/partners?open=:id` |
+| `itemPath` | `/items?open=:id` |
+| `employeePath` | `/employees/:id` (helper exists, no report uses it yet) |
+| `stockMoveSourcePath(sourceType, sourceId)` | stock move source 0 = `Bill`, 1 = `Invoice`, 2 = `StockDocument`, then `entityPath` |
+
+Every helper returns `null` for a missing id or an unknown kind, and `null` means no link.
+
+Components:
+
+- `DataGrid` takes `getRowLink(row) => string | null` (never for group rows). `ReportGrid` takes
+  `rowLink`, defaulting to `ReportRow.href`.
+- `EntityLink` / `MaybeEntityLink` (`pages/reports/EntityLink.tsx`) are the secondary links inside a
+  cell; they stop propagation so the row link does not fire as well.
+- `LinkedRow` (`pages/reports/LinkedRow.tsx`) gives the same behaviour to the hand-written tables of
+  the legacy tabs.
+- Click semantics live in `components/data-grid/rowLink.ts`: click navigates; Ctrl/Cmd/Shift+click
+  or middle click opens a new tab; Enter on the focused row navigates (Ctrl/Cmd+Enter opens a new
+  tab). Clicks on inner `a`, `button`, `input`, `select`, `label`, `textarea` are ignored, and so is
+  a click that ends a text selection. Rows without a link (totals, footer, section headers) are not
+  focusable or clickable.
+
+Deep links: `?open=<id>` opens the editor of that record on `/customers`, `/vendors`, `/partners`,
+`/items` and `/chart-of-accounts`; `?entry=<id>` opens the read-only `JournalEntryDialog` on
+`/ledger`. Both use `useOpenParam(name = "open")` (`apps/web/src/hooks`), which writes the param with
+`replace`. The ledger dialog only finds entries in the list the page has loaded.
+
+Legacy tabs (P&L, balance sheet, VAT return, sales book, purchase book, debt aging) keep their
+period in the URL (`from`/`to`, `asOf`/`compareTo`) and run on their own when it is present
+(`useAutoRun`), so back and a new tab land on the same report. The newer tabs derive their period
+from the URL through `useReportPeriod`.
+
+| Report (tab) | Row click opens | Secondary links in the row |
+| --- | --- | --- |
+| General ledger | source document, or the journal entry dialog (`entityPath` of `SourceKind`/`SourceId`) | account code and name (`accountPath`), partner (`partnerPath`, no side) |
+| Trial balance (Ledger page) | account | none |
+| P&L, balance sheet (legacy) | account | none |
+| Monthly P&L, comparative balance sheet, cash flow, equity statement | account (line rows only) | none |
+| Sales book, debt aging | invoice or sales return | customer |
+| Purchase book | bill or purchase return | vendor |
+| Expense book | source document or journal entry | vendor |
+| Vendors (synthetic) | vendor | statement button in the row |
+| Vendor statement drawer | source document or journal entry (opening and closing rows inert) | none |
+| Payables aging, per bill | bill | vendor |
+| Payables aging, vendor matrix | vendor | none |
+| Purchases by vendor | vendor | none |
+| Purchases by item | item (only when `ItemId` is set) | none |
+| Purchase transactions | source document | vendor, item code |
+| Stock movements, stock valuation by item | item | none |
+| Item card (stock page and dialog) | stock move source: bill, invoice or stock document | none |
+| VAT return lines, VAT declaration boxes, reconciliation checks, all totals and summary rows | no link | none |
+
+Known limitations:
+
+- Ctrl/Cmd+click opens a new tab that lands on `/login`: the app keeps its login in `sessionStorage`
+  (`lib/auth-storage.ts`), which is per tab.
+- Payment, settlement, reversal and loan entries have no business document id, so their rows open
+  the journal entry dialog instead.
+- The Vendors report row opens the vendor; the statement is the button inside the row.
+- Item-card rows inside the item editor are not links (`ItemCardPanel linkRows={false}` in
+  `pages/items/Items.tsx`), so a click cannot discard unsaved edits.
+- The balance sheet's synthetic "Current Earnings" line has `AccountId = Guid.Empty`
+  (`LedgerAggregator`); the web does not special-case it, so its row links to a non-existent account.
+  Not verified in a browser.
+
 ## Known gaps
 
 - VAT declaration boxes that always show 0 (no source data in PAKO): 10a, 20-23 (bad debt, sales),
