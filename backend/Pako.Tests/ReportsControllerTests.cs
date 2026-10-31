@@ -199,6 +199,8 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal(1508.48m, response.TotalEquity);
 
         Assert.Equal(response.TotalAssets, response.TotalLiabilities + response.TotalEquity);
+        Assert.Equal(2061.02m, response.TotalLiabilitiesAndEquity);
+        Assert.Equal(0m, response.Difference);
 
         Assert.Contains(response.Equity, l => l.AccountName == "Current Earnings" && l.Amount == 508.48m);
     }

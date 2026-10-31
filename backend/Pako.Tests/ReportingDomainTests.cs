@@ -180,4 +180,24 @@ public class ReportingDomainTests
         Assert.Equal(new[] { 1050m, 240m }, columns);
         Assert.Equal(1290m, ExpenseBookTotals.Grand(columns));
     }
+
+    [Fact]
+    public void BalanceSheetEquation_WhenBalanced_HasZeroDifference()
+    {
+        var result = BalanceSheetTotals.Equation(2061.02m, 552.54m, 1508.48m);
+
+        Assert.Equal(2061.02m, result.TotalLiabilitiesAndEquity);
+        Assert.Equal(0m, result.Difference);
+    }
+
+    [Fact]
+    public void BalanceSheetEquation_WhenUnbalanced_ReportsExactSignedDifference()
+    {
+        var over = BalanceSheetTotals.Equation(1000.10m, 400.05m, 590.00m);
+        var under = BalanceSheetTotals.Equation(900m, 400.05m, 590.00m);
+
+        Assert.Equal(990.05m, over.TotalLiabilitiesAndEquity);
+        Assert.Equal(10.05m, over.Difference);
+        Assert.Equal(-90.05m, under.Difference);
+    }
 }

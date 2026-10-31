@@ -89,9 +89,14 @@ public class LedgerAggregator(PakoDbContext db)
             ? new ReportLine(cye.Id, cye.Code, cye.Name, currentEarnings)
             : new ReportLine(Guid.Empty, "3999", "Current Earnings", currentEarnings));
 
+        var totalAssets = assets.Sum(l => l.Amount);
+        var totalLiabilities = liabilities.Sum(l => l.Amount);
+        var totalEquity = equity.Sum(l => l.Amount);
+        var equation = BalanceSheetTotals.Equation(totalAssets, totalLiabilities, totalEquity);
+
         return new BalanceSheetResponse(
             asOf, assets, liabilities, equity, currentEarnings,
-            assets.Sum(l => l.Amount), liabilities.Sum(l => l.Amount), equity.Sum(l => l.Amount));
+            totalAssets, totalLiabilities, totalEquity, equation.TotalLiabilitiesAndEquity, equation.Difference);
     }
 
     public async Task<decimal> NetIncomeByIdentityAsync(Guid companyId, DateOnly from, DateOnly to)

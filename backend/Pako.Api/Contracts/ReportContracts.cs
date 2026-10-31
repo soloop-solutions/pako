@@ -19,7 +19,9 @@ public record BalanceSheetResponse(
     decimal CurrentEarnings,
     decimal TotalAssets,
     decimal TotalLiabilities,
-    decimal TotalEquity);
+    decimal TotalEquity,
+    decimal TotalLiabilitiesAndEquity,
+    decimal Difference);
 
 public record VatReturnLine(Guid TaxDefinitionId, string Name, decimal Rate, decimal Amount);
 
