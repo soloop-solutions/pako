@@ -33,7 +33,7 @@ Do not re-implement these. They exist, they are enforced, and they simply have n
    developer working.
 2. **One migration per day, announced.** Rebase on `main` before generating. Never edit a migration
    that has already merged. Model snapshots do not merge.
-3. **Tests run on Postgres.** See task 0.5. A test that needs a unique index, a trigger, a
+3. **Tests run on Postgres** (`backend/Pako.Tests/PostgresTestDatabase.cs`, done). A test that needs a unique index, a trigger, a
    transaction or a row lock is not allowed to run on InMemory.
 4. **Money math lives in the domain,** never in a controller. `DocumentLineCalculator` and
    `TaxComputationService` are where it goes. A controller orchestrates; it does not calculate.
@@ -56,11 +56,11 @@ Do not re-implement these. They exist, they are enforced, and they simply have n
   contracts, and `PakoDbContextModelSnapshot.cs`. Regenerate the snapshot rather than merging it.
 - **0.3** Merge `origin/arnit-imp-1` (Albanian terminology, translation-only).
 - **0.4** Commit `docs/V2_PARALLEL_TRACKS.md` — the plan of record is still untracked.
-- **0.5** **Move the test suite to Testcontainers.** Add `Testcontainers.PostgreSql`, write one
-  xUnit collection fixture that starts `postgres:16-alpine`, runs `db.Database.Migrate()`, and hands
-  each test a fresh schema. Replace all 13 `UseInMemoryDatabase` call sites. All 198 tests green.
-  *Why it is not optional:* B5's gapless numbering, C3's post-and-pay atomicity and B4's lock guard
-  are exactly the behaviours InMemory cannot exercise — no unique indexes, no triggers, no locks.
+- **0.5** ~~Move the test suite to Testcontainers.~~ **Done, differently:** tests run on real
+  Postgres through `backend/Pako.Tests/PostgresTestDatabase.cs` (a fresh database per test, connection
+  from `PAKO_TEST_POSTGRES_CONNECTION` or the compose Postgres on :5433); no `UseInMemoryDatabase`
+  call sites remain. B5's gapless numbering, C3's post-and-pay atomicity and B4's lock guard rely on
+  unique indexes, triggers and locks that InMemory cannot exercise, so keep it that way.
 
 ---
 
@@ -158,7 +158,7 @@ accepts a sales return as a nota kreditore (**D4**) before fixing the mapping.
 **Status:** the sales and purchase books already exist (`AtkTaxBookWorkbook`, `AtkBookMapper`).
 
 ### B11 · Excel export
-**Status:** ClosedXML is already referenced in `Pako.Api`; `ExcelExportService.BuildWorkbook` and `AtkTaxBookWorkbook` are the shared writers, and exports exist for trial balance, P&L, balance sheet, VAT return, and the sales and purchase books. Original scope: export the VAT return, both books,
+**Status:** built. ClosedXML is referenced in `Pako.Api`; `ExcelExportService.BuildWorkbook`, `AtkTaxBookWorkbook` and `VatDeclarationWorkbook` are the shared writers, and the reports in `docs/REPORTS.md` have `/export` routes (see its Export column), language-aware via `ExportLabels`. Original scope: export the VAT return, both books,
 trial balance, P&L, balance sheet and any journal entry, in ATK's column order. One shared writer,
 not six.
 

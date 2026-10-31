@@ -46,7 +46,24 @@ pnpm --filter web build
    unmerged on `origin/track-c/price-payment-debt` and conflicts with Track A (~36 hunks).
    `origin/arnit-imp-1` holds Albanian terminology fixes, unmerged.
 5. **Tests run on real Postgres** via `backend/Pako.Tests/PostgresTestDatabase.cs` (compose Postgres
-   on :5433). `UseInMemoryDatabase` appears only in a comment there.
+   on :5433; override with `PAKO_TEST_POSTGRES_CONNECTION`). The compose Postgres defaults
+   (64MB shm, max_connections=100) make the full suite flaky. `backend/docker-compose.yml` now sets
+   `shm_size: 256mb`; it only applies after `docker compose -f backend/docker-compose.yml up -d`.
+   For a reliable full run use a throwaway container:
+   `docker run -d --name pako-test-pg --shm-size=512m -e POSTGRES_PASSWORD=postgres -p 5434:5432 postgres:16-alpine -c max_connections=300`,
+   create database `pako_dev`, then
+   `PAKO_TEST_POSTGRES_CONNECTION="Host=localhost;Port=5434;Database=pako_dev;Username=postgres;Password=postgres"`.
+6. **Regenerating the API client:** port 5248 (the nswag input) is often held by another worktree's
+   API. Run the API on another port (e.g. 5398) against a scratch database, run the nswag command
+   from `packages/shared/package.json` with that input URL, then restore the default baseUrl
+   `http://127.0.0.1:5248/` in the generated file, stop the API by PID, drop the scratch DB.
+7. **Journal numbering bug (fixed):** journals loaded `AsNoTracking` never saved their counter, so
+   older data has many entries sharing `SAL-0001`/`PUR-0001` and bank/settlement entries with no
+   number. Posted entries are immutable and hash-chained, so they were **not** renumbered.
+   Migration `20261031140000_RepairJournalSequenceCounters` only lifts counters past the highest
+   suffix found.
+8. **Long test runs fail when the laptop sleeps.** Use a plain `dotnet test` and re-run failures
+   alone before assuming a regression.
 
 ## Things that already exist and are easy to rebuild by mistake
 
@@ -57,6 +74,16 @@ pnpm --filter web build
 - `Company.AccountingLockDate` / `TaxLockDate` — enforced on invoices, bills, journal entries and
   payroll. **No endpoint sets them**; `CompaniesController` has one write method.
 - `Account` carries ~20 fields; `AccountResponse` returns 7.
+- **Report suite** under `api/companies/{companyId}/reports` (most with an Excel `/export`): general
+  ledger, monthly P&L, comparative balance sheet, cash flow, equity statement, expense book, VAT
+  declaration in the ATK form (boxes 1-72, from the same rows as the ATK sales/purchase books),
+  vendor synthetic and statement, payables aging (bill lines plus by-vendor matrix), purchases by
+  vendor / item / transactions, and `reports/checks` (six reconciliation checks). Trial balance
+  with a period is `ledger/trial-balance`. Plus the older P&L, balance sheet, VAT return, books,
+  CIT add-back and debt aging. Reference: `docs/REPORTS.md`.
+- Report money math: pure calculators in `Pako.Domain/Reporting`; shared services
+  `LedgerAggregator`, `TaxReportService`, `VendorLedgerService`, `ExportLabels` in
+  `Pako.Api/Services`. Controllers only orchestrate.
 
 ## Conventions
 
@@ -71,6 +98,18 @@ pnpm --filter web build
   migration — model snapshots do not merge.
 - **Accounts are deactivated, never deleted** (R26), and account codes are never edited in place
   (R25).
+
+## Report suite conventions
+
+- Exports are language-aware: labels come from `ExportLabels` (`Export_*` keys in both resx files),
+  chosen by `Accept-Language`; the web sends it (`apps/web/src/api/client.ts`). Enum cell values
+  (document type, journal, aging bucket) are translated under `sq`.
+- `reports/checks` needs real-data setup to pass: accounts with `CashFlowCategory`, tax definitions
+  with `AtkBook`, no payable lines without a partner. The opening-balance-clearing account `390100`
+  resolves to Operating for cash flow. `books-match-vat-return` is informational on the web:
+  reverse-charge purchases legitimately differ.
+- Contract changes: additive where possible; where a shape changed it was announced and the client
+  regenerated in the same commit.
 
 ## Where the plan lives
 
