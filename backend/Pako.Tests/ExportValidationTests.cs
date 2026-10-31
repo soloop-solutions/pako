@@ -45,6 +45,14 @@ public class ExportValidationTests : IAsyncLifetime
     private static IEnumerable<Case> Cases()
     {
         const string Range = "ReportDateRangeInvalid";
+        yield return new("ProfitAndLoss", M<ReportsController>("ProfitAndLossExport"),
+            t => Reports(t).ProfitAndLossExport(t._companyId, Oct, Jan), Range);
+        yield return new("VatReturn", M<ReportsController>("VatReturnExport"),
+            t => Reports(t).VatReturnExport(t._companyId, Oct, Jan), Range);
+        yield return new("SalesBook", M<ReportsController>("SalesBookExport"),
+            t => Reports(t).SalesBookExport(t._companyId, Oct, Jan), Range);
+        yield return new("PurchaseBook", M<ReportsController>("PurchaseBookExport"),
+            t => Reports(t).PurchaseBookExport(t._companyId, Oct, Jan), Range);
         yield return new("TrialBalance", M<LedgerController>("TrialBalanceExport"),
             t => new LedgerController(t._db, Loc(), Labels()).TrialBalanceExport(t._companyId, Oct, Jan), Range);
         yield return new("GeneralLedger", M<GeneralLedgerReportController>("GeneralLedgerExport"),
@@ -70,6 +78,9 @@ public class ExportValidationTests : IAsyncLifetime
         yield return new("VatDeclarationRefund", M<VatDeclarationController>("Export"),
             t => Vat(t).Export(t._companyId, 2026, 10, null, 5m), "VatDeclarationRefundInvalid");
     }
+
+    private static ReportsController Reports(ExportValidationTests t) =>
+        new(t._db, Loc(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(t._db), Labels());
 
     private static PayablesReportsController Payables(ExportValidationTests t) =>
         new(Loc(), CompanyAccessContext.Unrestricted(), new VendorLedgerService(t._db, CompanyAccessContext.Unrestricted()), Labels());
@@ -104,6 +115,27 @@ public class ExportValidationTests : IAsyncLifetime
             {
                 CultureInfo.CurrentUICulture = previous;
             }
+        }
+    }
+
+    [Fact]
+    public async Task LegacyReports_FromAfterTo_Return400ReportDateRangeInvalid()
+    {
+        var reports = Reports(this);
+        var expected = Loc()["ReportDateRangeInvalid"].Value;
+        var results = new[]
+        {
+            (await reports.ProfitAndLoss(_companyId, Oct, Jan)).Result,
+            (await reports.VatReturn(_companyId, Oct, Jan)).Result,
+            (await reports.SalesBook(_companyId, Oct, Jan)).Result,
+            (await reports.PurchaseBook(_companyId, Oct, Jan)).Result,
+            (await reports.CitAddBack(_companyId, Oct, Jan)).Result
+        };
+
+        foreach (var result in results)
+        {
+            var bad = Assert.IsType<BadRequestObjectResult>(result);
+            Assert.Contains(expected, bad.Value!.ToString());
         }
     }
 

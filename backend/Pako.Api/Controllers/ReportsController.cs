@@ -43,6 +43,9 @@ public class ReportsController : ControllerBase
     private ObjectResult ReportNotAvailableForScopedUser() =>
         StatusCode(StatusCodes.Status403Forbidden, _localizer["ReportNotAvailableForScopedUser"].Value);
 
+    private BadRequestObjectResult InvalidDateRange() =>
+        BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
+
     [HttpGet("profit-and-loss")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<ProfitAndLossResponse>> ProfitAndLoss(
@@ -51,6 +54,11 @@ public class ReportsController : ControllerBase
         if (_access.IsPartnerRestricted)
         {
             return ReportNotAvailableForScopedUser();
+        }
+
+        if (from > to)
+        {
+            return InvalidDateRange();
         }
 
         var sums = await _ledger.SumsByAccountAsync(companyId, from, to);
@@ -144,6 +152,11 @@ public class ReportsController : ControllerBase
             return ReportNotAvailableForScopedUser();
         }
 
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         return Ok(await _tax.VatReturnAsync(companyId, from, to));
     }
 
@@ -178,6 +191,11 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<SalesBookResponse>> SalesBook(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         var rows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true);
         var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
 
@@ -201,6 +219,11 @@ public class ReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         var vatRegistered = await ResolveVatRegisteredAsync(companyId);
         var salesRows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: true, includeUnbooked: true);
         var purchaseRows = vatRegistered
@@ -221,6 +244,11 @@ public class ReportsController : ControllerBase
     public async Task<ActionResult<PurchaseBookResponse>> PurchaseBook(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         var rows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false);
         var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
 
@@ -244,6 +272,11 @@ public class ReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
+        if (from > to)
+        {
+            return InvalidDateRange();
+        }
+
         var vatRegistered = await ResolveVatRegisteredAsync(companyId);
         var rows = await _tax.BuildTaxBookRowsAsync(companyId, from, to, isSalesBook: false, includeUnbooked: true);
         var partnersById = await PartnersByIdAsync(rows.Select(r => r.PartnerId));
@@ -314,6 +347,11 @@ public class ReportsController : ControllerBase
         if (_access.IsPartnerRestricted)
         {
             return ReportNotAvailableForScopedUser();
+        }
+
+        if (from > to)
+        {
+            return InvalidDateRange();
         }
 
         var sums = await _ledger.SumsByAccountAsync(companyId, from, to);
