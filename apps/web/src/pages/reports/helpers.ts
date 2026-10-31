@@ -2,13 +2,19 @@ import type { FileResponse } from "@pako/shared";
 
 export type ExcelRow = (string | number)[];
 
+function formatLocalDate(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 export function today() {
-  return new Date().toISOString().slice(0, 10);
+  return formatLocalDate(new Date());
 }
 
 export function startOfMonth() {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  return formatLocalDate(new Date(now.getFullYear(), now.getMonth(), 1));
 }
 
 // F10 lock-awareness is scoped to the two real, backend-enforced lock fields on `Company`
