@@ -4490,7 +4490,7 @@ export class PakoApiClient {
     }
 
     /**
-     * @return OK
+     * @return Created
      */
     createWarehouse(companyId: string, body: SaveWarehouseRequest): Promise<WarehouseResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/warehouses";
@@ -4518,11 +4518,11 @@ export class PakoApiClient {
     protected processCreateWarehouse(response: Response): Promise<WarehouseResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
+        if (status === 201) {
             return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WarehouseResponse;
-            return result200;
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as WarehouseResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
@@ -4618,7 +4618,7 @@ export class PakoApiClient {
     }
 
     /**
-     * @return OK
+     * @return Created
      */
     createItemCategory(companyId: string, body: SaveItemCategoryRequest): Promise<ItemCategoryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/inventory/categories";
@@ -4646,11 +4646,11 @@ export class PakoApiClient {
     protected processCreateItemCategory(response: Response): Promise<ItemCategoryResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
+        if (status === 201) {
             return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemCategoryResponse;
-            return result200;
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemCategoryResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
@@ -11484,7 +11484,7 @@ export class PakoApiClient {
     }
 
     /**
-     * @return OK
+     * @return Created
      */
     createStockDocument(companyId: string, body: SaveStockDocumentRequest): Promise<StockDocumentResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents";
@@ -11512,11 +11512,11 @@ export class PakoApiClient {
     protected processCreateStockDocument(response: Response): Promise<StockDocumentResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
+        if (status === 201) {
             return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockDocumentResponse;
-            return result200;
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockDocumentResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
