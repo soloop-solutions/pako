@@ -15842,6 +15842,7 @@ export interface PayablesAgingResponse {
     lines: PayablesAgingLine[];
     buckets: AgingBucketTotal[];
     vendorMatrix: PayablesAgingVendorRow[];
+    totalOutstanding: number;
 
     [key: string]: any;
 }
@@ -16074,6 +16075,8 @@ export interface ProfitAndLossResponse {
     costOfRevenue: ReportLine[];
     totalCostOfRevenue: number;
     grossProfit: number;
+    operatingExpenses: ReportLine[];
+    totalOperatingExpenses: number;
 
     [key: string]: any;
 }
