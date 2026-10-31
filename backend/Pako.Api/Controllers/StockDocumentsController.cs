@@ -77,6 +77,7 @@ public class StockDocumentsController : ControllerBase
 
     [HttpPost(Name = "CreateStockDocument")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Inventory)]
+    [ProducesResponseType(typeof(StockDocumentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<StockDocumentResponse>> Create(Guid companyId, SaveStockDocumentRequest request)
     {
         try

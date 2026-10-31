@@ -62,6 +62,7 @@ public class InventoryController : ControllerBase
 
     [HttpPost("warehouses", Name = "CreateWarehouse")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Inventory)]
+    [ProducesResponseType(typeof(WarehouseResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<WarehouseResponse>> CreateWarehouse(Guid companyId, SaveWarehouseRequest request)
     {
         var error = await ValidateWarehouseAsync(companyId, null, request);
@@ -125,6 +126,7 @@ public class InventoryController : ControllerBase
 
     [HttpPost("categories", Name = "CreateItemCategory")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    [ProducesResponseType(typeof(ItemCategoryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ItemCategoryResponse>> CreateCategory(Guid companyId, SaveItemCategoryRequest request)
     {
         var category = new ItemCategory { Id = Guid.NewGuid(), CompanyId = companyId };
