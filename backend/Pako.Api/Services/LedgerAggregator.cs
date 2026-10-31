@@ -123,7 +123,7 @@ public class LedgerAggregator(PakoDbContext db)
                 && !AccountTypeDerivation.IsIncome(s.Account.AccountType)
                 && !AccountTypeDerivation.IsExpense(s.Account.AccountType)
                 && (s.Debit != 0m || s.Credit != 0m))
-            .Select(s => new AccountMovement(s.Account.Id, s.Account.Code, s.Account.Name, s.Account.CashFlowCategory, s.Debit, s.Credit))
+            .Select(s => new AccountMovement(s.Account.Id, s.Account.Code, s.Account.Name, AccountTypeDerivation.EffectiveCashFlowCategory(s.Account.Code, s.Account.CashFlowCategory), s.Debit, s.Credit))
             .OrderBy(m => m.Code, StringComparer.Ordinal);
 
         var netIncome = NetIncome(period);

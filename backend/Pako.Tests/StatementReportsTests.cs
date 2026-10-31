@@ -266,6 +266,49 @@ public class StatementReportsTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CashFlow_ClosesWithOpeningBalanceClearing_Check3()
+    {
+        var s = await SeedFlowAsync(withEntries: false);
+        var inventory = new Account { Id = Guid.NewGuid(), CompanyId = s.CompanyId, Code = "1310", Name = "Stock", AccountType = AccountType.CurrentAsset, CashFlowCategory = CashFlowCategory.Operating };
+        var clearing = new Account { Id = Guid.NewGuid(), CompanyId = s.CompanyId, Code = "390100", Name = "Opening Balance Clearing", AccountType = AccountType.Equity, CashFlowCategory = CashFlowCategory.None };
+        var cash = s.Db.Accounts.Single(a => a.CompanyId == s.CompanyId && a.Code == "1000");
+        var revenue = s.Db.Accounts.Single(a => a.CompanyId == s.CompanyId && a.Code == "4000");
+        var rent = s.Db.Accounts.Single(a => a.CompanyId == s.CompanyId && a.Code == "6000");
+        var company = s.Db.Companies.Single(c => c.Id == s.CompanyId);
+        var journal = s.Db.Journals.Single(j => j.CompanyId == s.CompanyId);
+        s.Db.Accounts.AddRange(inventory, clearing);
+        Post(s.Db, company, journal, new DateOnly(2026, 1, 2), (inventory, 15232.92m, 0m), (clearing, 0m, 15232.92m));
+        Post(s.Db, company, journal, new DateOnly(2026, 1, 10), (cash, 1000m, 0m), (revenue, 0m, 1000m));
+        Post(s.Db, company, journal, new DateOnly(2026, 3, 25), (rent, 400m, 0m), (cash, 0m, 400m));
+        await s.Db.SaveChangesAsync();
+
+        var r = await CashFlowAsync(s.Db, s.CompanyId);
+
+        Assert.Equal(600m, r.NetChange);
+        Assert.Equal(600m, r.ClosingCash);
+        Assert.Equal(0m, r.Difference);
+        Assert.Contains(r.Operating, l => l.AccountCode == "390100" && l.Amount == 15232.92m);
+        Assert.Contains(r.Operating, l => l.AccountCode == "1310" && l.Amount == -15232.92m);
+    }
+
+    [Fact]
+    public async Task CashFlow_OrdinaryAccountWithCategoryNone_StillShowsDifference_Check3()
+    {
+        var s = await SeedFlowAsync(withEntries: false);
+        var stuff = new Account { Id = Guid.NewGuid(), CompanyId = s.CompanyId, Code = "1400", Name = "Unclassified", AccountType = AccountType.CurrentAsset, CashFlowCategory = CashFlowCategory.None };
+        var cash = s.Db.Accounts.Single(a => a.CompanyId == s.CompanyId && a.Code == "1000");
+        var company = s.Db.Companies.Single(c => c.Id == s.CompanyId);
+        var journal = s.Db.Journals.Single(j => j.CompanyId == s.CompanyId);
+        s.Db.Accounts.Add(stuff);
+        Post(s.Db, company, journal, new DateOnly(2026, 1, 10), (stuff, 700m, 0m), (cash, 0m, 700m));
+        await s.Db.SaveChangesAsync();
+
+        var r = await CashFlowAsync(s.Db, s.CompanyId);
+
+        Assert.Equal(-700m, r.Difference);
+    }
+
+    [Fact]
     public async Task CashFlow_NoPostings_ReturnsZeros()
     {
         var s = await SeedFlowAsync(withEntries: false);
