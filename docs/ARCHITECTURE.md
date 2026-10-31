@@ -234,6 +234,13 @@ the hash itself is ever activated.
 - Pure calculators in `Pako.Domain/Reporting` (`MonthlyProfitAndLoss`, `CashFlowStatement`,
   `EquityStatement`, `ComparativeStatement`, `VatDeclaration`, `PayablesAgingMatrix`,
   `TrialBalanceCalculator`, `ReportReconciler`, ...). Money math stays here.
+- Stock reports (additive files, the inventory module is another developer's): `StockMovementsReportController`
+  (`reports/stock/movements` + `/export`, via `StockMovementsService` and `Pako.Domain.Reporting.StockMovementsCalculator`),
+  `StockReportExportsController` (`levels/export`, `valuation/export`, `items/{itemId}/card/export`, via
+  `StockReportDataService`, which duplicates `InventoryController`'s JSON queries). Check 7
+  `stock-total-matches-inventory-accounts` is in `ReportChecksController`. Web: `StockMovementsTab.tsx`, export buttons in
+  `pages/inventory/StockReports.tsx` and `ItemCardDialog.tsx`.
+- P&L response also carries `OperatingExpenses`/`TotalOperatingExpenses`; `PayablesAgingResponse` carries `TotalOutstanding`.
 - Export pipeline: action marked `[ProducesXlsx]`, labels via `ExportLabels` (`Export_*` keys in
   `Resources/ErrorMessages.resx` and `.sq.resx`, language from `Accept-Language`), workbook built by
   `ExcelExportService.BuildWorkbook` (ATK books and VAT declaration use their own workbook writers).

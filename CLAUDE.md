@@ -78,9 +78,15 @@ pnpm --filter web build
   ledger, monthly P&L, comparative balance sheet, cash flow, equity statement, expense book, VAT
   declaration in the ATK form (boxes 1-72, from the same rows as the ATK sales/purchase books),
   vendor synthetic and statement, payables aging (bill lines plus by-vendor matrix), purchases by
-  vendor / item / transactions, and `reports/checks` (six reconciliation checks). Trial balance
-  with a period is `ledger/trial-balance`. Plus the older P&L, balance sheet, VAT return, books,
+  vendor / item / transactions, and `reports/checks` (seven reconciliation checks, the seventh is stock valuation vs inventory accounts).
+  Trial balance with a period is `ledger/trial-balance` (`/totals` for whole-set sums). Plus the older P&L, balance sheet, VAT return, books,
   CIT add-back and debt aging. Reference: `docs/REPORTS.md`.
+- **Stock reports** under `reports/stock` (ours, additive): period `movements` (+ `/export`) and the
+  exports `levels/export`, `valuation/export`, `items/{itemId}/card/export`. Web: Reports > Stock
+  movements tab, Export buttons on the stock pages. `StockReportDataService` duplicates the JSON
+  queries of `InventoryController`; tests assert the two agree, so change both together.
+- The stock module itself (`Inventory*`, purchase orders, price lists, lots, GRNI) is owned by another
+  developer and merged into this branch; plan in `docs/INVENTORY_PLAN.md`. Do not rework it from here.
 - Report money math: pure calculators in `Pako.Domain/Reporting`; shared services
   `LedgerAggregator`, `TaxReportService`, `VendorLedgerService`, `ExportLabels` in
   `Pako.Api/Services`. Controllers only orchestrate.
@@ -104,6 +110,7 @@ pnpm --filter web build
 - Exports are language-aware: labels come from `ExportLabels` (`Export_*` keys in both resx files),
   chosen by `Accept-Language`; the web sends it (`apps/web/src/api/client.ts`). Enum cell values
   (document type, journal, aging bucket) are translated under `sq`.
+- Export actions carry `[ProducesXlsx]`; errors on export routes return 400 JSON, not a file.
 - `reports/checks` needs real-data setup to pass: accounts with `CashFlowCategory`, tax definitions
   with `AtkBook`, no payable lines without a partner. The opening-balance-clearing account `390100`
   resolves to Operating for cash flow. `books-match-vat-return` is informational on the web:

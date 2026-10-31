@@ -3,14 +3,15 @@
 Branch `feat/report-suite`. All routes are `GET` under `api/companies/{companyId}/reports` unless
 noted. Exports are `.xlsx`, language-aware (`Accept-Language`, `Export_*` keys in both resx files).
 Samples are competitor files in `~/Downloads/Raportet_*` that each report was modelled on.
-Stock reports (`Raportet_Artikujt_*`) belong to the inventory module owned by another developer on
-`main`; they are not covered here.
+The stock module (`Inventory*`, purchase orders, price lists, lots, GRNI) is owned by another
+developer, see `docs/INVENTORY_PLAN.md`. Only the stock reports listed below were added by the report
+suite; they live in separate files (`StockMovementsReportController`, `StockReportExportsController`).
 
 | Report | Route | Export route | Fed by | Modelled on |
 | --- | --- | --- | --- | --- |
 | General ledger | `general-ledger` | `general-ledger/export` | journal lines | `Raportet_Financa_Libri i Madh.xlsx` |
-| Trial balance (period) | `api/companies/{id}/ledger/trial-balance?from&to` | `ledger/trial-balance/export` | journal lines, opening/closing per account | `Raportet_Financa_Gjendja e Llogarive.xlsx` |
-| P&L (period) | `profit-and-loss` | `profit-and-loss/export` | journal lines by account type; server gross profit | `Raportet_Financa_Bilanci i suksesit.pdf` |
+| Trial balance (period) | `api/companies/{id}/ledger/trial-balance?from&to` (whole-set sums: `ledger/trial-balance/totals`) | `ledger/trial-balance/export` | journal lines, opening/closing per account | `Raportet_Financa_Gjendja e Llogarive.xlsx` |
+| P&L (period) | `profit-and-loss` | `profit-and-loss/export` | journal lines by account type; server `CostOfRevenue`/`GrossProfit`/`OperatingExpenses` (legacy `Expenses`/`TotalExpenses` still include cost of revenue) | `Raportet_Financa_Bilanci i suksesit.pdf` |
 | P&L (monthly) | `profit-and-loss/monthly` | `profit-and-loss/monthly/export` | same, per month, with gross profit | `Raportet_Financa_Bilanci i suksesit.pdf` |
 | Balance sheet | `balance-sheet` | `balance-sheet/export` | cumulative journal lines + synthetic current earnings | `Raportet_Financa_Bilanci i gjendjes.pdf` |
 | Balance sheet (comparative) | `balance-sheet/comparative` | `balance-sheet/comparative/export` | two dates side by side | `Raportet_Financa_Bilanci i gjendjes.pdf` |
@@ -24,15 +25,21 @@ Stock reports (`Raportet_Artikujt_*`) belong to the inventory module owned by an
 | CIT add-back | `cit-addback` | none | `CitDeductibility` accounts | none |
 | Vendor synthetic | `vendors/synthetic` | `vendors/synthetic/export` | partnered lines on payable accounts | `Raportet_Furnitor_sintetika e Furnitorve.xlsx` |
 | Vendor statement | `vendors/{partnerId}/statement` | `vendors/{partnerId}/statement/export` | one partner's payable lines | `Raportet_Furnitor_Analitika Furnitorit_specifik(...).xlsx` |
-| Payables aging | `payables-aging?asOf` | `payables-aging/export` | open bills; per-bill lines plus `VendorMatrix` | `Raportet_Furnitor_Vjetersia e borxheve.xlsx` |
-| Debt aging (receivables) | `debt-aging` | `debt-aging/export` | receivable lines | none |
+| Payables aging | `payables-aging?asOf` | `payables-aging/export` | open bills; per-bill lines plus `VendorMatrix` and `TotalOutstanding` | `Raportet_Furnitor_Vjetersia e borxheve.xlsx` |
+| Debt aging (receivables) | `debt-aging` | `debt-aging/export` (added) | receivable lines | none |
 | Purchases by vendor | `purchases/by-vendor` | `purchases/by-vendor/export` | bill lines | `Raportet_Furnitor_Blerjet sipas Furnitorit.xlsx` |
 | Purchases by item | `purchases/by-item` | `purchases/by-item/export` | bill lines | `Raportet_Furnitor_Blerjet sipas Artikujve.xlsx` |
 | Purchase transactions | `purchases/transactions` | `purchases/transactions/export` | bill lines | `Raportet_Furnitor_Detajet e Transaksioneve.xlsx` |
+| Stock movements | `stock/movements?from&to&search&categoryId&warehouseId&page&pageSize&sort` | `stock/movements/export` | per item: opening/in/out/closing qty and value, average cost, sell price ex VAT, markup %; paged, totals cover the whole set (`StockMovementsCalculator`) | `Raportet_Artikujt_*` (Komplet-style) |
+| Stock levels | none (JSON is `inventory/stock`) | `stock/levels/export` | same filters as the levels page, plus `belowMinimum` | none |
+| Stock valuation | none (JSON is `inventory/valuation`) | `stock/valuation/export?asOf` | stock value vs ledger value | none |
+| Item card | none (JSON is `inventory/items/{itemId}/card`) | `stock/items/{itemId}/card/export?from&to` | one item's movements with running qty/cost/value | none |
 | Reconciliation checks | `checks?from&to` | none | see below | none |
 
 Web: `apps/web/src/pages/reports/`, fixtures in `apps/web/src/mocks/*.json`. Aging in the web has
 both a per-bill view and a vendor-matrix view.
+
+The seven checks below come back from `reports/checks`, tolerance 0.01.
 
 ## Checks (`reports/checks`, tolerance 0.01)
 
@@ -44,6 +51,7 @@ both a per-bill view and a vendor-matrix view.
 | `trial-balance-balances` | cumulative debit vs credit up to `to` |
 | `books-match-vat-return` | output minus input VAT of the VAT return vs sales-book VAT minus purchase-book VAT. Informational on the web: reverse-charge purchases legitimately differ |
 | `vendor-total-matches-payables` | payables control-account balance vs sum of per-vendor closing balances |
+| `stock-total-matches-inventory-accounts` | stock valuation at `to` vs ledger balance of the inventory accounts; 0 vs 0 when the company has no tracked items |
 
 On real data they need accounts with `CashFlowCategory`, tax definitions with `AtkBook`, and no
 payable lines without a partner.
@@ -60,7 +68,12 @@ payable lines without a partner.
 - VAT declaration is always evaluated as VAT-registered, whatever the company's registration flag says.
 - Partially deductible purchases (for example BV50) put only the deductible share of their VAT on the
   deductible box (rounded to 2 decimals, away from zero); the rest is non-reclaimable and sits in the
-  non-deductible base box [33]/[34] with no VAT amount.
+  non-deductible base box [33]/[34] with no VAT amount. `AtkBookMapper.ToPurchaseAmount` applies the
+  share, so only the VAT declaration changed; the ATK purchase book export has no VAT columns. Credit
+  [67] now equals the deductible repartition account debits.
+- Stock JSON for levels, valuation and card is served by `InventoryController`; the exports read
+  `StockReportDataService`, a copy of those queries. They can drift; tests assert they agree.
+- Export routes return 400 on bad input (`[ProducesXlsx]` leaves error results as JSON).
 - Balance sheet export has no account-group subtotals.
 - General ledger lines of one document are not grouped.
 - Legacy data keeps duplicate journal numbers (see `CLAUDE.md`, repo hazards).
