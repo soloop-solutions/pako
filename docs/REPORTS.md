@@ -55,6 +55,12 @@ payable lines without a partner.
   53-56 (debit/credit notes), 57-60 (bad debt, purchases), 61-64 (adjustments down). Credit notes
   follow their VAT code instead (open ATK question). Box [6] contact name is blank (no Company field).
 - VAT declaration is `.xlsx` only: no PDF form; box cells hold values, not live Excel formulas.
+- VAT declaration carried credit [68] is computed from a 12-month lookback and assumes no refund was
+  claimed in any earlier month; pass `carriedCredit` to override it.
+- VAT declaration is always evaluated as VAT-registered, whatever the company's registration flag says.
+- Partially deductible purchases (for example BV50) put only the deductible share of their VAT on the
+  deductible box (rounded to 2 decimals, away from zero); the rest is non-reclaimable and sits in the
+  non-deductible base box [33]/[34] with no VAT amount.
 - Balance sheet export has no account-group subtotals.
 - General ledger lines of one document are not grouped.
 - Legacy data keeps duplicate journal numbers (see `CLAUDE.md`, repo hazards).

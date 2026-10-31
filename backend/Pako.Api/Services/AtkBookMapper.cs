@@ -188,10 +188,21 @@ public static partial class AtkBookMapper
 
         foreach (var row in purchases)
         {
-            amounts.AddRange(PurchaseVatBoxes(row).Select(b => ToAmount(b, row)));
+            amounts.AddRange(PurchaseVatBoxes(row).Select(b => ToPurchaseAmount(b, row)));
         }
 
         return amounts;
+    }
+
+    private static VatBoxAmount ToPurchaseAmount((string Box, decimal Amount) box, AtkTaxRow row)
+    {
+        if (row.DeductiblePercent is > 0m and < 100m && VatBearingBoxes.Contains(box.Box))
+        {
+            var deductibleVat = Math.Round(row.VatAmount * row.DeductiblePercent.Value / 100m, 2, MidpointRounding.AwayFromZero);
+            return new(box.Box, box.Amount, deductibleVat);
+        }
+
+        return ToAmount(box, row);
     }
 
     private static VatBoxAmount ToAmount((string Box, decimal Amount) box, AtkTaxRow row) =>

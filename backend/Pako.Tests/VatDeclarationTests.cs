@@ -1,6 +1,7 @@
 using System.Globalization;
 using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
@@ -463,6 +464,87 @@ public class VatDeclarationTests : IAsyncLifetime
         {
             CultureInfo.CurrentUICulture = previous;
         }
+    }
+
+    private async Task PostPartialBillAsync(Seed s, DateOnly date, decimal gross, decimal deductiblePercent)
+    {
+        var db = s.Db;
+        var accounts = await db.Accounts.Where(a => a.CompanyId == s.CompanyId).ToListAsync();
+        var byCode = accounts.ToDictionary(a => a.Code, a => a.Id);
+        foreach (var code in new[] { "113110", "113900" })
+        {
+            if (!byCode.ContainsKey(code))
+            {
+                byCode[code] = Guid.NewGuid();
+                db.Accounts.Add(new Account { Id = byCode[code], CompanyId = s.CompanyId, Code = code, Name = code, AccountType = AccountType.CurrentAsset });
+            }
+        }
+
+        var definition = VatWithholdingTemplate.CreateTaxDefinitions(s.CompanyId, byCode).Single(d => d.Code == "BV50");
+        definition.Name = "Partial " + deductiblePercent;
+        definition.DeductiblePercent = deductiblePercent;
+        definition.RepartitionLines.Single(r => r.AccountId == byCode["113110"]).Percentage = deductiblePercent;
+        definition.RepartitionLines.Single(r => r.AccountId == byCode["113900"]).Percentage = 100m - deductiblePercent;
+        db.TaxDefinitions.Add(definition);
+
+        var journalId = (await db.Journals.FirstAsync(j => j.CompanyId == s.CompanyId)).Id;
+        var vendor = await db.Partners.FirstAsync(p => p.CompanyId == s.CompanyId && p.IsVendor);
+        var company = await db.Companies.FirstAsync(c => c.Id == s.CompanyId);
+        var bill = new Bill
+        {
+            Id = Guid.NewGuid(), CompanyId = s.CompanyId, PartnerId = vendor.Id, VendorReference = "P-" + date.ToString("MMdd"),
+            IssueDate = date, DueDate = date.AddDays(30),
+            Lines = { new BillLine { Id = Guid.NewGuid(), Description = "Fuel", Quantity = 1m, UnitPrice = gross, ExpenseAccountId = byCode["6000"], TaxDefinitionId = definition.Id } }
+        };
+        var entry = bill.Post(
+            company, journalId, byCode["2000"], new TaxComputationService(),
+            new Dictionary<Guid, TaxDefinition> { [definition.Id] = definition }, Guid.NewGuid(), Guid.NewGuid());
+        db.Bills.Add(bill);
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task Declaration_Bv50Bill_DeclaresOnlyTheDeductibleShareOfVat()
+    {
+        var s = await SeedAsync();
+        await PostPartialBillAsync(s, new DateOnly(2026, 4, 10), 1180m, 50m);
+
+        var april = await Run(s, 2026, 4);
+
+        Assert.Equal(500m, Find(april, "43").Base);
+        Assert.Equal(90m, Find(april, "43").Vat);
+        Assert.Equal(500m, Find(april, "33").Base);
+        Assert.Equal(90m, Find(april, "67").Vat);
+        Assert.Equal(90m, april.TotalVatDeductible);
+
+        var deductibleAccountId = (await s.Db.Accounts.SingleAsync(a => a.CompanyId == s.CompanyId && a.Code == "113110")).Id;
+        var posted = await s.Db.JournalEntryLines.Where(l => l.AccountId == deductibleAccountId).SumAsync(l => l.Debit);
+        Assert.Equal(posted, april.TotalVatDeductible);
+    }
+
+    [Fact]
+    public async Task Declaration_SeventyPercentBill_DeclaresSeventyPercentOfVat()
+    {
+        var s = await SeedAsync();
+        await PostPartialBillAsync(s, new DateOnly(2026, 4, 10), 1180m, 70m);
+
+        var april = await Run(s, 2026, 4);
+
+        Assert.Equal(700m, Find(april, "43").Base);
+        Assert.Equal(126m, Find(april, "43").Vat);
+        Assert.Equal(300m, Find(april, "33").Base);
+        Assert.Equal(126m, april.TotalVatDeductible);
+    }
+
+    [Fact]
+    public async Task Declaration_FullyDeductibleMonth_IsUnchangedByPartialFix()
+    {
+        var s = await SeedAsync();
+
+        var jan = await Run(s, 2026, 1);
+
+        Assert.Equal(Math.Round(5000m / 1.18m * 0.18m, 2), jan.TotalVatDeductible);
     }
 
     private static string ErrorOf(BadRequestObjectResult bad) =>

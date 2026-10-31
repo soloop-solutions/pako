@@ -76,11 +76,12 @@ public class VatDeclarationController : ControllerBase
         }
 
         var refund = refundRequested ?? 0m;
-        var result = await new VatDeclarationService(_db, _access).ComputeAsync(companyId, year, month, carriedCredit, refund);
         if (refund < 0m)
         {
             return (null, null, BadRequest(new { error = _localizer["VatDeclarationRefundNegative"].Value }));
         }
+
+        var result = await new VatDeclarationService(_db, _access).ComputeAsync(companyId, year, month, carriedCredit, refund);
 
         if (refund > result.RemainingCredit)
         {
