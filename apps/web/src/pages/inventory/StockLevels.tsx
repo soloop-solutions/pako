@@ -21,6 +21,8 @@ import { useWarehouses } from "@/hooks/useStock";
 import { formatAmount } from "@/lib/payroll-enums";
 import { ItemCardDialog } from "@/pages/inventory/ItemCardDialog";
 import { useUrlParam } from "@/hooks/useUrlParam";
+import { ExportButton } from "@/pages/reports/shared";
+import { useReportExport } from "@/pages/reports/useReportExport";
 
 const GRID_ID = "stock-levels";
 
@@ -76,6 +78,12 @@ export function StockLevels() {
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
+
+  const exporter = useReportExport(
+    () => apiClient.stockLevelsExport(activeCompanyId as string, grid.globalFilter || undefined, warehouseId || undefined,
+      categoryId || undefined, low === "1"),
+    "stock-levels.xlsx",
+  );
 
   const columns = useMemo<ColumnDef<StockLevelResponse>[]>(
     () => [
@@ -158,6 +166,7 @@ export function StockLevels() {
             <input type="checkbox" checked={low === "1"} onChange={(e) => setLow(e.target.checked)} />
             {t("stock.onlyBelowMinimum")}
           </label>
+          <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
           {low === "1" && canWrite("purchases") && (query.data?.total ?? 0) > 0 && (
             <Button size="sm" variant="outline" className="ml-auto" disabled={createOrders.isPending} onClick={() => createOrders.mutate()}>
               <ShoppingCart className="size-4" />
@@ -165,6 +174,7 @@ export function StockLevels() {
             </Button>
           )}
         </div>
+        {exporter.exportError && <p role="alert" className="text-sm text-destructive">{exporter.exportError}</p>}
         <DataGrid
           gridId={GRID_ID}
           columns={columns}
