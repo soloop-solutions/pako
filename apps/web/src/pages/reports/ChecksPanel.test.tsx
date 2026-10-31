@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ApiException } from "@pako/shared";
+
 import fixture from "@/mocks/report-checks.json";
 
 import { renderReports } from "./testHarness";
@@ -50,5 +52,45 @@ describe("ChecksPanel", () => {
     fireEvent.change(screen.getByLabelText("Checks from"), { target: { value: "2026-03-01" } });
     await waitFor(() => expect(m.checks).toHaveBeenLastCalledWith("c1", "2026-03-01", "2026-12-31"));
     expect(screen.getByTestId("location").textContent).toContain("from=2026-03-01");
+  });
+
+  it("shows a failing books-match-vat-return as informational with a note, not amber", async () => {
+    m.checks.mockResolvedValue({
+      ...fixture,
+      checks: fixture.checks.map((c) => (c.key === "books-match-vat-return" ? { ...c, passed: false, actual: 17000 } : c)),
+    });
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    const vat = (await screen.findByText("Books match VAT return")).closest("[data-check]") as HTMLElement;
+    expect(vat).toHaveAttribute("data-informational", "true");
+    expect(vat.className).not.toContain("amber");
+    expect(vat).toHaveTextContent("Informational");
+    expect(vat).toHaveTextContent("Reverse-charge");
+    const other = screen.getByText("Cash flow closes").closest("[data-check]") as HTMLElement;
+    expect(other).not.toHaveAttribute("data-informational");
+    expect(other.className).toContain("amber");
+    expect(other).not.toHaveTextContent("Reverse-charge");
+  });
+
+  it("keeps the normal pass badge for a passing books-match-vat-return", async () => {
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    const vat = (await screen.findByText("Books match VAT return")).closest("[data-check]") as HTMLElement;
+    expect(vat).not.toHaveAttribute("data-informational");
+    expect(vat).toHaveTextContent("Passed");
+  });
+
+  it("renders nothing for a 403 from the checks endpoint", async () => {
+    m.checks.mockRejectedValue(new ApiException("Forbidden", 403, "", {}, null));
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    await waitFor(() => expect(m.checks).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.queryByLabelText("Checks from")).not.toBeInTheDocument();
+    expect(screen.queryByText("Could not load the report checks.")).not.toBeInTheDocument();
+    expect(m.checks).toHaveBeenCalledTimes(1);
+  });
+
+  it("still shows the load error for a 500", async () => {
+    m.checks.mockRejectedValue(new ApiException("Server error", 500, "", {}, null));
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    expect(await screen.findByText("Could not load the report checks.")).toBeInTheDocument();
   });
 });
