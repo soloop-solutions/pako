@@ -61,6 +61,9 @@ public static class ExcelExportService
         return stream.ToArray();
     }
 
+    private static string DateFormat() =>
+        System.Globalization.CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "sq" ? "dd.mm.yyyy" : "yyyy-mm-dd";
+
     private static void WriteCell(IXLCell cell, object? value)
     {
         switch (value)
@@ -72,11 +75,11 @@ public static class ExcelExportService
                 break;
             case DateOnly d:
                 cell.Value = d.ToDateTime(TimeOnly.MinValue);
-                cell.Style.DateFormat.Format = "yyyy-mm-dd";
+                cell.Style.DateFormat.Format = DateFormat();
                 break;
             case DateTime dt:
                 cell.Value = dt;
-                cell.Style.DateFormat.Format = "yyyy-mm-dd";
+                cell.Style.DateFormat.Format = DateFormat();
                 break;
             case decimal dec:
                 cell.Value = dec;

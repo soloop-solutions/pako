@@ -98,7 +98,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
     private static PayablesReportsController Controller(PakoDbContext db, CompanyAccessContext? access = null)
     {
         access ??= CompanyAccessContext.Unrestricted();
-        return new(new NullStringLocalizer<ErrorMessages>(), access, new VendorLedgerService(db, access));
+        return new(new NullStringLocalizer<ErrorMessages>(), access, new VendorLedgerService(db, access), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
     }
 
     private static T Ok<T>(ActionResult<T> result) => Assert.IsType<T>(Assert.IsType<OkObjectResult>(result.Result).Value);
@@ -114,7 +114,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
 
         var vendors = Ok(await Controller(s.Db).PurchasesByVendor(s.CompanyId, Jan1, Jan31));
 
-        var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
+        var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         var book = Ok(await reports.PurchaseBook(s.CompanyId, Jan1, Jan31));
         Assert.Equal(book.TotalNet, vendors.TotalNet);
         Assert.Equal(book.TotalVat, vendors.TotalVat);
@@ -371,7 +371,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
 
         var vendors = Ok(await Controller(s.Db).PurchasesByVendor(s.CompanyId, Jan1, Jan31)).Lines;
 
-        var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
+        var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         var book = Ok(await reports.PurchaseBook(s.CompanyId, Jan1, Jan31));
         Assert.Equal(1500m, vendors.Single(v => v.PartnerId == s.Beta).NetAmount);
         Assert.Equal(270m, vendors.Single(v => v.PartnerId == s.Beta).VatAmount);

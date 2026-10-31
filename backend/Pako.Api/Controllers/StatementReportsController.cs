@@ -18,9 +18,11 @@ public class StatementReportsController : ControllerBase
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
     private readonly LedgerAggregator _ledger;
+    private readonly ExportLabels _labels;
 
-    public StatementReportsController(IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger)
+    public StatementReportsController(IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger, ExportLabels labels)
     {
+        _labels = labels;
         _localizer = localizer;
         _access = access;
         _ledger = ledger;
@@ -82,21 +84,21 @@ public class StatementReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Section", "Account Code", "Account Name" }
-            .Concat(Enumerable.Range(1, 12).Select(m => new DateOnly(2000, m, 1).ToString("MMM", System.Globalization.CultureInfo.InvariantCulture)))
-            .Append("Total")
+        var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"] }
+            .Concat(Enumerable.Range(1, 12).Select(_labels.Month))
+            .Append(_labels["Common_Total"])
             .ToArray();
         var rows = new List<IReadOnlyList<object?>>();
         void AddSection(string section, List<MonthlyReportLine> lines) =>
             rows.AddRange(lines.Select(l => (IReadOnlyList<object?>)new object?[] { section, l.AccountCode, l.AccountName }
                 .Concat(l.Months.Cast<object?>()).Append(l.Total).ToArray()));
-        AddSection("Income", response.Income);
-        AddSection("Cost of Revenue", response.CostOfRevenue);
-        rows.Add(new object?[] { null, null, "Gross Profit" }.Concat(response.GrossProfitByMonth.Cast<object?>()).Append(response.GrossProfit).ToArray());
-        AddSection("Expenses", response.Expenses);
-        rows.Add(new object?[] { null, null, "Net Income" }.Concat(response.NetIncomeByMonth.Cast<object?>()).Append(response.NetIncome).ToArray());
+        AddSection(_labels["Common_Income"], response.Income);
+        AddSection(_labels["Pnl_CostOfRevenue"], response.CostOfRevenue);
+        rows.Add(new object?[] { null, null, _labels["Pnl_GrossProfit"] }.Concat(response.GrossProfitByMonth.Cast<object?>()).Append(response.GrossProfit).ToArray());
+        AddSection(_labels["Common_Expenses"], response.Expenses);
+        rows.Add(new object?[] { null, null, _labels["Common_NetIncome"] }.Concat(response.NetIncomeByMonth.Cast<object?>()).Append(response.NetIncome).ToArray());
 
-        var bytes = ExcelExportService.BuildWorkbook("Monthly P&L", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_MonthlyPnl"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"profit-and-loss-monthly-{year}.xlsx");
     }
 
@@ -158,7 +160,7 @@ public class StatementReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Section", "Account Code", "Account Name", "Current", "Prior", "Difference" };
+        var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Current"], _labels["Common_Prior"], _labels["Common_Difference"] };
         var rows = new List<IReadOnlyList<object?>>();
         void AddSection(string section, List<ComparativeLine> lines, string totalLabel)
         {
@@ -166,11 +168,11 @@ public class StatementReportsController : ControllerBase
             var totals = ComparativeStatement.Totals(lines.Select(l => (l.Current, l.Prior)));
             rows.Add(new object?[] { section, null, totalLabel, totals.Current, totals.Prior, totals.Difference });
         }
-        AddSection("Assets", response.Assets, "Total Assets");
-        AddSection("Liabilities", response.Liabilities, "Total Liabilities");
-        AddSection("Equity", response.Equity, "Total Equity");
+        AddSection(_labels["Common_Assets"], response.Assets, _labels["Common_TotalAssets"]);
+        AddSection(_labels["Common_Liabilities"], response.Liabilities, _labels["Common_TotalLiabilities"]);
+        AddSection(_labels["Common_Equity"], response.Equity, _labels["Common_TotalEquity"]);
 
-        var bytes = ExcelExportService.BuildWorkbook("Comparative Balance Sheet", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_ComparativeBalanceSheet"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-comparative-{asOf:yyyyMMdd}.xlsx");
     }
 
@@ -219,22 +221,22 @@ public class StatementReportsController : ControllerBase
 
         var rows = new List<IReadOnlyList<object?>>
         {
-            new object?[] { "Opening", null, "Opening Cash", r.OpeningCash },
-            new object?[] { "Operating", null, "Net Income", r.NetIncome },
+            new object?[] { _labels["Common_Opening"], null, _labels["Cf_OpeningCash"], r.OpeningCash },
+            new object?[] { _labels["Cf_Operating"], null, _labels["Common_NetIncome"], r.NetIncome },
         };
         void AddSection(string section, List<CashFlowLine> lines, string totalLabel)
         {
             rows.AddRange(lines.Select(l => (IReadOnlyList<object?>)new object?[] { section, l.AccountCode, l.AccountName, l.Amount }));
             rows.Add(new object?[] { section, null, totalLabel, lines.Sum(l => l.Amount) });
         }
-        AddSection("Operating", r.Operating, "Total Operating Adjustments");
-        AddSection("Investing", r.Investing, "Total Investing");
-        AddSection("Financing", r.Financing, "Total Financing");
-        rows.Add(new object?[] { "Summary", null, "Net Change", r.NetChange });
-        rows.Add(new object?[] { "Summary", null, "Closing Cash", r.ClosingCash });
-        rows.Add(new object?[] { "Summary", null, "Difference", r.Difference });
+        AddSection(_labels["Cf_Operating"], r.Operating, _labels["Cf_TotalOperating"]);
+        AddSection(_labels["Cf_Investing"], r.Investing, _labels["Cf_TotalInvesting"]);
+        AddSection(_labels["Cf_Financing"], r.Financing, _labels["Cf_TotalFinancing"]);
+        rows.Add(new object?[] { _labels["Cf_Summary"], null, _labels["Cf_NetChange"], r.NetChange });
+        rows.Add(new object?[] { _labels["Cf_Summary"], null, _labels["Cf_ClosingCash"], r.ClosingCash });
+        rows.Add(new object?[] { _labels["Cf_Summary"], null, _labels["Common_Difference"], r.Difference });
 
-        var bytes = ExcelExportService.BuildWorkbook("Cash Flow", new[] { "Section", "Account Code", "Account Name", "Amount" }, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_CashFlow"], new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"cash-flow-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -282,13 +284,13 @@ public class StatementReportsController : ControllerBase
 
         var rows = new List<IReadOnlyList<object?>>
         {
-            new object?[] { "Opening", null, "Opening Equity", r.OpeningEquity },
-            new object?[] { "Result", null, "Net Income", r.NetIncome },
+            new object?[] { _labels["Common_Opening"], null, _labels["Eq_OpeningEquity"], r.OpeningEquity },
+            new object?[] { _labels["Eq_Result"], null, _labels["Common_NetIncome"], r.NetIncome },
         };
-        rows.AddRange(r.Movements.Select(m => (IReadOnlyList<object?>)new object?[] { "Movements", m.AccountCode, m.AccountName, m.Amount }));
-        rows.Add(new object?[] { "Closing", null, "Closing Equity", r.ClosingEquity });
+        rows.AddRange(r.Movements.Select(m => (IReadOnlyList<object?>)new object?[] { _labels["Eq_Movements"], m.AccountCode, m.AccountName, m.Amount }));
+        rows.Add(new object?[] { _labels["Common_Closing"], null, _labels["Eq_ClosingEquity"], r.ClosingEquity });
 
-        var bytes = ExcelExportService.BuildWorkbook("Equity Statement", new[] { "Section", "Account Code", "Account Name", "Amount" }, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_EquityStatement"], new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"equity-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 }

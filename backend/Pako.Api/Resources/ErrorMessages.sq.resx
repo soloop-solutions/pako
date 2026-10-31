@@ -551,4 +551,310 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="WarehouseNotFound" xml:space="preserve">
     <value>Kjo magazinë nuk ekziston ose është mbyllur.</value>
   </data>
+  <data name="Export_Common_Section" xml:space="preserve">
+    <value>Seksioni</value>
+  </data>
+  <data name="Export_Common_AccountCode" xml:space="preserve">
+    <value>Shifra</value>
+  </data>
+  <data name="Export_Common_AccountName" xml:space="preserve">
+    <value>Emërtimi</value>
+  </data>
+  <data name="Export_Common_Amount" xml:space="preserve">
+    <value>Shuma</value>
+  </data>
+  <data name="Export_Common_Total" xml:space="preserve">
+    <value>Gjithsejt</value>
+  </data>
+  <data name="Export_Common_Date" xml:space="preserve">
+    <value>Data</value>
+  </data>
+  <data name="Export_Common_Debit" xml:space="preserve">
+    <value>Debi</value>
+  </data>
+  <data name="Export_Common_Credit" xml:space="preserve">
+    <value>Kredi</value>
+  </data>
+  <data name="Export_Common_Opening" xml:space="preserve">
+    <value>Gjendja fillestare</value>
+  </data>
+  <data name="Export_Common_Closing" xml:space="preserve">
+    <value>Gjendja përfundimtare</value>
+  </data>
+  <data name="Export_Common_Description" xml:space="preserve">
+    <value>Përshkrimi</value>
+  </data>
+  <data name="Export_Common_Partner" xml:space="preserve">
+    <value>Partneri</value>
+  </data>
+  <data name="Export_Common_Vendor" xml:space="preserve">
+    <value>Furnitori</value>
+  </data>
+  <data name="Export_Common_Net" xml:space="preserve">
+    <value>Vlera pa TVSH</value>
+  </data>
+  <data name="Export_Common_Vat" xml:space="preserve">
+    <value>TVSH</value>
+  </data>
+  <data name="Export_Common_Gross" xml:space="preserve">
+    <value>Vlera me TVSH</value>
+  </data>
+  <data name="Export_Common_Discount" xml:space="preserve">
+    <value>Zbritja</value>
+  </data>
+  <data name="Export_Common_Document" xml:space="preserve">
+    <value>Dokumenti</value>
+  </data>
+  <data name="Export_Common_Type" xml:space="preserve">
+    <value>Tipi</value>
+  </data>
+  <data name="Export_Common_Quantity" xml:space="preserve">
+    <value>Sasia</value>
+  </data>
+  <data name="Export_Common_Unit" xml:space="preserve">
+    <value>Njësia</value>
+  </data>
+  <data name="Export_Common_UnitPrice" xml:space="preserve">
+    <value>Çmimi për njësi</value>
+  </data>
+  <data name="Export_Common_ItemCode" xml:space="preserve">
+    <value>Shifra e artikullit</value>
+  </data>
+  <data name="Export_Common_Balance" xml:space="preserve">
+    <value>Bilanci</value>
+  </data>
+  <data name="Export_Common_From" xml:space="preserve">
+    <value>Nga</value>
+  </data>
+  <data name="Export_Common_To" xml:space="preserve">
+    <value>Deri</value>
+  </data>
+  <data name="Export_Common_Current" xml:space="preserve">
+    <value>Aktuale</value>
+  </data>
+  <data name="Export_Common_Prior" xml:space="preserve">
+    <value>Më parë</value>
+  </data>
+  <data name="Export_Common_Difference" xml:space="preserve">
+    <value>Diferenca</value>
+  </data>
+  <data name="Export_Common_Income" xml:space="preserve">
+    <value>Të hyrat</value>
+  </data>
+  <data name="Export_Common_Expenses" xml:space="preserve">
+    <value>Shpenzimet</value>
+  </data>
+  <data name="Export_Common_Assets" xml:space="preserve">
+    <value>Asete</value>
+  </data>
+  <data name="Export_Common_Liabilities" xml:space="preserve">
+    <value>Detyrimet</value>
+  </data>
+  <data name="Export_Common_Equity" xml:space="preserve">
+    <value>Ekuiteti</value>
+  </data>
+  <data name="Export_Common_NetIncome" xml:space="preserve">
+    <value>Fitimi/Humbja neto</value>
+  </data>
+  <data name="Export_Common_TotalIncome" xml:space="preserve">
+    <value>Gjithsejt të hyrat</value>
+  </data>
+  <data name="Export_Common_TotalExpenses" xml:space="preserve">
+    <value>Gjithsejt shpenzimet</value>
+  </data>
+  <data name="Export_Common_TotalAssets" xml:space="preserve">
+    <value>Gjithsejt asete</value>
+  </data>
+  <data name="Export_Common_TotalLiabilities" xml:space="preserve">
+    <value>Gjithsejt detyrime</value>
+  </data>
+  <data name="Export_Common_TotalEquity" xml:space="preserve">
+    <value>Gjithsejt ekuiteti</value>
+  </data>
+  <data name="Export_Vat_Direction" xml:space="preserve">
+    <value>Drejtimi</value>
+  </data>
+  <data name="Export_Vat_TaxCode" xml:space="preserve">
+    <value>Kodi i tatimit</value>
+  </data>
+  <data name="Export_Vat_Rate" xml:space="preserve">
+    <value>Shkalla</value>
+  </data>
+  <data name="Export_Vat_Output" xml:space="preserve">
+    <value>TVSH e daljes</value>
+  </data>
+  <data name="Export_Vat_Input" xml:space="preserve">
+    <value>TVSH e hyrjes</value>
+  </data>
+  <data name="Export_Vat_TotalOutput" xml:space="preserve">
+    <value>Gjithsejt TVSH e daljes</value>
+  </data>
+  <data name="Export_Vat_TotalInput" xml:space="preserve">
+    <value>Gjithsejt TVSH e hyrjes</value>
+  </data>
+  <data name="Export_Vat_NetDue" xml:space="preserve">
+    <value>TVSH neto për pagesë</value>
+  </data>
+  <data name="Export_Pnl_CostOfRevenue" xml:space="preserve">
+    <value>Kostoja e mallit të shitur</value>
+  </data>
+  <data name="Export_Pnl_GrossProfit" xml:space="preserve">
+    <value>Fitimi bruto</value>
+  </data>
+  <data name="Export_Cf_OpeningCash" xml:space="preserve">
+    <value>Gjendja fillestare e parasë</value>
+  </data>
+  <data name="Export_Cf_ClosingCash" xml:space="preserve">
+    <value>Gjendja përfundimtare e parasë</value>
+  </data>
+  <data name="Export_Cf_Operating" xml:space="preserve">
+    <value>Operacionale</value>
+  </data>
+  <data name="Export_Cf_Investing" xml:space="preserve">
+    <value>Investuese</value>
+  </data>
+  <data name="Export_Cf_Financing" xml:space="preserve">
+    <value>Financiale</value>
+  </data>
+  <data name="Export_Cf_Summary" xml:space="preserve">
+    <value>Përmbledhje</value>
+  </data>
+  <data name="Export_Cf_NetChange" xml:space="preserve">
+    <value>Ndryshimi neto</value>
+  </data>
+  <data name="Export_Cf_TotalOperating" xml:space="preserve">
+    <value>Gjithsejt rregullime operacionale</value>
+  </data>
+  <data name="Export_Cf_TotalInvesting" xml:space="preserve">
+    <value>Gjithsejt investuese</value>
+  </data>
+  <data name="Export_Cf_TotalFinancing" xml:space="preserve">
+    <value>Gjithsejt financiale</value>
+  </data>
+  <data name="Export_Eq_OpeningEquity" xml:space="preserve">
+    <value>Ekuiteti fillestar</value>
+  </data>
+  <data name="Export_Eq_ClosingEquity" xml:space="preserve">
+    <value>Ekuiteti përfundimtar</value>
+  </data>
+  <data name="Export_Eq_Result" xml:space="preserve">
+    <value>Rezultati</value>
+  </data>
+  <data name="Export_Eq_Movements" xml:space="preserve">
+    <value>Lëvizjet</value>
+  </data>
+  <data name="Export_Gl_Entry" xml:space="preserve">
+    <value>Regjistrimi</value>
+  </data>
+  <data name="Export_Gl_DocumentType" xml:space="preserve">
+    <value>Lloji i dokumentit</value>
+  </data>
+  <data name="Export_Gl_DocumentNumber" xml:space="preserve">
+    <value>Numri i dokumentit</value>
+  </data>
+  <data name="Export_Gl_AccountCode" xml:space="preserve">
+    <value>Shifra e llogarisë</value>
+  </data>
+  <data name="Export_Gl_AccountName" xml:space="preserve">
+    <value>Emërtimi i llogarisë</value>
+  </data>
+  <data name="Export_Ap_Bill" xml:space="preserve">
+    <value>Fatura e blerjes</value>
+  </data>
+  <data name="Export_Ap_IssueDate" xml:space="preserve">
+    <value>Data e lëshimit</value>
+  </data>
+  <data name="Export_Ap_DueDate" xml:space="preserve">
+    <value>Afati i pagesës</value>
+  </data>
+  <data name="Export_Ap_Outstanding" xml:space="preserve">
+    <value>E papaguar</value>
+  </data>
+  <data name="Export_Ap_Bucket" xml:space="preserve">
+    <value>Grupi</value>
+  </data>
+  <data name="Export_Sheet_Pnl" xml:space="preserve">
+    <value>Fitimi dhe Humbja</value>
+  </data>
+  <data name="Export_Sheet_BalanceSheet" xml:space="preserve">
+    <value>Bilanci i gjendjes</value>
+  </data>
+  <data name="Export_Sheet_VatReturn" xml:space="preserve">
+    <value>Deklarata e TVSH-së</value>
+  </data>
+  <data name="Export_Sheet_TrialBalance" xml:space="preserve">
+    <value>Gjendja e llogarive</value>
+  </data>
+  <data name="Export_Sheet_MonthlyPnl" xml:space="preserve">
+    <value>Fitimi dhe humbja mujore</value>
+  </data>
+  <data name="Export_Sheet_ComparativeBalanceSheet" xml:space="preserve">
+    <value>Bilanci krahasues</value>
+  </data>
+  <data name="Export_Sheet_CashFlow" xml:space="preserve">
+    <value>Rrjedha e parasë</value>
+  </data>
+  <data name="Export_Sheet_EquityStatement" xml:space="preserve">
+    <value>Ekuiteti i Pronarëve</value>
+  </data>
+  <data name="Export_Sheet_GeneralLedger" xml:space="preserve">
+    <value>Libri i madh</value>
+  </data>
+  <data name="Export_Sheet_ExpenseBook" xml:space="preserve">
+    <value>Libri i shpenzimeve</value>
+  </data>
+  <data name="Export_Sheet_VendorBalances" xml:space="preserve">
+    <value>Sintetika e furnitorëve</value>
+  </data>
+  <data name="Export_Sheet_VendorStatement" xml:space="preserve">
+    <value>Analitika e furnitorit</value>
+  </data>
+  <data name="Export_Sheet_PayablesAging" xml:space="preserve">
+    <value>Vjetërsia e borxheve</value>
+  </data>
+  <data name="Export_Sheet_PurchasesByVendor" xml:space="preserve">
+    <value>Blerjet sipas furnitorit</value>
+  </data>
+  <data name="Export_Sheet_PurchasesByItem" xml:space="preserve">
+    <value>Blerjet sipas artikujve</value>
+  </data>
+  <data name="Export_Sheet_PurchaseTransactions" xml:space="preserve">
+    <value>Detajet e transaksioneve</value>
+  </data>
+  <data name="Export_Month_1" xml:space="preserve">
+    <value>Jan</value>
+  </data>
+  <data name="Export_Month_2" xml:space="preserve">
+    <value>Shk</value>
+  </data>
+  <data name="Export_Month_3" xml:space="preserve">
+    <value>Mar</value>
+  </data>
+  <data name="Export_Month_4" xml:space="preserve">
+    <value>Pri</value>
+  </data>
+  <data name="Export_Month_5" xml:space="preserve">
+    <value>Maj</value>
+  </data>
+  <data name="Export_Month_6" xml:space="preserve">
+    <value>Qer</value>
+  </data>
+  <data name="Export_Month_7" xml:space="preserve">
+    <value>Kor</value>
+  </data>
+  <data name="Export_Month_8" xml:space="preserve">
+    <value>Gus</value>
+  </data>
+  <data name="Export_Month_9" xml:space="preserve">
+    <value>Sht</value>
+  </data>
+  <data name="Export_Month_10" xml:space="preserve">
+    <value>Tet</value>
+  </data>
+  <data name="Export_Month_11" xml:space="preserve">
+    <value>Nën</value>
+  </data>
+  <data name="Export_Month_12" xml:space="preserve">
+    <value>Dhj</value>
+  </data>
 </root>

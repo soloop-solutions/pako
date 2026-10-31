@@ -22,9 +22,11 @@ public class JournalEntriesController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly NumberSeriesService _numberSeries;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ExportLabels _labels;
 
-    public JournalEntriesController(PakoDbContext db, NumberSeriesService numberSeries, IStringLocalizer<ErrorMessages> localizer)
+    public JournalEntriesController(PakoDbContext db, NumberSeriesService numberSeries, IStringLocalizer<ErrorMessages> localizer, ExportLabels labels)
     {
+        _labels = labels;
         _db = db;
         _numberSeries = numberSeries;
         _localizer = localizer;
@@ -76,7 +78,7 @@ public class JournalEntriesController : ControllerBase
             };
         }).ToList();
 
-        var headers = new[] { "Account Code", "Account Name", "Partner", "Debit", "Credit", "Description" };
+        var headers = new[] { _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Partner"], _labels["Common_Debit"], _labels["Common_Credit"], _labels["Common_Description"] };
         var bytes = ExcelExportService.BuildWorkbook(entry.Reference ?? entry.Id.ToString(), headers, rows);
         var fileName = $"journal-entry-{entry.SequenceNumber ?? entry.Id.ToString()}.xlsx";
         return File(bytes, ExcelExportService.XlsxContentType, fileName);

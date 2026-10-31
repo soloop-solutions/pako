@@ -71,7 +71,7 @@ public class ExpenseBookTests : IAsyncLifetime
     }
 
     private static ExpenseBookController Controller(PakoDbContext db) =>
-        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
     private static async Task<ExpenseBookResponse> BookAsync(Seed s, DateOnly from, DateOnly to)
     {
@@ -128,7 +128,7 @@ public class ExpenseBookTests : IAsyncLifetime
 
         Assert.Equal(new[] { 1050m, 240m }, book.ColumnTotals);
 
-        var statements = new StatementReportsController(new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
+        var statements = new StatementReportsController(new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         var monthly = Assert.IsType<MonthlyProfitAndLossResponse>(Assert.IsType<OkObjectResult>((await statements.MonthlyProfitAndLoss(s.CompanyId, 2026)).Result).Value);
         var januaryExpenses = monthly.Expenses.Sum(l => l.Months[0]);
         Assert.Equal(1290m, januaryExpenses);

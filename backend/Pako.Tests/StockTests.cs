@@ -341,7 +341,7 @@ public class StockTests : IAsyncLifetime
         var c = await SeedAsync();
         var tokens = new ActionTokenService();
         var journal = await c.Db.Journals.AsNoTracking().FirstAsync(j => j.CompanyId == c.Id && j.Type == JournalType.General);
-        var controller = new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>());
+        var controller = new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         As(controller, c.UserId);
         var result = await controller.Create(c.Id, new CreateJournalEntryRequest(journal.Id, D1, null, new List<CreateJournalEntryLineRequest>
         {

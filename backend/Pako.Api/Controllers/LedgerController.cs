@@ -20,9 +20,11 @@ public class LedgerController : ControllerBase
     private readonly PakoDbContext _db;
 
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ExportLabels _labels;
 
-    public LedgerController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    public LedgerController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, ExportLabels labels)
     {
+        _labels = labels;
         _db = db;
         _localizer = localizer;
     }
@@ -91,12 +93,12 @@ public class LedgerController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Account Code", "Account Name", "Opening", "Debit", "Credit", "Closing" };
+        var headers = new[] { _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Opening"], _labels["Common_Debit"], _labels["Common_Credit"], _labels["Common_Closing"] };
         var rows = lines.Select(l => (IReadOnlyList<object?>)new object?[] { l.AccountCode, l.AccountName, l.Opening, l.Debit, l.Credit, l.Closing }).ToList();
         var total = TrialBalanceCalculator.Total(lines.Select(l => new TrialBalanceAmounts(l.Opening, l.Debit, l.Credit, l.Balance, l.Closing)));
-        rows.Add(new object?[] { "Total", null, total.Opening, total.Debit, total.Credit, total.Closing });
+        rows.Add(new object?[] { _labels["Common_Total"], null, total.Opening, total.Debit, total.Credit, total.Closing });
 
-        var bytes = ExcelExportService.BuildWorkbook("Trial Balance", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_TrialBalance"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, "trial-balance.xlsx");
     }
 }

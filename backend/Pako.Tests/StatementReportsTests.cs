@@ -65,10 +65,10 @@ public class StatementReportsTests : IAsyncLifetime
     }
 
     private static StatementReportsController Statements(PakoDbContext db) =>
-        new(new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db));
+        new(new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
     private static ReportsController Reports(PakoDbContext db) =>
-        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db));
+        new(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
     private static async Task<MonthlyProfitAndLossResponse> MonthlyAsync(PakoDbContext db, Guid companyId, int year)
     {
@@ -335,7 +335,7 @@ public class StatementReportsTests : IAsyncLifetime
     {
         var s = await SeedFlowAsync();
         var access = CompanyAccessContext.ForStaff(s.CompanyId, Guid.NewGuid(), Guid.NewGuid(), new Department(), new HashSet<Guid> { Guid.NewGuid() });
-        var controller = new StatementReportsController(new NullStringLocalizer<ErrorMessages>(), access, new LedgerAggregator(s.Db));
+        var controller = new StatementReportsController(new NullStringLocalizer<ErrorMessages>(), access, new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var json = await controller.CashFlow(s.CompanyId, Jan1, Dec31);
         Assert.Equal(403, Assert.IsType<ObjectResult>(json.Result).StatusCode);

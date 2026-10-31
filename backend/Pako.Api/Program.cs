@@ -77,6 +77,7 @@ builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();
 builder.Services.AddScoped<Pako.Api.Authorization.CompanyAccessContext>();
 builder.Services.AddScoped<Pako.Api.Services.PayrollRunComposer>();
 builder.Services.AddScoped<Pako.Api.Services.LedgerAggregator>();
+builder.Services.AddScoped<Pako.Api.Services.ExportLabels>();
 builder.Services.AddScoped<Pako.Api.Services.TaxReportService>();
 builder.Services.AddScoped<Pako.Api.Services.VendorLedgerService>();
 builder.Services.AddSingleton<Pako.Api.Services.ActionTokenService>();

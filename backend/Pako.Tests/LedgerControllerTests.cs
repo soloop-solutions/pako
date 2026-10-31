@@ -1,3 +1,4 @@
+using Pako.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api;
@@ -46,7 +47,7 @@ public class LedgerControllerTests
         db.JournalEntries.Add(entry);
         await db.SaveChangesAsync();
 
-        var controller = new LedgerController(db, new NullStringLocalizer<ErrorMessages>());
+        var controller = new LedgerController(db, new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.TrialBalance(company.Id);
 
@@ -85,7 +86,7 @@ public class LedgerControllerTests
         db.JournalEntries.Add(entry);
         await db.SaveChangesAsync();
 
-        var controller = new LedgerController(db, new NullStringLocalizer<ErrorMessages>());
+        var controller = new LedgerController(db, new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var result = await controller.TrialBalanceExport(company.Id);
 
@@ -130,7 +131,7 @@ public class LedgerControllerTests
             }
         }
         await db.SaveChangesAsync();
-        return (db, company.Id, new LedgerController(db, new NullStringLocalizer<ErrorMessages>()));
+        return (db, company.Id, new LedgerController(db, new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>())));
     }
 
     [Fact]

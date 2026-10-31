@@ -17,9 +17,11 @@ public class PayablesReportsController : ControllerBase
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
     private readonly VendorLedgerService _vendors;
+    private readonly ExportLabels _labels;
 
-    public PayablesReportsController(IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, VendorLedgerService vendors)
+    public PayablesReportsController(IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, VendorLedgerService vendors, ExportLabels labels)
     {
+        _labels = labels;
         _localizer = localizer;
         _access = access;
         _vendors = vendors;
@@ -54,9 +56,9 @@ public class PayablesReportsController : ControllerBase
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[] { l.Name, l.Opening, l.Debit, l.Credit, l.Closing })
             .ToList();
-        rows.Add(new object?[] { "Total", lines.Sum(l => l.Opening), lines.Sum(l => l.Debit), lines.Sum(l => l.Credit), lines.Sum(l => l.Closing) });
+        rows.Add(new object?[] { _labels["Common_Total"], lines.Sum(l => l.Opening), lines.Sum(l => l.Debit), lines.Sum(l => l.Credit), lines.Sum(l => l.Closing) });
         var bytes = ExcelExportService.BuildWorkbook(
-            "Vendor Balances", new[] { "Vendor", "Opening", "Debit", "Credit", "Closing" }, rows);
+            _labels["Sheet_VendorBalances"], new[] { _labels["Common_Vendor"], _labels["Common_Opening"], _labels["Common_Debit"], _labels["Common_Credit"], _labels["Common_Closing"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"vendor-synthetic-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -96,16 +98,16 @@ public class PayablesReportsController : ControllerBase
             return NotFound(new { error = _localizer["VendorNotFound"].Value });
         }
 
-        var rows = new List<IReadOnlyList<object?>> { new object?[] { from == DateOnly.MinValue ? null : from, "Opening", null, null, null, null, statement.Opening } };
+        var rows = new List<IReadOnlyList<object?>> { new object?[] { from == DateOnly.MinValue ? null : from, _labels["Common_Opening"], null, null, null, null, statement.Opening } };
         rows.AddRange(statement.Rows.Select(r =>
             (IReadOnlyList<object?>)new object?[] { r.Date, r.Type, r.DocumentNumber, r.Description, r.Debit, r.Credit, r.Balance }));
-        rows.Add(new object?[] { to, "Closing", null, null, null, null, statement.Closing });
+        rows.Add(new object?[] { to, _labels["Common_Closing"], null, null, null, null, statement.Closing });
         var headerBlock = new (string Label, object? Value)[]
         {
-            ("Vendor", statement.Name), ("From", from == DateOnly.MinValue ? null : from), ("To", to)
+            (_labels["Common_Vendor"], statement.Name), (_labels["Common_From"], from == DateOnly.MinValue ? null : from), (_labels["Common_To"], to)
         };
         var bytes = ExcelExportService.BuildWorkbook(
-            "Vendor Statement", headerBlock, new[] { "Date", "Type", "Document", "Description", "Debit", "Credit", "Balance" }, rows);
+            _labels["Sheet_VendorStatement"], headerBlock, new[] { _labels["Common_Date"], _labels["Common_Type"], _labels["Common_Document"], _labels["Common_Description"], _labels["Common_Debit"], _labels["Common_Credit"], _labels["Common_Balance"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"vendor-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -127,9 +129,9 @@ public class PayablesReportsController : ControllerBase
         var rows = aging.Lines
             .Select(l => (IReadOnlyList<object?>)new object?[] { l.BillNumber, l.PartnerName, l.IssueDate, l.DueDate, l.Outstanding, l.Bucket })
             .ToList();
-        rows.AddRange(aging.Buckets.Select(b => (IReadOnlyList<object?>)new object?[] { "Total", null, null, null, b.Total, b.Bucket }));
+        rows.AddRange(aging.Buckets.Select(b => (IReadOnlyList<object?>)new object?[] { _labels["Common_Total"], null, null, null, b.Total, b.Bucket }));
         var bytes = ExcelExportService.BuildWorkbook(
-            "Payables Aging", new[] { "Bill", "Vendor", "Issue date", "Due date", "Outstanding", "Bucket" }, rows);
+            _labels["Sheet_PayablesAging"], new[] { _labels["Ap_Bill"], _labels["Common_Vendor"], _labels["Ap_IssueDate"], _labels["Ap_DueDate"], _labels["Ap_Outstanding"], _labels["Ap_Bucket"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"payables-aging-{date:yyyyMMdd}.xlsx");
     }
 
@@ -162,8 +164,8 @@ public class PayablesReportsController : ControllerBase
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[] { l.Name, l.NetAmount, l.DiscountAmount, l.VatAmount, l.GrossAmount })
             .ToList();
-        rows.Add(new object?[] { "Total", lines.Sum(l => l.NetAmount), lines.Sum(l => l.DiscountAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount) });
-        var bytes = ExcelExportService.BuildWorkbook("Purchases by Vendor", new[] { "Vendor", "Net", "Discount", "VAT", "Gross" }, rows);
+        rows.Add(new object?[] { _labels["Common_Total"], lines.Sum(l => l.NetAmount), lines.Sum(l => l.DiscountAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount) });
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_PurchasesByVendor"], new[] { _labels["Common_Vendor"], _labels["Common_Net"], _labels["Common_Discount"], _labels["Common_Vat"], _labels["Common_Gross"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"purchases-by-vendor-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -196,8 +198,8 @@ public class PayablesReportsController : ControllerBase
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[] { l.ItemCode, l.Description, l.Unit, l.Quantity, l.NetAmount, l.VatAmount, l.GrossAmount })
             .ToList();
-        rows.Add(new object?[] { "Total", null, null, null, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount) });
-        var bytes = ExcelExportService.BuildWorkbook("Purchases by Item", new[] { "Item Code", "Description", "Unit", "Quantity", "Net", "VAT", "Gross" }, rows);
+        rows.Add(new object?[] { _labels["Common_Total"], null, null, null, lines.Sum(l => l.NetAmount), lines.Sum(l => l.VatAmount), lines.Sum(l => l.GrossAmount) });
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_PurchasesByItem"], new[] { _labels["Common_ItemCode"], _labels["Common_Description"], _labels["Common_Unit"], _labels["Common_Quantity"], _labels["Common_Net"], _labels["Common_Vat"], _labels["Common_Gross"] }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"purchases-by-item-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -246,10 +248,14 @@ public class PayablesReportsController : ControllerBase
             })
             .ToList();
         var totals = ReportTotals.NetVatGross(lines.Select(l => (l.NetAmount, l.VatAmount, l.GrossAmount)));
-        rows.Add(new object?[] { null, null, null, null, null, "Total", null, null, totals.Net, totals.Vat, totals.Gross });
+        rows.Add(new object?[] { null, null, null, null, null, _labels["Common_Total"], null, null, totals.Net, totals.Vat, totals.Gross });
         var bytes = ExcelExportService.BuildWorkbook(
-            "Purchase Transactions",
-            new[] { "Date", "Document", "Type", "Vendor", "Item Code", "Description", "Quantity", "Unit Price", "Net", "VAT", "Gross" },
+            _labels["Sheet_PurchaseTransactions"],
+            new[]
+            {
+                _labels["Common_Date"], _labels["Common_Document"], _labels["Common_Type"], _labels["Common_Vendor"], _labels["Common_ItemCode"], _labels["Common_Description"],
+                _labels["Common_Quantity"], _labels["Common_UnitPrice"], _labels["Common_Net"], _labels["Common_Vat"], _labels["Common_Gross"]
+            },
             rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"purchase-transactions-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }

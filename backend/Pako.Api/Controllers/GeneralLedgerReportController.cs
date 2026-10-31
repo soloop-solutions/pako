@@ -21,9 +21,11 @@ public class GeneralLedgerReportController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
+    private readonly ExportLabels _labels;
 
-    public GeneralLedgerReportController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
+    public GeneralLedgerReportController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, ExportLabels labels)
     {
+        _labels = labels;
         _db = db;
         _localizer = localizer;
         _access = access;
@@ -110,11 +112,15 @@ public class GeneralLedgerReportController : ControllerBase
             })
             .ToList();
         var totals = ReportTotals.Ledger(lines.Select(l => (l.Debit, l.Credit)));
-        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", totals.Debit, totals.Credit });
+        rows.Add(new object?[] { null, null, null, null, null, null, null, _labels["Common_Total"], totals.Debit, totals.Credit });
 
         var bytes = ExcelExportService.BuildWorkbook(
-            "General Ledger",
-            new[] { "Date", "Entry", "Document type", "Document number", "Account code", "Account name", "Partner", "Description", "Debit", "Credit" },
+            _labels["Sheet_GeneralLedger"],
+            new[]
+            {
+                _labels["Common_Date"], _labels["Gl_Entry"], _labels["Gl_DocumentType"], _labels["Gl_DocumentNumber"], _labels["Gl_AccountCode"],
+                _labels["Gl_AccountName"], _labels["Common_Partner"], _labels["Common_Description"], _labels["Common_Debit"], _labels["Common_Credit"]
+            },
             rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"general-ledger-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }

@@ -214,7 +214,7 @@ public class PartnerScopingTests : IAsyncLifetime
     public async Task ScopedStaff_IsRefusedLedgerWideReports()
     {
         var s = await SeedAsync();
-        var reports = new ReportsController(s.Db, Localizer, ScopedTo(s, Guid.NewGuid(), s.PartnerA), new LedgerAggregator(s.Db));
+        var reports = new ReportsController(s.Db, Localizer, ScopedTo(s, Guid.NewGuid(), s.PartnerA), new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         var from = new DateOnly(2026, 1, 1);
         var to = new DateOnly(2026, 12, 31);
 
@@ -234,8 +234,8 @@ public class PartnerScopingTests : IAsyncLifetime
         var s = await SeedAsync();
         var from = new DateOnly(2026, 1, 1);
         var to = new DateOnly(2026, 12, 31);
-        var scoped = new ReportsController(s.Db, Localizer, ScopedTo(s, Guid.NewGuid(), s.PartnerA), new LedgerAggregator(s.Db));
-        var unrestricted = new ReportsController(s.Db, Localizer, CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
+        var scoped = new ReportsController(s.Db, Localizer, ScopedTo(s, Guid.NewGuid(), s.PartnerA), new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+        var unrestricted = new ReportsController(s.Db, Localizer, CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
         var salesBook = Assert.IsType<SalesBookResponse>(Assert.IsType<OkObjectResult>((await scoped.SalesBook(s.CompanyId, from, to)).Result).Value);
         Assert.Equal(new[] { s.InvoiceA }, salesBook.Lines.Select(l => l.InvoiceId));

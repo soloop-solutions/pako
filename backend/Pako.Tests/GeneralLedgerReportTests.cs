@@ -1,3 +1,4 @@
+using Pako.Api.Services;
 using Microsoft.AspNetCore.Mvc;
 using Pako.Api;
 using Pako.Api.Authorization;
@@ -62,7 +63,7 @@ public class GeneralLedgerReportTests : IAsyncLifetime
     }
 
     private static GeneralLedgerReportController Controller(PakoDbContext db, CompanyAccessContext? access = null) =>
-        new(db, new NullStringLocalizer<ErrorMessages>(), access ?? CompanyAccessContext.Unrestricted());
+        new(db, new NullStringLocalizer<ErrorMessages>(), access ?? CompanyAccessContext.Unrestricted(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
 
     private static GeneralLedgerResponse Page(ActionResult<GeneralLedgerResponse> result) =>
         Assert.IsType<GeneralLedgerResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);

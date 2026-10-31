@@ -24,9 +24,11 @@ public class ReportsController : ControllerBase
     private readonly CompanyAccessContext _access;
     private readonly LedgerAggregator _ledger;
     private readonly TaxReportService _tax;
+    private readonly ExportLabels _labels;
 
-    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger)
+    public ReportsController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, LedgerAggregator ledger, ExportLabels labels)
     {
+        _labels = labels;
         _db = db;
         _localizer = localizer;
         _access = access;
@@ -79,15 +81,17 @@ public class ReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
-        rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { "Income", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Income", null, "Total Income", response.TotalIncome });
-        rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { "Expenses", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Expenses", null, "Total Expenses", response.TotalExpenses });
-        rows.Add(new object?[] { null, null, "Net Income", response.NetIncome });
+        var income = _labels["Common_Income"];
+        var expenses = _labels["Common_Expenses"];
+        rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { income, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { income, null, _labels["Common_TotalIncome"], response.TotalIncome });
+        rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { expenses, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { expenses, null, _labels["Common_TotalExpenses"], response.TotalExpenses });
+        rows.Add(new object?[] { null, null, _labels["Common_NetIncome"], response.NetIncome });
 
-        var bytes = ExcelExportService.BuildWorkbook("Profit and Loss", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_Pnl"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"profit-and-loss-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -114,16 +118,19 @@ public class ReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Section", "Account Code", "Account Name", "Amount" };
+        var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
-        rows.AddRange(response.Assets.Select(l => (IReadOnlyList<object?>)new object?[] { "Assets", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Assets", null, "Total Assets", response.TotalAssets });
-        rows.AddRange(response.Liabilities.Select(l => (IReadOnlyList<object?>)new object?[] { "Liabilities", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Liabilities", null, "Total Liabilities", response.TotalLiabilities });
-        rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { "Equity", l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { "Equity", null, "Total Equity", response.TotalEquity });
+        var assets = _labels["Common_Assets"];
+        var liabilities = _labels["Common_Liabilities"];
+        var equity = _labels["Common_Equity"];
+        rows.AddRange(response.Assets.Select(l => (IReadOnlyList<object?>)new object?[] { assets, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { assets, null, _labels["Common_TotalAssets"], response.TotalAssets });
+        rows.AddRange(response.Liabilities.Select(l => (IReadOnlyList<object?>)new object?[] { liabilities, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { liabilities, null, _labels["Common_TotalLiabilities"], response.TotalLiabilities });
+        rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { equity, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { equity, null, _labels["Common_TotalEquity"], response.TotalEquity });
 
-        var bytes = ExcelExportService.BuildWorkbook("Balance Sheet", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_BalanceSheet"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-{asOf:yyyyMMdd}.xlsx");
     }
 
@@ -151,15 +158,15 @@ public class ReportsController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new[] { "Direction", "Tax Code", "Rate", "Amount" };
+        var headers = new[] { _labels["Vat_Direction"], _labels["Vat_TaxCode"], _labels["Vat_Rate"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
-        rows.AddRange(response.OutputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Output", l.Name, l.Rate, l.Amount }));
-        rows.Add(new object?[] { "Output", null, "Total Output VAT", response.TotalOutputVat });
-        rows.AddRange(response.InputVat.Select(l => (IReadOnlyList<object?>)new object?[] { "Input", l.Name, l.Rate, l.Amount }));
-        rows.Add(new object?[] { "Input", null, "Total Input VAT", response.TotalInputVat });
-        rows.Add(new object?[] { null, null, "Net VAT Due", response.NetVatDue });
+        rows.AddRange(response.OutputVat.Select(l => (IReadOnlyList<object?>)new object?[] { _labels["Vat_Output"], l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { _labels["Vat_Output"], null, _labels["Vat_TotalOutput"], response.TotalOutputVat });
+        rows.AddRange(response.InputVat.Select(l => (IReadOnlyList<object?>)new object?[] { _labels["Vat_Input"], l.Name, l.Rate, l.Amount }));
+        rows.Add(new object?[] { _labels["Vat_Input"], null, _labels["Vat_TotalInput"], response.TotalInputVat });
+        rows.Add(new object?[] { null, null, _labels["Vat_NetDue"], response.NetVatDue });
 
-        var bytes = ExcelExportService.BuildWorkbook("VAT Return", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_VatReturn"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"vat-return-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 

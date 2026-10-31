@@ -20,9 +20,11 @@ public class ExpenseBookController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
+    private readonly ExportLabels _labels;
 
-    public ExpenseBookController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
+    public ExpenseBookController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, ExportLabels labels)
     {
+        _labels = labels;
         _db = db;
         _localizer = localizer;
         _access = access;
@@ -56,9 +58,9 @@ public class ExpenseBookController : ControllerBase
             return result.Result!;
         }
 
-        var headers = new List<string> { "Date", "Document", "Partner" };
+        var headers = new List<string> { _labels["Common_Date"], _labels["Common_Document"], _labels["Common_Partner"] };
         headers.AddRange(book.Columns.Select(c => $"{c.AccountCode} - {c.AccountName}"));
-        headers.Add("Total");
+        headers.Add(_labels["Common_Total"]);
 
         var rows = new List<IReadOnlyList<object?>>();
         foreach (var r in book.Rows)
@@ -69,12 +71,12 @@ public class ExpenseBookController : ControllerBase
             rows.Add(cells);
         }
 
-        var totals = new List<object?> { null, "Total", null };
+        var totals = new List<object?> { null, _labels["Common_Total"], null };
         totals.AddRange(book.ColumnTotals.Cast<object?>());
         totals.Add(book.GrandTotal);
         rows.Add(totals);
 
-        var bytes = ExcelExportService.BuildWorkbook("Expense Book", headers, rows);
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_ExpenseBook"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"expense-book-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 

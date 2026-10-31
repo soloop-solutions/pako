@@ -84,7 +84,7 @@ public class VendorReportsTests : IAsyncLifetime
     private static PayablesReportsController Controller(PakoDbContext db, CompanyAccessContext? access = null)
     {
         access ??= CompanyAccessContext.Unrestricted();
-        return new(new NullStringLocalizer<ErrorMessages>(), access, new VendorLedgerService(db, access));
+        return new(new NullStringLocalizer<ErrorMessages>(), access, new VendorLedgerService(db, access), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
     }
 
     private static ReportChecksController Checks(PakoDbContext db) =>
