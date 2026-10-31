@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 import { BalanceSheetTab } from "./BalanceSheetTab";
 import { CashFlowTab } from "./CashFlowTab";
@@ -18,6 +19,7 @@ import { PnlTab } from "./PnlTab";
 import { PurchaseBookTab } from "./PurchaseBookTab";
 import { PurchasesTab } from "./PurchasesTab";
 import { SalesBookTab } from "./SalesBookTab";
+import { StockMovementsTab } from "./StockMovementsTab";
 import { VatDeclarationTab } from "./VatDeclarationTab";
 import { VatTab } from "./VatTab";
 import { VendorsTab } from "./VendorsTab";
@@ -33,6 +35,7 @@ import { usePnlReport } from "./usePnlReport";
 import { usePurchaseBookReport } from "./usePurchaseBookReport";
 import { usePurchasesReport } from "./usePurchasesReport";
 import { useSalesBookReport } from "./useSalesBookReport";
+import { useStockMovementsReport } from "./useStockMovementsReport";
 import { useVatDeclarationReport } from "./useVatDeclarationReport";
 import { useVatReport } from "./useVatReport";
 import { useVendorsReport } from "./useVendorsReport";
@@ -52,12 +55,15 @@ type Tab =
   | "vendors"
   | "payables-aging"
   | "purchases"
-  | "vat-declaration";
+  | "vat-declaration"
+  | "stock-movements";
 
 export function Reports() {
   const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
+  const { canSee } = useMyAccess();
+  const canSeeStock = canSee("inventory");
 
   const TABS: { key: Tab; labelKey: string }[] = [
     { key: "pnl", labelKey: "reports.profitAndLoss" },
@@ -75,6 +81,7 @@ export function Reports() {
     { key: "payables-aging", labelKey: "reports.payablesAging" },
     { key: "purchases", labelKey: "reports.purchases" },
     { key: "vat-declaration", labelKey: "reports.vatDeclarationTab" },
+    ...(canSeeStock ? [{ key: "stock-movements" as const, labelKey: "reports.stockMovements" }] : []),
   ];
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -106,6 +113,7 @@ export function Reports() {
   const payablesAgingReport = usePayablesAgingReport(companyId, tab === "payables-aging");
   const purchasesReport = usePurchasesReport(companyId, tab === "purchases");
   const vatDeclarationReport = useVatDeclarationReport(companyId, tab === "vat-declaration");
+  const stockMovementsReport = useStockMovementsReport(companyId, tab === "stock-movements");
 
   if (!activeCompany) {
     return (
@@ -170,6 +178,9 @@ export function Reports() {
         <PurchasesTab report={purchasesReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
       )}
       {tab === "vat-declaration" && <VatDeclarationTab report={vatDeclarationReport} companyName={activeCompany.name} taxLockDate={taxLockDate} />}
+      {tab === "stock-movements" && (
+        <StockMovementsTab report={stockMovementsReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
+      )}
     </div>
   );
 }
