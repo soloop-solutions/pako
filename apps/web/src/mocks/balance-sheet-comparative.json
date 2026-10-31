@@ -15,5 +15,8 @@
     { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000560", "accountCode": "560", "accountName": "Retained earnings", "current": 60000.00, "prior": 35000.00, "difference": 25000.00 }
   ],
   "totalAssets": 130000.00,
-  "totalLiabilitiesAndEquity": 130000.00
+  "totalLiabilitiesAndEquity": 130000.00,
+  "assetsTotals": { "current": 130000.00, "prior": 100000.00, "difference": 30000.00 },
+  "liabilitiesTotals": { "current": 60000.00, "prior": 55000.00, "difference": 5000.00 },
+  "equityTotals": { "current": 70000.00, "prior": 45000.00, "difference": 25000.00 }
 }

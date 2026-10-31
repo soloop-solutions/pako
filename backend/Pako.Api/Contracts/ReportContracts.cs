@@ -143,9 +143,17 @@ public record MonthlyProfitAndLossResponse(
     List<decimal> GrossProfitByMonth,
     List<decimal> NetIncomeByMonth,
     decimal GrossProfit,
-    decimal NetIncome);
+    decimal NetIncome,
+    List<decimal> IncomeByMonth,
+    List<decimal> CostOfRevenueByMonth,
+    List<decimal> ExpensesByMonth,
+    decimal TotalIncome,
+    decimal TotalCostOfRevenue,
+    decimal TotalExpenses);
 
 public record ComparativeLine(Guid AccountId, string AccountCode, string AccountName, decimal Current, decimal Prior, decimal Difference);
+
+public record ComparativeTotals(decimal Current, decimal Prior, decimal Difference);
 
 public record BalanceSheetComparativeResponse(
     DateOnly AsOf,
@@ -154,7 +162,10 @@ public record BalanceSheetComparativeResponse(
     List<ComparativeLine> Liabilities,
     List<ComparativeLine> Equity,
     decimal TotalAssets,
-    decimal TotalLiabilitiesAndEquity);
+    decimal TotalLiabilitiesAndEquity,
+    ComparativeTotals AssetsTotals,
+    ComparativeTotals LiabilitiesTotals,
+    ComparativeTotals EquityTotals);
 
 public record CashFlowLine(Guid AccountId, string AccountCode, string AccountName, decimal Amount);
 
@@ -189,7 +200,8 @@ public record ExpenseBookResponse(
     DateOnly To,
     List<ExpenseBookColumn> Columns,
     List<ExpenseBookRow> Rows,
-    List<decimal> ColumnTotals);
+    List<decimal> ColumnTotals,
+    decimal GrandTotal);
 
 public record ReportCheck(string Key, bool Passed, decimal Expected, decimal Actual);
 

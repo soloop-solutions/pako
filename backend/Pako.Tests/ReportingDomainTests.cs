@@ -103,4 +103,81 @@ public class ReportingDomainTests
         Assert.Equal("b", beyond.Key);
         Assert.Equal(100.02m, beyond.Actual);
     }
+
+    [Fact]
+    public void MonthlyPnl_Calculate_ProducesSectionMonthsAndYearTotals()
+    {
+        List<decimal> Months(params (int Month, decimal Amount)[] v) => MonthlyProfitAndLoss.Months(v);
+        var income = new[] { Months((1, 1000m), (3, 2000m)) };
+        var cost = new[] { Months((1, 300m), (12, 600m)) };
+        var expenses = new[] { Months((3, 400m)) };
+
+        var r = MonthlyProfitAndLoss.Calculate(income, cost, expenses);
+
+        Assert.Equal(12, r.IncomeByMonth.Count);
+        Assert.Equal(1000m, r.IncomeByMonth[0]);
+        Assert.Equal(2000m, r.IncomeByMonth[2]);
+        Assert.Equal(600m, r.CostOfRevenueByMonth[11]);
+        Assert.Equal(400m, r.ExpensesByMonth[2]);
+        Assert.Equal(3000m, r.TotalIncome);
+        Assert.Equal(900m, r.TotalCostOfRevenue);
+        Assert.Equal(400m, r.TotalExpenses);
+        Assert.Equal(700m, r.GrossProfitByMonth[0]);
+        Assert.Equal(-600m, r.GrossProfitByMonth[11]);
+        Assert.Equal(1600m, r.NetIncomeByMonth[2]);
+        Assert.Equal(2100m, r.GrossProfit);
+        Assert.Equal(1700m, r.NetIncome);
+    }
+
+    [Fact]
+    public void MonthlyPnl_Calculate_EmptySectionsGiveTwelveZeros()
+    {
+        var r = MonthlyProfitAndLoss.Calculate([], [], []);
+
+        Assert.Equal(12, r.IncomeByMonth.Count);
+        Assert.All(r.NetIncomeByMonth, v => Assert.Equal(0m, v));
+        Assert.Equal(0m, r.NetIncome);
+    }
+
+    [Fact]
+    public void Comparative_Totals_SumCurrentPriorAndDifference()
+    {
+        Assert.Equal(1700m, ComparativeStatement.Difference(2200m, 500m));
+
+        var totals = ComparativeStatement.Totals([(2200m, 500m), (100m, 250m)]);
+
+        Assert.Equal(2300m, totals.Current);
+        Assert.Equal(750m, totals.Prior);
+        Assert.Equal(1550m, totals.Difference);
+    }
+
+    [Fact]
+    public void Comparative_Totals_EmptyIsZero()
+    {
+        var totals = ComparativeStatement.Totals([]);
+
+        Assert.Equal(0m, totals.Current);
+        Assert.Equal(0m, totals.Prior);
+        Assert.Equal(0m, totals.Difference);
+    }
+
+    [Fact]
+    public void EquityOpening_IsAssetsLessLiabilities()
+    {
+        var opening = EquityStatement.Opening([(500m, 0m), (300m, 100m)], [(0m, 150m), (20m, 0m)]);
+
+        Assert.Equal(700m - 130m, opening);
+    }
+
+    [Fact]
+    public void ExpenseBook_Totals_RowColumnAndGrand()
+    {
+        var rows = new[] { new[] { 1000m, 0m }, new[] { 50m, 240m } };
+
+        Assert.Equal(1000m, ExpenseBookTotals.Row(rows[0]));
+        Assert.Equal(290m, ExpenseBookTotals.Row(rows[1]));
+        var columns = ExpenseBookTotals.Columns(rows, 2);
+        Assert.Equal(new[] { 1050m, 240m }, columns);
+        Assert.Equal(1290m, ExpenseBookTotals.Grand(columns));
+    }
 }

@@ -50,9 +50,7 @@ public class StatementReportsController : ControllerBase
                 .GroupBy(s => s.Account)
                 .Select(g =>
                 {
-                    var months = Enumerable.Range(1, 12)
-                        .Select(m => g.Where(x => x.Month == m).Sum(amount))
-                        .ToList();
+                    var months = Pako.Domain.Reporting.MonthlyProfitAndLoss.Months(g.Select(x => (x.Month, amount(x))));
                     return new MonthlyReportLine(g.Key.Id, g.Key.Code, g.Key.Name, months, months.Sum());
                 })
                 .OrderBy(l => l.AccountCode)
@@ -62,12 +60,15 @@ public class StatementReportsController : ControllerBase
         var cost = Lines(t => t == AccountType.CostOfRevenue, s => s.Debit - s.Credit);
         var expenses = Lines(t => AccountTypeDerivation.IsExpense(t) && t != AccountType.CostOfRevenue, s => s.Debit - s.Credit);
 
-        decimal MonthSum(List<MonthlyReportLine> lines, int m) => lines.Sum(l => l.Months[m]);
-        var grossByMonth = Enumerable.Range(0, 12).Select(m => MonthSum(income, m) - MonthSum(cost, m)).ToList();
-        var netByMonth = Enumerable.Range(0, 12).Select(m => grossByMonth[m] - MonthSum(expenses, m)).ToList();
+        var pnl = Pako.Domain.Reporting.MonthlyProfitAndLoss.Calculate(
+            income.Select(l => (IReadOnlyList<decimal>)l.Months),
+            cost.Select(l => (IReadOnlyList<decimal>)l.Months),
+            expenses.Select(l => (IReadOnlyList<decimal>)l.Months));
 
         return Ok(new MonthlyProfitAndLossResponse(
-            year, income, cost, expenses, grossByMonth, netByMonth, grossByMonth.Sum(), netByMonth.Sum()));
+            year, income, cost, expenses, pnl.GrossProfitByMonth, pnl.NetIncomeByMonth, pnl.GrossProfit, pnl.NetIncome,
+            pnl.IncomeByMonth, pnl.CostOfRevenueByMonth, pnl.ExpensesByMonth,
+            pnl.TotalIncome, pnl.TotalCostOfRevenue, pnl.TotalExpenses));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
@@ -122,19 +123,27 @@ public class StatementReportsController : ControllerBase
                     var meta = currentById.TryGetValue(id, out var c) ? c : priorById[id];
                     var curAmount = c?.Amount ?? 0m;
                     var priAmount = priorById.TryGetValue(id, out var p) ? p.Amount : 0m;
-                    return new ComparativeLine(id, meta.AccountCode, meta.AccountName, curAmount, priAmount, curAmount - priAmount);
+                    return new ComparativeLine(id, meta.AccountCode, meta.AccountName, curAmount, priAmount, ComparativeStatement.Difference(curAmount, priAmount));
                 })
                 .OrderBy(l => l.AccountCode)
                 .ToList();
         }
 
+        static ComparativeTotals Totals(List<ComparativeLine> lines)
+        {
+            var t = ComparativeStatement.Totals(lines.Select(l => (l.Current, l.Prior)));
+            return new ComparativeTotals(t.Current, t.Prior, t.Difference);
+        }
+
+        var assets = Zip(current.Assets, prior.Assets);
+        var liabilities = Zip(current.Liabilities, prior.Liabilities);
+        var equity = Zip(current.Equity, prior.Equity);
+
         return Ok(new BalanceSheetComparativeResponse(
-            asOf, compareTo,
-            Zip(current.Assets, prior.Assets),
-            Zip(current.Liabilities, prior.Liabilities),
-            Zip(current.Equity, prior.Equity),
+            asOf, compareTo, assets, liabilities, equity,
             current.TotalAssets,
-            current.TotalLiabilities + current.TotalEquity));
+            current.TotalLiabilities + current.TotalEquity,
+            Totals(assets), Totals(liabilities), Totals(equity)));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
@@ -154,9 +163,8 @@ public class StatementReportsController : ControllerBase
         void AddSection(string section, List<ComparativeLine> lines, string totalLabel)
         {
             rows.AddRange(lines.Select(l => (IReadOnlyList<object?>)new object?[] { section, l.AccountCode, l.AccountName, l.Current, l.Prior, l.Difference }));
-            var cur = lines.Sum(l => l.Current);
-            var pri = lines.Sum(l => l.Prior);
-            rows.Add(new object?[] { section, null, totalLabel, cur, pri, cur - pri });
+            var totals = ComparativeStatement.Totals(lines.Select(l => (l.Current, l.Prior)));
+            rows.Add(new object?[] { section, null, totalLabel, totals.Current, totals.Prior, totals.Difference });
         }
         AddSection("Assets", response.Assets, "Total Assets");
         AddSection("Liabilities", response.Liabilities, "Total Liabilities");
@@ -245,9 +253,9 @@ public class StatementReportsController : ControllerBase
         }
 
         var prior = from == DateOnly.MinValue ? new List<AccountSums>() : await _ledger.SumsByAccountAsync(companyId, null, from.AddDays(-1));
-        var opening =
-            prior.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType)).Sum(s => s.Debit - s.Credit) -
-            prior.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType)).Sum(s => s.Credit - s.Debit);
+        var opening = Pako.Domain.Reporting.EquityStatement.Opening(
+            prior.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType)).Select(s => (s.Debit, s.Credit)),
+            prior.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType)).Select(s => (s.Debit, s.Credit)));
 
         var period = await _ledger.SumsByAccountAsync(companyId, from, to);
         var netIncome = LedgerAggregator.NetIncome(period);

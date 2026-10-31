@@ -160,4 +160,15 @@ public class ExpenseBookTests : IAsyncLifetime
         var export = await Controller(s.Db).ExpenseBookExport(s.CompanyId, Jan31, Jan1);
         Assert.IsType<BadRequestObjectResult>(export);
     }
+
+    [Fact]
+    public async Task ExpenseBook_GrandTotalEqualsSumOfRowTotals()
+    {
+        var s = await SeedAsync();
+        var book = await BookAsync(s, Jan1, Jan31);
+
+        Assert.Equal(1590m, book.GrandTotal);
+        Assert.Equal(book.Rows.Sum(r => r.Total), book.GrandTotal);
+        Assert.Equal(book.ColumnTotals.Sum(), book.GrandTotal);
+    }
 }

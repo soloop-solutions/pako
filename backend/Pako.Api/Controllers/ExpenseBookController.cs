@@ -7,6 +7,7 @@ using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Hr;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -70,7 +71,7 @@ public class ExpenseBookController : ControllerBase
 
         var totals = new List<object?> { null, "Total", null };
         totals.AddRange(book.ColumnTotals.Cast<object?>());
-        totals.Add(book.ColumnTotals.Sum());
+        totals.Add(book.GrandTotal);
         rows.Add(totals);
 
         var bytes = ExcelExportService.BuildWorkbook("Expense Book", headers, rows);
@@ -126,7 +127,7 @@ public class ExpenseBookController : ControllerBase
             .ToDictionaryAsync(p => p.Id, p => p.Name);
 
         var rows = new List<ExpenseBookRow>();
-        var columnTotals = new decimal[columns.Count];
+        var amountRows = new List<decimal[]>();
         foreach (var g in entries)
         {
             var amounts = new decimal[columns.Count];
@@ -138,16 +139,13 @@ public class ExpenseBookController : ControllerBase
                 }
             }
 
-            for (var i = 0; i < amounts.Length; i++)
-            {
-                columnTotals[i] += amounts[i];
-            }
-
+            amountRows.Add(amounts);
             var partnerId = g.Select(l => l.PartnerId).FirstOrDefault(p => p != null);
             var partnerName = partnerId is { } pid ? partnerNames.GetValueOrDefault(pid) : null;
-            rows.Add(new ExpenseBookRow(g[0].EntryId, g[0].Date, g[0].Reference, partnerName, amounts.ToList(), amounts.Sum()));
+            rows.Add(new ExpenseBookRow(g[0].EntryId, g[0].Date, g[0].Reference, partnerName, amounts.ToList(), ExpenseBookTotals.Row(amounts)));
         }
 
-        return new ExpenseBookResponse(from, to, columns, rows, columnTotals.ToList());
+        var columnTotals = ExpenseBookTotals.Columns(amountRows, columns.Count);
+        return new ExpenseBookResponse(from, to, columns, rows, columnTotals, ExpenseBookTotals.Grand(columnTotals));
     }
 }

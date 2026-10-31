@@ -24,7 +24,7 @@ public class PayablesReportsController : ControllerBase
         _vendors = vendors;
     }
 
-    [HttpGet("vendors/synthetic")]
+    [HttpGet("vendors/synthetic", Name = "VendorSynthetic")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<VendorSyntheticResponse>> VendorSynthetic(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] bool includeZero = false)
@@ -59,7 +59,7 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"vendor-synthetic-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    [HttpGet("vendors/{partnerId:guid}/statement")]
+    [HttpGet("vendors/{partnerId:guid}/statement", Name = "VendorStatement")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<VendorStatementResponse>> VendorStatement(
         Guid companyId, Guid partnerId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -104,7 +104,7 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"vendor-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    [HttpGet("payables-aging")]
+    [HttpGet("payables-aging", Name = "PayablesAging")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<PayablesAgingResponse>> PayablesAging(Guid companyId, [FromQuery] DateOnly asOf)
     {
@@ -128,7 +128,7 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"payables-aging-{date:yyyyMMdd}.xlsx");
     }
 
-    [HttpGet("purchases/by-vendor")]
+    [HttpGet("purchases/by-vendor", Name = "PurchasesByVendor")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<List<PurchaseByVendorLine>>> PurchasesByVendor(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -160,7 +160,7 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"purchases-by-vendor-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    [HttpGet("purchases/by-item")]
+    [HttpGet("purchases/by-item", Name = "PurchasesByItem")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<List<PurchaseByItemLine>>> PurchasesByItem(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -192,7 +192,7 @@ public class PayablesReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"purchases-by-item-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
-    [HttpGet("purchases/transactions")]
+    [HttpGet("purchases/transactions", Name = "PurchaseTransactions")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<PaginatedResponse<PurchaseTransactionLine>>> PurchaseTransactions(
         Guid companyId,

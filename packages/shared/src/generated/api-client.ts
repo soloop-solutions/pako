@@ -8547,7 +8547,7 @@ export class PakoApiClient {
      * @param includeZero (optional) 
      * @return OK
      */
-    synthetic(companyId: string, from: string | undefined, to: string | undefined, includeZero: boolean | undefined): Promise<VendorSyntheticResponse> {
+    vendorSynthetic(companyId: string, from: string | undefined, to: string | undefined, includeZero: boolean | undefined): Promise<VendorSyntheticResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/vendors/synthetic?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -8574,11 +8574,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processSynthetic(_response);
+            return this.processVendorSynthetic(_response);
         });
     }
 
-    protected processSynthetic(response: Response): Promise<VendorSyntheticResponse> {
+    protected processVendorSynthetic(response: Response): Promise<VendorSyntheticResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -8659,7 +8659,7 @@ export class PakoApiClient {
      * @param to (optional) 
      * @return OK
      */
-    statement(companyId: string, partnerId: string, from: string | undefined, to: string | undefined): Promise<VendorStatementResponse> {
+    vendorStatement(companyId: string, partnerId: string, from: string | undefined, to: string | undefined): Promise<VendorStatementResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/vendors/{partnerId}/statement?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -8685,11 +8685,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processStatement(_response);
+            return this.processVendorStatement(_response);
         });
     }
 
-    protected processStatement(response: Response): Promise<VendorStatementResponse> {
+    protected processVendorStatement(response: Response): Promise<VendorStatementResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -8861,7 +8861,7 @@ export class PakoApiClient {
      * @param to (optional) 
      * @return OK
      */
-    byVendor(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByVendorLine[]> {
+    purchasesByVendor(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByVendorLine[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchases/by-vendor?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -8884,11 +8884,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processByVendor(_response);
+            return this.processPurchasesByVendor(_response);
         });
     }
 
-    protected processByVendor(response: Response): Promise<PurchaseByVendorLine[]> {
+    protected processPurchasesByVendor(response: Response): Promise<PurchaseByVendorLine[]> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -8964,7 +8964,7 @@ export class PakoApiClient {
      * @param to (optional) 
      * @return OK
      */
-    byItem(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByItemLine[]> {
+    purchasesByItem(companyId: string, from: string | undefined, to: string | undefined): Promise<PurchaseByItemLine[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchases/by-item?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -8987,11 +8987,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processByItem(_response);
+            return this.processPurchasesByItem(_response);
         });
     }
 
-    protected processByItem(response: Response): Promise<PurchaseByItemLine[]> {
+    protected processPurchasesByItem(response: Response): Promise<PurchaseByItemLine[]> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -9072,7 +9072,7 @@ export class PakoApiClient {
      * @param sort (optional) 
      * @return OK
      */
-    transactions(companyId: string, from: string | undefined, to: string | undefined, partnerId: string | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfPurchaseTransactionLine> {
+    purchaseTransactions(companyId: string, from: string | undefined, to: string | undefined, partnerId: string | undefined, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfPurchaseTransactionLine> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/reports/purchases/transactions?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -9115,11 +9115,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processTransactions(_response);
+            return this.processPurchaseTransactions(_response);
         });
     }
 
-    protected processTransactions(response: Response): Promise<PaginatedResponseOfPurchaseTransactionLine> {
+    protected processPurchaseTransactions(response: Response): Promise<PaginatedResponseOfPurchaseTransactionLine> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -13110,6 +13110,9 @@ export interface BalanceSheetComparativeResponse {
     equity: ComparativeLine[];
     totalAssets: number;
     totalLiabilitiesAndEquity: number;
+    assetsTotals: ComparativeTotals;
+    liabilitiesTotals: ComparativeTotals;
+    equityTotals: ComparativeTotals;
 
     [key: string]: any;
 }
@@ -13323,6 +13326,14 @@ export interface ComparativeLine {
     accountId: string;
     accountCode: string;
     accountName: string;
+    current: number;
+    prior: number;
+    difference: number;
+
+    [key: string]: any;
+}
+
+export interface ComparativeTotals {
     current: number;
     prior: number;
     difference: number;
@@ -13871,6 +13882,7 @@ export interface ExpenseBookResponse {
     columns: ExpenseBookColumn[];
     rows: ExpenseBookRow[];
     columnTotals: number[];
+    grandTotal: number;
 
     [key: string]: any;
 }
@@ -14263,6 +14275,12 @@ export interface MonthlyProfitAndLossResponse {
     netIncomeByMonth: number[];
     grossProfit: number;
     netIncome: number;
+    incomeByMonth: number[];
+    costOfRevenueByMonth: number[];
+    expensesByMonth: number[];
+    totalIncome: number;
+    totalCostOfRevenue: number;
+    totalExpenses: number;
 
     [key: string]: any;
 }

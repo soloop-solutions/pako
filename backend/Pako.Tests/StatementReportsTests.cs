@@ -384,4 +384,45 @@ public class StatementReportsTests : IAsyncLifetime
         Assert.Equal(5900m, r.ClosingEquity);
         Assert.Equal(bs.TotalEquity, r.ClosingEquity);
     }
+
+    [Fact]
+    public async Task MonthlyPnl_SectionMonthlyAndYearTotals()
+    {
+        var s = await SeedAsync();
+        var r = await MonthlyAsync(s.Db, s.CompanyId, 2026);
+
+        Assert.Equal(12, r.IncomeByMonth.Count);
+        Assert.Equal(12, r.CostOfRevenueByMonth.Count);
+        Assert.Equal(12, r.ExpensesByMonth.Count);
+        Assert.Equal(1000m, r.IncomeByMonth[0]);
+        Assert.Equal(2000m, r.IncomeByMonth[2]);
+        Assert.Equal(300m, r.CostOfRevenueByMonth[0]);
+        Assert.Equal(600m, r.CostOfRevenueByMonth[11]);
+        Assert.Equal(400m, r.ExpensesByMonth[2]);
+        Assert.Equal(3000m, r.TotalIncome);
+        Assert.Equal(900m, r.TotalCostOfRevenue);
+        Assert.Equal(400m, r.TotalExpenses);
+        Assert.Equal(r.TotalIncome - r.TotalCostOfRevenue, r.GrossProfit);
+        Assert.Equal(r.GrossProfit - r.TotalExpenses, r.NetIncome);
+    }
+
+    [Fact]
+    public async Task Comparative_SectionTotalsCurrentPriorDifference()
+    {
+        var s = await SeedAsync();
+
+        var result = await Statements(s.Db).BalanceSheetComparative(s.CompanyId, new DateOnly(2026, 12, 31), new DateOnly(2025, 12, 31));
+        var c = Assert.IsType<BalanceSheetComparativeResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+        Assert.Equal(2200m, c.AssetsTotals.Current);
+        Assert.Equal(500m, c.AssetsTotals.Prior);
+        Assert.Equal(1700m, c.AssetsTotals.Difference);
+        Assert.Equal(0m, c.LiabilitiesTotals.Current);
+        Assert.Equal(0m, c.LiabilitiesTotals.Difference);
+        Assert.Equal(2200m, c.EquityTotals.Current);
+        Assert.Equal(500m, c.EquityTotals.Prior);
+        Assert.Equal(1700m, c.EquityTotals.Difference);
+        Assert.Equal(c.Equity.Sum(l => l.Current), c.EquityTotals.Current);
+        Assert.Equal(c.Assets.Sum(l => l.Prior), c.AssetsTotals.Prior);
+    }
 }
