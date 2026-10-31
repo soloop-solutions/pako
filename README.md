@@ -14,3 +14,32 @@ real xUnit test suite. `apps/web` and `apps/mobile` are wired end-to-end to the 
 every module above. Not yet built: stock/inventory, OCR capture, the real SEF e-invoicing integration, and ATK
 book exports. The v2 release (see `docs/V2_PARALLEL_TRACKS.md`) is now in progress on top of this
 — document numbering/registers, price-mode and payment-method work, and document corrections.
+
+## First run (local development)
+
+```bash
+pnpm install
+docker compose -f backend/docker-compose.yml up -d        # Postgres on :5433
+dotnet run --project backend/Pako.Api/Pako.Api.csproj --launch-profile http   # API on :5248
+pnpm --filter web dev                                     # web app
+```
+
+The API applies every pending database migration when it starts, so after a `git pull` just restart
+it. There is no public sign-up: people request an account and a PAKO administrator approves it.
+
+**The first administrator.** On startup, if the database has no administrator at all, the API
+creates the account in `Platform:BootstrapAdmin`. If that email already has an account, it is made
+an administrator and its password is left as it is. In development that is:
+
+| Email | Password |
+| --- | --- |
+| `test@test.com` | `Test123!` |
+
+Sign in with it, open **Administration** from the company list, and approve account requests or
+manage users from there. Once any administrator exists this does nothing. For a shared or
+production server, set `Platform__BootstrapAdmin__Email` and `Platform__BootstrapAdmin__Password`
+as environment variables for the first start, then change the password and remove them. Details
+are in `docs/PLATFORM_ADMIN.md`.
+
+Optional demo data: `python3 scripts/seed_demo.py --owner test@test.com` creates a demo company
+with about two years of activity and gives that account access.

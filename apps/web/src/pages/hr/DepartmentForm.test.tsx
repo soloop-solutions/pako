@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
@@ -20,45 +22,41 @@ const SALES_DEPARTMENT = {
 
 function renderForm(onSubmit = vi.fn()) {
   render(
+    <MemoryRouter>
+    <QueryClientProvider client={new QueryClient()}>
     <IntlProviderWrapper>
       <DepartmentForm
         mode="edit"
         initial={SALES_DEPARTMENT}
         departments={[SALES_DEPARTMENT]}
-        employees={[]}
+        companyId="c1"
+        costCenters={[]}
         readOnly={false}
         submitting={false}
         error={null}
         onSubmit={onSubmit}
         onCancel={vi.fn()}
       />
-    </IntlProviderWrapper>,
+    </IntlProviderWrapper>
+    </QueryClientProvider>
+    </MemoryRouter>,
   );
   return onSubmit;
 }
 
 describe("DepartmentForm permission matrix", () => {
-  it("locks Accounting at None once the partner scope is Assigned only, and submits it as None", () => {
+  it("points to Users & roles for access and sends the stored permissions back unchanged", () => {
     const onSubmit = renderForm();
 
-    const accountingRead = screen.getByRole("radio", { name: "Accounting: Read" });
-    expect(accountingRead).toBeChecked();
-    expect(accountingRead).toBeEnabled();
-
-    fireEvent.click(screen.getByRole("radio", { name: "Assigned partners only" }));
-
-    expect(screen.getByRole("radio", { name: "Accounting: None" })).toBeChecked();
-    expect(screen.getByRole("radio", { name: "Accounting: Read" })).toBeDisabled();
-    expect(screen.getByRole("radio", { name: "Accounting: Write" })).toBeDisabled();
-    // Other modules stay editable.
-    expect(screen.getByRole("radio", { name: "Sales: Read" })).toBeEnabled();
+    expect(screen.queryByRole("radio", { name: "Accounting: Read" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Users & roles" })).toHaveAttribute("href", "/admin/users?tab=roles");
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     expect(onSubmit).toHaveBeenCalledTimes(1);
     const request = onSubmit.mock.calls[0][0];
-    expect(request.partnerScope).toBe(1);
-    expect(request.permissions).toEqual({ sales: 2, purchases: 1, partners: 1, accounting: 0, reports: 1, hr: 0 });
+    expect(request.partnerScope).toBe(0);
+    expect(request.permissions).toEqual({ sales: 2, purchases: 1, partners: 1, accounting: 1, reports: 1, hr: 0 });
   });
 
   it("excludes the department itself from the parent options", async () => {

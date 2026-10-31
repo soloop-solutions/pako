@@ -122,10 +122,12 @@ export function Sidebar() {
     setPrefs((prev) => {
       const cat = prev.categories[categoryId];
       if (!cat) return prev;
-      const index = cat.order.indexOf(path);
+      // Pages added to the section after its order was saved join the end before moving.
+      const allPaths = navCategories.find((c) => c.id === categoryId)?.items.map((i) => i.path) ?? [];
+      const order = [...cat.order, ...allPaths.filter((p) => !cat.order.includes(p))];
+      const index = order.indexOf(path);
       const targetIndex = index + direction;
-      if (index === -1 || targetIndex < 0 || targetIndex >= cat.order.length) return prev;
-      const order = [...cat.order];
+      if (index === -1 || targetIndex < 0 || targetIndex >= order.length) return prev;
       [order[index], order[targetIndex]] = [order[targetIndex], order[index]];
       return { ...prev, categories: { ...prev.categories, [categoryId]: { ...cat, order } } };
     });
@@ -186,7 +188,12 @@ export function Sidebar() {
             if (allowedItems.length === 0) return null;
             const catPrefs: CategoryPrefs = prefs.categories[category.id] ?? { order: category.items.map((i) => i.path), hidden: [] };
             const itemsById = new Map(allowedItems.map((i) => [i.path, i]));
-            const orderedItems = catPrefs.order.map((id) => itemsById.get(id)).filter((i): i is NavItem => !!i);
+            // Saved order first; pages added to the section since it was saved follow, so a customised
+            // section never hides a new page.
+            const orderedItems = [
+              ...catPrefs.order.map((id) => itemsById.get(id)).filter((i): i is NavItem => !!i),
+              ...allowedItems.filter((i) => !catPrefs.order.includes(i.path)),
+            ];
             const visibleItems = orderedItems.filter((i) => !catPrefs.hidden.includes(i.path));
             const hiddenItems = orderedItems.filter((i) => catPrefs.hidden.includes(i.path));
             const expanded = !!expandedCategories[category.id];
@@ -488,7 +495,10 @@ function CategoryCustomizePanel({
   const intl = useIntl();
   const panelRef = useRef<HTMLDivElement>(null);
   const itemsById = new Map(category.items.map((i) => [i.path, i]));
-  const orderedItems = catPrefs.order.map((id) => itemsById.get(id)).filter((i): i is NavItem => !!i);
+  const orderedItems = [
+    ...catPrefs.order.map((id) => itemsById.get(id)).filter((i): i is NavItem => !!i),
+    ...category.items.filter((i) => !catPrefs.order.includes(i.path)),
+  ];
 
   useEffect(() => {
     function handleClick(event: MouseEvent) {

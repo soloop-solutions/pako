@@ -240,6 +240,7 @@ function ContractForm({
   const [weeklyHours, setWeeklyHours] = useState(initial ? String(initial.weeklyHours) : "40");
   const [jobTitle, setJobTitle] = useState(initial?.jobTitle ?? defaultJobTitle ?? "");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [probationEndDate, setProbationEndDate] = useState(initial?.probationEndDate ?? "");
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -251,6 +252,7 @@ function ContractForm({
       weeklyHours: Number(weeklyHours),
       jobTitle: jobTitle.trim() || undefined,
       notes: notes.trim() || undefined,
+      probationEndDate: probationEndDate || undefined,
     });
   }
 
@@ -309,7 +311,17 @@ function ContractForm({
           <Label htmlFor="contract-job-title">{intl.formatMessage({ id: "hr.employee.jobTitle" })}</Label>
           <Input id="contract-job-title" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-1 sm:col-span-2">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="contract-probation">{intl.formatMessage({ id: "hr.contract.probationEndDate" })}</Label>
+          <Input
+            id="contract-probation"
+            type="date"
+            min={startDate || undefined}
+            value={probationEndDate}
+            onChange={(e) => setProbationEndDate(e.target.value)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
           <Label htmlFor="contract-notes">{intl.formatMessage({ id: "hr.contract.notes" })}</Label>
           <Input id="contract-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>

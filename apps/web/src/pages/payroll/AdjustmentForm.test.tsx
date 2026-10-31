@@ -1,17 +1,26 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { PayrollAdjustmentKind } from "@/lib/payroll-enums";
 import { AdjustmentForm } from "@/pages/payroll/AdjustmentForm";
 
-const employees = [{ id: "e1", name: "Arta Krasniqi" }];
+const listEmployees = vi.fn();
+
+vi.mock("@/api/client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/api/client")>();
+  return { ...actual, apiClient: { ...actual.apiClient, listEmployees: (...args: unknown[]) => listEmployees(...args) } };
+});
 
 function renderForm(onSubmit = vi.fn()) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
-    <IntlProviderWrapper>
-      <AdjustmentForm employees={employees} period="2026-10-01" onSubmit={onSubmit} />
-    </IntlProviderWrapper>,
+    <QueryClientProvider client={queryClient}>
+      <IntlProviderWrapper>
+        <AdjustmentForm companyId="c1" period="2026-10-01" onSubmit={onSubmit} />
+      </IntlProviderWrapper>
+    </QueryClientProvider>,
   );
   return onSubmit;
 }
@@ -23,13 +32,22 @@ async function pickSelect(labelText: string, optionLabel: string) {
   fireEvent.mouseDown(option);
 }
 
+async function pickEmployee() {
+  fireEvent.focus(screen.getByLabelText("Employee"));
+  fireEvent.click(await screen.findByRole("option", { name: "Arta Krasniqi" }));
+}
+
+beforeEach(() => {
+  listEmployees.mockReset().mockResolvedValue({ items: [{ id: "e1", name: "Arta Krasniqi" }], total: 1, page: 1, pageSize: 20 });
+});
+
 describe("AdjustmentForm", () => {
   it("asks for an amount on a bonus and sends it as typed", async () => {
     const onSubmit = renderForm();
     expect(screen.getByLabelText("Amount")).toBeInTheDocument();
     expect(screen.queryByLabelText("Hours")).not.toBeInTheDocument();
 
-    await pickSelect("Employee", "Arta Krasniqi");
+    await pickEmployee();
     fireEvent.change(screen.getByLabelText("Amount"), { target: { value: "150" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
@@ -46,7 +64,7 @@ describe("AdjustmentForm", () => {
     expect(screen.getByLabelText("Multiplier")).toHaveAttribute("placeholder", "1.3");
     expect(screen.queryByLabelText("Amount")).not.toBeInTheDocument();
 
-    await pickSelect("Employee", "Arta Krasniqi");
+    await pickEmployee();
     fireEvent.change(screen.getByLabelText("Hours"), { target: { value: "8" } });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
 
@@ -58,7 +76,7 @@ describe("AdjustmentForm", () => {
   it("refuses an hour-based item without hours", async () => {
     const onSubmit = renderForm();
     await pickSelect("Kind", "Night work");
-    await pickSelect("Employee", "Arta Krasniqi");
+    await pickEmployee();
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
     expect(onSubmit).not.toHaveBeenCalled();
     expect(screen.getByText(/number of hours/)).toBeInTheDocument();

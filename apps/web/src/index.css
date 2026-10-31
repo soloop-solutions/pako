@@ -71,6 +71,26 @@
   --cell-active: oklch(0.44 0.055 212);
   --totals: oklch(0.955 0.020 85);
   --totals-foreground: oklch(0.225 0.012 75);
+  /* Charts (dashboard). Categorical slots in fixed order, validated against the card surface
+     with the dataviz validator: slot 1 = the selected period, slot 2 = the comparison period.
+     Aging uses one-hue ordinal steps (not due → 90+ days). Chart chrome stays recessive. */
+  --chart-1: #2a78d6;
+  --chart-2: #eb6834;
+  --chart-3: #1baf7a;
+  --chart-4: #eda100;
+  --chart-5: #e87ba4;
+  --chart-6: #008300;
+  --chart-other: #898781;
+  --chart-ord-1: #86b6ef;
+  --chart-ord-2: #5598e7;
+  --chart-ord-3: #2a78d6;
+  --chart-ord-4: #1c5cab;
+  --chart-ord-5: #104281;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #c3c2b7;
+  --chart-muted: #898781;
+  --chart-delta-good: #006300;
+  --chart-delta-bad: #d03b3b;
 }
 
 .dark {
@@ -120,6 +140,23 @@
   --cell-active: oklch(0.70 0.095 212);
   --totals: oklch(0.275 0.014 85);
   --totals-foreground: oklch(0.955 0.004 85);
+  --chart-1: #3987e5;
+  --chart-2: #d95926;
+  --chart-3: #199e70;
+  --chart-4: #c98500;
+  --chart-5: #d55181;
+  --chart-6: #008300;
+  --chart-other: #898781;
+  --chart-ord-1: #184f95;
+  --chart-ord-2: #256abf;
+  --chart-ord-3: #3987e5;
+  --chart-ord-4: #6da7ec;
+  --chart-ord-5: #9ec5f4;
+  --chart-grid: #2c2c2a;
+  --chart-axis: #383835;
+  --chart-muted: #898781;
+  --chart-delta-good: #0ca30c;
+  --chart-delta-bad: #e66767;
 }
 
 @theme inline {
@@ -181,6 +218,35 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  /* Tailwind v4 dropped the pointer cursor on buttons. Everything clickable shows the hand,
+     app-wide; disabled controls show "not allowed". */
+  button,
+  [role="button"],
+  [role="option"],
+  [role="radio"],
+  [role="checkbox"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="switch"],
+  a[href],
+  summary,
+  label[for],
+  select,
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="file"],
+  input[type="date"],
+  input[type="month"],
+  [data-clickable] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  [role="option"][aria-disabled="true"],
+  input:disabled,
+  select:disabled {
+    cursor: not-allowed;
   }
   body {
     @apply bg-background text-foreground font-sans;

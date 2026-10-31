@@ -18,12 +18,30 @@ public class CompanyAccessContext
     public Guid UserId { get; private set; }
     public IReadOnlyList<MembershipRole> Roles { get; private set; } = Array.Empty<MembershipRole>();
 
-    // Set only when access came through a ClientStaff membership.
+    // Set only when access came through a ClientStaff membership: the role that grants it, and the
+    // user's employee record (optional since roles — a staff user need not be an employee).
+    public CompanyRole? Role { get; private set; }
     public Guid? EmployeeId { get; private set; }
     public Department? Department { get; private set; }
 
-    // True when every applicable membership is ClientStaff — access comes from the department.
-    public bool IsStaffAccess => EnsureResolved().EmployeeId is not null;
+    // True when access comes from a company role rather than a full-access membership.
+    public bool IsStaffAccess => EnsureResolved().Role is not null;
+
+    // Highest level of a full-access membership (Approve for admins/accountants, Read for viewers).
+    private AccessLevel _unrestrictedLevel = AccessLevel.Approve;
+
+    // What this request may do in an area — for controllers that check per record (attachments,
+    // salary fields) instead of per endpoint.
+    // A module the company doesn't have (docs/PLATFORM_ADMIN.md) reads as None for everyone, so
+    // its menus, dashboard widgets and buttons disappear like any other area without access.
+    public AccessLevel LevelFor(AccessModule module) =>
+        !AppModules.IsEnabled(EnsureResolved()._enabledModules, module) ? AccessLevel.None
+        : Role is { } role ? role.LevelFor(module) : _unrestrictedLevel;
+
+    private AppModule _enabledModules = AppModule.All;
+    public AppModule EnabledModules => EnsureResolved()._enabledModules;
+
+    internal void ApplyCompanyModules(AppModule enabled) => _enabledModules = enabled;
 
     // Null = every partner. Otherwise only these partners (and their documents) are visible.
     public IReadOnlySet<Guid>? VisiblePartnerIds => EnsureResolved()._visiblePartnerIds;
@@ -35,23 +53,26 @@ public class CompanyAccessContext
     public bool CanSeePartner(Guid? partnerId) =>
         VisiblePartnerIds is not { } ids || (partnerId is { } id && ids.Contains(id));
 
-    internal void ResolveUnrestricted(Guid companyId, Guid userId, IReadOnlyList<MembershipRole> roles)
+    internal void ResolveUnrestricted(Guid companyId, Guid userId, IReadOnlyList<MembershipRole> roles, AccessLevel level = AccessLevel.Approve)
     {
         CompanyId = companyId;
         UserId = userId;
         Roles = roles;
+        Role = null;
         EmployeeId = null;
         Department = null;
+        _unrestrictedLevel = level;
         _visiblePartnerIds = null;
         _resolved = true;
     }
 
     internal void ResolveStaff(Guid companyId, Guid userId, IReadOnlyList<MembershipRole> roles,
-        Guid employeeId, Department department, IReadOnlySet<Guid>? visiblePartnerIds)
+        CompanyRole role, Guid? employeeId, Department? department, IReadOnlySet<Guid>? visiblePartnerIds)
     {
         CompanyId = companyId;
         UserId = userId;
         Roles = roles;
+        Role = role;
         EmployeeId = employeeId;
         Department = department;
         _visiblePartnerIds = visiblePartnerIds;
@@ -67,12 +88,32 @@ public class CompanyAccessContext
         return context;
     }
 
-    public static CompanyAccessContext ForStaff(Guid companyId, Guid userId, Guid employeeId, Department department, IReadOnlySet<Guid>? visiblePartnerIds)
+    public static CompanyAccessContext ForStaff(Guid companyId, Guid userId, Guid? employeeId, CompanyRole role, IReadOnlySet<Guid>? visiblePartnerIds)
     {
         var context = new CompanyAccessContext();
-        context.ResolveStaff(companyId, userId, new[] { MembershipRole.ClientStaff }, employeeId, department, visiblePartnerIds);
+        context.ResolveStaff(companyId, userId, new[] { MembershipRole.ClientStaff }, role, employeeId, null, visiblePartnerIds);
         return context;
     }
+
+    // Tests written against department permissions: the same levels as a role.
+    public static CompanyAccessContext ForStaff(Guid companyId, Guid userId, Guid employeeId, Department department, IReadOnlySet<Guid>? visiblePartnerIds) =>
+        ForStaff(companyId, userId, employeeId, RoleFromDepartment(department), visiblePartnerIds);
+
+    public static CompanyRole RoleFromDepartment(Department department) => new()
+    {
+        Id = Guid.NewGuid(),
+        CompanyId = department.CompanyId,
+        Name = department.Name,
+        SalesAccess = department.SalesAccess,
+        PurchasesAccess = department.PurchasesAccess,
+        PartnersAccess = department.PartnersAccess,
+        ItemsAccess = AccessLevel.Read,
+        AccountingAccess = department.AccountingAccess,
+        ReportsAccess = department.ReportsAccess,
+        HrAccess = department.HrAccess,
+        PayrollAccess = department.HrAccess,
+        PartnerScope = department.PartnerScope
+    };
 
     private CompanyAccessContext EnsureResolved() => _resolved
         ? this

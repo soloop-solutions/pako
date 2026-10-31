@@ -26,7 +26,7 @@ public class ReconciliationsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(module: AccessModule.Accounting, approve: true)]
     [ProducesResponseType(typeof(ReconciliationResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ReconciliationResponse>> Create(Guid companyId, CreateReconciliationRequest request)
     {

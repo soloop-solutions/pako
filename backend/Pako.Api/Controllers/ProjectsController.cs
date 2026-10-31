@@ -6,6 +6,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -36,7 +37,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     [ProducesResponseType(typeof(ProjectResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ProjectResponse>> Create(Guid companyId, CreateProjectRequest request)
     {
@@ -70,7 +71,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult<ProjectResponse>> Update(Guid companyId, Guid id, UpdateProjectRequest request)
     {
         var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == id && p.CompanyId == companyId);

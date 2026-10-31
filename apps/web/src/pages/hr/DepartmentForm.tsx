@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { DepartmentPermissions, DepartmentResponse, EmployeeDetailResponse, SaveDepartmentRequest } from "@pako/shared";
+import { Link } from "react-router-dom";
+import type { CostCenterResponse, DepartmentPermissions, DepartmentResponse, SaveDepartmentRequest } from "@pako/shared";
 
+import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +15,6 @@ import {
   accessLevelLabel,
   accessLevelValues,
   PartnerScope,
-  partnerScopeLabel,
-  partnerScopeValues,
   permissionModuleLabel,
   permissionModules,
   type PermissionModule,
@@ -96,8 +96,9 @@ export function PermissionMatrix({
 interface DepartmentFormProps {
   mode: "create" | "edit";
   initial?: DepartmentResponse;
+  companyId: string;
   departments: DepartmentResponse[];
-  employees: EmployeeDetailResponse[];
+  costCenters: CostCenterResponse[];
   readOnly: boolean;
   submitting: boolean;
   deleting?: boolean;
@@ -110,8 +111,9 @@ interface DepartmentFormProps {
 export function DepartmentForm({
   mode,
   initial,
+  companyId,
   departments,
-  employees,
+  costCenters,
   readOnly,
   submitting,
   deleting = false,
@@ -125,9 +127,10 @@ export function DepartmentForm({
   const [name, setName] = useState(initial?.name ?? "");
   const [parentId, setParentId] = useState(initial?.parentId ?? "");
   const [managerEmployeeId, setManagerEmployeeId] = useState(initial?.managerEmployeeId ?? "");
+  const [costCenterId, setCostCenterId] = useState(initial?.costCenterId ?? "");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
-  const [partnerScope, setPartnerScope] = useState<number>(initial?.partnerScope ?? PartnerScope.All);
-  const [permissions, setPermissions] = useState<DepartmentPermissions>({ ...EMPTY_PERMISSIONS, ...initial?.permissions });
+  const [partnerScope] = useState<number>(initial?.partnerScope ?? PartnerScope.All);
+  const [permissions] = useState<DepartmentPermissions>({ ...EMPTY_PERMISSIONS, ...initial?.permissions });
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   // A department can't be its own parent; the API also refuses deeper cycles.
@@ -140,9 +143,7 @@ export function DepartmentForm({
       name: name.trim(),
       parentId: parentId || undefined,
       managerEmployeeId: managerEmployeeId || undefined,
-      // Cost centers have no real endpoint yet (src/api/cost-centers-client.ts is a mock); keep
-      // whatever the department already has rather than clearing it.
-      costCenterId: initial?.costCenterId,
+      costCenterId: costCenterId || undefined,
       permissions: {
         ...permissions,
         accounting: partnerScope === PartnerScope.Assigned ? AccessLevel.None : permissions.accounting,
@@ -160,7 +161,7 @@ export function DepartmentForm({
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <div className="flex flex-col gap-1">
           <Label htmlFor="department-code">{intl.formatMessage({ id: "common.code" })}</Label>
           <Input id="department-code" required disabled={readOnly} value={code} onChange={(e) => setCode(e.target.value)} />
@@ -185,16 +186,28 @@ export function DepartmentForm({
         </div>
         <div className="flex flex-col gap-1">
           <Label htmlFor="department-manager">{intl.formatMessage({ id: "hr.department.manager" })}</Label>
-          <Select
+          <EmployeePicker
             id="department-manager"
+            companyId={companyId}
             disabled={readOnly}
             value={managerEmployeeId}
-            onValueChange={(v) => setManagerEmployeeId(v)}
+            selectedName={initial && managerEmployeeId === initial.managerEmployeeId ? initial.managerName : undefined}
+            emptyLabel={intl.formatMessage({ id: "common.notSet" })}
+            onChange={(id) => setManagerEmployeeId(id)}
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="department-cost-center">{intl.formatMessage({ id: "hr.department.costCenter" })}</Label>
+          <Select
+            id="department-cost-center"
+            disabled={readOnly}
+            value={costCenterId}
+            onValueChange={(v) => setCostCenterId(v)}
             placeholder={intl.formatMessage({ id: "common.notSet" })}
-            options={employees.map((emp) => ({
-              value: emp.id,
-              label: emp.name,
-            }))}
+            options={[
+              { value: "", label: intl.formatMessage({ id: "common.notSet" }) },
+              ...costCenters.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
+            ]}
           />
         </div>
       </div>
@@ -204,34 +217,22 @@ export function DepartmentForm({
         {intl.formatMessage({ id: "common.active" })}
       </label>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium">{intl.formatMessage({ id: "hr.department.permissions" })}</h3>
-          <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.department.permissionsHint" })}</p>
-          <PermissionMatrix
-            permissions={permissions}
-            partnerScope={partnerScope}
-            disabled={readOnly}
-            onChange={(module, level) => setPermissions((prev) => ({ ...prev, [module]: level }))}
-          />
-        </div>
-        <div className="flex flex-col gap-2">
-          <h3 className="text-sm font-medium">{intl.formatMessage({ id: "hr.department.partnerScope" })}</h3>
-          {partnerScopeValues.map((scope) => (
-            <label key={scope} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                name="department-partner-scope"
-                disabled={readOnly}
-                checked={partnerScope === scope}
-                onChange={() => setPartnerScope(scope)}
-              />
-              {partnerScopeLabel(scope, intl)}
-            </label>
-          ))}
-          <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.department.partnerScopeHint" })}</p>
-        </div>
-      </div>
+      {/* docs/USER_ACCESS_PLAN.md: access now comes from each user's role, not the department.
+          The department's stored permissions are kept (additive schema) and sent back unchanged. */}
+      <Alert>
+        <AlertDescription>
+          {intl.formatMessage(
+            { id: "hr.department.accessMovedToRoles" },
+            {
+              link: (chunks) => (
+                <Link className="text-primary underline" to="/admin/users?tab=roles">
+                  {chunks}
+                </Link>
+              ),
+            },
+          )}
+        </AlertDescription>
+      </Alert>
 
       <div className="flex flex-wrap items-center gap-2">
         {!readOnly && (

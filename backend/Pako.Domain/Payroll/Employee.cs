@@ -42,6 +42,15 @@ public class Employee
     public bool PensionExempt { get; set; }
     public bool IsActive { get; set; } = true;
 
+    // E7: email each posted payslip (PDF attached) to Email. Opt-in — payslips are personal data.
+    public bool ReceivePayslipsByEmail { get; set; }
+
+    // "sq" or "en" — the language of emails and documents sent to this employee.
+    public string PreferredLanguage { get; set; } = "sq";
+
+    // G11: the commission plan this employee earns under, if any.
+    public Guid? CommissionPlanId { get; set; }
+
     public static string DisplayName(string? first, string? last, string? fallback) =>
         string.Join(' ', new[] { first, last }.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim())) is { Length: > 0 } joined
             ? joined

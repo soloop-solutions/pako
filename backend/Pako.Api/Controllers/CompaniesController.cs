@@ -5,10 +5,12 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
 using Pako.Localization.Xk;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -51,11 +53,27 @@ public class CompaniesController : ControllerBase
             }
 
             var isFirmAdmin = await _db.Memberships.AsNoTracking()
-                .AnyAsync(m => m.UserId == CurrentUserId && m.FirmId == firmId && m.Role == MembershipRole.FirmAdmin);
+                .AnyAsync(m => m.UserId == CurrentUserId && m.FirmId == firmId && m.Role == MembershipRole.FirmAdmin && m.IsActive);
             if (!isFirmAdmin)
             {
                 return Forbid();
             }
+        }
+
+        // docs/PLATFORM_ADMIN.md: each accountant may create only as many companies as a platform
+        // administrator allows (null = no limit). Archived companies still count.
+        // The count and the insert share one transaction holding a per-user lock, so parallel requests
+        // can't each see room for one more company.
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT pg_advisory_xact_lock(hashtext({"company-limit:" + CurrentUserId}))");
+        }
+        var creator = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == CurrentUserId);
+        if (creator is { IsPlatformAdmin: false, CompanyLimit: { } limit }
+            && await _db.Companies.CountAsync(c => c.CreatedByUserId == CurrentUserId) >= limit)
+        {
+            return StatusCode(StatusCodes.Status403Forbidden, string.Format(_localizer["CompanyLimitReached"].Value, limit));
         }
 
         var company = new Company
@@ -65,7 +83,8 @@ public class CompaniesController : ControllerBase
             FirmId = request.FirmId,
             EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core,
             IsVatRegistered = request.IsVatRegistered ?? true,
-            Country = "Kosovo"
+            Country = "Kosovo",
+            CreatedByUserId = CurrentUserId
         };
         _db.Companies.Add(company);
 
@@ -141,6 +160,7 @@ public class CompaniesController : ControllerBase
             accountDefaults.EmployerPensionExpenseAccountId = accountIdsByCode["600200"];
             accountDefaults.EmployerPensionPayableAccountId = accountIdsByCode["221200"];
             accountDefaults.PayrollDeductionsAccountId = accountIdsByCode["222100"];
+            accountDefaults.EmployeeAdvancesAccountId = accountIdsByCode.GetValueOrDefault("111100") is var advances && advances != Guid.Empty ? advances : null;
         }
 
         _db.CompanyAccountDefaults.Add(accountDefaults);
@@ -191,12 +211,13 @@ public class CompaniesController : ControllerBase
         }
 
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(company));
     }
 
     [HttpPut("{companyId:guid}/profile")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
     [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
     public async Task<ActionResult<CompanyResponse>> UpdateProfile(Guid companyId, UpdateCompanyProfileRequest request)
     {
@@ -261,12 +282,12 @@ public class CompaniesController : ControllerBase
         var userId = CurrentUserId;
 
         var firmIds = await _db.Memberships.AsNoTracking()
-            .Where(m => m.UserId == userId && m.FirmId != null)
+            .Where(m => m.UserId == userId && m.FirmId != null && m.IsActive)
             .Select(m => m.FirmId!.Value)
             .ToListAsync();
 
         var directCompanyIds = await _db.Memberships.AsNoTracking()
-            .Where(m => m.UserId == userId && m.CompanyId != null)
+            .Where(m => m.UserId == userId && m.CompanyId != null && m.IsActive)
             .Select(m => m.CompanyId!.Value)
             .ToListAsync();
 

@@ -28,6 +28,7 @@ import { commitCellValue, getCellText } from "@/pages/ledger/journal-grid/lineFi
 import { PickerCell } from "@/pages/ledger/journal-grid/PickerCell";
 import { optionLabel, type PickerOption } from "@/pages/ledger/journal-grid/pickerMatch";
 import { emptyLine, GRID_COLUMNS, type CellPosition, type GridColumn, type GridLine } from "@/pages/ledger/journal-grid/types";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 type JournalEntryGridProps = {
   companyId: string;
@@ -46,6 +47,8 @@ function formatCents(cents: number): string {
 
 export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: JournalEntryGridProps) {
   const intl = useIntl();
+  // Without Accounting: Approve the entry is saved as a draft for someone else to post.
+  const { canApprove } = useMyAccess();
   const [journalId, setJournalId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [reference, setReference] = useState("");
@@ -136,7 +139,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   useEffect(() => {
     let cancelled = false;
     apiClient
-      .listEmployees(companyId, undefined, undefined, undefined, undefined, undefined, undefined)
+      .listEmployees(companyId, undefined, undefined, undefined, undefined, undefined, undefined, undefined)
       .then((result) => {
         if (!cancelled) setEmployees(result.items ?? []);
       })
@@ -411,6 +414,14 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           };
         }),
       });
+
+      if (!canApprove("accounting")) {
+        toast.success(intl.formatMessage({ id: "journalGrid.savedAsDraft" }));
+        setLines([emptyLine(nextId()), emptyLine(nextId())]);
+        setFocus({ row: 0, col: 0 });
+        onCreated();
+        return;
+      }
 
       try {
         await apiClient.post3(companyId, draftEntry.id);

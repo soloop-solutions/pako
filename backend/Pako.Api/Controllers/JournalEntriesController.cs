@@ -175,7 +175,7 @@ public class JournalEntriesController : ControllerBase
     }
 
     [HttpPost("{id:guid}/post")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(module: AccessModule.Accounting, approve: true)]
     public async Task<ActionResult<JournalEntryResponse>> Post(Guid companyId, Guid id)
     {
         // R23: finish JournalEntry.SequenceNumber the same way Invoice numbering already does —
@@ -266,7 +266,7 @@ public class JournalEntriesController : ControllerBase
     // Cancelled. See JournalEntry.Reverse()'s own doc comment for why the reversal is created
     // already-Posted, not Draft.
     [HttpPost("{id:guid}/reverse")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
+    [RequireCompanyAccess(module: AccessModule.Accounting, approve: true)]
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<JournalEntryResponse>> Reverse(Guid companyId, Guid id, ReverseJournalEntryRequest request)
     {

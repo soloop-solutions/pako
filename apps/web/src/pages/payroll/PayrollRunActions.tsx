@@ -25,13 +25,19 @@ type PayrollRunActionsProps = {
   state: string;
   busyAction: PayrollRunAction | null;
   onAction: (action: PayrollRunAction) => void;
+  // docs/USER_ACCESS_PLAN.md: Recompute/Delete need Payroll: Edit; Approve/Post/Pay/Return need
+  // Payroll: Approve. The API enforces both; this only hides what would be refused.
+  canEdit?: boolean;
+  canApprove?: boolean;
 };
 
 // The state-dependent workflow buttons of a payroll run — Draft: Recompute, Approve, Post, Delete;
 // Approved: Return to draft, Post; Posted: Pay; Paid: nothing.
-export function PayrollRunActions({ state, busyAction, onAction }: PayrollRunActionsProps) {
+export function PayrollRunActions({ state, busyAction, onAction, canEdit = true, canApprove = true }: PayrollRunActionsProps) {
   const intl = useIntl();
-  const actions = payrollRunActions(state);
+  const actions = payrollRunActions(state).filter((action) =>
+    action === "recompute" || action === "delete" ? canEdit : canApprove,
+  );
   if (actions.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-2">

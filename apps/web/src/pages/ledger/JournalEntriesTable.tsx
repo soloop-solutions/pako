@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 const GRID_ID = "journalEntries";
 
@@ -21,6 +22,7 @@ type JournalEntriesTableProps = {
 
 export function JournalEntriesTable({ companyId, entries, journals, onPosted, isLoading }: JournalEntriesTableProps) {
   const intl = useIntl();
+  const { canApprove } = useMyAccess();
   const [postingId, setPostingId] = useState<string | null>(null);
   const [postErrors, setPostErrors] = useState<Record<string, string>>({});
 
@@ -87,7 +89,7 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
           const entry = row.original;
           return (
             <div className="flex max-w-[16rem] flex-col items-start gap-1">
-              {entry.state === "Draft" && (
+              {entry.state === "Draft" && canApprove("accounting") && (
                 <Button size="sm" onClick={() => handlePost(entry.id)} disabled={postingId === entry.id}>
                   {postingId === entry.id ? intl.formatMessage({ id: "journalEntries.posting" }) : intl.formatMessage({ id: "journalEntries.post" })}
                 </Button>

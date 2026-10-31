@@ -58,10 +58,26 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<PayrollAdjustment> PayrollAdjustments => Set<PayrollAdjustment>();
     public DbSet<LeaveType> LeaveTypes => Set<LeaveType>();
     public DbSet<LeaveAllocation> LeaveAllocations => Set<LeaveAllocation>();
+    public DbSet<StatutoryParameter> StatutoryParameters => Set<StatutoryParameter>();
     public DbSet<LeaveRequest> LeaveRequests => Set<LeaveRequest>();
     public DbSet<PublicHoliday> PublicHolidays => Set<PublicHoliday>();
     public DbSet<Pako.Domain.Shared.AuditEntry> AuditEntries => Set<Pako.Domain.Shared.AuditEntry>();
     public DbSet<Pako.Domain.Shared.UserFavorite> UserFavorites => Set<Pako.Domain.Shared.UserFavorite>();
+    public DbSet<Pako.Domain.Notifications.Notification> Notifications => Set<Pako.Domain.Notifications.Notification>();
+    public DbSet<Pako.Domain.Notifications.CompanyNotificationSetting> CompanyNotificationSettings => Set<Pako.Domain.Notifications.CompanyNotificationSetting>();
+    public DbSet<Pako.Domain.Notifications.JobLock> JobLocks => Set<Pako.Domain.Notifications.JobLock>();
+    public DbSet<EmployeeProfileChange> EmployeeProfileChanges => Set<EmployeeProfileChange>();
+    public DbSet<EmployeeLoan> EmployeeLoans => Set<EmployeeLoan>();
+    public DbSet<CommissionPlan> CommissionPlans => Set<CommissionPlan>();
+    public DbSet<EmployeePartnerAssignmentPeriod> EmployeePartnerAssignmentPeriods => Set<EmployeePartnerAssignmentPeriod>();
+    public DbSet<ExpenseClaim> ExpenseClaims => Set<ExpenseClaim>();
+    public DbSet<ExpenseClaimLine> ExpenseClaimLines => Set<ExpenseClaimLine>();
+    public DbSet<TimeEntry> TimeEntries => Set<TimeEntry>();
+    public DbSet<CompanyRole> CompanyRoles => Set<CompanyRole>();
+    public DbSet<DashboardLayout> DashboardLayouts => Set<DashboardLayout>();
+    public DbSet<Pako.Domain.Platform.AccountRequest> AccountRequests => Set<Pako.Domain.Platform.AccountRequest>();
+    public DbSet<Pako.Domain.Platform.PlatformAuditEntry> PlatformAuditEntries => Set<Pako.Domain.Platform.PlatformAuditEntry>();
+    public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -16,11 +16,6 @@ namespace Pako.Api.Controllers;
 [Authorize]
 public class MyAccessController : ControllerBase
 {
-    private static readonly MembershipRole[] WriteCapableRoles =
-    {
-        MembershipRole.FirmAdmin, MembershipRole.FirmAccountant, MembershipRole.ClientAdmin
-    };
-
     private readonly PakoDbContext _db;
     private readonly CompanyAccessContext _access;
 
@@ -34,40 +29,63 @@ public class MyAccessController : ControllerBase
     [RequireCompanyAccess]
     public async Task<ActionResult<MyAccessResponse>> Get(Guid companyId)
     {
-        if (_access.IsStaffAccess && _access.Department is { } department)
+        var linked = await _db.Employees.AsNoTracking()
+            .Where(e => e.CompanyId == companyId && e.UserId == _access.UserId && e.IsActive)
+            .Select(e => (Guid?)e.Id)
+            .FirstOrDefaultAsync();
+        // "My HR" belongs to the HR module: without it there is no self-service.
+        if (!AppModules.IsEnabled(_access.EnabledModules, AccessModule.Self))
         {
-            var assigned = await _db.EmployeePartnerAssignments.AsNoTracking().CountAsync(a => a.EmployeeId == _access.EmployeeId);
-            var modules = new ModuleAccessResponse(
-                department.LevelFor(AccessModule.Sales),
-                department.LevelFor(AccessModule.Purchases),
-                department.LevelFor(AccessModule.Partners),
-                department.LevelFor(AccessModule.Accounting),
-                department.LevelFor(AccessModule.Reports),
-                department.LevelFor(AccessModule.Hr));
+            linked = null;
+        }
+        var isManager = linked is { } me && await _db.Employees.AnyAsync(e => e.ManagerId == me && e.IsActive && e.Id != me);
 
+        var modules = new ModuleAccessResponse(
+            _access.LevelFor(AccessModule.Sales),
+            _access.LevelFor(AccessModule.Purchases),
+            _access.LevelFor(AccessModule.Partners),
+            _access.LevelFor(AccessModule.Accounting),
+            _access.LevelFor(AccessModule.Reports),
+            _access.LevelFor(AccessModule.Hr),
+            _access.LevelFor(AccessModule.Items),
+            _access.LevelFor(AccessModule.Payroll),
+            _access.LevelFor(AccessModule.Settings),
+            _access.LevelFor(AccessModule.Users));
+
+        if (_access.IsStaffAccess && _access.Role is { } role)
+        {
+            var assigned = _access.EmployeeId is { } employeeId
+                ? await _db.EmployeePartnerAssignments.AsNoTracking().CountAsync(a => a.EmployeeId == employeeId)
+                : 0;
             return Ok(new MyAccessResponse(
                 IsStaff: true,
-                CanWrite: new[] { modules.Sales, modules.Purchases, modules.Partners, modules.Accounting, modules.Reports, modules.Hr }
-                    .Contains(AccessLevel.Write),
-                IsAdmin: false,
+                CanWrite: CompanyRole.Areas.Any(a => role.LevelFor(a) >= AccessLevel.Write),
+                IsAdmin: role.CanManageUsers,
                 EmployeeId: _access.EmployeeId,
-                DepartmentName: department.Name,
+                DepartmentName: _access.Department?.Name,
                 PartnerRestricted: _access.IsPartnerRestricted,
                 AssignedPartnerCount: assigned,
-                Modules: modules));
+                Modules: modules,
+                LinkedEmployeeId: linked,
+                IsTeamManager: isManager,
+                RoleName: role.Name,
+                CanManageUsers: role.CanManageUsers));
         }
 
-        var canWrite = _access.Roles.Any(WriteCapableRoles.Contains);
         var isAdmin = _access.Roles.Any(r => r is MembershipRole.FirmAdmin or MembershipRole.ClientAdmin);
-        var level = canWrite ? AccessLevel.Write : AccessLevel.Read;
+        var roleName = MembershipRoles.StrongestLabel(_access.Roles);
         return Ok(new MyAccessResponse(
             IsStaff: false,
-            CanWrite: canWrite,
+            CanWrite: _access.LevelFor(AccessModule.Sales) >= AccessLevel.Write,
             IsAdmin: isAdmin,
             EmployeeId: null,
             DepartmentName: null,
             PartnerRestricted: false,
             AssignedPartnerCount: 0,
-            Modules: new ModuleAccessResponse(level, level, level, level, level, level)));
+            Modules: modules,
+            LinkedEmployeeId: linked,
+            IsTeamManager: isManager,
+            RoleName: roleName,
+            CanManageUsers: isAdmin));
     }
 }

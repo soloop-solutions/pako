@@ -2,11 +2,10 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Domain.Hr;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
-using Pako.Localization.Xk;
 
 namespace Pako.Api.Services;
 
-public record ComposedPayroll(List<PayslipLine> Lines, List<PayrollAdjustment> ConsumedAdjustments, List<string> Warnings);
+public record ComposedPayroll(List<PayslipLine> Lines, List<PayrollAdjustment> ConsumedAdjustments, List<string> Warnings, PayrollParameters Parameters);
 
 // Loads everything a payroll period depends on — employees employed in it, the contract in force,
 // departments, unconsumed adjustments, approved leave, public holidays — and hands each employee
@@ -15,20 +14,17 @@ public class PayrollRunComposer
 {
     private readonly PakoDbContext _db;
     private readonly IPayrollCalculationService _calculation;
+    private readonly PayrollParameterProvider _parameters;
+    private readonly EmployeeLoanService _loans;
 
-    public PayrollRunComposer(PakoDbContext db, IPayrollCalculationService calculation)
+    public PayrollRunComposer(
+        PakoDbContext db, IPayrollCalculationService calculation, PayrollParameterProvider parameters, EmployeeLoanService? loans = null)
     {
         _db = db;
         _calculation = calculation;
+        _parameters = parameters;
+        _loans = loans ?? new EmployeeLoanService(db);
     }
-
-    public static PayrollStatutoryRates KosovoRates() => new(
-        KosovoPersonalIncomeTaxBrackets.Brackets
-            .Select(b => new PitBracket(b.LowerBoundEurPerYear, b.UpperBoundEurPerYear, b.Rate))
-            .ToList(),
-        KosovoPensionContribution.EmployeeRate,
-        KosovoPensionContribution.EmployerRate,
-        KosovoPayrollRules.SecondaryEmployerFlatRate);
 
     public async Task<ComposedPayroll> ComposeAsync(Guid companyId, DateOnly periodStart, DateOnly periodEnd)
     {
@@ -53,8 +49,15 @@ public class PayrollRunComposer
         // An adjustment dated to a month belongs to any run that touches that month.
         var firstMonth = new DateOnly(periodStart.Year, periodStart.Month, 1);
         var adjustments = await _db.PayrollAdjustments
-            .Where(a => a.CompanyId == companyId && a.PayrollRunId == null && a.Period >= firstMonth && a.Period <= periodEnd)
+            .Where(a => a.CompanyId == companyId && a.PayrollRunId == null && a.Period >= firstMonth && a.Period <= periodEnd &&
+                a.Kind != PayrollAdjustmentKind.LoanRepayment)
             .ToListAsync();
+
+        // G10: one installment per active loan, generated fresh for every compose (a released
+        // Draft deletes its generated repayments, so they are never left over to double up).
+        var repayments = await _loans.RepaymentsForAsync(companyId, employeeIds, periodStart, periodEnd);
+        _db.PayrollAdjustments.AddRange(repayments);
+        adjustments.AddRange(repayments);
 
         var leaveTypes = await _db.LeaveTypes.AsNoTracking()
             .Where(t => t.CompanyId == companyId)
@@ -70,11 +73,13 @@ public class PayrollRunComposer
                 .ToListAsync())
             .ToHashSet();
 
-        var builder = new PayslipBuilder(_calculation, KosovoRates());
+        // Values in force at the end of the period (a mid-month minimum-wage change applies to it).
+        var parameters = await _parameters.ForCompanyAsync(companyId, periodEnd);
+        var builder = new PayslipBuilder(_calculation, parameters.ToRates());
         var lines = new List<PayslipLine>();
         var consumed = new List<PayrollAdjustment>();
         var warnings = new List<string>();
-        var minimumWage = KosovoPayrollRules.MinimumWageOn(periodEnd);
+        var minimumWage = parameters.MinimumWage > 0m ? parameters.MinimumWage : (decimal?)null;
 
         foreach (var employee in employees)
         {
@@ -107,6 +112,6 @@ public class PayrollRunComposer
             warnings.Add($"AdjustmentNotIncluded:{orphan.Id}");
         }
 
-        return new ComposedPayroll(lines, consumed, warnings);
+        return new ComposedPayroll(lines, consumed, warnings, parameters);
     }
 }

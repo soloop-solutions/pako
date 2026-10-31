@@ -7,6 +7,7 @@ using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Infrastructure;
+using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
 
@@ -91,7 +92,7 @@ public class ItemsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     [ProducesResponseType(typeof(ItemResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ItemResponse>> Create(Guid companyId, CreateItemRequest request)
     {
@@ -131,7 +132,7 @@ public class ItemsController : ControllerBase
     }
 
     [HttpPut("{itemId:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     public async Task<ActionResult<ItemResponse>> Update(Guid companyId, Guid itemId, UpdateItemRequest request)
     {
         var item = await _db.Items
@@ -164,7 +165,7 @@ public class ItemsController : ControllerBase
 
     // B6: barcode management — add/remove barcodes per item.
     [HttpPost("{itemId:guid}/barcodes")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     [ProducesResponseType(typeof(ItemBarcodeResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ItemBarcodeResponse>> AddBarcode(Guid companyId, Guid itemId, AddBarcodeRequest request)
     {
@@ -197,7 +198,7 @@ public class ItemsController : ControllerBase
     }
 
     [HttpDelete("{itemId:guid}/barcodes/{barcodeId:guid}")]
-    [RequireCompanyAccess(writeAccess: true)]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     public async Task<ActionResult> RemoveBarcode(Guid companyId, Guid itemId, Guid barcodeId)
     {
         var barcode = await _db.ItemBarcodes

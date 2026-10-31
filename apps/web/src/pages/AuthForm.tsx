@@ -102,6 +102,11 @@ export function AuthForm({ mode }: AuthFormProps) {
                 </button>
               </div>
             </div>
+            {isLogin && (
+              <Link className="-mt-2 self-end text-xs text-muted-foreground underline" to="/forgot-password">
+                {intl.formatMessage({ id: "auth.forgotPassword" })}
+              </Link>
+            )}
             <Button type="submit" disabled={submitting}>
               {submitting
                 ? intl.formatMessage({ id: "auth.pleaseWait" })
@@ -114,8 +119,8 @@ export function AuthForm({ mode }: AuthFormProps) {
             {isLogin ? (
               <>
                 {intl.formatMessage({ id: "auth.noAccount" })}{" "}
-                <Link className="underline" to="/register">
-                  {intl.formatMessage({ id: "auth.register" })}
+                <Link className="underline" to="/request-account">
+                  {intl.formatMessage({ id: "requestAccount.link" })}
                 </Link>
               </>
             ) : (
