@@ -307,10 +307,13 @@ public class VendorReportsTests : IAsyncLifetime
 
         using var workbook = new XLWorkbook(new MemoryStream(file.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal("Opening", sheet.Cell(2, 2).GetString());
-        Assert.Equal(1000m, sheet.Cell(2, 7).GetValue<decimal>());
-        Assert.Equal("Closing", sheet.Cell(5, 2).GetString());
-        Assert.Equal(800m, sheet.Cell(5, 7).GetValue<decimal>());
+        Assert.Equal("Vendor", sheet.Cell(1, 1).GetString());
+        Assert.Equal("Alpha Supplies", sheet.Cell(1, 2).GetString());
+        Assert.Equal(ClosedXML.Excel.XLDataType.DateTime, sheet.Cell(2, 2).DataType);
+        Assert.Equal("Opening", sheet.Cell(6, 2).GetString());
+        Assert.Equal(1000m, sheet.Cell(6, 7).GetValue<decimal>());
+        Assert.Equal("Closing", sheet.Cell(9, 2).GetString());
+        Assert.Equal(800m, sheet.Cell(9, 7).GetValue<decimal>());
     }
 
     [Fact]
@@ -322,7 +325,7 @@ public class VendorReportsTests : IAsyncLifetime
 
         using var workbook = new XLWorkbook(new MemoryStream(file.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal("Opening", sheet.Cell(2, 2).GetString());
-        Assert.True(sheet.Cell(2, 1).IsEmpty());
+        Assert.Equal("Opening", sheet.Cell(6, 2).GetString());
+        Assert.True(sheet.Cell(6, 1).IsEmpty());
     }
 }

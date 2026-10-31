@@ -171,4 +171,15 @@ public class ExpenseBookTests : IAsyncLifetime
         Assert.Equal(book.Rows.Sum(r => r.Total), book.GrandTotal);
         Assert.Equal(book.ColumnTotals.Sum(), book.GrandTotal);
     }
+
+    [Fact]
+    public async Task ExpenseBookExport_DateCellsAreDates()
+    {
+        var s = await SeedAsync();
+        var file = Assert.IsType<FileContentResult>(await Controller(s.Db).ExpenseBookExport(s.CompanyId, Jan1, Jan31));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal(ClosedXML.Excel.XLDataType.DateTime, sheet.Cell(2, 1).DataType);
+        Assert.Equal(new DateTime(2026, 1, 10), sheet.Cell(2, 1).GetDateTime());
+    }
 }

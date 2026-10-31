@@ -141,10 +141,50 @@ public class GeneralLedgerReportTests : IAsyncLifetime
         var file = Assert.IsType<FileContentResult>(result);
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal(7, sheet.LastRowUsed()!.RowNumber());
-        Assert.Equal("Account code", sheet.Cell(1, 3).GetString());
-        Assert.Equal("Credit", sheet.Cell(1, 8).GetString());
+        Assert.Equal(8, sheet.LastRowUsed()!.RowNumber());
+        Assert.Equal("Account code", sheet.Cell(1, 5).GetString());
+        Assert.Equal("Credit", sheet.Cell(1, 10).GetString());
     }
+
+    [Fact]
+    public async Task GeneralLedger_Export_HasDocumentColumns_DateCells_AndTotalRow()
+    {
+        var s = await SeedAsync();
+        var file = Assert.IsType<FileContentResult>(await Controller(s.Db).GeneralLedgerExport(s.CompanyId, Jan1, Dec31, null, null));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+
+        Assert.Equal("Document type", sheet.Cell(1, 3).GetString());
+        Assert.Equal("Document number", sheet.Cell(1, 4).GetString());
+        Assert.Equal("Manual", sheet.Cell(2, 3).GetString());
+        Assert.Equal("REF-A", sheet.Cell(2, 4).GetString());
+        Assert.Equal(ClosedXML.Excel.XLDataType.DateTime, sheet.Cell(2, 1).DataType);
+        Assert.Equal(new DateTime(2026, 1, 10), sheet.Cell(2, 1).GetDateTime());
+
+        Assert.Equal("Total", sheet.Cell(8, 8).GetString());
+        Assert.Equal(600m, sheet.Cell(8, 9).GetValue<decimal>());
+        Assert.Equal(600m, sheet.Cell(8, 10).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task GeneralLedger_Lines_CarryDocumentTypeAndNumber()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null));
+        Assert.All(page.Items, i => Assert.Equal("Manual", i.DocumentType));
+        Assert.Equal("REF-A", page.Items.First().DocumentNumber);
+    }
+
+    [Theory]
+    [InlineData("Invoice", null, true, JournalType.Sale, "Invoice")]
+    [InlineData("CreditNote", null, true, JournalType.Sale, "CreditNote")]
+    [InlineData(null, "Bill", true, JournalType.Purchase, "Bill")]
+    [InlineData(null, "CreditNote", true, JournalType.Purchase, "SupplierCreditNote")]
+    [InlineData(null, null, false, JournalType.Bank, "Payment")]
+    [InlineData(null, null, false, JournalType.General, "Manual")]
+    [InlineData(null, null, true, JournalType.General, "Other")]
+    public void LedgerDocumentType_Classifies(string? invoice, string? bill, bool hasSource, JournalType journal, string expected) =>
+        Assert.Equal(expected, Pako.Domain.Reporting.LedgerDocumentType.Classify(invoice, bill, hasSource, journal));
 
     [Fact]
     public async Task GeneralLedger_FromAfterTo_Returns400()

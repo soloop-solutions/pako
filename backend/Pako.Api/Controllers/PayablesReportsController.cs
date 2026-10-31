@@ -5,6 +5,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Hr;
+using Pako.Domain.Reporting;
 
 namespace Pako.Api.Controllers;
 
@@ -99,8 +100,12 @@ public class PayablesReportsController : ControllerBase
         rows.AddRange(statement.Rows.Select(r =>
             (IReadOnlyList<object?>)new object?[] { r.Date, r.Type, r.DocumentNumber, r.Description, r.Debit, r.Credit, r.Balance }));
         rows.Add(new object?[] { to, "Closing", null, null, null, null, statement.Closing });
+        var headerBlock = new (string Label, object? Value)[]
+        {
+            ("Vendor", statement.Name), ("From", from == DateOnly.MinValue ? null : from), ("To", to)
+        };
         var bytes = ExcelExportService.BuildWorkbook(
-            "Vendor Statement", new[] { "Date", "Type", "Document", "Description", "Debit", "Credit", "Balance" }, rows);
+            "Vendor Statement", headerBlock, new[] { "Date", "Type", "Document", "Description", "Debit", "Credit", "Balance" }, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"vendor-statement-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
 
@@ -231,10 +236,12 @@ public class PayablesReportsController : ControllerBase
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[]
             {
-                l.Date.ToString("yyyy-MM-dd"), l.DocumentNumber, l.DocumentType, l.PartnerName, l.ItemCode, l.Description,
+                l.Date, l.DocumentNumber, l.DocumentType, l.PartnerName, l.ItemCode, l.Description,
                 l.Quantity, l.UnitPrice, l.NetAmount, l.VatAmount, l.GrossAmount
             })
             .ToList();
+        var totals = ReportTotals.NetVatGross(lines.Select(l => (l.NetAmount, l.VatAmount, l.GrossAmount)));
+        rows.Add(new object?[] { null, null, null, null, null, "Total", null, null, totals.Net, totals.Vat, totals.Gross });
         var bytes = ExcelExportService.BuildWorkbook(
             "Purchase Transactions",
             new[] { "Date", "Document", "Type", "Vendor", "Item Code", "Description", "Quantity", "Unit Price", "Net", "VAT", "Gross" },

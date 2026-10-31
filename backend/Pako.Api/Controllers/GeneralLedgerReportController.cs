@@ -8,6 +8,7 @@ using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -71,7 +72,8 @@ public class GeneralLedgerReportController : ControllerBase
             : ((IOrderedQueryable<Row>)ordered).ThenBy(r => r.Entry.SecureSequenceNumber).ThenBy(r => r.Line.Id);
 
         var total = await query.CountAsync();
-        var rows = await ordered.Skip((page - 1) * pageSize).Take(pageSize).Select(Projection).ToListAsync();
+        var flat = await ordered.Skip((page - 1) * pageSize).Take(pageSize).Select(Projection).ToListAsync();
+        var rows = await ToLinesAsync(flat);
 
         return Ok(new PaginatedResponse<GeneralLedgerLine>(rows, total, page, pageSize));
     }
@@ -93,21 +95,24 @@ public class GeneralLedgerReportController : ControllerBase
             return InvalidDateRange();
         }
 
-        var lines = await Filtered(companyId, from, to, accountId, partnerId, null)
+        var flat = await Filtered(companyId, from, to, accountId, partnerId, null)
             .OrderBy(r => r.Entry.Date).ThenBy(r => r.Entry.SecureSequenceNumber).ThenBy(r => r.Line.Id)
             .Select(Projection)
             .ToListAsync();
+        var lines = await ToLinesAsync(flat);
 
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[]
             {
-                l.Date.ToString("yyyy-MM-dd"), l.EntryNumber, l.AccountCode, l.AccountName, l.PartnerName, l.Description, l.Debit, l.Credit
+                l.Date, l.EntryNumber, l.DocumentType, l.DocumentNumber, l.AccountCode, l.AccountName, l.PartnerName, l.Description, l.Debit, l.Credit
             })
             .ToList();
+        var totals = ReportTotals.Ledger(lines.Select(l => (l.Debit, l.Credit)));
+        rows.Add(new object?[] { null, null, null, null, null, null, null, "Total", totals.Debit, totals.Credit });
 
         var bytes = ExcelExportService.BuildWorkbook(
             "General Ledger",
-            new[] { "Date", "Entry", "Account code", "Account name", "Partner", "Description", "Debit", "Credit" },
+            new[] { "Date", "Entry", "Document type", "Document number", "Account code", "Account name", "Partner", "Description", "Debit", "Credit" },
             rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"general-ledger-{from:yyyyMMdd}-{to:yyyyMMdd}.xlsx");
     }
@@ -118,12 +123,45 @@ public class GeneralLedgerReportController : ControllerBase
         public JournalEntry Entry { get; set; } = null!;
         public Account Account { get; set; } = null!;
         public Partner? Partner { get; set; }
+        public JournalType JournalType { get; set; }
     }
 
-    private static readonly System.Linq.Expressions.Expression<Func<Row, GeneralLedgerLine>> Projection = r => new GeneralLedgerLine(
+    private sealed record Flat(
+        Guid EntryId, string? EntryNumber, DateOnly Date, string? Reference, string AccountCode, string AccountName,
+        Guid? PartnerId, string? PartnerName, string? Description, decimal Debit, decimal Credit,
+        Guid? SourceDocumentId, JournalType JournalType);
+
+    private static readonly System.Linq.Expressions.Expression<Func<Row, Flat>> Projection = r => new Flat(
         r.Entry.Id, r.Entry.SequenceNumber, r.Entry.Date, r.Entry.Reference, r.Account.Code, r.Account.Name,
         r.Line.PartnerId, r.Partner != null ? r.Partner.Name : null, r.Line.Description ?? r.Entry.Remarks,
-        r.Line.Debit, r.Line.Credit);
+        r.Line.Debit, r.Line.Credit, r.Entry.SourceDocumentId, r.JournalType);
+
+    private async Task<List<GeneralLedgerLine>> ToLinesAsync(List<Flat> flat)
+    {
+        var sourceIds = flat.Where(f => f.SourceDocumentId != null).Select(f => f.SourceDocumentId!.Value).Distinct().ToList();
+        var invoiceTypes = sourceIds.Count == 0 ? new Dictionary<Guid, string>() : (await _db.Invoices.AsNoTracking()
+            .Where(i => sourceIds.Contains(i.Id)).Select(i => new { i.Id, i.DocumentType }).ToListAsync())
+            .ToDictionary(i => i.Id, i => i.DocumentType.ToString());
+        var billTypes = sourceIds.Count == 0 ? new Dictionary<Guid, string>() : (await _db.Bills.AsNoTracking()
+            .Where(b => sourceIds.Contains(b.Id)).Select(b => new { b.Id, b.DocumentType }).ToListAsync())
+            .ToDictionary(b => b.Id, b => b.DocumentType.ToString());
+
+        return flat.Select(f =>
+        {
+            string? invoiceType = null, billType = null;
+            if (f.SourceDocumentId is { } sid)
+            {
+                invoiceType = invoiceTypes.GetValueOrDefault(sid);
+                billType = invoiceType is null ? billTypes.GetValueOrDefault(sid) : null;
+            }
+
+            return new GeneralLedgerLine(
+                f.EntryId, f.EntryNumber, f.Date, f.Reference, f.AccountCode, f.AccountName, f.PartnerId, f.PartnerName,
+                f.Description, f.Debit, f.Credit,
+                LedgerDocumentType.Classify(invoiceType, billType, f.SourceDocumentId != null, f.JournalType),
+                f.Reference ?? f.EntryNumber);
+        }).ToList();
+    }
 
     private IQueryable<Row> Filtered(Guid companyId, DateOnly from, DateOnly to, Guid? accountId, Guid? partnerId, string? search)
     {
@@ -131,12 +169,13 @@ public class GeneralLedgerReportController : ControllerBase
             from line in _db.JournalEntryLines.AsNoTracking()
             join entry in _db.JournalEntries.AsNoTracking() on line.JournalEntryId equals entry.Id
             join account in _db.Accounts.AsNoTracking() on line.AccountId equals account.Id
+            join journal in _db.Journals.AsNoTracking() on entry.JournalId equals journal.Id
             join partner in _db.Partners.AsNoTracking() on line.PartnerId equals partner.Id into partners
             from partner in partners.DefaultIfEmpty()
             where entry.CompanyId == companyId
                 && entry.State == JournalEntryState.Posted
                 && entry.Date >= @from && entry.Date <= to
-            select new Row { Line = line, Entry = entry, Account = account, Partner = partner };
+            select new Row { Line = line, Entry = entry, Account = account, Partner = partner, JournalType = journal.Type };
 
         if (accountId is { } a)
         {

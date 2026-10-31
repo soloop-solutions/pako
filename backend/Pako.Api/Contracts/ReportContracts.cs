@@ -131,7 +131,9 @@ public record GeneralLedgerLine(
     string? PartnerName,
     string? Description,
     decimal Debit,
-    decimal Credit);
+    decimal Credit,
+    string? DocumentType = null,
+    string? DocumentNumber = null);
 
 public record MonthlyReportLine(Guid AccountId, string AccountCode, string AccountName, List<decimal> Months, decimal Total);
 

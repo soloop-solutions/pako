@@ -14,14 +14,32 @@ public static class ExcelExportService
     // client method instead of a bare void) and its File(...) call, so the two can't drift apart.
     public const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-    public static byte[] BuildWorkbook(string sheetName, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<object?>> rows)
+    public static byte[] BuildWorkbook(string sheetName, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<object?>> rows) =>
+        BuildWorkbook(sheetName, null, headers, rows);
+
+    public static byte[] BuildWorkbook(
+        string sheetName, IReadOnlyList<(string Label, object? Value)>? headerBlock, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<object?>> rows)
     {
         using var workbook = new XLWorkbook();
         var sheet = workbook.Worksheets.Add(SanitizeSheetName(sheetName));
 
+        var top = 0;
+        if (headerBlock is { Count: > 0 })
+        {
+            foreach (var (label, value) in headerBlock)
+            {
+                top++;
+                sheet.Cell(top, 1).Value = label;
+                sheet.Cell(top, 1).Style.Font.Bold = true;
+                WriteCell(sheet.Cell(top, 2), value);
+            }
+
+            top++;
+        }
+
         for (var col = 0; col < headers.Count; col++)
         {
-            var cell = sheet.Cell(1, col + 1);
+            var cell = sheet.Cell(top + 1, col + 1);
             cell.Value = headers[col];
             cell.Style.Font.Bold = true;
         }
@@ -31,11 +49,11 @@ public static class ExcelExportService
             var rowValues = rows[row];
             for (var col = 0; col < rowValues.Count; col++)
             {
-                WriteCell(sheet.Cell(row + 2, col + 1), rowValues[col]);
+                WriteCell(sheet.Cell(top + row + 2, col + 1), rowValues[col]);
             }
         }
 
-        sheet.SheetView.FreezeRows(1);
+        sheet.SheetView.FreezeRows(top + 1);
         sheet.Columns(1, Math.Max(headers.Count, 1)).AdjustToContents();
 
         using var stream = new MemoryStream();

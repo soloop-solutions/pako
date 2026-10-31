@@ -63,7 +63,7 @@ public class ExpenseBookController : ControllerBase
         var rows = new List<IReadOnlyList<object?>>();
         foreach (var r in book.Rows)
         {
-            var cells = new List<object?> { r.Date.ToString("yyyy-MM-dd"), r.DocumentNumber, r.PartnerName };
+            var cells = new List<object?> { r.Date, r.DocumentNumber, r.PartnerName };
             cells.AddRange(r.Amounts.Cast<object?>());
             cells.Add(r.Total);
             rows.Add(cells);

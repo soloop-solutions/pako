@@ -192,6 +192,22 @@ public class PurchaseAnalysisTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PurchaseTransactionsExport_DateCellsAreDates_AndTotalRowSumsAllRows()
+    {
+        var s = await SeedAsync();
+        var file = Assert.IsType<FileContentResult>(await Controller(s.Db).PurchaseTransactionsExport(s.CompanyId, Jan1, Jan31, null));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+
+        Assert.Equal(ClosedXML.Excel.XLDataType.DateTime, sheet.Cell(2, 1).DataType);
+        Assert.Equal(7, sheet.LastRowUsed()!.RowNumber());
+        Assert.Equal("Total", sheet.Cell(7, 6).GetString());
+        Assert.Equal(740m, sheet.Cell(7, 9).GetValue<decimal>());
+        Assert.Equal(133.20m, sheet.Cell(7, 10).GetValue<decimal>());
+        Assert.Equal(873.20m, sheet.Cell(7, 11).GetValue<decimal>());
+    }
+
+    [Fact]
     public async Task PurchaseTransactions_FiltersByPartner()
     {
         var s = await SeedAsync();
@@ -422,7 +438,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
         var txFile = Assert.IsType<FileContentResult>(await c.PurchaseTransactionsExport(s.CompanyId, Jan1, Jan31, null));
         using (var wb = new XLWorkbook(new MemoryStream(txFile.FileContents)))
         {
-            Assert.Equal(6, wb.Worksheet(1).LastRowUsed()!.RowNumber());
+            Assert.Equal(7, wb.Worksheet(1).LastRowUsed()!.RowNumber());
         }
     }
 }
