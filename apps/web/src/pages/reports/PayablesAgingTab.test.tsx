@@ -92,6 +92,7 @@ describe("PayablesAgingTab", () => {
     }
     const footer = matrix.querySelector("tfoot") as HTMLElement;
     expect(within(footer).getByText("1180.00")).toBeInTheDocument();
+    expect(within(footer).getByText("1774.00")).toBeInTheDocument();
     expect(within(footer).getByText("Total")).toBeInTheDocument();
   });
 

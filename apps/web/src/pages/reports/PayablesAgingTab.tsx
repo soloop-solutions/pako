@@ -124,7 +124,10 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
                 pageSizeOptions={[1000]}
                 footerRow={{
                   label: intl.formatMessage({ id: "common.total" }),
-                  cells: Object.fromEntries(data.buckets.map((bucket) => [`b_${bucket.bucket}`, formatAmount(bucket.total)])),
+                  cells: {
+                    ...Object.fromEntries(data.buckets.map((bucket) => [`b_${bucket.bucket}`, formatAmount(bucket.total)])),
+                    total: formatAmount(data.totalOutstanding),
+                  },
                 }}
               />
             </div>

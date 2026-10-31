@@ -20,5 +20,6 @@
     { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "partnerName": "KEDS J.S.C.", "buckets": [{ "bucket": "Current", "total": 0.00 }, { "bucket": "1-30", "total": 240.00 }, { "bucket": "31-45", "total": 0.00 }, { "bucket": "46-60", "total": 0.00 }, { "bucket": "61-90", "total": 0.00 }, { "bucket": "91-180", "total": 0.00 }, { "bucket": "181-360", "total": 0.00 }, { "bucket": "Over360", "total": 0.00 }], "total": 240.00 },
     { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "partnerName": "Prime Properties L.L.C.", "buckets": [{ "bucket": "Current", "total": 1180.00 }, { "bucket": "1-30", "total": 0.00 }, { "bucket": "31-45", "total": 0.00 }, { "bucket": "46-60", "total": 0.00 }, { "bucket": "61-90", "total": 0.00 }, { "bucket": "91-180", "total": 0.00 }, { "bucket": "181-360", "total": 0.00 }, { "bucket": "Over360", "total": 0.00 }], "total": 1180.00 },
     { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "partnerName": "Telekomi i Kosoves J.S.C.", "buckets": [{ "bucket": "Current", "total": 0.00 }, { "bucket": "1-30", "total": 0.00 }, { "bucket": "31-45", "total": 0.00 }, { "bucket": "46-60", "total": 234.00 }, { "bucket": "61-90", "total": 0.00 }, { "bucket": "91-180", "total": 120.00 }, { "bucket": "181-360", "total": 0.00 }, { "bucket": "Over360", "total": 0.00 }], "total": 354.00 }
-  ]
+  ],
+  "totalOutstanding": 1774.00
 }

@@ -52,7 +52,7 @@ vi.mock("@/context/CompanyContext", () => ({
 }));
 
 function pnlResponse(from: string, to: string): ProfitAndLossResponse {
-  return { from, to, income: [], expenses: [], totalIncome: 0, totalExpenses: 0, netIncome: 0, costOfRevenue: [], totalCostOfRevenue: 0, grossProfit: 0 };
+  return { from, to, income: [], expenses: [], totalIncome: 0, totalExpenses: 0, netIncome: 0, costOfRevenue: [], totalCostOfRevenue: 0, grossProfit: 0, operatingExpenses: [], totalOperatingExpenses: 0 };
 }
 
 const profitAndLoss = vi.fn(async (_companyId: string, from: string, to: string) => pnlResponse(from, to));

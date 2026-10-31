@@ -119,6 +119,8 @@ describe("legacy report tabs", () => {
       totalIncome: 5000,
       totalCostOfRevenue: 1234.56,
       totalExpenses: 2034.56,
+      operatingExpenses: [{ accountId: "a3", accountCode: "6000", accountName: "Rent", amount: 800 }],
+      totalOperatingExpenses: 800,
       grossProfit: 3333.33,
       netIncome: 2965.44,
     });
@@ -128,8 +130,11 @@ describe("legacy report tabs", () => {
     expect(within(cost).getByText("Cost of Goods Sold")).toBeInTheDocument();
     expect(within(cost).getByText("1234.56")).toBeInTheDocument();
     expect(screen.getByText("Gross profit: 3333.33")).toBeInTheDocument();
-    expect(screen.getByText("Total cost of revenue (included in expenses): 1234.56")).toBeInTheDocument();
-    expect(screen.getByText("Total expenses: 2034.56")).toBeInTheDocument();
+    expect(screen.getByText("Total cost of revenue: 1234.56")).toBeInTheDocument();
+    expect(screen.getByText("Operating expenses")).toBeInTheDocument();
+    expect(screen.getByText("Rent")).toBeInTheDocument();
+    expect(screen.getByText("Total operating expenses: 800.00")).toBeInTheDocument();
+    expect(screen.queryByText("Total expenses: 2034.56")).not.toBeInTheDocument();
     expect(screen.getByText("Net income: 2965.44")).toBeInTheDocument();
   });
 });
