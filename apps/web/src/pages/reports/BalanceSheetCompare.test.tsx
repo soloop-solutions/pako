@@ -60,6 +60,19 @@ describe("BalanceSheetTab compare-to", () => {
     expect(within(row).getByText("30000.00")).toBeInTheDocument();
     expect(within(row).getByText("15000.00")).toBeInTheDocument();
 
+    const assets = screen.getByText("Total assets").closest("tr") as HTMLElement;
+    expect(within(assets).getByText("130000.00")).toBeInTheDocument();
+    expect(within(assets).getByText("100000.00")).toBeInTheDocument();
+    expect(within(assets).getByText("30000.00")).toBeInTheDocument();
+    const liabilities = screen.getByText("Total liabilities").closest("tr") as HTMLElement;
+    expect(within(liabilities).getByText("60000.00")).toBeInTheDocument();
+    expect(within(liabilities).getByText("55000.00")).toBeInTheDocument();
+    expect(within(liabilities).getByText("5000.00")).toBeInTheDocument();
+    const equity = screen.getByText("Total equity").closest("tr") as HTMLElement;
+    expect(within(equity).getByText("70000.00")).toBeInTheDocument();
+    expect(within(equity).getByText("45000.00")).toBeInTheDocument();
+    expect(within(equity).getByText("25000.00")).toBeInTheDocument();
+
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.balanceSheetComparativeExport).toHaveBeenCalledWith("c1", "2026-12-31", "2025-12-31"));
   });

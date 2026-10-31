@@ -45,6 +45,8 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
     ];
   }, [intl]);
 
+  const hasNegativeClosing = data?.lines.some((line) => line.closing < 0) ?? false;
+
   const footerRow = useMemo(
     () => (data ? { label: intl.formatMessage({ id: "common.total" }), cells: { closing: formatAmount(data.totalClosing) } } : undefined),
     [data, intl],
@@ -77,7 +79,7 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
           </>
         }
       >
-        <p className="text-xs text-amber-700">{intl.formatMessage({ id: "reports.vendorOwesUs" })}</p>
+        {hasNegativeClosing && <p className="text-xs text-amber-700">{intl.formatMessage({ id: "reports.vendorOwesUs" })}</p>}
         {data && (
           <DataGrid<VendorBalanceLine>
             gridId="vendors"

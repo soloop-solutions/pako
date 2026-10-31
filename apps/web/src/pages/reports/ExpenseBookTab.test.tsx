@@ -47,6 +47,14 @@ describe("ExpenseBookTab", () => {
     expect(within(totals).getByText("240.00")).toBeInTheDocument();
   });
 
+  it("shows the server grandTotal in the Total column of the footer", async () => {
+    renderReports(URL_);
+    await screen.findByText("BILL-0001");
+    const totals = screen.getByText("Column totals").closest("tr") as HTMLElement;
+    const cells = within(totals).getAllByRole("cell");
+    expect(cells[cells.length - 1].textContent).toBe("4240.00");
+  });
+
   it("exports through expenseBookExport", async () => {
     renderReports(URL_);
     await screen.findByText("BILL-0001");

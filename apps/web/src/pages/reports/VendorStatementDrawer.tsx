@@ -30,7 +30,7 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
 
   const query = useQuery({
     queryKey: ["reports", "vendorStatement", companyId, partnerId, from, to] as const,
-    queryFn: () => apiClient.statement(companyId, partnerId, from, to),
+    queryFn: () => apiClient.vendorStatement(companyId, partnerId, from, to),
   });
   const exporter = useReportExport(() => apiClient.vendorStatementExport(companyId, partnerId, from, to), "vendor-statement.xlsx");
   const data = query.data;

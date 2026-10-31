@@ -8,9 +8,9 @@ import transactions from "@/mocks/purchase-transactions.json";
 import { fileResponse, renderReports } from "./testHarness";
 
 const m = vi.hoisted(() => ({
-  byVendor: vi.fn(),
-  byItem: vi.fn(),
-  transactions: vi.fn(),
+  purchasesByVendor: vi.fn(),
+  purchasesByItem: vi.fn(),
+  purchaseTransactions: vi.fn(),
   purchasesByVendorExport: vi.fn(),
   purchasesByItemExport: vi.fn(),
   purchaseTransactionsExport: vi.fn(),
@@ -35,9 +35,9 @@ describe("PurchasesTab", () => {
 
   beforeEach(() => {
     Object.values(m).forEach((fn) => fn.mockReset());
-    m.byVendor.mockResolvedValue(byVendor);
-    m.byItem.mockResolvedValue(byItem);
-    m.transactions.mockResolvedValue(transactions);
+    m.purchasesByVendor.mockResolvedValue(byVendor);
+    m.purchasesByItem.mockResolvedValue(byItem);
+    m.purchaseTransactions.mockResolvedValue(transactions);
     m.purchasesByVendorExport.mockResolvedValue(fileResponse("a.xlsx"));
     m.purchasesByItemExport.mockResolvedValue(fileResponse("b.xlsx"));
     m.purchaseTransactionsExport.mockResolvedValue(fileResponse("c.xlsx"));
@@ -48,7 +48,7 @@ describe("PurchasesTab", () => {
   it("defaults to the by-vendor view with fixture numbers and no totals row", async () => {
     renderReports(BASE);
     expect(await screen.findByText("Kosova Office Supplies SH.P.K.")).toBeInTheDocument();
-    expect(m.byVendor).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31");
+    expect(m.purchasesByVendor).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31");
     expect(screen.getByText("448.40")).toBeInTheDocument();
     expect(screen.getByText("203.39")).toBeInTheDocument();
     expect(screen.queryByText("Total")).not.toBeInTheDocument();
@@ -60,7 +60,7 @@ describe("PurchasesTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "By item" }));
     expect(await screen.findByText("SRV-ELE")).toBeInTheDocument();
     expect(screen.getByTestId("location").textContent).toContain("view=by-item");
-    expect(m.byItem).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31");
+    expect(m.purchasesByItem).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31");
     expect(screen.getByText("A4 printer paper")).toBeInTheDocument();
     expect(screen.getByText("1200.00")).toBeInTheDocument();
 
@@ -87,14 +87,14 @@ describe("PurchasesTab", () => {
   });
 
   it("renders transactions and pages through the URL", async () => {
-    m.transactions.mockResolvedValue({ ...transactions, total: 120, pageSize: 50 });
+    m.purchaseTransactions.mockResolvedValue({ ...transactions, total: 120, pageSize: 50 });
     renderReports(`${BASE}&view=transactions`);
     expect(await screen.findByText("BILL-0005")).toBeInTheDocument();
     expect(screen.getByText("0.169492")).toBeInTheDocument();
-    expect(m.transactions).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", undefined, 1, 50, undefined, undefined);
+    expect(m.purchaseTransactions).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", undefined, 1, 50, undefined, undefined);
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await waitFor(() =>
-      expect(m.transactions).toHaveBeenLastCalledWith("c1", "2026-01-01", "2026-01-31", undefined, 2, 50, undefined, undefined),
+      expect(m.purchaseTransactions).toHaveBeenLastCalledWith("c1", "2026-01-01", "2026-01-31", undefined, 2, 50, undefined, undefined),
     );
     expect(screen.getByTestId("location").textContent).toContain("purchaseTransactions.page=2");
   });
@@ -102,7 +102,7 @@ describe("PurchasesTab", () => {
   it("passes the partner filter from the URL", async () => {
     renderReports(`${BASE}&view=transactions&partnerId=p1`);
     await waitFor(() =>
-      expect(m.transactions).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", "p1", 1, 50, undefined, undefined),
+      expect(m.purchaseTransactions).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", "p1", 1, 50, undefined, undefined),
     );
   });
 

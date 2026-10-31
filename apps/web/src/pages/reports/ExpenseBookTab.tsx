@@ -46,7 +46,10 @@ export function ExpenseBookTab({ report, companyName, accountingLockDate }: { re
       data
         ? {
             label: intl.formatMessage({ id: "reports.columnTotals" }),
-            cells: Object.fromEntries(data.columnTotals.map((total, index) => [`c${index}`, formatAmount(total)])),
+            cells: {
+              ...Object.fromEntries(data.columnTotals.map((total, index) => [`c${index}`, formatAmount(total)])),
+              total: formatAmount(data.grandTotal),
+            },
           }
         : undefined,
     [data, intl],

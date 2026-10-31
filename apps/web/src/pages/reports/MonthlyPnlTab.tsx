@@ -34,7 +34,7 @@ export function MonthlyPnlTab({ report, companyName, accountingLockDate }: { rep
 
   const rows = useMemo<ReportRow[]>(() => {
     if (!data) return [];
-    const section = (key: string, titleId: string, lines: MonthlyReportLine[]): ReportRow[] => [
+    const section = (key: string, titleId: string, lines: MonthlyReportLine[], totalTitleId: string, byMonth: number[], total: number): ReportRow[] => [
       { key, kind: "section", label: intl.formatMessage({ id: titleId }), values: [] },
       ...lines.map((line): ReportRow => ({
         key: `${key}-${line.accountId}`,
@@ -43,12 +43,13 @@ export function MonthlyPnlTab({ report, companyName, accountingLockDate }: { rep
         label: line.accountName,
         values: [...line.months, line.total],
       })),
+      { key: `${key}-total`, kind: "summary", label: intl.formatMessage({ id: totalTitleId }), values: [...byMonth, total] },
     ];
     return [
-      ...section("income", "reports.income", data.income),
-      ...section("cost", "reports.costOfRevenue", data.costOfRevenue),
+      ...section("income", "reports.income", data.income, "reports.totalIncomeRow", data.incomeByMonth, data.totalIncome),
+      ...section("cost", "reports.costOfRevenue", data.costOfRevenue, "reports.totalCostOfRevenueRow", data.costOfRevenueByMonth, data.totalCostOfRevenue),
       { key: "gross", kind: "summary", label: intl.formatMessage({ id: "reports.grossProfit" }), values: [...data.grossProfitByMonth, data.grossProfit] },
-      ...section("expenses", "reports.expenses", data.expenses),
+      ...section("expenses", "reports.expenses", data.expenses, "reports.totalExpensesRow", data.expensesByMonth, data.totalExpenses),
       { key: "net", kind: "summary", label: intl.formatMessage({ id: "reports.netIncomeLabel" }), values: [...data.netIncomeByMonth, data.netIncome] },
     ];
   }, [data, intl]);

@@ -26,12 +26,12 @@ const VIEW_LABELS: Record<PurchasesView, string> = {
   transactions: "reports.purchaseTransactions",
 };
 
-function money<T extends object>(id: string, header: string, pick: (row: T) => number): ColumnDef<T> {
+function money<T extends object>(id: string, header: string, pick: (row: T) => number, sortable = false): ColumnDef<T> {
   return staticColumn<T>({
     id,
     header,
     accessorFn: pick,
-    enableSorting: PURCHASE_TRANSACTIONS_SORTABLE.has(id),
+    enableSorting: sortable,
     cell: ({ row }) => formatAmount(pick(row.original)),
     meta: { numeric: true },
   });
@@ -94,9 +94,9 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
         cell: ({ row }) => String(row.original.unitPrice),
         meta: { numeric: true },
       }),
-      money<PurchaseTransactionLine>("net", intl.formatMessage({ id: "reports.purchasesNet" }), (row) => row.netAmount),
-      money<PurchaseTransactionLine>("vatAmount", intl.formatMessage({ id: "reports.purchasesVat" }), (row) => row.vatAmount),
-      money<PurchaseTransactionLine>("gross", intl.formatMessage({ id: "reports.purchasesGross" }), (row) => row.grossAmount),
+      money<PurchaseTransactionLine>("net", intl.formatMessage({ id: "reports.purchasesNet" }), (row) => row.netAmount, PURCHASE_TRANSACTIONS_SORTABLE.has("net")),
+      money<PurchaseTransactionLine>("vatAmount", intl.formatMessage({ id: "reports.purchasesVat" }), (row) => row.vatAmount, PURCHASE_TRANSACTIONS_SORTABLE.has("vatAmount")),
+      money<PurchaseTransactionLine>("gross", intl.formatMessage({ id: "reports.purchasesGross" }), (row) => row.grossAmount, PURCHASE_TRANSACTIONS_SORTABLE.has("gross")),
     ];
   }, [intl]);
 

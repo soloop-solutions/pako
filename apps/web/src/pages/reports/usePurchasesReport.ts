@@ -26,19 +26,19 @@ export function usePurchasesReport(companyId: string | null, enabled: boolean) {
 
   const byVendor = useQuery({
     queryKey: ["reports", "purchasesByVendor", companyId, period.from, period.to] as const,
-    queryFn: () => apiClient.byVendor(companyId as string, period.from, period.to),
+    queryFn: () => apiClient.purchasesByVendor(companyId as string, period.from, period.to),
     enabled: active && view === "by-vendor",
     placeholderData: keepPreviousData,
   });
   const byItem = useQuery({
     queryKey: ["reports", "purchasesByItem", companyId, period.from, period.to] as const,
-    queryFn: () => apiClient.byItem(companyId as string, period.from, period.to),
+    queryFn: () => apiClient.purchasesByItem(companyId as string, period.from, period.to),
     enabled: active && view === "by-item",
     placeholderData: keepPreviousData,
   });
   const transactions = useQuery({
     queryKey: ["reports", "purchaseTransactions", companyId, period.from, period.to, partnerId, grid.page, grid.pageSize, search, sort] as const,
-    queryFn: () => apiClient.transactions(companyId as string, period.from, period.to, partnerId, grid.page, grid.pageSize, search, sort),
+    queryFn: () => apiClient.purchaseTransactions(companyId as string, period.from, period.to, partnerId, grid.page, grid.pageSize, search, sort),
     enabled: active && view === "transactions",
     placeholderData: keepPreviousData,
   });

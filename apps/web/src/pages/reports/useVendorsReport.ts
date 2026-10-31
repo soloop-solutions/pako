@@ -14,7 +14,7 @@ export function useVendorsReport(companyId: string | null, enabled: boolean) {
 
   const query = useQuery({
     queryKey: ["reports", "vendors", companyId, period.from, period.to, includeZero] as const,
-    queryFn: () => apiClient.synthetic(companyId as string, period.from, period.to, includeZero),
+    queryFn: () => apiClient.vendorSynthetic(companyId as string, period.from, period.to, includeZero),
     enabled: enabled && !!companyId,
     placeholderData: keepPreviousData,
   });

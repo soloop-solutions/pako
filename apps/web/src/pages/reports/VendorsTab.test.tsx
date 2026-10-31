@@ -7,9 +7,9 @@ import fixture from "@/mocks/vendor-synthetic.json";
 import { fileResponse, renderReports } from "./testHarness";
 
 const m = vi.hoisted(() => ({
-  synthetic: vi.fn(),
+  vendorSynthetic: vi.fn(),
   vendorSyntheticExport: vi.fn(),
-  statement: vi.fn(),
+  vendorStatement: vi.fn(),
   vendorStatementExport: vi.fn(),
   checks: vi.fn(),
 }));
@@ -32,9 +32,9 @@ describe("VendorsTab", () => {
 
   beforeEach(() => {
     Object.values(m).forEach((fn) => fn.mockReset());
-    m.synthetic.mockResolvedValue(fixture);
+    m.vendorSynthetic.mockResolvedValue(fixture);
     m.vendorSyntheticExport.mockResolvedValue(fileResponse("v.xlsx"));
-    m.statement.mockResolvedValue(statementFixture);
+    m.vendorStatement.mockResolvedValue(statementFixture);
     m.vendorStatementExport.mockResolvedValue(fileResponse("s.xlsx"));
     m.checks.mockResolvedValue({ from: "2026-01-01", to: "2026-01-31", checks: [] });
   });
@@ -46,7 +46,7 @@ describe("VendorsTab", () => {
     expect(screen.getAllByText("354.00").length).toBe(2);
     expect(screen.getByText("1180.00", { selector: "td:last-child" })).toBeInTheDocument();
     expect(screen.getByText("1474.00")).toBeInTheDocument();
-    expect(m.synthetic).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", false);
+    expect(m.vendorSynthetic).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", false);
   });
 
   it("renders a negative closing with a minus sign, distinct style and a legend", async () => {
@@ -57,11 +57,21 @@ describe("VendorsTab", () => {
     expect(screen.getByText(/the vendor owes us/i)).toBeInTheDocument();
   });
 
+  it("hides the vendor-owes-us legend when no row has a negative closing", async () => {
+    m.vendorSynthetic.mockResolvedValue({
+      ...fixture,
+      lines: fixture.lines.filter((line) => line.closing >= 0),
+    });
+    renderReports(URL_);
+    await screen.findByText("KEDS J.S.C.");
+    expect(screen.queryByText(/the vendor owes us/i)).not.toBeInTheDocument();
+  });
+
   it("passes the include-zero toggle to the client", async () => {
     renderReports(URL_);
     await screen.findByText("KEDS J.S.C.");
     fireEvent.click(screen.getByLabelText("Include zero balances"));
-    await waitFor(() => expect(m.synthetic).toHaveBeenLastCalledWith("c1", "2026-01-01", "2026-01-31", true));
+    await waitFor(() => expect(m.vendorSynthetic).toHaveBeenLastCalledWith("c1", "2026-01-01", "2026-01-31", true));
     expect(screen.getByTestId("location").textContent).toContain("includeZero=1");
   });
 
@@ -75,7 +85,7 @@ describe("VendorsTab", () => {
   it("opens the statement drawer on row click and puts the vendor in the URL", async () => {
     renderReports(URL_);
     fireEvent.click(await screen.findByText("Prime Properties L.L.C."));
-    await waitFor(() => expect(m.statement).toHaveBeenCalledWith("c1", PRIME, "2026-01-01", "2026-01-31"));
+    await waitFor(() => expect(m.vendorStatement).toHaveBeenCalledWith("c1", PRIME, "2026-01-01", "2026-01-31"));
     expect(screen.getByTestId("location").textContent).toContain(`vendor=${PRIME}`);
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("BILL-0001")).toBeInTheDocument();

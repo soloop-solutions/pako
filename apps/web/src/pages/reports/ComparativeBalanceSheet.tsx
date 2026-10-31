@@ -1,7 +1,7 @@
 import { useMemo } from "react";
 import { useIntl } from "react-intl";
 
-import type { BalanceSheetComparativeResponse, ComparativeLine } from "@pako/shared";
+import type { BalanceSheetComparativeResponse, ComparativeLine, ComparativeTotals } from "@pako/shared";
 
 import { formatAmount } from "./helpers";
 import { ReportGrid, type ReportRow } from "./ReportGrid";
@@ -10,7 +10,7 @@ export function ComparativeBalanceSheet({ data }: { data: BalanceSheetComparativ
   const intl = useIntl();
 
   const rows = useMemo<ReportRow[]>(() => {
-    const section = (key: string, titleId: string, lines: ComparativeLine[]): ReportRow[] => [
+    const section = (key: string, titleId: string, lines: ComparativeLine[], totalTitleId: string, totals: ComparativeTotals): ReportRow[] => [
       { key, kind: "section", label: intl.formatMessage({ id: titleId }), values: [] },
       ...lines.map((line): ReportRow => ({
         key: `${key}-${line.accountId}`,
@@ -19,11 +19,12 @@ export function ComparativeBalanceSheet({ data }: { data: BalanceSheetComparativ
         label: line.accountName,
         values: [line.current, line.prior, line.difference],
       })),
+      { key: `${key}-total`, kind: "summary", label: intl.formatMessage({ id: totalTitleId }), values: [totals.current, totals.prior, totals.difference] },
     ];
     return [
-      ...section("assets", "reports.assets", data.assets),
-      ...section("liabilities", "reports.liabilities", data.liabilities),
-      ...section("equity", "reports.equity", data.equity),
+      ...section("assets", "reports.assets", data.assets, "reports.totalAssetsRow", data.assetsTotals),
+      ...section("liabilities", "reports.liabilities", data.liabilities, "reports.totalLiabilitiesRow", data.liabilitiesTotals),
+      ...section("equity", "reports.equity", data.equity, "reports.totalEquityRow", data.equityTotals),
     ];
   }, [data, intl]);
 

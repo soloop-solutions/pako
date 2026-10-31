@@ -39,13 +39,28 @@ describe("MonthlyPnlTab", () => {
     for (const month of ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Total"]) {
       expect(headers).toContain(month);
     }
-    expect(screen.getByText("155000.00")).toBeInTheDocument();
+    expect(screen.getAllByText("155000.00").length).toBeGreaterThan(0);
     const gross = screen.getByText("Gross profit").closest("tr") as HTMLElement;
     expect(within(gross).getByText("93000.00")).toBeInTheDocument();
     expect(within(gross).getByText("6000.00")).toBeInTheDocument();
     const net = screen.getByText("Net income").closest("tr") as HTMLElement;
     expect(within(net).getByText("45000.00")).toBeInTheDocument();
     expect(within(net).getByText("5600.00")).toBeInTheDocument();
+  });
+
+  it("renders section total rows by month and for the year from the server arrays", async () => {
+    renderReports("/reports?tab=monthly-pnl&year=2026");
+    await screen.findByText("Revenue from sales");
+    const income = screen.getByText("Total income").closest("tr") as HTMLElement;
+    expect(within(income).getByText("10000.00")).toBeInTheDocument();
+    expect(within(income).getByText("16000.00")).toBeInTheDocument();
+    expect(within(income).getByText("155000.00")).toBeInTheDocument();
+    const cost = screen.getByText("Total cost of revenue").closest("tr") as HTMLElement;
+    expect(within(cost).getByText("6400.00")).toBeInTheDocument();
+    expect(within(cost).getByText("62000.00")).toBeInTheDocument();
+    const expenses = screen.getByText("Total expenses").closest("tr") as HTMLElement;
+    expect(within(expenses).getAllByText("4000.00").length).toBe(12);
+    expect(within(expenses).getByText("48000.00")).toBeInTheDocument();
   });
 
   it("exports through monthlyProfitAndLossExport", async () => {
