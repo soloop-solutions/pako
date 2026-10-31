@@ -22,6 +22,8 @@ import { isIncomeAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
+import { OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { useStockOnHand } from "@/hooks/useStock";
 
 type Line = {
   description: string;
@@ -163,6 +165,8 @@ export function InvoiceForm({
   const [issueDate, setIssueDate] = useState(editingInvoice?.issueDate ?? today);
   const [dueDate, setDueDate] = useState(editingInvoice?.dueDate ?? today);
   const [internalNotes, setInternalNotes] = useState(editingInvoice?.internalNotes ?? "");
+  // docs/INVENTORY_PLAN.md §6: the warehouse stock-tracked lines leave from ("" = the default one).
+  const [warehouseId, setWarehouseId] = useState(editingInvoice?.warehouseId ?? "");
   // C1/C3: PriceMode/PaymentTermDays/GraceDays/inline-payment are Create-only features —
   // UpdateInvoiceRequest (the Draft-edit path) doesn't carry any of these fields, so this state
   // is only read from the Create branch of handleSubmit and its inputs are hidden while editing.
@@ -187,6 +191,8 @@ export function InvoiceForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
+  const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
   const [showPreview, setShowPreview] = useState(false);
 
   // Auto-populate lines from the original invoice when creating a Sales Return. Only fires when:
@@ -377,6 +383,7 @@ export function InvoiceForm({
           originalInvoiceId: originalInvoiceId || undefined,
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
+          warehouseId: warehouseId || undefined,
         });
         recordFavorites();
         onSaved?.();
@@ -392,6 +399,7 @@ export function InvoiceForm({
           graceDays: graceDays ? parseInt(graceDays, 10) : undefined,
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
+          warehouseId: warehouseId || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
@@ -497,6 +505,7 @@ export function InvoiceForm({
             required
           />
         </div>
+        <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
       </div>
 
       {creditExposure && creditExposure.creditLimit != null && (() => {
@@ -612,7 +621,7 @@ export function InvoiceForm({
         </div>
       )}
 
-      <div className="flex flex-col gap-2">
+      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}>
         {lines.map((line, index) => {
           const enteredAmount = lineEnteredAmount(line);
           const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
@@ -676,7 +685,7 @@ export function InvoiceForm({
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="relative flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
               <Input
                 type="number"
@@ -685,6 +694,14 @@ export function InvoiceForm({
                 value={line.quantity}
                 onChange={(event) => updateLine(index, { quantity: event.target.value })}
               />
+              {selectedItem?.trackInventory && (
+                <OnHandHint
+                  className="absolute -bottom-4 right-0 whitespace-nowrap"
+                  onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
+                  requested={parseFloat(line.quantity) || 0}
+                  warnWhenShort={documentType === InvoiceDocumentType.Invoice}
+                />
+              )}
             </div>
             <div className="flex flex-col gap-1">
               {index === 0 && (

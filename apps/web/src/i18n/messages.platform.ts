@@ -8,6 +8,7 @@ const modulesEn: Record<string, [string, string]> = {
   reports: ["Reports", "P&L, balance sheet, VAT and ATK books, year end."],
   hr: ["HR", "Employees, departments, leave, timesheets, expense claims and My HR self-service."],
   payroll: ["Payroll", "Payroll runs, payslips, loans and commissions. Needs HR."],
+  inventory: ["Inventory", "Warehouses, stock levels, opening stock, transfers, counts, write-offs and stock reports."],
 };
 const modulesSq: Record<string, [string, string]> = {
   sales: ["Shitjet", "Faturat e shitjes, kthimet, profaturat dhe klientët."],
@@ -16,6 +17,7 @@ const modulesSq: Record<string, [string, string]> = {
   reports: ["Raportet", "Fitimi e humbja, bilanci, librat e TVSH-së dhe ATK, mbyllja e vitit."],
   hr: ["Burimet njerëzore", "Punonjësit, departamentet, pushimet, orët e punës, shpenzimet dhe vetëshërbimi Unë."],
   payroll: ["Pagat", "Listëpagesat, fletëpagesat, huatë dhe komisionet. Kërkon Burimet njerëzore."],
+  inventory: ["Stoku", "Magazinat, gjendja e stokut, stoku fillestar, transferimet, inventarizimet, nxjerrjet jashtë përdorimit dhe raportet e stokut."],
 };
 const moduleMessages = (m: Record<string, [string, string]>) =>
   Object.fromEntries(Object.entries(m).flatMap(([k, [name, description]]) => [

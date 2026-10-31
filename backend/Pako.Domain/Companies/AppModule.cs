@@ -15,13 +15,15 @@ public enum AppModule
     Reports = 8,
     Hr = 16,
     Payroll = 32,
-    All = Sales | Purchases | Accounting | Reports | Hr | Payroll
+    // docs/INVENTORY_PLAN.md D7: warehouses, stock documents and stock reports.
+    Inventory = 64,
+    All = Sales | Purchases | Accounting | Reports | Hr | Payroll | Inventory
 }
 
 public static class AppModules
 {
     public static readonly AppModule[] Selectable =
-        { AppModule.Sales, AppModule.Purchases, AppModule.Accounting, AppModule.Reports, AppModule.Hr, AppModule.Payroll };
+        { AppModule.Sales, AppModule.Purchases, AppModule.Accounting, AppModule.Reports, AppModule.Hr, AppModule.Payroll, AppModule.Inventory };
 
     // Which switchable module an access area belongs to; null = always available.
     public static AppModule? For(AccessModule area) => area switch
@@ -32,6 +34,7 @@ public static class AppModules
         AccessModule.Reports => AppModule.Reports,
         AccessModule.Hr or AccessModule.Self => AppModule.Hr,
         AccessModule.Payroll => AppModule.Payroll,
+        AccessModule.Inventory => AppModule.Inventory,
         _ => null
     };
 

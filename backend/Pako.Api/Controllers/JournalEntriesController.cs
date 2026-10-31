@@ -130,6 +130,16 @@ public class JournalEntriesController : ControllerBase
         // informational metadata for reports — not a hard requirement on manual journal entries.
         // An accountant must be able to post adjusting/reclassification entries to these accounts
         // without selecting a partner.
+        // docs/INVENTORY_PLAN.md §5.3: while items are stock-tracked, their stock accounts are moved
+        // only by stock documents, bills and invoices — a manual entry would put the ledger out of step
+        // with the stock ledger (the QuickBooks complaint). Correct stock with a count or write-off.
+        var stockAccountIds = await new StockService(_db, _localizer).StockAccountIdsInUseAsync(companyId);
+        var stockLine = request.Lines.FirstOrDefault(l => stockAccountIds.Contains(l.AccountId));
+        if (stockLine is not null)
+        {
+            return BadRequest(string.Format(_localizer["StockAccountManualEntry"].Value, accountsById[stockLine.AccountId].Code));
+        }
+
         foreach (var line in request.Lines)
         {
             var account = accountsById[line.AccountId];

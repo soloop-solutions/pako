@@ -91,6 +91,8 @@ builder.Services.AddScoped<Pako.Api.Services.TimesheetService>();
 builder.Services.AddScoped<Pako.Api.Services.PartnerStatementService>();
 builder.Services.AddScoped<Pako.Api.Services.UserAdminService>();
 builder.Services.AddScoped<Pako.Api.Services.DashboardService>();
+builder.Services.AddScoped<Pako.Api.Services.StockService>();
+builder.Services.AddScoped<Pako.Api.Services.StockDocumentService>();
 builder.Services.AddScoped<Pako.Api.Services.PlatformAdminService>();
 builder.Services.AddScoped<PlatformBootstrap>();
 

@@ -6,6 +6,7 @@ import { lobbyEn, lobbySq } from "@/i18n/messages.lobby";
 import { platformEn, platformSq } from "@/i18n/messages.platform";
 import { leaveEn, leaveSq } from "@/i18n/messages.leave";
 import { payrollEn, payrollSq } from "@/i18n/messages.payroll";
+import { inventoryEn, inventorySq } from "@/i18n/messages.inventory";
 
 export const en: Record<string, string> = {
   // Nav
@@ -2964,7 +2965,7 @@ export const sq: Record<string, string> = {
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
-Object.assign(en, hrEn, payrollEn, leaveEn, meEn, adminEn, dashboardEn, lobbyEn, platformEn);
-Object.assign(sq, hrSq, payrollSq, leaveSq, meSq, adminSq, dashboardSq, lobbySq, platformSq);
+Object.assign(en, hrEn, payrollEn, leaveEn, meEn, adminEn, dashboardEn, lobbyEn, platformEn, inventoryEn);
+Object.assign(sq, hrSq, payrollSq, leaveSq, meSq, adminSq, dashboardSq, lobbySq, platformSq, inventorySq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

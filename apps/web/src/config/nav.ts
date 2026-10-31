@@ -36,6 +36,11 @@ import {
   Clock,
   ScrollText,
   ShieldCheck,
+  Boxes,
+  ArrowLeftRight,
+  Warehouse as WarehouseIcon,
+  Tags,
+  PieChart,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
@@ -70,6 +75,11 @@ import { MyProfile } from "@/pages/me/MyProfile";
 import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
+import { ItemCategories } from "@/pages/inventory/ItemCategories";
+import { StockDocuments } from "@/pages/inventory/StockDocuments";
+import { StockLevels } from "@/pages/inventory/StockLevels";
+import { StockReports } from "@/pages/inventory/StockReports";
+import { Warehouses } from "@/pages/inventory/Warehouses";
 import { Settings } from "@/pages/Settings";
 import { WithholdingTax } from "@/pages/tax/WithholdingTax";
 import { YearEnd } from "@/pages/YearEnd";
@@ -91,7 +101,9 @@ export type NavModule =
   | "items"
   | "payroll"
   | "settings"
-  | "users";
+  | "users"
+  // docs/INVENTORY_PLAN.md D7.
+  | "inventory";
 
 export type NavItem = {
   titleKey: string;
@@ -242,7 +254,7 @@ export const bottomNavItems: NavItem[] = [companyProfileItem, companiesItem, set
 export const navCategories: NavCategory[] = [
   {
     id: "items",
-    labelKey: "sidebar.category.items",
+    labelKey: "sidebar.category.itemsStock",
     items: [
       {
         titleKey: "nav.items",
@@ -252,6 +264,12 @@ export const navCategories: NavCategory[] = [
         Element: Items,
         module: "items",
       },
+      // docs/INVENTORY_PLAN.md §5: stock screens, behind the Inventory module and access area.
+      { titleKey: "nav.stockLevels", path: "/stock", icon: Boxes, descriptionKey: "nav.stockLevels.description", Element: StockLevels, module: "inventory", gridId: "stock-levels" },
+      { titleKey: "nav.stockDocuments", path: "/stock-documents", icon: ArrowLeftRight, descriptionKey: "nav.stockDocuments.description", Element: StockDocuments, module: "inventory", gridId: "stock-documents" },
+      { titleKey: "nav.stockReports", path: "/stock-reports", icon: PieChart, descriptionKey: "nav.stockReports.description", Element: StockReports, module: "inventory" },
+      { titleKey: "nav.warehouses", path: "/warehouses", icon: WarehouseIcon, descriptionKey: "nav.warehouses.description", Element: Warehouses, module: "inventory" },
+      { titleKey: "nav.itemCategories", path: "/item-categories", icon: Tags, descriptionKey: "nav.itemCategories.description", Element: ItemCategories, module: "items" },
     ],
   },
   {

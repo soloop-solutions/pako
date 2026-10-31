@@ -429,7 +429,7 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
     <value>You can't disable yourself or remove your own administrator rights.</value>
   </data>
   <data name="ModulesInvalid" xml:space="preserve">
-    <value>Unknown module. Use sales, purchases, accounting, reports, hr or payroll.</value>
+    <value>Unknown module. Use sales, purchases, accounting, reports, hr, payroll or inventory.</value>
   </data>
   <data name="PayrollNeedsHr" xml:space="preserve">
     <value>Payroll needs the HR module: employees live in HR.</value>
@@ -439,5 +439,116 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   </data>
   <data name="PlatformAdminFromConfig" xml:space="preserve">
     <value>This administrator is set in the server configuration (Platform:AdminEmails). Remove them there to take away their rights.</value>
+  </data>
+  <data name="ItemCategoryInventoryAccountLocked" xml:space="preserve">
+    <value>The stock account of this category can't change: its items already have stock. Move them to another category first.</value>
+  </data>
+  <data name="ItemCategoryNameRequired" xml:space="preserve">
+    <value>Give the category a name (up to 120 characters).</value>
+  </data>
+  <data name="ItemCategoryNameTaken" xml:space="preserve">
+    <value>A category with this name already exists.</value>
+  </data>
+  <data name="ItemCategoryNotFound" xml:space="preserve">
+    <value>That category doesn't exist in this company.</value>
+  </data>
+  <data name="ItemInventoryAccountLocked" xml:space="preserve">
+    <value>The stock account of this item can't change: it already has stock moves.</value>
+  </data>
+  <data name="StockAccountCodeMissing" xml:space="preserve">
+    <value>Account {0} is missing from the chart of accounts; it is needed to post stock.</value>
+  </data>
+  <data name="StockAccountManualEntry" xml:space="preserve">
+    <value>Account {0} holds stock value and is moved only by bills, invoices and stock documents. Correct stock with a count or a write-off.</value>
+  </data>
+  <data name="StockAccountsMissing" xml:space="preserve">
+    <value>No stock or cost-of-goods-sold account for "{0}": set them on the item or its category.</value>
+  </data>
+  <data name="StockCostCorrection" xml:space="preserve">
+    <value>Stock cost correction</value>
+  </data>
+  <data name="StockCostOfGoodsSold" xml:space="preserve">
+    <value>Cost of goods sold</value>
+  </data>
+  <data name="StockGoodsReturned" xml:space="preserve">
+    <value>Goods returned to stock</value>
+  </data>
+  <data name="StockDocumentOpening" xml:space="preserve">
+    <value>Opening stock</value>
+  </data>
+  <data name="StockDocumentTransfer" xml:space="preserve">
+    <value>Transfer</value>
+  </data>
+  <data name="StockDocumentCount" xml:space="preserve">
+    <value>Stock count</value>
+  </data>
+  <data name="StockDocumentWriteOff" xml:space="preserve">
+    <value>Write-off</value>
+  </data>
+  <data name="StockDocumentDuplicateItem" xml:space="preserve">
+    <value>Each item can appear only once in a stock document.</value>
+  </data>
+  <data name="StockDocumentNoLines" xml:space="preserve">
+    <value>Add at least one item.</value>
+  </data>
+  <data name="StockDocumentPosted" xml:space="preserve">
+    <value>This stock document is posted and can't be changed.</value>
+  </data>
+  <data name="StockDocumentQuantity" xml:space="preserve">
+    <value>Enter a quantity greater than zero (a count may be zero).</value>
+  </data>
+  <data name="StockDocumentTooManyLines" xml:space="preserve">
+    <value>A stock document can have at most 2,000 lines.</value>
+  </data>
+  <data name="StockDocumentTypeFixed" xml:space="preserve">
+    <value>The type of a stock document can't change.</value>
+  </data>
+  <data name="StockItemNotFound" xml:space="preserve">
+    <value>That item doesn't exist in this company.</value>
+  </data>
+  <data name="StockItemNotTracked" xml:space="preserve">
+    <value>"{0}" doesn't track stock. Turn on stock tracking on the item first.</value>
+  </data>
+  <data name="StockNotEnough" xml:space="preserve">
+    <value>Not enough "{0}" in {2}: only {1} available.</value>
+  </data>
+  <data name="StockOnlyForGoods" xml:space="preserve">
+    <value>Only goods can track stock.</value>
+  </data>
+  <data name="StockOpeningCostRequired" xml:space="preserve">
+    <value>Enter the unit cost of every item in opening stock.</value>
+  </data>
+  <data name="StockTrackingLocked" xml:space="preserve">
+    <value>This item already has stock moves: tracking stays on and the type stays Goods.</value>
+  </data>
+  <data name="StockTransferWarehouses" xml:space="preserve">
+    <value>Choose a different, active destination warehouse.</value>
+  </data>
+  <data name="StockWouldGoNegativeLater" xml:space="preserve">
+    <value>"{0}" would go below zero on {1:d}: a later document already used that stock.</value>
+  </data>
+  <data name="StockWriteOffAtkNoticeRequired" xml:space="preserve">
+    <value>Enter the date the written notice was sent to ATK (required to destroy expired or damaged goods).</value>
+  </data>
+  <data name="StockWriteOffAtkNoticeTooRecent" xml:space="preserve">
+    <value>The ATK notice must be sent at least 10 days before destruction: post on or after {0:d}.</value>
+  </data>
+  <data name="StockWriteOffReasonRequired" xml:space="preserve">
+    <value>Choose why the goods are written off.</value>
+  </data>
+  <data name="WarehouseCodeTaken" xml:space="preserve">
+    <value>Another warehouse already uses this code.</value>
+  </data>
+  <data name="WarehouseHasStock" xml:space="preserve">
+    <value>This warehouse still holds stock. Transfer it out before closing the warehouse.</value>
+  </data>
+  <data name="WarehouseInvalid" xml:space="preserve">
+    <value>Give the warehouse a code (up to 20 characters) and a name.</value>
+  </data>
+  <data name="WarehouseIsDefault" xml:space="preserve">
+    <value>This is the default warehouse. Choose another default first.</value>
+  </data>
+  <data name="WarehouseNotFound" xml:space="preserve">
+    <value>That warehouse doesn't exist or is closed.</value>
   </data>
 </root>

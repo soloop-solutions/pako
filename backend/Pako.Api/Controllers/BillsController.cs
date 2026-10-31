@@ -5,6 +5,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Domain.Documents;
+using Pako.Domain.Inventory;
 using Pako.Api.Services;
 using Pako.Domain.Bills;
 using Pako.Domain.Companies;
@@ -124,6 +126,14 @@ public class BillsController : ControllerBase
             ? new Dictionary<Guid, Item>()
             : await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id) && i.CompanyId == companyId).ToDictionaryAsync(i => i.Id);
 
+        // docs/INVENTORY_PLAN.md D9: the item's category supplies accounts the item doesn't set.
+        var categoryIdsForLines = itemsById.Values.Where(i => i.CategoryId != null).Select(i => i.CategoryId!.Value).Distinct().ToList();
+        var categoriesById = categoryIdsForLines.Count == 0
+            ? new Dictionary<Guid, Pako.Domain.Inventory.ItemCategory>()
+            : await _db.ItemCategories.AsNoTracking().Where(c => categoryIdsForLines.Contains(c.Id)).ToDictionaryAsync(c => c.Id);
+        var stockAccounts = await new StockService(_db, _localizer).AccountsForSafeAsync(companyId,
+            itemsById.Values.Where(i => i.TrackInventory && i.Type == ItemType.Goods));
+
         var lines = new List<BillLine>();
         var total = 0m;
         foreach (var line in requestLines)
@@ -166,7 +176,11 @@ public class BillsController : ControllerBase
                 }
             }
 
-            var expenseAccountId = line.ExpenseAccountId ?? item?.DefaultExpenseAccountId ?? defaultExpenseAccountId;
+            var category = item?.CategoryId is { } categoryId ? categoriesById.GetValueOrDefault(categoryId) : null;
+            // A stock-tracked item's line goes to its stock account (it's forced there at posting too).
+            var expenseAccountId = item is not null && stockAccounts.TryGetValue(item.Id, out var stockAccount)
+                ? stockAccount.InventoryAccountId
+                : line.ExpenseAccountId ?? item?.DefaultExpenseAccountId ?? category?.ExpenseAccountId ?? defaultExpenseAccountId;
             if (!validAccountIds.Contains(expenseAccountId))
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["ExpenseAccountNotBelongToCompany"], expenseAccountId)));
@@ -262,6 +276,7 @@ public class BillsController : ControllerBase
             DocumentType = request.DocumentType,
             OriginalBillId = request.OriginalBillId,
             PriceMode = request.PriceMode,
+            WarehouseId = request.WarehouseId,
             Lines = lines!
         };
 
@@ -406,6 +421,7 @@ public class BillsController : ControllerBase
         bill.DocumentType = request.DocumentType;
         bill.OriginalBillId = request.OriginalBillId;
         bill.InternalNotes = request.InternalNotes;
+        bill.WarehouseId = request.WarehouseId;
 
         await _db.SaveChangesAsync();
 
@@ -918,6 +934,33 @@ public class BillsController : ControllerBase
             .Where(t => t.CompanyId == company.Id)
             .ToDictionaryAsync(t => t.Id);
 
+        // docs/INVENTORY_PLAN.md §5.3: a stock-tracked item's line posts to its stock account, not an
+        // expense (Odoo 19 swaps the account the same way) — done before validation so the VAT rules
+        // check the account actually posted to.
+        var stock = new StockService(_db, _localizer);
+        var trackedItems = bill.DocumentType is DocumentType.Bill or DocumentType.CreditNote or DocumentType.PurchaseReturn
+            ? await stock.TrackedItemsAsync(company.Id, bill.Lines.Select(l => l.ItemId))
+            : new Dictionary<Guid, Item>();
+        var stockAccounts = new Dictionary<Guid, StockService.ItemAccounts>();
+        if (trackedItems.Count > 0)
+        {
+            try
+            {
+                stockAccounts = await stock.AccountsForAsync(company.Id, trackedItems.Values);
+            }
+            catch (StockException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            foreach (var line in bill.Lines)
+            {
+                if (line.ItemId is { } itemId && stockAccounts.TryGetValue(itemId, out var accounts))
+                {
+                    line.ExpenseAccountId = accounts.InventoryAccountId;
+                }
+            }
+        }
+
         // 60_Posting_Rules R07/R08/R09 (BLOCK) — see InvoicesController.Post's identical comment.
         var lineAccountsById = await _db.Accounts.AsNoTracking()
             .Where(a => bill.Lines.Select(l => l.ExpenseAccountId).Contains(a.Id))
@@ -1026,12 +1069,55 @@ public class BillsController : ControllerBase
             }
         }
 
+        if (trackedItems.Count > 0)
+        {
+            try
+            {
+                await PostBillStockAsync(stock, company, bill, journalEntry, trackedItems, stockAccounts, taxDefinitionsById);
+            }
+            catch (StockException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
         journalEntry.PostedByUserId = CurrentUserId;
         journalEntry.SourceDocumentId = bill.Id;
         journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
         _db.JournalEntries.Add(journalEntry);
         return null;
+    }
+
+    // docs/INVENTORY_PLAN.md §5.3, D13. A bill brings goods in at the line's net amount; a purchase
+    // return takes them out (at the average — the gap to the returned price is a cost correction); a
+    // supplier credit note changes value only. The stock side goes into the bill's own entry.
+    private async Task PostBillStockAsync(StockService stock, Company company, Bill bill, JournalEntry journalEntry,
+        Dictionary<Guid, Item> trackedItems, Dictionary<Guid, StockService.ItemAccounts> accounts,
+        IReadOnlyDictionary<Guid, TaxDefinition> taxDefinitionsById)
+    {
+        var location = await stock.DocumentLocationAsync(company.Id, bill.WarehouseId);
+        var supplier = await stock.VirtualLocationAsync(company.Id, LocationUsage.Supplier);
+        var requests = new List<StockService.MoveRequest>();
+        var nets = new List<decimal>();
+        foreach (var line in bill.Lines.Where(l => l.ItemId is { } id && trackedItems.ContainsKey(id)))
+        {
+            var taxDefinition = line.TaxDefinitionId is { } taxId ? taxDefinitionsById.GetValueOrDefault(taxId) : null;
+            var net = DocumentLineCalculator.Calculate(line.Quantity, line.UnitPrice, line.DiscountPercent, line.ExpenseAccountId,
+                line.Description, taxDefinition, false, false, _taxComputationService, Guid.Empty, Guid.Empty, bill.PriceMode).NetAmount;
+            nets.Add(net);
+            requests.Add(bill.DocumentType switch
+            {
+                DocumentType.PurchaseReturn => new StockService.MoveRequest(line.ItemId!.Value, StockMoveKind.Issue, location.Id, supplier.Id, line.Quantity, SourceLineId: line.Id),
+                DocumentType.CreditNote => new StockService.MoveRequest(line.ItemId!.Value, StockMoveKind.Revaluation, supplier.Id, location.Id, 0m, -net, line.Id),
+                _ => new StockService.MoveRequest(line.ItemId!.Value, StockMoveKind.Receipt, supplier.Id, location.Id, line.Quantity, net, line.Id),
+            });
+        }
+
+        var posting = await stock.ApplyAsync(company.Id, bill.IssueDate, StockMoveSource.Bill, bill.Id, bill.VendorReference, requests);
+        var corrections = posting.Moves.Select((m, i) => (m.Request.ItemId,
+            bill.DocumentType == DocumentType.PurchaseReturn ? m.Value - nets[i] : m.Correction));
+        StockService.AddCorrections(journalEntry, posting, accounts, corrections, _localizer["StockCostCorrection"].Value);
     }
 
     private static BillResponse ToResponse(Bill b) => new(
@@ -1046,5 +1132,6 @@ public class BillsController : ControllerBase
         b.JournalEntryId,
         b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId)).ToList(),
         b.InternalNotes,
-        b.PriceMode);
+        b.PriceMode,
+        b.WarehouseId);
 }

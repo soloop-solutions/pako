@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 
 // The modules a company can have, in the order they appear in the app. Partners, items, settings,
 // users and the dashboard are always on.
-export const MODULES = ["sales", "purchases", "accounting", "reports", "hr", "payroll"] as const;
+export const MODULES = ["sales", "purchases", "accounting", "reports", "hr", "payroll", "inventory"] as const;
 
 const GRID_ID = "platform-companies";
 

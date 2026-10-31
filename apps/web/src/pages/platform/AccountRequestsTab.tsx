@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { useUrlParam } from "@/pages/platform/useUrlParam";
+import { useUrlParam } from "@/hooks/useUrlParam";
 
 const GRID_ID = "platform-requests";
 

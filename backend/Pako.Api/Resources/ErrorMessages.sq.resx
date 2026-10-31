@@ -429,7 +429,7 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
     <value>Nuk mund ta çaktivizoni veten ose të hiqni të drejtat tuaja të administratorit.</value>
   </data>
   <data name="ModulesInvalid" xml:space="preserve">
-    <value>Modul i panjohur. Përdorni sales, purchases, accounting, reports, hr ose payroll.</value>
+    <value>Modul i panjohur. Përdorni sales, purchases, accounting, reports, hr, payroll ose inventory.</value>
   </data>
   <data name="PayrollNeedsHr" xml:space="preserve">
     <value>Pagat kërkojnë modulin e Burimeve Njerëzore: punonjësit janë atje.</value>
@@ -439,5 +439,116 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   </data>
   <data name="PlatformAdminFromConfig" xml:space="preserve">
     <value>Ky administrator është caktuar në konfigurimin e serverit (Platform:AdminEmails). Hiqeni prej andej për t'i marrë të drejtat.</value>
+  </data>
+  <data name="ItemCategoryInventoryAccountLocked" xml:space="preserve">
+    <value>Llogaria e stokut e kësaj kategorie nuk mund të ndryshojë: artikujt e saj kanë stok. Kalojini në një kategori tjetër së pari.</value>
+  </data>
+  <data name="ItemCategoryNameRequired" xml:space="preserve">
+    <value>Jepini kategorisë një emër (deri në 120 shkronja).</value>
+  </data>
+  <data name="ItemCategoryNameTaken" xml:space="preserve">
+    <value>Ekziston tashmë një kategori me këtë emër.</value>
+  </data>
+  <data name="ItemCategoryNotFound" xml:space="preserve">
+    <value>Kjo kategori nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="ItemInventoryAccountLocked" xml:space="preserve">
+    <value>Llogaria e stokut e këtij artikulli nuk mund të ndryshojë: ka lëvizje stoku.</value>
+  </data>
+  <data name="StockAccountCodeMissing" xml:space="preserve">
+    <value>Llogaria {0} mungon në planin kontabël; nevojitet për të postuar stokun.</value>
+  </data>
+  <data name="StockAccountManualEntry" xml:space="preserve">
+    <value>Llogaria {0} mban vlerën e stokut dhe lëviz vetëm me fatura dhe dokumente stoku. Korrigjojeni stokun me numërim ose nxjerrje jashtë përdorimit.</value>
+  </data>
+  <data name="StockAccountsMissing" xml:space="preserve">
+    <value>Nuk ka llogari stoku ose kostoje të mallrave të shitura për "{0}": caktojini te artikulli ose kategoria e tij.</value>
+  </data>
+  <data name="StockCostCorrection" xml:space="preserve">
+    <value>Korrigjim i kostos së stokut</value>
+  </data>
+  <data name="StockCostOfGoodsSold" xml:space="preserve">
+    <value>Kosto e mallrave të shitura</value>
+  </data>
+  <data name="StockGoodsReturned" xml:space="preserve">
+    <value>Mallra të kthyera në stok</value>
+  </data>
+  <data name="StockDocumentOpening" xml:space="preserve">
+    <value>Stoku fillestar</value>
+  </data>
+  <data name="StockDocumentTransfer" xml:space="preserve">
+    <value>Transferim</value>
+  </data>
+  <data name="StockDocumentCount" xml:space="preserve">
+    <value>Inventarizim</value>
+  </data>
+  <data name="StockDocumentWriteOff" xml:space="preserve">
+    <value>Nxjerrje jashtë përdorimit</value>
+  </data>
+  <data name="StockDocumentDuplicateItem" xml:space="preserve">
+    <value>Çdo artikull mund të shfaqet vetëm një herë në një dokument stoku.</value>
+  </data>
+  <data name="StockDocumentNoLines" xml:space="preserve">
+    <value>Shtoni të paktën një artikull.</value>
+  </data>
+  <data name="StockDocumentPosted" xml:space="preserve">
+    <value>Ky dokument stoku është postuar dhe nuk mund të ndryshohet.</value>
+  </data>
+  <data name="StockDocumentQuantity" xml:space="preserve">
+    <value>Shkruani një sasi më të madhe se zero (numërimi mund të jetë zero).</value>
+  </data>
+  <data name="StockDocumentTooManyLines" xml:space="preserve">
+    <value>Një dokument stoku mund të ketë deri në 2.000 rreshta.</value>
+  </data>
+  <data name="StockDocumentTypeFixed" xml:space="preserve">
+    <value>Lloji i dokumentit të stokut nuk mund të ndryshojë.</value>
+  </data>
+  <data name="StockItemNotFound" xml:space="preserve">
+    <value>Ky artikull nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="StockItemNotTracked" xml:space="preserve">
+    <value>"{0}" nuk ndjek stokun. Aktivizoni ndjekjen e stokut te artikulli së pari.</value>
+  </data>
+  <data name="StockNotEnough" xml:space="preserve">
+    <value>Nuk ka mjaftueshëm "{0}" në {2}: vetëm {1} në dispozicion.</value>
+  </data>
+  <data name="StockOnlyForGoods" xml:space="preserve">
+    <value>Vetëm mallrat mund të ndjekin stokun.</value>
+  </data>
+  <data name="StockOpeningCostRequired" xml:space="preserve">
+    <value>Shkruani koston për njësi të çdo artikulli në stokun fillestar.</value>
+  </data>
+  <data name="StockTrackingLocked" xml:space="preserve">
+    <value>Ky artikull ka lëvizje stoku: ndjekja mbetet aktive dhe lloji mbetet Mall.</value>
+  </data>
+  <data name="StockTransferWarehouses" xml:space="preserve">
+    <value>Zgjidhni një magazinë tjetër, aktive, si destinacion.</value>
+  </data>
+  <data name="StockWouldGoNegativeLater" xml:space="preserve">
+    <value>"{0}" do të binte nën zero më {1:d}: një dokument i mëvonshëm e ka përdorur tashmë atë stok.</value>
+  </data>
+  <data name="StockWriteOffAtkNoticeRequired" xml:space="preserve">
+    <value>Shkruani datën kur u dërgua njoftimi me shkrim në ATK (i detyrueshëm për asgjësimin e mallrave të skaduara ose të dëmtuara).</value>
+  </data>
+  <data name="StockWriteOffAtkNoticeTooRecent" xml:space="preserve">
+    <value>Njoftimi në ATK duhet të dërgohet të paktën 10 ditë para asgjësimit: postoni më {0:d} ose më vonë.</value>
+  </data>
+  <data name="StockWriteOffReasonRequired" xml:space="preserve">
+    <value>Zgjidhni arsyen e nxjerrjes jashtë përdorimit.</value>
+  </data>
+  <data name="WarehouseCodeTaken" xml:space="preserve">
+    <value>Një magazinë tjetër e përdor tashmë këtë kod.</value>
+  </data>
+  <data name="WarehouseHasStock" xml:space="preserve">
+    <value>Kjo magazinë ka ende stok. Transferojeni para mbylljes së magazinës.</value>
+  </data>
+  <data name="WarehouseInvalid" xml:space="preserve">
+    <value>Jepini magazinës një kod (deri në 20 shkronja) dhe një emër.</value>
+  </data>
+  <data name="WarehouseIsDefault" xml:space="preserve">
+    <value>Kjo është magazina kryesore. Zgjidhni një tjetër si kryesore së pari.</value>
+  </data>
+  <data name="WarehouseNotFound" xml:space="preserve">
+    <value>Kjo magazinë nuk ekziston ose është mbyllur.</value>
   </data>
 </root>

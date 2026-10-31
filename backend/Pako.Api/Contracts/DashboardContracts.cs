@@ -1,7 +1,8 @@
 namespace Pako.Api.Contracts;
 
 // Which parts of the dashboard this user may see; a hidden section comes back empty.
-public record DashboardSections(bool Finance, bool Sales, bool Purchases, bool Payroll, bool Hr);
+// Inventory: docs/INVENTORY_PLAN.md — stock value, low stock, stock margin and stock by item.
+public record DashboardSections(bool Finance, bool Sales, bool Purchases, bool Payroll, bool Hr, bool Inventory = false);
 
 // One headline figure. Previous is the comparison period's value (null without a comparison);
 // ChangePercent is computed here so the browser never divides money. Trend is the figure per
@@ -35,7 +36,8 @@ public record DashboardResponse(
     List<DashboardRankItem> TopItems,
     List<DashboardAgingBucket> ReceivablesAging,
     List<DashboardAgingBucket> PayablesAging,
-    List<DashboardRankItem> HeadcountByDepartment);
+    List<DashboardRankItem> HeadcountByDepartment,
+    List<DashboardRankItem>? StockByItem = null);
 
 // A widget on the company dashboard: what it shows (Key), how (Visual), its width in grid
 // columns (1-4), and whether it draws the comparison period.

@@ -22,7 +22,9 @@ public record CreateInvoiceRequest(
     int? PaymentTermDays = null,
     int? GraceDays = null,
     CreateInvoicePaymentRequest? Payment = null,
-    string? InternalNotes = null);
+    string? InternalNotes = null,
+    // docs/INVENTORY_PLAN.md: where stock-tracked goods leave from; null = company default.
+    Guid? WarehouseId = null);
 
 // C3: optional inline payment recorded atomically with the invoice's own creation+posting — see
 // InvoicesController.Create's comment for why this must post the invoice (not leave it Draft).
@@ -40,7 +42,8 @@ public record UpdateInvoiceRequest(
     List<CreateInvoiceLineRequest> Lines,
     DocumentType DocumentType,
     Guid? OriginalInvoiceId,
-    string? InternalNotes);
+    string? InternalNotes,
+    Guid? WarehouseId = null);
 
 // A5 (v2 release): the entire editable surface of a Posted invoice — see UpdateInvoiceRequest's
 // doc comment for why this is a separate, narrower type rather than reusing UpdateInvoiceRequest
@@ -71,4 +74,5 @@ public record InvoiceResponse(
     string? InternalNotes,
     PriceMode PriceMode,
     int? PaymentTermDays,
-    int? GraceDays);
+    int? GraceDays,
+    Guid? WarehouseId = null);

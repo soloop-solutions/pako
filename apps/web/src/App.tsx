@@ -18,6 +18,7 @@ import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
 import { PayrollRunDetail } from "@/pages/payroll/PayrollRunDetail";
 import { EmployeeDetail } from "@/pages/hr/EmployeeDetail";
+import { StockDocumentDetail } from "@/pages/inventory/StockDocumentDetail";
 import { RequestAccount } from "@/pages/RequestAccount";
 import { PlatformAdmin } from "@/pages/platform/PlatformAdmin";
 
@@ -72,6 +73,7 @@ export function App() {
                     <Route path="/purchase-returns/:id" element={<InstanceRoute Component={BillDetail} />} />
                     <Route path="/payroll/:id" element={<InstanceRoute Component={PayrollRunDetail} />} />
                     <Route path="/employees/:id" element={<InstanceRoute Component={EmployeeDetail} />} />
+                    <Route path="/stock-documents/:id" element={<InstanceRoute Component={StockDocumentDetail} />} />
                   </Route>
                 </Route>
               </Route>

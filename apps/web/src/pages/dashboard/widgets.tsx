@@ -52,7 +52,7 @@ export function WidgetCard({
     const kpi = data.kpis.find((k) => k.key === widget.key.slice(4));
     if (!kpi) return null;
     const format = formatFor(f, def.kpi.format);
-    const balance = ["kpi.cash", "kpi.receivables", "kpi.payables", "kpi.overdueReceivables", "kpi.overduePayables", "kpi.headcount"].includes(widget.key);
+    const balance = ["kpi.cash", "kpi.receivables", "kpi.payables", "kpi.overdueReceivables", "kpi.overduePayables", "kpi.headcount", "kpi.stockValue", "kpi.lowStock"].includes(widget.key);
     subtitle = balance ? intl.formatMessage({ id: "dashboard.asOf" }, { date: intl.formatDate(new Date(`${data.to}T00:00`), { dateStyle: "medium" }) }) : currentName;
     body = (
       <StatFigure
@@ -140,11 +140,12 @@ export function WidgetCard({
     topVendors: data.topVendors,
     topItems: data.topItems,
     headcountByDepartment: data.headcountByDepartment,
+    stockByItem: data.stockByItem ?? [],
   };
   if (ranks[widget.key]) {
     const items = ranks[widget.key];
     const format = widget.key === "headcountByDepartment" ? f.count : f.money;
-    if (widget.key === "headcountByDepartment") {
+    if (widget.key === "headcountByDepartment" || (widget.key === "stockByItem" && !hasCompare)) {
       subtitle = intl.formatMessage({ id: "dashboard.asOf" }, { date: intl.formatDate(new Date(`${data.to}T00:00`), { dateStyle: "medium" }) });
     } else if (hasCompare) {
       subtitle = intl.formatMessage({ id: "dashboard.comparedWith" }, { current: currentName, previous: previousName });

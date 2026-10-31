@@ -23,6 +23,7 @@ public class CompanyRoleConfiguration : IEntityTypeConfiguration<CompanyRole>
         builder.Property(r => r.ReportsAccess).HasConversion<string>().HasMaxLength(8);
         builder.Property(r => r.HrAccess).HasConversion<string>().HasMaxLength(8);
         builder.Property(r => r.PayrollAccess).HasConversion<string>().HasMaxLength(8);
+        builder.Property(r => r.InventoryAccess).HasConversion<string>().HasMaxLength(8);
         builder.Property(r => r.SettingsAccess).HasConversion<string>().HasMaxLength(8);
         builder.Property(r => r.UsersAccess).HasConversion<string>().HasMaxLength(8);
         builder.Property(r => r.PartnerScope).HasConversion<string>().HasMaxLength(16);

@@ -21,7 +21,9 @@ public record CreateBillRequest(
     DocumentType DocumentType = DocumentType.Bill,
     Guid? OriginalBillId = null,
     PriceMode PriceMode = PriceMode.GrossInclusive,
-    CreateBillPaymentRequest? Payment = null);
+    CreateBillPaymentRequest? Payment = null,
+    // docs/INVENTORY_PLAN.md: where stock-tracked goods arrive; null = company default.
+    Guid? WarehouseId = null);
 
 // C5: cash-only at bill-create time — BillsController.Create rejects a non-Cash PaymentMethod
 // here; a bank payment is only ever recorded later, once it appears on the bank statement,
@@ -37,7 +39,8 @@ public record UpdateBillRequest(
     List<CreateBillLineRequest> Lines,
     DocumentType DocumentType,
     Guid? OriginalBillId,
-    string? InternalNotes);
+    string? InternalNotes,
+    Guid? WarehouseId = null);
 
 // A5 (v2 release): mirror of EditPostedInvoiceRequest.
 public record EditPostedBillRequest(DateOnly DueDate, string? InternalNotes);
@@ -64,4 +67,5 @@ public record BillResponse(
     Guid? JournalEntryId,
     List<BillLineResponse> Lines,
     string? InternalNotes,
-    PriceMode PriceMode);
+    PriceMode PriceMode,
+    Guid? WarehouseId = null);

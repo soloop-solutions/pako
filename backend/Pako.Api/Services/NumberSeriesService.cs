@@ -328,6 +328,11 @@ public class NumberSeriesService
         "Proforma" => "PRO-{seq:D4}",
         "JournalEntry" => "URD-{seq:D6}",
         "Item" => "{seq}",
+        // docs/INVENTORY_PLAN.md stock documents.
+        "StockOpening" => "HAP-{seq:D4}/{yyyy}",
+        "StockTransfer" => "TRF-{seq:D4}/{yyyy}",
+        "StockCount" => "INVR-{seq:D4}/{yyyy}",
+        "StockWriteOff" => "NJP-{seq:D4}/{yyyy}",
         _ => "{seq:D4}"
     };
 
