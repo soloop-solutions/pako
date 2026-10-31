@@ -2,9 +2,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { useIntl } from "react-intl";
 
-import type { PayablesAgingLine } from "@pako/shared";
+import type { PayablesAgingLine, PayablesAgingVendorRow } from "@pako/shared";
 
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
@@ -48,6 +49,29 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
     [intl],
   );
 
+  const matrixColumns = useMemo<ColumnDef<PayablesAgingVendorRow>[]>(
+    () => [
+      staticColumn<PayablesAgingVendorRow>({ id: "partnerName", header: intl.formatMessage({ id: "common.vendor" }), accessorFn: (row) => row.partnerName }),
+      ...(data?.buckets ?? []).map((bucket) =>
+        staticColumn<PayablesAgingVendorRow>({
+          id: `b_${bucket.bucket}`,
+          header: intl.messages[`reports.agingBucket.${bucket.bucket}`] ? intl.formatMessage({ id: `reports.agingBucket.${bucket.bucket}` }) : bucket.bucket,
+          accessorFn: (row) => row.buckets.find((item) => item.bucket === bucket.bucket)?.total ?? 0,
+          cell: ({ row }) => formatAmount(row.original.buckets.find((item) => item.bucket === bucket.bucket)?.total ?? 0),
+          meta: { numeric: true },
+        }),
+      ),
+      staticColumn<PayablesAgingVendorRow>({
+        id: "total",
+        header: intl.formatMessage({ id: "common.total" }),
+        accessorFn: (row) => row.total,
+        cell: ({ row }) => formatAmount(row.original.total),
+        meta: { numeric: true },
+      }),
+    ],
+    [intl, data?.buckets],
+  );
+
   return (
     <ReportShell
       titleId="reports.payablesAging"
@@ -59,10 +83,20 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
       exportError={report.exportError}
       error={report.error}
       controls={
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="payables-aging-as-of">{intl.formatMessage({ id: "reports.asOf" })}</Label>
-          <Input id="payables-aging-as-of" type="date" value={report.asOf} onChange={(event) => report.setAsOf(event.target.value)} />
-        </div>
+        <>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="payables-aging-as-of">{intl.formatMessage({ id: "reports.asOf" })}</Label>
+            <Input id="payables-aging-as-of" type="date" value={report.asOf} onChange={(event) => report.setAsOf(event.target.value)} />
+          </div>
+          <div className="flex gap-1">
+            <Button type="button" size="sm" variant={report.view === "bill" ? "default" : "outline"} onClick={() => report.setView("bill")}>
+              {intl.formatMessage({ id: "reports.agingViewBill" })}
+            </Button>
+            <Button type="button" size="sm" variant={report.view === "vendor" ? "default" : "outline"} onClick={() => report.setView("vendor")}>
+              {intl.formatMessage({ id: "reports.agingViewVendor" })}
+            </Button>
+          </div>
+        </>
       }
     >
       {data && (
@@ -78,15 +112,33 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
               ))}
             </div>
           </div>
-          <DataGrid<PayablesAgingLine>
-            gridId="payablesAging"
-            columns={columns}
-            data={data.lines}
-            rowCount={data.lines.length}
-            getRowId={(row) => row.billId}
-            defaultPageSize={1000}
-            pageSizeOptions={[1000]}
-          />
+          {report.view === "vendor" ? (
+            <div data-testid="vendor-matrix">
+              <DataGrid<PayablesAgingVendorRow>
+                gridId="payablesAgingVendors"
+                columns={matrixColumns}
+                data={data.vendorMatrix}
+                rowCount={data.vendorMatrix.length}
+                getRowId={(row) => row.partnerId}
+                defaultPageSize={1000}
+                pageSizeOptions={[1000]}
+                footerRow={{
+                  label: intl.formatMessage({ id: "common.total" }),
+                  cells: Object.fromEntries(data.buckets.map((bucket) => [`b_${bucket.bucket}`, formatAmount(bucket.total)])),
+                }}
+              />
+            </div>
+          ) : (
+            <DataGrid<PayablesAgingLine>
+              gridId="payablesAging"
+              columns={columns}
+              data={data.lines}
+              rowCount={data.lines.length}
+              getRowId={(row) => row.billId}
+              defaultPageSize={1000}
+              pageSizeOptions={[1000]}
+            />
+          )}
         </>
       )}
     </ReportShell>

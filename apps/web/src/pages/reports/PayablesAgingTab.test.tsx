@@ -75,4 +75,32 @@ describe("PayablesAgingTab", () => {
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.payablesAgingExport).toHaveBeenCalledWith("c1", "2026-01-31"));
   });
+
+  it("switches to the vendor matrix through the URL and renders server rows and bucket totals", async () => {
+    renderReports(URL_);
+    await screen.findByText("BILL-0004");
+    fireEvent.click(screen.getByRole("button", { name: "By vendor" }));
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toContain("view=vendor"));
+    const matrix = await screen.findByTestId("vendor-matrix");
+    expect(screen.queryByText("BILL-0004")).not.toBeInTheDocument();
+    const telekomi = within(matrix).getByText("Telekomi i Kosoves J.S.C.").closest("tr") as HTMLElement;
+    expect(within(telekomi).getByText("354.00")).toBeInTheDocument();
+    expect(within(telekomi).getByText("234.00")).toBeInTheDocument();
+    expect(within(telekomi).getByText("120.00")).toBeInTheDocument();
+    for (const header of ["Current", "1-30 days", "31-45 days", "46-60 days", "61-90 days", "91-180 days", "181-360 days", "Over 360 days", "Total"]) {
+      expect(within(matrix).getByRole("columnheader", { name: header })).toBeInTheDocument();
+    }
+    const footer = matrix.querySelector("tfoot") as HTMLElement;
+    expect(within(footer).getByText("1180.00")).toBeInTheDocument();
+    expect(within(footer).getByText("Total")).toBeInTheDocument();
+  });
+
+  it("opens on the vendor matrix when the URL says so, with Albanian bucket labels", async () => {
+    localStorage.setItem("pako.language", "sq");
+    renderReports(`${URL_}&view=vendor`);
+    const matrix = await screen.findByTestId("vendor-matrix");
+    expect(within(matrix).getByRole("columnheader", { name: "Mbi 360 dit\u00eb" })).toBeInTheDocument();
+    expect(within(matrix).getByRole("columnheader", { name: "N\u00eb afat" })).toBeInTheDocument();
+    localStorage.clear();
+  });
 });

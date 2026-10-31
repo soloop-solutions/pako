@@ -21,8 +21,12 @@ export function usePayablesAgingReport(companyId: string | null, enabled: boolea
 
   const exporter = useReportExport(() => apiClient.payablesAgingExport(companyId as string, asOf), "payables-aging.xlsx");
 
+  const view = period.searchParams.get("view") === "vendor" ? "vendor" : "bill";
+
   return {
     asOf,
+    view,
+    setView: (value: "bill" | "vendor") => period.setParam("view", value === "vendor" ? "vendor" : null),
     setAsOf: (value: string) => period.setParam("asOf", value || null),
     data: query.data,
     loading: query.isFetching,
