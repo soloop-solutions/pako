@@ -147,7 +147,7 @@ public record GeneralLedgerLine(
     decimal Credit,
     string? DocumentType = null,
     string? DocumentNumber = null,
-    Guid AccountId = default,
+    Guid? AccountId = null,
     string? SourceKind = null,
     Guid? SourceId = null);
 
@@ -340,7 +340,7 @@ public record PurchaseTransactionLine(
     decimal NetAmount,
     decimal VatAmount,
     decimal GrossAmount,
-    Guid DocumentId = default,
+    Guid? DocumentId = null,
     string? SourceKind = null,
     Guid? SourceId = null,
     Guid? PartnerId = null,
