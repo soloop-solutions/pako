@@ -1,5 +1,7 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ApiException } from "@pako/shared";
 
 import fixture from "@/mocks/vat-declaration.json";
 
@@ -140,5 +142,49 @@ describe("VatDeclarationTab", () => {
   it("shows decoded text for labels the server escapes", async () => {
     renderReports(URL_);
     expect(await screen.findByText("Remaining credit balance, 69 = ((67+68)-30) > 0")).toBeInTheDocument();
+  });
+
+  it("shows the server's specific 400 message inline and keeps the last good report visible", async () => {
+    renderReports(URL_);
+    await screen.findByText("Taxable sales at 18%");
+    m.vatDeclaration.mockRejectedValue(new ApiException("bad", 400, JSON.stringify({ error: "Refund cannot exceed the remaining credit." }), {}, null));
+    const refund = screen.getByLabelText("Refund requested [70]");
+    fireEvent.change(refund, { target: { value: "99999" } });
+    fireEvent.blur(refund);
+    expect(await screen.findByText("Refund cannot exceed the remaining credit.")).toBeInTheDocument();
+    expect(screen.queryByText("An unexpected server error occurred")).not.toBeInTheDocument();
+    expect(screen.getByText("Taxable sales at 18%")).toBeInTheDocument();
+  });
+
+  it("applies the carried credit while typing after a 400 ms debounce", async () => {
+    renderReports(URL_);
+    await screen.findByText("Taxable sales at 18%");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    const credit = screen.getByLabelText("Credit carried forward [68]");
+    fireEvent.change(credit, { target: { value: "5" } });
+    fireEvent.change(credit, { target: { value: "50" } });
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(m.vatDeclaration).not.toHaveBeenCalledWith("c1", 2026, 9, 50, undefined);
+    await act(async () => {
+      vi.advanceTimersByTime(150);
+    });
+    vi.useRealTimers();
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 50, undefined));
+    expect(m.vatDeclaration).not.toHaveBeenCalledWith("c1", 2026, 9, 5, undefined);
+  });
+
+  it.each(["13", "0", "abc"])("rejects an invalid month param %s without calling the API", async (bad) => {
+    renderReports(`/reports?tab=vat-declaration&year=2026&month=${bad}`);
+    expect(await screen.findByText("Month must be a number from 1 to 12.")).toBeInTheDocument();
+    expect(m.vatDeclaration).not.toHaveBeenCalled();
+  });
+
+  it("uses distinct Albanian labels for the VAT return and the VAT declaration tabs", async () => {
+    localStorage.setItem("pako.language", "sq");
+    renderReports(URL_);
+    expect(await screen.findByRole("button", { name: "P\u00ebrmbledhja e TVSH-s\u00eb" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Deklarata e TVSH-s\u00eb (formulari)" })).toBeInTheDocument();
   });
 });

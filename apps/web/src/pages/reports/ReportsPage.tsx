@@ -62,7 +62,7 @@ export function Reports() {
   const TABS: { key: Tab; labelKey: string }[] = [
     { key: "pnl", labelKey: "reports.profitAndLoss" },
     { key: "balance-sheet", labelKey: "reports.balanceSheet" },
-    { key: "vat", labelKey: "reports.vatReturn" },
+    { key: "vat", labelKey: "reports.vatReturnTab" },
     { key: "debt", labelKey: "reports.debtAging" },
     { key: "sales-book", labelKey: "reports.salesBook" },
     { key: "purchase-book", labelKey: "reports.purchaseBook" },
@@ -74,7 +74,7 @@ export function Reports() {
     { key: "vendors", labelKey: "reports.vendors" },
     { key: "payables-aging", labelKey: "reports.payablesAging" },
     { key: "purchases", labelKey: "reports.purchases" },
-    { key: "vat-declaration", labelKey: "reports.vatDeclaration" },
+    { key: "vat-declaration", labelKey: "reports.vatDeclarationTab" },
   ];
 
   const [searchParams, setSearchParams] = useSearchParams();

@@ -24,7 +24,7 @@ export function VatTab({ report, companyName, taxLockDate }: { report: ReturnTyp
   return (
     <Card ref={printRef}>
       <CardHeader>
-        <CardTitle>{intl.formatMessage({ id: "reports.vatReturn" })}</CardTitle>
+        <CardTitle>{intl.formatMessage({ id: "reports.vatReturnTab" })}</CardTitle>
         <CardDescription>{companyName}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">

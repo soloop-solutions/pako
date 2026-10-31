@@ -1,5 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 
 import type { VatDeclarationBox } from "@pako/shared";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { formatAmount, isOnOrBeforeLock } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { ExportButton, LockNotice } from "./shared";
-import type { useVatDeclarationReport } from "./useVatDeclarationReport";
+import { isValidMonth, type useVatDeclarationReport } from "./useVatDeclarationReport";
 
 const SECTION_TITLES: Record<string, string> = {
   Sales: "reports.vatDeclSection.Sales",
@@ -25,13 +25,28 @@ function lastDayOfMonth(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, "0")}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
 }
 
+function parseAmount(raw: string): number | undefined {
+  if (raw.trim() === "") return undefined;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) ? parsed : undefined;
+}
+
 function AmountInput({ id, label, value, onCommit }: { id: string; label: string; value: number | undefined; onCommit: (value: string) => void }) {
   const [draft, setDraft] = useState(value === undefined ? "" : String(value));
   const [source, setSource] = useState(value);
+  const commitRef = useRef(onCommit);
+  useEffect(() => {
+    commitRef.current = onCommit;
+  });
   if (source !== value) {
     setSource(value);
-    setDraft(value === undefined ? "" : String(value));
+    if (parseAmount(draft) !== value) setDraft(value === undefined ? "" : String(value));
   }
+  useEffect(() => {
+    if (parseAmount(draft) === source) return;
+    const timer = setTimeout(() => commitRef.current(draft), 400);
+    return () => clearTimeout(timer);
+  }, [draft, source]);
   return (
     <div className="flex flex-col gap-2">
       <Label htmlFor={id}>{label}</Label>
@@ -53,19 +68,21 @@ function AmountInput({ id, label, value, onCommit }: { id: string; label: string
 
 export function VatDeclarationTab({ report, companyName, taxLockDate }: { report: ReturnType<typeof useVatDeclarationReport>; companyName: string; taxLockDate: string | undefined }) {
   const intl = useIntl();
-  const { period, data, year, month } = report;
+  const { period, data, year, month, monthRaw } = report;
   const [yearDraft, setYearDraft] = useState(String(year));
   const [yearSource, setYearSource] = useState(year);
-  const [monthDraft, setMonthDraft] = useState(String(month));
-  const [monthSource, setMonthSource] = useState(month);
+  const monthKey = monthRaw ?? String(month);
+  const [monthDraft, setMonthDraft] = useState(monthKey);
+  const [monthSource, setMonthSource] = useState(monthKey);
   if (yearSource !== year) {
     setYearSource(year);
     setYearDraft(String(year));
   }
-  if (monthSource !== month) {
-    setMonthSource(month);
-    setMonthDraft(String(month));
+  if (monthSource !== monthKey) {
+    setMonthSource(monthKey);
+    setMonthDraft(monthKey);
   }
+  const monthDraftInvalid = !isValidMonth(monthDraft);
 
   function changeYear(value: string) {
     setYearDraft(value);
@@ -75,8 +92,7 @@ export function VatDeclarationTab({ report, companyName, taxLockDate }: { report
 
   function changeMonth(value: string) {
     setMonthDraft(value);
-    const parsed = Number(value);
-    if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 12) report.setMonth(value);
+    if (isValidMonth(value)) report.setMonth(value);
   }
 
   const columns = useMemo<ColumnDef<VatDeclarationBox>[]>(
@@ -119,7 +135,7 @@ export function VatDeclarationTab({ report, companyName, taxLockDate }: { report
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{intl.formatMessage({ id: "reports.vatDeclaration" })}</CardTitle>
+        <CardTitle>{intl.formatMessage({ id: "reports.vatDeclarationTab" })}</CardTitle>
         <CardDescription>{companyName}</CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -138,6 +154,12 @@ export function VatDeclarationTab({ report, companyName, taxLockDate }: { report
         </div>
 
         {taxLocked && <LockNotice lockDate={taxLockDate ?? ""} messageId="reports.periodLockedTax" />}
+
+        {monthDraftInvalid && (
+          <Alert variant="destructive">
+            <AlertDescription>{intl.formatMessage({ id: "reports.monthInvalid" })}</AlertDescription>
+          </Alert>
+        )}
 
         {(report.error || report.exportError) && (
           <Alert variant="destructive">

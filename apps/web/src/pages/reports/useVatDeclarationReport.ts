@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -6,9 +7,9 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useReportExport } from "./useReportExport";
 import { useReportPeriod } from "./useReportPeriod";
 
-function parseMonth(raw: string | null): number {
+export function isValidMonth(raw: string | null): boolean {
   const parsed = Number(raw);
-  return raw && Number.isInteger(parsed) && parsed >= 1 && parsed <= 12 ? parsed : new Date().getMonth() + 1;
+  return !!raw && Number.isInteger(parsed) && parsed >= 1 && parsed <= 12;
 }
 
 function parseOptionalAmount(raw: string | null): number | undefined {
@@ -21,16 +22,21 @@ export function useVatDeclarationReport(companyId: string | null, enabled: boole
   const intl = useIntl();
   const period = useReportPeriod();
   const year = period.year;
-  const month = parseMonth(period.searchParams.get("month"));
+  const monthRaw = period.searchParams.get("month");
+  const monthInvalid = monthRaw !== null && !isValidMonth(monthRaw);
+  const month = monthRaw !== null && !monthInvalid ? Number(monthRaw) : new Date().getMonth() + 1;
   const carriedCredit = parseOptionalAmount(period.searchParams.get("carriedCredit"));
   const refundRequested = parseOptionalAmount(period.searchParams.get("refundRequested"));
 
   const query = useQuery({
     queryKey: ["reports", "vatDeclaration", companyId, year, month, carriedCredit, refundRequested] as const,
     queryFn: () => apiClient.vatDeclaration(companyId as string, year, month, carriedCredit, refundRequested),
-    enabled: enabled && !!companyId,
+    enabled: enabled && !!companyId && !monthInvalid,
     placeholderData: keepPreviousData,
   });
+
+  const [lastGood, setLastGood] = useState(query.data);
+  if (query.data && query.data !== lastGood) setLastGood(query.data);
 
   const exporter = useReportExport(
     () => apiClient.vatDeclarationExport(companyId as string, year, month, carriedCredit, refundRequested),
@@ -41,12 +47,14 @@ export function useVatDeclarationReport(companyId: string | null, enabled: boole
     period,
     year,
     month,
+    monthRaw,
+    monthInvalid,
     carriedCredit,
     refundRequested,
     setMonth: (value: string) => period.setParam("month", value),
     setCarriedCredit: (value: string) => period.setParam("carriedCredit", value.trim() || null),
     setRefundRequested: (value: string) => period.setParam("refundRequested", value.trim() || null),
-    data: query.data,
+    data: query.data ?? lastGood,
     loading: query.isFetching,
     error: query.error ? getApiErrorMessage(query.error, intl.formatMessage({ id: "reports.vatDeclLoadError" })) : null,
     ...exporter,
