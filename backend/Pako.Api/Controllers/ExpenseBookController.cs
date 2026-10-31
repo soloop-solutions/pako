@@ -104,7 +104,7 @@ public class ExpenseBookController : ControllerBase
             }).ToListAsync();
 
         var columns = lines
-            .Where(l => AccountTypeDerivation.IsExpense(l.AccountType))
+            .Where(l => AccountTypeDerivation.IsOperatingExpense(l.AccountType))
             .Select(l => new ExpenseBookColumn(l.AccountId, l.Code, l.Name))
             .DistinctBy(c => c.AccountId)
             .OrderBy(c => c.AccountCode, StringComparer.Ordinal)
@@ -113,7 +113,7 @@ public class ExpenseBookController : ControllerBase
 
         var entries = lines
             .GroupBy(l => l.EntryId)
-            .Where(g => g.Any(l => index.ContainsKey(l.AccountId) && AccountTypeDerivation.IsExpense(l.AccountType)))
+            .Where(g => g.Any(l => index.ContainsKey(l.AccountId) && AccountTypeDerivation.IsOperatingExpense(l.AccountType)))
             .Select(g => g.OrderBy(l => l.LineId).ToList())
             .OrderBy(g => g[0].Date)
             .ThenBy(g => g[0].SecureSequenceNumber is null)
@@ -133,7 +133,7 @@ public class ExpenseBookController : ControllerBase
             var amounts = new decimal[columns.Count];
             foreach (var l in g)
             {
-                if (AccountTypeDerivation.IsExpense(l.AccountType))
+                if (AccountTypeDerivation.IsOperatingExpense(l.AccountType))
                 {
                     amounts[index[l.AccountId]] += l.Debit - l.Credit;
                 }

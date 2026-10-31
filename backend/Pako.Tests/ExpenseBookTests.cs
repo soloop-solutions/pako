@@ -44,6 +44,7 @@ public class ExpenseBookTests : IAsyncLifetime
         Post(db, company, journal, new DateOnly(2025, 12, 20), "OLD", null, true, (rent, 999m, 0m), (cash, 0m, 999m));
         Post(db, company, journal, new DateOnly(2026, 1, 10), "BILL-1", partner.Id, true, (rent, 1000m, 0m), (cash, 0m, 1000m));
         Post(db, company, journal, new DateOnly(2026, 1, 15), null, null, true, (cogs, 300m, 0m), (rent, 50m, 0m), (cash, 0m, 350m));
+        Post(db, company, journal, new DateOnly(2026, 1, 18), "SALE-COGS", null, true, (cogs, 120m, 0m), (cash, 0m, 120m));
         Post(db, company, journal, new DateOnly(2026, 1, 20), "SALE-1", null, true, (cash, 500m, 0m), (revenue, 0m, 500m));
         Post(db, company, journal, new DateOnly(2026, 1, 25), "BILL-2", null, true, (utilities, 240m, 0m), (cash, 0m, 240m));
         Post(db, company, journal, new DateOnly(2026, 1, 28), "DRAFT", null, false, (unused, 777m, 0m), (cash, 0m, 777m));
@@ -93,7 +94,7 @@ public class ExpenseBookTests : IAsyncLifetime
         Assert.Equal("Prime Properties", book.Rows[0].PartnerName);
         Assert.Null(book.Rows[1].DocumentNumber);
         Assert.Null(book.Rows[1].PartnerName);
-        Assert.Equal(new[] { 1000m, 350m, 240m }, book.Rows.Select(r => r.Total));
+        Assert.Equal(new[] { 1000m, 50m, 240m }, book.Rows.Select(r => r.Total));
     }
 
     [Fact]
@@ -102,9 +103,9 @@ public class ExpenseBookTests : IAsyncLifetime
         var s = await SeedAsync();
         var book = await BookAsync(s, Jan1, Jan31);
 
-        Assert.Equal(new[] { "5000", "6000", "6100" }, book.Columns.Select(c => c.AccountCode));
-        Assert.Equal(new[] { s.Cogs.Id, s.Rent.Id, s.Utilities.Id }, book.Columns.Select(c => c.AccountId));
-        Assert.Equal("Rent", book.Columns[1].AccountName);
+        Assert.Equal(new[] { "6000", "6100" }, book.Columns.Select(c => c.AccountCode));
+        Assert.Equal(new[] { s.Rent.Id, s.Utilities.Id }, book.Columns.Select(c => c.AccountId));
+        Assert.Equal("Rent", book.Columns[0].AccountName);
     }
 
     [Fact]
@@ -113,25 +114,27 @@ public class ExpenseBookTests : IAsyncLifetime
         var s = await SeedAsync();
         var book = await BookAsync(s, Jan1, Jan31);
 
-        Assert.Equal(new[] { 0m, 1000m, 0m }, book.Rows[0].Amounts);
-        Assert.Equal(new[] { 300m, 50m, 0m }, book.Rows[1].Amounts);
-        Assert.Equal(new[] { 0m, 0m, 240m }, book.Rows[2].Amounts);
+        Assert.Equal(new[] { 1000m, 0m }, book.Rows[0].Amounts);
+        Assert.Equal(new[] { 50m, 0m }, book.Rows[1].Amounts);
+        Assert.Equal(new[] { 0m, 240m }, book.Rows[2].Amounts);
         Assert.All(book.Rows, r => Assert.Equal(book.Columns.Count, r.Amounts.Count));
     }
 
     [Fact]
-    public async Task ExpenseBook_ColumnTotalsEqualPnlExpenses()
+    public async Task ExpenseBook_ColumnTotalsEqualPnlExpensesExcludingCostOfRevenue()
     {
         var s = await SeedAsync();
         var book = await BookAsync(s, Jan1, Jan31);
 
-        Assert.Equal(new[] { 300m, 1050m, 240m }, book.ColumnTotals);
+        Assert.Equal(new[] { 1050m, 240m }, book.ColumnTotals);
 
-        var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
-        var pnl = Assert.IsType<ProfitAndLossResponse>(Assert.IsType<OkObjectResult>((await reports.ProfitAndLoss(s.CompanyId, Jan1, Jan31)).Result).Value);
-        Assert.Equal(1590m, pnl.TotalExpenses);
-        Assert.Equal(pnl.TotalExpenses, book.ColumnTotals.Sum());
-        Assert.Equal(pnl.TotalExpenses, book.Rows.Sum(r => r.Total));
+        var statements = new StatementReportsController(new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
+        var monthly = Assert.IsType<MonthlyProfitAndLossResponse>(Assert.IsType<OkObjectResult>((await statements.MonthlyProfitAndLoss(s.CompanyId, 2026)).Result).Value);
+        var januaryExpenses = monthly.Expenses.Sum(l => l.Months[0]);
+        Assert.Equal(1290m, januaryExpenses);
+        Assert.Equal(januaryExpenses, book.ColumnTotals.Sum());
+        Assert.Equal(januaryExpenses, book.Rows.Sum(r => r.Total));
+        Assert.Equal(420m, monthly.CostOfRevenue.Sum(l => l.Months[0]));
     }
 
     [Fact]
@@ -142,12 +145,22 @@ public class ExpenseBookTests : IAsyncLifetime
 
         Assert.DoesNotContain(book.Columns, c => c.AccountCode == "6200");
         Assert.DoesNotContain(book.Rows, r => r.DocumentNumber is "DRAFT" or "OLD" or "FEB");
-        Assert.Equal(1590m, book.ColumnTotals.Sum());
+        Assert.Equal(1290m, book.ColumnTotals.Sum());
 
         var empty = await BookAsync(s, new DateOnly(2027, 1, 1), new DateOnly(2027, 1, 31));
         Assert.Empty(empty.Columns);
         Assert.Empty(empty.Rows);
         Assert.Empty(empty.ColumnTotals);
+    }
+
+    [Fact]
+    public async Task ExpenseBook_SalesInvoiceCostOfSalesEntry_ProducesNoRow()
+    {
+        var s = await SeedAsync();
+        var book = await BookAsync(s, Jan1, Jan31);
+
+        Assert.DoesNotContain(book.Rows, r => r.DocumentNumber == "SALE-COGS");
+        Assert.DoesNotContain(book.Columns, c => c.AccountId == s.Cogs.Id);
     }
 
     [Fact]
@@ -167,7 +180,7 @@ public class ExpenseBookTests : IAsyncLifetime
         var s = await SeedAsync();
         var book = await BookAsync(s, Jan1, Jan31);
 
-        Assert.Equal(1590m, book.GrandTotal);
+        Assert.Equal(1290m, book.GrandTotal);
         Assert.Equal(book.Rows.Sum(r => r.Total), book.GrandTotal);
         Assert.Equal(book.ColumnTotals.Sum(), book.GrandTotal);
     }
