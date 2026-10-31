@@ -157,7 +157,7 @@ describe("StockMovementsTab", () => {
 
   it("shows the tab only to users who can see the Inventory area", async () => {
     renderReports("/reports");
-    expect(await screen.findByRole("button", { name: "Stock movements (Komplet)" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Stock movements" })).toBeInTheDocument();
     expect(access.canSee).toHaveBeenCalledWith("inventory");
   });
 
@@ -165,7 +165,7 @@ describe("StockMovementsTab", () => {
     access.canSee.mockImplementation((module: string) => module !== "inventory");
     renderReports(URL_);
     await waitFor(() => expect(m.checks).toHaveBeenCalled());
-    expect(screen.queryByRole("button", { name: "Stock movements (Komplet)" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Stock movements" })).not.toBeInTheDocument();
     expect(m.stockMovementsReport).not.toHaveBeenCalled();
   });
 });
