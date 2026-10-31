@@ -20,7 +20,8 @@ export function rowLinkProps(path: string, navigate: (path: string) => void): Ro
     "data-row-link": path,
     onClick: (event) => {
       if ((event.target as HTMLElement).closest(INTERACTIVE)) return;
-      if (event.ctrlKey || event.metaKey) {
+      if (window.getSelection()?.toString()) return;
+      if (event.ctrlKey || event.metaKey || event.shiftKey) {
         openInNewTab(path);
         return;
       }

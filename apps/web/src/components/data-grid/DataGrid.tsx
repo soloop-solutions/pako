@@ -48,7 +48,6 @@ export interface DataGridProps<TData extends object> {
   getRowClassName?: (row: TData) => string | undefined;
   /** Opens a record when its row is clicked. Clicks on buttons/links/inputs inside the row are ignored. */
   onRowClick?: (row: TData) => void;
-  /** Navigates to the returned path when the row is clicked or Enter is pressed; null leaves the row inert. */
   getRowLink?: (row: TData) => string | null;
   enableGlobalFilter?: boolean;
   globalFilterPlaceholder?: string;
