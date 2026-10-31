@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,6 +10,7 @@ import { Items } from "./Items";
 const m = vi.hoisted(() => ({
   itemsGET: vi.fn(),
   itemsGET2: vi.fn(),
+  itemsPUT: vi.fn(),
   taxes: vi.fn(),
   accountsAll: vi.fn(),
   listItemCategories: vi.fn(),
@@ -34,11 +35,13 @@ function Probe() {
   return <div data-testid="location">{useLocation().search}</div>;
 }
 
+const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
 function renderAt(entry: string) {
   return render(
     <MemoryRouter initialEntries={[entry]}>
       <IntlProviderWrapper>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        <QueryClientProvider client={client}>
           <Items />
           <Probe />
         </QueryClientProvider>
@@ -49,6 +52,7 @@ function renderAt(entry: string) {
 
 describe("items ?open=", () => {
   beforeEach(() => {
+    client.clear();
     Object.values(m).forEach((fn) => fn.mockReset());
     m.itemsGET.mockResolvedValue({ items: [item("i1", "On Page")], total: 1, page: 1, pageSize: 50 });
     m.taxes.mockResolvedValue([]);
@@ -79,5 +83,17 @@ describe("items ?open=", () => {
     expect(await screen.findByText("On Page")).toBeInTheDocument();
     await waitFor(() => expect(m.itemsGET2).toHaveBeenCalled());
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("refetches the single-item cache of an off-page item after a save", async () => {
+    m.itemsGET2.mockResolvedValue({ ...item("i9", "Off Page"), unit: "pc" });
+    m.itemsPUT.mockResolvedValue(item("i9", "Off Page"));
+    renderAt("/items?open=i9");
+    const dialog = await screen.findByRole("dialog");
+    await screen.findByDisplayValue("Off Page");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(m.itemsPUT).toHaveBeenCalled());
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(m.itemsGET2).toHaveBeenCalledTimes(2));
   });
 });

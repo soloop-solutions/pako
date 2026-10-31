@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { documentStateBadgeVariant } from "@/lib/document-types";
+import { formatAmount } from "@/lib/payroll-enums";
 
 interface JournalEntryDialogProps {
   entry: JournalEntryResponse | null;
@@ -16,6 +17,7 @@ interface JournalEntryDialogProps {
 export function JournalEntryDialog({ entry, accounts, journals, onClose }: JournalEntryDialogProps) {
   const intl = useIntl();
   const journal = entry ? journals.find((j) => j.id === entry.journalId) : undefined;
+  const stateKey = entry ? `enum.state.${entry.state.toLowerCase()}` : "";
   const reference = entry ? (entry.sequenceNumber ?? entry.reference ?? intl.formatMessage({ id: "journalEntries.noReference" })) : "";
 
   return (
@@ -46,7 +48,7 @@ export function JournalEntryDialog({ entry, accounts, journals, onClose }: Journ
             <div>
               <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalEntries.state" })}</dt>
               <dd>
-                <Badge variant={documentStateBadgeVariant(entry.state)}>{entry.state}</Badge>
+                <Badge variant={documentStateBadgeVariant(entry.state)}>{stateKey in intl.messages ? intl.formatMessage({ id: stateKey }) : entry.state}</Badge>
               </dd>
             </div>
           </dl>
@@ -69,8 +71,8 @@ export function JournalEntryDialog({ entry, accounts, journals, onClose }: Journ
                     <TableRow key={line.id}>
                       <TableCell>{account ? `${account.code} ${account.name}` : line.accountId}</TableCell>
                       <TableCell>{line.description ?? "-"}</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.debit.toFixed(2)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.credit.toFixed(2)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatAmount(line.debit)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatAmount(line.credit)}</TableCell>
                     </TableRow>
                   );
                 })}

@@ -89,7 +89,10 @@ export function Items() {
   const inventoryAccounts = useMemo(() => accounts.filter((a) => a.accountType === AccountType.CurrentAsset), [accounts]);
 
   async function refreshItems() {
-    await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["item", activeCompanyId] }),
+    ]);
   }
 
   const createMutation = useMutation({
