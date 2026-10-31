@@ -11513,7 +11513,7 @@ export class PakoApiClient {
     }
 
     /**
-     * @return OK
+     * @return Created
      */
     createPriceList(companyId: string, body: SavePriceListRequest): Promise<PriceListResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/price-lists";
@@ -11541,11 +11541,11 @@ export class PakoApiClient {
     protected processCreatePriceList(response: Response): Promise<PriceListResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
+        if (status === 201) {
             return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PriceListResponse;
-            return result200;
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PriceListResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
@@ -11782,7 +11782,7 @@ export class PakoApiClient {
     }
 
     /**
-     * @return OK
+     * @return Created
      */
     createPriceChange(companyId: string, body: SavePriceChangeRequest): Promise<PriceChangeResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/price-changes";
@@ -11810,11 +11810,11 @@ export class PakoApiClient {
     protected processCreatePriceChange(response: Response): Promise<PriceChangeResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
+        if (status === 201) {
             return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PriceChangeResponse;
-            return result200;
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PriceChangeResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
@@ -12233,7 +12233,7 @@ export class PakoApiClient {
     }
 
     /**
-     * @return OK
+     * @return Created
      */
     createPurchaseOrder(companyId: string, body: SavePurchaseOrderRequest): Promise<PurchaseOrderResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/purchase-orders";
@@ -12261,11 +12261,11 @@ export class PakoApiClient {
     protected processCreatePurchaseOrder(response: Response): Promise<PurchaseOrderResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
+        if (status === 201) {
             return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseOrderResponse;
-            return result200;
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PurchaseOrderResponse;
+            return result201;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {

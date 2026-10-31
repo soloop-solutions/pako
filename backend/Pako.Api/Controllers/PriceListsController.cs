@@ -52,6 +52,7 @@ public class PriceListsController : ControllerBase
     }
 
     [HttpPost("price-lists", Name = "CreatePriceList")]
+    [ProducesResponseType(typeof(PriceListResponse), StatusCodes.Status201Created)]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     public async Task<ActionResult<PriceListResponse>> CreateList(Guid companyId, SavePriceListRequest request)
     {
@@ -175,6 +176,7 @@ public class PriceListsController : ControllerBase
     }
 
     [HttpPost("price-changes", Name = "CreatePriceChange")]
+    [ProducesResponseType(typeof(PriceChangeResponse), StatusCodes.Status201Created)]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     public async Task<ActionResult<PriceChangeResponse>> CreateChange(Guid companyId, SavePriceChangeRequest request)
     {
