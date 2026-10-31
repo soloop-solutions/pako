@@ -66,11 +66,23 @@ payable lines without a partner.
 - VAT declaration carried credit [68] is computed from a 12-month lookback and assumes no refund was
   claimed in any earlier month; pass `carriedCredit` to override it.
 - VAT declaration is always evaluated as VAT-registered, whatever the company's registration flag says.
-- Partially deductible purchases (for example BV50) put only the deductible share of their VAT on the
-  deductible box (rounded to 2 decimals, away from zero); the rest is non-reclaimable and sits in the
-  non-deductible base box [33]/[34] with no VAT amount. `AtkBookMapper.ToPurchaseAmount` applies the
-  share, so only the VAT declaration changed; the ATK purchase book export has no VAT columns. Credit
-  [67] now equals the deductible repartition account debits.
+- Partially deductible purchases (for example BV50) put only the deductible VAT on the deductible
+  box. The amount is what was actually posted to the deductible repartition accounts (113xxx other
+  than 113900) for that document and tax code, carried through `TaxBookRow.PostedDeductibleVat`;
+  `AtkBookMapper.ToPurchaseAmount` falls back to round(VAT x deductible %) only when no posted split
+  is available. The rest is non-reclaimable and sits in the non-deductible base box [33]/[34] with
+  no VAT amount. Credit notes carry negative posted amounts. Box [67] therefore equals the debits on
+  the deductible repartition accounts exactly, and TotalVatDeductible matches it.
+- The ATK purchase book export has VAT formula columns (`AtkTaxBookWorkbook.cs`: S, AB and AC =
+  deductible base x 18% / 8%). They read the deductible base boxes, so they follow the split, with
+  cent-level formula rounding as in the official template; the declaration's VAT uses the posted
+  amounts instead.
+- The legacy `reports/vat-return` (`TaxReportService.VatReturnAsync`) and the JSON purchase book
+  still count non-deductible input VAT (for example 113900 and 511200) in their VAT totals; neither
+  is the deductible VAT. The VAT declaration is the correct figure for filing.
+  `books-match-vat-return` compares like with like.
+- Stock movements report with a warehouse filter: values follow each move's recorded value and
+  revaluations are skipped, so a warehouse's closing value can differ from levels x current average.
 - Stock JSON for levels, valuation and card is served by `InventoryController`; the exports read
   `StockReportDataService`, a copy of those queries. They can drift; tests assert they agree.
 - Export routes return 400 on bad input (`[ProducesXlsx]` leaves error results as JSON).
