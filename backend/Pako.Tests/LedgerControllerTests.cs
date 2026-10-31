@@ -200,10 +200,14 @@ public class LedgerControllerTests
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
         var sheet = workbook.Worksheet(1);
         Assert.Equal(new[] { "Account Code", "Account Name", "Opening", "Debit", "Credit", "Closing" }, Enumerable.Range(1, 6).Select(c => sheet.Cell(1, c).GetString()));
-        Assert.Equal("Total", sheet.Cell(4, 1).GetString());
-        Assert.Equal(0m, sheet.Cell(4, 3).GetValue<decimal>());
-        Assert.Equal(50m, sheet.Cell(4, 4).GetValue<decimal>());
-        Assert.Equal(50m, sheet.Cell(4, 5).GetValue<decimal>());
-        Assert.Equal(0m, sheet.Cell(4, 6).GetValue<decimal>());
+        var total = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Total");
+        Assert.Equal(0m, total.Cell(3).GetValue<decimal>());
+        Assert.Equal(50m, total.Cell(4).GetValue<decimal>());
+        Assert.Equal(50m, total.Cell(5).GetValue<decimal>());
+        Assert.Equal(0m, total.Cell(6).GetValue<decimal>());
+        var cashGroup = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Total Cash and equivalents");
+        Assert.Equal(100m, cashGroup.Cell(3).GetValue<decimal>());
+        Assert.Equal(50m, cashGroup.Cell(4).GetValue<decimal>());
+        Assert.Equal(150m, cashGroup.Cell(6).GetValue<decimal>());
     }
 }

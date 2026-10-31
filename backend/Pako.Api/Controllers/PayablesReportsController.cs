@@ -100,7 +100,8 @@ public class PayablesReportsController : ControllerBase
 
         var rows = new List<IReadOnlyList<object?>> { new object?[] { from == DateOnly.MinValue ? null : from, _labels["Common_Opening"], null, null, null, null, statement.Opening } };
         rows.AddRange(statement.Rows.Select(r =>
-            (IReadOnlyList<object?>)new object?[] { r.Date, r.Type, r.DocumentNumber, r.Description, r.Debit, r.Credit, r.Balance }));
+            (IReadOnlyList<object?>)new object?[] { r.Date, _labels.Journal(r.Type), r.DocumentNumber, r.Description, r.Debit, r.Credit, r.Balance }));
+        rows.Add(new object?[] { null, _labels["Common_Total"], null, null, statement.TotalDebit, statement.TotalCredit, null });
         rows.Add(new object?[] { to, _labels["Common_Closing"], null, null, null, null, statement.Closing });
         var headerBlock = new (string Label, object? Value)[]
         {
@@ -127,11 +128,27 @@ public class PayablesReportsController : ControllerBase
         var date = asOf == default ? DateOnly.FromDateTime(DateTime.UtcNow) : asOf;
         var aging = await _vendors.PayablesAgingAsync(companyId, date);
         var rows = aging.Lines
-            .Select(l => (IReadOnlyList<object?>)new object?[] { l.BillNumber, l.PartnerName, l.IssueDate, l.DueDate, l.Outstanding, l.Bucket })
+            .Select(l => (IReadOnlyList<object?>)new object?[] { l.BillNumber, l.PartnerName, l.IssueDate, l.DueDate, l.Outstanding, _labels.Bucket(l.Bucket) })
             .ToList();
-        rows.AddRange(aging.Buckets.Select(b => (IReadOnlyList<object?>)new object?[] { _labels["Common_Total"], null, null, null, b.Total, b.Bucket }));
-        var bytes = ExcelExportService.BuildWorkbook(
-            _labels["Sheet_PayablesAging"], new[] { _labels["Ap_Bill"], _labels["Common_Vendor"], _labels["Ap_IssueDate"], _labels["Ap_DueDate"], _labels["Ap_Outstanding"], _labels["Ap_Bucket"] }, rows);
+        rows.AddRange(aging.Buckets.Select(b => (IReadOnlyList<object?>)new object?[] { _labels["Common_Total"], null, null, null, b.Total, _labels.Bucket(b.Bucket) }));
+
+        var matrixRows = aging.VendorMatrix
+            .Select(v => (IReadOnlyList<object?>)v.Buckets.Select(b => (object?)b.Total).Prepend(v.PartnerName).Append(v.Total).ToArray())
+            .ToList();
+        var matrix = PayablesAgingMatrix.Build(
+            aging.Lines.Select(l => new AgingMatrixInput(l.PartnerId, l.PartnerName, l.Bucket, l.Outstanding)),
+            aging.Buckets.Select(b => b.Bucket).ToList());
+        matrixRows.Add(matrix.BucketTotals.Select(t => (object?)t).Prepend(_labels["Common_Total"]).Append(matrix.GrandTotal).ToArray());
+
+        var bytes = ExcelExportService.BuildWorkbook(new[]
+        {
+            new ExportSheet(
+                _labels["Sheet_PayablesAging"], null,
+                new[] { _labels["Ap_Bill"], _labels["Common_Vendor"], _labels["Ap_IssueDate"], _labels["Ap_DueDate"], _labels["Ap_Outstanding"], _labels["Ap_Bucket"] }, rows),
+            new ExportSheet(
+                _labels["Sheet_Matrix"], null,
+                aging.Buckets.Select(b => _labels.Bucket(b.Bucket)).Prepend(_labels["Common_Vendor"]).Append(_labels["Common_Total"]).ToArray(), matrixRows)
+        });
         return File(bytes, ExcelExportService.XlsxContentType, $"payables-aging-{date:yyyyMMdd}.xlsx");
     }
 

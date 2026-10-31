@@ -23,4 +23,10 @@ public class ExportLabels
     }
 
     public string Month(int month) => this["Month_" + month];
+
+    public string Bucket(string code) => this["Enum_Bucket_" + code];
+
+    public string DocType(string value) => this["Enum_DocType_" + value];
+
+    public string Journal(string value) => this["Enum_Journal_" + value];
 }

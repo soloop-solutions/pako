@@ -76,7 +76,7 @@ public class ExportValidationTests : IAsyncLifetime
         yield return new("VatDeclarationMonth", M<VatDeclarationController>("Export"),
             t => Vat(t).Export(t._companyId, 2026, 13), "VatDeclarationPeriodInvalid");
         yield return new("VatDeclarationRefund", M<VatDeclarationController>("Export"),
-            t => Vat(t).Export(t._companyId, 2026, 10, null, 5m), "VatDeclarationRefundInvalid");
+            t => Vat(t).Export(t._companyId, 2026, 10, null, 5m), "VatDeclarationRefundExceedsCredit");
     }
 
     private static ReportsController Reports(ExportValidationTests t) =>

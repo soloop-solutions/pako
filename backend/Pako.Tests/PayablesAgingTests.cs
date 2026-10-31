@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Pako.Api;
 using Pako.Api.Authorization;
@@ -357,5 +358,140 @@ public class PayablesAgingTests : IAsyncLifetime
         var result = await new VendorLedgerService(e.Db, CompanyAccessContext.Unrestricted()).PayablesAgingAsync(e.Company.Id, AsOf);
 
         Assert.Empty(result.Lines);
+    }
+
+    private async Task<(Env Env, Partner Alpha, Partner Beta)> SeedMatrixAsync()
+    {
+        var e = await NewEnvAsync();
+        var alpha = AddVendor(e, "Alpha");
+        var beta = AddVendor(e, "Beta");
+        PostBill(e, alpha, "A-CUR", 300m, AsOf.AddDays(30));
+        var a2 = PostBill(e, alpha, "A-10", 200m, AsOf.AddDays(-10));
+        PostBill(e, alpha, "A-OLD", 100m, AsOf.AddDays(-400));
+        PostBill(e, beta, "B-50", 50m, AsOf.AddDays(-50));
+        PostBill(e, beta, "B-CUR", 25m, AsOf.AddDays(5));
+        Pay(e, alpha, a2, 80m, AsOf.AddDays(-5));
+        await e.Db.SaveChangesAsync();
+        return (e, alpha, beta);
+    }
+
+    [Fact]
+    public async Task PayablesAging_VendorMatrix_RowsSumToLinesAndColumnsToBucketTotals()
+    {
+        var (e, alpha, beta) = await SeedMatrixAsync();
+
+        var aging = await Aging(e.Db, e.Company.Id);
+
+        Assert.Equal(new[] { "Alpha", "Beta" }, aging.VendorMatrix.Select(v => v.PartnerName));
+        var a = aging.VendorMatrix.Single(v => v.PartnerId == alpha.Id);
+        var b = aging.VendorMatrix.Single(v => v.PartnerId == beta.Id);
+        Assert.Equal(Order, a.Buckets.Select(x => x.Bucket));
+        Assert.Equal(new[] { 300m, 120m, 0m, 0m, 0m, 0m, 0m, 100m }, a.Buckets.Select(x => x.Total));
+        Assert.Equal(520m, a.Total);
+        Assert.Equal(new[] { 25m, 0m, 0m, 50m, 0m, 0m, 0m, 0m }, b.Buckets.Select(x => x.Total));
+        Assert.Equal(75m, b.Total);
+        foreach (var row in aging.VendorMatrix)
+        {
+            Assert.Equal(aging.Lines.Where(l => l.PartnerId == row.PartnerId).Sum(l => l.Outstanding), row.Total);
+            Assert.Equal(row.Buckets.Sum(x => x.Total), row.Total);
+        }
+
+        for (var i = 0; i < Order.Length; i++)
+        {
+            Assert.Equal(aging.Buckets[i].Total, aging.VendorMatrix.Sum(v => v.Buckets[i].Total));
+        }
+
+        Assert.Equal(aging.Lines.Sum(l => l.Outstanding), aging.VendorMatrix.Sum(v => v.Total));
+    }
+
+    [Fact]
+    public async Task PayablesAging_Export_HasMatrixSheetWithTotalsRow()
+    {
+        var (e, _, _) = await SeedMatrixAsync();
+
+        var file = Assert.IsType<FileContentResult>(await Controller(e.Db).PayablesAgingExport(e.Company.Id, AsOf));
+
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        Assert.Equal(2, workbook.Worksheets.Count);
+        var matrix = workbook.Worksheet(2);
+        Assert.Equal("Matrix", matrix.Name);
+        Assert.Equal(new[] { "Vendor", "Current", "1-30", "31-45", "46-60", "61-90", "91-180", "181-360", "Over360", "Total" },
+            Enumerable.Range(1, 10).Select(c => matrix.Cell(1, c).GetString()));
+        Assert.Equal(new[] { 300m, 120m, 0m, 0m, 0m, 0m, 0m, 100m, 520m }, Enumerable.Range(2, 9).Select(c => matrix.Cell(2, c).GetValue<decimal>()));
+        Assert.Equal("Beta", matrix.Cell(3, 1).GetString());
+        Assert.Equal("Total", matrix.Cell(4, 1).GetString());
+        Assert.Equal(new[] { 325m, 120m, 0m, 50m, 0m, 0m, 0m, 100m, 595m }, Enumerable.Range(2, 9).Select(c => matrix.Cell(4, c).GetValue<decimal>()));
+    }
+
+    [Fact]
+    public async Task PayablesAging_Export_BucketNamesTranslateUnderSqAndStayEnglishUnderEn()
+    {
+        var (e, _, _) = await SeedMatrixAsync();
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentUICulture = new CultureInfo("sq");
+            var sq = Assert.IsType<FileContentResult>(await Controller(e.Db).PayablesAgingExport(e.Company.Id, AsOf));
+            using var sqBook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(sq.FileContents));
+            var sqLines = sqBook.Worksheet(1);
+            Assert.Contains(sqLines.RowsUsed().Skip(1), r => r.Cell(6).GetString() == "Pa vonuar");
+            Assert.Contains(sqLines.RowsUsed().Skip(1), r => r.Cell(6).GetString() == "Mbi 360");
+            Assert.Contains(sqLines.RowsUsed().Skip(1), r => r.Cell(6).GetString() == "1-30");
+            Assert.Equal("Matrica", sqBook.Worksheet(2).Name);
+            Assert.Equal("Pa vonuar", sqBook.Worksheet(2).Cell(1, 2).GetString());
+            Assert.Equal("Mbi 360", sqBook.Worksheet(2).Cell(1, 9).GetString());
+
+            CultureInfo.CurrentUICulture = new CultureInfo("en");
+            var en = Assert.IsType<FileContentResult>(await Controller(e.Db).PayablesAgingExport(e.Company.Id, AsOf));
+            using var enBook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(en.FileContents));
+            Assert.Contains(enBook.Worksheet(1).RowsUsed().Skip(1), r => r.Cell(6).GetString() == "Over360");
+            Assert.Equal("Current", enBook.Worksheet(2).Cell(1, 2).GetString());
+
+            var json = await Aging(e.Db, e.Company.Id);
+            Assert.Contains(json.Lines, l => l.Bucket == "Over360");
+            Assert.Contains(json.Buckets, b => b.Bucket == "Current");
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Fact]
+    public async Task VendorStatement_CarriesTotalDebitAndCredit_InJsonAndExportClosingBlock()
+    {
+        var e = await NewEnvAsync();
+        var vendor = AddVendor(e, "Alpha");
+        var bill = PostBill(e, vendor, "A-1", 500m, AsOf.AddDays(-20));
+        Pay(e, vendor, bill, 200m, AsOf.AddDays(-5));
+        await e.Db.SaveChangesAsync();
+        var from = new DateOnly(2026, 1, 1);
+
+        var json = Assert.IsType<VendorStatementResponse>(
+            Assert.IsType<OkObjectResult>((await Controller(e.Db).VendorStatement(e.Company.Id, vendor.Id, from, AsOf)).Result).Value);
+        Assert.Equal(200m, json.TotalDebit);
+        Assert.Equal(500m, json.TotalCredit);
+        Assert.Equal(300m, json.Closing);
+
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (var (culture, total, purchase, bank) in new[] { ("en", "Total", "Purchase", "Bank"), ("sq", "Gjithsejt", "Blerje", "Banka") })
+            {
+                CultureInfo.CurrentUICulture = new CultureInfo(culture);
+                var file = Assert.IsType<FileContentResult>(await Controller(e.Db).VendorStatementExport(e.Company.Id, vendor.Id, from, AsOf));
+                using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+                var sheet = workbook.Worksheet(1);
+                var totalRow = sheet.RowsUsed().Single(r => r.Cell(2).GetString() == total);
+                Assert.Equal(200m, totalRow.Cell(5).GetValue<decimal>());
+                Assert.Equal(500m, totalRow.Cell(6).GetValue<decimal>());
+                Assert.Contains(sheet.RowsUsed(), r => r.Cell(2).GetString() == purchase);
+                Assert.Contains(sheet.RowsUsed(), r => r.Cell(2).GetString() == bank);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
     }
 }

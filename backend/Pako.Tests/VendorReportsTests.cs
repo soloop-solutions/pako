@@ -312,8 +312,9 @@ public class VendorReportsTests : IAsyncLifetime
         Assert.Equal(ClosedXML.Excel.XLDataType.DateTime, sheet.Cell(2, 2).DataType);
         Assert.Equal("Opening", sheet.Cell(6, 2).GetString());
         Assert.Equal(1000m, sheet.Cell(6, 7).GetValue<decimal>());
-        Assert.Equal("Closing", sheet.Cell(9, 2).GetString());
-        Assert.Equal(800m, sheet.Cell(9, 7).GetValue<decimal>());
+        Assert.Equal("Total", sheet.Cell(9, 2).GetString());
+        Assert.Equal("Closing", sheet.Cell(10, 2).GetString());
+        Assert.Equal(800m, sheet.Cell(10, 7).GetValue<decimal>());
     }
 
     [Fact]

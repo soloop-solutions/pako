@@ -5,6 +5,7 @@ using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Documents;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
@@ -106,7 +107,8 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             rows.Add(new VendorStatementRow(r.Date, r.JournalType.ToString(), r.Document, r.Description, r.Debit, r.Credit, balance));
         }
 
-        return new VendorStatementResponse(partner.Id, partner.Name, from, to, opening, rows, balance);
+        var totals = ReportTotals.Ledger(rows.Select(r => (r.Debit, r.Credit)));
+        return new VendorStatementResponse(partner.Id, partner.Name, from, to, opening, rows, balance, totals.Debit, totals.Credit);
     }
 
     private static readonly string[] AgingBuckets = { "Current", "1-30", "31-45", "46-60", "61-90", "91-180", "181-360", "Over360" };
@@ -180,7 +182,15 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
         var buckets = AgingBuckets
             .Select(b => new AgingBucketTotal(b, lines.Where(l => l.Bucket == b).Sum(l => l.Outstanding)))
             .ToList();
-        return new PayablesAgingResponse(asOf, lines, buckets);
+        var matrix = PayablesAgingMatrix.Build(
+            lines.Select(l => new AgingMatrixInput(l.PartnerId, l.PartnerName, l.Bucket, l.Outstanding)), AgingBuckets);
+        var vendorMatrix = matrix.Rows
+            .Select(r => new PayablesAgingVendorRow(
+                r.PartnerId, r.PartnerName,
+                AgingBuckets.Select((b, i) => new AgingBucketTotal(b, r.BucketAmounts[i])).ToList(),
+                r.Total))
+            .ToList();
+        return new PayablesAgingResponse(asOf, lines, buckets, vendorMatrix);
     }
 
     private record PurchaseRow(

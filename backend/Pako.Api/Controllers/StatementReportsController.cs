@@ -173,7 +173,7 @@ public class StatementReportsController : ControllerBase
         AddSection(_labels["Common_Equity"], response.Equity, _labels["Common_TotalEquity"]);
 
         var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_ComparativeBalanceSheet"], headers, rows);
-        return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-comparative-{asOf:yyyyMMdd}.xlsx");
+        return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-comparative-{asOf:yyyyMMdd}-{compareTo:yyyyMMdd}.xlsx");
     }
 
     private BadRequestObjectResult InvalidDateRange() =>

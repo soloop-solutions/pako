@@ -9,6 +9,7 @@ using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
+using Pako.Domain.Reporting;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
@@ -72,10 +73,18 @@ public class ReportsController : ControllerBase
             .OrderBy(l => l.AccountCode)
             .ToList();
 
+        var costOfRevenue = sums.Where(s => s.Account.AccountType == AccountType.CostOfRevenue)
+            .Select(s => new ReportLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit - s.Credit))
+            .OrderBy(l => l.AccountCode)
+            .ToList();
+
         var totalIncome = income.Sum(l => l.Amount);
         var totalExpenses = expenses.Sum(l => l.Amount);
+        var gross = PeriodProfitAndLoss.Calculate(income.Select(l => l.Amount), costOfRevenue.Select(l => l.Amount));
 
-        return Ok(new ProfitAndLossResponse(from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses));
+        return Ok(new ProfitAndLossResponse(
+            from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses,
+            costOfRevenue, gross.TotalCostOfRevenue, gross.GrossProfit));
     }
 
     [ProducesXlsx]
@@ -95,6 +104,8 @@ public class ReportsController : ControllerBase
         var expenses = _labels["Common_Expenses"];
         rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { income, l.AccountCode, l.AccountName, l.Amount }));
         rows.Add(new object?[] { income, null, _labels["Common_TotalIncome"], response.TotalIncome });
+        rows.Add(new object?[] { null, null, _labels["Common_TotalCostOfRevenue"], response.TotalCostOfRevenue });
+        rows.Add(new object?[] { null, null, _labels["Pnl_GrossProfit"], response.GrossProfit });
         rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { expenses, l.AccountCode, l.AccountName, l.Amount }));
         rows.Add(new object?[] { expenses, null, _labels["Common_TotalExpenses"], response.TotalExpenses });
         rows.Add(new object?[] { null, null, _labels["Common_NetIncome"], response.NetIncome });
@@ -137,6 +148,8 @@ public class ReportsController : ControllerBase
         rows.Add(new object?[] { liabilities, null, _labels["Common_TotalLiabilities"], response.TotalLiabilities });
         rows.AddRange(response.Equity.Select(l => (IReadOnlyList<object?>)new object?[] { equity, l.AccountCode, l.AccountName, l.Amount }));
         rows.Add(new object?[] { equity, null, _labels["Common_TotalEquity"], response.TotalEquity });
+        rows.Add(new object?[] { null, null, _labels["Common_TotalLiabilitiesAndEquity"], response.TotalLiabilitiesAndEquity });
+        rows.Add(new object?[] { null, null, _labels["Common_Difference"], response.Difference });
 
         var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_BalanceSheet"], headers, rows);
         return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-{asOf:yyyyMMdd}.xlsx");
@@ -449,5 +462,42 @@ public class ReportsController : ControllerBase
             lines.Where(l => l.Bucket == "Current").Sum(l => l.Outstanding),
             lines.Where(l => l.Bucket == "WithinGrace").Sum(l => l.Outstanding),
             lines.Where(l => l.Bucket == "Overdue").Sum(l => l.Outstanding)));
+    }
+
+    [ProducesXlsx]
+    [HttpGet("debt-aging/export", Name = "DebtAgingExport")]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
+    public async Task<IActionResult> DebtAgingExport(Guid companyId, [FromQuery] DateOnly? asOf = null)
+    {
+        var result = await DebtAging(companyId, asOf);
+        if (result.Result is not OkObjectResult ok || ok.Value is not DebtAgingResponse response)
+        {
+            return result.Result!;
+        }
+
+        var partnerIds = response.Lines.Select(l => l.PartnerId).ToList();
+        var partnerNames = await _db.Partners.AsNoTracking()
+            .Where(p => partnerIds.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name);
+
+        var headers = new[]
+        {
+            _labels["Debt_Invoice"], _labels["Common_Customer"], _labels["Ap_IssueDate"], _labels["Ap_DueDate"],
+            _labels["Debt_GraceDays"], _labels["Ap_Outstanding"], _labels["Ap_Bucket"]
+        };
+        var rows = response.Lines
+            .Select(l => (IReadOnlyList<object?>)new object?[]
+            {
+                l.InvoiceNumber, partnerNames.GetValueOrDefault(l.PartnerId, string.Empty), l.IssueDate, l.DueDate,
+                l.GraceDays, l.Outstanding, _labels.Bucket(l.Bucket)
+            })
+            .ToList();
+        var total = _labels["Common_Total"];
+        rows.Add(new object?[] { total, null, null, null, null, response.TotalCurrent, _labels.Bucket("Current") });
+        rows.Add(new object?[] { total, null, null, null, null, response.TotalWithinGrace, _labels.Bucket("WithinGrace") });
+        rows.Add(new object?[] { total, null, null, null, null, response.TotalOverdue, _labels.Bucket("Overdue") });
+
+        var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_DebtAging"], headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, $"debt-aging-{response.AsOf:yyyyMMdd}.xlsx");
     }
 }

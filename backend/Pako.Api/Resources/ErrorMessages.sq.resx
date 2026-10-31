@@ -917,4 +917,97 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>Kërkesa për rimbursim duhet të jetë midis 0 dhe balancës kreditore të mbetur.</value></data>
   <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>Rimbursimi i kërkuar nuk mund të tejkalojë kreditin e mbetur ([69]).</value></data>
   <data name="VatDeclarationRefundNegative" xml:space="preserve"><value>Rimbursimi i kërkuar nuk mund të jetë negativ.</value></data>
+  <data name="Export_Common_TotalLiabilitiesAndEquity" xml:space="preserve">
+    <value>Gjithsejt detyrimet dhe ekuiteti</value>
+  </data>
+  <data name="Export_Common_TotalCostOfRevenue" xml:space="preserve">
+    <value>Gjithsejt kostoja e shitjes</value>
+  </data>
+  <data name="Export_Sheet_Matrix" xml:space="preserve">
+    <value>Matrica</value>
+  </data>
+  <data name="Export_Sheet_DebtAging" xml:space="preserve">
+    <value>Vjetërsia e borxhit</value>
+  </data>
+  <data name="Export_Common_Customer" xml:space="preserve">
+    <value>Klienti</value>
+  </data>
+  <data name="Export_Debt_Invoice" xml:space="preserve">
+    <value>Fatura</value>
+  </data>
+  <data name="Export_Debt_GraceDays" xml:space="preserve">
+    <value>Ditët e faljes</value>
+  </data>
+  <data name="Export_Enum_Bucket_Current" xml:space="preserve">
+    <value>Pa vonuar</value>
+  </data>
+  <data name="Export_Enum_Bucket_WithinGrace" xml:space="preserve">
+    <value>Brenda periudhës së faljes</value>
+  </data>
+  <data name="Export_Enum_Bucket_Overdue" xml:space="preserve">
+    <value>Të vonuara</value>
+  </data>
+  <data name="Export_Enum_Bucket_Over360" xml:space="preserve">
+    <value>Mbi 360</value>
+  </data>
+  <data name="Export_Enum_DocType_Invoice" xml:space="preserve">
+    <value>Faturë</value>
+  </data>
+  <data name="Export_Enum_DocType_CreditNote" xml:space="preserve">
+    <value>Notë kreditore</value>
+  </data>
+  <data name="Export_Enum_DocType_DebitNote" xml:space="preserve">
+    <value>Notë debitore</value>
+  </data>
+  <data name="Export_Enum_DocType_DownPayment" xml:space="preserve">
+    <value>Paradhënie</value>
+  </data>
+  <data name="Export_Enum_DocType_SalesReturn" xml:space="preserve">
+    <value>Kthim shitjeje</value>
+  </data>
+  <data name="Export_Enum_DocType_Proforma" xml:space="preserve">
+    <value>Profaturë</value>
+  </data>
+  <data name="Export_Enum_DocType_Bill" xml:space="preserve">
+    <value>Faturë blerjeje</value>
+  </data>
+  <data name="Export_Enum_DocType_SupplierCreditNote" xml:space="preserve">
+    <value>Notë kreditore e furnitorit</value>
+  </data>
+  <data name="Export_Enum_DocType_PurchaseReturn" xml:space="preserve">
+    <value>Kthim blerjeje</value>
+  </data>
+  <data name="Export_Enum_DocType_Other" xml:space="preserve">
+    <value>Tjetër</value>
+  </data>
+  <data name="Export_Enum_DocType_Payment" xml:space="preserve">
+    <value>Pagesë</value>
+  </data>
+  <data name="Export_Enum_DocType_Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="Export_Enum_Journal_Sale" xml:space="preserve">
+    <value>Shitje</value>
+  </data>
+  <data name="Export_Enum_Journal_Purchase" xml:space="preserve">
+    <value>Blerje</value>
+  </data>
+  <data name="Export_Enum_Journal_Cash" xml:space="preserve">
+    <value>Arkë</value>
+  </data>
+  <data name="Export_Enum_Journal_Bank" xml:space="preserve">
+    <value>Banka</value>
+  </data>
+  <data name="Export_Enum_Journal_General" xml:space="preserve">
+    <value>Të përgjithshme</value>
+  </data>
+  <data name="Export_Enum_Journal_Miscellaneous" xml:space="preserve">
+    <value>Të ndryshme</value>
+  </data>
+  <data name="Export_Tb_TotalGroup" xml:space="preserve">
+    <value>Gjithsejt {0}</value>
+  </data>
+  <data name="Export_Tb_Class" xml:space="preserve">
+    <value>Klasa {0}</value>
+  </data>
 </root>

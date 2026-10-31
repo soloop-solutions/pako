@@ -108,7 +108,7 @@ public class GeneralLedgerReportController : ControllerBase
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[]
             {
-                l.Date, l.EntryNumber, l.DocumentType, l.DocumentNumber, l.AccountCode, l.AccountName, l.PartnerName, l.Description, l.Debit, l.Credit
+                l.Date, l.EntryNumber, _labels.DocType(l.DocumentType), l.DocumentNumber, l.AccountCode, l.AccountName, l.PartnerName, l.Description, l.Debit, l.Credit
             })
             .ToList();
         var totals = ReportTotals.Ledger(lines.Select(l => (l.Debit, l.Credit)));

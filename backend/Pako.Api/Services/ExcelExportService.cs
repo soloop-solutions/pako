@@ -8,6 +8,9 @@ namespace Pako.Api.Services;
 // CSVs — none specify one), so each export endpoint's column choice mirrors its own response
 // DTO's field order, the most defensible default absent a real spec. Confirm against ATK's actual
 // required layout before this goes live for filing.
+public record ExportSheet(
+    string Name, IReadOnlyList<(string Label, object? Value)>? HeaderBlock, IReadOnlyList<string> Headers, IReadOnlyList<IReadOnlyList<object?>> Rows);
+
 public static class ExcelExportService
 {
     // Shared by every export action's [Produces] attribute (so NSwag generates a blob-returning
@@ -18,10 +21,28 @@ public static class ExcelExportService
         BuildWorkbook(sheetName, null, headers, rows);
 
     public static byte[] BuildWorkbook(
-        string sheetName, IReadOnlyList<(string Label, object? Value)>? headerBlock, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<object?>> rows)
+        string sheetName, IReadOnlyList<(string Label, object? Value)>? headerBlock, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<object?>> rows) =>
+        BuildWorkbook(new[] { new ExportSheet(sheetName, headerBlock, headers, rows) });
+
+    public static byte[] BuildWorkbook(IReadOnlyList<ExportSheet> sheets)
     {
         using var workbook = new XLWorkbook();
-        var sheet = workbook.Worksheets.Add(SanitizeSheetName(sheetName));
+        foreach (var spec in sheets)
+        {
+            WriteSheet(workbook, spec);
+        }
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+        return stream.ToArray();
+    }
+
+    private static void WriteSheet(XLWorkbook workbook, ExportSheet spec)
+    {
+        var sheet = workbook.Worksheets.Add(SanitizeSheetName(spec.Name));
+        var headerBlock = spec.HeaderBlock;
+        var headers = spec.Headers;
+        var rows = spec.Rows;
 
         var top = 0;
         if (headerBlock is { Count: > 0 })
@@ -55,10 +76,6 @@ public static class ExcelExportService
 
         sheet.SheetView.FreezeRows(top + 1);
         sheet.Columns(1, Math.Max(headers.Count, 1)).AdjustToContents();
-
-        using var stream = new MemoryStream();
-        workbook.SaveAs(stream);
-        return stream.ToArray();
     }
 
     private static string DateFormat() =>

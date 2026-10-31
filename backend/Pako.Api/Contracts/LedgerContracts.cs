@@ -1,5 +1,7 @@
 namespace Pako.Api.Contracts;
 
+public record TrialBalanceTotals(decimal Opening, decimal Debit, decimal Credit, decimal Closing);
+
 public record TrialBalanceLine(
     Guid AccountId,
     string AccountCode,

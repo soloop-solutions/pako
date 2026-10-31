@@ -9,7 +9,10 @@ public record ProfitAndLossResponse(
     List<ReportLine> Expenses,
     decimal TotalIncome,
     decimal TotalExpenses,
-    decimal NetIncome);
+    decimal NetIncome,
+    List<ReportLine> CostOfRevenue,
+    decimal TotalCostOfRevenue,
+    decimal GrossProfit);
 
 public record BalanceSheetResponse(
     DateOnly AsOf,
@@ -231,7 +234,9 @@ public record VendorStatementResponse(
     DateOnly To,
     decimal Opening,
     List<VendorStatementRow> Rows,
-    decimal Closing);
+    decimal Closing,
+    decimal TotalDebit,
+    decimal TotalCredit);
 
 public record PayablesAgingLine(
     Guid BillId,
@@ -245,7 +250,13 @@ public record PayablesAgingLine(
 
 public record AgingBucketTotal(string Bucket, decimal Total);
 
-public record PayablesAgingResponse(DateOnly AsOf, List<PayablesAgingLine> Lines, List<AgingBucketTotal> Buckets);
+public record PayablesAgingVendorRow(Guid PartnerId, string PartnerName, List<AgingBucketTotal> Buckets, decimal Total);
+
+public record PayablesAgingResponse(
+    DateOnly AsOf,
+    List<PayablesAgingLine> Lines,
+    List<AgingBucketTotal> Buckets,
+    List<PayablesAgingVendorRow> VendorMatrix);
 
 public record PurchaseByVendorLine(
     Guid PartnerId,

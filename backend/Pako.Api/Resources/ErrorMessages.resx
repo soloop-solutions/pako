@@ -917,4 +917,97 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>The refund request must be between 0 and the remaining credit balance.</value></data>
   <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>The refund requested cannot exceed the remaining credit ([69]).</value></data>
   <data name="VatDeclarationRefundNegative" xml:space="preserve"><value>The refund requested cannot be negative.</value></data>
+  <data name="Export_Common_TotalLiabilitiesAndEquity" xml:space="preserve">
+    <value>Total liabilities and equity</value>
+  </data>
+  <data name="Export_Common_TotalCostOfRevenue" xml:space="preserve">
+    <value>Total cost of revenue</value>
+  </data>
+  <data name="Export_Sheet_Matrix" xml:space="preserve">
+    <value>Matrix</value>
+  </data>
+  <data name="Export_Sheet_DebtAging" xml:space="preserve">
+    <value>Debt Aging</value>
+  </data>
+  <data name="Export_Common_Customer" xml:space="preserve">
+    <value>Customer</value>
+  </data>
+  <data name="Export_Debt_Invoice" xml:space="preserve">
+    <value>Invoice</value>
+  </data>
+  <data name="Export_Debt_GraceDays" xml:space="preserve">
+    <value>Grace days</value>
+  </data>
+  <data name="Export_Enum_Bucket_Current" xml:space="preserve">
+    <value>Current</value>
+  </data>
+  <data name="Export_Enum_Bucket_WithinGrace" xml:space="preserve">
+    <value>Within grace</value>
+  </data>
+  <data name="Export_Enum_Bucket_Overdue" xml:space="preserve">
+    <value>Overdue</value>
+  </data>
+  <data name="Export_Enum_Bucket_Over360" xml:space="preserve">
+    <value>Over360</value>
+  </data>
+  <data name="Export_Enum_DocType_Invoice" xml:space="preserve">
+    <value>Invoice</value>
+  </data>
+  <data name="Export_Enum_DocType_CreditNote" xml:space="preserve">
+    <value>CreditNote</value>
+  </data>
+  <data name="Export_Enum_DocType_DebitNote" xml:space="preserve">
+    <value>DebitNote</value>
+  </data>
+  <data name="Export_Enum_DocType_DownPayment" xml:space="preserve">
+    <value>DownPayment</value>
+  </data>
+  <data name="Export_Enum_DocType_SalesReturn" xml:space="preserve">
+    <value>SalesReturn</value>
+  </data>
+  <data name="Export_Enum_DocType_Proforma" xml:space="preserve">
+    <value>Proforma</value>
+  </data>
+  <data name="Export_Enum_DocType_Bill" xml:space="preserve">
+    <value>Bill</value>
+  </data>
+  <data name="Export_Enum_DocType_SupplierCreditNote" xml:space="preserve">
+    <value>SupplierCreditNote</value>
+  </data>
+  <data name="Export_Enum_DocType_PurchaseReturn" xml:space="preserve">
+    <value>PurchaseReturn</value>
+  </data>
+  <data name="Export_Enum_DocType_Other" xml:space="preserve">
+    <value>Other</value>
+  </data>
+  <data name="Export_Enum_DocType_Payment" xml:space="preserve">
+    <value>Payment</value>
+  </data>
+  <data name="Export_Enum_DocType_Manual" xml:space="preserve">
+    <value>Manual</value>
+  </data>
+  <data name="Export_Enum_Journal_Sale" xml:space="preserve">
+    <value>Sale</value>
+  </data>
+  <data name="Export_Enum_Journal_Purchase" xml:space="preserve">
+    <value>Purchase</value>
+  </data>
+  <data name="Export_Enum_Journal_Cash" xml:space="preserve">
+    <value>Cash</value>
+  </data>
+  <data name="Export_Enum_Journal_Bank" xml:space="preserve">
+    <value>Bank</value>
+  </data>
+  <data name="Export_Enum_Journal_General" xml:space="preserve">
+    <value>General</value>
+  </data>
+  <data name="Export_Enum_Journal_Miscellaneous" xml:space="preserve">
+    <value>Miscellaneous</value>
+  </data>
+  <data name="Export_Tb_TotalGroup" xml:space="preserve">
+    <value>Total {0}</value>
+  </data>
+  <data name="Export_Tb_Class" xml:space="preserve">
+    <value>Class {0}</value>
+  </data>
 </root>

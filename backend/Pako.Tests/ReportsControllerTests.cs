@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -843,5 +844,78 @@ public class ReportsControllerTests : IAsyncLifetime
         var line = Assert.Single(beforePayment.Lines);
         Assert.Equal(500m, line.Outstanding);
         Assert.Empty(afterPayment.Lines);
+    }
+
+    [Fact]
+    public async Task ProfitAndLoss_WithoutCostOfRevenue_GrossProfitEqualsIncome()
+    {
+        var (db, companyId) = await SeedMixedScenario();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var response = Assert.IsType<ProfitAndLossResponse>(Assert.IsType<OkObjectResult>((await controller.ProfitAndLoss(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31))).Result).Value);
+
+        Assert.Empty(response.CostOfRevenue);
+        Assert.Equal(0m, response.TotalCostOfRevenue);
+        Assert.Equal(847.46m, response.GrossProfit);
+    }
+
+    [Fact]
+    public async Task BalanceSheetExport_ListsLiabilitiesAndEquityTotalAndDifferenceRows()
+    {
+        var (db, companyId) = await SeedMixedScenario();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (var (culture, total, difference) in new[] { ("en", "Total liabilities and equity", "Difference"), ("sq", "Gjithsejt detyrimet dhe ekuiteti", "Diferenca") })
+            {
+                CultureInfo.CurrentUICulture = new CultureInfo(culture);
+                var file = Assert.IsType<FileContentResult>(await controller.BalanceSheetExport(companyId, new DateOnly(2026, 12, 31)));
+                using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+                var sheet = workbook.Worksheet(1);
+                Assert.Equal(2061.02m, sheet.RowsUsed().Single(r => r.Cell(3).GetString() == total).Cell(4).GetValue<decimal>());
+                Assert.Equal(0m, sheet.RowsUsed().Single(r => r.Cell(3).GetString() == difference).Cell(4).GetValue<decimal>());
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
+    }
+
+    [Fact]
+    public async Task DebtAgingExport_HasCustomerNamesAndTranslatedBucketsWithTotals()
+    {
+        var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(new DateOnly(2026, 1, 1), paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+        var previous = CultureInfo.CurrentUICulture;
+        try
+        {
+            foreach (var (culture, sheetName, header, customerHeader, bucket, total) in new[]
+            {
+                ("en", "Debt Aging", "Invoice", "Customer", "Within grace", "Total"),
+                ("sq", "Vjetërsia e borxhit", "Fatura", "Klienti", "Brenda periudhës së faljes", "Gjithsejt")
+            })
+            {
+                CultureInfo.CurrentUICulture = new CultureInfo(culture);
+                var file = Assert.IsType<FileContentResult>(await controller.DebtAgingExport(companyId, new DateOnly(2026, 2, 4)));
+                Assert.Equal("debt-aging-20260204.xlsx", file.FileDownloadName);
+                using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+                var sheet = workbook.Worksheet(1);
+                Assert.Equal(sheetName, sheet.Name);
+                Assert.Equal(header, sheet.Cell(1, 1).GetString());
+                Assert.Equal(customerHeader, sheet.Cell(1, 2).GetString());
+                Assert.Equal("Customer Co", sheet.Cell(2, 2).GetString());
+                Assert.Equal(500m, sheet.Cell(2, 6).GetValue<decimal>());
+                Assert.Equal(bucket, sheet.Cell(2, 7).GetString());
+                var totals = sheet.RowsUsed().Where(r => r.Cell(1).GetString() == total).ToList();
+                Assert.Equal(3, totals.Count);
+                Assert.Equal(500m, totals.Sum(r => r.Cell(6).GetValue<decimal>()));
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentUICulture = previous;
+        }
     }
 }

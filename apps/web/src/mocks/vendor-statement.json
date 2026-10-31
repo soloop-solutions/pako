@@ -8,5 +8,7 @@
     { "date": "2026-01-02", "type": "Bill", "documentNumber": "BILL-0001", "description": "Office rent January 2026", "debit": 0.00, "credit": 1180.00, "balance": 1680.00 },
     { "date": "2026-01-10", "type": "Payment", "documentNumber": "PAY-0001", "description": "Bank transfer", "debit": 500.00, "credit": 0.00, "balance": 1180.00 }
   ],
-  "closing": 1180.00
+  "closing": 1180.00,
+  "totalDebit": 500.00,
+  "totalCredit": 1180.00
 }
