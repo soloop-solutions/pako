@@ -110,6 +110,23 @@ describe("account rows link to the account", () => {
     expect(route()).toBe(acc("120"));
   });
 
+  it("balance sheet: synthetic current earnings line with the empty guid is inert", async () => {
+    m.balanceSheet.mockResolvedValue({
+      ...balanceSheet,
+      equity: [
+        ...balanceSheet.equity,
+        { accountId: "00000000-0000-0000-0000-000000000000", accountCode: "", accountName: "Synthetic earnings", amount: 100 },
+      ],
+    });
+    renderReports("/reports?tab=balance-sheet");
+    fireEvent.click(screen.getByRole("button", { name: "Run report" }));
+    await screen.findByText("Synthetic earnings");
+    const before = route();
+    fireEvent.click(screen.getByText("Synthetic earnings"));
+    expect(route()).toBe(before);
+    expect(route()).not.toContain("00000000-0000");
+  });
+
   it("balance sheet: liability row", async () => {
     renderReports("/reports?tab=balance-sheet");
     fireEvent.click(screen.getByRole("button", { name: "Run report" }));

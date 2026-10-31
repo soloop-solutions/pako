@@ -45,4 +45,18 @@ describe("entityLinks", () => {
     expect(stockMoveSourcePath(1, undefined)).toBeNull();
     expect(stockMoveSourcePath(undefined, "x")).toBeNull();
   });
+
+  it.each([
+    ["empty guid", "00000000-0000-0000-0000-000000000000"],
+    ["braced", "{00000000-0000-0000-0000-000000000000}"],
+    ["blank", "   "],
+  ])("every helper returns null for %s", (_n, id) => {
+    expect(entityPath({ kind: "Invoice", id })).toBeNull();
+    expect(accountPath(id)).toBeNull();
+    expect(partnerPath(id)).toBeNull();
+    expect(partnerPath(id, "customer")).toBeNull();
+    expect(itemPath(id)).toBeNull();
+    expect(employeePath(id)).toBeNull();
+    expect(stockMoveSourcePath(1, id)).toBeNull();
+  });
 });
