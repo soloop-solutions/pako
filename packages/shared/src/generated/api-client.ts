@@ -14195,6 +14195,8 @@ export interface BalanceSheetResponse {
     totalAssets: number;
     totalLiabilities: number;
     totalEquity: number;
+    totalLiabilitiesAndEquity: number;
+    difference: number;
 
     [key: string]: any;
 }
