@@ -89,4 +89,20 @@ describe("MonthlyPnlTab", () => {
     expect(input.value).toBe("2027");
     await waitFor(() => expect(m.monthly).toHaveBeenLastCalledWith("c1", 2027));
   });
+
+  it("uses Albanian month names in the column headers when the UI is Albanian", async () => {
+    localStorage.setItem("pako.language", "sq");
+    try {
+      renderReports("/reports?tab=monthly-pnl&year=2026");
+      await screen.findByText("Revenue from sales");
+      const headers = screen.getAllByRole("columnheader").map((h) => h.textContent);
+      for (const month of ["Jan", "Shk", "Mar", "Pri", "Maj", "Qer", "Kor", "Gus", "Sht", "Tet", "N\u00ebn", "Dhj"]) {
+        expect(headers).toContain(month);
+      }
+      expect(headers).not.toContain("Feb");
+      expect(headers).not.toContain("Dec");
+    } finally {
+      localStorage.clear();
+    }
+  });
 });

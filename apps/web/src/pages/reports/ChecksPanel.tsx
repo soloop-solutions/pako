@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { ApiException } from "@pako/shared";
-import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { AlertTriangle, CheckCircle2, ChevronDown, ChevronRight, Info } from "lucide-react";
+import { useState } from "react";
 import { useIntl } from "react-intl";
 
 import { apiClient } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +18,7 @@ import { useReportPeriod } from "./useReportPeriod";
 export function ChecksPanel({ companyId }: { companyId: string }) {
   const intl = useIntl();
   const { from, to, setFrom, setTo } = useReportPeriod();
+  const [expandedOverride, setExpandedOverride] = useState<boolean | null>(null);
 
   const query = useQuery({
     queryKey: ["reports", "checks", companyId, from, to] as const,
@@ -28,6 +31,8 @@ export function ChecksPanel({ companyId }: { companyId: string }) {
   }
 
   const checks = query.data?.checks ?? [];
+  const failedCount = checks.filter((check) => !check.passed).length;
+  const expanded = expandedOverride ?? failedCount > 0;
 
   return (
     <Card>
@@ -45,10 +50,23 @@ export function ChecksPanel({ companyId }: { companyId: string }) {
             <Label htmlFor="checks-to">{intl.formatMessage({ id: "reports.checksTo" })}</Label>
             <Input id="checks-to" type="date" value={to} onChange={(event) => setTo(event.target.value)} />
           </div>
+          {checks.length > 0 && (
+            <div className="flex items-center gap-2 pb-1">
+              <span className={cn("text-sm font-medium", failedCount > 0 && "text-amber-700")}>
+                {failedCount === 0
+                  ? intl.formatMessage({ id: "reports.checksSummaryAllPassed" }, { total: checks.length })
+                  : intl.formatMessage({ id: "reports.checksSummary" }, { total: checks.length, passed: checks.length - failedCount, failed: failedCount })}
+              </span>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setExpandedOverride(!expanded)} aria-expanded={expanded}>
+                {expanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+                {intl.formatMessage({ id: expanded ? "reports.checksHideDetails" : "reports.checksShowDetails" })}
+              </Button>
+            </div>
+          )}
         </div>
         {query.isError && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "reports.checksLoadError" })}</p>}
-        <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-5">
-          {checks.map((check) => {
+        <div className={cn("grid gap-2 md:grid-cols-2 xl:grid-cols-5", !expanded && "hidden")}>
+          {expanded && checks.map((check) => {
             const labelId = `reports.checksLabel.${check.key}`;
             const label = intl.messages[labelId] ? intl.formatMessage({ id: labelId }) : check.key;
             const informational = !check.passed && check.key === "books-match-vat-return";

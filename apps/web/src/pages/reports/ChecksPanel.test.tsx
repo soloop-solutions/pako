@@ -93,4 +93,23 @@ describe("ChecksPanel", () => {
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
     expect(await screen.findByText("Could not load the report checks.")).toBeInTheDocument();
   });
+
+  it("summarises the checks in one line and expands the details by default when one failed", async () => {
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    expect(await screen.findByText("6 checks: 5 passed, 1 failed")).toBeInTheDocument();
+    expect(screen.getByText("Cash flow closes")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Hide details" }));
+    expect(screen.queryByText("Cash flow closes")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByText("Cash flow closes")).toBeInTheDocument();
+  });
+
+  it("collapses the details by default when every check passed and expands on request", async () => {
+    m.checks.mockResolvedValue({ ...fixture, checks: fixture.checks.map((c) => ({ ...c, passed: true })) });
+    renderReports("/reports?from=2026-01-01&to=2026-12-31");
+    expect(await screen.findByText("6 checks: all passed")).toBeInTheDocument();
+    expect(screen.queryByText("Cash flow closes")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show details" }));
+    expect(screen.getByText("Cash flow closes")).toBeInTheDocument();
+  });
 });

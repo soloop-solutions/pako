@@ -27,7 +27,7 @@ export function MonthlyPnlTab({ report, companyName, accountingLockDate }: { rep
   }
 
   const monthHeaders = useMemo(
-    () => Array.from({ length: 12 }, (_, index) => intl.formatDate(new Date(2026, index, 1), { month: "short" })),
+    () => Array.from({ length: 12 }, (_, index) => intl.formatMessage({ id: `reports.monthShort${index + 1}` })),
     [intl],
   );
   const valueHeaders = useMemo(() => [...monthHeaders, intl.formatMessage({ id: "common.total" })], [monthHeaders, intl]);
