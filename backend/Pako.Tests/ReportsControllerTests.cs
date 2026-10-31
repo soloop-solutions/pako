@@ -799,4 +799,47 @@ public class ReportsControllerTests : IAsyncLifetime
             Assert.Equal(postedBills, DataRows(Sheet(await controller.PurchaseBookExport(companyId, From, To))));
         }
     }
+
+    [Fact]
+    public async Task DebtAging_ExcludesInvoicesIssuedAfterAsOf()
+    {
+        var (db, companyId, _, _) = await SeedUnpaidInvoiceWithTerms(new DateOnly(2026, 1, 1), paymentTermDays: 30, graceDays: 5);
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db));
+
+        var before = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2025, 12, 31))).Result).Value);
+        var onIssue = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 1, 1))).Result).Value);
+
+        Assert.Empty(before.Lines);
+        Assert.Equal(0m, before.TotalCurrent);
+        Assert.Single(onIssue.Lines);
+    }
+
+    [Fact]
+    public async Task DebtAging_IgnoresPaymentsAfterAsOf()
+    {
+        var (db, companyId, invoiceId, _) = await SeedUnpaidInvoiceWithTerms(new DateOnly(2026, 1, 1), paymentTermDays: 30, graceDays: 5);
+        var company = await db.Companies.SingleAsync(c => c.Id == companyId);
+        var receivableId = (await db.CompanyAccountDefaults.SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        var cash = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "1000", Name = "Bank", AccountType = AccountType.Cash };
+        db.Accounts.Add(cash);
+        var journal = await db.Journals.SingleAsync(j => j.CompanyId == companyId);
+        var paymentLine = new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivableId, Credit = 500m };
+        var payment = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journal.Id, Date = new DateOnly(2026, 2, 20),
+            Lines = { paymentLine, new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 500m } }
+        };
+        payment.Post(company);
+        db.JournalEntries.Add(payment);
+        db.Reconciliations.Add(Reconciliation.ForInvoice(companyId, invoiceId, paymentLine.Id, 500m));
+        await db.SaveChangesAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db));
+
+        var beforePayment = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 2, 6))).Result).Value);
+        var afterPayment = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 2, 20))).Result).Value);
+
+        var line = Assert.Single(beforePayment.Lines);
+        Assert.Equal(500m, line.Outstanding);
+        Assert.Empty(afterPayment.Lines);
+    }
 }

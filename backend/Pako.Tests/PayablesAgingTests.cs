@@ -344,4 +344,18 @@ public class PayablesAgingTests : IAsyncLifetime
         Assert.Equal("1-30", sheet.Cell(2, 6).GetString());
         Assert.Contains(sheet.RowsUsed(), r => r.Cell(1).GetString() == "Total" && r.Cell(5).GetValue<decimal>() == 100m);
     }
+
+    [Fact]
+    public async Task PayablesAging_SubCentResidual_Excluded()
+    {
+        var e = await NewEnvAsync();
+        var vendor = AddVendor(e, "Rounding Vendor");
+        var bill = PostBill(e, vendor, "B-ROUND", 100m, new DateOnly(2026, 6, 1));
+        Pay(e, vendor, bill, 99.99m, bill.DueDate);
+        await e.Db.SaveChangesAsync();
+
+        var result = await new VendorLedgerService(e.Db, CompanyAccessContext.Unrestricted()).PayablesAgingAsync(e.Company.Id, AsOf);
+
+        Assert.Empty(result.Lines);
+    }
 }

@@ -40,6 +40,7 @@ public class LedgerController : ControllerBase
         var result = sums
             .Select(s => (Account: accounts[s.AccountId], s.Debit, s.Credit))
             .OrderBy(s => s.Account.CreatedAt)
+            .ThenBy(s => s.Account.Code, StringComparer.Ordinal)
             .Select(s => new TrialBalanceLine(s.Account.Id, s.Account.Code, s.Account.Name, s.Debit, s.Credit, s.Debit - s.Credit))
             .ToList();
 

@@ -164,7 +164,7 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             var total = bill.JournalEntryId is { } jeId
                 && creditByEntryAndAccount.TryGetValue((jeId, PayableAccountFor(bill.PartnerId)), out var t) ? t : 0m;
             var outstanding = total - reconciledByBillId.GetValueOrDefault(bill.Id);
-            if (outstanding <= 0m)
+            if (outstanding <= 0.01m)
             {
                 continue;
             }

@@ -190,4 +190,77 @@ public class GeneralLedgerReportTests : IAsyncLifetime
         var byAccount = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, sort: "-account"));
         Assert.Equal("4000", byAccount.Items.First().AccountCode);
     }
+
+    private async Task<(PakoDbContext Db, Guid CompanyId)> SeedDescriptionsAsync(params (string? LineDescription, string? Remarks, string Reference)[] entries)
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        db.Companies.Add(company);
+        var cash = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.CurrentAsset };
+        var revenue = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income };
+        db.Accounts.AddRange(cash, revenue);
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+        db.Journals.Add(journal);
+        foreach (var e in entries)
+        {
+            var entry = new JournalEntry
+            {
+                Id = Guid.NewGuid(), CompanyId = company.Id, JournalId = journal.Id, Date = new DateOnly(2026, 1, 10),
+                Reference = e.Reference, Remarks = e.Remarks,
+                Lines =
+                {
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 10m, Description = e.LineDescription },
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = revenue.Id, Credit = 10m, Description = e.LineDescription }
+                }
+            };
+            entry.Post(company);
+            db.JournalEntries.Add(entry);
+        }
+        await db.SaveChangesAsync();
+        return (db, company.Id);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_SearchEscapesWildcards()
+    {
+        var (db, companyId) = await SeedDescriptionsAsync(
+            ("50% off", null, "R1"), ("50X off", null, "R2"),
+            ("a_b", null, "R3"), ("aXb", null, "R4"),
+            ("back\\slash", null, "R5"), ("backXslash", null, "R6"));
+
+        var percent = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "50%"));
+        Assert.Equal(2, percent.Total);
+        Assert.All(percent.Items, i => Assert.Equal("R1", i.Reference));
+
+        var underscore = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "a_b"));
+        Assert.Equal(2, underscore.Total);
+        Assert.All(underscore.Items, i => Assert.Equal("R3", i.Reference));
+
+        var backslash = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "\\"));
+        Assert.Equal(2, backslash.Total);
+        Assert.All(backslash.Items, i => Assert.Equal("R5", i.Reference));
+
+        var bare = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "%"));
+        Assert.Equal(2, bare.Total);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_SearchMatchesRemarksFallback()
+    {
+        var (db, companyId) = await SeedDescriptionsAsync(
+            (null, "Quarterly accrual", "R1"),
+            ("Explicit text", "Hidden remark zebra", "R2"));
+
+        var fallback = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "accrual"));
+        Assert.Equal(2, fallback.Total);
+        Assert.All(fallback.Items, i =>
+        {
+            Assert.Equal("R1", i.Reference);
+            Assert.Equal("Quarterly accrual", i.Description);
+        });
+
+        var notDisplayed = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "zebra"));
+        Assert.Equal(0, notDisplayed.Total);
+    }
 }

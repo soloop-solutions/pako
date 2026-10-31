@@ -150,13 +150,15 @@ public class GeneralLedgerReportController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
+            var escaped = search.Trim().Replace("\\", "\\\\").Replace("%", "\\%").Replace("_", "\\_");
+            var pattern = $"%{escaped}%";
             query = query.Where(r =>
-                EF.Functions.ILike(r.Account.Code, pattern) ||
-                EF.Functions.ILike(r.Account.Name, pattern) ||
-                (r.Partner != null && EF.Functions.ILike(r.Partner.Name, pattern)) ||
-                (r.Line.Description != null && EF.Functions.ILike(r.Line.Description, pattern)) ||
-                (r.Entry.Reference != null && EF.Functions.ILike(r.Entry.Reference, pattern)));
+                EF.Functions.ILike(r.Account.Code, pattern, "\\") ||
+                EF.Functions.ILike(r.Account.Name, pattern, "\\") ||
+                (r.Partner != null && EF.Functions.ILike(r.Partner.Name, pattern, "\\")) ||
+                (r.Line.Description != null && EF.Functions.ILike(r.Line.Description, pattern, "\\")) ||
+                (r.Line.Description == null && r.Entry.Remarks != null && EF.Functions.ILike(r.Entry.Remarks, pattern, "\\")) ||
+                (r.Entry.Reference != null && EF.Functions.ILike(r.Entry.Reference, pattern, "\\")));
         }
 
         return query;

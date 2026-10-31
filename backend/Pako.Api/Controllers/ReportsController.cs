@@ -340,7 +340,7 @@ public class ReportsController : ControllerBase
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;
 
         var invoices = await _db.Invoices.AsNoTracking().VisibleTo(_access)
-            .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted
+            .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate <= today
                 && (i.DocumentType == DocumentType.Invoice || i.DocumentType == DocumentType.DebitNote))
             .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
             .ToListAsync();
@@ -368,10 +368,12 @@ public class ReportsController : ControllerBase
             .ToDictionary(g => (g.JournalEntryId, g.AccountId), g => g.Total);
 
         var invoiceIds = invoices.Select(i => i.Id).ToList();
-        var reconciledByInvoiceId = await _db.Reconciliations.AsNoTracking()
-            .Where(r => r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value))
-            .GroupBy(r => r.InvoiceId!.Value)
-            .Select(g => new { InvoiceId = g.Key, Reconciled = g.Sum(r => r.Amount) })
+        var reconciledByInvoiceId = await (
+                from r in _db.Reconciliations.AsNoTracking()
+                join l in _db.JournalEntryLines.AsNoTracking() on r.JournalEntryLineId equals l.Id
+                where r.InvoiceId != null && invoiceIds.Contains(r.InvoiceId.Value) && l.JournalEntry!.Date <= today
+                group r by r.InvoiceId!.Value into g
+                select new { InvoiceId = g.Key, Reconciled = g.Sum(x => x.Amount) })
             .ToDictionaryAsync(g => g.InvoiceId, g => g.Reconciled);
 
         var lines = new List<DebtAgingLine>();

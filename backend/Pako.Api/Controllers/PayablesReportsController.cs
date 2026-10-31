@@ -95,7 +95,7 @@ public class PayablesReportsController : ControllerBase
             return NotFound(new { error = _localizer["VendorNotFound"].Value });
         }
 
-        var rows = new List<IReadOnlyList<object?>> { new object?[] { from, "Opening", null, null, null, null, statement.Opening } };
+        var rows = new List<IReadOnlyList<object?>> { new object?[] { from == DateOnly.MinValue ? null : from, "Opening", null, null, null, null, statement.Opening } };
         rows.AddRange(statement.Rows.Select(r =>
             (IReadOnlyList<object?>)new object?[] { r.Date, r.Type, r.DocumentNumber, r.Description, r.Debit, r.Credit, r.Balance }));
         rows.Add(new object?[] { to, "Closing", null, null, null, null, statement.Closing });

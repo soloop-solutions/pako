@@ -312,4 +312,17 @@ public class VendorReportsTests : IAsyncLifetime
         Assert.Equal("Closing", sheet.Cell(5, 2).GetString());
         Assert.Equal(800m, sheet.Cell(5, 7).GetValue<decimal>());
     }
+
+    [Fact]
+    public async Task VendorStatementExport_FromMinValue_OpeningRowHasNoDate()
+    {
+        var s = await SeedAsync();
+
+        var file = Assert.IsType<FileContentResult>(await Controller(s.Db).VendorStatementExport(s.CompanyId, s.Alpha, DateOnly.MinValue, Jan31));
+
+        using var workbook = new XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal("Opening", sheet.Cell(2, 2).GetString());
+        Assert.True(sheet.Cell(2, 1).IsEmpty());
+    }
 }
