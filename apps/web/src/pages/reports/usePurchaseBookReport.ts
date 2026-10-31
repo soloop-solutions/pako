@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useIntl } from "react-intl";
+import { useSearchParams } from "react-router-dom";
 
 import type {
   PurchaseBookResponse,
@@ -10,9 +11,10 @@ import { downloadFileResponse, startOfMonth, today } from "./helpers";
 
 export function usePurchaseBookReport(companyId: string | null) {
   const intl = useIntl();
+  const [searchParams] = useSearchParams();
 
-  const [purchaseBookFrom, setPurchaseBookFrom] = useState(startOfMonth);
-  const [purchaseBookTo, setPurchaseBookTo] = useState(today);
+  const [purchaseBookFrom, setPurchaseBookFrom] = useState(() => searchParams.get("from") || startOfMonth());
+  const [purchaseBookTo, setPurchaseBookTo] = useState(() => searchParams.get("to") || today());
   const [purchaseBook, setPurchaseBook] = useState<PurchaseBookResponse | null>(null);
   const [purchaseBookPeriod, setPurchaseBookPeriod] = useState<{ from: string; to: string } | null>(null);
   const [purchaseBookError, setPurchaseBookError] = useState<string | null>(null);
