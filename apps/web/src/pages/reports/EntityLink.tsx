@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { cn } from "@/lib/utils";
@@ -16,4 +16,8 @@ export function EntityLink({ to, className, onClick, ...props }: ComponentProps<
       {...props}
     />
   );
+}
+
+export function MaybeEntityLink({ to, children }: { to: string | null | undefined; children: ReactNode }) {
+  return to ? <EntityLink to={to}>{children}</EntityLink> : <>{children}</>;
 }

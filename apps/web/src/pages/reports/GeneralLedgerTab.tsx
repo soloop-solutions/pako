@@ -8,6 +8,9 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+import { entityPath, accountPath, partnerPath } from "@/lib/entityLinks";
+
+import { MaybeEntityLink } from "./EntityLink";
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { DateRangeFields, ReportShell } from "./ReportShell";
@@ -33,9 +36,18 @@ export function GeneralLedgerTab({ report, companyName, accountingLockDate }: { 
       col("documentType", intl.formatMessage({ id: "reports.glDocumentType" }), (row) => row.documentType ?? ""),
       col("documentNumber", intl.formatMessage({ id: "reports.glDocumentNumber" }), (row) => row.documentNumber ?? ""),
       col("reference", intl.formatMessage({ id: "common.reference" }), (row) => row.reference ?? ""),
-      col("account", intl.formatMessage({ id: "common.code" }), (row) => row.accountCode),
-      col("accountName", intl.formatMessage({ id: "ledger.account" }), (row) => row.accountName),
-      col("partnerName", intl.formatMessage({ id: "reports.glPartner" }), (row) => row.partnerName ?? ""),
+      {
+        ...col("account", intl.formatMessage({ id: "common.code" }), (row) => row.accountCode),
+        cell: ({ row }) => <MaybeEntityLink to={accountPath(row.original.accountId)}>{row.original.accountCode}</MaybeEntityLink>,
+      },
+      {
+        ...col("accountName", intl.formatMessage({ id: "ledger.account" }), (row) => row.accountName),
+        cell: ({ row }) => <MaybeEntityLink to={accountPath(row.original.accountId)}>{row.original.accountName}</MaybeEntityLink>,
+      },
+      {
+        ...col("partnerName", intl.formatMessage({ id: "reports.glPartner" }), (row) => row.partnerName ?? ""),
+        cell: ({ row }) => <MaybeEntityLink to={partnerPath(row.original.partnerId)}>{row.original.partnerName ?? ""}</MaybeEntityLink>,
+      },
       col("description", intl.formatMessage({ id: "common.description" }), (row) => row.description ?? ""),
       col("debit", intl.formatMessage({ id: "ledger.debit" }), (row) => row.debit, true),
       col("credit", intl.formatMessage({ id: "ledger.credit" }), (row) => row.credit, true),
@@ -91,6 +103,7 @@ export function GeneralLedgerTab({ report, companyName, accountingLockDate }: { 
         rowCount={data?.total ?? 0}
         isLoading={report.loading && !data}
         getRowId={(row, index) => `${row.entryId}-${index}`}
+        getRowLink={(row) => entityPath({ kind: row.sourceKind, id: row.sourceId })}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: "reports.glSearchPlaceholder" })}
         footerRow={

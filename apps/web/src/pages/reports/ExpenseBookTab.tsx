@@ -6,6 +6,9 @@ import type { ExpenseBookRow } from "@pako/shared";
 
 import { DataGrid } from "@/components/data-grid/DataGrid";
 
+import { entityPath, partnerPath } from "@/lib/entityLinks";
+
+import { MaybeEntityLink } from "./EntityLink";
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { DateRangeFields, ReportShell } from "./ReportShell";
@@ -20,7 +23,12 @@ export function ExpenseBookTab({ report, companyName, accountingLockDate }: { re
     return [
       staticColumn<ExpenseBookRow>({ id: "date", header: intl.formatMessage({ id: "common.date" }), accessorFn: (row) => row.date }),
       staticColumn<ExpenseBookRow>({ id: "documentNumber", header: intl.formatMessage({ id: "reports.expenseBookDocument" }), accessorFn: (row) => row.documentNumber ?? "" }),
-      staticColumn<ExpenseBookRow>({ id: "partnerName", header: intl.formatMessage({ id: "reports.glPartner" }), accessorFn: (row) => row.partnerName ?? "" }),
+      staticColumn<ExpenseBookRow>({
+        id: "partnerName",
+        header: intl.formatMessage({ id: "reports.glPartner" }),
+        accessorFn: (row) => row.partnerName ?? "",
+        cell: ({ row }) => <MaybeEntityLink to={partnerPath(row.original.partnerId, "vendor")}>{row.original.partnerName ?? ""}</MaybeEntityLink>,
+      }),
       ...data.columns.map((column, index) => {
         const header = `${column.accountCode} ${column.accountName}`;
         return staticColumn<ExpenseBookRow>({
@@ -74,6 +82,7 @@ export function ExpenseBookTab({ report, companyName, accountingLockDate }: { re
           data={data.rows}
           rowCount={data.rows.length}
           getRowId={(row, index) => `${row.entryId}-${index}`}
+          getRowLink={(row) => entityPath({ kind: row.sourceKind, id: row.sourceId })}
           defaultPageSize={1000}
           pageSizeOptions={[1000]}
           footerRow={footerRow}

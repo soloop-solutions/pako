@@ -8,6 +8,8 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+import { entityPath } from "@/lib/entityLinks";
+
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { ExportButton } from "./shared";
@@ -23,6 +25,7 @@ interface StatementDisplayRow {
   debit: number | undefined;
   credit: number | undefined;
   balance: number;
+  href: string | null;
 }
 
 export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose }: { companyId: string; partnerId: string; from: string; to: string; onClose: () => void }) {
@@ -38,7 +41,7 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
   const rows = useMemo<StatementDisplayRow[]>(() => {
     if (!data) return [];
     return [
-      { key: "opening", kind: "opening", date: "", type: "", documentNumber: "", description: intl.formatMessage({ id: "reports.openingBalance" }), debit: undefined, credit: undefined, balance: data.opening },
+      { key: "opening", kind: "opening", date: "", type: "", documentNumber: "", description: intl.formatMessage({ id: "reports.openingBalance" }), debit: undefined, credit: undefined, balance: data.opening, href: null },
       ...data.rows.map(
         (row, index): StatementDisplayRow => ({
           key: `row-${index}`,
@@ -50,9 +53,10 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
           debit: row.debit,
           credit: row.credit,
           balance: row.balance,
+          href: entityPath({ kind: row.sourceKind, id: row.sourceId }),
         }),
       ),
-      { key: "closing", kind: "closing", date: "", type: "", documentNumber: "", description: intl.formatMessage({ id: "reports.closingBalance" }), debit: undefined, credit: undefined, balance: data.closing },
+      { key: "closing", kind: "closing", date: "", type: "", documentNumber: "", description: intl.formatMessage({ id: "reports.closingBalance" }), debit: undefined, credit: undefined, balance: data.closing, href: null },
     ];
   }, [data, intl]);
 
@@ -103,6 +107,7 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
             data={rows}
             rowCount={rows.length}
             getRowId={(row) => row.key}
+            getRowLink={(row) => row.href}
             defaultPageSize={1000}
             pageSizeOptions={[1000]}
             getRowClassName={(row) => (row.kind === "row" ? undefined : "bg-muted/60 font-semibold")}

@@ -10,6 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
+import { entityPath, partnerPath } from "@/lib/entityLinks";
+import { MaybeEntityLink } from "./EntityLink";
+import { LinkedRow } from "./LinkedRow";
 import { ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { useDebtReport } from "./useDebtReport";
@@ -77,12 +80,12 @@ export function DebtTab({ report, accountingLockDate }: { report: ReturnType<typ
                       </TableHeader>
                       <TableBody>
                         {lines.map((line) => (
-                          <TableRow key={line.invoiceId}>
+                          <LinkedRow key={line.invoiceId} to={entityPath({ kind: line.sourceKind, id: line.sourceId })}>
                             <TableCell>{line.invoiceNumber ?? "-"}</TableCell>
-                            <TableCell>{debtPartnerName(line.partnerId)}</TableCell>
+                            <TableCell><MaybeEntityLink to={partnerPath(line.partnerId, "customer")}>{debtPartnerName(line.partnerId)}</MaybeEntityLink></TableCell>
                             <TableCell>{line.dueDate}</TableCell>
                             <TableCell className="text-right">{line.outstanding.toFixed(2)}</TableCell>
-                          </TableRow>
+                          </LinkedRow>
                         ))}
                       </TableBody>
                     </Table>

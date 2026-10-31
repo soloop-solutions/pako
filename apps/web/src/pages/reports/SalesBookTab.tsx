@@ -9,6 +9,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { entityPath, partnerPath } from "@/lib/entityLinks";
+import { MaybeEntityLink } from "./EntityLink";
+import { LinkedRow } from "./LinkedRow";
 import { ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { useSalesBookReport } from "./useSalesBookReport";
@@ -75,11 +78,11 @@ export function SalesBookTab({ report, companyName, taxLockDate }: { report: Ret
                 </TableHeader>
                 <TableBody>
                   {salesBook.lines.map((line, index) => (
-                    <TableRow key={`${line.invoiceId}-${line.vatCode}-${index}`}>
+                    <LinkedRow key={`${line.invoiceId}-${line.vatCode}-${index}`} to={entityPath({ kind: line.sourceKind, id: line.sourceId })}>
                       <TableCell>{line.invoiceNumber ?? "-"}</TableCell>
                       <TableCell className="tabular-nums">{line.issueDate}</TableCell>
                       <TableCell>{line.documentType}</TableCell>
-                      <TableCell>{line.partnerName}</TableCell>
+                      <TableCell><MaybeEntityLink to={partnerPath(line.partnerId, "customer")}>{line.partnerName}</MaybeEntityLink></TableCell>
                       <TableCell>{line.partnerTaxNumber ?? "-"}</TableCell>
                       <TableCell>{line.partnerFiscalNumber ?? "-"}</TableCell>
                       <TableCell>{line.vatCode}</TableCell>
@@ -87,7 +90,7 @@ export function SalesBookTab({ report, companyName, taxLockDate }: { report: Ret
                       <TableCell className="text-right tabular-nums">{line.netAmount.toFixed(2)}</TableCell>
                       <TableCell className="text-right tabular-nums">{line.vatAmount.toFixed(2)}</TableCell>
                       <TableCell className="text-right tabular-nums">{line.grossAmount.toFixed(2)}</TableCell>
-                    </TableRow>
+                    </LinkedRow>
                   ))}
                 </TableBody>
               </Table>

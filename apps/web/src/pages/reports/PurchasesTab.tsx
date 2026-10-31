@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
+import { entityPath, itemPath, partnerPath } from "@/lib/entityLinks";
+
+import { MaybeEntityLink } from "./EntityLink";
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { DateRangeFields, ReportShell } from "./ReportShell";
@@ -78,8 +81,14 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
     return [
       text("date", intl.formatMessage({ id: "common.date" }), (row) => row.date),
       text("document", intl.formatMessage({ id: "reports.documentNumber" }), (row) => row.documentNumber ?? ""),
-      text("vendor", intl.formatMessage({ id: "common.vendor" }), (row) => row.partnerName),
-      text("itemCode", intl.formatMessage({ id: "reports.purchasesItemCode" }), (row) => row.itemCode ?? ""),
+      {
+        ...text("vendor", intl.formatMessage({ id: "common.vendor" }), (row) => row.partnerName),
+        cell: ({ row }) => <MaybeEntityLink to={partnerPath(row.original.partnerId, "vendor")}>{row.original.partnerName}</MaybeEntityLink>,
+      },
+      {
+        ...text("itemCode", intl.formatMessage({ id: "reports.purchasesItemCode" }), (row) => row.itemCode ?? ""),
+        cell: ({ row }) => <MaybeEntityLink to={itemPath(row.original.itemId)}>{row.original.itemCode ?? ""}</MaybeEntityLink>,
+      },
       text("description", intl.formatMessage({ id: "common.description" }), (row) => row.description),
       staticColumn<PurchaseTransactionLine>({
         id: "quantity",
@@ -186,6 +195,7 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
           rowCount={report.transactions?.total ?? 0}
           isLoading={report.loading && !report.transactions}
           getRowId={(row, index) => `${row.documentNumber}-${index}`}
+          getRowLink={(row) => entityPath({ kind: row.sourceKind, id: row.sourceId })}
           enableGlobalFilter
           globalFilterPlaceholder={intl.formatMessage({ id: "reports.purchasesSearchPlaceholder" })}
           footerRow={

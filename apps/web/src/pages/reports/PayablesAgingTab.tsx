@@ -9,6 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+import { entityPath, partnerPath } from "@/lib/entityLinks";
+
+import { MaybeEntityLink } from "./EntityLink";
 import { formatAmount } from "./helpers";
 import { staticColumn } from "./reportColumns";
 import { ReportShell } from "./ReportShell";
@@ -25,7 +28,12 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
 
   const columns = useMemo<ColumnDef<PayablesAgingLine>[]>(
     () => [
-      staticColumn<PayablesAgingLine>({ id: "partnerName", header: intl.formatMessage({ id: "common.vendor" }), accessorFn: (row) => row.partnerName }),
+      staticColumn<PayablesAgingLine>({
+        id: "partnerName",
+        header: intl.formatMessage({ id: "common.vendor" }),
+        accessorFn: (row) => row.partnerName,
+        cell: ({ row }) => <MaybeEntityLink to={partnerPath(row.original.partnerId, "vendor")}>{row.original.partnerName}</MaybeEntityLink>,
+      }),
       staticColumn<PayablesAgingLine>({ id: "billNumber", header: intl.formatMessage({ id: "reports.billNumber" }), accessorFn: (row) => row.billNumber ?? "" }),
       staticColumn<PayablesAgingLine>({ id: "issueDate", header: intl.formatMessage({ id: "reports.issueDate" }), accessorFn: (row) => row.issueDate }),
       staticColumn<PayablesAgingLine>({ id: "dueDate", header: intl.formatMessage({ id: "reports.dueDate" }), accessorFn: (row) => row.dueDate }),
@@ -138,6 +146,7 @@ export function PayablesAgingTab({ report, companyName }: { report: ReturnType<t
               data={data.lines}
               rowCount={data.lines.length}
               getRowId={(row) => row.billId}
+              getRowLink={(row) => entityPath({ kind: row.sourceKind, id: row.sourceId })}
               defaultPageSize={1000}
               pageSizeOptions={[1000]}
             />
