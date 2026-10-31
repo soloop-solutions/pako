@@ -41,4 +41,16 @@ public class Item
     public decimal? MinimumStock { get; set; }
 
     public List<ItemBarcode> Barcodes { get; set; } = new();
+
+    // docs/INVENTORY_PLAN.md §12 P7: Unit is the base (stock) unit. A purchase and a sales unit can
+    // be named multiples of it (box = 24 pieces); documents may be entered in either, and stock
+    // always moves in base units.
+    // §12 P8: quantities are kept per lot with an expiry date (stock-tracked goods only; fixed once
+    // stock has moved, like TrackInventory).
+    public bool TrackLots { get; set; }
+
+    public string? PurchaseUnit { get; set; }
+    public decimal? PurchaseUnitFactor { get; set; }
+    public string? SalesUnit { get; set; }
+    public decimal? SalesUnitFactor { get; set; }
 }

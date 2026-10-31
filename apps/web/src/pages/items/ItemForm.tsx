@@ -25,6 +25,11 @@ export interface ItemFormFields {
   categoryId?: string;
   trackInventory: boolean;
   minimumStock?: number;
+  trackLots?: boolean;
+  purchaseUnit?: string;
+  purchaseUnitFactor?: number;
+  salesUnit?: string;
+  salesUnitFactor?: number;
 }
 
 interface ItemFormProps {
@@ -79,7 +84,13 @@ export function ItemForm({
   const [inventoryAccountId, setInventoryAccountId] = useState(initial?.defaultInventoryAccountId ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
   const [trackInventory, setTrackInventory] = useState(initial?.trackInventory ?? false);
+  const [trackLots, setTrackLots] = useState(initial?.trackLots ?? false);
   const [minimumStock, setMinimumStock] = useState(initial?.minimumStock != null ? String(initial.minimumStock) : "");
+  // §12 P7: purchase and sales units, each a multiple of the base unit.
+  const [purchaseUnit, setPurchaseUnit] = useState(initial?.purchaseUnit ?? "");
+  const [purchaseFactor, setPurchaseFactor] = useState(initial?.purchaseUnitFactor != null ? String(initial.purchaseUnitFactor) : "");
+  const [salesUnit, setSalesUnit] = useState(initial?.salesUnit ?? "");
+  const [salesFactor, setSalesFactor] = useState(initial?.salesUnitFactor != null ? String(initial.salesUnitFactor) : "");
   // Tracking can't be switched once stock has moved: the ledger and the stock card would disagree.
   const trackingLocked = initial?.hasStockMoves ?? false;
   const canTrack = type === ItemType.Goods;
@@ -99,6 +110,11 @@ export function ItemForm({
       categoryId: categoryId || undefined,
       trackInventory: canTrack && trackInventory,
       minimumStock: canTrack && trackInventory && minimumStock ? parseFloat(minimumStock) : undefined,
+      trackLots: canTrack && trackInventory && trackLots,
+      purchaseUnit: canTrack && purchaseUnit.trim() ? purchaseUnit.trim() : undefined,
+      purchaseUnitFactor: canTrack && purchaseUnit.trim() && purchaseFactor ? parseFloat(purchaseFactor) : undefined,
+      salesUnit: canTrack && salesUnit.trim() ? salesUnit.trim() : undefined,
+      salesUnitFactor: canTrack && salesUnit.trim() && salesFactor ? parseFloat(salesFactor) : undefined,
     });
   }
 
@@ -265,8 +281,41 @@ export function ItemForm({
                   <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.minimumStock.hint" })}</p>
                 </div>
               )}
+              {trackInventory && (
+                <div className="flex flex-col gap-1">
+                  <Label className="invisible" aria-hidden>{intl.formatMessage({ id: "items.trackLots" })}</Label>
+                  <label className="flex h-9 items-center gap-2 text-sm">
+                    <input type="checkbox" checked={trackLots} disabled={trackingLocked} onChange={(e) => setTrackLots(e.target.checked)} />
+                    {intl.formatMessage({ id: "items.trackLots" })}
+                  </label>
+                  <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.trackLots.hint" })}</p>
+                </div>
+              )}
             </>
           )}
+        </div>
+      )}
+
+      {canTrack && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          {([
+            ["purchase", purchaseUnit, setPurchaseUnit, purchaseFactor, setPurchaseFactor],
+            ["sales", salesUnit, setSalesUnit, salesFactor, setSalesFactor],
+          ] as const).map(([kind, name, setName, factor, setFactor]) => (
+            <div key={kind} className="contents">
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`item-${kind}-unit`}>{intl.formatMessage({ id: `items.${kind}Unit` })}</Label>
+                <Input id={`item-${kind}-unit`} maxLength={32} placeholder={intl.formatMessage({ id: "items.unitPlaceholder" })}
+                  value={name} onChange={(e) => setName(e.target.value)} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <Label htmlFor={`item-${kind}-factor`}>{intl.formatMessage({ id: "items.unitFactor" }, { unit: unit || "—" })}</Label>
+                <Input id={`item-${kind}-factor`} type="number" min="0" step="any" className="text-right tabular-nums"
+                  disabled={!name.trim()} value={factor} onChange={(e) => setFactor(e.target.value)} />
+              </div>
+            </div>
+          ))}
+          <p className="text-xs text-muted-foreground sm:col-span-4">{intl.formatMessage({ id: "items.units.hint" })}</p>
         </div>
       )}
 

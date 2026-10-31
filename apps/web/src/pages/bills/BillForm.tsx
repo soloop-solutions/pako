@@ -20,7 +20,8 @@ import { partnerOptionLabel } from "@/lib/partners";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
-import { OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
+import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
 
 type Line = {
@@ -31,6 +32,11 @@ type Line = {
   taxDefinitionId: string;
   itemId: string;
   expenseAccountId: string;
+  // §12 P7: the item unit the quantity is in (undefined = the base unit).
+  unitName?: string;
+  // §12 P8: for lot-tracked items, the lot received and its expiry.
+  lotNumber?: string;
+  expiryDate?: string;
 };
 
 function emptyLine(defaultTaxId: string): Line {
@@ -170,6 +176,9 @@ export function BillForm({
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? "",
           itemId: l.itemId ?? "",
+          unitName: l.unitName ?? undefined,
+          lotNumber: l.lotNumber ?? undefined,
+          expiryDate: l.expiryDate ?? undefined,
           expenseAccountId: l.expenseAccountId ?? "",
         }))
       : [emptyLine(defaultTaxId)],
@@ -205,6 +214,9 @@ export function BillForm({
           discountPercent: String(l.discountPercent),
           taxDefinitionId: l.taxDefinitionId ?? defaultTaxId,
           itemId: l.itemId ?? "",
+          unitName: l.unitName ?? undefined,
+          lotNumber: l.lotNumber ?? undefined,
+          expiryDate: l.expiryDate ?? undefined,
           expenseAccountId: l.expenseAccountId ?? "",
         }));
         setLines(populated);
@@ -230,7 +242,7 @@ export function BillForm({
 
   function selectLineItem(index: number, itemId: string) {
     const item = items.find((i) => i.id === itemId);
-    setLines((prev) => prev.map((line, i) => (i === index ? applyItemDefaults(line, item, partnerDrivenTaxId) : line)));
+    setLines((prev) => prev.map((line, i) => (i === index ? { ...applyItemDefaults(line, item, partnerDrivenTaxId), unitName: undefined } : line)));
   }
 
   function addLine() {
@@ -281,6 +293,9 @@ export function BillForm({
         taxDefinitionId: line.taxDefinitionId || undefined,
         expenseAccountId: line.expenseAccountId || undefined,
         itemId: line.itemId || undefined,
+        unitName: line.unitName || undefined,
+        lotNumber: line.lotNumber?.trim() || undefined,
+        expiryDate: line.expiryDate || undefined,
       }));
 
       const recordFavorites = () => {
@@ -534,11 +549,20 @@ export function BillForm({
                 value={line.quantity}
                 onChange={(event) => updateLine(index, { quantity: event.target.value })}
               />
+              <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
+              {selectedItem?.trackLots && (
+                <div className="flex gap-1">
+                  <Input className="h-7 text-xs" placeholder={intl.formatMessage({ id: "stock.lot.number" })} aria-label={intl.formatMessage({ id: "stock.lot.number" })}
+                    value={line.lotNumber ?? ""} onChange={(event) => updateLine(index, { lotNumber: event.target.value })} />
+                  <Input className="h-7 text-xs" type="date" aria-label={intl.formatMessage({ id: "stock.lot.expiry" })}
+                    value={line.expiryDate ?? ""} onChange={(event) => updateLine(index, { expiryDate: event.target.value })} />
+                </div>
+              )}
               {selectedItem?.trackInventory && (
                 <OnHandHint
                   className="absolute -bottom-4 right-0 whitespace-nowrap"
                   onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
-                  requested={parseFloat(line.quantity) || 0}
+                  requested={baseQuantity(selectedItem, line.unitName, parseFloat(line.quantity) || 0)}
                   warnWhenShort={documentType === BillDocumentType.PurchaseReturn}
                 />
               )}

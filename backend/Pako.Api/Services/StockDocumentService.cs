@@ -3,7 +3,9 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Contracts;
 using Pako.Domain.Companies;
 using Pako.Domain.Inventory;
+using Pako.Domain.Bills;
 using Pako.Domain.Ledger;
+using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Services;
@@ -19,13 +21,16 @@ public class StockDocumentService
     private readonly StockService _stock;
     private readonly NumberSeriesService _numbers;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ITaxComputationService _tax;
 
-    public StockDocumentService(PakoDbContext db, StockService stock, NumberSeriesService numbers, IStringLocalizer<ErrorMessages> localizer)
+    public StockDocumentService(PakoDbContext db, StockService stock, NumberSeriesService numbers, IStringLocalizer<ErrorMessages> localizer,
+        ITaxComputationService tax)
     {
         _db = db;
         _stock = stock;
         _numbers = numbers;
         _localizer = localizer;
+        _tax = tax;
     }
 
     public static string NumberSeriesKey(StockDocumentType type) => "Stock" + type;
@@ -53,6 +58,7 @@ public class StockDocumentService
         document.Reason = request.Type == StockDocumentType.WriteOff ? request.Reason : null;
         document.AtkNoticeDate = request.Type == StockDocumentType.WriteOff ? request.AtkNoticeDate : null;
         document.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+        document.PartnerId = request.Type == StockDocumentType.Receipt ? request.PartnerId : null;
 
         _db.StockDocumentLines.RemoveRange(document.Lines);
         document.Lines = request.Lines.Select(l => new StockDocumentLine
@@ -60,8 +66,12 @@ public class StockDocumentService
             Id = Guid.NewGuid(),
             StockDocumentId = document.Id,
             ItemId = l.ItemId,
-            Quantity = l.Quantity,
-            UnitCost = request.Type == StockDocumentType.Opening ? l.UnitCost : null,
+            // Write-down lines carry the net realisable value per unit; the quantity comes from the books.
+            Quantity = request.Type == StockDocumentType.WriteDown ? 0m : l.Quantity,
+            UnitCost = request.Type is StockDocumentType.Opening or StockDocumentType.WriteDown or StockDocumentType.Receipt ? l.UnitCost : null,
+            PurchaseOrderLineId = request.Type == StockDocumentType.Receipt ? l.PurchaseOrderLineId : null,
+            LotNumber = string.IsNullOrWhiteSpace(l.LotNumber) ? null : l.LotNumber.Trim(),
+            ExpiryDate = l.ExpiryDate,
             Note = string.IsNullOrWhiteSpace(l.Note) ? null : l.Note.Trim(),
         }).ToList();
         _db.StockDocumentLines.AddRange(document.Lines);
@@ -94,9 +104,14 @@ public class StockDocumentService
 
         foreach (var line in request.Lines)
         {
+            if (request.Type == StockDocumentType.WriteDown)
+            {
+                if (line.UnitCost is not { } nrv || nrv < 0) throw new StockException(_localizer["StockWriteDownValueRequired"].Value);
+                continue;
+            }
             var minimum = request.Type == StockDocumentType.Count ? 0m : 0.0001m;
             if (line.Quantity < minimum || line.Quantity > 1_000_000_000m) throw new StockException(_localizer["StockDocumentQuantity"].Value);
-            if (request.Type == StockDocumentType.Opening && (line.UnitCost is not { } cost || cost < 0))
+            if (request.Type is StockDocumentType.Opening or StockDocumentType.Receipt && (line.UnitCost is not { } cost || cost < 0))
             {
                 throw new StockException(_localizer["StockOpeningCostRequired"].Value);
             }
@@ -106,6 +121,28 @@ public class StockDocumentService
         {
             throw new StockException(_localizer["StockWriteOffReasonRequired"].Value);
         }
+
+        if (request.Type == StockDocumentType.Receipt)
+        {
+            if (request.PartnerId is not { } vendor
+                || !await _db.Partners.AnyAsync(p => p.Id == vendor && p.CompanyId == companyId && p.IsVendor))
+            {
+                throw new StockException(_localizer["PurchaseOrderVendorRequired"].Value);
+            }
+            // An ordered line must be on a confirmed order from this vendor, for the same item.
+            var orderLineIds = request.Lines.Where(l => l.PurchaseOrderLineId != null).Select(l => l.PurchaseOrderLineId!.Value).ToList();
+            if (orderLineIds.Count > 0)
+            {
+                var orderLines = await _db.PurchaseOrderLines.AsNoTracking()
+                    .Where(l => orderLineIds.Contains(l.Id) && l.PurchaseOrder!.CompanyId == companyId && l.PurchaseOrder.PartnerId == vendor
+                        && l.PurchaseOrder.State == Pako.Domain.Bills.PurchaseOrderState.Confirmed)
+                    .ToDictionaryAsync(l => l.Id, l => l.ItemId);
+                if (request.Lines.Any(l => l.PurchaseOrderLineId is { } id && (!orderLines.TryGetValue(id, out var item) || item != l.ItemId)))
+                {
+                    throw new StockException(_localizer["BillPurchaseOrderLineInvalid"].Value);
+                }
+            }
+        }
     }
 
     // ---- Posting ----
@@ -114,8 +151,8 @@ public class StockDocumentService
     {
         if (document.IsPosted) throw new StockException(_localizer["StockDocumentPosted"].Value);
         await ValidateAsync(company.Id, new SaveStockDocumentRequest(document.Type, document.Date, document.WarehouseId,
-            document.Lines.Select(l => new StockDocumentLineRequest(l.ItemId, l.Quantity, l.UnitCost, l.Note)).ToList(),
-            document.DestinationWarehouseId, document.Reason, document.AtkNoticeDate, document.Notes));
+            document.Lines.Select(l => new StockDocumentLineRequest(l.ItemId, l.Quantity, l.UnitCost, l.Note, l.PurchaseOrderLineId, l.LotNumber, l.ExpiryDate)).ToList(),
+            document.DestinationWarehouseId, document.Reason, document.AtkNoticeDate, document.Notes, document.PartnerId));
 
         // D14 (AI 03/2015 Art. 61.2): destroying expired or damaged goods needs written notice to ATK
         // at least 10 days before.
@@ -142,7 +179,17 @@ public class StockDocumentService
                     foreach (var line in document.Lines)
                     {
                         requests.Add(new(line.ItemId, StockMoveKind.Receipt, opening.Id, location.Id, line.Quantity,
-                            AverageCost.Money(line.Quantity * line.UnitCost!.Value), line.Id));
+                            AverageCost.Money(line.Quantity * line.UnitCost!.Value), line.Id, line.LotNumber, line.ExpiryDate));
+                    }
+                    break;
+                }
+            case StockDocumentType.Receipt:
+                {
+                    var supplier = await _stock.VirtualLocationAsync(company.Id, LocationUsage.Supplier);
+                    foreach (var line in document.Lines)
+                    {
+                        requests.Add(new(line.ItemId, StockMoveKind.Receipt, supplier.Id, location.Id, line.Quantity,
+                            AverageCost.Money(line.Quantity * line.UnitCost!.Value), line.Id, line.LotNumber, line.ExpiryDate));
                     }
                     break;
                 }
@@ -151,7 +198,8 @@ public class StockDocumentService
                     var destination = await _stock.StockLocationAsync(company.Id, document.DestinationWarehouseId!.Value);
                     foreach (var line in document.Lines)
                     {
-                        requests.Add(new(line.ItemId, StockMoveKind.Transfer, location.Id, destination.Id, line.Quantity, SourceLineId: line.Id));
+                        requests.Add(new(line.ItemId, StockMoveKind.Transfer, location.Id, destination.Id, line.Quantity, SourceLineId: line.Id,
+                            LotNumber: line.LotNumber));
                     }
                     break;
                 }
@@ -164,9 +212,11 @@ public class StockDocumentService
                         line.BookQuantity = book.GetValueOrDefault(line.ItemId);
                         line.Difference = line.Quantity - line.BookQuantity;
                         if (line.Difference > 0)
-                            requests.Add(new(line.ItemId, StockMoveKind.Receipt, adjustment.Id, location.Id, line.Difference.Value, SourceLineId: line.Id));
+                            requests.Add(new(line.ItemId, StockMoveKind.Receipt, adjustment.Id, location.Id, line.Difference.Value, SourceLineId: line.Id,
+                                LotNumber: line.LotNumber, ExpiryDate: line.ExpiryDate));
                         else if (line.Difference < 0)
-                            requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, adjustment.Id, -line.Difference.Value, SourceLineId: line.Id));
+                            requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, adjustment.Id, -line.Difference.Value, SourceLineId: line.Id,
+                                LotNumber: line.LotNumber));
                     }
                     break;
                 }
@@ -175,13 +225,30 @@ public class StockDocumentService
                     var scrap = await _stock.VirtualLocationAsync(company.Id, LocationUsage.Scrap);
                     foreach (var line in document.Lines)
                     {
-                        requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, scrap.Id, line.Quantity, SourceLineId: line.Id));
+                        requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, scrap.Id, line.Quantity, SourceLineId: line.Id,
+                            LotNumber: line.LotNumber));
                     }
                     break;
                 }
         }
 
         document.Number = await _numbers.ReserveNextAsync(company.Id, NumberSeriesKey(document.Type), document.Date);
+        if (document.Type == StockDocumentType.WriteDown)
+        {
+            if (await WriteDownEntryAsync(company.Id, document) is { } writeDown)
+            {
+                writeDown.Post(effectiveCompany);
+                writeDown.PostedByUserId = userId;
+                writeDown.SourceDocumentId = document.Id;
+                _db.JournalEntries.Add(writeDown);
+                document.JournalEntryId = writeDown.Id;
+            }
+            document.State = StockDocumentState.Posted;
+            document.PostedAt = DateTime.UtcNow;
+            document.PostedByUserId = userId;
+            return;
+        }
+
         var posting = await _stock.ApplyAsync(company.Id, document.Date, StockMoveSource.StockDocument, document.Id, document.Number, requests);
 
         if (document.Type != StockDocumentType.Transfer && posting.Moves.Count > 0
@@ -197,6 +264,59 @@ public class StockDocumentService
         document.State = StockDocumentState.Posted;
         document.PostedAt = DateTime.UtcNow;
         document.PostedByUserId = userId;
+    }
+
+    // Phase 2 write-down to net realisable value. Each item's allowance is brought to
+    // quantity × (average cost − NRV) at the document date, floored at zero; the change from the
+    // allowance it already carries is posted Dr 520300 / Cr 120900 (a negative change reverses it).
+    // A write-down can't be dated before a later one already posted for the same item, so the
+    // allowance always follows the documents in date order.
+    private async Task<JournalEntry?> WriteDownEntryAsync(Guid companyId, StockDocument document)
+    {
+        var itemIds = document.Lines.Select(l => l.ItemId).ToList();
+        var positions = await _db.StockMoves.AsNoTracking()
+            .Where(m => m.CompanyId == companyId && itemIds.Contains(m.ItemId) && m.Date <= document.Date)
+            .GroupBy(m => m.ItemId)
+            .Select(g => g.OrderByDescending(m => m.Date).ThenByDescending(m => m.Sequence).First())
+            .ToDictionaryAsync(m => m.ItemId, m => new { m.QtyAfter, m.AvgCostAfter });
+        var previous = await _db.StockDocumentLines.AsNoTracking()
+            .Where(l => itemIds.Contains(l.ItemId) && l.StockDocument!.CompanyId == companyId && l.StockDocument.Type == StockDocumentType.WriteDown
+                && l.StockDocument.State == StockDocumentState.Posted && l.StockDocumentId != document.Id)
+            .Select(l => new { l.ItemId, l.StockDocument!.Date, l.StockDocument.PostedAt, l.AllowanceAfter })
+            .ToListAsync();
+        if (previous.Any(p => p.Date > document.Date))
+        {
+            throw new StockException(_localizer["StockWriteDownLaterExists"].Value);
+        }
+
+        var expense = await _stock.RequiredAccountAsync(companyId, StockService.ScrapAccountCode);
+        var allowance = await _stock.RequiredAccountAsync(companyId, StockService.WriteDownAllowanceCode);
+        var journal = await JournalResolver.GetAsync(_db, companyId, JournalType.General)
+            ?? throw new StockException(_localizer["NoJournalToPost"].Value);
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journal.Id, Date = document.Date,
+            Reference = document.Number, Remarks = document.Notes,
+        };
+        var label = $"{_localizer["StockDocumentWriteDown"].Value} {document.Number}";
+        foreach (var line in document.Lines)
+        {
+            var position = positions.GetValueOrDefault(line.ItemId);
+            var quantity = position?.QtyAfter ?? 0m;
+            var average = position?.AvgCostAfter ?? 0m;
+            var current = previous.Where(p => p.ItemId == line.ItemId)
+                .OrderByDescending(p => p.Date).ThenByDescending(p => p.PostedAt).Select(p => p.AllowanceAfter).FirstOrDefault() ?? 0m;
+            var target = quantity > 0 ? AverageCost.Money(quantity * Math.Max(0m, average - line.UnitCost!.Value)) : 0m;
+            line.BookQuantity = quantity;
+            line.AverageCost = average;
+            line.AllowanceAfter = target;
+            line.Amount = target - current;
+            StockService.AddPair(entry, expense, allowance, line.Amount.Value, label);
+        }
+
+        if (entry.Lines.Count == 0) return null;
+        entry.SequenceNumber = JournalSequencer.ReserveNext(journal);
+        return entry;
     }
 
     // Null when everything moved was worth nothing (items with no cost): no entry to post.
@@ -229,6 +349,16 @@ public class StockDocumentService
                     }
                     break;
                 }
+            case StockDocumentType.Receipt:
+                {
+                    // §12 P6: Dr stock / Cr 120800 until the vendor's bill matches the receipt.
+                    var grni = await _stock.RequiredAccountAsync(companyId, StockService.GoodsReceivedNotInvoicedCode);
+                    foreach (var m in posting.Moves)
+                    {
+                        StockService.AddPair(entry, accounts[m.Request.ItemId].InventoryAccountId, grni, m.Value, label);
+                    }
+                    break;
+                }
             case StockDocumentType.Count:
                 {
                     var shortage = await _stock.RequiredAccountAsync(companyId, StockService.ShortageAccountCode);
@@ -252,6 +382,11 @@ public class StockDocumentService
                     {
                         StockService.AddPair(entry, expense, accounts[m.Request.ItemId].InventoryAccountId, m.Value, label);
                     }
+                    if (VatRepaymentDue(document))
+                    {
+                        await AddVatRepaymentAsync(entry, companyId, posting.Moves.Select(m => (m.Request.ItemId, m.Value)), expense,
+                            $"{_localizer["StockVatRepayment"].Value} {document.Number}");
+                    }
                     break;
                 }
         }
@@ -261,6 +396,43 @@ public class StockDocumentService
         if (entry.Lines.Count == 0) return null;
         entry.SequenceNumber = JournalSequencer.ReserveNext(journal);
         return entry;
+    }
+
+    // D14 phase 2 (AI 03/2015 Arts. 61.1.4 and 62): goods stolen or lost without explanation lose the
+    // input VAT deducted on them. It is reversed in the write-off's own entry — Dr shortage / Cr the
+    // input VAT account, tagged with the tax code deducted on the item's latest purchase bill (B18 when
+    // it was never bought on a bill) — so the VAT return of the write-off's month shows less input VAT.
+    // Only deductible input VAT (113xxx other than 113900) is reversed; non-deductible VAT was never
+    // claimed. The amount is the tax code's own computation on the cost written off.
+    private async Task AddVatRepaymentAsync(JournalEntry entry, Guid companyId, IEnumerable<(Guid ItemId, decimal Value)> moved,
+        Guid expenseAccountId, string label)
+    {
+        var lost = moved.Where(m => m.Value > 0).ToList();
+        if (lost.Count == 0) return;
+        var itemIds = lost.Select(m => m.ItemId).Distinct().ToList();
+        var lastTax = (await _db.BillLines.AsNoTracking()
+                .Where(l => l.ItemId != null && itemIds.Contains(l.ItemId.Value) && l.TaxDefinitionId != null && l.Bill!.CompanyId == companyId
+                    && l.Bill.State == BillState.Posted && l.Bill.DocumentType == Pako.Domain.Bills.DocumentType.Bill)
+                .Select(l => new { ItemId = l.ItemId!.Value, TaxId = l.TaxDefinitionId!.Value, l.Bill!.IssueDate, l.Bill.CreatedAt })
+                .ToListAsync())
+            .GroupBy(x => x.ItemId)
+            .ToDictionary(g => g.Key, g => g.OrderByDescending(x => x.IssueDate).ThenByDescending(x => x.CreatedAt).First().TaxId);
+        var taxes = await _db.TaxDefinitions.AsNoTracking().Include(t => t.RepartitionLines).Where(t => t.CompanyId == companyId).ToListAsync();
+        var fallback = taxes.FirstOrDefault(t => t.Code == "B18");
+        var deductible = (await _db.Accounts.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.Code.StartsWith("113") && a.Code != "113900")
+            .Select(a => a.Id).ToListAsync()).ToHashSet();
+
+        foreach (var (itemId, value) in lost)
+        {
+            var tax = lastTax.TryGetValue(itemId, out var taxId) ? taxes.FirstOrDefault(t => t.Id == taxId) : fallback;
+            if (tax is null || tax.IsReverseCharge || tax.DeductiblePercent is null or 0) continue;
+            foreach (var line in _tax.Compute(value, tax).PostingLines.Where(p => deductible.Contains(p.AccountId) && p.Amount > 0))
+            {
+                entry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = expenseAccountId, Debit = line.Amount, Description = label });
+                entry.Lines.Add(new JournalEntryLine { Id = Guid.NewGuid(), AccountId = line.AccountId, Credit = line.Amount, Description = label, TaxId = tax.Id });
+            }
+        }
     }
 
     public static bool VatRepaymentDue(StockDocument d) =>
@@ -278,14 +450,32 @@ public class StockDocumentService
             ? await _db.StockMoves.AsNoTracking().Where(m => m.SourceType == StockMoveSource.StockDocument && m.SourceId == d.Id)
                 .GroupBy(m => m.SourceLineId).Select(g => new { g.Key, Value = g.Sum(m => m.Value) }).ToDictionaryAsync(g => g.Key ?? Guid.Empty, g => g.Value)
             : new Dictionary<Guid, decimal>();
+        // Receipts: how much of each line vendor bills have matched (§12 P6).
+        var lineIds = d.Lines.Select(l => l.Id).ToList();
+        var billed = d.Type == StockDocumentType.Receipt
+            ? await _db.ReceiptMatches.AsNoTracking().Where(m => lineIds.Contains(m.ReceiptLineId))
+                .GroupBy(m => m.ReceiptLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity) }).ToDictionaryAsync(g => g.Key, g => g.Quantity)
+            : new Dictionary<Guid, decimal>();
+        var partnerName = d.PartnerId is { } partnerId
+            ? await _db.Partners.AsNoTracking().Where(p => p.Id == partnerId).Select(p => p.Name).FirstOrDefaultAsync()
+            : null;
+        // The input VAT reversed by a theft or unexplained-loss write-off (its tax-coded lines).
+        decimal? vatRepaid = VatRepaymentDue(d) && d.JournalEntryId is { } entryId
+            ? await _db.JournalEntryLines.AsNoTracking().Where(l => l.JournalEntryId == entryId && l.TaxId != null).SumAsync(l => l.Credit)
+            : null;
         var lines = d.Lines.OrderBy(l => items.GetValueOrDefault(l.ItemId)?.Code ?? 0).Select(l =>
         {
             var item = items.GetValueOrDefault(l.ItemId);
             return new StockDocumentLineResponse(l.Id, l.ItemId, item?.Code ?? 0, item?.Name ?? "?", item?.Unit ?? string.Empty,
-                l.Quantity, l.UnitCost, l.BookQuantity, l.Difference, d.IsPosted ? values.GetValueOrDefault(l.Id) : null, l.Note);
+                l.Quantity, l.UnitCost, l.BookQuantity, l.Difference,
+                !d.IsPosted ? null : d.Type == StockDocumentType.WriteDown ? l.Amount : values.GetValueOrDefault(l.Id), l.Note,
+                l.AverageCost, l.AllowanceAfter, l.PurchaseOrderLineId,
+                d.Type == StockDocumentType.Receipt ? billed.GetValueOrDefault(l.Id) : null, l.LotNumber, l.ExpiryDate);
         }).ToList();
+        var total = d.Type == StockDocumentType.WriteDown ? d.Lines.Sum(l => l.Amount ?? 0m) : values.Values.Sum();
         return new StockDocumentResponse(d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, warehouses.GetValueOrDefault(d.WarehouseId) ?? "?",
             d.DestinationWarehouseId, d.DestinationWarehouseId is { } dest ? warehouses.GetValueOrDefault(dest) : null,
-            d.Reason, d.AtkNoticeDate, d.Notes, values.Values.Sum(), VatRepaymentDue(d), d.JournalEntryId, d.PostedAt, lines);
+            d.Reason, d.AtkNoticeDate, d.Notes, total, VatRepaymentDue(d), d.JournalEntryId, d.PostedAt, lines, vatRepaid,
+            d.PartnerId, partnerName);
     }
 }

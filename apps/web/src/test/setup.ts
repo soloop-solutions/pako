@@ -15,10 +15,9 @@ if (typeof globalThis.localStorage === "undefined") {
   } as Storage;
 }
 
-// PROVISIONAL — F9's mock cost-center contract (src/mocks/costCentersHandlers.ts) and F11's mock
-// attachments contract (src/mocks/attachmentsHandlers.ts); remove each alongside its own mock.
+// PROVISIONAL — F9's mock cost-center contract (src/mocks/costCentersHandlers.ts); remove it
+// alongside its mock. F11's attachments mock was removed once the real AttachmentsController landed.
 // F6 partner mock removed — Partners.tsx now calls the real generated apiClient methods directly.
-import { resetAttachmentsMock } from "@/mocks/attachmentsMockFlag";
 import { resetCostCentersMock } from "@/mocks/costCentersMockFlag";
 import { server } from "@/mocks/server";
 
@@ -26,6 +25,5 @@ beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
 afterEach(() => {
   server.resetHandlers();
   resetCostCentersMock();
-  resetAttachmentsMock();
 });
 afterAll(() => server.close());

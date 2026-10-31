@@ -41,9 +41,12 @@ import {
   Warehouse as WarehouseIcon,
   Tags,
   PieChart,
+  BadgeEuro,
+  ClipboardList,
 } from "lucide-react";
 
 import { Bills } from "@/pages/bills/Bills";
+import { PurchaseOrders } from "@/pages/bills/PurchaseOrders";
 import { CompanyProfile } from "@/pages/CompanyProfile";
 import { PurchaseReturns } from "@/pages/bills/PurchaseReturns";
 import { ChartOfAccounts } from "@/pages/ledger/ChartOfAccounts";
@@ -76,6 +79,7 @@ import { Reconciliation } from "@/pages/reconciliation/Reconciliation";
 import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
 import { ItemCategories } from "@/pages/inventory/ItemCategories";
+import { PriceLists } from "@/pages/inventory/PriceLists";
 import { StockDocuments } from "@/pages/inventory/StockDocuments";
 import { StockLevels } from "@/pages/inventory/StockLevels";
 import { StockReports } from "@/pages/inventory/StockReports";
@@ -269,6 +273,7 @@ export const navCategories: NavCategory[] = [
       { titleKey: "nav.stockDocuments", path: "/stock-documents", icon: ArrowLeftRight, descriptionKey: "nav.stockDocuments.description", Element: StockDocuments, module: "inventory", gridId: "stock-documents" },
       { titleKey: "nav.stockReports", path: "/stock-reports", icon: PieChart, descriptionKey: "nav.stockReports.description", Element: StockReports, module: "inventory" },
       { titleKey: "nav.warehouses", path: "/warehouses", icon: WarehouseIcon, descriptionKey: "nav.warehouses.description", Element: Warehouses, module: "inventory" },
+      { titleKey: "nav.priceLists", path: "/price-lists", icon: BadgeEuro, descriptionKey: "nav.priceLists.description", Element: PriceLists, module: "items", gridId: "price-list-items" },
       { titleKey: "nav.itemCategories", path: "/item-categories", icon: Tags, descriptionKey: "nav.itemCategories.description", Element: ItemCategories, module: "items" },
     ],
   },
@@ -333,6 +338,8 @@ export const navCategories: NavCategory[] = [
     module: "purchases",
     items: [
       purchaseInvoicesItem,
+      // docs/INVENTORY_PLAN.md §12 P5.
+      { titleKey: "nav.purchaseOrders", path: "/purchase-orders", icon: ClipboardList, descriptionKey: "nav.purchaseOrders.description", Element: PurchaseOrders, gridId: "purchase-orders" },
       {
         titleKey: "nav.purchaseReturns",
         path: "/purchase-returns",

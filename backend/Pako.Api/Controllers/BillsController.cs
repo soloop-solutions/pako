@@ -99,11 +99,25 @@ public class BillsController : ControllerBase
     // the identical validation — pure extraction, no behavior change. Mirror of
     // InvoicesController.BuildAndValidateLinesAsync.
     private async Task<(List<BillLine>? Lines, decimal Total, ActionResult? Error)> BuildAndValidateLinesAsync(
-        Guid companyId, List<CreateBillLineRequest> requestLines, bool isVatRegistered)
+        Guid companyId, List<CreateBillLineRequest> requestLines, bool isVatRegistered, Guid partnerId)
     {
         if (requestLines.Count == 0)
         {
             return (null, 0m, BadRequest(_localizer["BillMustHaveLines"].Value));
+        }
+
+        // docs/INVENTORY_PLAN.md §12 P5: a line may bill a purchase order line, which must belong to
+        // a confirmed order from the same vendor.
+        var orderLineIds = requestLines.Where(l => l.PurchaseOrderLineId != null).Select(l => l.PurchaseOrderLineId!.Value).Distinct().ToList();
+        if (orderLineIds.Count > 0)
+        {
+            var validOrderLines = await _db.PurchaseOrderLines.AsNoTracking()
+                .CountAsync(l => orderLineIds.Contains(l.Id) && l.PurchaseOrder!.CompanyId == companyId
+                    && l.PurchaseOrder.PartnerId == partnerId && l.PurchaseOrder.State == PurchaseOrderState.Confirmed);
+            if (validOrderLines != orderLineIds.Count)
+            {
+                return (null, 0m, BadRequest(_localizer["BillPurchaseOrderLineInvalid"].Value));
+            }
         }
 
         var validAccountIds = (await _db.Accounts.AsNoTracking()
@@ -186,6 +200,11 @@ public class BillsController : ControllerBase
                 return (null, 0m, BadRequest(string.Format(_localizer["ExpenseAccountNotBelongToCompany"], expenseAccountId)));
             }
 
+            if (StockService.ResolveUnit(item, line.UnitName) is not { } unit)
+            {
+                return (null, 0m, BadRequest(string.Format(_localizer["LineUnitUnknown"].Value, line.UnitName)));
+            }
+
             total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
 
             lines.Add(new BillLine
@@ -197,7 +216,12 @@ public class BillsController : ControllerBase
                 DiscountPercent = discountPercent,
                 TaxDefinitionId = taxDefinitionId,
                 ExpenseAccountId = expenseAccountId,
-                ItemId = line.ItemId
+                ItemId = line.ItemId,
+                PurchaseOrderLineId = line.PurchaseOrderLineId,
+                UnitName = unit.Name,
+                UnitFactor = unit.Factor,
+                LotNumber = string.IsNullOrWhiteSpace(line.LotNumber) ? null : line.LotNumber.Trim(),
+                ExpiryDate = line.ExpiryDate
             });
         }
 
@@ -253,7 +277,7 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["InvalidVendorPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, company.IsVatRegistered);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, company.IsVatRegistered, request.PartnerId);
         if (linesError is not null)
         {
             return linesError;
@@ -392,7 +416,7 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["InvalidVendorPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, company.IsVatRegistered);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, company.IsVatRegistered, request.PartnerId);
         if (linesError is not null)
         {
             return linesError;
@@ -1099,25 +1123,116 @@ public class BillsController : ControllerBase
         var location = await stock.DocumentLocationAsync(company.Id, bill.WarehouseId);
         var supplier = await stock.VirtualLocationAsync(company.Id, LocationUsage.Supplier);
         var requests = new List<StockService.MoveRequest>();
-        var nets = new List<decimal>();
-        foreach (var line in bill.Lines.Where(l => l.ItemId is { } id && trackedItems.ContainsKey(id)))
+        var returnNets = new Dictionary<Guid, decimal>();
+        var trackedLines = bill.Lines.Where(l => l.ItemId is { } id && trackedItems.ContainsKey(id)).ToList();
+
+        // §12 P6: goods this vendor already delivered on a receipt are billed first — the same order
+        // line first, then the oldest receipt — at the receipt's cost, clearing 120800 instead of
+        // bringing the stock in twice. A price gap between bill and receipt revalues the stock (or
+        // goes to cost of goods sold for what was already sold).
+        var openReceipts = bill.DocumentType == DocumentType.Bill
+            ? await OpenReceiptLinesAsync(company.Id, bill.PartnerId, trackedLines.Select(l => l.ItemId!.Value).Distinct().ToList())
+            : new List<OpenReceiptLine>();
+        Guid? grni = null;
+        var label = $"{_localizer["StockReceiptMatched"].Value} {bill.VendorReference}".Trim();
+
+        foreach (var line in trackedLines)
         {
             var taxDefinition = line.TaxDefinitionId is { } taxId ? taxDefinitionsById.GetValueOrDefault(taxId) : null;
             var net = DocumentLineCalculator.Calculate(line.Quantity, line.UnitPrice, line.DiscountPercent, line.ExpenseAccountId,
                 line.Description, taxDefinition, false, false, _taxComputationService, Guid.Empty, Guid.Empty, bill.PriceMode).NetAmount;
-            nets.Add(net);
-            requests.Add(bill.DocumentType switch
+            var itemId = line.ItemId!.Value;
+            // §12 P7: stock moves in base units.
+            var quantity = line.Quantity * line.UnitFactor;
+            switch (bill.DocumentType)
             {
-                DocumentType.PurchaseReturn => new StockService.MoveRequest(line.ItemId!.Value, StockMoveKind.Issue, location.Id, supplier.Id, line.Quantity, SourceLineId: line.Id),
-                DocumentType.CreditNote => new StockService.MoveRequest(line.ItemId!.Value, StockMoveKind.Revaluation, supplier.Id, location.Id, 0m, -net, line.Id),
-                _ => new StockService.MoveRequest(line.ItemId!.Value, StockMoveKind.Receipt, supplier.Id, location.Id, line.Quantity, net, line.Id),
-            });
+                case DocumentType.PurchaseReturn:
+                    returnNets[line.Id] = net;
+                    requests.Add(new StockService.MoveRequest(itemId, StockMoveKind.Issue, location.Id, supplier.Id, quantity, SourceLineId: line.Id,
+                        LotNumber: line.LotNumber));
+                    continue;
+                case DocumentType.CreditNote:
+                    requests.Add(new StockService.MoveRequest(itemId, StockMoveKind.Revaluation, supplier.Id, location.Id, 0m, -net, line.Id));
+                    continue;
+            }
+
+            var toBill = quantity;
+            var matchedValue = 0m;
+            var candidates = openReceipts.Where(r => r.ItemId == itemId && r.Open > 0)
+                .OrderBy(r => line.PurchaseOrderLineId is { } po && r.PurchaseOrderLineId == po ? 0 : 1)
+                .ThenBy(r => r.Date).ThenBy(r => r.PostedAt);
+            foreach (var receipt in candidates)
+            {
+                if (toBill <= 0) break;
+                var take = Math.Min(toBill, receipt.Open);
+                var value = AverageCost.Money(take * receipt.UnitCost);
+                receipt.Open -= take;
+                toBill -= take;
+                matchedValue += value;
+                _db.ReceiptMatches.Add(new ReceiptMatch
+                {
+                    Id = Guid.NewGuid(), CompanyId = company.Id, BillId = bill.Id, BillLineId = line.Id,
+                    ReceiptLineId = receipt.LineId, Quantity = take, Value = value,
+                });
+            }
+
+            var matched = quantity - toBill;
+            var netMatched = toBill == 0 ? net : AverageCost.Money(net * matched / quantity);
+            if (matched > 0)
+            {
+                grni ??= await stock.RequiredAccountAsync(company.Id, StockService.GoodsReceivedNotInvoicedCode);
+                // The bill line debited stock with its full net; move the receipt's share to 120800.
+                StockService.AddPair(journalEntry, grni.Value, accounts[itemId].InventoryAccountId, matchedValue, label);
+                if (netMatched != matchedValue)
+                {
+                    requests.Add(new StockService.MoveRequest(itemId, StockMoveKind.Revaluation, supplier.Id, location.Id, 0m,
+                        netMatched - matchedValue, line.Id));
+                }
+            }
+            if (toBill > 0)
+            {
+                requests.Add(new StockService.MoveRequest(itemId, StockMoveKind.Receipt, supplier.Id, location.Id, toBill, net - netMatched, line.Id,
+                    line.LotNumber, line.ExpiryDate));
+            }
         }
 
+        if (requests.Count == 0) return;
         var posting = await stock.ApplyAsync(company.Id, bill.IssueDate, StockMoveSource.Bill, bill.Id, bill.VendorReference, requests);
-        var corrections = posting.Moves.Select((m, i) => (m.Request.ItemId,
-            bill.DocumentType == DocumentType.PurchaseReturn ? m.Value - nets[i] : m.Correction));
+        var corrections = posting.Moves.Select(m => (m.Request.ItemId,
+            bill.DocumentType == DocumentType.PurchaseReturn ? m.Value - returnNets[m.Request.SourceLineId!.Value] : m.Correction));
         StockService.AddCorrections(journalEntry, posting, accounts, corrections, _localizer["StockCostCorrection"].Value);
+    }
+
+    private sealed class OpenReceiptLine
+    {
+        public Guid LineId { get; init; }
+        public Guid ItemId { get; init; }
+        public Guid? PurchaseOrderLineId { get; init; }
+        public decimal UnitCost { get; init; }
+        public DateOnly Date { get; init; }
+        public DateTime? PostedAt { get; init; }
+        public decimal Open { get; set; }
+    }
+
+    // Posted receipt lines from this vendor for these items with quantity not yet matched to a bill.
+    private async Task<List<OpenReceiptLine>> OpenReceiptLinesAsync(Guid companyId, Guid partnerId, List<Guid> itemIds)
+    {
+        if (itemIds.Count == 0) return new();
+        var lines = await _db.StockDocumentLines.AsNoTracking()
+            .Where(l => itemIds.Contains(l.ItemId) && l.StockDocument!.CompanyId == companyId && l.StockDocument.PartnerId == partnerId
+                && l.StockDocument.Type == StockDocumentType.Receipt && l.StockDocument.State == StockDocumentState.Posted)
+            .Select(l => new { l.Id, l.ItemId, l.PurchaseOrderLineId, l.UnitCost, l.Quantity, l.StockDocument!.Date, l.StockDocument.PostedAt })
+            .ToListAsync();
+        if (lines.Count == 0) return new();
+        var ids = lines.Select(l => l.Id).ToList();
+        var matched = await _db.ReceiptMatches.AsNoTracking().Where(m => ids.Contains(m.ReceiptLineId))
+            .GroupBy(m => m.ReceiptLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity) })
+            .ToDictionaryAsync(g => g.Key, g => g.Quantity);
+        return lines.Select(l => new OpenReceiptLine
+        {
+            LineId = l.Id, ItemId = l.ItemId, PurchaseOrderLineId = l.PurchaseOrderLineId, UnitCost = l.UnitCost ?? 0m,
+            Date = l.Date, PostedAt = l.PostedAt, Open = l.Quantity - matched.GetValueOrDefault(l.Id),
+        }).Where(l => l.Open > 0).ToList();
     }
 
     private static BillResponse ToResponse(Bill b) => new(
@@ -1130,7 +1245,7 @@ public class BillsController : ControllerBase
         b.DocumentType,
         b.OriginalBillId,
         b.JournalEntryId,
-        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId)).ToList(),
+        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId, l.PurchaseOrderLineId, l.UnitName, l.UnitFactor, l.LotNumber, l.ExpiryDate)).ToList(),
         b.InternalNotes,
         b.PriceMode,
         b.WarehouseId);

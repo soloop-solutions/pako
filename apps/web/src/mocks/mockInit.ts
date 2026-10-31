@@ -1,5 +1,4 @@
-// PROVISIONAL — see src/mocks/partnersHandlers.ts / costCentersHandlers.ts /
-// attachmentsHandlers.ts for why these mocks exist and how to remove them. Originally written for
+// PROVISIONAL — see src/mocks/costCentersHandlers.ts for why these mocks exist and how to remove them. Originally written for
 // F2's now-removed accounts mock (see git history — the F2 mock was deleted once B1/B2/B3 landed
 // the real write/group-hierarchy/cash-flow-category endpoints on AccountsController; F5's
 // item-type mock was later removed the same way once B6 landed the real field, and F3's lock-dates

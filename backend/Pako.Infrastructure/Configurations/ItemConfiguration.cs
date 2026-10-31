@@ -20,6 +20,10 @@ public class ItemConfiguration : IEntityTypeConfiguration<Item>
         builder.HasIndex(i => new { i.CompanyId, i.Code }).IsUnique();
         // docs/INVENTORY_PLAN.md
         builder.Property(i => i.MinimumStock).HasColumnType("numeric(18,4)");
+        builder.Property(i => i.PurchaseUnit).HasMaxLength(32);
+        builder.Property(i => i.PurchaseUnitFactor).HasColumnType("numeric(18,4)");
+        builder.Property(i => i.SalesUnit).HasMaxLength(32);
+        builder.Property(i => i.SalesUnitFactor).HasColumnType("numeric(18,4)");
         builder.HasOne<Pako.Domain.Inventory.ItemCategory>().WithMany().HasForeignKey(i => i.CategoryId).OnDelete(DeleteBehavior.SetNull);
     }
 }

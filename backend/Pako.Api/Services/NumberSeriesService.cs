@@ -106,6 +106,32 @@ public class NumberSeriesService
             return await GetNextJournalEntrySequenceAsync(companyId, year, pattern, isDayScoped, isYearScoped, date);
         }
 
+        if (documentType == "PurchaseOrder")
+        {
+            var orders = _db.PurchaseOrders.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
+            if (isDayScoped && date is { } od) orders = orders.Where(d => d.Date == od);
+            else if (isYearScoped) orders = orders.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
+            return MaxSequenceFrom(await orders.Select(d => d.Number!).ToListAsync(), pattern) + 1;
+        }
+
+        if (documentType == "PriceChange")
+        {
+            var changes = _db.PriceChanges.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
+            if (isDayScoped && date is { } pd) changes = changes.Where(d => d.Date == pd);
+            else if (isYearScoped) changes = changes.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
+            return MaxSequenceFrom(await changes.Select(d => d.Number!).ToListAsync(), pattern) + 1;
+        }
+
+        // docs/INVENTORY_PLAN.md: stock documents number per type ("Stock" + StockDocumentType).
+        if (documentType.StartsWith("Stock") && Enum.TryParse<Pako.Domain.Inventory.StockDocumentType>(documentType["Stock".Length..], out var stockType))
+        {
+            var stock = _db.StockDocuments.AsNoTracking()
+                .Where(d => d.CompanyId == companyId && d.Type == stockType && d.Number != null);
+            if (isDayScoped && date is { } sd) stock = stock.Where(d => d.Date == sd);
+            else if (isYearScoped) stock = stock.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
+            return MaxSequenceFrom(await stock.Select(d => d.Number!).ToListAsync(), pattern) + 1;
+        }
+
         if (!Enum.TryParse<DocumentType>(documentType, out var docType))
         {
             return 1;
@@ -333,6 +359,10 @@ public class NumberSeriesService
         "StockTransfer" => "TRF-{seq:D4}/{yyyy}",
         "StockCount" => "INVR-{seq:D4}/{yyyy}",
         "StockWriteOff" => "NJP-{seq:D4}/{yyyy}",
+        "StockWriteDown" => "ZHV-{seq:D4}/{yyyy}",
+        "StockReceipt" => "FP-{seq:D4}/{yyyy}",
+        "PriceChange" => "NIV-{seq:D4}/{yyyy}",
+        "PurchaseOrder" => "PO-{seq:D4}/{yyyy}",
         _ => "{seq:D4}"
     };
 
