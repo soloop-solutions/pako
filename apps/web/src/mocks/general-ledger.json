@@ -1,10 +1,12 @@
 {
   "items": [
-    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000001", "entryNumber": "JE-2026-0001", "date": "2026-01-05", "reference": "INV-0001", "accountCode": "120", "accountName": "Trade receivables", "partnerId": "5b1f0c2e-1a11-4c01-9a02-000000000001", "partnerName": "Alba Trade SH.P.K.", "description": "Sales invoice INV-0001", "debit": 1180.00, "credit": 0.00 },
-    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000001", "entryNumber": "JE-2026-0001", "date": "2026-01-05", "reference": "INV-0001", "accountCode": "701", "accountName": "Revenue from sales", "partnerId": null, "partnerName": null, "description": "Sales invoice INV-0001", "debit": 0.00, "credit": 1000.00 },
-    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000001", "entryNumber": "JE-2026-0001", "date": "2026-01-05", "reference": "INV-0001", "accountCode": "450", "accountName": "VAT payable", "partnerId": null, "partnerName": null, "description": "Sales invoice INV-0001", "debit": 0.00, "credit": 180.00 }
+    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000001", "entryNumber": "JE-2026-0001", "date": "2026-01-05", "reference": "INV-0001", "accountCode": "120", "accountName": "Trade receivables", "partnerId": "5b1f0c2e-1a11-4c01-9a02-000000000001", "partnerName": "Alba Trade SH.P.K.", "description": "Sales invoice INV-0001", "debit": 1180.00, "credit": 0.00, "documentType": "Invoice", "documentNumber": "INV-0001" },
+    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000001", "entryNumber": "JE-2026-0001", "date": "2026-01-05", "reference": "INV-0001", "accountCode": "701", "accountName": "Revenue from sales", "partnerId": null, "partnerName": null, "description": "Sales invoice INV-0001", "debit": 0.00, "credit": 1000.00, "documentType": "Invoice", "documentNumber": "INV-0001" },
+    { "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000001", "entryNumber": "JE-2026-0001", "date": "2026-01-05", "reference": "INV-0001", "accountCode": "450", "accountName": "VAT payable", "partnerId": null, "partnerName": null, "description": "Sales invoice INV-0001", "debit": 0.00, "credit": 180.00, "documentType": "Invoice", "documentNumber": "INV-0001" }
   ],
   "total": 3,
   "page": 1,
-  "pageSize": 50
+  "pageSize": 50,
+  "totalDebit": 1180.00,
+  "totalCredit": 1180.00
 }

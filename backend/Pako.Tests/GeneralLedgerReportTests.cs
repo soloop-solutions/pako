@@ -64,8 +64,8 @@ public class GeneralLedgerReportTests : IAsyncLifetime
     private static GeneralLedgerReportController Controller(PakoDbContext db, CompanyAccessContext? access = null) =>
         new(db, new NullStringLocalizer<ErrorMessages>(), access ?? CompanyAccessContext.Unrestricted());
 
-    private static PaginatedResponse<GeneralLedgerLine> Page(ActionResult<PaginatedResponse<GeneralLedgerLine>> result) =>
-        Assert.IsType<PaginatedResponse<GeneralLedgerLine>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+    private static GeneralLedgerResponse Page(ActionResult<GeneralLedgerResponse> result) =>
+        Assert.IsType<GeneralLedgerResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
 
     private static readonly DateOnly Jan1 = new(2026, 1, 1);
     private static readonly DateOnly Dec31 = new(2026, 12, 31);
@@ -164,6 +164,23 @@ public class GeneralLedgerReportTests : IAsyncLifetime
         Assert.Equal("Total", sheet.Cell(8, 8).GetString());
         Assert.Equal(600m, sheet.Cell(8, 9).GetValue<decimal>());
         Assert.Equal(600m, sheet.Cell(8, 10).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task GeneralLedger_TotalsCoverWholeFilteredSet_NotJustPage()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, page: 1, pageSize: 2));
+
+        Assert.Equal(2, page.Items.Count);
+        Assert.Equal(6, page.Total);
+        Assert.Equal(600m, page.TotalDebit);
+        Assert.Equal(600m, page.TotalCredit);
+        Assert.Equal(100m, page.Items.Sum(i => i.Debit));
+
+        var filtered = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, s.CashId, s.CustomerId, page: 1, pageSize: 1));
+        Assert.Equal(400m, filtered.TotalDebit);
+        Assert.Equal(0m, filtered.TotalCredit);
     }
 
     [Fact]

@@ -7,5 +7,8 @@
   ],
   "total": 4,
   "page": 1,
-  "pageSize": 50
+  "pageSize": 50,
+  "totalNet": 1883.39,
+  "totalVat": 339.01,
+  "totalGross": 2222.40
 }

@@ -37,7 +37,7 @@ public class GeneralLedgerReportController : ControllerBase
 
     [HttpGet("general-ledger")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public async Task<ActionResult<PaginatedResponse<GeneralLedgerLine>>> GeneralLedger(
+    public async Task<ActionResult<GeneralLedgerResponse>> GeneralLedger(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to,
         [FromQuery] Guid? accountId, [FromQuery] Guid? partnerId,
         [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
@@ -72,10 +72,12 @@ public class GeneralLedgerReportController : ControllerBase
             : ((IOrderedQueryable<Row>)ordered).ThenBy(r => r.Entry.SecureSequenceNumber).ThenBy(r => r.Line.Id);
 
         var total = await query.CountAsync();
+        var totalDebit = await query.SumAsync(r => r.Line.Debit);
+        var totalCredit = await query.SumAsync(r => r.Line.Credit);
         var flat = await ordered.Skip((page - 1) * pageSize).Take(pageSize).Select(Projection).ToListAsync();
         var rows = await ToLinesAsync(flat);
 
-        return Ok(new PaginatedResponse<GeneralLedgerLine>(rows, total, page, pageSize));
+        return Ok(new GeneralLedgerResponse(rows, total, page, pageSize, totalDebit, totalCredit));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]

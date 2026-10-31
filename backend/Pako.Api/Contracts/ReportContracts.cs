@@ -263,6 +263,40 @@ public record PurchaseByItemLine(
     decimal VatAmount,
     decimal GrossAmount);
 
+public record PurchaseByVendorResponse(
+    DateOnly From,
+    DateOnly To,
+    List<PurchaseByVendorLine> Lines,
+    decimal TotalNet,
+    decimal TotalDiscount,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record PurchaseByItemResponse(
+    DateOnly From,
+    DateOnly To,
+    List<PurchaseByItemLine> Lines,
+    decimal TotalNet,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record PurchaseTransactionsResponse(
+    List<PurchaseTransactionLine> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    decimal TotalNet,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record GeneralLedgerResponse(
+    List<GeneralLedgerLine> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    decimal TotalDebit,
+    decimal TotalCredit);
+
 public record PurchaseTransactionLine(
     DateOnly Date,
     string? DocumentNumber,

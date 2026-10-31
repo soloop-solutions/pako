@@ -103,7 +103,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
 
     private static T Ok<T>(ActionResult<T> result) => Assert.IsType<T>(Assert.IsType<OkObjectResult>(result.Result).Value);
 
-    private static async Task<PaginatedResponse<PurchaseTransactionLine>> Transactions(
+    private static async Task<PurchaseTransactionsResponse> Transactions(
         PayablesReportsController c, Guid companyId, Guid? partnerId = null, int page = 1, int pageSize = 50, string? search = null, string? sort = null) =>
         Ok(await c.PurchaseTransactions(companyId, Jan1, Jan31, partnerId, page, pageSize, search, sort));
 
@@ -116,19 +116,23 @@ public class PurchaseAnalysisTests : IAsyncLifetime
 
         var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
         var book = Ok(await reports.PurchaseBook(s.CompanyId, Jan1, Jan31));
-        Assert.Equal(book.TotalNet, vendors.Sum(v => v.NetAmount));
-        Assert.Equal(book.TotalVat, vendors.Sum(v => v.VatAmount));
-        Assert.Equal(740m, vendors.Sum(v => v.NetAmount));
-        Assert.Equal(133.20m, vendors.Sum(v => v.VatAmount));
+        Assert.Equal(book.TotalNet, vendors.TotalNet);
+        Assert.Equal(book.TotalVat, vendors.TotalVat);
+        Assert.Equal(740m, vendors.TotalNet);
+        Assert.Equal(10m, vendors.TotalDiscount);
+        Assert.Equal(133.20m, vendors.TotalVat);
+        Assert.Equal(873.20m, vendors.TotalGross);
+        Assert.Equal(Jan1, vendors.From);
+        Assert.Equal(Jan31, vendors.To);
 
-        Assert.Equal(new[] { "Alpha Supplies", "Beta Services" }, vendors.Select(v => v.Name));
-        var alpha = vendors[0];
+        Assert.Equal(new[] { "Alpha Supplies", "Beta Services" }, vendors.Lines.Select(v => v.Name));
+        var alpha = vendors.Lines[0];
         Assert.Equal(s.Alpha, alpha.PartnerId);
         Assert.Equal(240m, alpha.NetAmount);
         Assert.Equal(10m, alpha.DiscountAmount);
         Assert.Equal(43.20m, alpha.VatAmount);
         Assert.Equal(283.20m, alpha.GrossAmount);
-        var beta = vendors[1];
+        var beta = vendors.Lines[1];
         Assert.Equal(500m, beta.NetAmount);
         Assert.Equal(0m, beta.DiscountAmount);
         Assert.Equal(90m, beta.VatAmount);
@@ -140,7 +144,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
     {
         var s = await SeedAsync();
 
-        var items = Ok(await Controller(s.Db).PurchasesByItem(s.CompanyId, Jan1, Jan31));
+        var items = Ok(await Controller(s.Db).PurchasesByItem(s.CompanyId, Jan1, Jan31)).Lines;
 
         Assert.Equal(2, items.Count);
         var consulting = items[0];
@@ -205,6 +209,24 @@ public class PurchaseAnalysisTests : IAsyncLifetime
         Assert.Equal(740m, sheet.Cell(7, 9).GetValue<decimal>());
         Assert.Equal(133.20m, sheet.Cell(7, 10).GetValue<decimal>());
         Assert.Equal(873.20m, sheet.Cell(7, 11).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task PurchaseTransactions_TotalsCoverAllRowsBeyondPage()
+    {
+        var s = await SeedAsync();
+
+        var r = await Transactions(Controller(s.Db), s.CompanyId, page: 1, pageSize: 2);
+
+        Assert.Equal(2, r.Items.Count);
+        Assert.Equal(740m, r.TotalNet);
+        Assert.Equal(133.20m, r.TotalVat);
+        Assert.Equal(873.20m, r.TotalGross);
+        Assert.NotEqual(r.TotalNet, r.Items.Sum(i => i.NetAmount));
+
+        var beta = await Transactions(Controller(s.Db), s.CompanyId, partnerId: s.Beta);
+        Assert.Equal(500m, beta.TotalNet);
+        Assert.Equal(590m, beta.TotalGross);
     }
 
     [Fact]
@@ -296,10 +318,10 @@ public class PurchaseAnalysisTests : IAsyncLifetime
         var access = CompanyAccessContext.ForStaff(s.CompanyId, Guid.NewGuid(), Guid.NewGuid(), new Department(), new HashSet<Guid> { s.Beta });
         var c = Controller(s.Db, access);
 
-        var vendors = Ok(await c.PurchasesByVendor(s.CompanyId, Jan1, Jan31));
+        var vendors = Ok(await c.PurchasesByVendor(s.CompanyId, Jan1, Jan31)).Lines;
         Assert.Equal(s.Beta, Assert.Single(vendors).PartnerId);
 
-        var items = Ok(await c.PurchasesByItem(s.CompanyId, Jan1, Jan31));
+        var items = Ok(await c.PurchasesByItem(s.CompanyId, Jan1, Jan31)).Lines;
         var only = Assert.Single(items);
         Assert.Equal(1m, only.Quantity);
         Assert.Equal(500m, only.NetAmount);
@@ -347,7 +369,7 @@ public class PurchaseAnalysisTests : IAsyncLifetime
     {
         var s = await SeedReverseChargeAsync();
 
-        var vendors = Ok(await Controller(s.Db).PurchasesByVendor(s.CompanyId, Jan1, Jan31));
+        var vendors = Ok(await Controller(s.Db).PurchasesByVendor(s.CompanyId, Jan1, Jan31)).Lines;
 
         var reports = new ReportsController(s.Db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(s.Db));
         var book = Ok(await reports.PurchaseBook(s.CompanyId, Jan1, Jan31));
@@ -404,8 +426,8 @@ public class PurchaseAnalysisTests : IAsyncLifetime
         var from = new DateOnly(2025, 1, 1);
         var to = new DateOnly(2025, 1, 31);
 
-        Assert.Empty(Ok(await c.PurchasesByVendor(s.CompanyId, from, to)));
-        Assert.Empty(Ok(await c.PurchasesByItem(s.CompanyId, from, to)));
+        Assert.Empty(Ok(await c.PurchasesByVendor(s.CompanyId, from, to)).Lines);
+        Assert.Empty(Ok(await c.PurchasesByItem(s.CompanyId, from, to)).Lines);
         var tx = Ok(await c.PurchaseTransactions(s.CompanyId, from, to, null));
         Assert.Empty(tx.Items);
         Assert.Equal(0, tx.Total);

@@ -1,6 +1,14 @@
-[
-  { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "name": "Prime Properties L.L.C.", "netAmount": 1000.00, "discountAmount": 0.00, "vatAmount": 180.00, "grossAmount": 1180.00 },
-  { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "name": "KEDS J.S.C.", "netAmount": 203.39, "discountAmount": 0.00, "vatAmount": 36.61, "grossAmount": 240.00 },
-  { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "name": "Telekomi i Kosoves J.S.C.", "netAmount": 300.00, "discountAmount": 0.00, "vatAmount": 54.00, "grossAmount": 354.00 },
-  { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000004", "name": "Kosova Office Supplies SH.P.K.", "netAmount": 380.00, "discountAmount": 20.00, "vatAmount": 68.40, "grossAmount": 448.40 }
-]
+{
+  "from": "2026-01-01",
+  "to": "2026-01-31",
+  "lines": [
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "name": "Prime Properties L.L.C.", "netAmount": 1000.00, "discountAmount": 0.00, "vatAmount": 180.00, "grossAmount": 1180.00 },
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "name": "KEDS J.S.C.", "netAmount": 203.39, "discountAmount": 0.00, "vatAmount": 36.61, "grossAmount": 240.00 },
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "name": "Telekomi i Kosoves J.S.C.", "netAmount": 300.00, "discountAmount": 0.00, "vatAmount": 54.00, "grossAmount": 354.00 },
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000004", "name": "Kosova Office Supplies SH.P.K.", "netAmount": 380.00, "discountAmount": 20.00, "vatAmount": 68.40, "grossAmount": 448.40 }
+  ],
+  "totalNet": 1883.39,
+  "totalDiscount": 20.00,
+  "totalVat": 339.01,
+  "totalGross": 2222.40
+}

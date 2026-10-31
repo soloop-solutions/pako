@@ -135,7 +135,7 @@ public class PayablesReportsController : ControllerBase
 
     [HttpGet("purchases/by-vendor", Name = "PurchasesByVendor")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public async Task<ActionResult<List<PurchaseByVendorLine>>> PurchasesByVendor(
+    public async Task<ActionResult<PurchaseByVendorResponse>> PurchasesByVendor(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
         if (from > to)
@@ -143,7 +143,9 @@ public class PayablesReportsController : ControllerBase
             return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Ok(await _vendors.PurchasesByVendorAsync(companyId, from, to));
+        var lines = await _vendors.PurchasesByVendorAsync(companyId, from, to);
+        var totals = ReportTotals.NetVatGross(lines.Select(l => (l.NetAmount, l.VatAmount, l.GrossAmount)));
+        return Ok(new PurchaseByVendorResponse(from, to, lines, totals.Net, lines.Sum(l => l.DiscountAmount), totals.Vat, totals.Gross));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
@@ -167,7 +169,7 @@ public class PayablesReportsController : ControllerBase
 
     [HttpGet("purchases/by-item", Name = "PurchasesByItem")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public async Task<ActionResult<List<PurchaseByItemLine>>> PurchasesByItem(
+    public async Task<ActionResult<PurchaseByItemResponse>> PurchasesByItem(
         Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
         if (from > to)
@@ -175,7 +177,9 @@ public class PayablesReportsController : ControllerBase
             return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        return Ok(await _vendors.PurchasesByItemAsync(companyId, from, to));
+        var lines = await _vendors.PurchasesByItemAsync(companyId, from, to);
+        var totals = ReportTotals.NetVatGross(lines.Select(l => (l.NetAmount, l.VatAmount, l.GrossAmount)));
+        return Ok(new PurchaseByItemResponse(from, to, lines, totals.Net, totals.Vat, totals.Gross));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
@@ -199,7 +203,7 @@ public class PayablesReportsController : ControllerBase
 
     [HttpGet("purchases/transactions", Name = "PurchaseTransactions")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
-    public async Task<ActionResult<PaginatedResponse<PurchaseTransactionLine>>> PurchaseTransactions(
+    public async Task<ActionResult<PurchaseTransactionsResponse>> PurchaseTransactions(
         Guid companyId,
         [FromQuery] DateOnly from,
         [FromQuery] DateOnly to,
@@ -218,7 +222,8 @@ public class PayablesReportsController : ControllerBase
         pageSize = Math.Clamp(pageSize, 1, 200);
         var all = await _vendors.PurchaseTransactionsAsync(companyId, from, to, partnerId, search, sort);
         var items = all.Skip((page - 1) * pageSize).Take(pageSize).ToList();
-        return Ok(new PaginatedResponse<PurchaseTransactionLine>(items, all.Count, page, pageSize));
+        var totals = ReportTotals.NetVatGross(all.Select(l => (l.NetAmount, l.VatAmount, l.GrossAmount)));
+        return Ok(new PurchaseTransactionsResponse(items, all.Count, page, pageSize, totals.Net, totals.Vat, totals.Gross));
     }
 
     [Produces(ExcelExportService.XlsxContentType)]
