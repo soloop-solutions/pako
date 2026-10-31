@@ -98,7 +98,7 @@ public class PayablesAgingTests : IAsyncLifetime
         return bill;
     }
 
-    private static void Pay(Env e, Partner vendor, Bill bill, decimal amount)
+    private static void Pay(Env e, Partner vendor, Bill bill, decimal amount, DateOnly? date = null)
     {
         var line = new JournalEntryLine { Id = Guid.NewGuid(), AccountId = e.Payable.Id, Debit = amount, PartnerId = vendor.Id };
         var entry = new JournalEntry
@@ -106,7 +106,7 @@ public class PayablesAgingTests : IAsyncLifetime
             Id = Guid.NewGuid(),
             CompanyId = e.Company.Id,
             JournalId = e.Bank.Id,
-            Date = bill.DueDate,
+            Date = date ?? bill.DueDate,
             Reference = "PAY-" + bill.VendorReference,
             Lines =
             {
@@ -127,6 +127,42 @@ public class PayablesAgingTests : IAsyncLifetime
 
     private static async Task<PayablesAgingResponse> Aging(PakoDbContext db, Guid companyId, CompanyAccessContext? access = null) =>
         Assert.IsType<PayablesAgingResponse>(Assert.IsType<OkObjectResult>((await Controller(db, access).PayablesAging(companyId, AsOf)).Result).Value);
+
+    private static async Task<PayablesAgingResponse> AgingAt(PakoDbContext db, Guid companyId, DateOnly asOf) =>
+        Assert.IsType<PayablesAgingResponse>(Assert.IsType<OkObjectResult>((await Controller(db).PayablesAging(companyId, asOf)).Result).Value);
+
+    [Fact]
+    public async Task PayablesAging_ExcludesBillsIssuedAfterAsOf()
+    {
+        var e = await NewEnvAsync();
+        var vendor = AddVendor(e, "Alpha");
+        PostBill(e, vendor, "B-ON", 300m, AsOf.AddDays(30));
+        PostBill(e, vendor, "B-LATE", 700m, AsOf.AddDays(31));
+        await e.Db.SaveChangesAsync();
+
+        var r = await Aging(e.Db, e.Company.Id);
+
+        var line = Assert.Single(r.Lines);
+        Assert.Equal("B-ON", line.BillNumber);
+        Assert.Equal(300m, line.Outstanding);
+        Assert.Equal(300m, r.Buckets.Sum(b => b.Total));
+    }
+
+    [Fact]
+    public async Task PayablesAging_IgnoresPaymentsAfterAsOf()
+    {
+        var e = await NewEnvAsync();
+        var vendor = AddVendor(e, "Alpha");
+        var bill = PostBill(e, vendor, "B-1", 1000m, AsOf.AddDays(-10));
+        Pay(e, vendor, bill, 400m, AsOf.AddDays(5));
+        await e.Db.SaveChangesAsync();
+
+        var before = Assert.Single((await Aging(e.Db, e.Company.Id)).Lines);
+        var onPaymentDay = Assert.Single((await AgingAt(e.Db, e.Company.Id, AsOf.AddDays(5))).Lines);
+
+        Assert.Equal(1000m, before.Outstanding);
+        Assert.Equal(600m, onPaymentDay.Outstanding);
+    }
 
     [Fact]
     public async Task PayablesAging_BucketsByDaysOverdue()

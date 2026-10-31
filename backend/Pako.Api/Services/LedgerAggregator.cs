@@ -94,6 +94,21 @@ public class LedgerAggregator(PakoDbContext db)
             assets.Sum(l => l.Amount), liabilities.Sum(l => l.Amount), equity.Sum(l => l.Amount));
     }
 
+    public async Task<decimal> NetIncomeByIdentityAsync(Guid companyId, DateOnly from, DateOnly to)
+    {
+        static decimal AssetsLessLiabilities(IEnumerable<AccountSums> sums) =>
+            sums.Where(s => AccountTypeDerivation.IsAsset(s.Account.AccountType)).Sum(s => s.Debit - s.Credit) -
+            sums.Where(s => AccountTypeDerivation.IsLiability(s.Account.AccountType)).Sum(s => s.Credit - s.Debit);
+
+        var closing = AssetsLessLiabilities(await SumsByAccountAsync(companyId, null, to));
+        var opening = from == DateOnly.MinValue ? 0m : AssetsLessLiabilities(await SumsByAccountAsync(companyId, null, from.AddDays(-1)));
+        var equityMovements = (await SumsByAccountAsync(companyId, from, to))
+            .Where(s => s.Account.AccountType == AccountType.Equity)
+            .Sum(s => s.Credit - s.Debit);
+
+        return closing - opening - equityMovements;
+    }
+
     public async Task<CashFlowComputation> CashFlowAsync(Guid companyId, DateOnly from, DateOnly to)
     {
         static decimal CashBalance(IEnumerable<AccountSums> sums) =>

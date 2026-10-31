@@ -47,7 +47,7 @@ public class ReportChecksController : ControllerBase
 
         var balanceSheet = await _ledger.BalanceSheetAsync(companyId, to);
         var periodSums = await _ledger.SumsByAccountAsync(companyId, from, to);
-        var priorEarnings = from == DateOnly.MinValue ? 0m : (await _ledger.BalanceSheetAsync(companyId, from.AddDays(-1))).CurrentEarnings;
+        var identityNetIncome = await _ledger.NetIncomeByIdentityAsync(companyId, from, to);
         var cashFlow = await _ledger.CashFlowAsync(companyId, from, to);
         var cumulative = await _ledger.SumsByAccountAsync(companyId, null, to);
         var vat = await _tax.VatReturnAsync(companyId, from, to);
@@ -60,7 +60,7 @@ public class ReportChecksController : ControllerBase
         var checks = new[]
         {
             ReportReconciler.Equal("balance-sheet-balances", balanceSheet.TotalAssets, balanceSheet.TotalLiabilities + balanceSheet.TotalEquity),
-            ReportReconciler.Equal("net-profit-consistent", LedgerAggregator.NetIncome(periodSums), balanceSheet.CurrentEarnings - priorEarnings),
+            ReportReconciler.Equal("net-profit-consistent", LedgerAggregator.NetIncome(periodSums), identityNetIncome),
             ReportReconciler.Equal("cash-flow-closes", cashFlow.Closing, cashFlow.Result.ClosingComputed),
             ReportReconciler.Equal("trial-balance-balances", cumulative.Sum(s => s.Debit), cumulative.Sum(s => s.Credit)),
             ReportReconciler.Equal("books-match-vat-return", vat.TotalOutputVat - vat.TotalInputVat, salesVat - purchaseVat),

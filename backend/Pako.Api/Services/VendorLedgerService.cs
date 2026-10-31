@@ -129,7 +129,7 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.PayableAccountId ?? Guid.Empty;
 
         var bills = await db.Bills.AsNoTracking().VisibleTo(access)
-            .Where(b => b.CompanyId == companyId && b.State == BillState.Posted && b.DocumentType == DocumentType.Bill)
+            .Where(b => b.CompanyId == companyId && b.State == BillState.Posted && b.DocumentType == DocumentType.Bill && b.IssueDate <= asOf)
             .Select(b => new { b.Id, b.VendorReference, b.PartnerId, b.IssueDate, b.DueDate, b.JournalEntryId })
             .ToListAsync();
 
@@ -150,10 +150,12 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             .ToDictionary(g => (g.JournalEntryId, g.AccountId), g => g.Total);
 
         var billIds = bills.Select(b => b.Id).ToList();
-        var reconciledByBillId = await db.Reconciliations.AsNoTracking()
-            .Where(r => r.BillId != null && billIds.Contains(r.BillId.Value))
-            .GroupBy(r => r.BillId!.Value)
-            .Select(g => new { BillId = g.Key, Reconciled = g.Sum(r => r.Amount) })
+        var reconciledByBillId = await (
+                from r in db.Reconciliations.AsNoTracking()
+                join l in db.JournalEntryLines.AsNoTracking() on r.JournalEntryLineId equals l.Id
+                where r.BillId != null && billIds.Contains(r.BillId.Value) && l.JournalEntry!.Date <= asOf
+                group r by r.BillId!.Value into g
+                select new { BillId = g.Key, Reconciled = g.Sum(x => x.Amount) })
             .ToDictionaryAsync(g => g.BillId, g => g.Reconciled);
 
         var lines = new List<PayablesAgingLine>();

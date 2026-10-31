@@ -367,6 +367,20 @@ public class PurchaseAnalysisTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PurchaseTransactions_HugePage_ReturnsEmptyNotError()
+    {
+        var s = await SeedAsync();
+        var c = Controller(s.Db);
+        var first = await Transactions(c, s.CompanyId);
+
+        var huge = await Transactions(c, s.CompanyId, page: int.MaxValue, pageSize: 200);
+
+        Assert.True(first.Total > 0);
+        Assert.Equal(first.Total, huge.Total);
+        Assert.Empty(huge.Items);
+    }
+
+    [Fact]
     public async Task Purchases_EmptyRange_ReturnsEmptyLists()
     {
         var s = await SeedAsync();

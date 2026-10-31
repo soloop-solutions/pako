@@ -283,6 +283,41 @@ public class ReportChecksTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Checks_NetProfitConsistent_FailsWhenLedgerUnbalanced()
+    {
+        var (db, companyId, accounts, journalId) = await SeedMixedScenario();
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            JournalId = journalId,
+            Date = new DateOnly(2026, 4, 1),
+            Lines = { new JournalEntryLine { Id = Guid.NewGuid(), AccountId = accounts["6000"], Debit = 100m, Credit = 0m } }
+        };
+        entry.State = JournalEntryState.Posted;
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        var check = (await Run(Controller(db), companyId, Jan1, Dec31)).Checks.Single(c => c.Key == "net-profit-consistent");
+
+        Assert.False(check.Passed);
+        Assert.Equal(408.48m, check.Expected);
+        Assert.Equal(508.48m, check.Actual);
+    }
+
+    [Fact]
+    public async Task Checks_NetProfitConsistent_FromMinValue_DoesNotThrow()
+    {
+        var (db, companyId, _, _) = await SeedMixedScenario();
+
+        var check = (await Run(Controller(db), companyId, DateOnly.MinValue, Dec31)).Checks.Single(c => c.Key == "net-profit-consistent");
+
+        Assert.True(check.Passed);
+        Assert.Equal(508.48m, check.Expected);
+        Assert.Equal(508.48m, check.Actual);
+    }
+
+    [Fact]
     public async Task Checks_CashFlowCloses()
     {
         var (db, companyId, _, _) = await SeedMixedScenario();

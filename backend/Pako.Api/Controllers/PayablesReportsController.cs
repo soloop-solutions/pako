@@ -209,7 +209,7 @@ public class PayablesReportsController : ControllerBase
             return BadRequest(new { error = _localizer["ReportDateRangeInvalid"].Value });
         }
 
-        page = Math.Max(page, 1);
+        page = Math.Clamp(page, 1, 1_000_000);
         pageSize = Math.Clamp(pageSize, 1, 200);
         var all = await _vendors.PurchaseTransactionsAsync(companyId, from, to, partnerId, search, sort);
         var items = all.Skip((page - 1) * pageSize).Take(pageSize).ToList();

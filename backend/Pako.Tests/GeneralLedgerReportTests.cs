@@ -109,6 +109,16 @@ public class GeneralLedgerReportTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task GeneralLedger_HugePage_ReturnsEmptyNotError()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, page: int.MaxValue, pageSize: 200));
+
+        Assert.Equal(6, page.Total);
+        Assert.Empty(page.Items);
+    }
+
+    [Fact]
     public async Task GeneralLedger_ForbiddenForPartnerRestrictedUser()
     {
         var s = await SeedAsync();

@@ -52,7 +52,7 @@ public class GeneralLedgerReportController : ControllerBase
             return InvalidDateRange();
         }
 
-        page = Math.Max(page, 1);
+        page = Math.Clamp(page, 1, 1_000_000);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
         var query = Filtered(companyId, from, to, accountId, partnerId, search);
