@@ -15,7 +15,9 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { PrintButton } from "@/components/shared/PrintButton";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
+import { JournalEntryDialog } from "@/pages/ledger/JournalEntryDialog";
 import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
 import { downloadFileResponse } from "@/pages/reports/helpers";
 import { ExportButton } from "@/pages/reports/shared";
@@ -53,6 +55,8 @@ export function Ledger() {
   const tbTo = searchParams.get("tbTo") ?? "";
   const hasTrialBalancePeriod = !!(tbFrom || tbTo);
   const [exportingTrialBalance, setExportingTrialBalance] = useState(false);
+  const [openEntryId, setOpenEntryId] = useOpenParam("entry");
+  const openEntry = openEntryId ? (entries.find((e) => e.id === openEntryId) ?? null) : null;
 
   const latestParams = useRef(searchParams);
   useEffect(() => {
@@ -256,7 +260,8 @@ export function Ledger() {
               </Button>
             )}
           </div>
-          <JournalEntriesTable companyId={activeCompany.id} entries={filteredEntries} journals={journals} onPosted={refresh} isLoading={loading} />
+          <JournalEntriesTable companyId={activeCompany.id} entries={filteredEntries} journals={journals} onPosted={refresh} isLoading={loading} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
+          <JournalEntryDialog entry={openEntry} accounts={accounts} journals={journals} onClose={() => setOpenEntryId(null)} />
         </CardContent>
       </Card>
 

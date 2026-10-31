@@ -319,6 +319,9 @@ export const en: Record<string, string> = {
   "journalEntries.sequence": "Sequence",
   "journalEntries.post": "Post",
   "journalEntries.posting": "Posting...",
+  "journalEntries.viewTitle": "Journal entry {reference}",
+  "journalEntries.noReference": "(no reference)",
+  "journalEntries.noLines": "This entry has no lines.",
   "journalEntries.postError": "Could not post this entry.",
 
   // Journal grid (F9)
@@ -1865,6 +1868,9 @@ export const sq: Record<string, string> = {
   "journalEntries.sequence": "Sekuenca",
   "journalEntries.post": "Posto",
   "journalEntries.posting": "Duke postuar...",
+  "journalEntries.viewTitle": "Regjistrimi {reference}",
+  "journalEntries.noReference": "(pa referenc\u00eb)",
+  "journalEntries.noLines": "Ky regjistrim nuk ka rreshta.",
   "journalEntries.postError": "Nuk u postua ky regjistrim.",
 
   // Journal grid (F9)

@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 import { itemTypeLabel } from "@/lib/item-types";
@@ -29,7 +30,7 @@ export function Items() {
   const urlState = useDataGridUrlState(ITEMS_GRID_ID, 50);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useOpenParam();
   const [createFormKey, setCreateFormKey] = useState(0);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -188,7 +189,14 @@ export function Items() {
 
   const items = itemsQuery.data?.items ?? [];
   const total = itemsQuery.data?.total ?? 0;
-  const editingItem = editingId ? items.find((i) => i.id === editingId) : undefined;
+  const pageItem = editingId ? items.find((i) => i.id === editingId) : undefined;
+  const linkedItemQuery = useQuery({
+    queryKey: ["item", activeCompanyId, editingId],
+    queryFn: () => apiClient.itemsGET2(activeCompanyId as string, editingId as string),
+    enabled: !!activeCompanyId && !!editingId && !itemsQuery.isPending && !pageItem,
+    retry: false,
+  });
+  const editingItem = pageItem ?? (editingId ? linkedItemQuery.data : undefined);
   const hasStockTab = showStock && !!editingItem?.trackInventory;
 
   const columns = useMemo<ColumnDef<ItemResponse>[]>(
@@ -338,7 +346,7 @@ export function Items() {
         ),
       },
     ],
-    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts],
+    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts, setEditingId],
   );
 
   if (!activeCompanyId) {
