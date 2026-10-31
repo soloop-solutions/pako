@@ -22,7 +22,14 @@ const ROW_CLASS: Record<ReportRow["kind"], string | undefined> = {
   flag: "bg-amber-50 font-semibold text-amber-700",
 };
 
-export function ReportGrid({ gridId, rows, valueHeaders }: { gridId: string; rows: ReportRow[]; valueHeaders: string[] }) {
+interface ReportGridProps {
+  gridId: string;
+  rows: ReportRow[];
+  valueHeaders: string[];
+  rowLink?: (row: ReportRow) => string | null;
+}
+
+export function ReportGrid({ gridId, rows, valueHeaders, rowLink }: ReportGridProps) {
   const intl = useIntl();
   const headerKey = valueHeaders.join("|");
 
@@ -57,6 +64,7 @@ export function ReportGrid({ gridId, rows, valueHeaders }: { gridId: string; row
       defaultPageSize={1000}
       pageSizeOptions={[1000]}
       getRowClassName={(row) => ROW_CLASS[row.kind]}
+      getRowLink={rowLink}
     />
   );
 }

@@ -16,6 +16,7 @@ import {
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Columns3, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
+import { useNavigate } from "react-router-dom";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -24,6 +25,7 @@ import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import "@/components/data-grid/types";
+import { ROW_LINK_CLASS, rowLinkProps } from "@/components/data-grid/rowLink";
 import { useColumnVisibility } from "@/components/data-grid/useColumnVisibility";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 
@@ -46,6 +48,8 @@ export interface DataGridProps<TData extends object> {
   getRowClassName?: (row: TData) => string | undefined;
   /** Opens a record when its row is clicked. Clicks on buttons/links/inputs inside the row are ignored. */
   onRowClick?: (row: TData) => void;
+  /** Navigates to the returned path when the row is clicked or Enter is pressed; null leaves the row inert. */
+  getRowLink?: (row: TData) => string | null;
   enableGlobalFilter?: boolean;
   globalFilterPlaceholder?: string;
   emptyMessage?: string;
@@ -81,6 +85,7 @@ export function DataGrid<TData extends object>({
   onSelectedRowsChange,
   getRowClassName,
   onRowClick,
+  getRowLink,
   enableGlobalFilter = false,
   globalFilterPlaceholder,
   emptyMessage,
@@ -91,6 +96,7 @@ export function DataGrid<TData extends object>({
   footerRow,
 }: DataGridProps<TData>) {
   const intl = useIntl();
+  const navigate = useNavigate();
   const urlState = useDataGridUrlState(gridId, defaultPageSize);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(gridId);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
@@ -431,18 +437,25 @@ export function DataGrid<TData extends object>({
                 </TableCell>
               </TableRow>
             ) : (
-              rows.map((row, rowIndex) => (
+              rows.map((row, rowIndex) => {
+                const rowLinkPath = getRowLink && !row.getIsGrouped() ? getRowLink(row.original) : null;
+                const linkProps = rowLinkPath ? rowLinkProps(rowLinkPath, navigate) : null;
+                return (
                 <TableRow
                   key={row.id}
+                  {...linkProps}
                   className={cn(
                     ROW_HEIGHT_CLASS,
                     rowIndex % 2 === 1 && "bg-zebra",
                     getRowClassName?.(row.original),
                     row.getIsSelected() && "bg-row-selected shadow-[inset_3px_0_0_var(--primary)]",
                     onRowClick && !row.getIsGrouped() && "cursor-pointer",
+                    rowLinkPath && ROW_LINK_CLASS,
                   )}
                   onClick={
-                    onRowClick && !row.getIsGrouped()
+                    linkProps
+                      ? linkProps.onClick
+                      : onRowClick && !row.getIsGrouped()
                       ? (event) => {
                           if ((event.target as HTMLElement).closest("button, a, input, select, label")) return;
                           onRowClick(row.original);
@@ -489,7 +502,8 @@ export function DataGrid<TData extends object>({
                     );
                   })}
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
           {!isLoading && footerRow && rows.length > 0 && (
