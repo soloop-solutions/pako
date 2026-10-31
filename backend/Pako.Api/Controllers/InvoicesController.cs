@@ -1089,7 +1089,7 @@ public class InvoicesController : ControllerBase
 
         var receivableAccountId = partner?.ReceivableAccountId ?? defaults.ReceivableAccountId;
         var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-            .Include(t => t.RepartitionLines)
+            .Include(t => t.RepartitionLines.OrderBy(r => r.Id))
             .Where(t => t.CompanyId == company.Id)
             .ToDictionaryAsync(t => t.Id);
 
@@ -1324,7 +1324,7 @@ public class InvoicesController : ControllerBase
         }
 
         var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-            .Include(t => t.RepartitionLines)
+            .Include(t => t.RepartitionLines.OrderBy(r => r.Id))
             .Where(t => t.CompanyId == company.Id)
             .ToDictionaryAsync(t => t.Id);
 

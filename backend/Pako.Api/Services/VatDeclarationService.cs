@@ -43,5 +43,5 @@ public class VatDeclarationService(PakoDbContext db, CompanyAccessContext access
 
     private static AtkTaxRow ToAtkRow(TaxReportService.TaxBookRow r) =>
         new(r.DocumentId, r.DocumentNumber, r.IssueDate, r.PartnerId, r.VatCode, r.Rate, r.NetAmount,
-            r.Direction, r.DeductiblePercent, r.IsReverseCharge, r.AtkBook, r.DocumentType, r.VatAmount);
+            r.Direction, r.DeductiblePercent, r.IsReverseCharge, r.AtkBook, r.DocumentType, r.VatAmount, r.PostedDeductibleVat);
 }

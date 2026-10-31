@@ -837,7 +837,7 @@ public class BillsController : ControllerBase
 
         var payableAccountId = partner?.PayableAccountId ?? defaults.PayableAccountId;
         var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-            .Include(t => t.RepartitionLines)
+            .Include(t => t.RepartitionLines.OrderBy(r => r.Id))
             .Where(t => t.CompanyId == company.Id)
             .ToDictionaryAsync(t => t.Id);
 
@@ -954,7 +954,7 @@ public class BillsController : ControllerBase
         }
 
         var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-            .Include(t => t.RepartitionLines)
+            .Include(t => t.RepartitionLines.OrderBy(r => r.Id))
             .Where(t => t.CompanyId == company.Id)
             .ToDictionaryAsync(t => t.Id);
 

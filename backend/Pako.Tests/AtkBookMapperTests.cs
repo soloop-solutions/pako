@@ -105,6 +105,31 @@ public class AtkBookMapperTests
     }
 
     [Fact]
+    public void Declaration_Bv50_PostedDeductibleVatOverridesTheShareComputation()
+    {
+        var row = VatRow(0.18m, 169.5m, 30.5m, TaxDirection.In, 50m) with { PostedDeductibleVat = 15.26m };
+
+        Assert.Equal(15.26m, Declared(row, "43").Vat);
+        Assert.Equal(0m, Declared(row, "33").Vat);
+    }
+
+    [Fact]
+    public void Declaration_Bv50_WithoutPostedSplitFallsBackToShare()
+    {
+        var row = VatRow(0.18m, 169.5m, 30.5m, TaxDirection.In, 50m);
+
+        Assert.Equal(15.25m, Declared(row, "43").Vat);
+    }
+
+    [Fact]
+    public void Declaration_Bv50CreditNote_KeepsNegativePostedAmount()
+    {
+        var row = VatRow(0.18m, -169.5m, -30.5m, TaxDirection.In, 50m) with { PostedDeductibleVat = -15.24m };
+
+        Assert.Equal(-15.24m, Declared(row, "43").Vat);
+    }
+
+    [Fact]
     public void Purchase_Bv50_SplitsNetBetweenBox43AndBox33()
     {
         var book = AtkBookMapper.PurchaseBook(true, new[] { Row("BV50", 0.18m, 101m, TaxDirection.In, 50m) }, Partners());

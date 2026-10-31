@@ -70,7 +70,8 @@ public class TaxReportService(PakoDbContext db, CompanyAccessContext access)
     public record TaxBookRow(
         Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, string DocumentType,
         Guid PartnerId, string VatCode, decimal Rate, decimal NetAmount, decimal VatAmount,
-        TaxDirection? Direction = null, decimal? DeductiblePercent = null, bool IsReverseCharge = false, TaxAtkBook? AtkBook = null);
+        TaxDirection? Direction = null, decimal? DeductiblePercent = null, bool IsReverseCharge = false, TaxAtkBook? AtkBook = null,
+        decimal? PostedDeductibleVat = null);
 
     // Shared by SalesBook (Invoice-sourced, AtkBook.Shitje, Credit-normal per
     // DocumentLineCalculator's creditsOnNormalSide=true for invoices) and PurchaseBook
@@ -88,12 +89,21 @@ public class TaxReportService(PakoDbContext db, CompanyAccessContext access)
 
         var taxDefinitions = await db.TaxDefinitions.AsNoTracking()
             .Where(t => t.CompanyId == companyId && t.AtkBook != null && atkBooks.Contains(t.AtkBook!.Value))
-            .Include(t => t.RepartitionLines)
+            .Include(t => t.RepartitionLines.OrderBy(r => r.Id))
             .ToListAsync();
         var taxDefinitionsById = taxDefinitions.ToDictionary(t => t.Id);
         var taxIds = taxDefinitionsById.Keys.ToHashSet();
         var repartitionAccountsByTax = taxDefinitions
             .SelectMany(t => t.RepartitionLines.Select(r => (t.Id, r.AccountId)))
+            .ToHashSet();
+
+        var repartitionAccountIds = taxDefinitions.SelectMany(t => t.RepartitionLines.Select(r => r.AccountId)).Distinct().ToList();
+        var deductibleAccountIds = (await db.Accounts.AsNoTracking()
+                .Where(a => repartitionAccountIds.Contains(a.Id))
+                .Select(a => new { a.Id, a.Code })
+                .ToListAsync())
+            .Where(a => a.Code.StartsWith("113") && a.Code != "113900")
+            .Select(a => a.Id)
             .ToHashSet();
 
         var defaults = await db.CompanyAccountDefaults.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
@@ -140,6 +150,7 @@ public class TaxReportService(PakoDbContext db, CompanyAccessContext access)
                 var taxDefinition = taxDefinitionsById[taxGroup.Key];
                 var net = 0m;
                 var vat = 0m;
+                var postedDeductible = 0m;
 
                 foreach (var line in taxGroup)
                 {
@@ -164,6 +175,10 @@ public class TaxReportService(PakoDbContext db, CompanyAccessContext access)
                     else if (repartitionAccountsByTax.Contains((taxGroup.Key, line.AccountId)))
                     {
                         vat += signedAmount;
+                        if (deductibleAccountIds.Contains(line.AccountId))
+                        {
+                            postedDeductible += signedAmount;
+                        }
                     }
                     else
                     {
@@ -176,10 +191,16 @@ public class TaxReportService(PakoDbContext db, CompanyAccessContext access)
                     continue;
                 }
 
+                var splitsDeductibility = !isSalesBook && !taxDefinition.IsReverseCharge
+                    && taxDefinition.DeductiblePercent is > 0m and < 100m
+                    && taxDefinition.RepartitionLines.Any(r => deductibleAccountIds.Contains(r.AccountId))
+                    && taxDefinition.RepartitionLines.Any(r => !deductibleAccountIds.Contains(r.AccountId));
+
                 rows.Add(new TaxBookRow(
                     doc.DocumentId, doc.DocumentNumber, doc.IssueDate, doc.DocumentType,
                     doc.PartnerId, taxDefinition.Code ?? string.Empty, taxDefinition.Rate, net, vat,
-                    taxDefinition.Direction, taxDefinition.DeductiblePercent, taxDefinition.IsReverseCharge, taxDefinition.AtkBook));
+                    taxDefinition.Direction, taxDefinition.DeductiblePercent, taxDefinition.IsReverseCharge, taxDefinition.AtkBook,
+                    splitsDeductibility ? postedDeductible : null));
             }
         }
 

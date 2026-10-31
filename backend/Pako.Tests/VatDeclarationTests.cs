@@ -466,7 +466,10 @@ public class VatDeclarationTests : IAsyncLifetime
         }
     }
 
-    private async Task PostPartialBillAsync(Seed s, DateOnly date, decimal gross, decimal deductiblePercent)
+    private Task PostPartialBillAsync(Seed s, DateOnly date, decimal gross, decimal deductiblePercent) =>
+        PostPartialBillAsync(s, date, new[] { gross }, deductiblePercent, true);
+
+    private async Task PostPartialBillAsync(Seed s, DateOnly date, decimal[] grosses, decimal deductiblePercent, bool deductibleFirst, bool creditNote = false)
     {
         var db = s.Db;
         var accounts = await db.Accounts.Where(a => a.CompanyId == s.CompanyId).ToListAsync();
@@ -485,6 +488,11 @@ public class VatDeclarationTests : IAsyncLifetime
         definition.DeductiblePercent = deductiblePercent;
         definition.RepartitionLines.Single(r => r.AccountId == byCode["113110"]).Percentage = deductiblePercent;
         definition.RepartitionLines.Single(r => r.AccountId == byCode["113900"]).Percentage = 100m - deductiblePercent;
+        if (!deductibleFirst)
+        {
+            definition.RepartitionLines.Reverse();
+        }
+
         db.TaxDefinitions.Add(definition);
 
         var journalId = (await db.Journals.FirstAsync(j => j.CompanyId == s.CompanyId)).Id;
@@ -494,8 +502,12 @@ public class VatDeclarationTests : IAsyncLifetime
         {
             Id = Guid.NewGuid(), CompanyId = s.CompanyId, PartnerId = vendor.Id, VendorReference = "P-" + date.ToString("MMdd"),
             IssueDate = date, DueDate = date.AddDays(30),
-            Lines = { new BillLine { Id = Guid.NewGuid(), Description = "Fuel", Quantity = 1m, UnitPrice = gross, ExpenseAccountId = byCode["6000"], TaxDefinitionId = definition.Id } }
+            DocumentType = creditNote ? Pako.Domain.Bills.DocumentType.CreditNote : Pako.Domain.Bills.DocumentType.Bill
         };
+        foreach (var gross in grosses)
+        {
+            bill.Lines.Add(new BillLine { Id = Guid.NewGuid(), Description = "Fuel", Quantity = 1m, UnitPrice = gross, ExpenseAccountId = byCode["6000"], TaxDefinitionId = definition.Id });
+        }
         var entry = bill.Post(
             company, journalId, byCode["2000"], new TaxComputationService(),
             new Dictionary<Guid, TaxDefinition> { [definition.Id] = definition }, Guid.NewGuid(), Guid.NewGuid());
@@ -521,6 +533,70 @@ public class VatDeclarationTests : IAsyncLifetime
         var deductibleAccountId = (await s.Db.Accounts.SingleAsync(a => a.CompanyId == s.CompanyId && a.Code == "113110")).Id;
         var posted = await s.Db.JournalEntryLines.Where(l => l.AccountId == deductibleAccountId).SumAsync(l => l.Debit);
         Assert.Equal(posted, april.TotalVatDeductible);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Declaration_Bv50TwoOddCentLines_DeclaresExactlyThePostedDeductibleVat(bool deductibleFirst)
+    {
+        var s = await SeedAsync();
+        await PostPartialBillAsync(s, new DateOnly(2026, 4, 10), new[] { 100m, 100m }, 50m, deductibleFirst);
+
+        var april = await Run(s, 2026, 4);
+
+        var posted = await s.Db.JournalEntryLines
+            .Where(l => l.Debit > 0m && s.Db.Accounts.Any(a => a.Id == l.AccountId && a.Code == "113110") && l.JournalEntry!.Date >= new DateOnly(2026, 4, 1))
+            .SumAsync(l => l.Debit);
+        Assert.Equal(posted, Find(april, "67").Vat);
+        Assert.Equal(posted, april.TotalVatDeductible);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Declaration_Bv50SingleOddCentLine_DeclaresExactlyThePostedDeductibleVat(bool deductibleFirst)
+    {
+        var s = await SeedAsync();
+        await PostPartialBillAsync(s, new DateOnly(2026, 4, 10), new[] { 100m }, 50m, deductibleFirst);
+
+        var april = await Run(s, 2026, 4);
+
+        var posted = await s.Db.JournalEntryLines
+            .Where(l => l.Debit > 0m && s.Db.Accounts.Any(a => a.Id == l.AccountId && a.Code == "113110") && l.JournalEntry!.Date >= new DateOnly(2026, 4, 1))
+            .SumAsync(l => l.Debit);
+        Assert.Equal(posted, Find(april, "67").Vat);
+        Assert.Equal(posted, april.TotalVatDeductible);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Declaration_Bv50CreditNote_DeclaresNegativePostedDeductibleVat(bool deductibleFirst)
+    {
+        var s = await SeedAsync();
+        await PostPartialBillAsync(s, new DateOnly(2026, 4, 10), new[] { 100m, 100m }, 50m, deductibleFirst, creditNote: true);
+
+        var april = await Run(s, 2026, 4);
+
+        var posted = await s.Db.JournalEntryLines
+            .Where(l => s.Db.Accounts.Any(a => a.Id == l.AccountId && a.Code == "113110") && l.JournalEntry!.Date >= new DateOnly(2026, 4, 1))
+            .SumAsync(l => l.Debit - l.Credit);
+        Assert.True(posted < 0m);
+        Assert.Equal(posted, Find(april, "67").Vat);
+    }
+
+    [Fact]
+    public async Task Declaration_Bv50_BoxMatchesPurchaseBookDeductibleTotal()
+    {
+        var s = await SeedAsync();
+        await PostPartialBillAsync(s, new DateOnly(2026, 4, 10), new[] { 100m, 100m }, 50m, false);
+
+        var april = await Run(s, 2026, 4);
+        var rows = await new TaxReportService(s.Db, CompanyAccessContext.Unrestricted())
+            .BuildTaxBookRowsAsync(s.CompanyId, new DateOnly(2026, 4, 1), new DateOnly(2026, 4, 30), isSalesBook: false);
+
+        Assert.Equal(rows.Where(r => r.VatCode == "BV50").Sum(r => r.PostedDeductibleVat ?? 0m), Find(april, "67").Vat);
     }
 
     [Fact]

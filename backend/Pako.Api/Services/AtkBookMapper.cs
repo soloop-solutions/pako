@@ -12,7 +12,7 @@ public record AtkBookResult(List<AtkBookDocument> Documents, List<AtkUnplaced> U
 public record AtkTaxRow(
     Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, Guid PartnerId, string VatCode, decimal Rate,
     decimal NetAmount, TaxDirection? Direction, decimal? DeductiblePercent, bool IsReverseCharge, TaxAtkBook? AtkBook,
-    string DocumentType = "", decimal VatAmount = 0m);
+    string DocumentType = "", decimal VatAmount = 0m, decimal? PostedDeductibleVat = null);
 
 public static partial class AtkBookMapper
 {
@@ -198,7 +198,8 @@ public static partial class AtkBookMapper
     {
         if (row.DeductiblePercent is > 0m and < 100m && VatBearingBoxes.Contains(box.Box))
         {
-            var deductibleVat = Math.Round(row.VatAmount * row.DeductiblePercent.Value / 100m, 2, MidpointRounding.AwayFromZero);
+            var deductibleVat = row.PostedDeductibleVat
+                ?? Math.Round(row.VatAmount * row.DeductiblePercent.Value / 100m, 2, MidpointRounding.AwayFromZero);
             return new(box.Box, box.Amount, deductibleVat);
         }
 
