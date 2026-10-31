@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
 import { useUrlParam } from "@/hooks/useUrlParam";
+import { itemPath } from "@/lib/entityLinks";
 import { formatAmount } from "@/lib/payroll-enums";
 import { cn } from "@/lib/utils";
 import { ExportButton } from "@/pages/reports/shared";
@@ -157,6 +158,7 @@ function ValuationTab() {
             rowCount={data?.items.length ?? 0}
             isLoading={query.isPending}
             getRowId={(r) => r.itemId}
+            getRowLink={(r) => itemPath(r.itemId)}
             enableGlobalFilter
             globalFilterPlaceholder={t("stock.search")}
             emptyMessage={t("stock.empty")}

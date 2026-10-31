@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { formatAmount } from "@/lib/payroll-enums";
+import { stockMoveSourcePath } from "@/lib/entityLinks";
 import { stockMoveKindKey } from "@/lib/stock-enums";
 import { ExportButton } from "@/pages/reports/shared";
 import { useReportExport } from "@/pages/reports/useReportExport";
@@ -91,6 +92,7 @@ export function ItemCardPanel({ itemId }: { itemId: string }) {
         rowCount={card?.rows.length ?? 0}
         isLoading={query.isPending}
         getRowId={(r) => r.moveId}
+        getRowLink={(r) => stockMoveSourcePath(r.sourceType, r.sourceId)}
         emptyMessage={t("stock.card.empty")}
         exportFileName="item-card"
         manualFiltering={false}
