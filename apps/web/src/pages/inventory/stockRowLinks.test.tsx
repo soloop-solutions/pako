@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
-import { ItemCardDialog } from "@/pages/inventory/ItemCardDialog";
+import { ItemCardDialog, ItemCardPanel } from "@/pages/inventory/ItemCardDialog";
 import { StockReports } from "@/pages/inventory/StockReports";
 
 const m = vi.hoisted(() => ({
@@ -116,5 +116,19 @@ describe("item card rows", () => {
     expect((cell.closest("tr") as HTMLElement).className).not.toContain("cursor-pointer");
     fireEvent.click(cell);
     expect(route()).toBe("/stock");
+  });
+
+  it("the embedded panel with linkRows off keeps rows inert", async () => {
+    renderAt("/stock", <ItemCardPanel itemId={ITEM} linkRows={false} />);
+    const cell = await screen.findByText("BILL-IN");
+    expect((cell.closest("tr") as HTMLElement).className).not.toContain("cursor-pointer");
+    fireEvent.click(cell);
+    expect(route()).toBe("/stock");
+  });
+
+  it("the panel links rows by default", async () => {
+    renderAt("/stock", <ItemCardPanel itemId={ITEM} />);
+    fireEvent.click(await screen.findByText("BILL-IN"));
+    expect(route()).toBe(`/bills/${BILL}`);
   });
 });

@@ -28,7 +28,7 @@ export function ItemCardDialog({ itemId, title, onClose }: { itemId: string; tit
 }
 
 // The card itself, also shown as the "Stock" tab of the item editor.
-export function ItemCardPanel({ itemId }: { itemId: string }) {
+export function ItemCardPanel({ itemId, linkRows = true }: { itemId: string; linkRows?: boolean }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const { activeCompanyId } = useCompany();
@@ -92,7 +92,7 @@ export function ItemCardPanel({ itemId }: { itemId: string }) {
         rowCount={card?.rows.length ?? 0}
         isLoading={query.isPending}
         getRowId={(r) => r.moveId}
-        getRowLink={(r) => stockMoveSourcePath(r.sourceType, r.sourceId)}
+        getRowLink={linkRows ? (r) => stockMoveSourcePath(r.sourceType, r.sourceId) : undefined}
         emptyMessage={t("stock.card.empty")}
         exportFileName="item-card"
         manualFiltering={false}

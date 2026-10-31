@@ -457,7 +457,7 @@ export function Items() {
             />
           </div>
         )}
-        {editingItem && hasStockTab && editTab === "stock" && <ItemCardPanel itemId={editingItem.id} />}
+        {editingItem && hasStockTab && editTab === "stock" && <ItemCardPanel itemId={editingItem.id} linkRows={false} />}
       </FormDialog>
 
       <DataGrid
