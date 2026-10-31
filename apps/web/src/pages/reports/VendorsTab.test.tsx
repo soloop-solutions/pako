@@ -104,6 +104,17 @@ describe("VendorsTab", () => {
     await waitFor(() => expect(m.vendorStatementExport).toHaveBeenCalledWith("c1", PRIME, "2026-01-01", "2026-01-31"));
   });
 
+  it("shows the server totalDebit and totalCredit in a totals row of the statement", async () => {
+    m.vendorStatement.mockResolvedValue({ ...statementFixture, totalDebit: 777.7, totalCredit: 888.8 });
+    renderReports(`${URL_}&vendor=${PRIME}`);
+    const dialog = await screen.findByRole("dialog");
+    await within(dialog).findByText("BILL-0001");
+    const footer = dialog.querySelector("tfoot") as HTMLElement;
+    expect(within(footer).getByText("Total")).toBeInTheDocument();
+    expect(within(footer).getByText("777.70")).toBeInTheDocument();
+    expect(within(footer).getByText("888.80")).toBeInTheDocument();
+  });
+
   it("shows LockNotice when the range ends on or before the accounting lock date", async () => {
     renderReports("/reports?tab=vendors&from=2026-01-01&to=2026-08-31");
     expect(await screen.findByText("This period is locked (accounting lock: 2026-08-31).")).toBeInTheDocument();

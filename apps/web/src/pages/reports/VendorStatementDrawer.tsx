@@ -106,6 +106,10 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
             defaultPageSize={1000}
             pageSizeOptions={[1000]}
             getRowClassName={(row) => (row.kind === "row" ? undefined : "bg-muted/60 font-semibold")}
+            footerRow={{
+              label: intl.formatMessage({ id: "common.total" }),
+              cells: { debit: formatAmount(data.totalDebit), credit: formatAmount(data.totalCredit) },
+            }}
           />
         )}
       </DialogContent>
