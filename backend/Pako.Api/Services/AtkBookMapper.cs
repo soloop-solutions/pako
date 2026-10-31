@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Pako.Domain.Companies;
+using Pako.Domain.Reporting;
 using Pako.Domain.Tax;
 
 namespace Pako.Api.Services;
@@ -11,7 +12,7 @@ public record AtkBookResult(List<AtkBookDocument> Documents, List<AtkUnplaced> U
 public record AtkTaxRow(
     Guid DocumentId, string? DocumentNumber, DateOnly IssueDate, Guid PartnerId, string VatCode, decimal Rate,
     decimal NetAmount, TaxDirection? Direction, decimal? DeductiblePercent, bool IsReverseCharge, TaxAtkBook? AtkBook,
-    string DocumentType = "");
+    string DocumentType = "", decimal VatAmount = 0m);
 
 public static partial class AtkBookMapper
 {
@@ -165,6 +166,36 @@ public static partial class AtkBookMapper
 
         return Pivot(mapped, partners, isSales: false);
     }
+
+    private static readonly HashSet<string> VatBearingBoxes = new(
+        VatDeclaration.CalculatedVatBoxes.Concat(VatDeclaration.DeductibleVatBoxes));
+
+    public static List<VatBoxAmount> DeclarationAmounts(
+        IEnumerable<AtkTaxRow> salesRows, IEnumerable<AtkTaxRow> purchaseRows)
+    {
+        var purchases = purchaseRows.ToList();
+        var amounts = new List<VatBoxAmount>();
+
+        foreach (var row in salesRows)
+        {
+            amounts.AddRange(SalesVatBoxes(row).Select(b => ToAmount(b, row)));
+        }
+
+        foreach (var row in purchases.Where(r => r.Direction == TaxDirection.Rc && r.IsReverseCharge && r.Rate == 0.18m))
+        {
+            amounts.AddRange(One("28", row.NetAmount).Select(b => ToAmount(b, row)));
+        }
+
+        foreach (var row in purchases)
+        {
+            amounts.AddRange(PurchaseVatBoxes(row).Select(b => ToAmount(b, row)));
+        }
+
+        return amounts;
+    }
+
+    private static VatBoxAmount ToAmount((string Box, decimal Amount) box, AtkTaxRow row) =>
+        new(box.Box, box.Amount, VatBearingBoxes.Contains(box.Box) ? row.VatAmount : 0m);
 
     private static AtkBookResult Pivot(
         List<(AtkTaxRow Row, List<(string Box, decimal Amount)> Boxes)> mapped,

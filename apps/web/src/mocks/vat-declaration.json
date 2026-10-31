@@ -1,0 +1,289 @@
+{
+  "year": 2026,
+  "month": 9,
+  "taxpayerName": "Example Trading SH.P.K.",
+  "fiscalNumber": "811000000",
+  "address": "Rruga Shembull 1, Prishtinë",
+  "boxes": [
+    {
+      "number": "9",
+      "section": "Sales",
+      "label": "Exempt sales without right of credit",
+      "base": 0.0,
+      "vat": null
+    },
+    {
+      "number": "10",
+      "section": "Sales",
+      "label": "Exempt sales with right of credit",
+      "base": 0.0,
+      "vat": null
+    },
+    {
+      "number": "11",
+      "section": "Sales",
+      "label": "Exports",
+      "base": 0.0,
+      "vat": null
+    },
+    {
+      "number": "12",
+      "section": "Sales",
+      "label": "Taxable sales at 18%",
+      "base": 44408.45,
+      "vat": 7993.57
+    },
+    {
+      "number": "14",
+      "section": "Sales",
+      "label": "Taxable sales at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "16",
+      "section": "Sales",
+      "label": "Debit notes issued and credit notes received at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "18",
+      "section": "Sales",
+      "label": "Debit notes issued and credit notes received at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "20",
+      "section": "Sales",
+      "label": "Bad debt invoices received and bad debt recovery at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "22",
+      "section": "Sales",
+      "label": "Bad debt invoices received and bad debt recovery at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "24",
+      "section": "Sales",
+      "label": "Adjustments increasing VAT at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "26",
+      "section": "Sales",
+      "label": "Adjustments increasing VAT at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "28",
+      "section": "Sales",
+      "label": "Purchases subject to reverse charge at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "30",
+      "section": "Sales",
+      "label": "Total VAT calculated",
+      "base": null,
+      "vat": 7993.57
+    },
+    {
+      "number": "31",
+      "section": "Purchases",
+      "label": "Purchases and imports without VAT",
+      "base": 272.64,
+      "vat": null
+    },
+    {
+      "number": "32",
+      "section": "Purchases",
+      "label": "Investment purchases and imports without VAT",
+      "base": 0.0,
+      "vat": null
+    },
+    {
+      "number": "33",
+      "section": "Purchases",
+      "label": "Purchases and imports with non-deductible VAT",
+      "base": 84.0,
+      "vat": null
+    },
+    {
+      "number": "34",
+      "section": "Purchases",
+      "label": "Investment purchases and imports with non-deductible VAT",
+      "base": 0.0,
+      "vat": null
+    },
+    {
+      "number": "35",
+      "section": "Purchases",
+      "label": "Imports at 18%",
+      "base": 41970.06,
+      "vat": 7554.61
+    },
+    {
+      "number": "37",
+      "section": "Purchases",
+      "label": "Imports at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "39",
+      "section": "Purchases",
+      "label": "Investment imports at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "41",
+      "section": "Purchases",
+      "label": "Investment imports at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "43",
+      "section": "Purchases",
+      "label": "Domestic purchases at 18%",
+      "base": 3252.91,
+      "vat": 585.53
+    },
+    {
+      "number": "45",
+      "section": "Purchases",
+      "label": "Domestic purchases at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "47",
+      "section": "Purchases",
+      "label": "Domestic investment purchases at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "49",
+      "section": "Purchases",
+      "label": "Domestic investment purchases at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "51",
+      "section": "Purchases",
+      "label": "Purchases from domestic farmers (8% flat rate)",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "53",
+      "section": "Purchases",
+      "label": "Debit notes received and credit notes issued at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "55",
+      "section": "Purchases",
+      "label": "Debit notes received and credit notes issued at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "57",
+      "section": "Purchases",
+      "label": "Bad debt invoices issued and bad debt payments at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "59",
+      "section": "Purchases",
+      "label": "Bad debt invoices issued and bad debt payments at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "61",
+      "section": "Purchases",
+      "label": "Adjustments decreasing VAT at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "63",
+      "section": "Purchases",
+      "label": "Adjustments decreasing VAT at 8%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "65",
+      "section": "Purchases",
+      "label": "Right of VAT credit on reverse charge at 18%",
+      "base": 0.0,
+      "vat": 0.0
+    },
+    {
+      "number": "67",
+      "section": "Purchases",
+      "label": "Total deductible VAT",
+      "base": null,
+      "vat": 8140.14
+    },
+    {
+      "number": "68",
+      "section": "Calculation",
+      "label": "VAT credit carried from the previous period",
+      "base": null,
+      "vat": 1000.0
+    },
+    {
+      "number": "69",
+      "section": "Calculation",
+      "label": "Remaining credit balance, 69 = ((67+68)-30) &gt; 0",
+      "base": null,
+      "vat": 1146.57
+    },
+    {
+      "number": "70",
+      "section": "Calculation",
+      "label": "Refund request",
+      "base": null,
+      "vat": 0.0
+    },
+    {
+      "number": "71",
+      "section": "Calculation",
+      "label": "VAT credit for the next period, 71 = (69-70)",
+      "base": null,
+      "vat": 1146.57
+    },
+    {
+      "number": "72",
+      "section": "Calculation",
+      "label": "VAT payable, 72 = (30-67-68) &gt; 0",
+      "base": null,
+      "vat": 0.0
+    }
+  ],
+  "totalVatCalculated": 7993.57,
+  "totalVatDeductible": 8140.14,
+  "carriedCredit": 1000.0,
+  "remainingCredit": 1146.57,
+  "refundRequested": 0.0,
+  "creditForNextPeriod": 1146.57,
+  "vatPayable": 0.0
+}

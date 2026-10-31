@@ -857,4 +857,62 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="Export_Month_12" xml:space="preserve">
     <value>Dec</value>
   </data>
+  <data name="Export_VatDecl_B9" xml:space="preserve"><value>Exempt sales without right of credit</value></data>
+  <data name="Export_VatDecl_B10" xml:space="preserve"><value>Exempt sales with right of credit</value></data>
+  <data name="Export_VatDecl_B11" xml:space="preserve"><value>Exports</value></data>
+  <data name="Export_VatDecl_B12" xml:space="preserve"><value>Taxable sales at 18%</value></data>
+  <data name="Export_VatDecl_B14" xml:space="preserve"><value>Taxable sales at 8%</value></data>
+  <data name="Export_VatDecl_B16" xml:space="preserve"><value>Debit notes issued and credit notes received at 18%</value></data>
+  <data name="Export_VatDecl_B18" xml:space="preserve"><value>Debit notes issued and credit notes received at 8%</value></data>
+  <data name="Export_VatDecl_B20" xml:space="preserve"><value>Bad debt invoices received and bad debt recovery at 18%</value></data>
+  <data name="Export_VatDecl_B22" xml:space="preserve"><value>Bad debt invoices received and bad debt recovery at 8%</value></data>
+  <data name="Export_VatDecl_B24" xml:space="preserve"><value>Adjustments increasing VAT at 18%</value></data>
+  <data name="Export_VatDecl_B26" xml:space="preserve"><value>Adjustments increasing VAT at 8%</value></data>
+  <data name="Export_VatDecl_B28" xml:space="preserve"><value>Purchases subject to reverse charge at 18%</value></data>
+  <data name="Export_VatDecl_B30" xml:space="preserve"><value>Total VAT calculated</value></data>
+  <data name="Export_VatDecl_B31" xml:space="preserve"><value>Purchases and imports without VAT</value></data>
+  <data name="Export_VatDecl_B32" xml:space="preserve"><value>Investment purchases and imports without VAT</value></data>
+  <data name="Export_VatDecl_B33" xml:space="preserve"><value>Purchases and imports with non-deductible VAT</value></data>
+  <data name="Export_VatDecl_B34" xml:space="preserve"><value>Investment purchases and imports with non-deductible VAT</value></data>
+  <data name="Export_VatDecl_B35" xml:space="preserve"><value>Imports at 18%</value></data>
+  <data name="Export_VatDecl_B37" xml:space="preserve"><value>Imports at 8%</value></data>
+  <data name="Export_VatDecl_B39" xml:space="preserve"><value>Investment imports at 18%</value></data>
+  <data name="Export_VatDecl_B41" xml:space="preserve"><value>Investment imports at 8%</value></data>
+  <data name="Export_VatDecl_B43" xml:space="preserve"><value>Domestic purchases at 18%</value></data>
+  <data name="Export_VatDecl_B45" xml:space="preserve"><value>Domestic purchases at 8%</value></data>
+  <data name="Export_VatDecl_B47" xml:space="preserve"><value>Domestic investment purchases at 18%</value></data>
+  <data name="Export_VatDecl_B49" xml:space="preserve"><value>Domestic investment purchases at 8%</value></data>
+  <data name="Export_VatDecl_B51" xml:space="preserve"><value>Purchases from domestic farmers (8% flat rate)</value></data>
+  <data name="Export_VatDecl_B53" xml:space="preserve"><value>Debit notes received and credit notes issued at 18%</value></data>
+  <data name="Export_VatDecl_B55" xml:space="preserve"><value>Debit notes received and credit notes issued at 8%</value></data>
+  <data name="Export_VatDecl_B57" xml:space="preserve"><value>Bad debt invoices issued and bad debt payments at 18%</value></data>
+  <data name="Export_VatDecl_B59" xml:space="preserve"><value>Bad debt invoices issued and bad debt payments at 8%</value></data>
+  <data name="Export_VatDecl_B61" xml:space="preserve"><value>Adjustments decreasing VAT at 18%</value></data>
+  <data name="Export_VatDecl_B63" xml:space="preserve"><value>Adjustments decreasing VAT at 8%</value></data>
+  <data name="Export_VatDecl_B65" xml:space="preserve"><value>Right of VAT credit on reverse charge at 18%</value></data>
+  <data name="Export_VatDecl_B67" xml:space="preserve"><value>Total deductible VAT</value></data>
+  <data name="Export_VatDecl_B68" xml:space="preserve"><value>VAT credit carried from the previous period</value></data>
+  <data name="Export_VatDecl_B69" xml:space="preserve"><value>Remaining credit balance, 69 = ((67+68)-30) &gt; 0</value></data>
+  <data name="Export_VatDecl_B70" xml:space="preserve"><value>Refund request</value></data>
+  <data name="Export_VatDecl_B71" xml:space="preserve"><value>VAT credit for the next period, 71 = (69-70)</value></data>
+  <data name="Export_VatDecl_B72" xml:space="preserve"><value>VAT payable, 72 = (30-67-68) &gt; 0</value></data>
+  <data name="Export_VatDecl_Title" xml:space="preserve"><value>VAT Declaration and Payment Form</value></data>
+  <data name="Export_VatDecl_Period" xml:space="preserve"><value>Tax period</value></data>
+  <data name="Export_VatDecl_FiscalNumber" xml:space="preserve"><value>Fiscal number</value></data>
+  <data name="Export_VatDecl_TaxpayerName" xml:space="preserve"><value>Taxpayer name</value></data>
+  <data name="Export_VatDecl_Address" xml:space="preserve"><value>Taxpayer address</value></data>
+  <data name="Export_VatDecl_ContactName" xml:space="preserve"><value>Contact person name</value></data>
+  <data name="Export_VatDecl_ContactNumber" xml:space="preserve"><value>Contact person number</value></data>
+  <data name="Export_VatDecl_NoTransactions" xml:space="preserve"><value>Mark X if no transaction was made during this period</value></data>
+  <data name="Export_VatDecl_Box" xml:space="preserve"><value>Box</value></data>
+  <data name="Export_VatDecl_Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Export_VatDecl_Base" xml:space="preserve"><value>Base (excl. VAT)</value></data>
+  <data name="Export_VatDecl_Vat" xml:space="preserve"><value>VAT</value></data>
+  <data name="Export_VatDecl_Section_Sales" xml:space="preserve"><value>Sales</value></data>
+  <data name="Export_VatDecl_Section_Purchases" xml:space="preserve"><value>Purchases</value></data>
+  <data name="Export_VatDecl_Section_Calculation" xml:space="preserve"><value>Calculation</value></data>
+  <data name="Export_Sheet_VatDeclaration" xml:space="preserve"><value>VAT Declaration</value></data>
+  <data name="VatDeclarationPeriodInvalid" xml:space="preserve"><value>The month must be between 1 and 12 and the year between 2000 and 2100.</value></data>
+  <data name="VatDeclarationCarriedCreditInvalid" xml:space="preserve"><value>The carried credit cannot be negative.</value></data>
+  <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>The refund request must be between 0 and the remaining credit balance.</value></data>
 </root>
