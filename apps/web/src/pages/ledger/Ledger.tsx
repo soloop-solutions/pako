@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link, useSearchParams } from "react-router-dom";
@@ -53,13 +54,23 @@ export function Ledger() {
   const hasTrialBalancePeriod = !!(tbFrom || tbTo);
   const [exportingTrialBalance, setExportingTrialBalance] = useState(false);
 
+  const latestParams = useRef(searchParams);
+  useEffect(() => {
+    latestParams.current = searchParams;
+  }, [searchParams]);
+
+  function updateParams(mutate: (params: URLSearchParams) => void) {
+    const next = new URLSearchParams(latestParams.current);
+    mutate(next);
+    latestParams.current = next;
+    setSearchParams(next, { replace: true });
+  }
+
   function setDateFilter(key: string, value: string) {
-    setSearchParams((prev) => {
-      const next = new URLSearchParams(prev);
-      if (value) next.set(key, value);
-      else next.delete(key);
-      return next;
-    }, { replace: true });
+    updateParams((params) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    });
   }
 
   const filteredEntries = useMemo(() => {
@@ -93,6 +104,13 @@ export function Ledger() {
       setLoading(false);
     }
   }, [companyId, intl, tbFrom, tbTo]);
+
+  const totalsQuery = useQuery({
+    queryKey: ["trialBalanceTotals", companyId, tbFrom, tbTo] as const,
+    queryFn: () => apiClient.trialBalanceTotals(companyId as string, tbFrom || undefined, tbTo || undefined),
+    enabled: !!companyId,
+  });
+  const totals = totalsQuery.data;
 
   async function exportTrialBalance() {
     if (!companyId) return;
@@ -270,12 +288,10 @@ export function Ledger() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  setSearchParams((prev) => {
-                    const next = new URLSearchParams(prev);
-                    next.delete("tbFrom");
-                    next.delete("tbTo");
-                    return next;
-                  }, { replace: true });
+                  updateParams((params) => {
+                    params.delete("tbFrom");
+                    params.delete("tbTo");
+                  });
                 }}
               >
                 {intl.formatMessage({ id: "ledger.clearFilters" })}
@@ -294,6 +310,20 @@ export function Ledger() {
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "ledger.noPostedEntries" })}
             exportFileName="trial-balance"
+            footerRow={
+              totals
+                ? {
+                    label: intl.formatMessage({ id: "common.total" }),
+                    cells: {
+                      opening: totals.opening.toFixed(2),
+                      debit: totals.debit.toFixed(2),
+                      credit: totals.credit.toFixed(2),
+                      closing: totals.closing.toFixed(2),
+                      balance: totals.closing.toFixed(2),
+                    },
+                  }
+                : undefined
+            }
             manualFiltering={false}
             manualSorting={false}
             manualGrouping={false}

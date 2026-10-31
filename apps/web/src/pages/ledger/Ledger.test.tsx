@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, useLocation } from "react-router-dom";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
+
+import totalsFixture from "@/mocks/trial-balance-totals.json";
 
 import { fileResponse } from "../reports/testHarness";
 import { Ledger } from "./Ledger";
@@ -14,6 +16,7 @@ const m = vi.hoisted(() => ({
   journalEntriesAll: vi.fn(),
   trialBalance: vi.fn(),
   trialBalanceExport: vi.fn(),
+  trialBalanceTotals: vi.fn(),
 }));
 
 vi.mock("@/context/CompanyContext", async () => (await import("../reports/testCompany")).companyContextMock);
@@ -70,6 +73,7 @@ describe("Ledger trial balance period", () => {
     m.journalEntriesAll.mockResolvedValue([]);
     m.trialBalance.mockResolvedValue(lines);
     m.trialBalanceExport.mockResolvedValue(fileResponse("tb.xlsx"));
+    m.trialBalanceTotals.mockResolvedValue(totalsFixture);
   });
 
   it("without a period keeps today's columns and sends no period", async () => {
@@ -99,5 +103,38 @@ describe("Ledger trial balance period", () => {
     await waitFor(() => expect(m.trialBalance).toHaveBeenLastCalledWith("c1", "2026-02-01", undefined));
     fireEvent.click(await screen.findByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.trialBalanceExport).toHaveBeenCalledWith("c1", "2026-02-01", undefined));
+  });
+
+  it("keeps both From and To when they are set in quick succession", async () => {
+    renderLedger("/ledger");
+    await screen.findByText("Trade receivables");
+    const from = screen.getByLabelText("From", { selector: "#trial-balance-from" });
+    const to = screen.getByLabelText("To", { selector: "#trial-balance-to" });
+    act(() => {
+      fireEvent.change(from, { target: { value: "2026-02-01" } });
+      fireEvent.change(to, { target: { value: "2026-02-28" } });
+    });
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toContain("tbTo=2026-02-28"));
+    expect(screen.getByTestId("location").textContent).toContain("tbFrom=2026-02-01");
+  });
+
+  it("shows the server totals row with and without a period", async () => {
+    m.trialBalanceTotals.mockResolvedValue({ opening: 10.5, debit: 1550, credit: 1549.5, closing: 11 });
+    renderLedger("/ledger?tbFrom=2026-01-01&tbTo=2026-03-31");
+    await screen.findByText("Trade receivables");
+    await waitFor(() => expect(m.trialBalanceTotals).toHaveBeenCalledWith("c1", "2026-01-01", "2026-03-31"));
+    const footer = document.querySelector("tfoot") as HTMLElement;
+    await waitFor(() => expect(footer.textContent).toContain("1550.00"));
+    expect(footer.textContent).toContain("Total");
+    expect(footer.textContent).toContain("10.50");
+    expect(footer.textContent).toContain("1549.50");
+    expect(footer.textContent).toContain("11.00");
+  });
+
+  it("requests totals with no period when none is set", async () => {
+    renderLedger("/ledger");
+    await screen.findByText("Trade receivables");
+    await waitFor(() => expect(m.trialBalanceTotals).toHaveBeenCalledWith("c1", undefined, undefined));
+    await waitFor(() => expect(document.querySelector("tfoot")?.textContent).toContain("1550.00"));
   });
 });
