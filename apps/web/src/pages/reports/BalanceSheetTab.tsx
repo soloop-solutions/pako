@@ -100,7 +100,7 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
             <p
               className={cn(
                 "text-sm font-medium",
-                Math.abs(balanceSheet.totalAssets - (balanceSheet.totalLiabilities + balanceSheet.totalEquity)) < 0.01
+                balanceSheet.difference === 0
                   ? "text-foreground"
                   : "text-destructive",
               )}
@@ -109,7 +109,7 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
                 { id: "reports.balanceEquation" },
                 {
                   assets: balanceSheet.totalAssets.toFixed(2),
-                  liabilitiesPlusEquity: (balanceSheet.totalLiabilities + balanceSheet.totalEquity).toFixed(2),
+                  liabilitiesPlusEquity: balanceSheet.totalLiabilitiesAndEquity.toFixed(2),
                 },
               )}
             </p>
