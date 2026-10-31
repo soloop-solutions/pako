@@ -1010,4 +1010,10 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="Export_Tb_Class" xml:space="preserve">
     <value>Class {0}</value>
   </data>
+  <data name="Export_Common_OperatingExpenses" xml:space="preserve">
+    <value>Operating Expenses</value>
+  </data>
+  <data name="Export_Common_TotalOperatingExpenses" xml:space="preserve">
+    <value>Total Operating Expenses</value>
+  </data>
 </root>

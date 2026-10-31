@@ -107,6 +107,31 @@ public class RoundTenReportTests : IAsyncLifetime
         Assert.Equal(new[] { "5000", "6000" }, pnl.Expenses.Select(l => l.AccountCode));
         Assert.Equal(550m, pnl.TotalExpenses);
         Assert.Equal(450m, pnl.NetIncome);
+        var operating = Assert.Single(pnl.OperatingExpenses);
+        Assert.Equal("6000", operating.AccountCode);
+        Assert.Equal(150m, operating.Amount);
+        Assert.Equal(150m, pnl.TotalOperatingExpenses);
+        Assert.Equal(pnl.GrossProfit - pnl.TotalOperatingExpenses, pnl.NetIncome);
+    }
+
+    [Fact]
+    public async Task ProfitAndLossExport_ListsSectionsInStatementOrderWithoutDoubleCounting()
+    {
+        var s = await SeedAsync();
+
+        var en = await WithCultureAsync("en", async () => Sheet(await Reports(s.Db).ProfitAndLossExport(s.Company.Id, From, To)));
+        var sq = await WithCultureAsync("sq", async () => Sheet(await Reports(s.Db).ProfitAndLossExport(s.Company.Id, From, To)));
+
+        var rows = en.RowsUsed().Skip(1).Select(r => (Section: r.Cell(1).GetString(), Label: r.Cell(3).GetString(), Amount: r.Cell(4).GetValue<decimal>())).ToList();
+        Assert.Equal(new[]
+        {
+            ("Income", "Revenue", 1000m), ("Income", "Total Income", 1000m),
+            ("Cost of Revenue", "Cost of goods", 400m), ("Cost of Revenue", "Total cost of revenue", 400m),
+            ("", "Gross Profit", 600m),
+            ("Operating Expenses", "Rent", 150m), ("Operating Expenses", "Total Operating Expenses", 150m),
+            ("", "Net Income", 450m)
+        }, rows.ToArray());
+        Assert.Equal(150m, sq.RowsUsed().Single(r => r.Cell(3).GetString() == "Gjithsejt shpenzimet operative").Cell(4).GetValue<decimal>());
     }
 
     [Fact]
@@ -131,6 +156,15 @@ public class RoundTenReportTests : IAsyncLifetime
         Assert.Equal(1000.50m, r.TotalIncome);
         Assert.Equal(300m, r.TotalCostOfRevenue);
         Assert.Equal(700.50m, r.GrossProfit);
+    }
+
+    [Fact]
+    public void PeriodProfitAndLoss_Calculate_SumsOperatingExpenses()
+    {
+        var r = PeriodProfitAndLoss.Calculate(new[] { 1000m }, new[] { 400m }, new[] { 100.25m, 49.75m });
+
+        Assert.Equal(600m, r.GrossProfit);
+        Assert.Equal(150m, r.TotalOperatingExpenses);
     }
 
     [Fact]

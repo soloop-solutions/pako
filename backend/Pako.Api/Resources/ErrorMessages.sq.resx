@@ -1010,4 +1010,10 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="Export_Tb_Class" xml:space="preserve">
     <value>Klasa {0}</value>
   </data>
+  <data name="Export_Common_OperatingExpenses" xml:space="preserve">
+    <value>Shpenzimet operative</value>
+  </data>
+  <data name="Export_Common_TotalOperatingExpenses" xml:space="preserve">
+    <value>Gjithsejt shpenzimet operative</value>
+  </data>
 </root>

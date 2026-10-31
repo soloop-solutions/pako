@@ -12,7 +12,9 @@ public record ProfitAndLossResponse(
     decimal NetIncome,
     List<ReportLine> CostOfRevenue,
     decimal TotalCostOfRevenue,
-    decimal GrossProfit);
+    decimal GrossProfit,
+    List<ReportLine> OperatingExpenses,
+    decimal TotalOperatingExpenses);
 
 public record BalanceSheetResponse(
     DateOnly AsOf,
@@ -256,7 +258,8 @@ public record PayablesAgingResponse(
     DateOnly AsOf,
     List<PayablesAgingLine> Lines,
     List<AgingBucketTotal> Buckets,
-    List<PayablesAgingVendorRow> VendorMatrix);
+    List<PayablesAgingVendorRow> VendorMatrix,
+    decimal TotalOutstanding);
 
 public record PurchaseByVendorLine(
     Guid PartnerId,

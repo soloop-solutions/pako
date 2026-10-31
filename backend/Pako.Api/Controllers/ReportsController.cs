@@ -78,13 +78,16 @@ public class ReportsController : ControllerBase
             .OrderBy(l => l.AccountCode)
             .ToList();
 
+        var operatingExpenses = expenses.Where(l => costOfRevenue.All(c => c.AccountId != l.AccountId)).ToList();
+
         var totalIncome = income.Sum(l => l.Amount);
         var totalExpenses = expenses.Sum(l => l.Amount);
-        var gross = PeriodProfitAndLoss.Calculate(income.Select(l => l.Amount), costOfRevenue.Select(l => l.Amount));
+        var gross = PeriodProfitAndLoss.Calculate(
+            income.Select(l => l.Amount), costOfRevenue.Select(l => l.Amount), operatingExpenses.Select(l => l.Amount));
 
         return Ok(new ProfitAndLossResponse(
             from, to, income, expenses, totalIncome, totalExpenses, totalIncome - totalExpenses,
-            costOfRevenue, gross.TotalCostOfRevenue, gross.GrossProfit));
+            costOfRevenue, gross.TotalCostOfRevenue, gross.GrossProfit, operatingExpenses, gross.TotalOperatingExpenses));
     }
 
     [ProducesXlsx]
@@ -101,13 +104,15 @@ public class ReportsController : ControllerBase
         var headers = new[] { _labels["Common_Section"], _labels["Common_AccountCode"], _labels["Common_AccountName"], _labels["Common_Amount"] };
         var rows = new List<IReadOnlyList<object?>>();
         var income = _labels["Common_Income"];
-        var expenses = _labels["Common_Expenses"];
+        var costOfRevenue = _labels["Pnl_CostOfRevenue"];
+        var operatingExpenses = _labels["Common_OperatingExpenses"];
         rows.AddRange(response.Income.Select(l => (IReadOnlyList<object?>)new object?[] { income, l.AccountCode, l.AccountName, l.Amount }));
         rows.Add(new object?[] { income, null, _labels["Common_TotalIncome"], response.TotalIncome });
-        rows.Add(new object?[] { null, null, _labels["Common_TotalCostOfRevenue"], response.TotalCostOfRevenue });
+        rows.AddRange(response.CostOfRevenue.Select(l => (IReadOnlyList<object?>)new object?[] { costOfRevenue, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { costOfRevenue, null, _labels["Common_TotalCostOfRevenue"], response.TotalCostOfRevenue });
         rows.Add(new object?[] { null, null, _labels["Pnl_GrossProfit"], response.GrossProfit });
-        rows.AddRange(response.Expenses.Select(l => (IReadOnlyList<object?>)new object?[] { expenses, l.AccountCode, l.AccountName, l.Amount }));
-        rows.Add(new object?[] { expenses, null, _labels["Common_TotalExpenses"], response.TotalExpenses });
+        rows.AddRange(response.OperatingExpenses.Select(l => (IReadOnlyList<object?>)new object?[] { operatingExpenses, l.AccountCode, l.AccountName, l.Amount }));
+        rows.Add(new object?[] { operatingExpenses, null, _labels["Common_TotalOperatingExpenses"], response.TotalOperatingExpenses });
         rows.Add(new object?[] { null, null, _labels["Common_NetIncome"], response.NetIncome });
 
         var bytes = ExcelExportService.BuildWorkbook(_labels["Sheet_Pnl"], headers, rows);
