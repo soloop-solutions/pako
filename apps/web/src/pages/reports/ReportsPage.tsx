@@ -18,6 +18,7 @@ import { PnlTab } from "./PnlTab";
 import { PurchaseBookTab } from "./PurchaseBookTab";
 import { PurchasesTab } from "./PurchasesTab";
 import { SalesBookTab } from "./SalesBookTab";
+import { VatDeclarationTab } from "./VatDeclarationTab";
 import { VatTab } from "./VatTab";
 import { VendorsTab } from "./VendorsTab";
 import { useBalanceSheetReport } from "./useBalanceSheetReport";
@@ -32,6 +33,7 @@ import { usePnlReport } from "./usePnlReport";
 import { usePurchaseBookReport } from "./usePurchaseBookReport";
 import { usePurchasesReport } from "./usePurchasesReport";
 import { useSalesBookReport } from "./useSalesBookReport";
+import { useVatDeclarationReport } from "./useVatDeclarationReport";
 import { useVatReport } from "./useVatReport";
 import { useVendorsReport } from "./useVendorsReport";
 
@@ -49,7 +51,8 @@ type Tab =
   | "expense-book"
   | "vendors"
   | "payables-aging"
-  | "purchases";
+  | "purchases"
+  | "vat-declaration";
 
 export function Reports() {
   const intl = useIntl();
@@ -71,6 +74,7 @@ export function Reports() {
     { key: "vendors", labelKey: "reports.vendors" },
     { key: "payables-aging", labelKey: "reports.payablesAging" },
     { key: "purchases", labelKey: "reports.purchases" },
+    { key: "vat-declaration", labelKey: "reports.vatDeclaration" },
   ];
 
   const [searchParams, setSearchParams] = useSearchParams();
@@ -101,6 +105,7 @@ export function Reports() {
   const vendorsReport = useVendorsReport(companyId, tab === "vendors");
   const payablesAgingReport = usePayablesAgingReport(companyId, tab === "payables-aging");
   const purchasesReport = usePurchasesReport(companyId, tab === "purchases");
+  const vatDeclarationReport = useVatDeclarationReport(companyId, tab === "vat-declaration");
 
   if (!activeCompany) {
     return (
@@ -164,6 +169,7 @@ export function Reports() {
       {tab === "purchases" && (
         <PurchasesTab report={purchasesReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
       )}
+      {tab === "vat-declaration" && <VatDeclarationTab report={vatDeclarationReport} companyName={activeCompany.name} taxLockDate={taxLockDate} />}
     </div>
   );
 }
