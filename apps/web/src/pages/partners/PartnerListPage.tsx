@@ -90,7 +90,7 @@ export function PartnerListPage({
   };
 
   const editingPartner =
-    editingId ? (partners.find((p) => p.id === editingId) ?? null) : null;
+    editingId ? (allPartners.find((p) => p.id === editingId) ?? null) : null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: partnersQueryKey });

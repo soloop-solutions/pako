@@ -35,6 +35,16 @@ const VENDOR = {
   paymentTermDays: 15,
 };
 
+const CUSTOMER = {
+  id: "partner-1",
+  name: "Customer SH",
+  taxNumber: "111111111",
+  isCustomer: true,
+  isVendor: false,
+  isVatRegistered: false,
+  paymentTermDays: 30,
+};
+
 function Probe() {
   return <div data-testid="location">{useLocation().search}</div>;
 }
@@ -65,6 +75,12 @@ describe("partner list ?open=", () => {
     fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     expect(screen.getByTestId("location").textContent).toBe("");
+  });
+
+  it("opens a partner that is not a vendor", async () => {
+    partnersAll.mockResolvedValue([VENDOR, CUSTOMER]);
+    renderAt("/vendors?open=partner-1");
+    expect(await screen.findByRole("dialog")).toHaveTextContent("Customer SH");
   });
 
   it("ignores an unknown id", async () => {

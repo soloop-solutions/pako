@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useCompany } from "@/context/CompanyContext";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 
 const GRID_ID = "partners";
@@ -21,7 +22,7 @@ export function Partners() {
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useOpenParam();
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
