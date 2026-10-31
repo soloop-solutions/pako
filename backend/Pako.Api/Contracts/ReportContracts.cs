@@ -64,7 +64,9 @@ public record DebtAgingLine(
     DateOnly DueDate,
     int? GraceDays,
     decimal Outstanding,
-    string Bucket);
+    string Bucket,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record DebtAgingResponse(
     DateOnly AsOf,
@@ -94,7 +96,9 @@ public record SalesBookLine(
     decimal Rate,
     decimal NetAmount,
     decimal VatAmount,
-    decimal GrossAmount);
+    decimal GrossAmount,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record SalesBookResponse(
     DateOnly From,
@@ -117,7 +121,9 @@ public record PurchaseBookLine(
     decimal Rate,
     decimal NetAmount,
     decimal VatAmount,
-    decimal GrossAmount);
+    decimal GrossAmount,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record PurchaseBookResponse(
     DateOnly From,
@@ -140,7 +146,10 @@ public record GeneralLedgerLine(
     decimal Debit,
     decimal Credit,
     string? DocumentType = null,
-    string? DocumentNumber = null);
+    string? DocumentNumber = null,
+    Guid AccountId = default,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record MonthlyReportLine(Guid AccountId, string AccountCode, string AccountName, List<decimal> Months, decimal Total);
 
@@ -202,7 +211,8 @@ public record EquityStatementResponse(
 
 public record ExpenseBookColumn(Guid AccountId, string AccountCode, string AccountName);
 
-public record ExpenseBookRow(Guid EntryId, DateOnly Date, string? DocumentNumber, string? PartnerName, List<decimal> Amounts, decimal Total);
+public record ExpenseBookRow(Guid EntryId, DateOnly Date, string? DocumentNumber, string? PartnerName, List<decimal> Amounts, decimal Total,
+    string? SourceKind = null, Guid? SourceId = null, Guid? PartnerId = null);
 
 public record ExpenseBookResponse(
     DateOnly From,
@@ -227,7 +237,10 @@ public record VendorStatementRow(
     string? Description,
     decimal Debit,
     decimal Credit,
-    decimal Balance);
+    decimal Balance,
+    Guid? EntryId = null,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record VendorStatementResponse(
     Guid PartnerId,
@@ -248,7 +261,9 @@ public record PayablesAgingLine(
     DateOnly IssueDate,
     DateOnly DueDate,
     decimal Outstanding,
-    string Bucket);
+    string Bucket,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record AgingBucketTotal(string Bucket, decimal Total);
 
@@ -324,4 +339,9 @@ public record PurchaseTransactionLine(
     decimal UnitPrice,
     decimal NetAmount,
     decimal VatAmount,
-    decimal GrossAmount);
+    decimal GrossAmount,
+    Guid DocumentId = default,
+    string? SourceKind = null,
+    Guid? SourceId = null,
+    Guid? PartnerId = null,
+    Guid? ItemId = null);

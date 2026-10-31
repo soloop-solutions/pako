@@ -11,8 +11,10 @@ using Pako.Infrastructure;
 
 namespace Pako.Api.Services;
 
-public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
+public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access, ReportSourceResolver? sourceResolver = null)
 {
+    private readonly ReportSourceResolver _sources = sourceResolver ?? new ReportSourceResolver(db);
+
     public async Task<List<VendorBalanceLine>> BalancesAsync(Guid companyId, DateOnly from, DateOnly to, bool includeZero)
     {
         var lines = db.JournalEntryLines.AsNoTracking()
@@ -86,6 +88,7 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             {
                 l.Id,
                 l.JournalEntry!.Date,
+                EntryId = l.JournalEntry.Id,
                 l.JournalEntry.SecureSequenceNumber,
                 JournalType = db.Journals.Where(j => j.Id == l.JournalEntry.JournalId).Select(j => j.Type).First(),
                 Document = l.JournalEntry.Reference,
@@ -95,6 +98,7 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             })
             .ToListAsync();
 
+        var sources = await _sources.ResolveEntriesAsync(companyId, raw.Select(r => r.EntryId));
         var balance = opening;
         var rows = new List<VendorStatementRow>();
         foreach (var r in raw
@@ -104,7 +108,10 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             .ThenBy(r => r.Id))
         {
             balance += r.Credit - r.Debit;
-            rows.Add(new VendorStatementRow(r.Date, r.JournalType.ToString(), r.Document, r.Description, r.Debit, r.Credit, balance));
+            var source = sources.GetValueOrDefault(r.EntryId);
+            rows.Add(new VendorStatementRow(
+                r.Date, r.JournalType.ToString(), r.Document, r.Description, r.Debit, r.Credit, balance,
+                r.EntryId, source?.Kind, source?.Id));
         }
 
         var totals = ReportTotals.Ledger(rows.Select(r => (r.Debit, r.Credit)));
@@ -175,7 +182,8 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
                 bill.Id, bill.VendorReference, bill.PartnerId,
                 partners.TryGetValue(bill.PartnerId, out var partner) ? partner.Name : string.Empty,
                 bill.IssueDate, bill.DueDate, outstanding,
-                AgingBucket(asOf.DayNumber - bill.DueDate.DayNumber)));
+                AgingBucket(asOf.DayNumber - bill.DueDate.DayNumber),
+                ReportSourceKinds.Bill, bill.Id));
         }
 
         lines = lines.OrderBy(l => l.DueDate).ThenBy(l => l.BillNumber, StringComparer.Ordinal).ToList();
@@ -196,7 +204,8 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
     private record PurchaseRow(
         DateOnly Date, string? DocumentNumber, string DocumentType, Guid PartnerId, string PartnerName,
         Guid? ItemId, int? ItemCode, string? ItemName, string? Unit, string Description,
-        decimal Quantity, decimal UnitPrice, decimal Net, decimal Discount, decimal Vat, decimal Gross, Guid LineId);
+        decimal Quantity, decimal UnitPrice, decimal Net, decimal Discount, decimal Vat, decimal Gross, Guid LineId,
+        Guid BillId, string SourceKind);
 
     private async Task<List<PurchaseRow>> PurchaseRowsAsync(Guid companyId, DateOnly from, DateOnly to, Guid? partnerId)
     {
@@ -256,7 +265,7 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
                     line.ItemId, item?.Code, item?.Name, string.IsNullOrEmpty(item?.Unit) ? null : item.Unit, line.Description,
                     sign * line.Quantity, line.UnitPrice, sign * result.NetAmount,
                     sign * (undiscounted.NetAmount - result.NetAmount), sign * vat, sign * result.Gross,
-                    line.Id));
+                    line.Id, bill.Id, ReportSourceKinds.ForBill(bill.DocumentType)));
             }
         }
 
@@ -321,7 +330,8 @@ public class VendorLedgerService(PakoDbContext db, CompanyAccessContext access)
             .ThenBy(r => r.LineId)
             .Select(r => new PurchaseTransactionLine(
                 r.Date, r.DocumentNumber, r.DocumentType, r.PartnerName, r.ItemCode?.ToString(), r.Description,
-                r.Quantity, r.UnitPrice, r.Net, r.Vat, r.Gross))
+                r.Quantity, r.UnitPrice, r.Net, r.Vat, r.Gross,
+                r.BillId, r.SourceKind, r.BillId, r.PartnerId, r.ItemId))
             .ToList();
     }
 

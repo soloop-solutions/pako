@@ -1,10 +1,10 @@
 {
   "asOf": "2026-01-31",
   "lines": [
-    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000001", "billNumber": "BILL-0001", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "partnerName": "Prime Properties L.L.C.", "issueDate": "2026-01-02", "dueDate": "2026-02-01", "outstanding": 1180.00, "bucket": "Current" },
-    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000002", "billNumber": "BILL-0002", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "partnerName": "KEDS J.S.C.", "issueDate": "2026-01-01", "dueDate": "2026-01-15", "outstanding": 240.00, "bucket": "1-30" },
-    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000003", "billNumber": "BILL-0003", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "partnerName": "Telekomi i Kosoves J.S.C.", "issueDate": "2025-11-25", "dueDate": "2025-12-10", "outstanding": 234.00, "bucket": "46-60" },
-    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000004", "billNumber": "BILL-0004", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "partnerName": "Telekomi i Kosoves J.S.C.", "issueDate": "2025-10-05", "dueDate": "2025-10-20", "outstanding": 120.00, "bucket": "91-180" }
+    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000001", "billNumber": "BILL-0001", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "partnerName": "Prime Properties L.L.C.", "issueDate": "2026-01-02", "dueDate": "2026-02-01", "outstanding": 1180.00, "bucket": "Current", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000001" },
+    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000002", "billNumber": "BILL-0002", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "partnerName": "KEDS J.S.C.", "issueDate": "2026-01-01", "dueDate": "2026-01-15", "outstanding": 240.00, "bucket": "1-30", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000002" },
+    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000003", "billNumber": "BILL-0003", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "partnerName": "Telekomi i Kosoves J.S.C.", "issueDate": "2025-11-25", "dueDate": "2025-12-10", "outstanding": 234.00, "bucket": "46-60", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000003" },
+    { "billId": "5b1f0c2e-1a11-4c01-9a05-000000000004", "billNumber": "BILL-0004", "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "partnerName": "Telekomi i Kosoves J.S.C.", "issueDate": "2025-10-05", "dueDate": "2025-10-20", "outstanding": 120.00, "bucket": "91-180", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000004" }
   ],
   "buckets": [
     { "bucket": "Current", "total": 1180.00 },

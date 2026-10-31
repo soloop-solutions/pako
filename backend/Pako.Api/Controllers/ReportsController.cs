@@ -225,7 +225,8 @@ public class ReportsController : ControllerBase
                 return new SalesBookLine(
                     r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
                     partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
-                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount,
+                    ReportSourceKinds.ForInvoice(r.DocumentType), r.DocumentId);
             })
             .ToList();
 
@@ -278,7 +279,8 @@ public class ReportsController : ControllerBase
                 return new PurchaseBookLine(
                     r.DocumentId, r.DocumentNumber, r.IssueDate, r.DocumentType, r.PartnerId,
                     partner?.Name ?? string.Empty, partner?.TaxNumber, partner?.FiscalNumber,
-                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount);
+                    r.VatCode, r.Rate, r.NetAmount, r.VatAmount, r.NetAmount + r.VatAmount,
+                    ReportSourceKinds.ForBill(r.DocumentType), r.DocumentId);
             })
             .ToList();
 
@@ -405,7 +407,7 @@ public class ReportsController : ControllerBase
         var invoices = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .Where(i => i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate <= today
                 && (i.DocumentType == DocumentType.Invoice || i.DocumentType == DocumentType.DebitNote))
-            .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId })
+            .Select(i => new { i.Id, i.InvoiceNumber, i.PartnerId, i.IssueDate, i.DueDate, i.GraceDays, i.JournalEntryId, i.DocumentType })
             .ToListAsync();
 
         // B8: an invoice's AR line lives on its partner's resolved receivable account (override
@@ -456,7 +458,7 @@ public class ReportsController : ControllerBase
 
             lines.Add(new DebtAgingLine(
                 invoice.Id, invoice.InvoiceNumber, invoice.PartnerId, invoice.IssueDate, invoice.DueDate,
-                invoice.GraceDays, outstanding, bucket));
+                invoice.GraceDays, outstanding, bucket, ReportSourceKinds.ForInvoice(invoice.DocumentType), invoice.Id));
         }
 
         lines = lines.OrderBy(l => l.DueDate).ToList();

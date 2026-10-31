@@ -509,6 +509,36 @@ public class ReportsControllerTests : IAsyncLifetime
         Assert.Equal(400m, line.GrossAmount);
     }
 
+    [Fact]
+    public async Task SalesBookAndPurchaseBook_LinesCarrySourceKindAndId()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var sales = Assert.IsType<SalesBookResponse>(Assert.IsType<OkObjectResult>((await controller.SalesBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31))).Result).Value);
+        var purchases = Assert.IsType<PurchaseBookResponse>(Assert.IsType<OkObjectResult>((await controller.PurchaseBook(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31))).Result).Value);
+
+        var sale = Assert.Single(sales.Lines);
+        Assert.Equal(ReportSourceKinds.Invoice, sale.SourceKind);
+        Assert.Equal(sale.InvoiceId, sale.SourceId);
+        var purchase = Assert.Single(purchases.Lines);
+        Assert.Equal(ReportSourceKinds.Bill, purchase.SourceKind);
+        Assert.Equal(purchase.BillId, purchase.SourceId);
+    }
+
+    [Fact]
+    public async Task DebtAging_LinesCarrySourceKindAndId()
+    {
+        var (db, companyId, _, _) = await SeedBookScenarioAsync();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var response = Assert.IsType<DebtAgingResponse>(Assert.IsType<OkObjectResult>((await controller.DebtAging(companyId, new DateOnly(2026, 6, 1))).Result).Value);
+
+        var line = Assert.Single(response.Lines);
+        Assert.Equal(ReportSourceKinds.Invoice, line.SourceKind);
+        Assert.Equal(line.InvoiceId, line.SourceId);
+    }
+
     // B11: the export wrapper is a thin pass-through over the JSON action's own data — this proves
     // the file it hands back is actually a valid, readable workbook containing that same row.
     [Fact]

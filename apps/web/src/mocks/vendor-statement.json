@@ -5,8 +5,8 @@
   "to": "2026-01-31",
   "opening": 500.00,
   "rows": [
-    { "date": "2026-01-02", "type": "Bill", "documentNumber": "BILL-0001", "description": "Office rent January 2026", "debit": 0.00, "credit": 1180.00, "balance": 1680.00 },
-    { "date": "2026-01-10", "type": "Payment", "documentNumber": "PAY-0001", "description": "Bank transfer", "debit": 500.00, "credit": 0.00, "balance": 1180.00 }
+    { "date": "2026-01-02", "type": "Bill", "documentNumber": "BILL-0001", "description": "Office rent January 2026", "debit": 0.00, "credit": 1180.00, "balance": 1680.00, "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000011", "sourceKind": "Bill", "sourceId": "5b1f0c2e-1a11-4c01-9a05-000000000001" },
+    { "date": "2026-01-10", "type": "Payment", "documentNumber": "PAY-0001", "description": "Bank transfer", "debit": 500.00, "credit": 0.00, "balance": 1180.00, "entryId": "5b1f0c2e-1a11-4c01-9a01-000000000021", "sourceKind": "JournalEntry", "sourceId": "5b1f0c2e-1a11-4c01-9a01-000000000021" }
   ],
   "closing": 1180.00,
   "totalDebit": 500.00,

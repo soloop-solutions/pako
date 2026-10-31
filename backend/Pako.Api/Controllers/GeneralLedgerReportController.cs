@@ -23,8 +23,11 @@ public class GeneralLedgerReportController : ControllerBase
     private readonly CompanyAccessContext _access;
     private readonly ExportLabels _labels;
 
-    public GeneralLedgerReportController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, ExportLabels labels)
+    private readonly ReportSourceResolver _sources;
+
+    public GeneralLedgerReportController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, ExportLabels labels, ReportSourceResolver? sources = null)
     {
+        _sources = sources ?? new ReportSourceResolver(db);
         _labels = labels;
         _db = db;
         _localizer = localizer;
@@ -77,7 +80,7 @@ public class GeneralLedgerReportController : ControllerBase
         var totalDebit = await query.SumAsync(r => r.Line.Debit);
         var totalCredit = await query.SumAsync(r => r.Line.Credit);
         var flat = await ordered.Skip((page - 1) * pageSize).Take(pageSize).Select(Projection).ToListAsync();
-        var rows = await ToLinesAsync(flat);
+        var rows = await ToLinesAsync(companyId, flat);
 
         return Ok(new GeneralLedgerResponse(rows, total, page, pageSize, totalDebit, totalCredit));
     }
@@ -103,7 +106,7 @@ public class GeneralLedgerReportController : ControllerBase
             .OrderBy(r => r.Entry.Date).ThenBy(r => r.Entry.SecureSequenceNumber).ThenBy(r => r.Line.Id)
             .Select(Projection)
             .ToListAsync();
-        var lines = await ToLinesAsync(flat);
+        var lines = await ToLinesAsync(companyId, flat);
 
         var rows = lines
             .Select(l => (IReadOnlyList<object?>)new object?[]
@@ -137,15 +140,16 @@ public class GeneralLedgerReportController : ControllerBase
     private sealed record Flat(
         Guid EntryId, string? EntryNumber, DateOnly Date, string? Reference, string AccountCode, string AccountName,
         Guid? PartnerId, string? PartnerName, string? Description, decimal Debit, decimal Credit,
-        Guid? SourceDocumentId, JournalType JournalType);
+        Guid? SourceDocumentId, JournalType JournalType, Guid AccountId);
 
     private static readonly System.Linq.Expressions.Expression<Func<Row, Flat>> Projection = r => new Flat(
         r.Entry.Id, r.Entry.SequenceNumber, r.Entry.Date, r.Entry.Reference, r.Account.Code, r.Account.Name,
         r.Line.PartnerId, r.Partner != null ? r.Partner.Name : null, r.Line.Description ?? r.Entry.Remarks,
-        r.Line.Debit, r.Line.Credit, r.Entry.SourceDocumentId, r.JournalType);
+        r.Line.Debit, r.Line.Credit, r.Entry.SourceDocumentId, r.JournalType, r.Line.AccountId);
 
-    private async Task<List<GeneralLedgerLine>> ToLinesAsync(List<Flat> flat)
+    private async Task<List<GeneralLedgerLine>> ToLinesAsync(Guid companyId, List<Flat> flat)
     {
+        var sources = await _sources.ResolveEntriesAsync(companyId, flat.Select(f => f.EntryId));
         var sourceIds = flat.Where(f => f.SourceDocumentId != null).Select(f => f.SourceDocumentId!.Value).Distinct().ToList();
         var invoiceTypes = sourceIds.Count == 0 ? new Dictionary<Guid, string>() : (await _db.Invoices.AsNoTracking()
             .Where(i => sourceIds.Contains(i.Id)).Select(i => new { i.Id, i.DocumentType }).ToListAsync())
@@ -156,6 +160,7 @@ public class GeneralLedgerReportController : ControllerBase
 
         return flat.Select(f =>
         {
+            var source = sources.GetValueOrDefault(f.EntryId);
             string? invoiceType = null, billType = null;
             if (f.SourceDocumentId is { } sid)
             {
@@ -167,7 +172,8 @@ public class GeneralLedgerReportController : ControllerBase
                 f.EntryId, f.EntryNumber, f.Date, f.Reference, f.AccountCode, f.AccountName, f.PartnerId, f.PartnerName,
                 f.Description, f.Debit, f.Credit,
                 LedgerDocumentType.Classify(invoiceType, billType, f.SourceDocumentId != null, f.JournalType),
-                f.Reference ?? f.EntryNumber);
+                f.Reference ?? f.EntryNumber,
+                f.AccountId, source?.Kind, source?.Id);
         }).ToList();
     }
 

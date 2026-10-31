@@ -22,8 +22,11 @@ public class ExpenseBookController : ControllerBase
     private readonly CompanyAccessContext _access;
     private readonly ExportLabels _labels;
 
-    public ExpenseBookController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, ExportLabels labels)
+    private readonly ReportSourceResolver _sources;
+
+    public ExpenseBookController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access, ExportLabels labels, ReportSourceResolver? sources = null)
     {
+        _sources = sources ?? new ReportSourceResolver(db);
         _labels = labels;
         _db = db;
         _localizer = localizer;
@@ -128,6 +131,7 @@ public class ExpenseBookController : ControllerBase
             .Where(p => partnerIds.Contains(p.Id))
             .ToDictionaryAsync(p => p.Id, p => p.Name);
 
+        var sources = await _sources.ResolveEntriesAsync(companyId, entries.Select(g => g[0].EntryId));
         var rows = new List<ExpenseBookRow>();
         var amountRows = new List<decimal[]>();
         foreach (var g in entries)
@@ -144,7 +148,10 @@ public class ExpenseBookController : ControllerBase
             amountRows.Add(amounts);
             var partnerId = g.Select(l => l.PartnerId).FirstOrDefault(p => p != null);
             var partnerName = partnerId is { } pid ? partnerNames.GetValueOrDefault(pid) : null;
-            rows.Add(new ExpenseBookRow(g[0].EntryId, g[0].Date, g[0].Reference, partnerName, amounts.ToList(), ExpenseBookTotals.Row(amounts)));
+            var source = sources.GetValueOrDefault(g[0].EntryId);
+            rows.Add(new ExpenseBookRow(
+                g[0].EntryId, g[0].Date, g[0].Reference, partnerName, amounts.ToList(), ExpenseBookTotals.Row(amounts),
+                source?.Kind, source?.Id, partnerId));
         }
 
         var columnTotals = ExpenseBookTotals.Columns(amountRows, columns.Count);
