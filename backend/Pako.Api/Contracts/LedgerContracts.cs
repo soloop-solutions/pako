@@ -6,4 +6,8 @@ public record TrialBalanceLine(
     string AccountName,
     decimal Debit,
     decimal Credit,
-    decimal Balance);
+    decimal Balance,
+    decimal Opening,
+    decimal Closing,
+    int? Class,
+    string? GroupName);
