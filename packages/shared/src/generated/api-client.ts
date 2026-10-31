@@ -16433,6 +16433,8 @@ export interface DebtAgingLine {
     graceDays: number | undefined;
     outstanding: number;
     bucket: string;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -16629,6 +16631,9 @@ export interface ExpenseBookRow {
     partnerName: string | undefined;
     amounts: number[];
     total: number;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
+    partnerId?: string | undefined;
 
     [key: string]: any;
 }
@@ -16769,6 +16774,9 @@ export interface GeneralLedgerLine {
     credit: number;
     documentType?: string | undefined;
     documentNumber?: string | undefined;
+    accountId?: string | undefined;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -17470,6 +17478,8 @@ export interface PayablesAgingLine {
     dueDate: string;
     outstanding: number;
     bucket: string;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -17820,6 +17830,8 @@ export interface PurchaseBookLine {
     netAmount: number;
     vatAmount: number;
     grossAmount: number;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -17963,6 +17975,11 @@ export interface PurchaseTransactionLine {
     netAmount: number;
     vatAmount: number;
     grossAmount: number;
+    documentId?: string | undefined;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
+    partnerId?: string | undefined;
+    itemId?: string | undefined;
 
     [key: string]: any;
 }
@@ -18101,6 +18118,8 @@ export interface SalesBookLine {
     netAmount: number;
     vatAmount: number;
     grossAmount: number;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -18956,6 +18975,9 @@ export interface VendorStatementRow {
     debit: number;
     credit: number;
     balance: number;
+    entryId?: string | undefined;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
