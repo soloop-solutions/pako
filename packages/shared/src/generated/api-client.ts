@@ -7307,6 +7307,55 @@ export class PakoApiClient {
     }
 
     /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @return OK
+     */
+    trialBalanceTotals(companyId: string, from: string | undefined, to: string | undefined): Promise<TrialBalanceTotals> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTrialBalanceTotals(_response);
+        });
+    }
+
+    protected processTrialBalanceTotals(response: Response): Promise<TrialBalanceTotals> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TrialBalanceTotals;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TrialBalanceTotals>(null as any);
+    }
+
+    /**
      * @return OK
      */
     getMyProfile(companyId: string): Promise<MyProfileResponse> {
@@ -12185,6 +12234,55 @@ export class PakoApiClient {
     }
 
     /**
+     * @param asOf (optional) 
+     * @return OK
+     */
+    debtAgingExport(companyId: string, asOf: string | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/debt-aging/export?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (asOf === null)
+            throw new globalThis.Error("The parameter 'asOf' cannot be null.");
+        else if (asOf !== undefined)
+            url_ += "asOf=" + encodeURIComponent("" + asOf) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDebtAgingExport(_response);
+        });
+    }
+
+    protected processDebtAgingExport(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
      * @param q (optional) 
      * @return OK
      */
@@ -15743,6 +15841,16 @@ export interface PayablesAgingResponse {
     asOf: string;
     lines: PayablesAgingLine[];
     buckets: AgingBucketTotal[];
+    vendorMatrix: PayablesAgingVendorRow[];
+
+    [key: string]: any;
+}
+
+export interface PayablesAgingVendorRow {
+    partnerId: string;
+    partnerName: string;
+    buckets: AgingBucketTotal[];
+    total: number;
 
     [key: string]: any;
 }
@@ -15963,6 +16071,9 @@ export interface ProfitAndLossResponse {
     totalIncome: number;
     totalExpenses: number;
     netIncome: number;
+    costOfRevenue: ReportLine[];
+    totalCostOfRevenue: number;
+    grossProfit: number;
 
     [key: string]: any;
 }
@@ -16706,6 +16817,15 @@ export interface TrialBalanceLine {
     [key: string]: any;
 }
 
+export interface TrialBalanceTotals {
+    opening: number;
+    debit: number;
+    credit: number;
+    closing: number;
+
+    [key: string]: any;
+}
+
 export interface UpdateAccountRequest {
     code: string;
     name: string;
@@ -16933,6 +17053,8 @@ export interface VendorStatementResponse {
     opening: number;
     rows: VendorStatementRow[];
     closing: number;
+    totalDebit: number;
+    totalCredit: number;
 
     [key: string]: any;
 }
