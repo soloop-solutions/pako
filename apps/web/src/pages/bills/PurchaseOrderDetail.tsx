@@ -6,6 +6,7 @@ import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { useNumberPreview } from "@/hooks/useNumberPreview";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -84,6 +85,7 @@ export function PurchaseOrderDetail() {
   const [notes, setNotes] = useState("");
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
+  const nextNumber = useNumberPreview(isNew ? activeCompanyId ?? undefined : undefined, isNew ? "PurchaseOrder" : undefined);
 
   useEffect(() => {
     if (!order) return;
@@ -233,7 +235,7 @@ export function PurchaseOrderDetail() {
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              {t("po.title")} {order?.number ?? ""}
+              {t("po.title")} {order?.number ?? (nextNumber ? <span className="text-muted-foreground tabular-nums">{nextNumber}</span> : "")}
               {order ? <PurchaseOrderStateBadge state={order.state} /> : <Badge variant="outline" className="italic">{t("po.state.0")}</Badge>}
               {order && order.state !== PurchaseOrderState.Draft && <ProgressBadge progress={order.progress} />}
             </CardTitle>

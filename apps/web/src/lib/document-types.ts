@@ -83,6 +83,15 @@ const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
   SalesReturn: "enum.invoiceDocumentType.salesReturn",
   Proforma: "enum.invoiceDocumentType.proforma",
   JournalEntry: "enum.documentType.journalEntry",
+  Item: "enum.documentType.item",
+  StockOpening: "stock.doc.type.opening",
+  StockTransfer: "stock.doc.type.transfer",
+  StockCount: "stock.doc.type.count",
+  StockWriteOff: "stock.doc.type.writeOff",
+  StockWriteDown: "stock.doc.type.writeDown",
+  StockReceipt: "stock.doc.type.receipt",
+  PurchaseOrder: "enum.documentType.purchaseOrder",
+  PriceChange: "enum.documentType.priceChange",
 };
 
 // Numbering settings lists series by their raw string DocumentType key (NumberSeries.DocumentType
@@ -93,6 +102,23 @@ const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
 export function numberSeriesDocumentTypeLabel(documentType: string, intl: IntlShape): string {
   const key = NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS[documentType];
   return key ? intl.formatMessage({ id: key }) : documentType;
+}
+
+// ---------------------------------------------------------------------------
+// Stock document type → backend NumberSeries key
+// ---------------------------------------------------------------------------
+// NumberSeriesService.DefaultPattern uses "Stock" + StockDocumentType enum name.
+const STOCK_DOCUMENT_NUMBER_SERIES_KEYS = [
+  "StockOpening",   // 0
+  "StockTransfer",  // 1
+  "StockCount",     // 2
+  "StockWriteOff",  // 3
+  "StockWriteDown", // 4
+  "StockReceipt",   // 5
+] as const;
+
+export function stockDocumentNumberSeriesKey(type: number): string | undefined {
+  return STOCK_DOCUMENT_NUMBER_SERIES_KEYS[type];
 }
 
 // ---------------------------------------------------------------------------

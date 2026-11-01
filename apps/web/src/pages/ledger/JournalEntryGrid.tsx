@@ -5,6 +5,7 @@ import type { AccountResponse, EmployeeDetailResponse, JournalResponse, PartnerR
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { useNumberPreview } from "@/hooks/useNumberPreview";
 import { fetchCostCenters, type CostCenterOption } from "@/api/cost-centers-client";
 import { ActionPasswordDialog } from "@/components/layout/ActionPasswordDialog";
 import { useCompany } from "@/context/CompanyContext";
@@ -58,6 +59,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   const [submitting, setSubmitting] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const { activeCompany } = useCompany();
+  const nextNumber = useNumberPreview(companyId, "JournalEntry");
 
   const idCounter = useRef(0);
   function nextId(): string {
@@ -593,7 +595,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       <div className="grid gap-4 sm:grid-cols-4">
         <div className="flex flex-col gap-2">
           <Label>{intl.formatMessage({ id: "journalGrid.number" })}</Label>
-          <Input value={intl.formatMessage({ id: "journalGrid.numberAuto" })} disabled className="text-muted-foreground" />
+          <Input value={nextNumber || intl.formatMessage({ id: "journalGrid.numberAuto" })} disabled className="text-muted-foreground tabular-nums" />
         </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="journal-grid-journal">{intl.formatMessage({ id: "journalGrid.journal" })}</Label>

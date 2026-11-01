@@ -24,7 +24,7 @@ import { useAccount } from "@/hooks/useAccount";
 import { getLastOpenedMap } from "@/lib/company-last-opened";
 import { emptyProfileValues, toProfileRequest, type CompanyProfileValues } from "@/lib/company-profile";
 import { cn } from "@/lib/utils";
-import { CompanyProfileFields } from "@/pages/shared/CompanyProfileFields";
+import { CompanyProfileFields, type PendingBankAccount } from "@/pages/shared/CompanyProfileFields";
 
 type View = "grid" | "list";
 const VIEW_KEY = "pako.lobby.view";
@@ -350,6 +350,9 @@ function NewCompanyDialog({
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
+  const [pendingLogo, setPendingLogo] = useState<File | null>(null);
+  const [pendingStamp, setPendingStamp] = useState<File | null>(null);
+  const [pendingBanks, setPendingBanks] = useState<PendingBankAccount[]>([]);
   const firmsQuery = useQuery({ queryKey: ["firms"], queryFn: () => apiClient.firmsAll(), enabled: open });
 
   function reset() {
@@ -359,6 +362,9 @@ function NewCompanyDialog({
     setError(null);
     setDirty(false);
     setSaving(false);
+    setPendingLogo(null);
+    setPendingStamp(null);
+    setPendingBanks([]);
   }
 
   function close() {
@@ -378,9 +384,34 @@ function NewCompanyDialog({
       });
       void queryClient.invalidateQueries({ queryKey: ["account"] });
       if (profileError) {
-        // The company exists; only the details failed. Open it and say where to finish them.
         toast.error(getApiErrorMessage(profileError, t("lobby.detailsNotSaved")));
       }
+      // Upload logo/stamp and create bank accounts in parallel (best-effort)
+      const uploads: Promise<unknown>[] = [];
+      if (pendingLogo) {
+        uploads.push(
+          apiClient.logoPOST(company.id, { data: pendingLogo, fileName: pendingLogo.name })
+            .catch((err) => toast.error(getApiErrorMessage(err, t("companyProfile.imageUploadError")))),
+        );
+      }
+      if (pendingStamp) {
+        uploads.push(
+          apiClient.stampPOST(company.id, { data: pendingStamp, fileName: pendingStamp.name })
+            .catch((err) => toast.error(getApiErrorMessage(err, t("companyProfile.imageUploadError")))),
+        );
+      }
+      for (const [i, bank] of pendingBanks.entries()) {
+        uploads.push(
+          apiClient.bankAccountsPOST(company.id, {
+            bankName: bank.bankName,
+            accountHolder: bank.accountHolder || undefined,
+            iban: bank.iban || undefined,
+            swiftBic: bank.swiftBic || undefined,
+            isDefault: i === 0,
+          }).catch((err) => toast.error(getApiErrorMessage(err, t("companyProfile.bankAccountError")))),
+        );
+      }
+      await Promise.all(uploads);
       reset();
       onCreated(company);
     } catch (err) {
@@ -436,6 +467,12 @@ function NewCompanyDialog({
             setDirty(true);
           }}
           currency="EUR"
+          pendingLogo={pendingLogo}
+          onPendingLogoChange={(f) => { setPendingLogo(f); setDirty(true); }}
+          pendingStamp={pendingStamp}
+          onPendingStampChange={(f) => { setPendingStamp(f); setDirty(true); }}
+          pendingBankAccounts={pendingBanks}
+          onPendingBankAccountsChange={(a) => { setPendingBanks(a); setDirty(true); }}
         />
         <div className="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-2 border-t bg-background px-6 py-3">
           <Button type="button" variant="outline" onClick={close}>

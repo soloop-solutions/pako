@@ -93,7 +93,7 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        if (invoice.State != InvoiceState.Draft || invoice.InvoiceNumber is not null || invoice.JournalEntryId is not null)
+        if (invoice.State != InvoiceState.Draft || invoice.JournalEntryId is not null)
         {
             return BadRequest(_localizer["InvoiceNotDraftForDiscard"].Value);
         }
@@ -317,59 +317,55 @@ public class InvoicesController : ControllerBase
             Lines = lines!
         };
 
-        // A3 (v2 release): a proforma never posts (see Post()'s rejection below), so unlike every
-        // other document type — which numbers only on a successful post — a proforma is numbered
-        // right here at creation, off its own PRO-#### series, since creation is the only moment
-        // it will ever exist to be numbered. Row-locked the same way posting numbers everything
-        // else, to keep the series gapless under concurrent creates. A proforma never posts, so
+        // Every document type is numbered at creation so the user can see and optionally override
+        // the number before posting. Row-locked the same way posting used to, to keep the
+        // auto-generated series gapless under concurrent creates. A proforma never posts, so
         // C3's inline-payment request field is meaningless for it — this branch returns before
         // that logic is ever reached.
-        if (request.DocumentType == DocumentType.Proforma)
         {
-            var proformaTransaction = _db.Database.SupportsRowLocking()
+            var createTransaction = _db.Database.SupportsRowLocking()
                 ? await _db.Database.BeginTransactionAsync()
                 : null;
             try
             {
-                if (proformaTransaction is not null)
+                if (createTransaction is not null)
                 {
                     await _db.Database.ExecuteSqlInterpolatedAsync(
                         $"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
                 }
 
-                var trackedCompany = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
-                if (trackedCompany is null)
+                var docTypeKey = NumberSeriesService.DocumentTypeKey(request.DocumentType);
+
+                if (request.InvoiceNumber is { } userNumber && userNumber.Trim().Length > 0)
                 {
-                    return NotFound();
+                    var duplicate = await _db.Invoices.AsNoTracking()
+                        .AnyAsync(i => i.CompanyId == companyId && i.InvoiceNumber == userNumber.Trim());
+                    if (duplicate)
+                    {
+                        return BadRequest(_localizer["InvoiceNumberAlreadyExists"].Value);
+                    }
+                    invoice.InvoiceNumber = userNumber.Trim();
+                }
+                else
+                {
+                    invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(companyId, docTypeKey, invoice.IssueDate);
                 }
 
-                invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(companyId, "Proforma", invoice.IssueDate);
-
-                _db.Invoices.Add(invoice);
-                await _db.SaveChangesAsync();
-
-                if (proformaTransaction is not null)
+                if (request.DocumentType == DocumentType.Proforma || request.Payment is null)
                 {
-                    await proformaTransaction.CommitAsync();
+                    _db.Invoices.Add(invoice);
+                    await _db.SaveChangesAsync();
+                    if (createTransaction is not null) await createTransaction.CommitAsync();
+                    return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
                 }
 
-                return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
+                // Payment path: commit the numbering transaction; the C3 block below opens its own.
+                if (createTransaction is not null) await createTransaction.CommitAsync();
             }
             finally
             {
-                if (proformaTransaction is not null)
-                {
-                    await proformaTransaction.DisposeAsync();
-                }
+                if (createTransaction is not null) await createTransaction.DisposeAsync();
             }
-        }
-
-        if (request.Payment is null)
-        {
-            _db.Invoices.Add(invoice);
-            await _db.SaveChangesAsync();
-
-            return StatusCode(StatusCodes.Status201Created, ToResponse(invoice));
         }
 
         // C3: "the €300 invoice paid €200 in cash on the spot... the document is never briefly
@@ -521,6 +517,18 @@ public class InvoicesController : ControllerBase
         invoice.OriginalInvoiceId = request.OriginalInvoiceId;
         invoice.InternalNotes = request.InternalNotes;
         invoice.WarehouseId = request.WarehouseId;
+
+        if (request.InvoiceNumber is { } userNumber && userNumber.Trim().Length > 0
+            && userNumber.Trim() != invoice.InvoiceNumber)
+        {
+            var duplicate = await _db.Invoices.AsNoTracking()
+                .AnyAsync(i => i.CompanyId == companyId && i.InvoiceNumber == userNumber.Trim() && i.Id != invoice.Id);
+            if (duplicate)
+            {
+                return BadRequest(_localizer["InvoiceNumberAlreadyExists"].Value);
+            }
+            invoice.InvoiceNumber = userNumber.Trim();
+        }
 
         await _db.SaveChangesAsync();
 
@@ -1473,10 +1481,13 @@ public class InvoicesController : ControllerBase
             }
         }
 
-        // B1: numbering from NumberSeries table, row-locked (gapless). Falls back to the old
-        // Company counter via IDocumentNumberService on InMemory (tests).
-        var docTypeKey = NumberSeriesService.DocumentTypeKey(invoice.DocumentType);
-        invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(company.Id, docTypeKey, invoice.IssueDate);
+        // Invoice number is now assigned at creation. If the invoice somehow has no number yet
+        // (legacy data or direct DB edits), assign one here as a safety net.
+        if (invoice.InvoiceNumber is null)
+        {
+            var docTypeKey = NumberSeriesService.DocumentTypeKey(invoice.DocumentType);
+            invoice.InvoiceNumber = await _numberSeries.ReserveNextAsync(company.Id, docTypeKey, invoice.IssueDate);
+        }
         foreach (var outcome in stockPosting?.Moves ?? [])
         {
             outcome.Move.Reference = invoice.InvoiceNumber;

@@ -17,7 +17,7 @@ const sizeClasses: Record<FormDialogSize, string> = {
   md: "sm:max-w-2xl",
   lg: "sm:max-w-4xl",
   xl: "sm:max-w-6xl",
-  full: "sm:max-w-[calc(100vw-4rem)] sm:max-h-[calc(100vh-4rem)]",
+  full: "sm:max-w-7xl",
 };
 
 interface FormDialogProps {
@@ -71,11 +71,12 @@ export function FormDialog({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
-          className={`max-h-[90vh] overflow-y-auto ${sizeClasses[size]}`}
+          className={`overflow-y-auto ${size === "full" ? "max-h-[calc(100vh-2rem)]" : "max-h-[90vh]"} ${sizeClasses[size]}`}
           onPointerDownOutside={(e) => {
-            // Prevent closing when clicking inside portalled popovers (SearchableSelect, date pickers)
+            // Prevent closing when clicking inside portalled popovers (SearchableSelect,
+            // date pickers) or portalled overlays (InvoicePreviewDialog).
             const target = e.target as HTMLElement | null;
-            if (target?.closest("[data-radix-popper-content-wrapper]")) {
+            if (target?.closest("[data-radix-popper-content-wrapper]") || target?.closest("[data-pako-overlay]")) {
               e.preventDefault();
             }
           }}

@@ -161,6 +161,7 @@ export const en: Record<string, string> = {
   "invoicePreview.print": "Print",
   "invoicePreview.downloadPdf": "Download PDF",
   "invoicePreview.previewInvoice": "Preview invoice",
+  "invoicePreview.backToForm": "Back to form",
 
   // Errors
   "errors.somethingWentWrong": "Something went wrong.",
@@ -1810,6 +1811,7 @@ export const sq: Record<string, string> = {
   "invoicePreview.print": "Printo",
   "invoicePreview.downloadPdf": "Shkarko PDF",
   "invoicePreview.previewInvoice": "Parapamja e fatur\u00ebs",
+  "invoicePreview.backToForm": "Kthehu te forma",
 
   // Errors
   "errors.somethingWentWrong": "Diçka shkoi keq.",

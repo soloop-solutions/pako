@@ -28,7 +28,9 @@ public record CreateInvoiceRequest(
     CreateInvoicePaymentRequest? Payment = null,
     string? InternalNotes = null,
     // docs/INVENTORY_PLAN.md: where stock-tracked goods leave from; null = company default.
-    Guid? WarehouseId = null);
+    Guid? WarehouseId = null,
+    // User-supplied invoice number override; when null the system auto-generates the next number.
+    string? InvoiceNumber = null);
 
 // C3: optional inline payment recorded atomically with the invoice's own creation+posting — see
 // InvoicesController.Create's comment for why this must post the invoice (not leave it Draft).
@@ -47,7 +49,9 @@ public record UpdateInvoiceRequest(
     DocumentType DocumentType,
     Guid? OriginalInvoiceId,
     string? InternalNotes,
-    Guid? WarehouseId = null);
+    Guid? WarehouseId = null,
+    // User-supplied invoice number override; when null the existing number is kept.
+    string? InvoiceNumber = null);
 
 // A5 (v2 release): the entire editable surface of a Posted invoice — see UpdateInvoiceRequest's
 // doc comment for why this is a separate, narrower type rather than reusing UpdateInvoiceRequest

@@ -10,6 +10,8 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AccountType } from "@/lib/ledger-enums";
 
+export type PartnerEntityType = "company" | "person";
+
 export interface PartnerRegisterFormFields {
   name: string;
   taxNumber: string | null;
@@ -39,9 +41,16 @@ export interface PartnerRegisterFormProps {
   onDirtyChange?: (dirty: boolean) => void;
 }
 
+function inferEntityType(initial?: PartnerResponse): PartnerEntityType {
+  if (!initial) return "company";
+  if (initial.fiscalNumber && !initial.taxNumber) return "person";
+  return "company";
+}
+
 export function PartnerRegisterForm({ mode, accounts, initial, submitting, error, onSubmit, onCancel, defaultRole, createButtonLabelKey, onDirtyChange }: PartnerRegisterFormProps) {
   const intl = useIntl();
 
+  const [entityType, setEntityType] = useState<PartnerEntityType>(inferEntityType(initial));
   const [name, setName] = useState(initial?.name ?? "");
   const [taxNumber, setTaxNumber] = useState(initial?.taxNumber ?? "");
   const [fiscalNumber, setFiscalNumber] = useState(initial?.fiscalNumber ?? "");
@@ -57,27 +66,23 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
     onDirtyChange?.(true);
   // only on field changes, not initial render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit]);
+  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, entityType]);
 
-  // A customer's control account is naturally a Receivable-type account, a vendor's a
-  // Payable-type one. B13 widened AccountType to Odoo's real 19 values, which now has exact
-  // Receivable/Payable types — narrower and more correct than the old "any Asset/Liability-class
-  // account" filter this used before (that let someone pick e.g. a Cash account as a customer's
-  // control account, flagged during the earlier F6 review as too broad for lack of a better field
-  // at the time). One shared field rather than two separate ones, per FRONTEND_BRIEF's own "or
-  // just one general control account" allowance — a partner that is both customer and vendor sees
-  // both groups.
   const receivableAccounts = accounts.filter((a) => a.accountType === AccountType.Receivable);
-  const payableAccounts = accounts.filter((a) => a.accountType === AccountType.Payable);
+  // Bug fix: also include CurrentLiability accounts that have a Partner subledger (value 1),
+  // so accounts seeded before v2 COA migration (which may not have AccountType.Payable) still show.
+  const payableAccounts = accounts.filter(
+    (a) => a.accountType === AccountType.Payable || (a.accountType === AccountType.CurrentLiability && a.subledger === 1),
+  );
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
     onSubmit({
       name: name.trim(),
-      taxNumber: taxNumber.trim() || null,
+      taxNumber: entityType === "company" ? (taxNumber.trim() || null) : null,
       isCustomer,
       isVendor,
-      fiscalNumber: fiscalNumber.trim() || null,
+      fiscalNumber: entityType === "person" ? (fiscalNumber.trim() || null) : null,
       isVatRegistered,
       receivableAccountId: receivableAccountId || null,
       payableAccountId: payableAccountId || null,
@@ -94,42 +99,73 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
         </Alert>
       )}
 
-      {/* --- Role & tax status --- */}
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={isCustomer} onChange={(e) => setIsCustomer(e.target.checked)} />
-          {intl.formatMessage({ id: "partners.form.isCustomer" })}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={isVendor} onChange={(e) => setIsVendor(e.target.checked)} />
-          {intl.formatMessage({ id: "partners.form.isVendor" })}
-        </label>
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox checked={isVatRegistered} onChange={(e) => setIsVatRegistered(e.target.checked)} />
-          {intl.formatMessage({ id: "partnerForm.vatRegistered" })}
-        </label>
+      {/* --- Entity type (Company / Person) --- */}
+      <div className="flex flex-col gap-1">
+        <Label>{intl.formatMessage({ id: "partners.form.entityType" })}</Label>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            size="sm"
+            variant={entityType === "company" ? "default" : "outline"}
+            onClick={() => setEntityType("company")}
+          >
+            {intl.formatMessage({ id: "partners.form.entityCompany" })}
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            variant={entityType === "person" ? "default" : "outline"}
+            onClick={() => setEntityType("person")}
+          >
+            {intl.formatMessage({ id: "partners.form.entityPerson" })}
+          </Button>
+        </div>
       </div>
 
+      {/* --- Role (only when no defaultRole — i.e. from /partners page) --- */}
+      {!defaultRole && (
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={isCustomer} onChange={(e) => setIsCustomer(e.target.checked)} />
+            {intl.formatMessage({ id: "partners.form.isCustomer" })}
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox checked={isVendor} onChange={(e) => setIsVendor(e.target.checked)} />
+            {intl.formatMessage({ id: "partners.form.isVendor" })}
+          </label>
+        </div>
+      )}
+
       {/* --- Identity --- */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="partner-name">
             {intl.formatMessage({ id: "partners.form.name" })} <span className="text-destructive">*</span>
           </Label>
           <Input id="partner-name" required value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.taxNumber" })}</Label>
-          <Input id="partner-tax-number" value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="partner-fiscal-number">{intl.formatMessage({ id: "partners.form.fiscalNumber" })}</Label>
-          <Input id="partner-fiscal-number" value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
-        </div>
+        {entityType === "company" ? (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.taxNumber" })}</Label>
+            <Input id="partner-tax-number" value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="partner-fiscal-number">{intl.formatMessage({ id: "partners.form.fiscalNumber" })}</Label>
+            <Input id="partner-fiscal-number" value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
+          </div>
+        )}
       </div>
 
       {/* --- Accounting --- */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox checked={isVatRegistered} onChange={(e) => setIsVatRegistered(e.target.checked)} />
+          {intl.formatMessage({ id: "partnerForm.vatRegistered" })}
+        </label>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {isCustomer && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="partner-receivable-account">{intl.formatMessage({ id: "partners.form.receivableAccount" })}</Label>
@@ -162,6 +198,9 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.payableAccountHint" })}</p>
           </div>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1">
           <Label htmlFor="partner-payment-term-days">{intl.formatMessage({ id: "partners.form.paymentTermDays" })}</Label>
           <Input

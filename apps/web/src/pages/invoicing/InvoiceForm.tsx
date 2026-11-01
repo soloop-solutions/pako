@@ -491,15 +491,15 @@ export function InvoiceForm({
   }
 
   return (
-    <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-6">
-        <div className="flex flex-col gap-1">
+      <div className="grid gap-4 sm:grid-cols-6">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-number">{intl.formatMessage({ id: "invoiceForm.invoiceNumber" })}</Label>
           <Input
             id="invoice-number"
@@ -508,7 +508,7 @@ export function InvoiceForm({
             placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
           />
         </div>
-        <div className="flex flex-col gap-1 sm:col-span-2">
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="invoice-customer">{intl.formatMessage({ id: "invoiceForm.customer" })}</Label>
           <SearchableSelect
             id="invoice-customer"
@@ -538,7 +538,7 @@ export function InvoiceForm({
           />
         </div>
         {fixedDocumentType === undefined && (
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
             <Select
               id="invoice-document-type"
@@ -554,7 +554,7 @@ export function InvoiceForm({
             />
           </div>
         )}
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
           <Input
             id="invoice-issue-date"
@@ -570,7 +570,7 @@ export function InvoiceForm({
             required
           />
         </div>
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-due-date">{intl.formatMessage({ id: "invoiceForm.dueDate" })}</Label>
           <Input
             id="invoice-due-date"
@@ -583,8 +583,8 @@ export function InvoiceForm({
       </div>
 
       {!editingInvoice && (
-        <div className="grid gap-3 sm:grid-cols-4">
-          <div className="flex flex-col gap-1">
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
             <Select
               id="invoice-price-mode"
@@ -596,7 +596,7 @@ export function InvoiceForm({
               ]}
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
             <Input
               id="invoice-payment-term-days"
@@ -607,7 +607,7 @@ export function InvoiceForm({
               onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-grace-days">{intl.formatMessage({ id: "invoiceForm.graceDays" })}</Label>
             <Input
               id="invoice-grace-days"
@@ -623,12 +623,12 @@ export function InvoiceForm({
       )}
 
       {editingInvoice && (
-        <div className="grid gap-3 sm:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-4">
           <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
         </div>
       )}
 
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-col gap-1.5">
         <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
         <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
       </div>
@@ -696,7 +696,7 @@ export function InvoiceForm({
         </div>
       )}
 
-      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-4" : "flex flex-col gap-1"}>
+      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-4" : "flex flex-col gap-1.5"}>
         {lines.map((line, index) => {
           const selectedItem = items.find((i) => i.id === line.itemId);
           const overridden = overriddenFields(line, selectedItem);
@@ -902,7 +902,7 @@ export function InvoiceForm({
             <DialogTitle>{intl.formatMessage({ id: "invoiceForm.saveAndPay" })}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-dialog-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
               <Input
                 id="pay-dialog-amount"
@@ -913,7 +913,7 @@ export function InvoiceForm({
                 onChange={(event) => setPaymentAmount(event.target.value)}
               />
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1.5">
               <Label htmlFor="pay-dialog-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
               <PaymentMethodSelect
                 id="pay-dialog-method"

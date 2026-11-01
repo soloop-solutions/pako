@@ -16,6 +16,9 @@ import { toast } from "sonner";
 
 // Every company detail, in the five sections of Settings → Company profile. Used there (as cards)
 // and in the lobby's "New company" dialog (as plain sections), so both ask for the same fields.
+/** A bank account entry collected locally before the company exists. */
+export type PendingBankAccount = { bankName: string; accountHolder: string; iban: string; swiftBic: string };
+
 export function CompanyProfileFields({
   values,
   onChange,
@@ -28,6 +31,12 @@ export function CompanyProfileFields({
   logoUrl,
   stampUrl,
   onBrandingChange,
+  pendingLogo,
+  onPendingLogoChange,
+  pendingStamp,
+  onPendingStampChange,
+  pendingBankAccounts,
+  onPendingBankAccountsChange,
 }: {
   values: CompanyProfileValues;
   onChange: (patch: Partial<CompanyProfileValues>) => void;
@@ -41,6 +50,15 @@ export function CompanyProfileFields({
   logoUrl?: string | null;
   stampUrl?: string | null;
   onBrandingChange?: () => void;
+  /** Local file selected for logo before the company exists. */
+  pendingLogo?: File | null;
+  onPendingLogoChange?: (file: File | null) => void;
+  /** Local file selected for stamp before the company exists. */
+  pendingStamp?: File | null;
+  onPendingStampChange?: (file: File | null) => void;
+  /** Local bank account entries before the company exists. */
+  pendingBankAccounts?: PendingBankAccount[];
+  onPendingBankAccountsChange?: (accounts: PendingBankAccount[]) => void;
 }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
@@ -117,6 +135,32 @@ export function CompanyProfileFields({
         </div>
       ))}
 
+      {section("companyProfile.branding", "companyProfile.branding.description", (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {companyId ? (
+            <>
+              <ImageUpload
+                label={t("companyProfile.logo")}
+                imageUrl={logoUrl}
+                onUpload={(file) => apiClient.logoPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
+                onDelete={() => apiClient.logoDELETE(companyId).then(() => onBrandingChange?.())}
+              />
+              <ImageUpload
+                label={t("companyProfile.stamp")}
+                imageUrl={stampUrl}
+                onUpload={(file) => apiClient.stampPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
+                onDelete={() => apiClient.stampDELETE(companyId).then(() => onBrandingChange?.())}
+              />
+            </>
+          ) : (
+            <>
+              <LocalImagePick label={t("companyProfile.logo")} file={pendingLogo ?? null} onFileChange={(f) => onPendingLogoChange?.(f)} />
+              <LocalImagePick label={t("companyProfile.stamp")} file={pendingStamp ?? null} onFileChange={(f) => onPendingStampChange?.(f)} />
+            </>
+          )}
+        </div>
+      ))}
+
       {section("companyProfile.legalFiscal", "companyProfile.legalFiscal.description", (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {text("businessNumber", "companyProfile.businessNumber")}
@@ -163,7 +207,11 @@ export function CompanyProfileFields({
         <BankAccountsSection companyId={companyId} />
       ))}
 
-      {!companyId && section("companyProfile.banking", "companyProfile.banking.description", (
+      {!companyId && pendingBankAccounts && onPendingBankAccountsChange && section("companyProfile.banking", "companyProfile.banking.description", (
+        <PendingBankAccountsSection accounts={pendingBankAccounts} onChange={onPendingBankAccountsChange} />
+      ))}
+
+      {!companyId && !pendingBankAccounts && section("companyProfile.banking", "companyProfile.banking.description", (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {text("bankName", "companyProfile.bankName")}
           {text("bankAccountHolder", "companyProfile.accountHolder")}
@@ -174,22 +222,6 @@ export function CompanyProfileFields({
 
       {section("companyProfile.documents", "companyProfile.documents.description", (
         <div className="grid grid-cols-1 gap-3">
-          {companyId && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-3">
-              <ImageUpload
-                label={t("companyProfile.logo")}
-                imageUrl={logoUrl}
-                onUpload={(file) => apiClient.logoPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
-                onDelete={() => apiClient.logoDELETE(companyId).then(() => onBrandingChange?.())}
-              />
-              <ImageUpload
-                label={t("companyProfile.stamp")}
-                imageUrl={stampUrl}
-                onUpload={(file) => apiClient.stampPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
-                onDelete={() => apiClient.stampDELETE(companyId).then(() => onBrandingChange?.())}
-              />
-            </div>
-          )}
           {area("documentFooter", "companyProfile.documentFooter", "companyProfile.documentFooter.hint")}
           {area("paymentInstructions", "companyProfile.paymentInstructions", "companyProfile.paymentInstructions.hint")}
         </div>
@@ -273,6 +305,127 @@ function ImageUpload({
           if (file) void handleFile(file);
         }}
       />
+    </div>
+  );
+}
+
+/** Pick a local file and show a preview — no upload, just collects the File object. */
+function LocalImagePick({ label, file, onFileChange }: { label: string; file: File | null; onFileChange: (f: File | null) => void }) {
+  const intl = useIntl();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!file) { setPreview(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      {preview ? (
+        <div className="relative inline-block w-fit">
+          <img src={preview} alt={label} className="h-24 max-w-48 rounded border object-contain" />
+          <button
+            type="button"
+            onClick={() => { onFileChange(null); if (inputRef.current) inputRef.current.value = ""; }}
+            className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/80"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          className="flex h-24 w-48 items-center justify-center rounded border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary"
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          {intl.formatMessage({ id: "companyProfile.uploadImage" })}
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) onFileChange(f); }}
+      />
+    </div>
+  );
+}
+
+/** Local-only multi-bank input for the creation dialog (no API calls). */
+function PendingBankAccountsSection({ accounts, onChange }: { accounts: PendingBankAccount[]; onChange: (a: PendingBankAccount[]) => void }) {
+  const intl = useIntl();
+  const t = (id: string) => intl.formatMessage({ id });
+  const [adding, setAdding] = useState(false);
+  const [newBank, setNewBank] = useState<PendingBankAccount>({ bankName: "", accountHolder: "", iban: "", swiftBic: "" });
+
+  function add() {
+    if (!newBank.bankName.trim()) return;
+    onChange([...accounts, { bankName: newBank.bankName.trim(), accountHolder: newBank.accountHolder.trim(), iban: newBank.iban.trim(), swiftBic: newBank.swiftBic.trim() }]);
+    setNewBank({ bankName: "", accountHolder: "", iban: "", swiftBic: "" });
+    setAdding(false);
+  }
+
+  function remove(index: number) {
+    onChange(accounts.filter((_, i) => i !== index));
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {accounts.map((acc, i) => (
+        <div key={i} className="flex items-start gap-3 rounded border p-3">
+          <div className="flex-1 grid grid-cols-1 gap-1 sm:grid-cols-2 text-sm">
+            <div><span className="font-medium">{acc.bankName}</span></div>
+            {acc.accountHolder && <div className="text-muted-foreground">{acc.accountHolder}</div>}
+            {acc.iban && <div className="font-mono text-xs">{acc.iban}</div>}
+            {acc.swiftBic && <div className="text-muted-foreground text-xs">{acc.swiftBic}</div>}
+          </div>
+          <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => remove(i)} title={t("common.delete")}>
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="rounded border p-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.bankName")} *</Label>
+              <Input value={newBank.bankName} onChange={(e) => setNewBank((b) => ({ ...b, bankName: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.accountHolder")}</Label>
+              <Input value={newBank.accountHolder} onChange={(e) => setNewBank((b) => ({ ...b, accountHolder: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.iban")}</Label>
+              <Input value={newBank.iban} onChange={(e) => setNewBank((b) => ({ ...b, iban: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.swiftBic")}</Label>
+              <Input value={newBank.swiftBic} onChange={(e) => setNewBank((b) => ({ ...b, swiftBic: e.target.value }))} />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button type="button" size="sm" onClick={add} disabled={!newBank.bankName.trim()}>
+              {t("common.save")}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setAdding(false)}>
+              {t("common.cancel")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setAdding(true)}>
+          <Plus className="mr-1 h-4 w-4" />
+          {t("companyProfile.addBankAccount")}
+        </Button>
+      )}
     </div>
   );
 }
