@@ -42,6 +42,10 @@ export function JournalEntryDialog({ entry, accounts, journals, onClose }: Journ
               <dd>{journal ? `${journal.name} (${journal.code})` : entry.journalId}</dd>
             </div>
             <div>
+              <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalEntries.description" })}</dt>
+              <dd>{entry.description ?? "-"}</dd>
+            </div>
+            <div>
               <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalEntries.reference" })}</dt>
               <dd>{entry.reference ?? "-"}</dd>
             </div>

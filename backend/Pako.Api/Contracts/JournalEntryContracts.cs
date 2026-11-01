@@ -7,6 +7,7 @@ public record CreateJournalEntryRequest(
     DateOnly Date,
     string? Reference,
     List<CreateJournalEntryLineRequest> Lines,
+    string? Description = null,
     string? Remarks = null);
 
 public record ReverseJournalEntryRequest(DateOnly Date, string? Reference = null);
@@ -17,6 +18,7 @@ public record JournalEntryResponse(
     Guid Id,
     Guid JournalId,
     DateOnly Date,
+    string? Description,
     string? Reference,
     string? Remarks,
     string State,

@@ -2845,6 +2845,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<DateOnly>("Date")
                         .HasColumnType("date");
 
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
                     b.Property<string>("EntryHash")
                         .HasMaxLength(128)
                         .HasColumnType("character varying(128)");

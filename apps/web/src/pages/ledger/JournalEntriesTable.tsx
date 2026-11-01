@@ -57,6 +57,11 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
         accessorFn: (row) => journalLabel(row.journalId),
       },
       {
+        accessorKey: "description",
+        header: intl.formatMessage({ id: "journalEntries.description" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
+      },
+      {
         accessorKey: "reference",
         header: intl.formatMessage({ id: "journalEntries.reference" }),
         cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",

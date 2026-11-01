@@ -16602,6 +16602,7 @@ export interface CreateJournalEntryRequest {
     date: string;
     reference: string | undefined;
     lines: CreateJournalEntryLineRequest[];
+    description?: string | undefined;
     remarks?: string | undefined;
 
     [key: string]: any;
@@ -17359,6 +17360,7 @@ export interface JournalEntryResponse {
     id: string;
     journalId: string;
     date: string;
+    description: string | undefined;
     reference: string | undefined;
     remarks: string | undefined;
     state: string;

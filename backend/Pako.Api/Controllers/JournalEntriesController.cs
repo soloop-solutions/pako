@@ -164,6 +164,7 @@ public class JournalEntriesController : ControllerBase
             CompanyId = companyId,
             JournalId = request.JournalId,
             Date = request.Date,
+            Description = request.Description,
             Reference = request.Reference,
             Remarks = request.Remarks,
             Lines = request.Lines.Select(l => new JournalEntryLine
@@ -335,6 +336,7 @@ public class JournalEntriesController : ControllerBase
         e.Id,
         e.JournalId,
         e.Date,
+        e.Description,
         e.Reference,
         e.Remarks,
         e.State.ToString(),
