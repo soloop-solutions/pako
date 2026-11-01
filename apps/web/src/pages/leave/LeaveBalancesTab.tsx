@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { LeaveBalanceResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -68,6 +69,7 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
     onSuccess: async () => {
       setError(null);
       setEditingKey(null);
+      toast.success(intl.formatMessage({ id: "toast.allocationSaved" }));
       await queryClient.invalidateQueries({ queryKey: ["leave", "balances"] });
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "leave.balances.saveError" }))),

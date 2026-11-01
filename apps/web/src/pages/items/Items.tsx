@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -124,6 +125,7 @@ export function Items() {
       setCreateOpen(false);
       setCreateFormKey((k) => k + 1);
       urlState.setPage(1);
+      toast.success(intl.formatMessage({ id: "toast.itemCreated" }));
       await refreshItems();
     },
     onError: (err: unknown) => setCreateError(getApiErrorMessage(err, intl.formatMessage({ id: "items.createError" }))),
@@ -156,6 +158,7 @@ export function Items() {
       setEditError(null);
       setDirty(false);
       setEditingId(null);
+      toast.success(intl.formatMessage({ id: "toast.itemSaved" }));
       await refreshItems();
     },
     onError: (err: unknown) => setEditError(getApiErrorMessage(err, intl.formatMessage({ id: "items.saveError" }))),

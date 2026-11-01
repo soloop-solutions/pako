@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { List, TreePine } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -117,6 +118,7 @@ export function ChartOfAccounts() {
       setMutationError(null);
       setDirty(false);
       setFormOpen(false);
+      toast.success(intl.formatMessage({ id: "toast.accountCreated" }));
       await refresh();
     },
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.createError" }))),
@@ -134,6 +136,7 @@ export function ChartOfAccounts() {
       setMutationError(null);
       setDirty(false);
       setEditingId(null);
+      toast.success(intl.formatMessage({ id: "toast.accountSaved" }));
       await refresh();
     },
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.saveError" }))),
@@ -143,6 +146,7 @@ export function ChartOfAccounts() {
     mutationFn: (id: string) => apiClient.deactivate(activeCompanyId as string, id),
     onSuccess: async () => {
       setConfirmingDeactivateId(null);
+      toast.success(intl.formatMessage({ id: "toast.accountDeactivated" }));
       await refresh();
     },
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.deactivateError" }))),

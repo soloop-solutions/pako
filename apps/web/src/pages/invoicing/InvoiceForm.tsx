@@ -7,7 +7,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -25,6 +25,9 @@ import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
+import { FormDialog } from "@/components/shared/FormDialog";
+import { PartnerForm } from "@/pages/shared/PartnerForm";
+import { QuickItemForm } from "@/pages/shared/QuickItemForm";
 
 type Line = {
   description: string;
@@ -122,6 +125,10 @@ type InvoiceFormProps = {
   // onSaved instead of onCreated. Only reachable from InvoiceDetail.tsx for a Draft document.
   editingInvoice?: InvoiceResponse;
   onSaved?: () => void;
+  /** Called after an inline partner creation so the parent can refresh its data. */
+  onPartnerCreated?: (id: string) => void;
+  /** Called after an inline item creation so the parent can refresh its data. */
+  onItemCreated?: (id: string) => void;
 };
 
 export function InvoiceForm({
@@ -137,6 +144,8 @@ export function InvoiceForm({
   fixedDocumentType,
   editingInvoice,
   onSaved,
+  onPartnerCreated,
+  onItemCreated,
 }: InvoiceFormProps) {
   const intl = useIntl();
   const activeCompany = useCompany().activeCompany;
@@ -174,7 +183,7 @@ export function InvoiceForm({
   // UpdateInvoiceRequest (the Draft-edit path) doesn't carry any of these fields, so this state
   // is only read from the Create branch of handleSubmit and its inputs are hidden while editing.
   const [priceMode, setPriceMode] = useState<number>(editingInvoice?.priceMode ?? PriceMode.GrossInclusive);
-  const [paymentTermDays, setPaymentTermDays] = useState("");
+  const [paymentTermDays, setPaymentTermDays] = useState(editingInvoice ? "" : (selectedCustomer?.paymentTermDays != null ? String(selectedCustomer.paymentTermDays) : ""));
   const [graceDays, setGraceDays] = useState("");
   const [takePaymentNow, setTakePaymentNow] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -198,6 +207,22 @@ export function InvoiceForm({
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [newPartnerOpen, setNewPartnerOpen] = useState(false);
+  const [newItemOpen, setNewItemOpen] = useState(false);
+  const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
+
+  // Auto-fill payment term days from the selected customer's registration data.
+  useEffect(() => {
+    if (editingInvoice) return;
+    if (!selectedCustomer) return;
+    if (selectedCustomer.paymentTermDays != null) {
+      const days = String(selectedCustomer.paymentTermDays);
+      setPaymentTermDays(days);
+      setDueDate(addDays(issueDate, selectedCustomer.paymentTermDays));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to partner changes
+  }, [partnerId]);
 
   // Auto-populate lines from the original invoice when creating a Sales Return. Only fires when:
   // 1. This form is fixed to SalesReturn (fixedDocumentType === 4)
@@ -449,16 +474,41 @@ export function InvoiceForm({
     }
   }
 
+  // Totals for display — computed per-line using the same tax logic as the backend.
+  // These are display-only estimates; the backend enforces the real totals on posting.
+  const lineTotals = lines.map((line) => {
+    const entered = lineEnteredAmount(line);
+    return computeLine(entered, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
+  });
+  const totalNet = lineTotals.reduce((sum, l) => sum + l.net, 0);
+  const totalTax = lineTotals.reduce((sum, l) => sum + l.tax, 0);
+  const totalGross = lineTotals.reduce((sum, l) => sum + l.gross, 0);
+
+  // Helper: build item label with barcode if available
+  function itemOptionLabel(item: ItemResponse): string {
+    const barcode = item.barcodes?.[0]?.barcode;
+    return barcode ? `${item.name} [${barcode}]` : item.name;
+  }
+
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <div className="flex flex-col gap-2">
+      <div className="grid gap-3 sm:grid-cols-6">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="invoice-number">{intl.formatMessage({ id: "invoiceForm.invoiceNumber" })}</Label>
+          <Input
+            id="invoice-number"
+            value={invoiceNumber}
+            onChange={(event) => setInvoiceNumber(event.target.value)}
+            placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
+          />
+        </div>
+        <div className="flex flex-col gap-1 sm:col-span-2">
           <Label htmlFor="invoice-customer">{intl.formatMessage({ id: "invoiceForm.customer" })}</Label>
           <SearchableSelect
             id="invoice-customer"
@@ -481,10 +531,14 @@ export function InvoiceForm({
               pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
               frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
             }}
+            createAction={{
+              label: intl.formatMessage({ id: "invoicing.addCustomer" }),
+              onClick: () => setNewPartnerOpen(true),
+            }}
           />
         </div>
         {fixedDocumentType === undefined && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1">
             <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
             <Select
               id="invoice-document-type"
@@ -500,7 +554,7 @@ export function InvoiceForm({
             />
           </div>
         )}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
           <Input
             id="invoice-issue-date"
@@ -516,7 +570,7 @@ export function InvoiceForm({
             required
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1">
           <Label htmlFor="invoice-due-date">{intl.formatMessage({ id: "invoiceForm.dueDate" })}</Label>
           <Input
             id="invoice-due-date"
@@ -526,7 +580,57 @@ export function InvoiceForm({
             required
           />
         </div>
-        <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+      </div>
+
+      {!editingInvoice && (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
+            <Select
+              id="invoice-price-mode"
+              value={String(priceMode)}
+              onValueChange={(v) => setPriceMode(Number(v))}
+              options={[
+                { value: String(PriceMode.GrossInclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeGross" }) },
+                { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
+              ]}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
+            <Input
+              id="invoice-payment-term-days"
+              type="number"
+              step="1"
+              min="0"
+              value={paymentTermDays}
+              onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="invoice-grace-days">{intl.formatMessage({ id: "invoiceForm.graceDays" })}</Label>
+            <Input
+              id="invoice-grace-days"
+              type="number"
+              step="1"
+              min="0"
+              value={graceDays}
+              onChange={(event) => setGraceDays(event.target.value)}
+            />
+          </div>
+          <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+        </div>
+      )}
+
+      {editingInvoice && (
+        <div className="grid gap-3 sm:grid-cols-4">
+          <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1">
+        <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
+        <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
       </div>
 
       {creditExposure && creditExposure.creditLimit != null && (() => {
@@ -541,10 +645,10 @@ export function InvoiceForm({
           <div
             className={
               isOverLimit
-                ? "rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                ? "rounded-md border border-red-300 bg-red-50 px-2 py-1.5 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
                 : wouldExceed
-                  ? "rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
-                  : "rounded-md border px-3 py-2 text-sm text-muted-foreground"
+                  ? "rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
+                  : "rounded-md border px-2 py-1.5 text-sm text-muted-foreground"
             }
           >
             {isOverLimit ? (
@@ -571,62 +675,8 @@ export function InvoiceForm({
         );
       })()}
 
-      <div className="flex flex-col gap-2 sm:w-1/4">
-        <Label htmlFor="invoice-number">{intl.formatMessage({ id: "invoiceForm.invoiceNumber" })}</Label>
-        <Input
-          id="invoice-number"
-          value={invoiceNumber}
-          onChange={(event) => setInvoiceNumber(event.target.value)}
-          placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
-        />
-      </div>
-
-      <div className="flex flex-col gap-2 sm:w-1/2">
-        <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
-        <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-      </div>
-
-      {!editingInvoice && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
-            <Select
-              id="invoice-price-mode"
-              value={String(priceMode)}
-              onValueChange={(v) => setPriceMode(Number(v))}
-              options={[
-                { value: String(PriceMode.GrossInclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeGross" }) },
-                { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
-              ]}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
-            <Input
-              id="invoice-payment-term-days"
-              type="number"
-              step="1"
-              min="0"
-              value={paymentTermDays}
-              onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="invoice-grace-days">{intl.formatMessage({ id: "invoiceForm.graceDays" })}</Label>
-            <Input
-              id="invoice-grace-days"
-              type="number"
-              step="1"
-              min="0"
-              value={graceDays}
-              onChange={(event) => setGraceDays(event.target.value)}
-            />
-          </div>
-        </div>
-      )}
-
       {needsOriginalInvoice && (
-        <div className="flex flex-col gap-2 sm:w-1/2">
+        <div className="flex flex-col gap-1 sm:w-1/3">
           <Label htmlFor="invoice-original">
             {intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
           </Label>
@@ -646,16 +696,14 @@ export function InvoiceForm({
         </div>
       )}
 
-      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}>
+      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-4" : "flex flex-col gap-1"}>
         {lines.map((line, index) => {
-          const enteredAmount = lineEnteredAmount(line);
-          const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
           const selectedItem = items.find((i) => i.id === line.itemId);
           const overridden = overriddenFields(line, selectedItem);
           return (
-          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
+          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-1.5">
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
               <SearchableSelect
                 value={line.itemId}
                 onChange={(val) => selectLineItem(index, val)}
@@ -665,7 +713,7 @@ export function InvoiceForm({
                 emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.noItem" })}
                 options={items.map((item) => ({
                   value: item.id,
-                  label: item.name,
+                  label: itemOptionLabel(item),
                   description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
                 }))}
                 favorites={{
@@ -676,10 +724,14 @@ export function InvoiceForm({
                   pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
                   frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
                 }}
+                createAction={{
+                  label: intl.formatMessage({ id: "items.createItem" }),
+                  onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
+                }}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
               <SearchableSelect
                 value={line.revenueAccountId}
                 onChange={(val) => updateLine(index, { revenueAccountId: val })}
@@ -706,12 +758,12 @@ export function InvoiceForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
             </div>
-            <div className="relative flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
+            <div className="relative flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -729,9 +781,9 @@ export function InvoiceForm({
                 />
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {index === 0 && (
-                <Label>
+                <Label className="text-xs">
                   {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat" })}
                 </Label>
               )}
@@ -748,8 +800,8 @@ export function InvoiceForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -759,8 +811,8 @@ export function InvoiceForm({
                 onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
               <SearchableSelect
                 value={line.taxDefinitionId}
                 onChange={(val) => updateLine(index, { taxDefinitionId: val })}
@@ -781,15 +833,15 @@ export function InvoiceForm({
               )}
             </div>
             {isVatRegistered && (
-              <div className="flex flex-col gap-1">
-                {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
-                <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
+              <div className="flex flex-col gap-0.5">
+                {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
+                <p className="px-2 py-1.5 text-sm tabular-nums text-muted-foreground">{lineTotals[index].net.toFixed(2)}</p>
               </div>
             )}
             {isVatRegistered && (
-              <div className="flex flex-col gap-1">
-                {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
-                <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
+              <div className="flex flex-col gap-0.5">
+                {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
+                <p className="px-2 py-1.5 text-sm tabular-nums text-muted-foreground">{lineTotals[index].tax.toFixed(2)}</p>
               </div>
             )}
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
@@ -798,44 +850,21 @@ export function InvoiceForm({
           </div>
           );
         })}
-        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
-          {intl.formatMessage({ id: "invoiceForm.addLine" })}
-        </Button>
-      </div>
-
-      {!editingInvoice && (
-        <div className="flex flex-col gap-2 rounded-md border p-3">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <Checkbox checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
-            {intl.formatMessage({ id: "invoiceForm.takePaymentNow" })}
-          </label>
-          {takePaymentNow && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invoice-payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
-                <Input
-                  id="invoice-payment-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={paymentAmount}
-                  onChange={(event) => setPaymentAmount(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invoice-payment-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
-                <PaymentMethodSelect
-                  id="invoice-payment-method"
-                  paymentMethods={paymentMethods}
-                  value={paymentMethodId}
-                  onChange={setPaymentMethodId}
-                  emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
-                />
-              </div>
-            </div>
-          )}
+        <div className="flex items-center justify-between">
+          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
+            {intl.formatMessage({ id: "invoiceForm.addLine" })}
+          </Button>
+          <div className="flex items-center gap-4 text-sm font-medium tabular-nums">
+            {isVatRegistered && (
+              <>
+                <span>{intl.formatMessage({ id: "invoiceForm.totalNet" })}: {totalNet.toFixed(2)}</span>
+                <span>{intl.formatMessage({ id: "invoiceForm.totalVat" })}: {totalTax.toFixed(2)}</span>
+              </>
+            )}
+            <span className="text-base font-semibold">{intl.formatMessage({ id: "invoiceForm.totalGross" })}: {totalGross.toFixed(2)} EUR</span>
+          </div>
         </div>
-      )}
+      </div>
 
       <div className="flex items-center gap-2">
         <Button type="submit" className="w-fit" disabled={submitting}>
@@ -847,10 +876,109 @@ export function InvoiceForm({
               ? intl.formatMessage({ id: "invoiceForm.creating" })
               : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
         </Button>
+        {!editingInvoice && (
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-fit"
+            disabled={submitting}
+            onClick={() => {
+              setPaymentAmount(totalGross > 0 ? totalGross.toFixed(2) : "");
+              setShowPaymentDialog(true);
+            }}
+          >
+            {intl.formatMessage({ id: "invoiceForm.saveAndPay" })}
+          </Button>
+        )}
         <Button type="button" variant="outline" className="w-fit" onClick={() => setShowPreview(true)}>
           {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
         </Button>
       </div>
+
+      {/* Save & Pay dialog — select payment method, then submit with inline payment */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{intl.formatMessage({ id: "invoiceForm.saveAndPay" })}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="pay-dialog-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+              <Input
+                id="pay-dialog-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(event) => setPaymentAmount(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="pay-dialog-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
+              <PaymentMethodSelect
+                id="pay-dialog-method"
+                paymentMethods={paymentMethods}
+                value={paymentMethodId}
+                onChange={setPaymentMethodId}
+                emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={submitting || !paymentMethodId || !(parseFloat(paymentAmount) > 0)}
+              onClick={() => {
+                setTakePaymentNow(true);
+                setShowPaymentDialog(false);
+                // Submit the form programmatically after state updates
+                requestAnimationFrame(() => {
+                  const form = document.querySelector<HTMLFormElement>("form");
+                  form?.requestSubmit();
+                });
+              }}
+            >
+              {submitting ? intl.formatMessage({ id: "invoiceForm.creating" }) : intl.formatMessage({ id: "invoiceForm.confirmAndPay" })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inline partner creation dialog */}
+      <FormDialog
+        open={newPartnerOpen}
+        onOpenChange={(open) => { if (!open) setNewPartnerOpen(false); }}
+        title={intl.formatMessage({ id: "invoicing.addCustomer" })}
+        size="sm"
+      >
+        <PartnerForm
+          companyId={companyId}
+          role="customer"
+          onCreated={(id) => {
+            setNewPartnerOpen(false);
+            if (id) setPartnerId(id);
+            onPartnerCreated?.(id);
+          }}
+        />
+      </FormDialog>
+
+      {/* Inline item creation dialog */}
+      <FormDialog
+        open={newItemOpen}
+        onOpenChange={(open) => { if (!open) { setNewItemOpen(false); setNewItemLineIndex(null); } }}
+        title={intl.formatMessage({ id: "items.createItem" })}
+        size="sm"
+      >
+        <QuickItemForm
+          companyId={companyId}
+          onCreated={(id) => {
+            setNewItemOpen(false);
+            if (newItemLineIndex != null) {
+              selectLineItem(newItemLineIndex, id);
+            }
+            setNewItemLineIndex(null);
+            onItemCreated?.(id);
+          }}
+        />
+      </FormDialog>
 
       {showPreview && (
         <InvoicePreviewDialog

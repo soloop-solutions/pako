@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -21,7 +22,8 @@ export function ProfileChangesPanel({ companyId, canDecide }: { companyId: strin
   const decide = useMutation({
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) =>
       approve ? apiClient.approveEmployeeProfileChange(companyId, id) : apiClient.rejectEmployeeProfileChange(companyId, id),
-    onSuccess: async () => {
+    onSuccess: async (_result, { approve }) => {
+      toast.success(intl.formatMessage({ id: approve ? "toast.profileChangeApproved" : "toast.profileChangeRejected" }));
       setError(null);
       await queryClient.invalidateQueries({ queryKey: ["profileChanges", companyId] });
       await queryClient.invalidateQueries({ queryKey: ["employees", companyId] });

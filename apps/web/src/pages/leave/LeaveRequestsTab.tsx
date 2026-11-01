@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { LeaveRequestResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -89,9 +90,12 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
       if (action === "reject") return apiClient.rejectLeaveRequest(companyId, id);
       return apiClient.cancelLeaveRequest(companyId, id);
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, vars) => {
       setActionError(null);
       setConfirmCancelId(null);
+      if (vars.action === "approve") toast.success(intl.formatMessage({ id: "toast.leaveRequestApproved" }));
+      else if (vars.action === "reject") toast.success(intl.formatMessage({ id: "toast.leaveRequestRejected" }));
+      else toast.success(intl.formatMessage({ id: "toast.leaveRequestCancelled" }));
       await refreshAll();
     },
     onError: (err: unknown, vars) =>
@@ -332,6 +336,7 @@ function NewLeaveRequestForm({
       }),
     onSuccess: async () => {
       setError(null);
+      toast.success(intl.formatMessage({ id: "toast.leaveRequestCreated" }));
       await onDone();
     },
     // The server computes working days (weekends + public holidays excluded) and refuses

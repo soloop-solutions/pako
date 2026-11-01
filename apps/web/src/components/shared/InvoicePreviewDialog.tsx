@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { Printer, Download, X } from "lucide-react";
 
@@ -10,9 +10,8 @@ import { printElement } from "@/lib/print";
 // InvoicePreviewDialog — full-screen overlay showing the InvoiceDocument at A4
 // proportions with Print and Download PDF actions.
 //
-// Uses the shared printElement() utility (lib/print.ts) which prints via an
-// isolated iframe, ensuring the output contains only the invoice document.
-// The browser's "Save as PDF" option in the print dialog serves as PDF export.
+// The document is scaled to fit the viewport so the user sees the full page
+// without scrolling. Print still uses the original A4 dimensions.
 // ---------------------------------------------------------------------------
 
 interface InvoicePreviewDialogProps {
@@ -50,6 +49,31 @@ const INVOICE_PRINT_CSS = `
 export function InvoicePreviewDialog({ data, onClose }: InvoicePreviewDialogProps) {
   const intl = useIntl();
   const documentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+
+  // Calculate scale so the A4 document fits within the available container
+  useEffect(() => {
+    const container = containerRef.current;
+    const doc = documentRef.current;
+    if (!container || !doc) return;
+
+    function recalc() {
+      const ch = container!.clientHeight - 32; // subtract padding (16px top+bottom)
+      const cw = container!.clientWidth - 32;
+      const dh = doc!.scrollHeight;
+      const dw = doc!.scrollWidth;
+      if (dh === 0 || dw === 0) return;
+      const s = Math.min(ch / dh, cw / dw, 1); // never scale up
+      setScale(s);
+    }
+
+    recalc();
+    const ro = new ResizeObserver(recalc);
+    ro.observe(container);
+    ro.observe(doc);
+    return () => ro.disconnect();
+  }, []);
 
   function handlePrint() {
     const el = documentRef.current;
@@ -79,12 +103,15 @@ export function InvoicePreviewDialog({ data, onClose }: InvoicePreviewDialogProp
         </div>
       </div>
 
-      {/* Scrollable preview area */}
-      <div className="flex-1 overflow-auto p-8 flex justify-center">
+      {/* Preview area — document scaled to fit without scrolling */}
+      <div ref={containerRef} className="flex-1 overflow-hidden flex items-center justify-center p-4">
         <div
           ref={documentRef}
-          className="shadow-2xl"
-          style={{ maxWidth: "210mm" }}
+          className="shadow-2xl origin-center"
+          style={{
+            maxWidth: "210mm",
+            transform: `scale(${scale})`,
+          }}
         >
           <InvoiceDocument data={data} />
         </div>

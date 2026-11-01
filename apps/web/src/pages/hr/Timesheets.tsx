@@ -1,6 +1,7 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { TimeEntryResponse, TimesheetImportResponse, TimesheetSummaryRow } from "@pako/shared";
@@ -69,6 +70,7 @@ export function Timesheets() {
         note: note.trim() || undefined,
       }),
     onSuccess: () => {
+      toast.success(intl.formatMessage({ id: "toast.timeEntrySaved" }));
       setError(null);
       setEntryHours("");
       setNote("");
@@ -78,12 +80,16 @@ export function Timesheets() {
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.deleteTimeEntry(companyId as string, id),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(intl.formatMessage({ id: "toast.timeEntryDeleted" }));
+      refresh();
+    },
     onError: onError("timesheets.deleteError"),
   });
   const approveMutation = useMutation({
     mutationFn: () => apiClient.approveTimesheetMonth(companyId as string, { month: monthStart, employeeId: undefined }),
     onSuccess: () => {
+      toast.success(intl.formatMessage({ id: "toast.timesheetApproved" }));
       setError(null);
       refresh();
       void queryClient.invalidateQueries({ queryKey: ["payrollAdjustments"] });

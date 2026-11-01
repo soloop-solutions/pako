@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { EmployeeLoanResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -80,6 +81,7 @@ export function EmployeeLoansPanel({ companyId, employeeId }: { companyId: strin
       setPrincipal("");
       setInstallment("");
       setNotes("");
+      toast.success(intl.formatMessage({ id: "toast.loanCreated" }));
       refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "loans.saveError" }))),
@@ -87,7 +89,10 @@ export function EmployeeLoansPanel({ companyId, employeeId }: { companyId: strin
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => apiClient.cancelEmployeeLoan(companyId, id, undefined),
-    onSuccess: refresh,
+    onSuccess: () => {
+      toast.success(intl.formatMessage({ id: "toast.loanCancelled" }));
+      refresh();
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "loans.cancelError" }))),
   });
 

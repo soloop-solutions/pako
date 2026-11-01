@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { SaveStockSettingsRequest, WarehouseResponse } from "@pako/shared";
 import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -120,7 +121,10 @@ function WarehouseDialog({ warehouse, onClose, onSaved }: { warehouse: Warehouse
         ? apiClient.updateWarehouse(activeCompanyId as string, warehouse.id, body)
         : apiClient.createWarehouse(activeCompanyId as string, body);
     },
-    onSuccess: onSaved,
+    onSuccess: () => {
+      toast.success(intl.formatMessage({ id: "toast.warehouseSaved" }));
+      onSaved();
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("stock.wh.saveError"))),
   });
 
@@ -183,6 +187,7 @@ function StockSettingsCard({ canEdit }: { canEdit: boolean }) {
     mutationFn: (body: SaveStockSettingsRequest) => apiClient.saveStockSettings(activeCompanyId as string, body),
     onSuccess: async (saved) => {
       setError(null);
+      toast.success(intl.formatMessage({ id: "toast.stockSettingsSaved" }));
       queryClient.setQueryData(["stockSettings", activeCompanyId], saved);
       await queryClient.invalidateQueries({ queryKey: ["warehouses", activeCompanyId] });
     },

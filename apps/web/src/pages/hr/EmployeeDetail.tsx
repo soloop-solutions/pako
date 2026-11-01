@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { DepartmentResponse, EmployeeDetailResponse, SaveEmployeeRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -205,9 +206,11 @@ function EmployeeEditor({
       await queryClient.invalidateQueries({ queryKey: ["employees", companyId] });
       await queryClient.invalidateQueries({ queryKey: ["departments", companyId] });
       if (isNew) {
+        toast.success(intl.formatMessage({ id: "toast.employeeCreated" }));
         navigate(`/employees/${result.id}`);
         return;
       }
+      toast.success(intl.formatMessage({ id: "toast.employeeSaved" }));
       queryClient.setQueryData(["employee", companyId, result.id], result);
       setForm(initialState(result));
       setSaved(true);

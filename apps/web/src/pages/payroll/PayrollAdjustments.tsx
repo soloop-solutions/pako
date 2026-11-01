@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 import type { PayrollAdjustmentResponse, SavePayrollAdjustmentRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -76,6 +77,7 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
       setFormError(null);
       setFormOpen(false);
       setEditingId(null);
+      toast.success(intl.formatMessage({ id: "toast.adjustmentSaved" }));
       await refresh();
     },
     onError: (err: unknown) => setFormError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.adjustment.saveError" }))),
@@ -85,6 +87,7 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
     mutationFn: (id: string) => apiClient.deletePayrollAdjustment(companyId, id),
     onSuccess: async () => {
       setRowError(null);
+      toast.success(intl.formatMessage({ id: "toast.adjustmentDeleted" }));
       await refresh();
     },
     onError: (err: unknown) => setRowError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.adjustment.deleteError" }))),

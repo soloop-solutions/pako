@@ -23,6 +23,9 @@ import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
+import { FormDialog } from "@/components/shared/FormDialog";
+import { PartnerForm } from "@/pages/shared/PartnerForm";
+import { QuickItemForm } from "@/pages/shared/QuickItemForm";
 
 type Line = {
   description: string;
@@ -112,6 +115,10 @@ type BillFormProps = {
   // (PUT, full replace) in place instead of creating a new one (POST).
   editingBill?: BillResponse;
   onSaved?: () => void;
+  /** Called after an inline vendor creation so the parent can refresh its data. */
+  onPartnerCreated?: (id: string) => void;
+  /** Called after an inline item creation so the parent can refresh its data. */
+  onItemCreated?: (id: string) => void;
 };
 
 export function BillForm({
@@ -127,6 +134,8 @@ export function BillForm({
   fixedDocumentType,
   editingBill,
   onSaved,
+  onPartnerCreated,
+  onItemCreated,
 }: BillFormProps) {
   const intl = useIntl();
   const partnerFavs = useEntityFavorites("Partner");
@@ -185,6 +194,9 @@ export function BillForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [newPartnerOpen, setNewPartnerOpen] = useState(false);
+  const [newItemOpen, setNewItemOpen] = useState(false);
+  const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
 
@@ -389,6 +401,10 @@ export function BillForm({
               pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
               frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
             }}
+            createAction={{
+              label: intl.formatMessage({ id: "bills.addVendor" }),
+              onClick: () => setNewPartnerOpen(true),
+            }}
           />
         </div>
         {fixedDocumentType === undefined && (
@@ -505,6 +521,10 @@ export function BillForm({
                   onUnpin: itemFavs.unpin,
                   pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
                   frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                }}
+                createAction={{
+                  label: intl.formatMessage({ id: "items.createItem" }),
+                  onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
                 }}
               />
             </div>
@@ -685,6 +705,44 @@ export function BillForm({
             ? intl.formatMessage({ id: "billForm.creating" })
             : intl.formatMessage({ id: "billForm.createBill" })}
       </Button>
+
+      {/* Inline vendor creation dialog */}
+      <FormDialog
+        open={newPartnerOpen}
+        onOpenChange={(open) => { if (!open) setNewPartnerOpen(false); }}
+        title={intl.formatMessage({ id: "bills.addVendor" })}
+        size="sm"
+      >
+        <PartnerForm
+          companyId={companyId}
+          role="vendor"
+          onCreated={(id) => {
+            setNewPartnerOpen(false);
+            if (id) setPartnerId(id);
+            onPartnerCreated?.(id);
+          }}
+        />
+      </FormDialog>
+
+      {/* Inline item creation dialog */}
+      <FormDialog
+        open={newItemOpen}
+        onOpenChange={(open) => { if (!open) { setNewItemOpen(false); setNewItemLineIndex(null); } }}
+        title={intl.formatMessage({ id: "items.createItem" })}
+        size="sm"
+      >
+        <QuickItemForm
+          companyId={companyId}
+          onCreated={(id) => {
+            setNewItemOpen(false);
+            if (newItemLineIndex != null) {
+              selectLineItem(newItemLineIndex, id);
+            }
+            setNewItemLineIndex(null);
+            onItemCreated?.(id);
+          }}
+        />
+      </FormDialog>
     </form>
   );
 }

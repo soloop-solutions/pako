@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 import { Link, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ExpenseClaimResponse } from "@pako/shared";
@@ -52,7 +53,10 @@ export function ExpenseClaims() {
       approve
         ? apiClient.approveExpenseClaim(companyId as string, selected!.id, { note: note.trim() || undefined })
         : apiClient.rejectExpenseClaim(companyId as string, selected!.id, { note: note.trim() || undefined }),
-    onSuccess: after,
+    onSuccess: (result, approve) => {
+      toast.success(intl.formatMessage({ id: approve ? "toast.expenseApproved" : "toast.expenseRejected" }));
+      after(result);
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "expenses.decideError" }))),
   });
 

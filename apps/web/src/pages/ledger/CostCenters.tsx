@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
@@ -50,6 +51,7 @@ export function CostCenters() {
         ? apiClient.updateCostCenter(activeCompanyId as string, vars.id, vars.request)
         : apiClient.createCostCenter(activeCompanyId as string, vars.request),
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.costCenterSaved" }));
       closeForms();
       await queryClient.invalidateQueries({ queryKey });
     },
