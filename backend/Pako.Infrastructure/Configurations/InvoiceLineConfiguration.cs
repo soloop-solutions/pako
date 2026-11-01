@@ -19,5 +19,7 @@ public class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceLine>
         builder.Property(l => l.UnitFactor).HasColumnType("numeric(18,4)").HasDefaultValue(1m);
         builder.HasIndex(l => l.RevenueAccountId);
         builder.HasOne<Item>().WithMany().HasForeignKey(l => l.ItemId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<SalesOrderLine>().WithMany().HasForeignKey(l => l.SalesOrderLineId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Pako.Domain.Inventory.StockDocumentLine>().WithMany().HasForeignKey(l => l.DeliveryLineId).OnDelete(DeleteBehavior.Restrict);
     }
 }

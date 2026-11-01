@@ -7,6 +7,13 @@ import { platformEn, platformSq } from "@/i18n/messages.platform";
 import { leaveEn, leaveSq } from "@/i18n/messages.leave";
 import { payrollEn, payrollSq } from "@/i18n/messages.payroll";
 import { inventoryEn, inventorySq } from "@/i18n/messages.inventory";
+import { posEn, posSq } from "@/i18n/messages.pos";
+import { posSetup3En, posSetup3Sq } from "@/i18n/messages.posSetup3";
+import { posServicesEn, posServicesSq } from "@/i18n/messages.posServices";
+import { posHotelEn, posHotelSq } from "@/i18n/messages.posHotel";
+import { posSpecialistEn, posSpecialistSq } from "@/i18n/messages.posSpecialist";
+import { distributionEn, distributionSq } from "@/i18n/messages.distribution";
+import { verticalsEn, verticalsSq } from "@/i18n/messages.verticals";
 
 export const en: Record<string, string> = {
   // Nav
@@ -2759,7 +2766,25 @@ export const sq: Record<string, string> = {
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
-Object.assign(en, hrEn, payrollEn, leaveEn, meEn, adminEn, dashboardEn, lobbyEn, platformEn, inventoryEn);
-Object.assign(sq, hrSq, payrollSq, leaveSq, meSq, adminSq, dashboardSq, lobbySq, platformSq, inventorySq);
+Object.assign(en, hrEn, payrollEn, leaveEn, meEn, adminEn, dashboardEn, lobbyEn, platformEn, inventoryEn, posEn, posSetup3En);
+Object.assign(sq, hrSq, payrollSq, leaveSq, meSq, adminSq, dashboardSq, lobbySq, platformSq, inventorySq, posSq, posSetup3Sq);
+// docs/POS_PLAN.md P4: services.
+Object.assign(en, posServicesEn);
+Object.assign(sq, posServicesSq);
+// P5 hotel, venues and ticketed events (keys "hotel.*").
+Object.assign(en, posHotelEn);
+Object.assign(sq, posHotelSq);
+
+// P6 distribution: sales orders, delivery notes, routes, visits and vans (keys "so.*", "dist.*").
+Object.assign(en, distributionEn);
+Object.assign(sq, distributionSq);
+
+// P7 specialist retail: pharmacy, fuel station, parts, online channels, self-checkout (keys "spec.*").
+Object.assign(en, posSpecialistEn);
+Object.assign(sq, posSpecialistSq);
+
+// docs/ERP_VERTICALS_PLAN.md (POS plan P8): construction, real estate and rentals (keys "vx.*").
+Object.assign(en, verticalsEn);
+Object.assign(sq, verticalsSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

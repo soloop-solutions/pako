@@ -24,6 +24,7 @@
     <ProjectReference Include="..\Pako.Domain\Pako.Domain.csproj" />
     <ProjectReference Include="..\Pako.Infrastructure\Pako.Infrastructure.csproj" />
     <ProjectReference Include="..\Pako.Localization.Xk\Pako.Localization.Xk.csproj" />
+    <ProjectReference Include="..\Pako.Fiscal.Xk\Pako.Fiscal.Xk.csproj" />
   </ItemGroup>
 
 </Project>

@@ -41,7 +41,7 @@ export function BillDetail() {
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
   // docs/USER_ACCESS_PLAN.md: posting and payments need Purchases: Approve.
-  const { canApprove } = useMyAccess();
+  const { canApprove, canWrite } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
 
   const [bill, setBill] = useState<BillResponse | null>(null);
@@ -438,7 +438,7 @@ export function BillDetail() {
           <CardDescription>{intl.formatMessage({ id: "attachments.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <AttachmentsPanel companyId={activeCompany.id} documentKind="bill" documentId={bill.id} />
+          <AttachmentsPanel companyId={activeCompany.id} documentKind="bill" documentId={bill.id} readOnly={!canWrite("purchases")} />
         </CardContent>
       </Card>
 

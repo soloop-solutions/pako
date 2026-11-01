@@ -12,6 +12,9 @@ public class Warehouse
     public string Name { get; set; } = string.Empty;
     public string? Address { get; set; }
     public bool IsActive { get; set; } = true;
+    // docs/POS_PLAN.md P6: a delivery van selling from its own stock, and the member who drives it.
+    public bool IsVan { get; set; }
+    public Guid? DriverUserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

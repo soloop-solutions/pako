@@ -25,6 +25,7 @@ import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
+import { BillProjectField } from "@/pages/construction/BillProjectFields";
 
 type Line = {
   description: string;
@@ -36,7 +37,22 @@ type Line = {
   revenueAccountId: string;
   // §12 P7: the item unit the quantity is in (undefined = the base unit).
   unitName?: string;
+  // docs/POS_PLAN.md P6: the sales order line this invoice line bills and, when the goods already
+  // left on a delivery note, that delivery line (then the invoice moves no stock for it). Kept on
+  // every save so the order's invoiced quantities stay right.
+  salesOrderLineId?: string;
+  deliveryLineId?: string;
+  // Display only: the order / delivery note the line came from.
+  linkLabel?: string;
 };
+
+// docs/POS_PLAN.md P6: an invoice started from a sales order or a delivery note.
+export interface InvoicePrefill {
+  partnerId: string;
+  warehouseId?: string;
+  lines: Line[];
+}
+export type InvoicePrefillLine = Line;
 
 function emptyLine(defaultTaxId: string): Line {
   return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", revenueAccountId: "" };
@@ -122,6 +138,8 @@ type InvoiceFormProps = {
   // onSaved instead of onCreated. Only reachable from InvoiceDetail.tsx for a Draft document.
   editingInvoice?: InvoiceResponse;
   onSaved?: () => void;
+  // docs/POS_PLAN.md P6: a new invoice filled from a sales order or a delivery note.
+  prefill?: InvoicePrefill;
 };
 
 export function InvoiceForm({
@@ -137,6 +155,7 @@ export function InvoiceForm({
   fixedDocumentType,
   editingInvoice,
   onSaved,
+  prefill,
 }: InvoiceFormProps) {
   const intl = useIntl();
   const activeCompany = useCompany().activeCompany;
@@ -150,7 +169,7 @@ export function InvoiceForm({
   // lines to the exempt sales code (SEX) instead of the old silent empty "no tax" option.
   const defaultTaxId = isVatRegistered ? (findTaxByCode(taxes, "SEX")?.id ?? "") : "";
 
-  const [partnerId, setPartnerId] = useState(editingInvoice?.partnerId ?? "");
+  const [partnerId, setPartnerId] = useState(editingInvoice?.partnerId ?? prefill?.partnerId ?? "");
   // F6 — a partner's own VAT-registered status decides the default tax on a NEW line: a
   // VAT-registered customer defaults to the standard domestic rate (S18), not the exempt
   // baseline — code review caught that the earlier version of this override always collapsed
@@ -169,11 +188,15 @@ export function InvoiceForm({
   const [dueDate, setDueDate] = useState(editingInvoice?.dueDate ?? today);
   const [internalNotes, setInternalNotes] = useState(editingInvoice?.internalNotes ?? "");
   // docs/INVENTORY_PLAN.md §6: the warehouse stock-tracked lines leave from ("" = the default one).
-  const [warehouseId, setWarehouseId] = useState(editingInvoice?.warehouseId ?? "");
+  const [warehouseId, setWarehouseId] = useState(editingInvoice?.warehouseId ?? prefill?.warehouseId ?? "");
+  // docs/ERP_VERTICALS_PLAN.md: the ledger project the revenue belongs to.
+  const [projectId, setProjectId] = useState(editingInvoice?.projectId ?? "");
   // C1/C3: PriceMode/PaymentTermDays/GraceDays/inline-payment are Create-only features —
   // UpdateInvoiceRequest (the Draft-edit path) doesn't carry any of these fields, so this state
   // is only read from the Create branch of handleSubmit and its inputs are hidden while editing.
-  const [priceMode, setPriceMode] = useState<number>(PriceMode.GrossInclusive);
+  // A draft being edited still starts in its own mode: the line preview, the price label and the
+  // price-list rule below all depend on it.
+  const [priceMode, setPriceMode] = useState<number>(editingInvoice?.priceMode ?? PriceMode.GrossInclusive);
   const [paymentTermDays, setPaymentTermDays] = useState("");
   const [graceDays, setGraceDays] = useState("");
   const [takePaymentNow, setTakePaymentNow] = useState(false);
@@ -190,8 +213,12 @@ export function InvoiceForm({
           itemId: l.itemId ?? "",
           unitName: l.unitName ?? undefined,
           revenueAccountId: l.revenueAccountId ?? "",
+          salesOrderLineId: l.salesOrderLineId ?? undefined,
+          deliveryLineId: l.deliveryLineId ?? undefined,
         }))
-      : [emptyLine(defaultTaxId)],
+      : prefill && prefill.lines.length > 0
+        ? prefill.lines
+        : [emptyLine(defaultTaxId)],
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -309,11 +336,23 @@ export function InvoiceForm({
 
   function selectLineItem(index: number, itemId: string) {
     const item = items.find((i) => i.id === itemId);
-    setLines((prev) => prev.map((line, i) => (i === index ? { ...applyItemDefaults(line, item, partnerDrivenTaxId), unitName: undefined } : line)));
+    // Another item no longer bills the sales order / delivery line this one was linked to.
+    setLines((prev) => prev.map((line, i) => (i === index
+      ? {
+          ...applyItemDefaults(line, item, partnerDrivenTaxId),
+          unitName: undefined,
+          salesOrderLineId: line.itemId === itemId ? line.salesOrderLineId : undefined,
+          deliveryLineId: line.itemId === itemId ? line.deliveryLineId : undefined,
+        }
+      : line)));
     // §12 P4: with price lists, the line starts from the shop's (or company's) price on the issue
-    // date instead of the item's own price. Returns keep the original invoice's prices.
-    if (item && !isSalesReturn) {
-      void apiClient.resolvePrices(companyId, [item.id], warehouseId || undefined, issueDate).then((prices) => {
+    // date instead of the item's own price. Returns keep the original invoice's prices. List prices
+    // are VAT-inclusive, so they only fill a gross-priced invoice; on a net one the item's own
+    // price stays rather than a gross figure being taken as net.
+    if (item && !isSalesReturn && priceMode === PriceMode.GrossInclusive) {
+      // docs/POS_PLAN.md P6: the customer's own price list and volume tiers count too.
+      const quantity = parseFloat(lines[index]?.quantity ?? "") || 1;
+      void apiClient.resolvePrices(companyId, [item.id], warehouseId || undefined, issueDate, partnerId || undefined, [quantity]).then((prices) => {
         const resolved = prices.find((p) => p.itemId === item.id);
         if (!resolved || resolved.source === "item") return;
         setLines((prev) => prev.map((line, i) => (i === index && line.itemId === item.id ? { ...line, unitPrice: String(resolved.price) } : line)));
@@ -321,6 +360,29 @@ export function InvoiceForm({
         // The item's own price stays; nothing to report.
       });
     }
+  }
+
+  // §12 P7: the price follows the line's unit. The server gives the price per sales/purchase unit
+  // next to the base-unit one, so nothing is multiplied here. List prices are VAT-inclusive: on a
+  // net invoice only the item's own price is used, and with a list price the field is cleared for
+  // the user to enter rather than keeping a per-piece figure on a box.
+  function changeLineUnit(index: number, unitName: string | undefined) {
+    const line = lines[index];
+    updateLine(index, { unitName });
+    const itemId = line?.itemId;
+    if (!itemId || isSalesReturn) return;
+    const quantity = baseQuantity(items.find((i) => i.id === itemId), unitName, parseFloat(line.quantity) || 1);
+    void apiClient.resolvePrices(companyId, [itemId], warehouseId || undefined, issueDate, partnerId || undefined, [quantity]).then((prices) => {
+      const resolved = prices.find((p) => p.itemId === itemId);
+      if (!resolved) return;
+      const usable = priceMode === PriceMode.GrossInclusive || resolved.source === "item";
+      const price = unitName ? resolved.units?.find((u) => u.unitName === unitName)?.price : resolved.price;
+      setLines((prev) => prev.map((l, i) => (i === index && l.itemId === itemId && l.unitName === unitName
+        ? { ...l, unitPrice: usable && price != null ? String(price) : "" }
+        : l)));
+    }).catch(() => {
+      // The price stays as it was; nothing to report.
+    });
   }
 
   function addLine() {
@@ -380,6 +442,8 @@ export function InvoiceForm({
         revenueAccountId: line.revenueAccountId || undefined,
         itemId: line.itemId || undefined,
         unitName: line.unitName || undefined,
+        salesOrderLineId: line.salesOrderLineId || undefined,
+        deliveryLineId: line.deliveryLineId || undefined,
       }));
 
       // Record entity selections for smart favorites (on successful save)
@@ -401,6 +465,7 @@ export function InvoiceForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
+          projectId: projectId || undefined,
         });
         recordFavorites();
         onSaved?.();
@@ -417,6 +482,7 @@ export function InvoiceForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
+          projectId: projectId || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
@@ -523,6 +589,7 @@ export function InvoiceForm({
           />
         </div>
         <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+        <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
       </div>
 
       {creditExposure && creditExposure.creditLimit != null && (() => {
@@ -701,6 +768,11 @@ export function InvoiceForm({
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
+              {(line.salesOrderLineId || line.deliveryLineId) && (
+                <span className="text-[11px] text-muted-foreground" data-testid={`invoice-line-link-${index}`}>
+                  {line.linkLabel ?? intl.formatMessage({ id: line.deliveryLineId ? "dist.invoice.fromDelivery" : "dist.invoice.fromOrder" })}
+                </span>
+              )}
             </div>
             <div className="relative flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
@@ -711,7 +783,7 @@ export function InvoiceForm({
                 value={line.quantity}
                 onChange={(event) => updateLine(index, { quantity: event.target.value })}
               />
-              <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
+              <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => changeLineUnit(index, v || undefined)} />
               {selectedItem?.trackInventory && (
                 <OnHandHint
                   className="absolute -bottom-4 right-0 whitespace-nowrap"

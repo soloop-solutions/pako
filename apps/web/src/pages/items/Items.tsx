@@ -13,11 +13,14 @@ import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState"
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
-import { itemTypeLabel } from "@/lib/item-types";
+import { ItemType, itemTypeLabel } from "@/lib/item-types";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 import { ItemCardPanel } from "@/pages/inventory/ItemCardDialog";
 import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
+import { ItemAttributesDialog, ItemVariantsPanel } from "@/pages/items/ItemVariants";
+import { ItemRecipePanel } from "@/pages/items/ItemRecipe";
+import { ItemPartsPanel } from "@/pages/items/ItemParts";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
 const ITEMS_GRID_ID = "items";
@@ -74,9 +77,11 @@ export function Items() {
     enabled: !!activeCompanyId,
   });
   const categories = categoriesQuery.data ?? [];
-  const [stockTabFor, setStockTabFor] = useState<string | null>(null);
-  const editTab: "details" | "stock" = stockTabFor !== null && stockTabFor === editingId ? "stock" : "details";
-  const setEditTab = (tab: "details" | "stock") => setStockTabFor(tab === "stock" ? editingId : null);
+  // The edit dialog's tab, remembered for the item it was picked on.
+  const [tabFor, setTabFor] = useState<{ id: string; tab: "stock" | "variants" | "recipe" | "parts" } | null>(null);
+  const editTab: "details" | "stock" | "variants" | "recipe" | "parts" = tabFor !== null && tabFor.id === editingId ? tabFor.tab : "details";
+  const setEditTab = (tab: "details" | "stock" | "variants" | "recipe" | "parts") => setTabFor(tab === "details" || !editingId ? null : { id: editingId, tab });
+  const [attributesOpen, setAttributesOpen] = useState(false);
   // B13: AccountType widened to Odoo's real 19 values — Income/Expense are each now a family of
   // types (e.g. Expense/OtherExpense/Depreciation/CostOfRevenue), not one bucket.
   const incomeAccounts = useMemo(() => accounts.filter((a) => isIncomeAccountType(a.accountType)), [accounts]);
@@ -112,6 +117,28 @@ export function Items() {
         purchaseUnitFactor: fields.purchaseUnitFactor,
         salesUnit: fields.salesUnit,
         salesUnitFactor: fields.salesUnitFactor,
+        plu: fields.plu,
+        sellByWeight: fields.sellByWeight,
+        openPrice: fields.openPrice,
+        minimumAge: fields.minimumAge,
+        depositItemId: fields.depositItemId,
+        trackSerials: fields.trackSerials,
+        warrantyMonths: fields.warrantyMonths,
+        isBookable: fields.isBookable,
+        durationMinutes: fields.durationMinutes,
+        bufferMinutes: fields.bufferMinutes,
+        packageServiceItemId: fields.packageServiceItemId,
+        packageSessions: fields.packageSessions,
+        packageValidDays: fields.packageValidDays,
+        membershipDays: fields.membershipDays,
+        // P7: pharmacy and agency fields.
+        atcCode: fields.atcCode,
+        activeIngredient: fields.activeIngredient,
+        isPrescriptionOnly: fields.isPrescriptionOnly,
+        isControlled: fields.isControlled,
+        maxRetailPrice: fields.maxRetailPrice,
+        agencyPartnerId: fields.agencyPartnerId,
+        agencyCommissionPercent: fields.agencyCommissionPercent,
       });
     },
     onSuccess: async () => {
@@ -146,6 +173,28 @@ export function Items() {
         purchaseUnitFactor: vars.fields.purchaseUnitFactor,
         salesUnit: vars.fields.salesUnit,
         salesUnitFactor: vars.fields.salesUnitFactor,
+        plu: vars.fields.plu,
+        sellByWeight: vars.fields.sellByWeight,
+        openPrice: vars.fields.openPrice,
+        minimumAge: vars.fields.minimumAge,
+        depositItemId: vars.fields.depositItemId,
+        trackSerials: vars.fields.trackSerials,
+        warrantyMonths: vars.fields.warrantyMonths,
+        isBookable: vars.fields.isBookable,
+        durationMinutes: vars.fields.durationMinutes,
+        bufferMinutes: vars.fields.bufferMinutes,
+        packageServiceItemId: vars.fields.packageServiceItemId,
+        packageSessions: vars.fields.packageSessions,
+        packageValidDays: vars.fields.packageValidDays,
+        membershipDays: vars.fields.membershipDays,
+        // P7: pharmacy and agency fields.
+        atcCode: vars.fields.atcCode,
+        activeIngredient: vars.fields.activeIngredient,
+        isPrescriptionOnly: vars.fields.isPrescriptionOnly,
+        isControlled: vars.fields.isControlled,
+        maxRetailPrice: vars.fields.maxRetailPrice,
+        agencyPartnerId: vars.fields.agencyPartnerId,
+        agencyCommissionPercent: vars.fields.agencyCommissionPercent,
       });
     },
     onSuccess: async () => {
@@ -190,6 +239,17 @@ export function Items() {
   const total = itemsQuery.data?.total ?? 0;
   const editingItem = editingId ? items.find((i) => i.id === editingId) : undefined;
   const hasStockTab = showStock && !!editingItem?.trackInventory;
+  // P2 variants: any item but a variant itself can carry variants (generating turns it into a template).
+  const hasVariantsTab = !!editingItem && !editingItem.variantOfItemId;
+  // P3 recipes: what a sold unit consumes, for companies on the point of sale (not variant templates).
+  const hasRecipeTab = canSee("pos") && !!editingItem && !editingItem.isVariantTemplate;
+  const editTabs: ("details" | "stock" | "variants" | "recipe" | "parts")[] = ["details"];
+  if (hasStockTab) editTabs.push("stock");
+  if (hasVariantsTab) editTabs.push("variants");
+  if (hasRecipeTab) editTabs.push("recipe");
+  // P7 auto parts: other makers' numbers and the vehicles a stocked good fits.
+  if (editingItem && !editingItem.isVariantTemplate && editingItem.type === ItemType.Goods) editTabs.push("parts");
+  const shownTab = editTabs.includes(editTab) ? editTab : "details";
 
   const columns = useMemo<ColumnDef<ItemResponse>[]>(
     () => [
@@ -205,9 +265,14 @@ export function Items() {
       {
         accessorKey: "name",
         header: intl.formatMessage({ id: "items.name" }),
-        cell: ({ getValue }) => {
+        cell: ({ row, getValue }) => {
           const value = getValue();
-          return typeof value === "string" ? value : "";
+          return (
+            <span className="flex items-center gap-2">
+              {typeof value === "string" ? value : ""}
+              {row.original.isVariantTemplate && <Badge variant="secondary">{intl.formatMessage({ id: "items.variants.template" })}</Badge>}
+            </span>
+          );
         },
       },
       {
@@ -361,10 +426,16 @@ export function Items() {
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "items.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "items.description" })}</p>
         </div>
-        <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); }}>
-          {intl.formatMessage({ id: "items.addItem" })}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setAttributesOpen(true)}>
+            {intl.formatMessage({ id: "items.attributes.manage" })}
+          </Button>
+          <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); }}>
+            {intl.formatMessage({ id: "items.addItem" })}
+          </Button>
+        </div>
       </div>
+      {attributesOpen && <ItemAttributesDialog onClose={() => setAttributesOpen(false)} />}
 
       {loadError && (
         <Alert variant="destructive">
@@ -405,32 +476,32 @@ export function Items() {
         open={editingItem !== undefined}
         onOpenChange={(open) => { if (!open) { setEditingId(null); setEditError(null); setDirty(false); } }}
         title={editingItem ? intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name }) : ""}
-        size={editTab === "stock" && hasStockTab ? "xl" : "lg"}
+        size={shownTab === "details" ? "lg" : "xl"}
         dirty={dirty}
       >
-        {editingItem && hasStockTab && (
-          // docs/INVENTORY_PLAN.md §5.6: a stock-tracked item also shows its item card.
+        {editingItem && editTabs.length > 1 && (
+          // docs/INVENTORY_PLAN.md §5.6: a stock-tracked item also shows its item card; P2: variants.
           <div role="tablist" aria-label={intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name })} className="mb-3 flex gap-1 border-b">
-            {(["details", "stock"] as const).map((tab) => (
+            {editTabs.map((tab) => (
               <button
                 key={tab}
                 type="button"
                 role="tab"
-                aria-selected={editTab === tab}
+                aria-selected={shownTab === tab}
                 onClick={() => setEditTab(tab)}
                 className={cn(
                   "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-                  editTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
+                  shownTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
                 )}
               >
-                {intl.formatMessage({ id: `items.tab.${tab}` })}
+                {intl.formatMessage({ id: tab === "recipe" ? "pos.setup3.recipe.tab" : tab === "parts" ? "spec.partData.tab" : `items.tab.${tab}` })}
               </button>
             ))}
           </div>
         )}
         {editingItem && (
           // Kept mounted while the Stock tab shows, so unsaved edits survive switching tabs.
-          <div className={editTab === "stock" && hasStockTab ? "hidden" : undefined}>
+          <div className={shownTab !== "details" ? "hidden" : undefined}>
             <ItemForm
               key={editingItem.id}
               mode="edit"
@@ -449,7 +520,10 @@ export function Items() {
             />
           </div>
         )}
-        {editingItem && hasStockTab && editTab === "stock" && <ItemCardPanel itemId={editingItem.id} />}
+        {editingItem && shownTab === "stock" && <ItemCardPanel itemId={editingItem.id} />}
+        {editingItem && shownTab === "variants" && <ItemVariantsPanel itemId={editingItem.id} />}
+        {editingItem && shownTab === "recipe" && <ItemRecipePanel itemId={editingItem.id} />}
+        {editingItem && shownTab === "parts" && <ItemPartsPanel itemId={editingItem.id} />}
       </FormDialog>
 
       <DataGrid

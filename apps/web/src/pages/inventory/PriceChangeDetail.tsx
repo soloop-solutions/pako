@@ -17,16 +17,21 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { useItemSearch } from "@/hooks/useStock";
 import { downloadFileResponse } from "@/lib/download";
 import { formatAmount } from "@/lib/payroll-enums";
 import { PriceChangeState } from "@/lib/stock-enums";
+import { priceListLabel } from "@/lib/price-lists";
 
 interface Line {
   itemId: string;
   newPrice: string;
+  // docs/POS_PLAN.md P6: 0 (or empty) = the ordinary price; above 0 = a volume tier from that
+  // quantity (base units). The same item may sit on one line per tier.
+  minQuantity: string;
 }
 
-const emptyLine = (): Line => ({ itemId: "", newPrice: "" });
+const emptyLine = (): Line => ({ itemId: "", newPrice: "", minQuantity: "" });
 const parse = (s: string) => Number(s.replace(",", "."));
 
 function isoToday() {
@@ -58,17 +63,19 @@ export function PriceChangeDetail() {
     queryFn: () => apiClient.listPriceLists(activeCompanyId as string),
     enabled: !!activeCompanyId,
   }).data ?? []).filter((l) => l.isActive);
-  const itemsQuery = useQuery({
-    queryKey: ["items", activeCompanyId, "all"],
-    queryFn: async () => (await apiClient.itemsGET(activeCompanyId as string, 1, 200, undefined, undefined)).items,
-    enabled: !!activeCompanyId,
-  });
-  const itemOptions = useMemo(
-    () => (itemsQuery.data ?? []).map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.unit })),
-    [itemsQuery.data],
-  );
-
+  const itemSearch = useItemSearch();
   const change = changeQuery.data;
+  const itemOptions = useMemo(() => {
+    const options = itemSearch.items.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.unit }));
+    // A saved draft's items keep their label even when no search has returned them.
+    const listed = new Set(options.map((o) => o.value));
+    for (const l of change?.lines ?? [])
+      if (!listed.has(l.itemId)) {
+        listed.add(l.itemId);
+        options.push({ value: l.itemId, label: `${l.itemCode} · ${l.itemName}`, description: l.unit });
+      }
+    return options;
+  }, [itemSearch.items, change]);
   const [listId, setListId] = useState(params.get("list") ?? "");
   const [date, setDate] = useState(isoToday());
   const [notes, setNotes] = useState("");
@@ -81,7 +88,7 @@ export function PriceChangeDetail() {
     setListId(change.priceListId);
     setDate(change.date);
     setNotes(change.notes ?? "");
-    setLines(change.lines.map((l) => ({ itemId: l.itemId, newPrice: String(l.newPrice) })));
+    setLines(change.lines.map((l) => ({ itemId: l.itemId, newPrice: String(l.newPrice), minQuantity: l.minQuantity ? String(l.minQuantity) : "" })));
   }, [change]);
   useEffect(() => {
     if (isNew && !listId && lists.length > 0) setListId(lists[0].id);
@@ -95,7 +102,9 @@ export function PriceChangeDetail() {
       priceListId: listId,
       date,
       notes: notes.trim() || undefined,
-      lines: lines.filter((l) => l.itemId && l.newPrice !== "").map((l) => ({ itemId: l.itemId, newPrice: parse(l.newPrice) })),
+      lines: lines.filter((l) => l.itemId && l.newPrice !== "").map((l) => ({
+        itemId: l.itemId, newPrice: parse(l.newPrice), minQuantity: l.minQuantity.trim() === "" ? 0 : parse(l.minQuantity),
+      })),
     };
   }
 
@@ -195,7 +204,7 @@ export function PriceChangeDetail() {
               <div className="flex flex-col gap-1">
                 <Label htmlFor="pc-list">{t("price.list")}</Label>
                 <Select id="pc-list" value={listId} disabled={!editable} onValueChange={setListId}
-                  options={lists.map((l) => ({ value: l.id, label: l.warehouseName ? `${l.name} · ${l.warehouseName}` : l.name }))} />
+                  options={lists.map((l) => ({ value: l.id, label: priceListLabel(l, t("dist.price.customerList")) }))} />
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="pc-date">{t("price.change.validFrom")}</Label>
@@ -206,14 +215,23 @@ export function PriceChangeDetail() {
             <section className="flex flex-col gap-2">
               <h3 className="text-sm font-semibold">{t("stock.doc.lines")}</h3>
               {lines.map((line, index) => {
-                const saved = change?.lines.find((l) => l.itemId === line.itemId);
+                // By position, not item (the same item may sit on two lines); a line edited since the
+                // last save no longer matches and shows no figures until saved again.
+                const candidate = change?.lines[index];
+                const saved = candidate?.itemId === line.itemId ? candidate : undefined;
                 return (
-                  <div key={index} className="grid grid-cols-[minmax(12rem,2fr)_7rem_6rem_6rem_7rem_auto] items-end gap-2">
+                  <div key={index} className="grid grid-cols-[minmax(12rem,2fr)_6rem_7rem_6rem_6rem_7rem_auto] items-end gap-2">
                     <div className="flex flex-col gap-1">
                       {index === 0 && <Label>{t("stock.col.item")}</Label>}
                       <SearchableSelect value={line.itemId} onChange={(v) => setLine(index, { itemId: v })} disabled={!editable}
                         aria-label={t("stock.col.item")} placeholder={t("stock.doc.pickItem")} searchPlaceholder={t("common.search")}
-                        noResultsText={t("common.noResults")} options={itemOptions} />
+                        noResultsText={t("common.noResults")} options={itemOptions} onSearchChange={itemSearch.onSearchChange} />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {index === 0 && <Label title={t("dist.price.minQuantityHint")}>{t("dist.price.minQuantity")}</Label>}
+                      <Input inputMode="decimal" className="text-right tnum" value={line.minQuantity} disabled={!editable} placeholder="—"
+                        aria-label={t("dist.price.minQuantity")} title={t("dist.price.minQuantityHint")}
+                        onChange={(e) => setLine(index, { minQuantity: e.target.value })} />
                     </div>
                     <div className="flex flex-col gap-1">
                       {index === 0 && <Label>{t("price.col.newPrice")}</Label>}

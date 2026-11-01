@@ -2,6 +2,7 @@ import { ApiException, PakoApiClient } from "@pako/shared";
 
 import { en, sq } from "@/i18n/messages";
 import { getStoredAuth } from "@/lib/auth-storage";
+import { POS_OPERATOR_HEADER, posOperatorTokenFor } from "@/lib/pos-operator";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
 const LANGUAGE_STORAGE_KEY = "pako.language";
@@ -23,6 +24,10 @@ export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Pro
     headers.set("Authorization", `Bearer ${auth.token}`);
   }
   headers.set("Accept-Language", currentLocale());
+  // P3: a waiter signed in with their PIN on a shared till (lib/pos-operator.ts) — the generated
+  // client takes no custom headers, so the operator token is added here, to POS requests only.
+  const operatorToken = posOperatorTokenFor(typeof url === "string" ? url : url.url);
+  if (operatorToken) headers.set(POS_OPERATOR_HEADER, operatorToken);
 
   const response = await fetch(url, { ...init, headers });
   if (response.status === 401 && auth) {

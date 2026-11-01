@@ -22,5 +22,6 @@ public class BillConfiguration : IEntityTypeConfiguration<Bill>
         builder.HasIndex(b => new { b.CompanyId, b.State });
         builder.HasOne<Bill>().WithMany().HasForeignKey(b => b.OriginalBillId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Pako.Domain.Inventory.Warehouse>().WithMany().HasForeignKey(b => b.WarehouseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Pako.Domain.Ledger.Project>().WithMany().HasForeignKey(b => b.ProjectId).OnDelete(DeleteBehavior.Restrict);
     }
 }

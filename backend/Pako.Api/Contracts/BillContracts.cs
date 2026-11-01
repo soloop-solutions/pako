@@ -17,7 +17,9 @@ public record CreateBillLineRequest(
     string? UnitName = null,
     // §12 P8, items tracked by lot: the lot received and its expiry (purchase returns: the lot sent back).
     string? LotNumber = null,
-    DateOnly? ExpiryDate = null);
+    DateOnly? ExpiryDate = null,
+    // docs/ERP_VERTICALS_PLAN.md §1: the site cost code charged.
+    Guid? CostCodeId = null);
 
 public record CreateBillRequest(
     Guid PartnerId,
@@ -30,7 +32,9 @@ public record CreateBillRequest(
     PriceMode PriceMode = PriceMode.GrossInclusive,
     CreateBillPaymentRequest? Payment = null,
     // docs/INVENTORY_PLAN.md: where stock-tracked goods arrive; null = company default.
-    Guid? WarehouseId = null);
+    Guid? WarehouseId = null,
+    // docs/ERP_VERTICALS_PLAN.md: the ledger project the costs belong to.
+    Guid? ProjectId = null);
 
 // C5: cash-only at bill-create time — BillsController.Create rejects a non-Cash PaymentMethod
 // here; a bank payment is only ever recorded later, once it appears on the bank statement,
@@ -47,7 +51,8 @@ public record UpdateBillRequest(
     DocumentType DocumentType,
     Guid? OriginalBillId,
     string? InternalNotes,
-    Guid? WarehouseId = null);
+    Guid? WarehouseId = null,
+    Guid? ProjectId = null);
 
 // A5 (v2 release): mirror of EditPostedInvoiceRequest.
 public record EditPostedBillRequest(DateOnly DueDate, string? InternalNotes);
@@ -65,7 +70,8 @@ public record BillLineResponse(
     string? UnitName = null,
     decimal UnitFactor = 1m,
     string? LotNumber = null,
-    DateOnly? ExpiryDate = null);
+    DateOnly? ExpiryDate = null,
+    Guid? CostCodeId = null);
 
 public record BillResponse(
     Guid Id,
@@ -80,7 +86,8 @@ public record BillResponse(
     List<BillLineResponse> Lines,
     string? InternalNotes,
     PriceMode PriceMode,
-    Guid? WarehouseId = null);
+    Guid? WarehouseId = null,
+    Guid? ProjectId = null);
 
 // ---- Purchase orders (docs/INVENTORY_PLAN.md §12 P5) ----
 

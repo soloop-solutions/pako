@@ -42,4 +42,12 @@ public class Partner
     // hard block or a soft warning, and at what point in the flow, is a product decision this task
     // doesn't answer.
     public decimal? CreditLimit { get; set; }
+
+    // docs/POS_PLAN.md P6: the customer's own price list (a customer list), used before the shop's
+    // and the company's.
+    public Guid? PriceListId { get; set; }
+
+    // docs/POS_PLAN.md P6: refuse new orders and deliveries while an invoice is more than this many
+    // days past due (null = never block). Sales: Approve overrides with a reason.
+    public int? OverdueBlockDays { get; set; }
 }

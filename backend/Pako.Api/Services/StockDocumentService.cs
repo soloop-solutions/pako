@@ -58,7 +58,8 @@ public class StockDocumentService
         document.Reason = request.Type == StockDocumentType.WriteOff ? request.Reason : null;
         document.AtkNoticeDate = request.Type == StockDocumentType.WriteOff ? request.AtkNoticeDate : null;
         document.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
-        document.PartnerId = request.Type == StockDocumentType.Receipt ? request.PartnerId : null;
+        document.PartnerId = request.Type is StockDocumentType.Receipt or StockDocumentType.Delivery ? request.PartnerId : null;
+        document.SiteId = request.Type == StockDocumentType.SiteIssue ? request.SiteId : null;
 
         _db.StockDocumentLines.RemoveRange(document.Lines);
         document.Lines = request.Lines.Select(l => new StockDocumentLine
@@ -70,6 +71,8 @@ public class StockDocumentService
             Quantity = request.Type == StockDocumentType.WriteDown ? 0m : l.Quantity,
             UnitCost = request.Type is StockDocumentType.Opening or StockDocumentType.WriteDown or StockDocumentType.Receipt ? l.UnitCost : null,
             PurchaseOrderLineId = request.Type == StockDocumentType.Receipt ? l.PurchaseOrderLineId : null,
+            SalesOrderLineId = request.Type == StockDocumentType.Delivery ? l.SalesOrderLineId : null,
+            CostCodeId = request.Type == StockDocumentType.SiteIssue ? l.CostCodeId : null,
             LotNumber = string.IsNullOrWhiteSpace(l.LotNumber) ? null : l.LotNumber.Trim(),
             ExpiryDate = l.ExpiryDate,
             Note = string.IsNullOrWhiteSpace(l.Note) ? null : l.Note.Trim(),
@@ -99,8 +102,11 @@ public class StockDocumentService
             var name = await _db.Items.AsNoTracking().Where(i => i.Id == notTracked).Select(i => i.Name).FirstOrDefaultAsync() ?? "?";
             throw new StockException(string.Format(_localizer["StockItemNotTracked"].Value, name));
         }
-        // One line per item (a count with the same item twice would be ambiguous).
-        if (itemIds.Count != request.Lines.Count) throw new StockException(_localizer["StockDocumentDuplicateItem"].Value);
+        // One line per item (a count with the same item twice would be ambiguous). A delivery may
+        // send one item for two order lines, a site issue for two cost codes.
+        if (request.Type is StockDocumentType.Delivery or StockDocumentType.SiteIssue
+            ? request.Lines.Select(l => (l.ItemId, l.SalesOrderLineId, l.CostCodeId)).Distinct().Count() != request.Lines.Count
+            : itemIds.Count != request.Lines.Count) throw new StockException(_localizer["StockDocumentDuplicateItem"].Value);
 
         foreach (var line in request.Lines)
         {
@@ -114,6 +120,21 @@ public class StockDocumentService
             if (request.Type is StockDocumentType.Opening or StockDocumentType.Receipt && (line.UnitCost is not { } cost || cost < 0))
             {
                 throw new StockException(_localizer["StockOpeningCostRequired"].Value);
+            }
+        }
+
+        if (request.Type == StockDocumentType.Delivery) await ValidateDeliveryAsync(companyId, request);
+        if (request.Type == StockDocumentType.SiteIssue)
+        {
+            // docs/ERP_VERTICALS_PLAN.md §1: an active site of this company; cost codes of that site.
+            var site = request.SiteId is { } siteId
+                ? await _db.ConstructionSites.AsNoTracking().Include(s => s.CostCodes)
+                    .FirstOrDefaultAsync(s => s.Id == siteId && s.CompanyId == companyId && s.State == Pako.Domain.Projects.SiteState.Active)
+                : null;
+            if (site is null) throw new StockException(_localizer["SiteIssueSiteRequired"].Value);
+            if (request.Lines.Any(l => l.CostCodeId is { } code && site.CostCodes.All(c => c.Id != code)))
+            {
+                throw new StockException(_localizer["SiteIssueCostCodeInvalid"].Value);
             }
         }
 
@@ -145,14 +166,73 @@ public class StockDocumentService
         }
     }
 
+    // docs/POS_PLAN.md P6: a delivery goes to a customer; an ordered line must be on a confirmed
+    // order of that customer, for the same item.
+    private async Task ValidateDeliveryAsync(Guid companyId, SaveStockDocumentRequest request)
+    {
+        if (request.PartnerId is not { } customer
+            || !await _db.Partners.AnyAsync(p => p.Id == customer && p.CompanyId == companyId && p.IsCustomer))
+        {
+            throw new StockException(_localizer["DeliveryCustomerRequired"].Value);
+        }
+        var orderLineIds = request.Lines.Where(l => l.SalesOrderLineId != null).Select(l => l.SalesOrderLineId!.Value).ToList();
+        if (orderLineIds.Count == 0) return;
+        var orderLines = await _db.SalesOrderLines.AsNoTracking()
+            .Where(l => orderLineIds.Contains(l.Id) && l.SalesOrder!.CompanyId == companyId && l.SalesOrder.PartnerId == customer
+                && l.SalesOrder.State == Pako.Domain.Invoicing.SalesOrderState.Confirmed)
+            .ToDictionaryAsync(l => l.Id, l => l.ItemId);
+        if (request.Lines.Any(l => l.SalesOrderLineId is { } id && (!orderLines.TryGetValue(id, out var item) || item != l.ItemId)))
+        {
+            throw new StockException(_localizer["DeliveryOrderLineInvalid"].Value);
+        }
+    }
+
+    // A delivery against an order can't send more than the order still waits for.
+    private async Task CheckOrderNotOverDeliveredAsync(StockDocument document)
+    {
+        var byLine = document.Lines.Where(l => l.SalesOrderLineId != null)
+            .GroupBy(l => l.SalesOrderLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+        if (byLine.Count == 0) return;
+        var ordered = await _db.SalesOrderLines.AsNoTracking().Where(l => byLine.Keys.Contains(l.Id))
+            .Select(l => new { l.Id, Quantity = l.Quantity * l.UnitFactor, l.Description }).ToDictionaryAsync(l => l.Id);
+        var delivered = await SalesOrderQuantities.DeliveredAsync(_db, byLine.Keys.ToList(), exceptDocumentId: document.Id);
+        foreach (var (lineId, quantity) in byLine)
+        {
+            if (!ordered.TryGetValue(lineId, out var line)) continue;
+            var open = Math.Max(0m, line.Quantity - delivered.GetValueOrDefault(lineId));
+            if (quantity > open) throw new StockException(string.Format(_localizer["SalesOrderOverDelivered"].Value, line.Description, open));
+        }
+    }
+
     // ---- Posting ----
+
+    // §12 P6: a receipt against an order can't bring in more than the order still waits for — goods a
+    // bill already brought in directly (or another receipt) are on the shelf, and a second receipt
+    // would count them twice and leave 120800 open with no bill to clear it. Extra goods the vendor
+    // sent go on a receipt without the order link.
+    private async Task CheckOrderNotOverReceivedAsync(StockDocument document)
+    {
+        var byLine = document.Lines.Where(l => l.PurchaseOrderLineId != null)
+            .GroupBy(l => l.PurchaseOrderLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
+        if (byLine.Count == 0) return;
+        var ordered = await _db.PurchaseOrderLines.AsNoTracking().Where(l => byLine.Keys.Contains(l.Id))
+            .Select(l => new { l.Id, l.Quantity, l.Description }).ToDictionaryAsync(l => l.Id);
+        var received = await PurchaseOrderQuantities.ReceivedAsync(_db, byLine.Keys.ToList(), exceptDocumentId: document.Id);
+        foreach (var (lineId, quantity) in byLine)
+        {
+            if (!ordered.TryGetValue(lineId, out var line)) continue;
+            var open = Math.Max(0m, line.Quantity - received.GetValueOrDefault(lineId));
+            if (quantity > open) throw new StockException(string.Format(_localizer["PurchaseOrderOverReceived"].Value, line.Description, open));
+        }
+    }
 
     public async Task PostAsync(Company company, StockDocument document, Guid userId)
     {
         if (document.IsPosted) throw new StockException(_localizer["StockDocumentPosted"].Value);
         await ValidateAsync(company.Id, new SaveStockDocumentRequest(document.Type, document.Date, document.WarehouseId,
-            document.Lines.Select(l => new StockDocumentLineRequest(l.ItemId, l.Quantity, l.UnitCost, l.Note, l.PurchaseOrderLineId, l.LotNumber, l.ExpiryDate)).ToList(),
-            document.DestinationWarehouseId, document.Reason, document.AtkNoticeDate, document.Notes, document.PartnerId));
+            document.Lines.Select(l => new StockDocumentLineRequest(l.ItemId, l.Quantity, l.UnitCost, l.Note, l.PurchaseOrderLineId, l.LotNumber, l.ExpiryDate,
+                l.SalesOrderLineId, l.CostCodeId)).ToList(),
+            document.DestinationWarehouseId, document.Reason, document.AtkNoticeDate, document.Notes, document.PartnerId, document.SiteId));
 
         // D14 (AI 03/2015 Art. 61.2): destroying expired or damaged goods needs written notice to ATK
         // at least 10 days before.
@@ -164,6 +244,9 @@ public class StockDocumentService
                 throw new StockException(string.Format(_localizer["StockWriteOffAtkNoticeTooRecent"].Value, notice.AddDays(AtkNoticeDays)));
             }
         }
+
+        if (document.Type == StockDocumentType.Receipt) await CheckOrderNotOverReceivedAsync(document);
+        if (document.Type == StockDocumentType.Delivery) await CheckOrderNotOverDeliveredAsync(document);
 
         var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, userId);
         var location = await _stock.StockLocationAsync(company.Id, document.WarehouseId);
@@ -217,6 +300,27 @@ public class StockDocumentService
                         else if (line.Difference < 0)
                             requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, adjustment.Id, -line.Difference.Value, SourceLineId: line.Id,
                                 LotNumber: line.LotNumber));
+                    }
+                    break;
+                }
+            case StockDocumentType.SiteIssue:
+                {
+                    // Consumed on the site: out of stock for good, like scrap but charged to the project.
+                    var consumed = await _stock.VirtualLocationAsync(company.Id, LocationUsage.Scrap);
+                    foreach (var line in document.Lines)
+                    {
+                        requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, consumed.Id, line.Quantity, SourceLineId: line.Id,
+                            LotNumber: line.LotNumber));
+                    }
+                    break;
+                }
+            case StockDocumentType.Delivery:
+                {
+                    var customer = await _stock.VirtualLocationAsync(company.Id, LocationUsage.Customer);
+                    foreach (var line in document.Lines)
+                    {
+                        requests.Add(new(line.ItemId, StockMoveKind.Issue, location.Id, customer.Id, line.Quantity, SourceLineId: line.Id,
+                            LotNumber: line.LotNumber));
                     }
                     break;
                 }
@@ -359,6 +463,26 @@ public class StockDocumentService
                     }
                     break;
                 }
+            case StockDocumentType.SiteIssue:
+                {
+                    // docs/ERP_VERTICALS_PLAN.md §1: Dr cost of sales (tagged with the site's project) / Cr stock.
+                    foreach (var m in posting.Moves)
+                    {
+                        var a = accounts[m.Request.ItemId];
+                        StockService.AddPair(entry, a.CogsAccountId, a.InventoryAccountId, m.Value, label);
+                    }
+                    break;
+                }
+            case StockDocumentType.Delivery:
+                {
+                    // docs/POS_PLAN.md P6: cost of goods sold on delivery; the invoice posts revenue only.
+                    foreach (var m in posting.Moves)
+                    {
+                        var a = accounts[m.Request.ItemId];
+                        StockService.AddPair(entry, a.CogsAccountId, a.InventoryAccountId, m.Value, label);
+                    }
+                    break;
+                }
             case StockDocumentType.Count:
                 {
                     var shortage = await _stock.RequiredAccountAsync(companyId, StockService.ShortageAccountCode);
@@ -382,7 +506,8 @@ public class StockDocumentService
                     {
                         StockService.AddPair(entry, expense, accounts[m.Request.ItemId].InventoryAccountId, m.Value, label);
                     }
-                    if (VatRepaymentDue(document))
+                    // Only a VAT-registered company deducted input VAT to give back.
+                    if (VatRepaymentDue(document) && await _db.Companies.AnyAsync(c => c.Id == companyId && c.IsVatRegistered))
                     {
                         await AddVatRepaymentAsync(entry, companyId, posting.Moves.Select(m => (m.Request.ItemId, m.Value)), expense,
                             $"{_localizer["StockVatRepayment"].Value} {document.Number}");
@@ -393,6 +518,13 @@ public class StockDocumentService
 
         StockService.AddCorrections(entry, posting, accounts, posting.Moves.Select(m => (m.Request.ItemId, m.Correction)),
             _localizer["StockCostCorrection"].Value);
+        if (document.Type == StockDocumentType.SiteIssue)
+        {
+            // The cost lands on the site's project.
+            var projectId = await _db.ConstructionSites.AsNoTracking().Where(s => s.Id == document.SiteId).Select(s => s.ProjectId).FirstAsync();
+            var cogs = accounts.Values.Select(a => a.CogsAccountId).ToHashSet();
+            foreach (var line in entry.Lines.Where(l => cogs.Contains(l.AccountId))) line.ProjectId = projectId;
+        }
         if (entry.Lines.Count == 0) return null;
         entry.SequenceNumber = JournalSequencer.ReserveNext(journal);
         return entry;
@@ -452,10 +584,13 @@ public class StockDocumentService
             : new Dictionary<Guid, decimal>();
         // Receipts: how much of each line vendor bills have matched (§12 P6).
         var lineIds = d.Lines.Select(l => l.Id).ToList();
+        // Deliveries: how much of each line posted invoices have billed (docs/POS_PLAN.md P6).
         var billed = d.Type == StockDocumentType.Receipt
             ? await _db.ReceiptMatches.AsNoTracking().Where(m => lineIds.Contains(m.ReceiptLineId))
                 .GroupBy(m => m.ReceiptLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity) }).ToDictionaryAsync(g => g.Key, g => g.Quantity)
-            : new Dictionary<Guid, decimal>();
+            : d.Type == StockDocumentType.Delivery && d.IsPosted
+                ? await SalesOrderQuantities.InvoicedDeliveriesAsync(_db, lineIds)
+                : new Dictionary<Guid, decimal>();
         var partnerName = d.PartnerId is { } partnerId
             ? await _db.Partners.AsNoTracking().Where(p => p.Id == partnerId).Select(p => p.Name).FirstOrDefaultAsync()
             : null;
@@ -470,12 +605,13 @@ public class StockDocumentService
                 l.Quantity, l.UnitCost, l.BookQuantity, l.Difference,
                 !d.IsPosted ? null : d.Type == StockDocumentType.WriteDown ? l.Amount : values.GetValueOrDefault(l.Id), l.Note,
                 l.AverageCost, l.AllowanceAfter, l.PurchaseOrderLineId,
-                d.Type == StockDocumentType.Receipt ? billed.GetValueOrDefault(l.Id) : null, l.LotNumber, l.ExpiryDate);
+                d.Type is StockDocumentType.Receipt or StockDocumentType.Delivery ? billed.GetValueOrDefault(l.Id) : null, l.LotNumber, l.ExpiryDate,
+                l.SalesOrderLineId, l.CostCodeId);
         }).ToList();
         var total = d.Type == StockDocumentType.WriteDown ? d.Lines.Sum(l => l.Amount ?? 0m) : values.Values.Sum();
         return new StockDocumentResponse(d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, warehouses.GetValueOrDefault(d.WarehouseId) ?? "?",
             d.DestinationWarehouseId, d.DestinationWarehouseId is { } dest ? warehouses.GetValueOrDefault(dest) : null,
             d.Reason, d.AtkNoticeDate, d.Notes, total, VatRepaymentDue(d), d.JournalEntryId, d.PostedAt, lines, vatRepaid,
-            d.PartnerId, partnerName);
+            d.PartnerId, partnerName, d.SiteId);
     }
 }

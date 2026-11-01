@@ -59,7 +59,8 @@ public class PartnersController : ControllerBase
     [ProducesResponseType(typeof(PartnerResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
-        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit);
+        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit)
+            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays);
         if (validationError is not null) return validationError;
 
         var partner = new Partner
@@ -75,7 +76,9 @@ public class PartnersController : ControllerBase
             ReceivableAccountId = request.ReceivableAccountId,
             PayableAccountId = request.PayableAccountId,
             PaymentTermDays = request.PaymentTermDays,
-            CreditLimit = request.CreditLimit
+            CreditLimit = request.CreditLimit,
+            PriceListId = request.PriceListId,
+            OverdueBlockDays = request.OverdueBlockDays
         };
 
         _db.Partners.Add(partner);
@@ -112,7 +115,8 @@ public class PartnersController : ControllerBase
         var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
         if (partner is null) return NotFound();
 
-        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId);
+        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId)
+            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays);
         if (validationError is not null) return validationError;
 
         partner.Name = request.Name;
@@ -125,6 +129,8 @@ public class PartnersController : ControllerBase
         partner.PayableAccountId = request.PayableAccountId;
         partner.PaymentTermDays = request.PaymentTermDays;
         partner.CreditLimit = request.CreditLimit;
+        partner.PriceListId = request.PriceListId;
+        partner.OverdueBlockDays = request.OverdueBlockDays;
 
         try
         {
@@ -200,12 +206,22 @@ public class PartnersController : ControllerBase
         return null;
     }
 
+    // docs/POS_PLAN.md P6: a customer can only be given a customer price list.
+    private async Task<ActionResult?> ValidateSalesTermsAsync(Guid companyId, Guid? priceListId, int? overdueBlockDays)
+    {
+        if (priceListId is { } listId && !await _db.PriceLists.AnyAsync(l => l.Id == listId && l.CompanyId == companyId && l.IsCustomerList))
+            return BadRequest(_localizer["PartnerPriceListInvalid"].Value);
+        if (overdueBlockDays is < 0 or > 3650)
+            return BadRequest(_localizer["PartnerOverdueBlockDays"].Value);
+        return null;
+    }
+
     private static bool IsTaxNumberUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_partners_CompanyId_TaxNumber_Unique" };
 
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,
-        p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit);
+        p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays);
 
     // J15: the partner's account statement. Readable by anyone who can see the partner — including
     // partner-restricted staff for their assigned partners, who get 404 for any other partner.

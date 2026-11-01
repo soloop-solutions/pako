@@ -20,7 +20,7 @@ public class PlatformAdminService
     private static readonly (AppModule Module, string Key)[] ModuleKeys =
     {
         (AppModule.Sales, "sales"), (AppModule.Purchases, "purchases"), (AppModule.Accounting, "accounting"),
-        (AppModule.Reports, "reports"), (AppModule.Hr, "hr"), (AppModule.Payroll, "payroll"), (AppModule.Inventory, "inventory")
+        (AppModule.Reports, "reports"), (AppModule.Hr, "hr"), (AppModule.Payroll, "payroll"), (AppModule.Inventory, "inventory"), (AppModule.Pos, "pos")
     };
 
     private readonly PakoDbContext _db;

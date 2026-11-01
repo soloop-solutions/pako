@@ -40,17 +40,19 @@ public class StockDocumentsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<ActionResult<PaginatedResponse<StockDocumentSummaryResponse>>> List(Guid companyId,
         [FromQuery] StockDocumentType? type = null, [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] Guid? siteId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
         var query = _db.StockDocuments.AsNoTracking().Where(d => d.CompanyId == companyId);
         if (type is { } t) query = query.Where(d => d.Type == t);
+        if (siteId is { } site) query = query.Where(d => d.SiteId == site);
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, $"%{search.Trim()}%"));
         var total = await query.CountAsync();
         var documents = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
-            .Select(d => new { d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, d.DestinationWarehouseId, Lines = d.Lines.Count,
+            .Select(d => new { d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, d.DestinationWarehouseId, Lines = d.Lines.Count, d.SiteId,
+                PartnerName = _db.Partners.Where(p => p.Id == d.PartnerId).Select(p => p.Name).FirstOrDefault(),
                 WriteDown = d.Lines.Sum(l => l.Amount ?? 0m) })
             .ToListAsync();
         var ids = documents.Select(d => d.Id).ToList();
@@ -63,7 +65,7 @@ public class StockDocumentsController : ControllerBase
             d.Id, d.Type, d.State, d.Number, d.Date, warehouses.GetValueOrDefault(d.WarehouseId) ?? "?",
             d.DestinationWarehouseId is { } dest ? warehouses.GetValueOrDefault(dest) : null, d.Lines,
             // A write-down moves no stock: its value is the allowance change.
-            d.Type == StockDocumentType.WriteDown ? d.WriteDown : values.GetValueOrDefault(d.Id))).ToList(),
+            d.Type == StockDocumentType.WriteDown ? d.WriteDown : values.GetValueOrDefault(d.Id), d.PartnerName, d.SiteId)).ToList(),
             total, page, pageSize));
     }
 
@@ -77,6 +79,7 @@ public class StockDocumentsController : ControllerBase
 
     [HttpPost(Name = "CreateStockDocument")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Inventory)]
+    [ProducesResponseType(typeof(StockDocumentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<StockDocumentResponse>> Create(Guid companyId, SaveStockDocumentRequest request)
     {
         try

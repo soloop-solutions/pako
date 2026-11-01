@@ -24,7 +24,10 @@ public enum AccessModule
     Inventory,
     Items,
     Settings,
-    Users
+    Users,
+    // docs/POS_PLAN.md D14: the point of sale — Write sells and handles cash in a session; Approve
+    // also cancels and refunds coupons, overrides discounts and closes sessions.
+    Pos
 }
 
 public enum AccessLevel

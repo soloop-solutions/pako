@@ -24,5 +24,10 @@ public class InvoiceLine
     public string? LotNumber { get; set; }
     public DateOnly? ExpiryDate { get; set; }
 
+    // docs/POS_PLAN.md P6: the sales order line invoiced, and the posted delivery line whose goods
+    // this bills. A line naming a delivery moves no stock (the delivery already did).
+    public Guid? SalesOrderLineId { get; set; }
+    public Guid? DeliveryLineId { get; set; }
+
     public Invoice? Invoice { get; set; }
 }

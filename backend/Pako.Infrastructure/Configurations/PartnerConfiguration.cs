@@ -15,6 +15,7 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(p => p.FiscalNumber).HasMaxLength(64);
         builder.Property(p => p.IsVatRegistered).HasDefaultValue(false);
         builder.Property(p => p.CreditLimit).HasColumnType("numeric(18,2)");
+        builder.HasOne<Pako.Domain.Inventory.PriceList>().WithMany().HasForeignKey(p => p.PriceListId).OnDelete(DeleteBehavior.SetNull);
         builder.HasIndex(p => p.CompanyId);
         builder.HasIndex(p => new { p.CompanyId, p.EmployeeId }).IsUnique().HasFilter("\"EmployeeId\" IS NOT NULL");
         builder.HasIndex(p => new { p.CompanyId, p.TaxNumber })

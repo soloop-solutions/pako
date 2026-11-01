@@ -18,6 +18,7 @@ public class BillLineConfiguration : IEntityTypeConfiguration<BillLine>
         builder.Property(l => l.LotNumber).HasMaxLength(64);
         builder.Property(l => l.UnitFactor).HasColumnType("numeric(18,4)").HasDefaultValue(1m);
         builder.HasIndex(l => l.ExpenseAccountId);
+        builder.HasOne<Pako.Domain.Projects.CostCode>().WithMany().HasForeignKey(l => l.CostCodeId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Item>().WithMany().HasForeignKey(l => l.ItemId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<PurchaseOrderLine>().WithMany().HasForeignKey(l => l.PurchaseOrderLineId).OnDelete(DeleteBehavior.Restrict);
         builder.HasIndex(l => l.PurchaseOrderLineId);

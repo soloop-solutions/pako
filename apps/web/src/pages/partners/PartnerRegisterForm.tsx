@@ -9,6 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AccountType } from "@/lib/ledger-enums";
+import { usePriceLists } from "@/hooks/useDistribution";
+import { CreditStatusPanel } from "@/pages/sales/CreditStatusPanel";
 
 export interface PartnerRegisterFormFields {
   name: string;
@@ -21,6 +23,10 @@ export interface PartnerRegisterFormFields {
   payableAccountId: string | null;
   paymentTermDays: number | null;
   creditLimit: number | null;
+  // docs/POS_PLAN.md P6: the customer's own price list (customer lists only) and how many days an
+  // invoice may be overdue before new orders are blocked (null = never).
+  priceListId: string | null;
+  overdueBlockDays: number | null;
 }
 
 export interface PartnerRegisterFormProps {
@@ -52,12 +58,15 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const [payableAccountId, setPayableAccountId] = useState(initial?.payableAccountId ?? "");
   const [paymentTermDays, setPaymentTermDays] = useState(initial?.paymentTermDays != null ? String(initial.paymentTermDays) : "");
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit != null ? String(initial.creditLimit) : "");
+  const [priceListId, setPriceListId] = useState(initial?.priceListId ?? "");
+  const [overdueBlockDays, setOverdueBlockDays] = useState(initial?.overdueBlockDays != null ? String(initial.overdueBlockDays) : "");
+  const customerLists = (usePriceLists().data ?? []).filter((l) => l.isCustomerList && (l.isActive || l.id === initial?.priceListId));
 
   useEffect(() => {
     onDirtyChange?.(true);
   // only on field changes, not initial render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit]);
+  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, overdueBlockDays]);
 
   // A customer's control account is naturally a Receivable-type account, a vendor's a
   // Payable-type one. B13 widened AccountType to Odoo's real 19 values, which now has exact
@@ -83,6 +92,8 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       payableAccountId: payableAccountId || null,
       paymentTermDays: paymentTermDays ? parseInt(paymentTermDays, 10) : null,
       creditLimit: creditLimit ? parseFloat(creditLimit) : null,
+      priceListId: isCustomer ? priceListId || null : null,
+      overdueBlockDays: isCustomer && overdueBlockDays !== "" ? parseInt(overdueBlockDays, 10) : null,
     });
   }
 
@@ -188,6 +199,42 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           />
         </div>
       </div>
+
+      {/* --- Distribution (docs/POS_PLAN.md P6) --- */}
+      {isCustomer && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="partner-price-list">{intl.formatMessage({ id: "dist.partner.priceList" })}</Label>
+            <SearchableSelect
+              id="partner-price-list"
+              value={priceListId}
+              onChange={setPriceListId}
+              placeholder={intl.formatMessage({ id: "dist.partner.noPriceList" })}
+              emptyOptionLabel={intl.formatMessage({ id: "dist.partner.noPriceList" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              options={[
+                ...customerLists.map((l) => ({ value: l.id, label: l.name })),
+                ...(priceListId && !customerLists.some((l) => l.id === priceListId) ? [{ value: priceListId, label: priceListId }] : []),
+              ]}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "dist.partner.priceListHint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="partner-overdue-block">{intl.formatMessage({ id: "dist.partner.overdueBlockDays" })}</Label>
+            <Input
+              id="partner-overdue-block"
+              type="number"
+              min="0"
+              step="1"
+              value={overdueBlockDays}
+              onChange={(e) => setOverdueBlockDays(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "dist.partner.overdueBlockDaysHint" })}</p>
+          </div>
+          {mode === "edit" && initial?.isCustomer && <CreditStatusPanel partnerId={initial.id} />}
+        </div>
+      )}
 
       {/* --- Actions --- */}
       <div className="flex items-center gap-2">

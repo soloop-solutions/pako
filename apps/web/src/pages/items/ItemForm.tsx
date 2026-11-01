@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { AccountResponse, ItemCategoryResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
+import { apiClient } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
+import { useCompany } from "@/context/CompanyContext";
+import { useItemSearch } from "@/hooks/useStock";
 import { ITEM_TYPE_OPTION_KEYS, ItemType } from "@/lib/item-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
 
@@ -30,6 +34,33 @@ export interface ItemFormFields {
   purchaseUnitFactor?: number;
   salesUnit?: string;
   salesUnitFactor?: number;
+  // docs/POS_PLAN.md §6.1 / P2: how the till sells the item.
+  plu?: string;
+  sellByWeight: boolean;
+  openPrice: boolean;
+  minimumAge?: number;
+  depositItemId?: string;
+  // P2: a serial number (IMEI) per unit sold, and the warranty it carries.
+  trackSerials: boolean;
+  warrantyMonths?: number;
+  // docs/POS_PLAN.md P4 (services): booked on the calendar, sold as a package of sessions, or a membership plan.
+  isBookable?: boolean;
+  durationMinutes?: number;
+  bufferMinutes?: number;
+  packageServiceItemId?: string;
+  packageSessions?: number;
+  packageValidDays?: number;
+  membershipDays?: number;
+  // docs/POS_PLAN.md P7 (pharmacy): the medicine's classification, prescription and controlled
+  // flags, and the state's maximum retail price per base unit.
+  atcCode?: string;
+  activeIngredient?: string;
+  isPrescriptionOnly?: boolean;
+  isControlled?: boolean;
+  maxRetailPrice?: number;
+  // P7 (agency): sold on behalf of a principal (a vendor) for a commission — e.g. phone top-ups.
+  agencyPartnerId?: string;
+  agencyCommissionPercent?: number;
 }
 
 interface ItemFormProps {
@@ -94,6 +125,66 @@ export function ItemForm({
   // Tracking can't be switched once stock has moved: the ledger and the stock card would disagree.
   const trackingLocked = initial?.hasStockMoves ?? false;
   const canTrack = type === ItemType.Goods;
+  // §6.1 P2: the till fields.
+  const [plu, setPlu] = useState(initial?.plu ?? "");
+  const [sellByWeight, setSellByWeight] = useState(initial?.sellByWeight ?? false);
+  const [openPrice, setOpenPrice] = useState(initial?.openPrice ?? false);
+  const [minimumAge, setMinimumAge] = useState(initial?.minimumAge != null ? String(initial.minimumAge) : "");
+  const [depositItemId, setDepositItemId] = useState(initial?.depositItemId ?? "");
+  const [trackSerials, setTrackSerials] = useState(initial?.trackSerials ?? false);
+  const [warrantyMonths, setWarrantyMonths] = useState(initial?.warrantyMonths != null ? String(initial.warrantyMonths) : "");
+  // P4: services.
+  const [isBookable, setIsBookable] = useState(initial?.isBookable ?? false);
+  const [duration, setDuration] = useState(initial?.durationMinutes != null ? String(initial.durationMinutes) : "");
+  const [buffer, setBuffer] = useState(initial?.bufferMinutes != null ? String(initial.bufferMinutes) : "");
+  const [packageOf, setPackageOf] = useState(initial?.packageServiceItemId ?? "");
+  const [packageSessions, setPackageSessions] = useState(initial?.packageSessions != null ? String(initial.packageSessions) : "");
+  const [packageValidDays, setPackageValidDays] = useState(initial?.packageValidDays != null ? String(initial.packageValidDays) : "");
+  const [membershipDays, setMembershipDays] = useState(initial?.membershipDays != null ? String(initial.membershipDays) : "");
+  // P7: pharmacy and agency.
+  const [atcCode, setAtcCode] = useState(initial?.atcCode ?? "");
+  const [activeIngredient, setActiveIngredient] = useState(initial?.activeIngredient ?? "");
+  const [isPrescriptionOnly, setIsPrescriptionOnly] = useState(initial?.isPrescriptionOnly ?? false);
+  const [isControlled, setIsControlled] = useState(initial?.isControlled ?? false);
+  const [maxRetailPrice, setMaxRetailPrice] = useState(initial?.maxRetailPrice != null ? String(initial.maxRetailPrice) : "");
+  const [agencyPartnerId, setAgencyPartnerId] = useState(initial?.agencyPartnerId ?? "");
+  const [agencyCommission, setAgencyCommission] = useState(initial?.agencyCommissionPercent != null ? String(initial.agencyCommissionPercent) : "");
+  const pharmacyRelevant = !!(initial?.atcCode || initial?.activeIngredient || initial?.isPrescriptionOnly || initial?.isControlled || initial?.maxRetailPrice != null);
+  const agencyRelevant = !!initial?.agencyPartnerId;
+  const { activeCompanyId } = useCompany();
+  const vendors = (useQuery({
+    queryKey: ["partners", activeCompanyId],
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    enabled: !!activeCompanyId,
+    staleTime: 60_000,
+  }).data ?? []).filter((p) => p.isVendor);
+  const itemSearch = useItemSearch();
+  const serviceSearch = useItemSearch();
+  const packageKnown = !packageOf || serviceSearch.items.some((i) => i.id === packageOf);
+  const savedPackageOf = useQuery({
+    queryKey: ["items", activeCompanyId, "one", packageOf],
+    queryFn: () => apiClient.itemsGET2(activeCompanyId as string, packageOf),
+    enabled: !!activeCompanyId && !packageKnown,
+  }).data;
+  const packageOptions = useMemo(() => {
+    // Not itself, and not a package (the server refuses both).
+    const candidates = serviceSearch.items.filter((i) => i.id !== initial?.id && !i.packageServiceItemId);
+    if (savedPackageOf && !candidates.some((i) => i.id === savedPackageOf.id)) candidates.unshift(savedPackageOf);
+    return candidates.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.isBookable ? intl.formatMessage({ id: "svc.item.bookable" }) : undefined }));
+  }, [serviceSearch.items, savedPackageOf, initial?.id, intl]);
+  // The saved deposit item may not be among the searched ones: fetch it so the picker can name it.
+  const depositKnown = !depositItemId || itemSearch.items.some((i) => i.id === depositItemId);
+  const savedDeposit = useQuery({
+    queryKey: ["items", activeCompanyId, "one", depositItemId],
+    queryFn: () => apiClient.itemsGET2(activeCompanyId as string, depositItemId),
+    enabled: !!activeCompanyId && !depositKnown,
+  }).data;
+  const depositOptions = useMemo(() => {
+    // Not itself, and not an item that carries a deposit of its own (the server refuses both).
+    const candidates = itemSearch.items.filter((i) => i.id !== initial?.id && !i.depositItemId);
+    if (savedDeposit && !candidates.some((i) => i.id === savedDeposit.id)) candidates.unshift(savedDeposit);
+    return candidates.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}` }));
+  }, [itemSearch.items, savedDeposit, initial?.id]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -115,6 +206,27 @@ export function ItemForm({
       purchaseUnitFactor: canTrack && purchaseUnit.trim() && purchaseFactor ? parseFloat(purchaseFactor) : undefined,
       salesUnit: canTrack && salesUnit.trim() ? salesUnit.trim() : undefined,
       salesUnitFactor: canTrack && salesUnit.trim() && salesFactor ? parseFloat(salesFactor) : undefined,
+      plu: plu.trim() || undefined,
+      sellByWeight,
+      openPrice,
+      minimumAge: minimumAge.trim() ? parseInt(minimumAge, 10) : undefined,
+      depositItemId: depositItemId || undefined,
+      trackSerials,
+      warrantyMonths: warrantyMonths.trim() ? parseInt(warrantyMonths, 10) : undefined,
+      isBookable,
+      durationMinutes: isBookable && duration.trim() ? parseInt(duration, 10) : undefined,
+      bufferMinutes: isBookable && buffer.trim() ? parseInt(buffer, 10) : undefined,
+      packageServiceItemId: packageOf || undefined,
+      packageSessions: packageOf && packageSessions.trim() ? parseInt(packageSessions, 10) : undefined,
+      packageValidDays: packageOf && packageValidDays.trim() ? parseInt(packageValidDays, 10) : undefined,
+      membershipDays: membershipDays.trim() ? parseInt(membershipDays, 10) : undefined,
+      atcCode: atcCode.trim() || undefined,
+      activeIngredient: activeIngredient.trim() || undefined,
+      isPrescriptionOnly,
+      isControlled,
+      maxRetailPrice: maxRetailPrice.trim() ? parseFloat(maxRetailPrice) : undefined,
+      agencyPartnerId: agencyPartnerId || undefined,
+      agencyCommissionPercent: agencyPartnerId && agencyCommission.trim() ? parseFloat(agencyCommission) : undefined,
     });
   }
 
@@ -318,6 +430,210 @@ export function ItemForm({
           <p className="text-xs text-muted-foreground sm:col-span-4">{intl.formatMessage({ id: "items.units.hint" })}</p>
         </div>
       )}
+
+      <fieldset className="flex flex-col gap-2 rounded-md border p-3">
+        <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.till" })}</legend>
+        <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.till.hint" })}</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-plu">{intl.formatMessage({ id: "items.plu" })}</Label>
+            <Input
+              id="item-plu"
+              inputMode="numeric"
+              pattern="[0-9]{1,6}"
+              maxLength={6}
+              className="tabular-nums"
+              value={plu}
+              onChange={(e) => setPlu(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.plu.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-minimum-age">{intl.formatMessage({ id: "items.minimumAge" })}</Label>
+            <Input
+              id="item-minimum-age"
+              type="number"
+              min="1"
+              max="99"
+              step="1"
+              className="text-right tabular-nums"
+              value={minimumAge}
+              onChange={(e) => setMinimumAge(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.minimumAge.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-deposit">{intl.formatMessage({ id: "items.depositItem" })}</Label>
+            <SearchableSelect
+              id="item-deposit"
+              value={depositItemId}
+              onChange={setDepositItemId}
+              onSearchChange={itemSearch.onSearchChange}
+              placeholder={intl.formatMessage({ id: "items.depositItem.none" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              emptyOptionLabel={intl.formatMessage({ id: "items.depositItem.none" })}
+              options={depositOptions}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.depositItem.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={sellByWeight} onChange={(e) => setSellByWeight(e.target.checked)} />
+              {intl.formatMessage({ id: "items.sellByWeight" })}
+            </label>
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.sellByWeight.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={openPrice} onChange={(e) => setOpenPrice(e.target.checked)} />
+              {intl.formatMessage({ id: "items.openPrice" })}
+            </label>
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.openPrice.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} />
+              {intl.formatMessage({ id: "items.trackSerials" })}
+            </label>
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.trackSerials.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-warranty">{intl.formatMessage({ id: "items.warrantyMonths" })}</Label>
+            <Input
+              id="item-warranty"
+              type="number"
+              min="1"
+              max="240"
+              step="1"
+              className="text-right tabular-nums"
+              value={warrantyMonths}
+              onChange={(e) => setWarrantyMonths(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.warrantyMonths.hint" })}</p>
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-2 rounded-md border p-3" data-testid="item-services">
+        <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "svc.item.section" })}</legend>
+        <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.hint" })}</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={isBookable} onChange={(e) => setIsBookable(e.target.checked)} />
+              {intl.formatMessage({ id: "svc.item.bookable" })}
+            </label>
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.bookable.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-duration">{intl.formatMessage({ id: "svc.item.duration" })}</Label>
+            <Input id="item-duration" type="number" min="5" max="1440" step="1" className="text-right tabular-nums" disabled={!isBookable}
+              required={isBookable} value={duration} onChange={(e) => setDuration(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-buffer">{intl.formatMessage({ id: "svc.item.buffer" })}</Label>
+            <Input id="item-buffer" type="number" min="0" max="240" step="1" className="text-right tabular-nums" disabled={!isBookable}
+              value={buffer} onChange={(e) => setBuffer(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.buffer.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-package-of">{intl.formatMessage({ id: "svc.item.packageOf" })}</Label>
+            <SearchableSelect
+              id="item-package-of"
+              value={packageOf}
+              onChange={setPackageOf}
+              onSearchChange={serviceSearch.onSearchChange}
+              placeholder={intl.formatMessage({ id: "svc.item.packageOf.none" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              emptyOptionLabel={intl.formatMessage({ id: "svc.item.packageOf.none" })}
+              options={packageOptions}
+            />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.packageOf.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-package-sessions">{intl.formatMessage({ id: "svc.item.packageSessions" })}</Label>
+            <Input id="item-package-sessions" type="number" min="1" max="1000" step="1" className="text-right tabular-nums" disabled={!packageOf}
+              required={!!packageOf} value={packageSessions} onChange={(e) => setPackageSessions(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-package-valid">{intl.formatMessage({ id: "svc.item.packageValidDays" })}</Label>
+            <Input id="item-package-valid" type="number" min="1" max="3650" step="1" className="text-right tabular-nums" disabled={!packageOf}
+              value={packageValidDays} onChange={(e) => setPackageValidDays(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.packageValidDays.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-membership-days">{intl.formatMessage({ id: "svc.item.membershipDays" })}</Label>
+            <Input id="item-membership-days" type="number" min="1" max="3650" step="1" className="text-right tabular-nums"
+              value={membershipDays} onChange={(e) => setMembershipDays(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.membershipDays.hint" })}</p>
+          </div>
+        </div>
+      </fieldset>
+
+      {/* P7 pharmacy: collapsed unless the item already carries pharmacy data. */}
+      <details className="group rounded-md border p-3" open={pharmacyRelevant} data-testid="item-pharmacy">
+        <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "spec.item.pharmacy" })}</summary>
+        <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.pharmacy.hint" })}</p>
+        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-atc">{intl.formatMessage({ id: "spec.item.atc" })}</Label>
+            <Input id="item-atc" maxLength={10} placeholder="N02BE01" value={atcCode} onChange={(e) => setAtcCode(e.target.value.toUpperCase())} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-ingredient">{intl.formatMessage({ id: "spec.item.ingredient" })}</Label>
+            <Input id="item-ingredient" maxLength={200} placeholder="paracetamol" value={activeIngredient} onChange={(e) => setActiveIngredient(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.ingredient.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-max-price">{intl.formatMessage({ id: "spec.item.maxPrice" }, { unit: unit || "—" })}</Label>
+            <Input id="item-max-price" type="number" min="0" step="0.01" className="text-right tabular-nums" value={maxRetailPrice}
+              onChange={(e) => setMaxRetailPrice(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.maxPrice.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={isPrescriptionOnly} onChange={(e) => setIsPrescriptionOnly(e.target.checked)} />
+              {intl.formatMessage({ id: "spec.item.rxOnly" })}
+            </label>
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.rxOnly.hint" })}</p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="flex h-9 items-center gap-2 text-sm">
+              <input type="checkbox" checked={isControlled} onChange={(e) => setIsControlled(e.target.checked)} />
+              {intl.formatMessage({ id: "spec.item.controlled" })}
+            </label>
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.controlled.hint" })}</p>
+          </div>
+        </div>
+      </details>
+
+      {/* P7 agency items: sold for a principal (a vendor) for a commission. */}
+      <details className="group rounded-md border p-3" open={agencyRelevant} data-testid="item-agency">
+        <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "spec.item.agency" })}</summary>
+        <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.agency.hint" })}</p>
+        <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="flex flex-col gap-1 sm:col-span-2">
+            <Label htmlFor="item-agency-partner">{intl.formatMessage({ id: "spec.item.agencyPartner" })}</Label>
+            <SearchableSelect
+              id="item-agency-partner"
+              value={agencyPartnerId}
+              onChange={setAgencyPartnerId}
+              placeholder={intl.formatMessage({ id: "spec.item.agencyPartner.none" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              emptyOptionLabel={intl.formatMessage({ id: "spec.item.agencyPartner.none" })}
+              options={vendors.map((p) => ({ value: p.id, label: p.name, description: p.fiscalNumber ?? undefined }))}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-agency-commission">{intl.formatMessage({ id: "spec.item.agencyCommission" })}</Label>
+            <Input id="item-agency-commission" type="number" min="0" max="100" step="0.01" className="text-right tabular-nums" disabled={!agencyPartnerId}
+              value={agencyCommission} onChange={(e) => setAgencyCommission(e.target.value)} />
+          </div>
+        </div>
+      </details>
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={submitting || !name.trim() || !unit.trim()}>

@@ -216,6 +216,11 @@ public class JournalEntriesController : ControllerBase
                     $"SELECT \"Id\" FROM journals WHERE \"Id\" = {entry.JournalId} FOR UPDATE");
             }
 
+            if (await StockAccountLineAsync(companyId, entry) is { } stockError)
+            {
+                return BadRequest(stockError);
+            }
+
             var journal = await _db.Journals.FirstOrDefaultAsync(j => j.Id == entry.JournalId);
             if (journal is null)
             {
@@ -299,6 +304,14 @@ public class JournalEntriesController : ControllerBase
             return BadRequest(_localizer["JournalNoLongerExists"].Value);
         }
 
+        // §5.3: an entry that moved stock accounts (an invoice's or bill's cost, a stock document, a
+        // POS session) is undone by its document — a return, a count, a write-off — never by
+        // mirroring it here, which would empty the ledger while the stock stays on the shelf.
+        if (await StockAccountLineAsync(companyId, entry) is { } stockError)
+        {
+            return BadRequest(stockError);
+        }
+
         var effectiveCompanyForReversal = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
 
         JournalEntry reversal;
@@ -339,4 +352,14 @@ public class JournalEntriesController : ControllerBase
         e.SequenceNumber,
         e.PostedAtUtc,
         e.Lines.Select(l => new JournalEntryLineResponse(l.Id, l.AccountId, l.PartnerId, l.Debit, l.Credit, l.Description, l.AnalyticDistribution, l.ProjectId, l.EmployeeId)).ToList());
+
+    // The refusal when an entry touches a stock account in use (docs/INVENTORY_PLAN.md §5.3), else null.
+    private async Task<string?> StockAccountLineAsync(Guid companyId, JournalEntry entry)
+    {
+        var stockAccountIds = await new StockService(_db, _localizer).StockAccountIdsInUseAsync(companyId);
+        var line = entry.Lines.FirstOrDefault(l => stockAccountIds.Contains(l.AccountId));
+        if (line is null) return null;
+        var code = await _db.Accounts.AsNoTracking().Where(a => a.Id == line.AccountId).Select(a => a.Code).FirstAsync();
+        return string.Format(_localizer["StockAccountManualEntry"].Value, code);
+    }
 }

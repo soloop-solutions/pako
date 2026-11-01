@@ -695,4 +695,334 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="StockLotsLocked" xml:space="preserve">
     <value>Përcjellja sipas lotit nuk mund të ndizet ose fiket pasi stoku i këtij artikulli ka lëvizur.</value>
   </data>
+  <data name="PosRegisterInactive" xml:space="preserve">
+    <value>Kjo arkë është e çaktivizuar.</value>
+  </data>
+  <data name="PosAmountInvalid" xml:space="preserve">
+    <value>Shkruani një shumë 0 ose më shumë (pagesat mbi 0).</value>
+  </data>
+  <data name="PosSessionAlreadyOpen" xml:space="preserve">
+    <value>Kjo arkë ka tashmë një turn të hapur. Mbylleni më parë.</value>
+  </data>
+  <data name="PosSessionNotOpen" xml:space="preserve">
+    <value>Turni nuk është i hapur. Hapni një turn në këtë arkë për të shitur.</value>
+  </data>
+  <data name="PosReasonRequired" xml:space="preserve">
+    <value>Shkruani arsyen.</value>
+  </data>
+  <data name="PosAccountInvalid" xml:space="preserve">
+    <value>Zgjidhni një llogari aktive për regjistrim.</value>
+  </data>
+  <data name="PosCustomerNotFound" xml:space="preserve">
+    <value>Ai klient nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="PosTenderNotFound" xml:space="preserve">
+    <value>Ajo mënyrë pagese nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="PosDifferenceReasonRequired" xml:space="preserve">
+    <value>{0}: e numëruara dhe e pritura ndryshojnë — shkruani arsyen.</value>
+  </data>
+  <data name="PosOrderNoLines" xml:space="preserve">
+    <value>Porosia nuk ka rreshta.</value>
+  </data>
+  <data name="PosOrderNoPayments" xml:space="preserve">
+    <value>Porosia nuk ka pagesë.</value>
+  </data>
+  <data name="PosOriginalOrderNotFound" xml:space="preserve">
+    <value>Shitja origjinale nuk u gjet.</value>
+  </data>
+  <data name="PosOrderAlreadyCancelled" xml:space="preserve">
+    <value>Ajo shitje është anuluar tashmë.</value>
+  </data>
+  <data name="PosItemNotFound" xml:space="preserve">
+    <value>Një nga artikujt nuk ekziston në këtë kompani.</value>
+  </data>
+  <data name="PosTaxNotFiscal" xml:space="preserve">
+    <value>Kodi i TVSH-së {0} nuk mund të vendoset në kupon fiskal (vetëm 18%, 8%, 0% dhe i liruar).</value>
+  </data>
+  <data name="PosOriginalLineNotFound" xml:space="preserve">
+    <value>Një rresht i kthyer nuk është në shitjen origjinale.</value>
+  </data>
+  <data name="PosReturnTooMuch" xml:space="preserve">
+    <value>{0}: po kthehet më shumë se sa u shit.</value>
+  </data>
+  <data name="PosCancelAfterReturn" xml:space="preserve">
+    <value>Një pjesë e kësaj shitjeje është kthyer tashmë; ktheni pjesën tjetër në vend që ta anuloni.</value>
+  </data>
+  <data name="PosOnAccountNeedsCustomer" xml:space="preserve">
+    <value>Shitja me borxh kërkon një klient.</value>
+  </data>
+  <data name="PosPaymentsDontMatch" xml:space="preserve">
+    <value>Pagesat ({0}) nuk përputhen me totalin ({1}).</value>
+  </data>
+  <data name="PosCashLimit" xml:space="preserve">
+    <value>Pagesa në para të gatshme mbi {0} € nga një person fizik nuk lejohet; pjesën tjetër merreni me kartelë ose bankë.</value>
+  </data>
+  <data name="PosFiscalModeUnsupported" xml:space="preserve">
+    <value>Printerët fiskalë (PEF) ende nuk mbështeten nga arka e PAKO; përdorni Trajnim ose SEF.</value>
+  </data>
+  <data name="PosFiscalRequired" xml:space="preserve">
+    <value>Kjo arkë fiskalizon me SEF: porosia duhet të ketë kuponin e nënshkruar.</value>
+  </data>
+  <data name="PosRegisterNotOnboarded" xml:space="preserve">
+    <value>Kjo arkë ende nuk ka certifikatë nga ATK. Regjistrojeni më parë.</value>
+  </data>
+  <data name="PosFiscalSignatureInvalid" xml:space="preserve">
+    <value>Nënshkrimi i kuponit nuk përputhet me certifikatën e kësaj arke.</value>
+  </data>
+  <data name="PosFiscalMismatch" xml:space="preserve">
+    <value>Kuponi i nënshkruar nuk përputhet me rreshtat dhe totalet e porosisë.</value>
+  </data>
+  <data name="PosLateOrder" xml:space="preserve">
+    <value>(porosi e vonuar)</value>
+  </data>
+  <data name="PosStoreFieldsRequired" xml:space="preserve">
+    <value>Kodi, emri dhe vendndodhja janë të detyrueshme.</value>
+  </data>
+  <data name="PosBranchNumberInvalid" xml:space="preserve">
+    <value>Numrat fiskalë janë nga 1 deri 999.</value>
+  </data>
+  <data name="PosStoreTaken" xml:space="preserve">
+    <value>Një dyqan tjetër e ka tashmë këtë kod ose numër fiskal të njësisë.</value>
+  </data>
+  <data name="PosStoreNotFound" xml:space="preserve">
+    <value>Zgjidhni një dyqan të kësaj kompanie.</value>
+  </data>
+  <data name="PosRegisterTaken" xml:space="preserve">
+    <value>Një arkë tjetër e ka tashmë këtë kod, ose këtë numër POS në dyqan.</value>
+  </data>
+  <data name="PosCashAccountInvalid" xml:space="preserve">
+    <value>Zgjidhni një llogari aktive të arkës për sirtarin.</value>
+  </data>
+  <data name="PosPrivateKeyRefused" xml:space="preserve">
+    <value>Dërgoni vetëm certifikatën. Çelësi privat nuk duhet të largohet kurrë nga arka.</value>
+  </data>
+  <data name="PosCertificateInvalid" xml:space="preserve">
+    <value>Ajo nuk është certifikatë e vlefshme e ATK (PEM, ECDSA P-256).</value>
+  </data>
+  <data name="PosTenderDuplicate" xml:space="preserve"><value>E njëjta mënyrë pagese është numëruar dy herë. Shkruajeni secilën mënyrë një herë.</value></data>
+  <data name="PosTaxNotForSales" xml:space="preserve"><value>Kodi i TVSH-së "{0}" nuk mund të vihet në kupon: përdorni një kod aktiv të TVSH-së për shitje.</value></data>
+  <data name="PosDiscountTooLarge" xml:space="preserve"><value>Zbritja te "{0}" është më e madhe se rreshti. Ulni zbritjen.</value></data>
+  <data name="PosCertificateExpired" xml:space="preserve"><value>Certifikata e ATK-së e arkës nuk vlen në datën e kuponit. Rinovoni certifikatën te ATK dhe ruajeni te arka.</value></data>
+  <data name="PosFiscalIdentityLocked" xml:space="preserve"><value>Me këtë numër njësie ose POS-i janë lëshuar tashmë kuponë, prandaj nuk mund të ndryshohet. Krijoni një arkë (ose dyqan) të re.</value></data>
+  <data name="PosCouponIdTaken" xml:space="preserve"><value>Ky numër kuponi është përdorur tashmë. Arka duhet të marrë numrin e radhës dhe ta dërgojë kuponin përsëri.</value></data>
+  <data name="PurchaseOrderOverReceived" xml:space="preserve"><value>"{0}": nga kjo porosi presin të vijnë vetëm {1} (pjesën tjetër e ka futur tashmë një faturë ose një fletëpranim tjetër). Mallin shtesë pranojeni me një fletëpranim pa porosi.</value></data>
+  <data name="StockAccountNeedsItem" xml:space="preserve"><value>Llogaria {0} mban stokun: një rresht fature mund të shkojë aty vetëm me një artikull që ndiqet në stok. Zgjidhni artikullin ose një llogari tjetër.</value></data>
+  <data name="ItemPluInvalid" xml:space="preserve"><value>PLU-ja ka 1 deri në 6 shifra.</value></data>
+  <data name="ItemPluTaken" xml:space="preserve"><value>Një artikull tjetër e ka tashmë këtë PLU.</value></data>
+  <data name="ItemMinimumAgeInvalid" xml:space="preserve"><value>Mosha minimale duhet të jetë nga 0 deri në 99.</value></data>
+  <data name="ItemDepositInvalid" xml:space="preserve"><value>Depozita duhet të jetë një artikull tjetër që nuk ka depozitë të vetën.</value></data>
+  <data name="PosAgeNotVerified" xml:space="preserve"><value>"{0}" shitet vetëm për blerës {1} vjeç e lart: konfirmoni moshën e blerësit.</value></data>
+  <data name="PosBarcodeRuleInvalid" xml:space="preserve"><value>Prefiksi duhet të jetë 20–29, shifrat e artikullit dhe të vlerës duhet të bëjnë 10 bashkë, me 0–3 decimale.</value></data>
+  <data name="PosBarcodeRuleTaken" xml:space="preserve"><value>Për këtë prefiks ekziston tashmë një rregull.</value></data>
+  <data name="PosProgramNameRequired" xml:space="preserve"><value>Jepini programit një emër.</value></data>
+  <data name="PosProgramCodeRequired" xml:space="preserve"><value>Kuponi ka nevojë për kodin që do ta shkruajë arkëtari.</value></data>
+  <data name="PosProgramCodeTaken" xml:space="preserve"><value>Një program tjetër e përdor tashmë këtë kod.</value></data>
+  <data name="PosProgramDatesInvalid" xml:space="preserve"><value>Kontrolloni datat, ditët dhe orët: fundi nuk mund të jetë para fillimit, dhe orët kanë nevojë për fillim dhe fund.</value></data>
+  <data name="PosProgramRewardInvalid" xml:space="preserve"><value>Shpërblimi është i paplotë: plotësoni shifrat që kërkon ky lloj programi.</value></data>
+  <data name="PosLoyaltyProgramExists" xml:space="preserve"><value>Vetëm një program besnikërie mund të jetë aktiv.</value></data>
+  <data name="PosCardNumberTaken" xml:space="preserve"><value>Ekziston tashmë një kartelë me këtë numër.</value></data>
+  <data name="PosGiftCardNotSetUp" xml:space="preserve"><value>Krijoni një mënyrë pagese për kartela dhuratë (me llogarinë e detyrimit) para se të shitni kartela dhuratë.</value></data>
+  <data name="PosGiftCardNotFound" xml:space="preserve"><value>Kartela dhuratë {0} nuk u gjet, është joaktive ose ka skaduar.</value></data>
+  <data name="PosGiftCardBalance" xml:space="preserve"><value>Kartela dhuratë {0} ka vetëm {1}.</value></data>
+  <data name="PosGiftCardNotReturnable" xml:space="preserve"><value>Një kartelë dhuratë e shitur nuk mund të kthehet ose anulohet.</value></data>
+  <data name="PosLoyaltyCardNotFound" xml:space="preserve"><value>Kartela e besnikërisë nuk u gjet ose është joaktive.</value></data>
+  <data name="PosLoyaltyPointsShort" xml:space="preserve"><value>Kartela ka vetëm {0} pikë.</value></data>
+  <data name="PosLoyaltyNotSetUp" xml:space="preserve"><value>Asnjë program besnikërie nuk është aktiv.</value></data>
+  <data name="PosDepositMissing" xml:space="preserve"><value>"{0}" ka depozitë: shtoni rreshtin e depozitës për çdo njësi.</value></data>
+  <data name="ItemWarrantyInvalid" xml:space="preserve"><value>Garancia duhet të jetë nga 0 deri në 240 muaj.</value></data>
+  <data name="ItemAttributeInvalid" xml:space="preserve"><value>Një atribut ka nevojë për emër dhe të paktën një vlerë, secila vlerë një herë.</value></data>
+  <data name="ItemAttributeTaken" xml:space="preserve"><value>Ekziston tashmë një atribut me këtë emër.</value></data>
+  <data name="ItemAttributeValueInUse" xml:space="preserve"><value>Një vlerë që e përdor një variant mund të riemërtohet, por jo të hiqet.</value></data>
+  <data name="ItemVariantOfVariant" xml:space="preserve"><value>Një variant nuk mund të ketë variante të vetat.</value></data>
+  <data name="ItemTemplateHasStock" xml:space="preserve"><value>Ky artikull ka tashmë stok: krijoni një artikull të ri për modelin dhe bëni variantet prej tij.</value></data>
+  <data name="ItemVariantsTooMany" xml:space="preserve"><value>Kjo krijon më shumë se 500 variante: zgjidhni më pak vlera.</value></data>
+  <data name="PosTemplateNotSold" xml:space="preserve"><value>"{0}" është model me variante: shitni një nga variantet e tij.</value></data>
+  <data name="PosSerialRequired" xml:space="preserve"><value>"{0}" shitet një njësi për rresht, me numrin serik (IMEI).</value></data>
+  <data name="PosSerialSold" xml:space="preserve"><value>Numri serik {0} është shitur tashmë.</value></data>
+  <data name="PosReportPeriodInvalid" xml:space="preserve"><value>Zgjidhni një periudhë deri në 400 ditë, që mbaron në ose pas fillimit.</value></data>
+  <data name="PosLabelsCountInvalid" xml:space="preserve"><value>Zgjidhni nga 1 deri në 600 artikuj për etiketa.</value></data>
+  <data name="PdfLabelPer" xml:space="preserve"><value>për</value></data>
+  <data name="CustomerOrderClosed" xml:space="preserve"><value>Kjo porosi e klientit është tërhequr ose anuluar tashmë.</value></data>
+  <data name="CustomerOrderLinesInvalid" xml:space="preserve"><value>Shtoni të paktën një artikull, me sasi mbi 0.</value></data>
+  <data name="CustomerOrderPriceMissing" xml:space="preserve"><value>Një artikull nuk ka çmim në këtë dyqan: shkruani çmimin.</value></data>
+  <data name="CustomerOrderRefundNeedsSession" xml:space="preserve"><value>Depozitat kthehen me para në dorë: zgjidhni një turn të hapur arke.</value></data>
+  <data name="CustomerOrderNotFound" xml:space="preserve"><value>Porosia e klientit nuk u gjet.</value></data>
+  <data name="PosTableNotFound" xml:space="preserve"><value>Tavolina nuk u gjet në këtë dyqan.</value></data>
+  <data name="PosTableInvalid" xml:space="preserve"><value>Tavolina ka nevojë për emër, 0–100 vende dhe madhësi 1–20 në plan.</value></data>
+  <data name="PosTabClosed" xml:space="preserve"><value>Kjo llogari e tavolinës është mbyllur ose nuk i përket këtu.</value></data>
+  <data name="PosTabLineSent" xml:space="preserve"><value>Ky rresht ka shkuar në kuzhinë: anulojeni në vend që ta ndryshoni.</value></data>
+  <data name="PosTabLinePaid" xml:space="preserve"><value>Një pjesë e kësaj është paguar tashmë.</value></data>
+  <data name="PosTabHasSentLines" xml:space="preserve"><value>Kuzhina ka tashmë porosi nga kjo llogari: anulojini më parë.</value></data>
+  <data name="PosTabLineNotFound" xml:space="preserve"><value>Rreshti nuk u gjet në këtë llogari.</value></data>
+  <data name="PosTabLineOverpaid" xml:space="preserve"><value>"{0}": më shumë se sa ka mbetur në llogari.</value></data>
+  <data name="PosVoidNeedsManager" xml:space="preserve"><value>Kuzhina e ka tashmë këtë: duhet ta anulojë menaxheri.</value></data>
+  <data name="PosPriceRequired" xml:space="preserve"><value>Shkruani çmimin e "{0}".</value></data>
+  <data name="PosPriceMissing" xml:space="preserve"><value>"{0}" nuk ka çmim në këtë dyqan.</value></data>
+  <data name="PosModifierInvalid" xml:space="preserve"><value>Një zgjedhje nuk ofrohet për "{0}".</value></data>
+  <data name="PosModifierCount" xml:space="preserve"><value>Zgjidhni numrin e duhur të "{0}" për "{1}".</value></data>
+  <data name="PosComboInvalid" xml:space="preserve"><value>Një zgjedhje e menysë nuk ofrohet për "{0}".</value></data>
+  <data name="PosComboCount" xml:space="preserve"><value>Zgjidhni "{0}" për "{1}".</value></data>
+  <data name="PosModifierGroupInvalid" xml:space="preserve"><value>Grupi i modifikuesve ka nevojë për emër, min/maks të vlefshëm dhe të paktën një modifikues me emër.</value></data>
+  <data name="PosComboSetupInvalid" xml:space="preserve"><value>Çdo vend i menysë ka nevojë për emër, min/maks të vlefshëm dhe të paktën një zgjedhje.</value></data>
+  <data name="RecipeInvalid" xml:space="preserve"><value>Çdo përbërës një herë, me sasi mbi 0 dhe humbje nën 100 %, dhe jo vetë gjella.</value></data>
+  <data name="RecipeLoop" xml:space="preserve"><value>Receta e një përbërësi e përmban këtë gjellë: një recetë nuk mund të përmbajë vetveten.</value></data>
+  <data name="PosPinInvalid" xml:space="preserve"><value>PIN-i ka 4 deri në 8 shifra.</value></data>
+  <data name="PosPinTaken" xml:space="preserve"><value>Dikush tjetër e përdor tashmë këtë PIN: zgjidhni një tjetër.</value></data>
+  <data name="PosPinWrong" xml:space="preserve"><value>PIN i gabuar.</value></data>
+  <data name="PosTips" xml:space="preserve"><value>Bakshishe</value></data>
+  <data name="PosWaiterNotFound" xml:space="preserve"><value>Ky kamarier nuk ka porosi në këtë turn.</value></data>
+  <data name="PosWaiterSettled" xml:space="preserve"><value>Ky kamarier i ka dorëzuar tashmë paratë.</value></data>
+  <data name="PosTipsAccountMissing" xml:space="preserve"><value>Zgjidhni llogarinë e bakshisheve të dyqanit (detyrim ndaj stafit) para se të merrni bakshishe.</value></data>
+  <data name="ItemServiceInvalid" xml:space="preserve"><value>Kontrolloni cilësimet e shërbimit: një shërbim i rezervueshëm zgjat 5–1440 minuta; një paketë emërton një artikull tjetër dhe 1–1000 seanca; një anëtarësim 1–3660 ditë.</value></data>
+  <data name="PosPackageNotReturnable" xml:space="preserve"><value>Paketat dhe anëtarësimet nuk mund të kthehen në arkë.</value></data>
+  <data name="PosPackageInvalid" xml:space="preserve"><value>Paketa {0} nuk vlen për këtë shërbim (ose ka skaduar).</value></data>
+  <data name="PosPackageUsedUp" xml:space="preserve"><value>Paketa {0} nuk ka më seanca.</value></data>
+  <data name="PosMembershipNotFound" xml:space="preserve"><value>Anëtarësimi {0} nuk u gjet.</value></data>
+  <data name="PosAppointmentNotFound" xml:space="preserve"><value>Termini nuk u gjet.</value></data>
+  <data name="PosAppointmentClosed" xml:space="preserve"><value>Ky termin është përfunduar, anuluar ose klienti nuk erdhi.</value></data>
+  <data name="PosAppointmentNameRequired" xml:space="preserve"><value>Shkruani emrin e klientit (dhe telefonin për rezervimet online).</value></data>
+  <data name="PosRepairNotFound" xml:space="preserve"><value>Riparimi nuk u gjet.</value></data>
+  <data name="PosRepairClosed" xml:space="preserve"><value>Ky riparim është tërhequr ose anuluar tashmë.</value></data>
+  <data name="PosRepairInvalid" xml:space="preserve"><value>Riparimi ka nevojë për klientin, pajisjen dhe problemin.</value></data>
+  <data name="PosServiceNotBookable" xml:space="preserve"><value>Ky shërbim nuk mund të rezervohet: shënojeni si të rezervueshëm dhe jepini kohëzgjatje.</value></data>
+  <data name="PosResourceNotFound" xml:space="preserve"><value>Burimi nuk u gjet në këtë dyqan.</value></data>
+  <data name="PosResourceInvalid" xml:space="preserve"><value>Burimi ka nevojë për emër dhe orar pune që mbaron pas fillimit.</value></data>
+  <data name="PosResourceCantServe" xml:space="preserve"><value>{0} nuk e bën "{1}".</value></data>
+  <data name="PosOutsideHours" xml:space="preserve"><value>Ajo orë është jashtë orarit të punës së {0}.</value></data>
+  <data name="PosSlotTaken" xml:space="preserve"><value>Ajo orë nuk është më e lirë: zgjidhni një tjetër.</value></data>
+  <data name="PosRepairState_Received" xml:space="preserve"><value>Pranuar</value></data>
+  <data name="PosRepairState_Diagnosing" xml:space="preserve"><value>Në kontroll</value></data>
+  <data name="PosRepairState_WaitingApproval" xml:space="preserve"><value>Në pritje të miratimit tuaj</value></data>
+  <data name="PosRepairState_Approved" xml:space="preserve"><value>Miratuar</value></data>
+  <data name="PosRepairState_InRepair" xml:space="preserve"><value>Në riparim</value></data>
+  <data name="PosRepairState_Ready" xml:space="preserve"><value>Gati për t'u tërhequr</value></data>
+  <data name="PosRepairState_Collected" xml:space="preserve"><value>Tërhequr</value></data>
+  <data name="PosRepairState_Cancelled" xml:space="preserve"><value>Anuluar</value></data>
+  <data name="Email_AppointmentReminder_Subject" xml:space="preserve"><value>Kujtesë: {service} nesër te {store}</value></data>
+  <data name="Email_AppointmentReminder_Body" xml:space="preserve"><value>Përshëndetje {name},
+
+Ju kujtojmë terminin tuaj për {service} më {time} te {store}, {address}.
+
+Numri i rezervimit: {number}. Nëse nuk mund të vini, ju lutemi na njoftoni.</value></data>
+  <data name="Email_RepairStatus_Subject" xml:space="preserve"><value>{company}: riparimi {number} — {status}</value></data>
+  <data name="Email_RepairStatus_Body" xml:space="preserve"><value>Riparimi juaj {number} ({device}) tani është: {status}.
+
+Vlerësimi: {estimate} €.</value></data>
+  <data name="PosRoomInvalid" xml:space="preserve"><value>Kontrolloni emrin, kapacitetin dhe artikullin me të cilin shitet një natë.</value></data>
+  <data name="PosRoomTooSmall" xml:space="preserve"><value>Shumë mysafirë për kapacitetin e saj.</value></data>
+  <data name="PosRoomTaken" xml:space="preserve"><value>Ajo dhomë është e rezervuar për disa nga ato net.</value></data>
+  <data name="PosRoomRequired" xml:space="preserve"><value>Caktoni një dhomë para regjistrimit.</value></data>
+  <data name="PosNoRoomFree" xml:space="preserve"><value>Asnjë dhomë e këtij lloji nuk është e lirë për të gjitha ato net.</value></data>
+  <data name="PosBookingInvalid" xml:space="preserve"><value>Kontrolloni emrin e mysafirit, datat (largimi pas mbërritjes) dhe numrin e mysafirëve.</value></data>
+  <data name="PosBookingClosed" xml:space="preserve"><value>Ky rezervim është mbyllur, anuluar ose nuk është në gjendjen e duhur për këtë.</value></data>
+  <data name="PosBookingNoCompany" xml:space="preserve"><value>Ky rezervim nuk ka kompani paguese: caktoni një më parë.</value></data>
+  <data name="PosGuestInvalid" xml:space="preserve"><value>Regjistroni të paktën një mysafir, secilin me emër.</value></data>
+  <data name="PosFolioNotSettled" xml:space="preserve"><value>Fatura ka ende shumë për t'u paguar.</value></data>
+  <data name="PosVenueTaken" xml:space="preserve"><value>Salla ka tashmë një ngjarje atë ditë.</value></data>
+  <data name="PosEventInvalid" xml:space="preserve"><value>Ngjarja ka nevojë për emër, kapacitet dhe të paktën një lloj bilete.</value></data>
+  <data name="PosTicketItemInUse" xml:space="preserve"><value>Ai artikull bilete shet tashmë bileta për një ngjarje tjetër të ardhshme.</value></data>
+  <data name="PosTicketsSoldOut" xml:space="preserve"><value>Nuk kanë mbetur mjaft bileta për "{0}".</value></data>
+  <data name="PosTicketUsed" xml:space="preserve"><value>Një biletë e kësaj shitjeje është përdorur: nuk mund të kthehet.</value></data>
+  <data name="PartnerPriceListInvalid" xml:space="preserve"><value>Zgjidhni një listë çmimesh për klientë.</value></data>
+  <data name="PartnerOverdueBlockDays" xml:space="preserve"><value>Ditët e bllokimit për vonesë duhet të jenë nga 0 deri në 3650.</value></data>
+  <data name="PriceTierQuantity" xml:space="preserve"><value>Sasia e shkallës duhet të jetë zero ose më shumë.</value></data>
+  <data name="PriceListKindFixed" xml:space="preserve"><value>Një listë çmimesh nuk mund të ndërrohet mes listës për klientë dhe listës së dyqanit ose kompanisë.</value></data>
+  <data name="PriceListCustomerNoWarehouse" xml:space="preserve"><value>Lista e çmimeve për klientë nuk ka magazinë.</value></data>
+  <data name="StockDocumentDelivery" xml:space="preserve"><value>Fletëdërgesë</value></data>
+  <data name="DeliveryCustomerRequired" xml:space="preserve"><value>Zgjidhni klientin të cilit i dërgohen mallrat.</value></data>
+  <data name="DeliveryOrderLineInvalid" xml:space="preserve"><value>Një rresht i referohet një rreshti porosie që nuk është në një porosi të konfirmuar të këtij klienti për të njëjtin artikull.</value></data>
+  <data name="SalesOrderOverDelivered" xml:space="preserve"><value>"{0}": në porosi kanë mbetur për t'u dërguar vetëm {1}.</value></data>
+  <data name="InvoiceSalesLinkInvalid" xml:space="preserve"><value>Një rresht i referohet një rreshti porosie ose fletëdërgese që nuk i përket këtij klienti dhe artikulli.</value></data>
+  <data name="InvoiceOverDelivered" xml:space="preserve"><value>"{0}": nga fletëdërgesa kanë mbetur për t'u faturuar vetëm {1}.</value></data>
+  <data name="SalesOrderNotEditable" xml:space="preserve"><value>Mund të ndryshohet vetëm një draft ose një ofertë.</value></data>
+  <data name="SalesQuoteExpired" xml:space="preserve"><value>Oferta ka skaduar. Jepni një arsye për ta konfirmuar sidoqoftë, ose përditësoni vlefshmërinë e saj.</value></data>
+  <data name="SalesOrderOverdueBlock" xml:space="preserve"><value>Klienti ka {0} me vonesë (më e vjetra {1} ditë; bllokimi është në {2} ditë). Konfirmimi kërkon miratim në Shitje dhe një arsye.</value></data>
+  <data name="SalesOrderCreditBlock" xml:space="preserve"><value>Porosia e kalon klientin mbi limitin e kredisë {0} (borxh {1}, porosi të hapura {2}, kjo porosi {3}). Konfirmimi kërkon miratim në Shitje dhe një arsye.</value></data>
+  <data name="SalesOrderNotConfirmed" xml:space="preserve"><value>Porosia nuk është e konfirmuar.</value></data>
+  <data name="SalesOrderHasDocuments" xml:space="preserve"><value>Në këtë porosi janë dërguar ose faturuar mallra. Mbylleni në vend të kësaj.</value></data>
+  <data name="SalesOrderNothingToDeliver" xml:space="preserve"><value>Nuk ka mbetur asgjë për t'u dërguar në porosi.</value></data>
+  <data name="SalesOrderNothingToInvoice" xml:space="preserve"><value>Nuk ka mbetur asgjë për t'u faturuar në porosi.</value></data>
+  <data name="SalesOrderDatesInvalid" xml:space="preserve"><value>Data e vlefshmërisë dhe e dorëzimit nuk mund të jenë para datës së porosisë.</value></data>
+  <data name="RouteVisitNotFound" xml:space="preserve"><value>Vizita nuk u gjet për këtë klient.</value></data>
+  <data name="SalesRouteName" xml:space="preserve"><value>Jepini rrugës një emër deri në 120 karaktere.</value></data>
+  <data name="SalesRouteNameTaken" xml:space="preserve"><value>Një rrugë tjetër e ka këtë emër.</value></data>
+  <data name="SalesRouteDays" xml:space="preserve"><value>Ditët e rrugës nuk janë të vlefshme.</value></data>
+  <data name="SalesRouteDuplicateStop" xml:space="preserve"><value>Një klient është dy herë në rrugë.</value></data>
+  <data name="SalesRouteNotFound" xml:space="preserve"><value>Rruga nuk u gjet.</value></data>
+  <data name="RouteVisitPosition" xml:space="preserve"><value>Pozicioni nuk është i vlefshëm.</value></data>
+  <data name="RouteVisitCollected" xml:space="preserve"><value>Shuma e arkëtuar nuk është e vlefshme.</value></data>
+  <data name="PosSelfCheckoutSaleOnly" xml:space="preserve"><value>Arka vetëshërbyese vetëm shet. Kthimet bëhen në një arkë me arkëtar.</value></data>
+  <data name="PosSelfCheckoutCardOnly" xml:space="preserve"><value>Arka vetëshërbyese pranon vetëm kartela.</value></data>
+  <data name="PosPrescriptionNotFound" xml:space="preserve"><value>Receta nuk u gjet.</value></data>
+  <data name="PosPrescriptionClosed" xml:space="preserve"><value>Receta {0} është dhënë plotësisht, anuluar ose ka skaduar.</value></data>
+  <data name="PosPrescriptionLineInvalid" xml:space="preserve"><value>"{0}" nuk është në recetë.</value></data>
+  <data name="PosPrescriptionExceeded" xml:space="preserve"><value>"{0}": në recetë kanë mbetur për t'u dhënë vetëm {1}.</value></data>
+  <data name="PosPrescriptionRequired" xml:space="preserve"><value>"{0}" jepet vetëm me recetë: jepeni kundrejt një recete.</value></data>
+  <data name="PosPrescriptionLocked" xml:space="preserve"><value>Në këtë recetë janë dhënë tashmë barna; nuk mund të ndryshohet.</value></data>
+  <data name="PosPrescriptionInvalid" xml:space="preserve"><value>Plotësoni numrin e recetës, mjekun, pacientin dhe të paktën një bar (secili një herë, me sasi).</value></data>
+  <data name="PosPayerInvalid" xml:space="preserve"><value>Jepini paguesit një emër unik, një partner klient dhe një mbulim nga 0 deri në 100%.</value></data>
+  <data name="PosAbovePriceCap" xml:space="preserve"><value>"{0}" nuk mund të shitet mbi çmimin maksimal me pakicë {1}.</value></data>
+  <data name="PosTenderPartnerInvalid" xml:space="preserve"><value>Kjo pagesë në llogari nuk mund t'i ngarkohet atij partneri.</value></data>
+  <data name="PosTenderPartnerLimit" xml:space="preserve"><value>Shuma e ngarkuar partnerit e kalon kufirin e tij prej {0}.</value></data>
+  <data name="PosAgencySales" xml:space="preserve"><value>Shitje në emër të tjetrit</value></data>
+  <data name="PosFleetCardNotFound" xml:space="preserve"><value>Kartela e flotës nuk u gjet ose është e bllokuar.</value></data>
+  <data name="PosFleetCardFuelOnly" xml:space="preserve"><value>Kjo kartelë flote paguan vetëm karburant.</value></data>
+  <data name="PosFleetCardInvalid" xml:space="preserve"><value>Jepini kartelës një numër unik, një klient dhe një kufi pozitiv (ose asnjë).</value></data>
+  <data name="PosNozzleInvalid" xml:space="preserve"><value>"{0}": pistoleta nuk është në këtë pikë ose nuk derdh atë lloj karburanti.</value></data>
+  <data name="PosFuelSetupInvalid" xml:space="preserve"><value>Kontrolloni rezervuarin ose pistoletën: emri, kapaciteti, pompa 1–99, pistoleta 1–9, secila një herë për pikë.</value></data>
+  <data name="PosFuelGradeInvalid" xml:space="preserve"><value>Lloji i karburantit duhet të jetë artikull me ndjekje stoku.</value></data>
+  <data name="PosMeterInvalid" xml:space="preserve"><value>Secila pistoletë një herë, me lexim mbyllës jo më të vogël se ai hapës.</value></data>
+  <data name="PosMeterGap" xml:space="preserve"><value>Pompa {0} pistoleta {1}: leximi hapës duhet të jetë leximi i fundit mbyllës, {2}.</value></data>
+  <data name="PosDipInvalid" xml:space="preserve"><value>Matja duhet të jetë nga zero deri te kapaciteti i rezervuarit.</value></data>
+  <data name="ItemSpecialistInvalid" xml:space="preserve"><value>Kontrolloni kodin ATC (deri në 10 karaktere), çmimin maksimal dhe komisionin (0–100%).</value></data>
+  <data name="ItemAgencyPartnerInvalid" xml:space="preserve"><value>Principali i një artikulli në emër të tjetrit duhet të jetë furnitor.</value></data>
+  <data name="PartDataInvalid" xml:space="preserve"><value>Çdo referencë ka nevojë për markë dhe numër (një herë secila); çdo automjet për markë, model dhe vite të arsyeshme.</value></data>
+  <data name="PartSearchEmpty" xml:space="preserve"><value>Kërkoni sipas numrit të pjesës ose markës së automjetit.</value></data>
+  <data name="PosChannelInvalid" xml:space="preserve"><value>Jepini kanalit një emër deri në 120 karaktere dhe një dyqan.</value></data>
+  <data name="PosChannelOrderNotFound" xml:space="preserve"><value>Porosia online nuk u gjet në këtë dyqan.</value></data>
+  <data name="PosChannelOrderClosed" xml:space="preserve"><value>Porosia online {0} është fiskalizuar, anuluar ose përfunduar tashmë.</value></data>
+  <data name="PosChannelOrderStateInvalid" xml:space="preserve"><value>Porosia nuk mund të kalojë në atë gjendje nga ajo ku është.</value></data>
+  <data name="PosChannelOrderInvalid" xml:space="preserve"><value>Porosia ka nevojë për referencë, klient, rreshta me sasi dhe, për dërgesë, adresë. Pagesa në dorëzim kërkon dërgesë.</value></data>
+  <data name="PosCourierInvalid" xml:space="preserve"><value>Korrieri duhet të jetë partner klient, në një porosi me dërgesë.</value></data>
+  <data name="PosCourierRequired" xml:space="preserve"><value>Caktoni korrierin para se porosia të jetë gati: pagesa në dorëzim i ngarkohet atij.</value></data>
+  <data name="PosCodRemitInvalid" xml:space="preserve"><value>Mund të shënohen vetëm porositë me pagesë në dorëzim të fiskalizuara dhe ende pa u derdhur, me një referencë.</value></data>
+  <data name="StockDocumentSiteIssue" xml:space="preserve"><value>Fletëdalje për kantier</value></data>
+  <data name="SiteIssueSiteRequired" xml:space="preserve"><value>Zgjidhni një kantier aktiv.</value></data>
+  <data name="SiteIssueCostCodeInvalid" xml:space="preserve"><value>Një rresht ka një kod kostoje që nuk është i këtij kantieri.</value></data>
+  <data name="ProjectNotFound" xml:space="preserve"><value>Projekti nuk u gjet.</value></data>
+  <data name="SiteProjectCodeInvalid" xml:space="preserve"><value>Jepni një kod të ri projekti (deri në 20 karaktere) që nuk e ka projekt tjetër.</value></data>
+  <data name="SiteInvalid" xml:space="preserve"><value>Kontrolloni kantierin: emrin, vlerën e kontratës, mbajtjen 0–100% dhe datat.</value></data>
+  <data name="SiteBillingItemInvalid" xml:space="preserve"><value>Zgjidhni artikullin me të cilin faturohet.</value></data>
+  <data name="SiteCostCodesInvalid" xml:space="preserve"><value>Çdo kod kostoje ka nevojë për kod unik, emër dhe buxhet zero ose më shumë.</value></data>
+  <data name="SiteBoqInvalid" xml:space="preserve"><value>Çdo rresht i paramasës ka nevojë për kod unik, përshkrim, njësi, sasi dhe çmim.</value></data>
+  <data name="SiteBoqLineCertified" xml:space="preserve"><value>Një rresht i paramasës i certifikuar në një situacion nuk mund të hiqet.</value></data>
+  <data name="SiteCostCodeUsed" xml:space="preserve"><value>Një kod kostoje i ngarkuar në fatura ose fletëdalje nuk mund të hiqet.</value></data>
+  <data name="SiteNotActive" xml:space="preserve"><value>Kantieri nuk është aktiv.</value></data>
+  <data name="SiteCostUnassigned" xml:space="preserve"><value>Kosto pa kod kostoje</value></data>
+  <data name="SiteRetentionInvalid" xml:space="preserve"><value>Shuma duhet të jetë mbi zero dhe jo më shumë se mbajtja garantuese.</value></data>
+  <data name="ProgressBillDraftExists" xml:space="preserve"><value>Përfundoni më parë situacionin në draft.</value></data>
+  <data name="ProgressBillNotDraft" xml:space="preserve"><value>Vetëm një situacion në draft mund të ndryshohet ose miratohet.</value></data>
+  <data name="ProgressBillNotApproved" xml:space="preserve"><value>Miratoni situacionin para se ta faturoni.</value></data>
+  <data name="ProgressBillInvalid" xml:space="preserve"><value>Çdo rresht i paramasës një herë, me sasi zero ose më shumë.</value></data>
+  <data name="ProgressBillBelowCertified" xml:space="preserve"><value>Sasia deri më sot nuk mund të jetë nën atë që certifikoi një situacion i mëparshëm.</value></data>
+  <data name="ProgressBillNothingDone" xml:space="preserve"><value>Në këtë periudhë nuk u krye asgjë.</value></data>
+  <data name="ProgressBillInvoiceNote" xml:space="preserve"><value>Situacioni nr. {0}, {1}. Mbajtja garantuese: {2}.</value></data>
+  <data name="BuildingInvalid" xml:space="preserve"><value>Jepini ndërtesës një emër unik deri në 160 karaktere.</value></data>
+  <data name="UnitInvalid" xml:space="preserve"><value>Kontrolloni njësinë: numër unik në ndërtesë, sipërfaqe dhe çmim zero ose më shumë.</value></data>
+  <data name="UnitNotAvailable" xml:space="preserve"><value>Njësia nuk është e lirë.</value></data>
+  <data name="ReservationInvalid" xml:space="preserve"><value>Kontrolloni datat dhe kaparin e rezervimit.</value></data>
+  <data name="ContractPlanInvalid" xml:space="preserve"><value>Këstet duhet të jenë pozitive dhe të mblidhen sa çmimi.</value></data>
+  <data name="ContractNotActive" xml:space="preserve"><value>Kontrata nuk është aktive.</value></data>
+  <data name="ContractHasInvoices" xml:space="preserve"><value>Këste të kësaj kontrate janë faturuar; nuk mund të anulohet.</value></data>
+  <data name="InstallmentsInvalid" xml:space="preserve"><value>Zgjidhni këste të kësaj kontrate ende pa u faturuar.</value></data>
+  <data name="InstallmentLine" xml:space="preserve"><value>Kësti {0}/{1} — {2}, njësia {3} (kontrata {4})</value></data>
+  <data name="LeaseInvalid" xml:space="preserve"><value>Kontrolloni qiranë: pronën ose njësinë, qiranë mujore, ditën e pagesës 1–28, depozitën dhe datat.</value></data>
+  <data name="LeaseEnded" xml:space="preserve"><value>Qiraja ka përfunduar.</value></data>
+  <data name="LeaseNotDraft" xml:space="preserve"><value>Vetëm një qira në draft mund të aktivizohet.</value></data>
+  <data name="LeaseTermsLocked" xml:space="preserve"><value>Një qira aktive i mban qiramarrësin, pronën, fillimin dhe qiranë; përfundojeni dhe nisni një të re.</value></data>
+  <data name="LeaseMeterInvalid" xml:space="preserve"><value>Çdo njehsor ka nevojë për emër unik, artikull dhe lexim zero ose më shumë.</value></data>
+  <data name="LeaseMeterBelowLast" xml:space="preserve"><value>Leximi nuk mund të jetë nën të fundit, {0}.</value></data>
+  <data name="LeaseRentLine" xml:space="preserve"><value>Qiraja {0}, {1} ({2}/{3} ditë)</value></data>
+  <data name="LeaseMeterLine" xml:space="preserve"><value>{0}: {1} → {2}</value></data>
 </root>

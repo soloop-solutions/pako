@@ -145,8 +145,11 @@ public class BillsController : ControllerBase
         var categoriesById = categoryIdsForLines.Count == 0
             ? new Dictionary<Guid, Pako.Domain.Inventory.ItemCategory>()
             : await _db.ItemCategories.AsNoTracking().Where(c => categoryIdsForLines.Contains(c.Id)).ToDictionaryAsync(c => c.Id);
-        var stockAccounts = await new StockService(_db, _localizer).AccountsForSafeAsync(companyId,
+        var stockService = new StockService(_db, _localizer);
+        var stockAccounts = await stockService.AccountsForSafeAsync(companyId,
             itemsById.Values.Where(i => i.TrackInventory && i.Type == ItemType.Goods));
+        // §5.3: stock accounts move only with stock — a line with no tracked item can't post to one.
+        var stockAccountIdsInUse = await stockService.StockAccountIdsInUseAsync(companyId);
 
         var lines = new List<BillLine>();
         var total = 0m;
@@ -199,6 +202,11 @@ public class BillsController : ControllerBase
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["ExpenseAccountNotBelongToCompany"], expenseAccountId)));
             }
+            if (!(item is not null && stockAccounts.ContainsKey(item.Id)) && stockAccountIdsInUse.Contains(expenseAccountId))
+            {
+                var code = await _db.Accounts.AsNoTracking().Where(a => a.Id == expenseAccountId).Select(a => a.Code).FirstAsync();
+                return (null, 0m, BadRequest(string.Format(_localizer["StockAccountNeedsItem"].Value, code)));
+            }
 
             if (StockService.ResolveUnit(item, line.UnitName) is not { } unit)
             {
@@ -218,6 +226,7 @@ public class BillsController : ControllerBase
                 ExpenseAccountId = expenseAccountId,
                 ItemId = line.ItemId,
                 PurchaseOrderLineId = line.PurchaseOrderLineId,
+                CostCodeId = line.CostCodeId,
                 UnitName = unit.Name,
                 UnitFactor = unit.Factor,
                 LotNumber = string.IsNullOrWhiteSpace(line.LotNumber) ? null : line.LotNumber.Trim(),
@@ -289,6 +298,11 @@ public class BillsController : ControllerBase
             return originalBillError;
         }
 
+        if (request.ProjectId is { } projectId && !await _db.Projects.AnyAsync(p => p.Id == projectId && p.CompanyId == companyId))
+        {
+            return BadRequest(_localizer["ProjectNotFound"].Value);
+        }
+
         var bill = new Bill
         {
             Id = Guid.NewGuid(),
@@ -301,6 +315,7 @@ public class BillsController : ControllerBase
             OriginalBillId = request.OriginalBillId,
             PriceMode = request.PriceMode,
             WarehouseId = request.WarehouseId,
+            ProjectId = request.ProjectId,
             Lines = lines!
         };
 
@@ -438,6 +453,11 @@ public class BillsController : ControllerBase
         }
         _db.BillLines.AddRange(lines);
 
+        if (request.ProjectId is { } projectId && !await _db.Projects.AnyAsync(p => p.Id == projectId && p.CompanyId == companyId))
+        {
+            return BadRequest(_localizer["ProjectNotFound"].Value);
+        }
+
         bill.PartnerId = request.PartnerId;
         bill.VendorReference = request.VendorReference;
         bill.IssueDate = request.IssueDate;
@@ -446,6 +466,7 @@ public class BillsController : ControllerBase
         bill.OriginalBillId = request.OriginalBillId;
         bill.InternalNotes = request.InternalNotes;
         bill.WarehouseId = request.WarehouseId;
+        bill.ProjectId = request.ProjectId;
 
         await _db.SaveChangesAsync();
 
@@ -1107,6 +1128,12 @@ public class BillsController : ControllerBase
 
         journalEntry.PostedByUserId = CurrentUserId;
         journalEntry.SourceDocumentId = bill.Id;
+        // docs/ERP_VERTICALS_PLAN.md: the bill's expense lines carry its project into the ledger.
+        if (bill.ProjectId is { } billProject)
+        {
+            var expenseAccounts = bill.Lines.Select(l => l.ExpenseAccountId).ToHashSet();
+            foreach (var line in journalEntry.Lines.Where(l => expenseAccounts.Contains(l.AccountId))) line.ProjectId = billProject;
+        }
         journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
         _db.JournalEntries.Add(journalEntry);
@@ -1125,6 +1152,12 @@ public class BillsController : ControllerBase
         var requests = new List<StockService.MoveRequest>();
         var returnNets = new Dictionary<Guid, decimal>();
         var trackedLines = bill.Lines.Where(l => l.ItemId is { } id && trackedItems.ContainsKey(id)).ToList();
+        // Serialized with invoices, stock documents and other bills (they take the same company lock):
+        // two bills must not match the same open receipt, and a count must not read a stale book.
+        if (trackedLines.Count > 0 && _db.Database.SupportsRowLocking() && _db.Database.CurrentTransaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {company.Id} FOR UPDATE");
+        }
 
         // §12 P6: goods this vendor already delivered on a receipt are billed first — the same order
         // line first, then the oldest receipt — at the receipt's cost, clearing 120800 instead of
@@ -1165,8 +1198,11 @@ public class BillsController : ControllerBase
             {
                 if (toBill <= 0) break;
                 var take = Math.Min(toBill, receipt.Open);
-                var value = AverageCost.Money(take * receipt.UnitCost);
+                // The match that takes the receipt's last units takes what is left of its value, so
+                // the parts add up to what the receipt credited 120800 (no cents left behind).
+                var value = take == receipt.Open ? receipt.OpenValue : AverageCost.Money(take * receipt.UnitCost);
                 receipt.Open -= take;
+                receipt.OpenValue -= value;
                 toBill -= take;
                 matchedValue += value;
                 _db.ReceiptMatches.Add(new ReceiptMatch
@@ -1212,9 +1248,12 @@ public class BillsController : ControllerBase
         public DateOnly Date { get; init; }
         public DateTime? PostedAt { get; init; }
         public decimal Open { get; set; }
+        public decimal OpenValue { get; set; }
     }
 
     // Posted receipt lines from this vendor for these items with quantity not yet matched to a bill.
+    // A receipt dated after the bill is matched too: leaving it out would bring the goods in a
+    // second time; matching it only leaves 120800 debited between the two dates.
     private async Task<List<OpenReceiptLine>> OpenReceiptLinesAsync(Guid companyId, Guid partnerId, List<Guid> itemIds)
     {
         if (itemIds.Count == 0) return new();
@@ -1226,12 +1265,15 @@ public class BillsController : ControllerBase
         if (lines.Count == 0) return new();
         var ids = lines.Select(l => l.Id).ToList();
         var matched = await _db.ReceiptMatches.AsNoTracking().Where(m => ids.Contains(m.ReceiptLineId))
-            .GroupBy(m => m.ReceiptLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity) })
-            .ToDictionaryAsync(g => g.Key, g => g.Quantity);
+            .GroupBy(m => m.ReceiptLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity), Value = g.Sum(m => m.Value) })
+            .ToDictionaryAsync(g => g.Key);
         return lines.Select(l => new OpenReceiptLine
         {
             LineId = l.Id, ItemId = l.ItemId, PurchaseOrderLineId = l.PurchaseOrderLineId, UnitCost = l.UnitCost ?? 0m,
-            Date = l.Date, PostedAt = l.PostedAt, Open = l.Quantity - matched.GetValueOrDefault(l.Id),
+            Date = l.Date, PostedAt = l.PostedAt,
+            Open = l.Quantity - (matched.TryGetValue(l.Id, out var m) ? m.Quantity : 0m),
+            // As the receipt posted it (StockDocumentService: Money(quantity × unit cost)).
+            OpenValue = AverageCost.Money(l.Quantity * (l.UnitCost ?? 0m)) - (m?.Value ?? 0m),
         }).Where(l => l.Open > 0).ToList();
     }
 
@@ -1245,8 +1287,9 @@ public class BillsController : ControllerBase
         b.DocumentType,
         b.OriginalBillId,
         b.JournalEntryId,
-        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId, l.PurchaseOrderLineId, l.UnitName, l.UnitFactor, l.LotNumber, l.ExpiryDate)).ToList(),
+        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId, l.PurchaseOrderLineId, l.UnitName, l.UnitFactor, l.LotNumber, l.ExpiryDate, l.CostCodeId)).ToList(),
         b.InternalNotes,
         b.PriceMode,
-        b.WarehouseId);
+        b.WarehouseId,
+        b.ProjectId);
 }

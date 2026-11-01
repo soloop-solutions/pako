@@ -23,6 +23,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
+import { useInvoicePrefill } from "@/pages/invoicing/invoicePrefill";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 
 const GRID_ID = "invoices";
@@ -47,6 +48,13 @@ export function Invoicing() {
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
   const [invoiceFormKey, setInvoiceFormKey] = useState(0);
+  // docs/POS_PLAN.md P6: ?salesOrder= / ?delivery= opens the form filled from that document.
+  const prefill = useInvoicePrefill(companyId, intl.formatMessage({ id: "dist.invoice.nothingToInvoice" }));
+  const formOpen = invoiceFormOpen || !!prefill.prefill;
+  const closeInvoiceForm = () => {
+    setInvoiceFormOpen(false);
+    if (prefill.active) prefill.clear();
+  };
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
@@ -167,9 +175,11 @@ export function Invoicing() {
 
   const handleInvoiceCreated = useCallback(async () => {
     setInvoiceFormOpen(false);
+    if (prefill.active) prefill.clear();
     setInvoiceFormKey((k) => k + 1);
     await refresh();
-  }, [refresh]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refresh, prefill.active]);
 
   const handleCustomerCreated = useCallback(async () => {
     setCustomerFormOpen(false);
@@ -197,6 +207,15 @@ export function Invoicing() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
+      {prefill.active && prefill.error != null && (
+        <Alert variant="destructive">
+          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
+            {getApiErrorMessage(prefill.error, intl.formatMessage({ id: "dist.invoice.prefillError" }))}
+            <Button size="sm" variant="outline" onClick={prefill.clear}>{intl.formatMessage({ id: "common.close" })}</Button>
+          </AlertDescription>
+        </Alert>
+      )}
+      {prefill.isPending && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dist.invoice.prefillLoading" })}</p>}
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
@@ -223,15 +242,16 @@ export function Invoicing() {
       </FormDialog>
 
       <FormDialog
-        open={invoiceFormOpen}
-        onOpenChange={(open) => { if (!open) setInvoiceFormOpen(false); }}
+        open={formOpen}
+        onOpenChange={(open) => { if (!open) closeInvoiceForm(); }}
         title={intl.formatMessage({ id: "invoicing.newInvoice" })}
         description={intl.formatMessage({ id: "invoicing.newInvoiceDescription" })}
         size="full"
       >
         <InvoiceForm
-          key={invoiceFormKey}
+          key={`${invoiceFormKey}${prefill.prefill ? "-prefill" : ""}`}
           companyId={activeCompany.id}
+          prefill={prefill.prefill}
           customers={customers}
           taxes={taxesForSale(taxes)}
           invoices={invoices}

@@ -205,6 +205,19 @@ public class CompaniesController : ControllerBase
             });
         }
 
+        // docs/POS_PLAN.md D8: card payments at the till settle through the acquirer clearing account.
+        if (accountIdsByCode.TryGetValue("103200", out var cardClearingId))
+        {
+            _db.PaymentMethods.Add(new PaymentMethod
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = company.Id,
+                Name = "Kartelë — POS",
+                Kind = PaymentMethodKind.Card,
+                LedgerAccountId = cardClearingId
+            });
+        }
+
         if (request.FirmId is null)
         {
             _db.Memberships.Add(Membership.ForCompany(CurrentUserId, company.Id, MembershipRole.ClientAdmin));

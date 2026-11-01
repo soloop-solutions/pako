@@ -53,4 +53,48 @@ public class Item
     public decimal? PurchaseUnitFactor { get; set; }
     public string? SalesUnit { get; set; }
     public decimal? SalesUnitFactor { get; set; }
+
+    // docs/POS_PLAN.md P2 (grocery): the till's short code (scales print it inside 2x barcodes), sold
+    // by weight (the till asks for kg when the barcode doesn't carry it), price typed at the till,
+    // a minimum buyer age the cashier must confirm, and a deposit item (bottle, crate) added with
+    // every unit sold.
+    public string? Plu { get; set; }
+    public bool SellByWeight { get; set; }
+    public bool OpenPrice { get; set; }
+    public int? MinimumAge { get; set; }
+    public Guid? DepositItemId { get; set; }
+
+    // P2 variants: a template (not sold itself) or a variant of one.
+    public bool IsVariantTemplate { get; set; }
+    public Guid? VariantOfItemId { get; set; }
+    // P2 serials: each unit sold carries its serial number (IMEI); the warranty runs this many months.
+    public bool TrackSerials { get; set; }
+    public int? WarrantyMonths { get; set; }
+    // P3 (hospitality): where the dish or drink is made — its kitchen ticket goes there.
+    public Guid? ProductionCenterId { get; set; }
+
+    // P4 (services): bookable for this long (plus a clean-up buffer before the next booking).
+    public bool IsBookable { get; set; }
+    public int? DurationMinutes { get; set; }
+    public int? BufferMinutes { get; set; }
+    // P4: selling this item sells a package of sessions of another (service) item, valid so long.
+    public Guid? PackageServiceItemId { get; set; }
+    public int? PackageSessions { get; set; }
+    public int? PackageValidDays { get; set; }
+    // P4: selling this item sells (or renews) a membership for so many days.
+    public int? MembershipDays { get; set; }
+
+    // P7 pharmacy: ATC code and active ingredient (for substitutes); prescription-only and controlled
+    // (narcotics/psychotropics register) medicines; the maximum retail price the state sets.
+    public string? AtcCode { get; set; }
+    public string? ActiveIngredient { get; set; }
+    public bool IsPrescriptionOnly { get; set; }
+    public bool IsControlled { get; set; }
+    public decimal? MaxRetailPrice { get; set; }
+
+    // P7 agency items: sold in the name of a principal (top-ups, tickets, bill payments). The money
+    // is owed to the principal less the commission, which is the only revenue.
+    // [VERIFY] VAT on agency sales: the commission as the taxable supply (VAT Law Art. 14 agents).
+    public Guid? AgencyPartnerId { get; set; }
+    public decimal? AgencyCommissionPercent { get; set; }
 }

@@ -34,7 +34,7 @@ export function StockDocuments() {
   const query = useQuery({
     queryKey: ["stockDocuments", activeCompanyId, type, grid.page, grid.pageSize, grid.globalFilter],
     queryFn: () => apiClient.listStockDocuments(activeCompanyId as string, type === "" ? undefined : Number(type),
-      grid.globalFilter || undefined, grid.page, grid.pageSize),
+      grid.globalFilter || undefined, grid.page, grid.pageSize, undefined),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });

@@ -229,7 +229,9 @@ public class InvoicesController : ControllerBase
                 ItemId = line.ItemId,
                 UnitName = unit.Name,
                 UnitFactor = unit.Factor,
-                LotNumber = string.IsNullOrWhiteSpace(line.LotNumber) ? null : line.LotNumber.Trim()
+                LotNumber = string.IsNullOrWhiteSpace(line.LotNumber) ? null : line.LotNumber.Trim(),
+                SalesOrderLineId = line.SalesOrderLineId,
+                DeliveryLineId = line.DeliveryLineId
             });
         }
 
@@ -239,6 +241,62 @@ public class InvoicesController : ControllerBase
         }
 
         return (lines, total, null);
+    }
+
+    // docs/POS_PLAN.md P6: an invoice line may name the sales order line it bills and the posted
+    // delivery line whose goods it bills — both of this customer, for the same item. A delivery
+    // line fills in its order line.
+    private async Task<ActionResult?> ValidateSalesLinksAsync(Guid companyId, Guid partnerId, DocumentType documentType, List<InvoiceLine> lines)
+    {
+        var linked = lines.Where(l => l.SalesOrderLineId != null || l.DeliveryLineId != null).ToList();
+        if (linked.Count == 0) return null;
+        if (documentType is not (DocumentType.Invoice or DocumentType.Proforma)) return BadRequest(_localizer["InvoiceSalesLinkInvalid"].Value);
+        var deliveryIds = linked.Where(l => l.DeliveryLineId != null).Select(l => l.DeliveryLineId!.Value).ToList();
+        var deliveries = await _db.StockDocumentLines.AsNoTracking()
+            .Where(l => deliveryIds.Contains(l.Id) && l.StockDocument!.CompanyId == companyId && l.StockDocument.PartnerId == partnerId
+                && l.StockDocument.Type == Pako.Domain.Inventory.StockDocumentType.Delivery
+                && l.StockDocument.State == Pako.Domain.Inventory.StockDocumentState.Posted)
+            .ToDictionaryAsync(l => l.Id);
+        foreach (var line in linked.Where(l => l.DeliveryLineId != null))
+        {
+            if (!deliveries.TryGetValue(line.DeliveryLineId!.Value, out var delivery) || delivery.ItemId != line.ItemId
+                || (line.SalesOrderLineId is { } o && delivery.SalesOrderLineId != o))
+            {
+                return BadRequest(_localizer["InvoiceSalesLinkInvalid"].Value);
+            }
+            line.SalesOrderLineId = delivery.SalesOrderLineId;
+        }
+        var orderIds = linked.Where(l => l.SalesOrderLineId != null).Select(l => l.SalesOrderLineId!.Value).Distinct().ToList();
+        var orderLines = await _db.SalesOrderLines.AsNoTracking()
+            .Where(l => orderIds.Contains(l.Id) && l.SalesOrder!.CompanyId == companyId && l.SalesOrder.PartnerId == partnerId
+                && (l.SalesOrder.State == SalesOrderState.Confirmed || l.SalesOrder.State == SalesOrderState.Closed))
+            .ToDictionaryAsync(l => l.Id, l => l.ItemId);
+        if (linked.Any(l => l.SalesOrderLineId is { } id && (!orderLines.TryGetValue(id, out var item) || item != l.ItemId)))
+        {
+            return BadRequest(_localizer["InvoiceSalesLinkInvalid"].Value);
+        }
+        return null;
+    }
+
+    // A line billing a delivery can't bill more than the delivery line sent, less what other posted
+    // invoices already billed.
+    private async Task CheckDeliveriesNotOverInvoicedAsync(Invoice invoice)
+    {
+        var byLine = invoice.Lines.Where(l => l.DeliveryLineId != null)
+            .GroupBy(l => l.DeliveryLineId!.Value).ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity * l.UnitFactor));
+        if (byLine.Count == 0) return;
+        var sent = await _db.StockDocumentLines.AsNoTracking().Where(l => byLine.Keys.Contains(l.Id))
+            .Select(l => new { l.Id, l.Quantity }).ToDictionaryAsync(l => l.Id, l => l.Quantity);
+        var invoiced = await SalesOrderQuantities.InvoicedDeliveriesAsync(_db, byLine.Keys.ToList(), exceptInvoiceId: invoice.Id);
+        foreach (var (lineId, quantity) in byLine)
+        {
+            var open = Math.Max(0m, sent.GetValueOrDefault(lineId) - invoiced.GetValueOrDefault(lineId));
+            if (quantity > open)
+            {
+                var description = invoice.Lines.First(l => l.DeliveryLineId == lineId).Description;
+                throw new StockException(string.Format(_localizer["InvoiceOverDelivered"].Value, description, open));
+            }
+        }
     }
 
     // Track A (v2 release): a SalesReturn is a correction of a specific prior invoice, unlike
@@ -292,11 +350,20 @@ public class InvoicesController : ControllerBase
         {
             return linesError;
         }
+        if (await ValidateSalesLinksAsync(companyId, request.PartnerId, request.DocumentType, lines!) is { } linkError)
+        {
+            return linkError;
+        }
 
         var originalInvoiceError = await ValidateOriginalInvoiceAsync(companyId, request.DocumentType, request.OriginalInvoiceId);
         if (originalInvoiceError is not null)
         {
             return originalInvoiceError;
+        }
+
+        if (request.ProjectId is { } projectId && !await _db.Projects.AnyAsync(p => p.Id == projectId && p.CompanyId == companyId))
+        {
+            return BadRequest(_localizer["ProjectNotFound"].Value);
         }
 
         var invoice = new Invoice
@@ -314,6 +381,7 @@ public class InvoicesController : ControllerBase
             GraceDays = request.GraceDays,
             InternalNotes = request.InternalNotes,
             WarehouseId = request.WarehouseId,
+            ProjectId = request.ProjectId,
             Lines = lines!
         };
 
@@ -379,7 +447,9 @@ public class InvoicesController : ControllerBase
         // together) or nothing does, including the invoice row itself.
         var paymentMethod = await _db.PaymentMethods.AsNoTracking()
             .FirstOrDefaultAsync(m => m.Id == request.Payment.PaymentMethodId && m.CompanyId == companyId);
-        if (paymentMethod is null)
+        // Money actually received: a voucher, gift card or on-account "payment" would mark the
+        // invoice paid without collecting anything (docs/POS_PLAN.md tenders are till-only).
+        if (paymentMethod is null || paymentMethod.Kind is not (PaymentMethodKind.Cash or PaymentMethodKind.Bank or PaymentMethodKind.Card))
         {
             return BadRequest(_localizer["InvalidPaymentMethod"].Value);
         }
@@ -495,6 +565,10 @@ public class InvoicesController : ControllerBase
         {
             return linesError;
         }
+        if (await ValidateSalesLinksAsync(companyId, request.PartnerId, request.DocumentType, lines!) is { } linkError)
+        {
+            return linkError;
+        }
 
         var originalInvoiceError = await ValidateOriginalInvoiceAsync(companyId, request.DocumentType, request.OriginalInvoiceId);
         if (originalInvoiceError is not null)
@@ -514,6 +588,11 @@ public class InvoicesController : ControllerBase
         }
         _db.InvoiceLines.AddRange(lines);
 
+        if (request.ProjectId is { } projectId && !await _db.Projects.AnyAsync(p => p.Id == projectId && p.CompanyId == companyId))
+        {
+            return BadRequest(_localizer["ProjectNotFound"].Value);
+        }
+
         invoice.PartnerId = request.PartnerId;
         invoice.IssueDate = request.IssueDate;
         invoice.DueDate = request.DueDate;
@@ -521,6 +600,7 @@ public class InvoicesController : ControllerBase
         invoice.OriginalInvoiceId = request.OriginalInvoiceId;
         invoice.InternalNotes = request.InternalNotes;
         invoice.WarehouseId = request.WarehouseId;
+        invoice.ProjectId = request.ProjectId;
 
         await _db.SaveChangesAsync();
 
@@ -1244,7 +1324,9 @@ public class InvoicesController : ControllerBase
                 ItemId = l.ItemId,
                 UnitName = l.UnitName,
                 UnitFactor = l.UnitFactor,
-                LotNumber = l.LotNumber
+                LotNumber = l.LotNumber,
+                SalesOrderLineId = l.SalesOrderLineId,
+                DeliveryLineId = l.DeliveryLineId
             }).ToList()
         };
 
@@ -1465,6 +1547,7 @@ public class InvoicesController : ControllerBase
         {
             try
             {
+                if (invoice.DocumentType == DocumentType.Invoice) await CheckDeliveriesNotOverInvoicedAsync(invoice);
                 stockPosting = await PostInvoiceStockAsync(company, invoice, journalEntry);
             }
             catch (StockException ex)
@@ -1485,6 +1568,15 @@ public class InvoicesController : ControllerBase
 
         journalEntry.PostedByUserId = CurrentUserId;
         journalEntry.SourceDocumentId = invoice.Id;
+        // docs/ERP_VERTICALS_PLAN.md: revenue (and the cost of goods it sold) carries the project.
+        if (invoice.ProjectId is { } invoiceProject)
+        {
+            var projectAccounts = invoice.Lines.Select(l => l.RevenueAccountId).ToHashSet();
+            foreach (var line in journalEntry.Lines.Where(l => projectAccounts.Contains(l.AccountId) || l.Description == _localizer["StockCostOfGoodsSold"].Value))
+            {
+                line.ProjectId = invoiceProject;
+            }
+        }
         journalEntry.SequenceNumber = JournalSequencer.ReserveNext(journal);
 
         _db.JournalEntries.Add(journalEntry);
@@ -1501,7 +1593,10 @@ public class InvoicesController : ControllerBase
         var customer = await stock.VirtualLocationAsync(company.Id, Pako.Domain.Inventory.LocationUsage.Customer);
         var isReturn = invoice.DocumentType == DocumentType.SalesReturn;
 
-        // D13: returned goods come back at what they cost when the original invoice sold them.
+        // D13: returned goods come back at what they cost when the original invoice sold them —
+        // unless the sale took them below zero: that issue was valued at the old average (often 0)
+        // and its real cost was booked later on the covering receipt, so the return comes back at
+        // the current average instead.
         var originalUnitCost = new Dictionary<Guid, decimal>();
         if (isReturn && invoice.OriginalInvoiceId is { } originalId)
         {
@@ -1509,9 +1604,25 @@ public class InvoicesController : ControllerBase
                     .Where(m => m.SourceType == Pako.Domain.Inventory.StockMoveSource.Invoice && m.SourceId == originalId
                         && m.Kind == Pako.Domain.Inventory.StockMoveKind.Issue && m.Quantity > 0)
                     .GroupBy(m => m.ItemId)
-                    .Select(g => new { g.Key, Value = g.Sum(m => m.Value), Quantity = g.Sum(m => m.Quantity) })
+                    .Select(g => new { g.Key, Value = g.Sum(m => m.Value), Quantity = g.Sum(m => m.Quantity), BelowZero = g.Any(m => m.QtyAfter < 0) })
                     .ToListAsync())
+                .Where(g => !g.BelowZero)
                 .ToDictionary(g => g.Key, g => g.Value / g.Quantity);
+            // docs/POS_PLAN.md P6: goods the original invoice billed from delivery notes left stock on
+            // those deliveries.
+            var deliveryLineIds = await _db.InvoiceLines.AsNoTracking()
+                .Where(l => l.InvoiceId == originalId && l.DeliveryLineId != null).Select(l => l.DeliveryLineId!.Value).ToListAsync();
+            if (deliveryLineIds.Count > 0)
+            {
+                var delivered = (await _db.StockMoves.AsNoTracking()
+                        .Where(m => m.SourceType == Pako.Domain.Inventory.StockMoveSource.StockDocument && m.SourceLineId != null
+                            && deliveryLineIds.Contains(m.SourceLineId.Value) && m.Kind == Pako.Domain.Inventory.StockMoveKind.Issue && m.Quantity > 0)
+                        .GroupBy(m => m.ItemId)
+                        .Select(g => new { g.Key, Value = g.Sum(m => m.Value), Quantity = g.Sum(m => m.Quantity), BelowZero = g.Any(m => m.QtyAfter < 0) })
+                        .ToListAsync())
+                    .Where(g => !g.BelowZero);
+                foreach (var g in delivered) originalUnitCost.TryAdd(g.Key, g.Value / g.Quantity);
+            }
         }
 
         // §12 P8: returned goods go back into the lot they were sold from, unless the line names one.
@@ -1529,7 +1640,8 @@ public class InvoicesController : ControllerBase
         }
 
         var requests = new List<StockService.MoveRequest>();
-        foreach (var line in invoice.Lines.Where(l => l.ItemId is { } id && tracked.ContainsKey(id) && l.Quantity > 0))
+        // docs/POS_PLAN.md P6: a line billing a delivery moves nothing — the delivery sent the goods.
+        foreach (var line in invoice.Lines.Where(l => l.ItemId is { } id && tracked.ContainsKey(id) && l.Quantity > 0 && l.DeliveryLineId == null))
         {
             var itemId = line.ItemId!.Value;
             // §12 P7: stock moves in base units.
@@ -1620,10 +1732,12 @@ public class InvoicesController : ControllerBase
         i.DocumentType,
         i.OriginalInvoiceId,
         i.JournalEntryId,
-        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber)).ToList(),
+        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber,
+            l.SalesOrderLineId, l.DeliveryLineId)).ToList(),
         i.InternalNotes,
         i.PriceMode,
         i.PaymentTermDays,
         i.GraceDays,
-        i.WarehouseId);
+        i.WarehouseId,
+        i.ProjectId);
 }

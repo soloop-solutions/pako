@@ -8,6 +8,10 @@ describe("sidebar order", () => {
       "items",
       "customers",
       "sales",
+      // docs/POS_PLAN.md: the point of sale sits after Sales (placement to confirm).
+      "pos",
+      // docs/ERP_VERTICALS_PLAN.md (P8): construction, real estate and rentals (placement to confirm).
+      "projects",
       "purchases",
       "bankCash",
       "accounting",

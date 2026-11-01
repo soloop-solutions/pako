@@ -23,6 +23,9 @@ import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
+// docs/ERP_VERTICALS_PLAN.md §1: the bill's project and, on a construction site, each line's cost code.
+import { useProjectCostCodes } from "@/hooks/useVerticals";
+import { BillProjectField, CostCodeSelect } from "@/pages/construction/BillProjectFields";
 
 type Line = {
   description: string;
@@ -37,6 +40,11 @@ type Line = {
   // §12 P8: for lot-tracked items, the lot received and its expiry.
   lotNumber?: string;
   expiryDate?: string;
+  // The purchase-order line this bill line bills. A draft edit rebuilds every line, so it has to
+  // travel with the line or the link to the order is lost.
+  purchaseOrderLineId?: string;
+  // The construction site's cost code the line is charged to (only with a site's project).
+  costCodeId?: string;
 };
 
 function emptyLine(defaultTaxId: string): Line {
@@ -160,10 +168,13 @@ export function BillForm({
   const [internalNotes, setInternalNotes] = useState(editingBill?.internalNotes ?? "");
   // docs/INVENTORY_PLAN.md §6: the warehouse stock-tracked lines arrive in ("" = the default one).
   const [warehouseId, setWarehouseId] = useState(editingBill?.warehouseId ?? "");
+  const [projectId, setProjectId] = useState(editingBill?.projectId ?? "");
+  const projectCostCodes = useProjectCostCodes(projectId || undefined);
   // C1/C5: PriceMode/inline-payment are Create-only features — UpdateBillRequest (the Draft-edit
   // path) doesn't carry either field, so this state is only read from the Create branch of
-  // handleSubmit and its inputs are hidden while editing.
-  const [priceMode, setPriceMode] = useState<number>(PriceMode.GrossInclusive);
+  // handleSubmit and its inputs are hidden while editing. A draft being edited still starts in its
+  // own mode, so the line preview and the "price incl./excl. VAT" label match what is saved.
+  const [priceMode, setPriceMode] = useState<number>(editingBill?.priceMode ?? PriceMode.GrossInclusive);
   const [takePaymentNow, setTakePaymentNow] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
@@ -180,6 +191,8 @@ export function BillForm({
           lotNumber: l.lotNumber ?? undefined,
           expiryDate: l.expiryDate ?? undefined,
           expenseAccountId: l.expenseAccountId ?? "",
+          purchaseOrderLineId: l.purchaseOrderLineId ?? undefined,
+          costCodeId: l.costCodeId ?? undefined,
         }))
       : [emptyLine(defaultTaxId)],
   );
@@ -207,6 +220,7 @@ export function BillForm({
       .then((bill) => {
         if (cancelled) return;
         if (bill.lines.length === 0) return;
+        // Not purchaseOrderLineId: a return does not bill the order line a second time.
         const populated: Line[] = bill.lines.map((l) => ({
           description: l.description,
           quantity: String(l.quantity),
@@ -242,7 +256,10 @@ export function BillForm({
 
   function selectLineItem(index: number, itemId: string) {
     const item = items.find((i) => i.id === itemId);
-    setLines((prev) => prev.map((line, i) => (i === index ? { ...applyItemDefaults(line, item, partnerDrivenTaxId), unitName: undefined } : line)));
+    // Another item is no longer the purchase-order line this one billed.
+    setLines((prev) => prev.map((line, i) => (i === index
+      ? { ...applyItemDefaults(line, item, partnerDrivenTaxId), unitName: undefined, purchaseOrderLineId: line.itemId === itemId ? line.purchaseOrderLineId : undefined }
+      : line)));
   }
 
   function addLine() {
@@ -296,6 +313,8 @@ export function BillForm({
         unitName: line.unitName || undefined,
         lotNumber: line.lotNumber?.trim() || undefined,
         expiryDate: line.expiryDate || undefined,
+        purchaseOrderLineId: line.purchaseOrderLineId || undefined,
+        costCodeId: projectCostCodes.length > 0 ? line.costCodeId || undefined : undefined,
       }));
 
       const recordFavorites = () => {
@@ -317,6 +336,7 @@ export function BillForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
+          projectId: projectId || undefined,
         });
         recordFavorites();
         onSaved?.();
@@ -331,6 +351,7 @@ export function BillForm({
           priceMode,
           lines: lineRequests,
           warehouseId: warehouseId || undefined,
+          projectId: projectId || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
@@ -431,6 +452,7 @@ export function BillForm({
           <Input id="bill-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
         </div>
         <WarehouseField id="bill-warehouse" value={warehouseId} onChange={setWarehouseId} />
+        <BillProjectField id="bill-project" value={projectId} onChange={setProjectId} />
       </div>
 
       {editingBill && (
@@ -539,6 +561,9 @@ export function BillForm({
             <div className="flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
+              {projectCostCodes.length > 0 && (
+                <CostCodeSelect costCodes={projectCostCodes} value={line.costCodeId ?? ""} onChange={(v) => updateLine(index, { costCodeId: v || undefined })} />
+              )}
             </div>
             <div className="relative flex flex-col gap-1">
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.qty" })}</Label>}

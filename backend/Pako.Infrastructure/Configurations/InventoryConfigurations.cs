@@ -135,6 +135,7 @@ public class StockDocumentConfiguration : IEntityTypeConfiguration<StockDocument
         builder.HasOne<Warehouse>().WithMany().HasForeignKey(d => d.WarehouseId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Partner>().WithMany().HasForeignKey(d => d.PartnerId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Warehouse>().WithMany().HasForeignKey(d => d.DestinationWarehouseId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Pako.Domain.Projects.ConstructionSite>().WithMany().HasForeignKey(d => d.SiteId).OnDelete(DeleteBehavior.Restrict);
     }
 }
 
@@ -152,6 +153,8 @@ public class StockDocumentLineConfiguration : IEntityTypeConfiguration<StockDocu
         builder.Property(l => l.AllowanceAfter).HasColumnType("numeric(18,2)");
         builder.Property(l => l.Amount).HasColumnType("numeric(18,2)");
         builder.HasOne<Pako.Domain.Bills.PurchaseOrderLine>().WithMany().HasForeignKey(l => l.PurchaseOrderLineId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Pako.Domain.Invoicing.SalesOrderLine>().WithMany().HasForeignKey(l => l.SalesOrderLineId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Pako.Domain.Projects.CostCode>().WithMany().HasForeignKey(l => l.CostCodeId).OnDelete(DeleteBehavior.Restrict);
         builder.Property(l => l.LotNumber).HasMaxLength(64);
         builder.Property(l => l.Note).HasMaxLength(500);
         builder.HasOne<Item>().WithMany().HasForeignKey(l => l.ItemId).OnDelete(DeleteBehavior.Restrict);
@@ -169,7 +172,7 @@ public class PriceListConfiguration : IEntityTypeConfiguration<PriceList>
         builder.Property(p => p.Name).IsRequired().HasMaxLength(120);
         builder.HasIndex(p => new { p.CompanyId, p.Name }).IsUnique();
         // At most one list per warehouse, and one company-wide list.
-        builder.HasIndex(p => new { p.CompanyId, p.WarehouseId }).IsUnique().AreNullsDistinct(false);
+        builder.HasIndex(p => new { p.CompanyId, p.WarehouseId }).IsUnique().AreNullsDistinct(false).HasFilter("\"IsCustomerList\" = false");
         builder.HasOne<Company>().WithMany().HasForeignKey(p => p.CompanyId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Warehouse>().WithMany().HasForeignKey(p => p.WarehouseId).OnDelete(DeleteBehavior.Restrict);
     }
@@ -182,6 +185,7 @@ public class PriceListPriceConfiguration : IEntityTypeConfiguration<PriceListPri
         builder.ToTable("price_list_prices");
         builder.HasKey(p => p.Id);
         builder.Property(p => p.Price).HasColumnType("numeric(18,4)");
+        builder.Property(p => p.MinQuantity).HasColumnType("numeric(18,4)");
         builder.HasIndex(p => new { p.PriceListId, p.ItemId, p.ValidFrom });
         builder.HasOne<PriceList>().WithMany().HasForeignKey(p => p.PriceListId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<Item>().WithMany().HasForeignKey(p => p.ItemId).OnDelete(DeleteBehavior.Restrict);
@@ -214,6 +218,7 @@ public class PriceChangeLineConfiguration : IEntityTypeConfiguration<PriceChange
         builder.ToTable("price_change_lines");
         builder.HasKey(l => l.Id);
         builder.Property(l => l.NewPrice).HasColumnType("numeric(18,4)");
+        builder.Property(l => l.MinQuantity).HasColumnType("numeric(18,4)");
         builder.Property(l => l.OldPrice).HasColumnType("numeric(18,4)");
         builder.Property(l => l.Quantity).HasColumnType("numeric(18,4)");
         builder.Property(l => l.Difference).HasColumnType("numeric(18,2)");

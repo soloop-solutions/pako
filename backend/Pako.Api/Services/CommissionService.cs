@@ -47,6 +47,8 @@ public class CommissionService
 
     public async Task<List<CommissionBasisItemResponse>> BasisAsync(Guid companyId, Guid employeeId, CommissionBasis basis, DateOnly periodStart, DateOnly periodEnd)
     {
+        if (basis == CommissionBasis.PosServicesNet) return await PosServicesAsync(companyId, employeeId, periodStart, periodEnd);
+
         var windows = await WindowsAsync(employeeId, periodStart, periodEnd);
         if (windows.Count == 0) return new List<CommissionBasisItemResponse>();
         var partnerIds = windows.Select(w => w.PartnerId).Distinct().ToList();
@@ -129,6 +131,31 @@ public class CommissionService
         }
 
         return items;
+    }
+
+    // P4: till lines the employee performed (the staff on the line), dated by the order's Kosovo day.
+    private async Task<List<CommissionBasisItemResponse>> PosServicesAsync(Guid companyId, Guid employeeId, DateOnly periodStart, DateOnly periodEnd)
+    {
+        var userId = await _db.Employees.AsNoTracking().Where(e => e.Id == employeeId).Select(e => e.UserId).FirstOrDefaultAsync();
+        if (userId is null) return new List<CommissionBasisItemResponse>();
+        var start = periodStart.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddDays(-1);
+        var end = periodEnd.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc).AddDays(2);
+        var rows = await (from l in _db.PosOrderLines.AsNoTracking()
+                          join o in _db.PosOrders.AsNoTracking() on l.OrderId equals o.Id
+                          where o.CompanyId == companyId && l.StaffUserId == userId && o.OrderedAt >= start && o.OrderedAt < end
+                          select new { o.Id, o.Number, o.OrderedAt, o.Kind, o.CustomerId, l.Net }).ToListAsync();
+        return rows.Select(r => new { r, Day = DateOnly.FromDateTime(PosService.LocalTime(r.OrderedAt)) })
+            .Where(x => x.Day >= periodStart && x.Day <= periodEnd)
+            .GroupBy(x => x.r.Id)
+            .Select(g =>
+            {
+                var first = g.First();
+                var sign = first.r.Kind == Pako.Domain.Pos.PosOrderKind.Sale ? 1m : -1m;
+                var net = sign * g.Sum(x => x.r.Net);
+                return new CommissionBasisItemResponse(first.r.Id, first.r.Number, first.Day, first.r.CustomerId ?? Guid.Empty, string.Empty,
+                    sign > 0 ? DocumentType.Invoice : DocumentType.SalesReturn, net, net, null);
+            })
+            .OrderBy(i => i.IssueDate).ToList();
     }
 
     // "Calculate commissions" for one month: replaces the month's unconsumed plan-computed

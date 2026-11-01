@@ -16,7 +16,9 @@ public enum StockMoveSource
 {
     Bill,
     Invoice,
-    StockDocument
+    StockDocument,
+    // docs/POS_PLAN.md D6: a till order (sale, return or cancellation).
+    Pos
 }
 
 // docs/INVENTORY_PLAN.md D10: the stock ledger. One row per change, never edited once written —

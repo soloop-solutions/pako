@@ -24,6 +24,7 @@ public class CompanyRole
     public AccessLevel HrAccess { get; set; }
     public AccessLevel PayrollAccess { get; set; }
     public AccessLevel InventoryAccess { get; set; }
+    public AccessLevel PosAccess { get; set; }
     public AccessLevel SettingsAccess { get; set; }
     public AccessLevel UsersAccess { get; set; }
     public PartnerScope PartnerScope { get; set; } = PartnerScope.All;
@@ -32,7 +33,8 @@ public class CompanyRole
     public static readonly AccessModule[] Areas =
     {
         AccessModule.Sales, AccessModule.Purchases, AccessModule.Partners, AccessModule.Items, AccessModule.Accounting,
-        AccessModule.Reports, AccessModule.Hr, AccessModule.Payroll, AccessModule.Inventory, AccessModule.Settings, AccessModule.Users
+        AccessModule.Reports, AccessModule.Hr, AccessModule.Payroll, AccessModule.Inventory, AccessModule.Settings, AccessModule.Users,
+        AccessModule.Pos
     };
 
     // A partner-scoped role can't hold the general ledger: filtering a ledger by partner hides the
@@ -49,6 +51,7 @@ public class CompanyRole
         AccessModule.Hr => HrAccess,
         AccessModule.Payroll => PayrollAccess,
         AccessModule.Inventory => InventoryAccess,
+        AccessModule.Pos => PosAccess,
         AccessModule.Settings => SettingsAccess,
         AccessModule.Users => UsersAccess,
         _ => AccessLevel.None
@@ -67,6 +70,7 @@ public class CompanyRole
             case AccessModule.Hr: HrAccess = level; break;
             case AccessModule.Payroll: PayrollAccess = level; break;
             case AccessModule.Inventory: InventoryAccess = level; break;
+            case AccessModule.Pos: PosAccess = level; break;
             case AccessModule.Settings: SettingsAccess = level; break;
             case AccessModule.Users: UsersAccess = level; break;
             default: throw new ArgumentOutOfRangeException(nameof(module), module, "Not a role area.");
@@ -90,15 +94,21 @@ public class CompanyRole
             {
                 [AccessModule.Sales] = A, [AccessModule.Purchases] = A, [AccessModule.Partners] = E, [AccessModule.Items] = E,
                 [AccessModule.Accounting] = A, [AccessModule.Reports] = V, [AccessModule.Hr] = V, [AccessModule.Payroll] = A,
-                [AccessModule.Inventory] = A, [AccessModule.Settings] = E
+                [AccessModule.Inventory] = A, [AccessModule.Settings] = E, [AccessModule.Pos] = A
             }),
         new Template("sales", "Shitje", "Sales",
             "Harton faturat e shitjes dhe menaxhon klientët; nuk poston.", "Drafts sales invoices and manages customers; does not post.",
             new Dictionary<AccessModule, AccessLevel>
             {
                 [AccessModule.Sales] = E, [AccessModule.Partners] = E, [AccessModule.Items] = V, [AccessModule.Reports] = V,
-                [AccessModule.Inventory] = V
+                [AccessModule.Inventory] = V, [AccessModule.Pos] = E
             }),
+        // docs/POS_PLAN.md D14: sells at the till in an open session; refunds, cancellations and
+        // closing a session need a manager (Pos: Approve).
+        new Template("cashier", "Arkëtar", "Cashier",
+            "Shet në arkë dhe menaxhon paratë e turnit; anulimet dhe kthimet i miraton menaxheri.",
+            "Sells at the till and handles the shift's cash; a manager approves cancellations and refunds.",
+            new Dictionary<AccessModule, AccessLevel> { [AccessModule.Pos] = E, [AccessModule.Items] = V, [AccessModule.Partners] = V }),
         new Template("purchasing", "Blerje", "Purchasing",
             "Harton faturat e blerjes dhe menaxhon furnitorët dhe artikujt.", "Drafts bills and manages vendors and items.",
             new Dictionary<AccessModule, AccessLevel>
@@ -121,7 +131,7 @@ public class CompanyRole
             {
                 [AccessModule.Sales] = V, [AccessModule.Purchases] = V, [AccessModule.Partners] = V, [AccessModule.Items] = V,
                 [AccessModule.Accounting] = V, [AccessModule.Reports] = V, [AccessModule.Hr] = V, [AccessModule.Inventory] = V,
-                [AccessModule.Settings] = V
+                [AccessModule.Settings] = V, [AccessModule.Pos] = V
             }),
         new Template("employee", "Punonjës", "Employee",
             "Vetëm \"HR-ja ime\": fletëpagesat, pushimet dhe shpenzimet e veta.", "Only \"My HR\": own payslips, leave and expenses.",

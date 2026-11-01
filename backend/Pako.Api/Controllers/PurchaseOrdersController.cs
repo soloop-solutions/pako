@@ -10,6 +10,8 @@ using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Domain.Inventory;
+using PriceMode = Pako.Domain.Invoicing.PriceMode;
+using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -77,6 +79,7 @@ public class PurchaseOrdersController : ControllerBase
 
     [HttpPost(Name = "CreatePurchaseOrder")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
+    [ProducesResponseType(typeof(PurchaseOrderResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PurchaseOrderResponse>> Create(Guid companyId, SavePurchaseOrderRequest request)
     {
         if (await ValidateAsync(companyId, request) is { } error) return BadRequest(error);
@@ -177,7 +180,8 @@ public class PurchaseOrdersController : ControllerBase
         var order = await LoadAsync(companyId, id, tracking: false);
         if (order is null) return NotFound();
         if (order.State != PurchaseOrderState.Confirmed) return BadRequest(_localizer["PurchaseOrderNotConfirmed"].Value);
-        var received = await ReceivedAsync(order.Lines.Select(l => l.Id).ToList());
+        // Receipts still in draft count too: pressing "receive" twice must not make two full drafts.
+        var received = await ReceivedAsync(order.Lines.Select(l => l.Id).ToList(), includeDraftReceipts: true);
         var tracked = await _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId && i.TrackInventory && i.Type == ItemType.Goods)
             .Select(i => i.Id).ToListAsync();
         var taxIds = order.Lines.Where(l => l.TaxDefinitionId != null).Select(l => l.TaxDefinitionId!.Value).ToList();
@@ -208,29 +212,8 @@ public class PurchaseOrdersController : ControllerBase
         return Ok(document.Id);
     }
 
-    // Delivered per order line: goods counted in on posted receipts, plus goods a posted bill brought
-    // in directly (billed quantity not matched to a receipt) — both put the order's stock on the shelf.
-    private async Task<Dictionary<Guid, decimal>> ReceivedAsync(List<Guid> lineIds)
-    {
-        if (lineIds.Count == 0) return new();
-        var receipts = await _db.StockDocumentLines.AsNoTracking()
-            .Where(l => l.PurchaseOrderLineId != null && lineIds.Contains(l.PurchaseOrderLineId.Value)
-                && l.StockDocument!.Type == StockDocumentType.Receipt && l.StockDocument.State == StockDocumentState.Posted)
-            .GroupBy(l => l.PurchaseOrderLineId!.Value).Select(g => new { g.Key, Quantity = g.Sum(l => l.Quantity) })
-            .ToDictionaryAsync(g => g.Key, g => g.Quantity);
-        var billLines = await _db.BillLines.AsNoTracking()
-            .Where(l => l.PurchaseOrderLineId != null && lineIds.Contains(l.PurchaseOrderLineId.Value)
-                && l.Bill!.State == BillState.Posted && l.Bill.DocumentType == DocumentType.Bill)
-            .Select(l => new { l.Id, OrderLine = l.PurchaseOrderLineId!.Value, l.Quantity })
-            .ToListAsync();
-        var billLineIds = billLines.Select(l => l.Id).ToList();
-        var matched = await _db.ReceiptMatches.AsNoTracking().Where(m => billLineIds.Contains(m.BillLineId))
-            .GroupBy(m => m.BillLineId).Select(g => new { g.Key, Quantity = g.Sum(m => m.Quantity) })
-            .ToDictionaryAsync(g => g.Key, g => g.Quantity);
-        var direct = billLines.GroupBy(l => l.OrderLine)
-            .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity - matched.GetValueOrDefault(l.Id)));
-        return lineIds.ToDictionary(id => id, id => receipts.GetValueOrDefault(id) + direct.GetValueOrDefault(id));
-    }
+    private Task<Dictionary<Guid, decimal>> ReceivedAsync(List<Guid> lineIds, bool includeDraftReceipts = false) =>
+        PurchaseOrderQuantities.ReceivedAsync(_db, lineIds, includeDraftReceipts);
 
     // The low-stock list as orders: every stock-tracked item below its minimum, grouped by the
     // vendor it was last bought from, ordered up to the minimum at the last purchase price. Items
@@ -253,12 +236,14 @@ public class PurchaseOrdersController : ControllerBase
         var lastBought = (await _db.BillLines.AsNoTracking()
                 .Where(l => l.ItemId != null && ids.Contains(l.ItemId.Value) && l.Bill!.CompanyId == companyId
                     && l.Bill.State == BillState.Posted && l.Bill.DocumentType == DocumentType.Bill)
-                .Select(l => new { ItemId = l.ItemId!.Value, l.Bill!.PartnerId, l.UnitPrice, l.TaxDefinitionId, l.Bill.IssueDate, l.Bill.CreatedAt })
+                .Select(l => new { ItemId = l.ItemId!.Value, l.Bill!.PartnerId, l.UnitPrice, l.UnitFactor, l.Bill.PriceMode, l.TaxDefinitionId, l.Bill.IssueDate, l.Bill.CreatedAt })
                 .ToListAsync())
             .Where(l => _access.CanSeePartner(l.PartnerId))
             .GroupBy(l => l.ItemId)
             .ToDictionary(g => g.Key, g => g.OrderByDescending(l => l.IssueDate).ThenByDescending(l => l.CreatedAt).First());
 
+        var lastTaxIds = lastBought.Values.Where(l => l.TaxDefinitionId != null).Select(l => l.TaxDefinitionId!.Value).Distinct().ToList();
+        var lastTaxes = await _db.TaxDefinitions.AsNoTracking().Include(t => t.RepartitionLines).Where(t => lastTaxIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var created = new List<Guid>();
         foreach (var group in low.Where(i => lastBought.ContainsKey(i.Id)).GroupBy(i => lastBought[i.Id].PartnerId))
@@ -275,7 +260,7 @@ public class PurchaseOrdersController : ControllerBase
                 order.Lines.Add(new PurchaseOrderLine
                 {
                     Id = Guid.NewGuid(), PurchaseOrderId = order.Id, ItemId = item.Id, Description = item.Name,
-                    Quantity = item.MinimumStock!.Value - item.Quantity, UnitPrice = last.UnitPrice,
+                    Quantity = item.MinimumStock!.Value - item.Quantity, UnitPrice = OrderPrice(last.UnitPrice, last.UnitFactor, last.PriceMode, last.TaxDefinitionId, lastTaxes),
                     TaxDefinitionId = last.TaxDefinitionId, SortOrder = sort++,
                 });
             }
@@ -287,6 +272,15 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     // ---- Helpers ----
+
+    // An order line is priced per base unit, VAT-inclusive; the last bill may have been per box and
+    // net of VAT.
+    private decimal OrderPrice(decimal billPrice, decimal unitFactor, PriceMode mode, Guid? taxId, Dictionary<Guid, TaxDefinition> taxes)
+    {
+        var perUnit = unitFactor > 0 ? billPrice / unitFactor : billPrice;
+        if (mode == PriceMode.NetExclusive && taxId is { } t && taxes.TryGetValue(t, out var tax)) perUnit = _tax.Compute(perUnit, tax).TotalAmount;
+        return AverageCost.UnitCost(perUnit);
+    }
 
     // Partner-scoped members only see orders for their partners.
     private IQueryable<PurchaseOrder> Visible(Guid companyId)
@@ -348,18 +342,8 @@ public class PurchaseOrdersController : ControllerBase
         }).ToList();
     }
 
-    // Quantities billed per order line: posted bills, and drafts still waiting.
-    private async Task<Dictionary<Guid, (decimal Posted, decimal Draft)>> BilledAsync(List<Guid> lineIds)
-    {
-        if (lineIds.Count == 0) return new();
-        var rows = await _db.BillLines.AsNoTracking()
-            .Where(l => l.PurchaseOrderLineId != null && lineIds.Contains(l.PurchaseOrderLineId.Value)
-                && l.Bill!.State != BillState.Cancelled && l.Bill.DocumentType == DocumentType.Bill)
-            .Select(l => new { LineId = l.PurchaseOrderLineId!.Value, l.Quantity, Posted = l.Bill!.State == BillState.Posted })
-            .ToListAsync();
-        return rows.GroupBy(r => r.LineId).ToDictionary(g => g.Key,
-            g => (g.Where(r => r.Posted).Sum(r => r.Quantity), g.Where(r => !r.Posted).Sum(r => r.Quantity)));
-    }
+    private Task<Dictionary<Guid, (decimal Posted, decimal Draft)>> BilledAsync(List<Guid> lineIds) =>
+        PurchaseOrderQuantities.BilledAsync(_db, lineIds);
 
     private static string Progress(PurchaseOrder order, Dictionary<Guid, (decimal Posted, decimal Draft)> billed)
     {

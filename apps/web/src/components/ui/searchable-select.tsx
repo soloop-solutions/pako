@@ -130,6 +130,11 @@ export interface SearchableSelectProps {
   renderValue?: (option: SelectOption | undefined) => ReactNode;
   /** Favorites support — pinned + frequently used sections at top of dropdown. */
   favorites?: SelectFavoritesConfig;
+  /**
+   * Called with the search text as it is typed (and "" when the list opens), for option sets
+   * too large to load at once: the caller searches the server and passes the results as options.
+   */
+  onSearchChange?: (query: string) => void;
 }
 
 export function SearchableSelect({
@@ -147,9 +152,14 @@ export function SearchableSelect({
   searchable: searchableProp,
   renderValue,
   favorites,
+  onSearchChange,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
+  const [query, setQueryState] = useState("");
+  const setQuery = (next: string) => {
+    setQueryState(next);
+    onSearchChange?.(next);
+  };
   const [highlightIndex, setHighlightIndex] = useState(-1);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
@@ -157,7 +167,8 @@ export function SearchableSelect({
 
   const allFlat = flattenOptions(options);
   const totalOptions = allFlat.length + (emptyOptionLabel ? 1 : 0);
-  const searchable = searchableProp ?? totalOptions > 6;
+  // A server-searched list always needs its search box, however few options are loaded yet.
+  const searchable = searchableProp ?? (!!onSearchChange || totalOptions > 6);
 
   const filtered = filterItems(options, query);
   const flatFiltered = flattenOptions(filtered);
@@ -173,7 +184,7 @@ export function SearchableSelect({
   // Reset highlight and query when opening/closing
   useEffect(() => {
     if (open) {
-      setQuery("");
+      setQueryState("");
       setHighlightIndex(-1);
       // Focus search input after popover renders
       requestAnimationFrame(() => {
@@ -224,6 +235,7 @@ export function SearchableSelect({
     if (event.key === "Enter" || event.key === " " || event.key === "ArrowDown") {
       event.preventDefault();
       setOpen(true);
+      onSearchChange?.("");
     }
   }
 
@@ -313,7 +325,13 @@ export function SearchableSelect({
   }
 
   return (
-    <Popover.Root open={open} onOpenChange={setOpen}>
+    <Popover.Root
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (next) onSearchChange?.("");
+      }}
+    >
       <Popover.Trigger asChild>
         <button
           type="button"

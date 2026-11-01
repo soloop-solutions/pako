@@ -41,22 +41,27 @@ public class PriceListsController : ControllerBase
     public async Task<ActionResult<List<PriceListResponse>>> Lists(Guid companyId)
     {
         var lists = await _db.PriceLists.AsNoTracking().Where(p => p.CompanyId == companyId)
-            .OrderBy(p => p.WarehouseId != null).ThenBy(p => p.Name).ToListAsync();
+            .OrderBy(p => p.IsCustomerList).ThenBy(p => p.WarehouseId != null).ThenBy(p => p.Name).ToListAsync();
         var ids = lists.Select(p => p.Id).ToList();
         var counts = await _db.PriceListPrices.AsNoTracking().Where(p => ids.Contains(p.PriceListId))
             .GroupBy(p => p.PriceListId).Select(g => new { g.Key, Items = g.Select(p => p.ItemId).Distinct().Count() })
             .ToDictionaryAsync(g => g.Key, g => g.Items);
         var warehouses = await _db.Warehouses.AsNoTracking().Where(w => w.CompanyId == companyId).ToDictionaryAsync(w => w.Id, w => w.Name);
         return Ok(lists.Select(p => new PriceListResponse(p.Id, p.Name, p.WarehouseId,
-            p.WarehouseId is { } w ? warehouses.GetValueOrDefault(w) : null, p.IsActive, counts.GetValueOrDefault(p.Id))).ToList());
+            p.WarehouseId is { } w ? warehouses.GetValueOrDefault(w) : null, p.IsActive, counts.GetValueOrDefault(p.Id), p.IsCustomerList)).ToList());
     }
 
     [HttpPost("price-lists", Name = "CreatePriceList")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    [ProducesResponseType(typeof(PriceListResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PriceListResponse>> CreateList(Guid companyId, SavePriceListRequest request)
     {
         if (await ValidateListAsync(companyId, null, request) is { } error) return BadRequest(error);
-        var list = new PriceList { Id = Guid.NewGuid(), CompanyId = companyId, Name = request.Name.Trim(), WarehouseId = request.WarehouseId };
+        var list = new PriceList
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, Name = request.Name.Trim(), WarehouseId = request.IsCustomerList ? null : request.WarehouseId,
+            IsCustomerList = request.IsCustomerList,
+        };
         _db.PriceLists.Add(list);
         await _db.SaveChangesAsync();
         return StatusCode(StatusCodes.Status201Created, await ListResponseAsync(list));
@@ -69,8 +74,9 @@ public class PriceListsController : ControllerBase
         var list = await _db.PriceLists.FirstOrDefaultAsync(p => p.Id == priceListId && p.CompanyId == companyId);
         if (list is null) return NotFound();
         if (await ValidateListAsync(companyId, priceListId, request) is { } error) return BadRequest(error);
+        if (list.IsCustomerList != request.IsCustomerList) return BadRequest(_localizer["PriceListKindFixed"].Value);
         list.Name = request.Name.Trim();
-        list.WarehouseId = request.WarehouseId;
+        list.WarehouseId = request.IsCustomerList ? null : request.WarehouseId;
         list.IsActive = request.IsActive;
         await _db.SaveChangesAsync();
         return Ok(await ListResponseAsync(list));
@@ -87,7 +93,9 @@ public class PriceListsController : ControllerBase
         {
             return _localizer["WarehouseNotFound"].Value;
         }
-        if (await _db.PriceLists.AnyAsync(p => p.CompanyId == companyId && p.Id != id && p.WarehouseId == request.WarehouseId))
+        if (request.IsCustomerList && request.WarehouseId is not null) return _localizer["PriceListCustomerNoWarehouse"].Value;
+        if (!request.IsCustomerList
+            && await _db.PriceLists.AnyAsync(p => p.CompanyId == companyId && p.Id != id && !p.IsCustomerList && p.WarehouseId == request.WarehouseId))
         {
             return _localizer["PriceListWarehouseTaken"].Value;
         }
@@ -98,7 +106,7 @@ public class PriceListsController : ControllerBase
     {
         var warehouse = list.WarehouseId is { } w ? await _db.Warehouses.AsNoTracking().Where(x => x.Id == w).Select(x => x.Name).FirstOrDefaultAsync() : null;
         var priced = await _db.PriceListPrices.AsNoTracking().Where(p => p.PriceListId == list.Id).Select(p => p.ItemId).Distinct().CountAsync();
-        return new PriceListResponse(list.Id, list.Name, list.WarehouseId, warehouse, list.IsActive, priced);
+        return new PriceListResponse(list.Id, list.Name, list.WarehouseId, warehouse, list.IsActive, priced, list.IsCustomerList);
     }
 
     // Every sellable item with its price on the list at the date (paged, searchable). A warehouse
@@ -126,11 +134,13 @@ public class PriceListsController : ControllerBase
         var pageItems = await items.OrderBy(i => i.Code).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var ids = pageItems.Select(i => i.Id).ToList();
         var own = await _prices.PricesOnAsync(priceListId, date, ids);
+        var tiers = await _prices.TiersOnAsync(priceListId, date, ids);
         // What applies when this list has no price: for a shop list, the company list or the item.
         var fallback = (await _prices.ResolveAsync(companyId, null, date, ids)).ToDictionary(r => r.ItemId, r => r.Price);
         var rows = pageItems.Select(i => new PriceListItemResponse(i.Id, i.Code, i.Name, i.Unit,
             own.TryGetValue(i.Id, out var p) ? p.Price : null, own.TryGetValue(i.Id, out var q) ? q.ValidFrom : null,
-            list.WarehouseId is null ? i.DefaultUnitPrice : fallback.TryGetValue(i.Id, out var f) ? f : null)).ToList();
+            list.WarehouseId is null && !list.IsCustomerList ? i.DefaultUnitPrice : fallback.TryGetValue(i.Id, out var f) ? f : null,
+            tiers.TryGetValue(i.Id, out var t) ? t.Select(x => new PriceTierResponse(x.MinQuantity, x.Price, x.ValidFrom)).ToList() : null)).ToList();
         return Ok(new PaginatedResponse<PriceListItemResponse>(rows, total, page, pageSize));
     }
 
@@ -138,11 +148,21 @@ public class PriceListsController : ControllerBase
     [HttpGet("prices/resolve", Name = "ResolvePrices")]
     [RequireCompanyAccess]
     public async Task<ActionResult<List<ResolvedPriceResponse>>> Resolve(Guid companyId, [FromQuery] List<Guid> itemIds,
-        [FromQuery] Guid? warehouseId = null, [FromQuery(Name = "date")] DateOnly? dateParam = null)
+        [FromQuery] Guid? warehouseId = null, [FromQuery(Name = "date")] DateOnly? dateParam = null,
+        [FromQuery] Guid? partnerId = null, [FromQuery] List<decimal>? quantities = null)
     {
         if (itemIds.Count == 0) return Ok(new List<ResolvedPriceResponse>());
         if (itemIds.Count > 500) itemIds = itemIds.Take(500).ToList();
-        return Ok(await _prices.ResolveAsync(companyId, warehouseId, dateParam ?? DateOnly.FromDateTime(DateTime.UtcNow), itemIds));
+        // docs/POS_PLAN.md P6: quantities (base units) pair with itemIds by position and pick volume
+        // tiers; a repeated item adds up.
+        Dictionary<Guid, decimal>? byItem = null;
+        if (quantities is { Count: > 0 })
+        {
+            byItem = new();
+            for (var i = 0; i < itemIds.Count && i < quantities.Count; i++) byItem[itemIds[i]] = byItem.GetValueOrDefault(itemIds[i]) + quantities[i];
+        }
+        return Ok(await _prices.ResolveAsync(companyId, warehouseId, dateParam ?? DateOnly.FromDateTime(DateTime.UtcNow), itemIds,
+            partnerId: partnerId, quantities: byItem));
     }
 
     // ---- Price changes (Nivelim) ----
@@ -176,6 +196,7 @@ public class PriceListsController : ControllerBase
 
     [HttpPost("price-changes", Name = "CreatePriceChange")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    [ProducesResponseType(typeof(PriceChangeResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PriceChangeResponse>> CreateChange(Guid companyId, SavePriceChangeRequest request)
     {
         try

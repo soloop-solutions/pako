@@ -23,6 +23,7 @@ import { useWarehouses } from "@/hooks/useStock";
 import { useUrlParam } from "@/hooks/useUrlParam";
 import { formatAmount } from "@/lib/payroll-enums";
 import { PriceChangeState } from "@/lib/stock-enums";
+import { priceListLabel } from "@/lib/price-lists";
 import { cn } from "@/lib/utils";
 
 const ITEMS_GRID = "price-list-items";
@@ -143,6 +144,22 @@ function PricesTab({ lists, selected, onSelect, onEdit }: {
         cell: ({ getValue }) => (getValue() ? intl.formatDate(new Date(`${getValue() as string}T00:00`), { dateStyle: "medium" }) : "—"),
       },
       {
+        // docs/POS_PLAN.md P6: volume tiers ("from 10: 1.80").
+        id: "tiers",
+        header: t("dist.price.tiers"),
+        enableSorting: false,
+        enableColumnFilter: false,
+        cell: ({ row }) => {
+          const tiers = row.original.tiers ?? [];
+          if (tiers.length === 0) return "—";
+          return (
+            <span className="tnum text-xs">
+              {tiers.map((tier) => intl.formatMessage({ id: "dist.price.tier" }, { qty: intl.formatNumber(tier.minQuantity), price: price(tier.price) })).join(" · ")}
+            </span>
+          );
+        },
+      },
+      {
         accessorKey: "fallbackPrice",
         header: t(selected.warehouseId ? "price.col.companyPrice" : "price.col.itemPrice"),
         meta: { numeric: true },
@@ -166,7 +183,7 @@ function PricesTab({ lists, selected, onSelect, onEdit }: {
               className="w-60"
               value={selected.id}
               onValueChange={onSelect}
-              options={lists.map((l) => ({ value: l.id, label: l.warehouseName ? `${l.name} · ${l.warehouseName}` : l.name }))}
+              options={lists.map((l) => ({ value: l.id, label: priceListLabel(l, t("dist.price.customerList")) }))}
             />
           </div>
           <div className="flex flex-col gap-1">
@@ -195,7 +212,9 @@ function PricesTab({ lists, selected, onSelect, onEdit }: {
         </div>
       </CardHeader>
       <CardContent>
-        <CardDescription className="mb-3">{t(selected.warehouseId ? "price.list.shopHint" : "price.list.companyHint")}</CardDescription>
+        <CardDescription className="mb-3">
+          {t(selected.isCustomerList ? "dist.price.customerListHint" : selected.warehouseId ? "price.list.shopHint" : "price.list.companyHint")}
+        </CardDescription>
         <DataGrid
           gridId={ITEMS_GRID}
           columns={columns}
@@ -292,11 +311,14 @@ function PriceListDialog({ list, onClose, onSaved }: { list: PriceListResponse |
   const [name, setName] = useState(list?.name ?? "");
   const [warehouseId, setWarehouseId] = useState(list?.warehouseId ?? "");
   const [isActive, setIsActive] = useState(list?.isActive ?? true);
+  // docs/POS_PLAN.md P6: a customer list (given to customers on the partner form) has no warehouse;
+  // its kind is chosen when it is created.
+  const [isCustomerList, setIsCustomerList] = useState(list?.isCustomerList ?? false);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => setError(null), [name, warehouseId]);
   const save = useMutation({
     mutationFn: () => {
-      const body = { name: name.trim(), warehouseId: warehouseId || undefined, isActive };
+      const body = { name: name.trim(), warehouseId: isCustomerList ? undefined : warehouseId || undefined, isActive, isCustomerList };
       return list ? apiClient.updatePriceList(activeCompanyId as string, list.id, body) : apiClient.createPriceList(activeCompanyId as string, body);
     },
     onSuccess: onSaved,
@@ -320,15 +342,25 @@ function PriceListDialog({ list, onClose, onSaved }: { list: PriceListResponse |
           <Label htmlFor="pl-name">{t("price.list.name")}</Label>
           <Input id="pl-name" required maxLength={120} value={name} onChange={(e) => setName(e.target.value)} />
         </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="pl-warehouse">{t("price.list.warehouse")}</Label>
-          <Select
-            id="pl-warehouse"
-            value={warehouseId}
-            onValueChange={setWarehouseId}
-            options={[{ value: "", label: t("price.list.companyWide") }, ...warehouses.map((w) => ({ value: w.id, label: `${w.code} · ${w.name}` }))]}
-          />
-        </div>
+        {list ? (
+          list.isCustomerList && <p className="text-sm text-muted-foreground">{t("dist.price.customerListHint")}</p>
+        ) : (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={isCustomerList} onChange={(e) => setIsCustomerList(e.target.checked)} />
+            {t("dist.price.customerList")}
+          </label>
+        )}
+        {!isCustomerList && (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="pl-warehouse">{t("price.list.warehouse")}</Label>
+            <Select
+              id="pl-warehouse"
+              value={warehouseId}
+              onValueChange={setWarehouseId}
+              options={[{ value: "", label: t("price.list.companyWide") }, ...warehouses.map((w) => ({ value: w.id, label: `${w.code} · ${w.name}` }))]}
+            />
+          </div>
+        )}
         {list && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

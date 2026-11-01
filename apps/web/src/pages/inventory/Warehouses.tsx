@@ -18,6 +18,8 @@ import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { useWarehouses } from "@/hooks/useStock";
+import { useCompanyMembers } from "@/hooks/usePosServices";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { NegativeStockPolicy } from "@/lib/stock-enums";
 
 // docs/INVENTORY_PLAN.md — where stock is kept, and the company's stock settings (cost method,
@@ -42,6 +44,7 @@ export function Warehouses() {
             {row.original.name}
             {row.original.isDefault && <Badge>{t("stock.wh.default")}</Badge>}
             {!row.original.isActive && <Badge variant="secondary">{t("stock.wh.closed")}</Badge>}
+            {row.original.isVan && <Badge variant="info">{t("dist.van")}</Badge>}
           </span>
         ),
       },
@@ -112,10 +115,17 @@ function WarehouseDialog({ warehouse, onClose, onSaved }: { warehouse: Warehouse
   const [name, setName] = useState(warehouse?.name ?? "");
   const [address, setAddress] = useState(warehouse?.address ?? "");
   const [isActive, setIsActive] = useState(warehouse?.isActive ?? true);
+  // docs/POS_PLAN.md P6: a van is a warehouse on wheels, driven by a member of the company.
+  const [isVan, setIsVan] = useState(warehouse?.isVan ?? false);
+  const [driverUserId, setDriverUserId] = useState(warehouse?.driverUserId ?? "");
+  const members = useCompanyMembers().data ?? [];
   const [error, setError] = useState<string | null>(null);
   const save = useMutation({
     mutationFn: () => {
-      const body = { code: code.trim(), name: name.trim(), address: address.trim() || undefined, isActive };
+      const body = {
+        code: code.trim(), name: name.trim(), address: address.trim() || undefined, isActive,
+        isVan, driverUserId: isVan ? driverUserId || undefined : undefined,
+      };
       return warehouse
         ? apiClient.updateWarehouse(activeCompanyId as string, warehouse.id, body)
         : apiClient.createWarehouse(activeCompanyId as string, body);
@@ -152,6 +162,29 @@ function WarehouseDialog({ warehouse, onClose, onSaved }: { warehouse: Warehouse
           <Label htmlFor="wh-address">{t("stock.wh.address")}</Label>
           <Input id="wh-address" value={address} onChange={(e) => setAddress(e.target.value)} />
         </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={isVan} onChange={(e) => setIsVan(e.target.checked)} />
+          {t("dist.wh.isVan")}
+        </label>
+        {isVan && (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="wh-driver">{t("dist.wh.driver")}</Label>
+            <SearchableSelect
+              id="wh-driver"
+              value={driverUserId}
+              onChange={setDriverUserId}
+              placeholder={t("dist.wh.noDriver")}
+              emptyOptionLabel={t("dist.wh.noDriver")}
+              searchPlaceholder={t("common.search")}
+              noResultsText={t("common.noResults")}
+              options={[
+                ...members.map((m) => ({ value: m.userId, label: m.email })),
+                ...(driverUserId && !members.some((m) => m.userId === driverUserId) ? [{ value: driverUserId, label: driverUserId }] : []),
+              ]}
+            />
+            <p className="text-xs text-muted-foreground">{t("dist.wh.driverHint")}</p>
+          </div>
+        )}
         {warehouse && (
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />

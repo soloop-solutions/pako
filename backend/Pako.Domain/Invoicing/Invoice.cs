@@ -62,6 +62,9 @@ public class Invoice
     // docs/INVENTORY_PLAN.md: the warehouse stock-tracked lines leave from; null = the company default.
     public Guid? WarehouseId { get; set; }
 
+    // docs/ERP_VERTICALS_PLAN.md: the ledger project the revenue belongs to (its revenue lines carry it).
+    public Guid? ProjectId { get; set; }
+
     public List<InvoiceLine> Lines { get; set; } = new();
 
     public JournalEntry Post(

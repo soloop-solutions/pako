@@ -7,7 +7,10 @@ public enum CommissionBasis
 
     // Customer payments matched to invoices in the period, prorated to the invoices' net — pays
     // commission only on cash actually collected.
-    PaidNet
+    PaidNet,
+
+    // docs/POS_PLAN.md P4: services the employee performed at the till (net of VAT), less returns.
+    PosServicesNet
 }
 
 // G11: how an employee earns commission on the partners assigned to them.

@@ -21,6 +21,13 @@ const OWNER: Record<AttachmentDocumentKind, { value: number; name: string }> = {
   stockDocument: { value: 5, name: "StockDocument" },
 };
 
+// The server's message (or the app's translated one for a 403/404/500/network failure) when there
+// is one. Otherwise the error carries no message and the panel shows its own translated fallback,
+// so no English text is hard-coded here.
+function failure(err: unknown): Error {
+  return new Error(getApiErrorMessage(err, ""));
+}
+
 function toAttachment(a: { id: string; fileName: string; contentType: string; sizeBytes: number; uploadedAtUtc: string }): Attachment {
   return { id: a.id, fileName: a.fileName, contentType: a.contentType, sizeBytes: a.sizeBytes, uploadedAt: a.uploadedAtUtc };
 }
@@ -29,7 +36,7 @@ export async function fetchAttachments(companyId: string, documentKind: Attachme
   try {
     return (await apiClient.attachmentsAll(companyId, OWNER[documentKind].value, documentId)).map(toAttachment);
   } catch (err) {
-    throw new Error(getApiErrorMessage(err, "Could not load attachments."));
+    throw failure(err);
   }
 }
 
@@ -42,7 +49,7 @@ export async function uploadAttachment(
   try {
     return toAttachment(await apiClient.attachmentsPOST(companyId, OWNER[documentKind].name, documentId, { data: file, fileName: file.name }));
   } catch (err) {
-    throw new Error(getApiErrorMessage(err, `Could not upload "${file.name}".`));
+    throw failure(err);
   }
 }
 
@@ -55,7 +62,7 @@ export async function deleteAttachment(
   try {
     await apiClient.attachmentsDELETE(companyId, attachmentId);
   } catch (err) {
-    throw new Error(getApiErrorMessage(err, "Could not delete this attachment."));
+    throw failure(err);
   }
 }
 
@@ -66,6 +73,6 @@ export async function fetchAttachmentContent(
   attachmentId: string,
 ): Promise<Blob> {
   const response = await authorizedFetch(`${API_BASE_URL}/api/companies/${companyId}/attachments/${attachmentId}/download`);
-  if (!response.ok) throw new Error("Could not load this file.");
+  if (!response.ok) throw new Error("");
   return response.blob();
 }

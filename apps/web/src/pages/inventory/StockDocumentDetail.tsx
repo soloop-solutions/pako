@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { SaveStockDocumentRequest, StockDocumentResponse } from "@pako/shared";
-import { ArrowLeft, ClipboardList, Plus, Printer, X } from "lucide-react";
+import { ArrowLeft, ClipboardList, FileText, Plus, Printer, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { PrintButton } from "@/components/shared/PrintButton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,8 +18,9 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
-import { useWarehouses } from "@/hooks/useStock";
+import { useItemSearch, useWarehouses } from "@/hooks/useStock";
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
+import { StockDocumentPrint } from "@/pages/inventory/StockDocumentPrint";
 import { downloadFileResponse } from "@/lib/download";
 import { formatAmount } from "@/lib/payroll-enums";
 import {
@@ -43,6 +45,8 @@ interface Line {
   // §12 P8: lot-tracked items.
   lotNumber?: string;
   expiryDate?: string;
+  // docs/POS_PLAN.md P6, delivery only: the sales order line the goods were ordered on.
+  salesOrderLineId?: string;
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
@@ -58,9 +62,10 @@ export function StockDocumentDetail() {
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { activeCompanyId } = useCompany();
+  const { activeCompanyId, activeCompany } = useCompany();
   const { canWrite, canApprove } = useMyAccess();
   const isNew = id === "new";
+  const printRef = useRef<HTMLDivElement>(null);
   const warehouses = (useWarehouses().data ?? []).filter((w) => w.isActive);
 
   const documentQuery = useQuery({
@@ -68,12 +73,11 @@ export function StockDocumentDetail() {
     queryFn: () => apiClient.getStockDocument(activeCompanyId as string, id as string),
     enabled: !!activeCompanyId && !isNew && !!id,
   });
-  const itemsQuery = useQuery({
-    queryKey: ["items", activeCompanyId, "tracked"],
-    queryFn: async () => (await apiClient.itemsGET(activeCompanyId as string, 1, 200, undefined, undefined)).items.filter((i) => i.trackInventory),
-    enabled: !!activeCompanyId,
-  });
-  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
+  const itemSearch = useItemSearch({ trackedOnly: true });
+  const items = itemSearch.items;
+  // Labels of items on lines the server filled in (a saved draft, a count sheet), for items no
+  // search has returned yet.
+  const [lineLabels, setLineLabels] = useState<Record<string, { label: string; unit: string }>>({});
 
   const document = documentQuery.data;
   const [type, setType] = useState<number>(Number(params.get("type") ?? StockDocumentType.Opening));
@@ -84,11 +88,14 @@ export function StockDocumentDetail() {
   const [atkNotice, setAtkNotice] = useState("");
   const [notes, setNotes] = useState("");
   const [partnerId, setPartnerId] = useState("");
-  const vendors = (useQuery({
+  const partners = useQuery({
     queryKey: ["partners", activeCompanyId],
     queryFn: () => apiClient.partnersAll(activeCompanyId as string),
-    enabled: !!activeCompanyId && type === StockDocumentType.Receipt,
-  }).data ?? []).filter((p) => p.isVendor);
+    enabled: !!activeCompanyId && (type === StockDocumentType.Receipt || type === StockDocumentType.Delivery),
+  }).data ?? [];
+  const vendors = partners.filter((p) => p.isVendor);
+  // docs/POS_PLAN.md P6: a delivery note goes to a customer.
+  const customers = partners.filter((p) => p.isCustomer);
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
@@ -104,9 +111,11 @@ export function StockDocumentDetail() {
     setAtkNotice(document.atkNoticeDate ?? "");
     setNotes(document.notes ?? "");
     setPartnerId(document.partnerId ?? "");
+    setLineLabels((known) => ({ ...known, ...Object.fromEntries(document.lines.map((l) => [l.itemId, { label: `${l.itemCode} · ${l.itemName}`, unit: l.unit }])) }));
     setLines(document.lines.map((l) => ({
       itemId: l.itemId, quantity: String(l.quantity), unitCost: l.unitCost == null ? "" : String(l.unitCost), note: l.note ?? "",
       purchaseOrderLineId: l.purchaseOrderLineId, lotNumber: l.lotNumber ?? undefined, expiryDate: l.expiryDate ?? undefined,
+      salesOrderLineId: l.salesOrderLineId ?? undefined,
     })));
   }, [document]);
 
@@ -119,6 +128,7 @@ export function StockDocumentDetail() {
   const typeKey = stockDocumentTypeKey(type);
   const isWriteDown = type === StockDocumentType.WriteDown;
   const isReceipt = type === StockDocumentType.Receipt;
+  const isDelivery = type === StockDocumentType.Delivery;
   const hasUnitCost = type === StockDocumentType.Opening || isReceipt;
 
   function request(): SaveStockDocumentRequest {
@@ -130,13 +140,16 @@ export function StockDocumentDetail() {
       reason: type === StockDocumentType.WriteOff && reason !== "" ? reason : undefined,
       atkNoticeDate: type === StockDocumentType.WriteOff && atkNotice ? atkNotice : undefined,
       notes: notes.trim() || undefined,
-      partnerId: isReceipt ? partnerId || undefined : undefined,
+      partnerId: isReceipt || isDelivery ? partnerId || undefined : undefined,
+      // Another phase's site issue: kept as loaded so saving here never drops its site.
+      siteId: type === StockDocumentType.SiteIssue ? document?.siteId : undefined,
       lines: lines.filter((l) => l.itemId).map((l) => ({
         itemId: l.itemId,
         // A write-down takes the quantity from the books; its line carries the net realisable value.
         quantity: isWriteDown ? 0 : parse(l.quantity),
         unitCost: (hasUnitCost || isWriteDown) && l.unitCost !== "" ? parse(l.unitCost) : undefined,
         purchaseOrderLineId: isReceipt ? l.purchaseOrderLineId : undefined,
+        salesOrderLineId: isDelivery ? l.salesOrderLineId : undefined,
         lotNumber: l.lotNumber?.trim() || undefined,
         expiryDate: l.expiryDate || undefined,
         note: l.note.trim() || undefined,
@@ -192,7 +205,10 @@ export function StockDocumentDetail() {
   // Count: start from the book quantities of every stock item in the warehouse.
   const loadCountSheet = useMutation({
     mutationFn: () => apiClient.getCountSheet(activeCompanyId as string, warehouseId, date),
-    onSuccess: (rows) => setLines(rows.map((r) => ({ itemId: r.itemId, quantity: String(r.bookQuantity), unitCost: "", note: "", bookQuantity: r.bookQuantity }))),
+    onSuccess: (rows) => {
+      setLineLabels((known) => ({ ...known, ...Object.fromEntries(rows.map((r) => [r.itemId, { label: `${r.itemCode} · ${r.itemName}`, unit: r.unit }])) }));
+      setLines(rows.map((r) => ({ itemId: r.itemId, quantity: String(r.bookQuantity), unitCost: "", note: "", bookQuantity: r.bookQuantity })));
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("stock.doc.saveError"))),
   });
 
@@ -208,7 +224,13 @@ export function StockDocumentDetail() {
     save.mutate();
   }
 
-  const itemOptions = useMemo(() => items.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.unit })), [items]);
+  const itemOptions = useMemo(() => {
+    const options = items.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.unit }));
+    const listed = new Set(options.map((o) => o.value));
+    for (const [itemId, known] of Object.entries(lineLabels))
+      if (!listed.has(itemId)) options.push({ value: itemId, label: known.label, description: known.unit });
+    return options;
+  }, [items, lineLabels]);
   const setLine = (index: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, i) => (i === index ? { ...l, ...patch } : l)));
 
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
@@ -231,9 +253,23 @@ export function StockDocumentDetail() {
             </CardTitle>
             <CardDescription>{t(`stock.doc.type.${typeKey}.description`)}</CardDescription>
           </div>
-          {posted && document && (
-            <p className="text-sm text-muted-foreground tnum">{t("stock.doc.totalValue", { value: formatAmount(document.totalValue) })}</p>
-          )}
+          <div className="flex flex-col items-end gap-2">
+            {posted && document && (
+              <p className="text-sm text-muted-foreground tnum">{t("stock.doc.totalValue", { value: formatAmount(document.totalValue) })}</p>
+            )}
+            {document && (
+              <div className="flex flex-wrap justify-end gap-2">
+                <PrintButton contentRef={printRef} size="xs" />
+                {/* docs/POS_PLAN.md P6: bill what this delivery note sent and isn't invoiced yet. */}
+                {posted && isDelivery && canWrite("sales") && document.lines.some((l) => l.quantity > (l.billed ?? 0)) && (
+                  <Button type="button" size="xs" onClick={() => navigate(`/invoicing?delivery=${document.id}`)}>
+                    <FileText className="size-3.5" />
+                    {t("dist.delivery.createInvoice")}
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <form className="flex flex-col gap-5" onSubmit={submit}>
@@ -276,6 +312,17 @@ export function StockDocumentDetail() {
                   <SearchableSelect id="sd-vendor" value={partnerId} onChange={setPartnerId} disabled={!editable}
                     placeholder={t("po.pickVendor")} searchPlaceholder={t("common.search")} noResultsText={t("common.noResults")}
                     options={vendors.map((v) => ({ value: v.id, label: v.name }))} />
+                </div>
+              )}
+              {isDelivery && (
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="sd-customer">{t("so.col.customer")}</Label>
+                  <SearchableSelect id="sd-customer" value={partnerId} onChange={setPartnerId} disabled={!editable}
+                    placeholder={t("so.pickCustomer")} searchPlaceholder={t("common.search")} noResultsText={t("common.noResults")}
+                    options={[
+                      ...customers.map((c) => ({ value: c.id, label: c.name })),
+                      ...(partnerId && !customers.some((c) => c.id === partnerId) && document?.partnerName ? [{ value: partnerId, label: document.partnerName }] : []),
+                    ]} />
                 </div>
               )}
               {type === StockDocumentType.Transfer && (
@@ -329,14 +376,16 @@ export function StockDocumentDetail() {
               </div>
               <div className="flex flex-col gap-2">
                 {lines.map((line, index) => {
-                  const postedLine = posted ? document?.lines.find((l) => l.itemId === line.itemId) : undefined;
+                  // By position, not item: the same item can sit on two lines (two lots). A posted
+                  // document is read-only, so the form's lines are the document's, in order.
+                  const postedLine = posted ? document?.lines[index] : undefined;
                   return (
                     <div key={index} className="grid grid-cols-[minmax(12rem,2fr)_7rem_7rem_minmax(8rem,1fr)_auto] items-end gap-2">
                       <div className="flex flex-col gap-1">
                         {index === 0 && <Label>{t("stock.col.item")}</Label>}
                         <SearchableSelect value={line.itemId} onChange={(v) => setLine(index, { itemId: v })} disabled={!editable}
                           aria-label={t("stock.col.item")} placeholder={t("stock.doc.pickItem")} searchPlaceholder={t("common.search")}
-                          noResultsText={t("stock.doc.noTrackedItems")} options={itemOptions} />
+                          noResultsText={t("stock.doc.noTrackedItems")} options={itemOptions} onSearchChange={itemSearch.onSearchChange} />
                       </div>
                       {isWriteDown ? (
                         <div className="flex flex-col gap-1">
@@ -363,6 +412,11 @@ export function StockDocumentDetail() {
                             {t("stock.doc.receiptBilled", { billed: intl.formatNumber(postedLine.billed) })}
                           </span>
                         )}
+                        {isDelivery && postedLine?.billed != null && (
+                          <span className="text-[11px] text-muted-foreground tnum">
+                            {t("dist.delivery.billed", { billed: intl.formatNumber(postedLine.billed) })}
+                          </span>
+                        )}
                         {type === StockDocumentType.Count && (line.bookQuantity !== undefined || postedLine?.bookQuantity != null) && (
                           <span className="text-[11px] text-muted-foreground tnum">
                             {t("stock.doc.book", { qty: intl.formatNumber(postedLine?.bookQuantity ?? line.bookQuantity ?? 0) })}
@@ -371,7 +425,7 @@ export function StockDocumentDetail() {
                       </div>
                       )}
                       <div className="flex flex-col gap-1">
-                        {index === 0 && <Label>{t(type === StockDocumentType.Opening ? "stock.doc.unitCost" : isReceipt && !posted ? "stock.doc.netUnitCost" : isWriteDown ? "stock.doc.allowanceChange" : "stock.col.value")}</Label>}
+                        {index === 0 && <Label>{t(type === StockDocumentType.Opening && !posted ? "stock.doc.unitCost" : isReceipt && !posted ? "stock.doc.netUnitCost" : isWriteDown ? "stock.doc.allowanceChange" : "stock.col.value")}</Label>}
                         {hasUnitCost && !posted ? (
                           <Input inputMode="decimal" className="text-right tnum" value={line.unitCost} disabled={!editable}
                             aria-label={t("stock.doc.unitCost")} onChange={(e) => setLine(index, { unitCost: e.target.value })} />
@@ -442,6 +496,11 @@ export function StockDocumentDetail() {
           </form>
         </CardContent>
       </Card>
+      {document && (
+        <div className="sr-only" aria-hidden>
+          <StockDocumentPrint ref={printRef} document={document} companyName={activeCompany?.name ?? ""} />
+        </div>
+      )}
       {document && activeCompanyId && (
         // D14: the ATK notice, a police report or photos behind a write-off (or any stock document).
         <Card>
@@ -450,7 +509,7 @@ export function StockDocumentDetail() {
             <CardDescription>{t(type === StockDocumentType.WriteOff ? "stock.doc.attachmentsHint" : "attachments.description")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <AttachmentsPanel companyId={activeCompanyId} documentKind="stockDocument" documentId={document.id} />
+            <AttachmentsPanel companyId={activeCompanyId} documentKind="stockDocument" documentId={document.id} readOnly={!canWrite("inventory")} />
           </CardContent>
         </Card>
       )}

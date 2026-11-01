@@ -17,6 +17,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { useItemSearch } from "@/hooks/useStock";
 import { PurchaseOrderState } from "@/lib/purchase-order-enums";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
 import { ProgressBadge, PurchaseOrderStateBadge } from "@/pages/bills/PurchaseOrderBadges";
@@ -65,17 +66,23 @@ export function PurchaseOrderDetail() {
     queryFn: () => apiClient.taxes(activeCompanyId as string),
     enabled: !!activeCompanyId,
   }).data ?? []);
-  const itemsQuery = useQuery({
-    queryKey: ["items", activeCompanyId, "all"],
-    queryFn: async () => (await apiClient.itemsGET(activeCompanyId as string, 1, 200, undefined, undefined)).items,
-    enabled: !!activeCompanyId,
-  });
-  const items = useMemo(() => itemsQuery.data ?? [], [itemsQuery.data]);
-  const itemOptions = useMemo(() => items.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.unit })), [items]);
+  const itemSearch = useItemSearch();
+  const items = itemSearch.items;
   // Purchase-side VAT codes only (scope Purchase or Both).
   const taxOptions = taxes.filter((tx) => tx.scope !== 0).map((tx) => ({ value: tx.id, label: taxRatePercentLabel(tx) }));
 
   const order = orderQuery.data;
+  const itemOptions = useMemo(() => {
+    const options = items.map((i) => ({ value: i.id, label: `${i.code} · ${i.name}`, description: i.unit }));
+    // An order line's item no search has returned yet keeps a label: the line's description.
+    const listed = new Set(options.map((o) => o.value));
+    for (const l of order?.lines ?? [])
+      if (l.itemId && !listed.has(l.itemId)) {
+        listed.add(l.itemId);
+        options.push({ value: l.itemId, label: l.description, description: "" });
+      }
+    return options;
+  }, [items, order]);
   const [partnerId, setPartnerId] = useState("");
   const [date, setDate] = useState(isoToday());
   const [expectedDate, setExpectedDate] = useState("");
@@ -219,6 +226,13 @@ export function PurchaseOrderDetail() {
 
   const confirmed = order?.state === PurchaseOrderState.Confirmed;
   const hasRemaining = (order?.lines ?? []).some((l) => l.remaining > 0);
+  // Only stock-tracked items are received. The order line doesn't say whether its item is tracked,
+  // so an item the picker has seen is judged by its flag and an unknown one is left to the server.
+  const receivable = (order?.lines ?? []).some((l) => {
+    if (!l.itemId || (l.toReceive ?? 0) <= 0) return false;
+    const item = items.find((i) => i.id === l.itemId);
+    return !item || !!item.trackInventory;
+  });
   const qty = (v: number) => intl.formatNumber(v);
 
   return (
@@ -239,23 +253,28 @@ export function PurchaseOrderDetail() {
             </CardTitle>
             <CardDescription>{t("po.description")}</CardDescription>
           </div>
-          {confirmed && canWrite("purchases") && (
+          {confirmed && (canWrite("purchases") || canWrite("inventory")) && (
             <div className="flex flex-wrap gap-2">
-              {canWrite("inventory") && (order?.lines ?? []).some((l) => (l.toReceive ?? 0) > 0 && l.itemId) && (
+              {/* Receiving writes a stock receipt: the endpoint needs Inventory: Write, not Purchases. */}
+              {canWrite("inventory") && receivable && (
                 <Button size="sm" variant="outline" disabled={receive.isPending} onClick={() => receive.mutate()}>
                   <PackageCheck className="size-4" />
                   {t("po.receive")}
                 </Button>
               )}
-              {hasRemaining && (
-                <Button size="sm" disabled={createBill.isPending} onClick={() => createBill.mutate()}>
-                  <FileText className="size-4" />
-                  {t("po.createBill")}
-                </Button>
-              )}
-              <Button size="sm" variant="outline" disabled={close.isPending} onClick={() => close.mutate()}>{t("po.close")}</Button>
-              {order?.progress === "none" && order.bills.length === 0 && (
-                <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("po.cancel")}</Button>
+              {canWrite("purchases") && (
+                <>
+                  {hasRemaining && (
+                    <Button size="sm" disabled={createBill.isPending} onClick={() => createBill.mutate()}>
+                      <FileText className="size-4" />
+                      {t("po.createBill")}
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" disabled={close.isPending} onClick={() => close.mutate()}>{t("po.close")}</Button>
+                  {order?.progress === "none" && order.bills.length === 0 && (
+                    <Button size="sm" variant="ghost" disabled={cancel.isPending} onClick={() => cancel.mutate()}>{t("po.cancel")}</Button>
+                  )}
+                </>
               )}
             </div>
           )}
@@ -301,7 +320,7 @@ export function PurchaseOrderDetail() {
                       {index === 0 && <Label>{t("stock.col.item")}</Label>}
                       <SearchableSelect value={line.itemId} onChange={(v) => pickItem(index, v)} disabled={!editable}
                         aria-label={t("stock.col.item")} placeholder={t("stock.doc.pickItem")} searchPlaceholder={t("common.search")}
-                        noResultsText={t("common.noResults")} options={itemOptions} />
+                        noResultsText={t("common.noResults")} options={itemOptions} onSearchChange={itemSearch.onSearchChange} />
                     </div>
                     <div className="flex flex-col gap-1">
                       {index === 0 && <Label>{t("po.col.description")}</Label>}

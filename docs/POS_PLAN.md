@@ -1,6 +1,6 @@
 # PAKO Point of Sale — analysis and master plan
 
-Status: **analysis and master plan, 2026-10-31. Nothing in this document is built yet.**
+Status: **analysis and master plan, 2026-10-31. Build started: §19 tracks progress.**
 Decisions are proposed in §10 and need sign-off; open legal points are listed in §16.
 
 Sources: four research passes on 31 Oct 2026 —
@@ -36,6 +36,7 @@ on it.
 16. Open questions to verify before building
 17. Risks
 18. Commercial notes
+19. Build log
 
 ---
 
@@ -1013,3 +1014,221 @@ own master plan like this one; the POS contributes only counter sales and site i
   their clients.
 - Hardware partners: ESC/POS printers, scanners, scales verified by the Kosovo Metrology Agency,
   Android handhelds with printers; card terminals from the banks; SoftPOS via RaiPOS.
+
+---
+
+## 19. Build log
+
+### 19.1 SEF protocol library — `backend/Pako.Fiscal.Xk` (2026-10-31)
+
+- ATK's `models.proto` (MIT, github.com/fiskalizimi) compiled once with protoc 28.2 into
+  `Atk/AtkModels.cs` and committed (Grpc.Tools ships no macOS arm64 protoc). NuGet added:
+  `Google.Protobuf` 3.28.2.
+- `CouponBuilder`: one request → PosCoupon + CitizenCoupon with identical identity and totals; VAT
+  per tax letter from the letter's gross (same rounding as `TaxComputationService.ComputeFromGross`);
+  payments must equal the total; cancel/return require the original coupon; operator and
+  verification number (≤ 16) required.
+- `CouponSigner` / `CouponVerifier`: Protobuf → Base64 → SHA-256 → ECDSA P-256; QR =
+  `details|signature`; the cloud can verify what a till signed.
+- `FiscalPki`: P-256 key, CSR with C=RKS, O=NUI, OU=POS, L=branch, CN=business name.
+- `AtkFiscalClient`: `/ca/verify/{nui}`, `/ca/signcsr`, `/pos/coupon`, `/citizen/coupon`, with
+  rejection (4xx) separated from unavailability (5xx, network → keep queued).
+- Tests: `FiscalSefTests` (9), no call reaches ATK.
+
+**Findings to confirm with ATK (added to §16):**
+14. **Signature encoding**: ATK's Go sample signs ASN.1/DER, its C# sample IEEE P1363 (r‖s). DER
+    is the default; the encoding is a setting until ATK confirms.
+15. **Item `Total` units**: the sample's prose says cents, its numbers use €0.0001. €0.0001 is used
+    (like item `Price`); coupon totals, tax groups and payments are in cents.
+16. Quantity is a protobuf `float` — fine for counts and weights to 3 decimals; confirm rounding
+    expectations for long-decimal quantities.
+
+**Decision D2 revised:** PAKO Station is built in **.NET** (single-file executable for Windows,
+Linux and macOS) on `Pako.Fiscal.Xk`, so the till and the cloud build, sign and verify the same
+bytes from one codebase. The Node `fiscal-bridge` stays as the PEF driver host until its drivers
+are ported.
+
+### 19.2 P1 foundation — cloud POS and the web till (2026-10-31, branch `adonis/pos-foundation`)
+
+- **Domain/DB** (`Pako.Domain/Pos`, migration `AddPos`): stores (ATK branch), registers (ATK POS,
+  fiscal mode Training/SEF/PEF, certificate), sessions with cash movements and counted tenders,
+  orders (sale/return/cancel, idempotent on ClientUuid), fiscal documents (one per order, unique
+  CouponId per company). Access area **POS** (module 128) with a built-in *Arkëtar* role;
+  payment-method kinds Card/Voucher/GiftCard/OnAccount/Other, a "Kartelë — POS" tender seeded.
+- **Service** (`PosService`): server-side pricing per VAT letter (`PosPricing`), the €2,000 B2C cash
+  limit, returns priced as sold (discount shared pro rata) and capped by what is left, whole-coupon
+  cancellation, stock moved per order (never refused for negative stock), X/Z reports, close with
+  counted tenders (difference needs a reason) and **one journal entry per session** (revenue per
+  account × tax code, VAT, tenders, COGS, cash movements, over/short on 100900); a late offline
+  order for a posted session posts its own adjustment. Training registers sign with a throwaway
+  key; SEF registers must send a coupon signed by the till's certified key, which the server
+  verifies against the stored certificate and rebuilds byte for byte.
+- **Quote** (`POST registers/{id}/quote`): the till never adds up money — the basket, the change
+  and a return's refund (`OriginalOrderId`) come from the server. Orders return `Taxes` per letter
+  for the coupon.
+- **Web**: *Pika e shitjes* sidebar category (after Sales — placement to confirm) with *Arkat*
+  (registers, sessions, coupons with reprint) and *Dyqanet dhe arkat* (setup, ATK certificate);
+  full-screen till at `/pos/till/:registerId` — barcode/code search, basket, split tenders with
+  change, 80 mm coupon with QR and TRAINING banner, cash in/out, returns/cancellations (POS:
+  Approve), X report, close with counts and Z report. SEF/PEF registers show that PAKO Station is
+  needed; on-account tenders are hidden until a customer can be picked.
+- **Tests**: backend `PosTests` (3) + `FiscalSefTests` (9), web `Pos.test.tsx` (5),
+  `scripts/e2e/pos.py` (32 checks against the real API).
+
+**Next:** PAKO Station (.NET: key + CSR onboarding, signing, ATK queue with the 48 h deadline,
+ESC/POS printing) so SEF registers can sell; the offline queue (D11); customer on the till
+(on-account, B2B invoice from a coupon); restaurant/café profile (P2).
+
+### 19.3 Audit of 31 Oct and its fixes (branch `adonis/pos-foundation`)
+
+Five review passes over the day's work (stock phase 1 and 2, POS backend and web). Fixed:
+
+- **201 Created undeclared** on 11 create endpoints (warehouses, categories, stock documents, price
+  lists, price changes, purchase orders, POS stores/registers/sessions/cash movements/orders): the
+  generated client treated every successful create as an error. Fixed on `main` too (9913784);
+  `ApiContractTests` now fails on any action answering 201 without declaring it.
+- **POS**: cost of goods sold snapshotted per order line (`CostValue`, `CostCorrection`, per-item
+  `CostReplay`) so a back-dated document during an open session isn't counted twice; a return
+  can't list the same sold line twice; only active output-VAT codes on a coupon; one tax-letter
+  rule for catalogue and order; coupon ids from the highest used in the branch·POS range, branch
+  and POS numbers locked once coupons exist, a reused id answered 400; SEF coupons compared field
+  by field (items, payments, time, discount) and checked against the certificate's validity;
+  `SentToAtk` only with ATK's transaction number; inactive registers refuse new orders; cash
+  movements take the close's lock; discount larger than its line, duplicate counted tenders and
+  malformed coupons answered 400; the last partial return takes the rest of the discount; Kosovo
+  time for the business day and daily number; the store's own price list used; invoice "pay now"
+  limited to cash, bank and card.
+- **Till (web)**: one ClientUuid per sale across retries; focus stays in the search box; F9 and
+  tenders wait for a current quote; removing a tender drops the later ones; decimal quantities;
+  close dialog on a fresh report; exact-match return lookup; valid 80 mm page CSS; coupon prints
+  applied amounts and the discount; no-access message.
+- **Stock**: order quantities in base units (bills in boxes); "receive" counts draft receipts and a
+  receipt can't take an order line beyond what is still to arrive; journal entries that moved stock
+  can't be reversed or posted by hand; bill lines without a tracked item can't post to a stock
+  account; a category change that moves the stock account is refused; theft write-offs give back
+  VAT only for VAT-registered companies; bill posting takes the company lock (no double match of a
+  receipt, no stale count); last receipt match takes the remaining value (no cents on 120800);
+  returns of goods sold below zero come back at the current average; valuation and manual entries
+  no longer fail when 500100 is missing; low-stock orders priced per base unit, VAT-inclusive;
+  prices per sales/purchase unit from the server (`ResolvedPriceResponse.Units`); bill edits keep
+  the order link; list prices only fill gross-priced invoices; item pickers search the server.
+
+**Still open (decisions or larger work):**
+- D-close: closing a session needs Write today; the design said Approve. D-price: the server takes
+  the till's price and discount; should a manager approve overrides above a threshold? D-count:
+  blind cash count (don't show expected amounts)?
+- A late offline order synced after its session closed: its cash was in the counted drawer
+  (booked as "over") and is debited again by the adjustment. PAKO Station must sync before close.
+- The write-down allowance (120900) is not released as written-down stock is sold; re-run the
+  write-down at period end until it is.
+- Corrections from back-dated documents always go to cost of goods sold (also for write-offs and
+  counts); sales returns go back to one lot only.
+- A receipt dated after its bill is still matched (leaving 120800 debited between the two dates)
+  rather than bringing the goods in twice.
+
+### 19.4 P2 — grocery and retail (2026-11-01, branch `adonis/pos-foundation`)
+
+Built: PLU, sold by weight, open price, minimum age, deposit items (bottle/crate lines enforced),
+variants (templates, attributes, generated variant items, recipes), serials with warranty, in-store
+2x labels (weight/price/quantity rules, EAN-13 check digit) and the scan endpoint; the programs
+engine (promotions, coupons, loyalty points earn/redeem), gift cards and store credit on the
+GiftCard tender's liability account; customer orders (layaway, special orders) with deposit cards;
+sales report with margin, shelf labels PDF, usage variance. Tests: `ProgramEngineTests`, PosTests.
+
+### 19.5 P3 — hospitality (2026-11-01)
+
+Floors and tables (QR tokens and public QR menu ordering), tabs with lines sent to production
+centres (kitchen/bar tickets, KDS over SignalR `/hubs/pos`), modifiers and combos, recipes exploded
+into stock at sale (depth 5), voids (STORNO) with the operator, split bills paid through
+`submitPosOrder` with `TabLineId`, waiter PINs (time-limited `X-Pos-Operator` token), tips
+(not revenue; Store.TipsAccountId, else 222100) and waiter cash settlement (shortage to the
+employee's receivable).
+
+### 19.6 P4 — services (2026-11-01)
+
+Resources with weekly hours, appointments (15-minute slots, buffers, no overlaps, Kosovo time),
+public booking link, reminders, deposits on deposit cards; packages of sessions (sold as a liability,
+used at UnitValue, paid by the package) and memberships (freeze/resume); repair tickets from intake
+to collection; commission basis "POS services performed (net)". [VERIFY] VAT on prepaid packages.
+
+### 19.7 P5 — hotel and venues (2026-11-01)
+
+Room types and rooms (housekeeping states), bookings with guests (guest register for the police),
+check-in opening a folio tab, nightly posting with tourist tax per adult, charge-to-room from any
+till, city-ledger draft invoice to the paying company, check-out; venues and event bookings with
+final headcount billing on an event tab; ticketed events with quotas, QR tickets printed with the
+coupon and scanned once at the door. [VERIFY] fiscalisation of a hotel bill at check-out vs nightly.
+
+### 19.8 P6 — distribution (2026-11-01)
+
+- **Sales chain**: `SalesOrder` (quote OF-…, order SO-…, Draft→Quoted→Confirmed→Closed/Cancelled)
+  → delivery notes (`StockDocumentType.Delivery`, FD-…: stock out at average cost with cost of goods
+  sold on delivery, IFRS 15) → invoices whose lines name `SalesOrderLineId`/`DeliveryLineId`; a
+  line naming a delivery moves no stock and can't bill more than the delivery sent. Delivered and
+  invoiced quantities are always read back from posted documents (`SalesOrderQuantities`); "invoice
+  undelivered" lets the invoice send the goods itself. Sales returns of delivered goods come back
+  at the delivery's cost. This closes INVENTORY_PLAN's open "delivery notes".
+- **Pricing**: customer price lists (`PriceList.IsCustomerList`, `Partner.PriceListId`) before shop
+  and company lists; volume tiers (`PriceListPrice.MinQuantity`, `PriceChangeLine.MinQuantity`);
+  `prices/resolve` takes `partnerId` and quantities.
+- **Credit**: confirming an order checks the credit limit (open receivable + confirmed orders not
+  invoiced + this order) and the overdue block (`Partner.OverdueBlockDays`); Sales: Approve
+  overrides with a reason kept on the order. `credit-status` endpoint.
+- **Vans and routes**: `Warehouse.IsVan` + driver; routes with stops and weekdays; "my day" for the
+  salesperson; visits checked in with GPS, outcome and cash collected; KPIs (strike rate, drop
+  size); morning load suggestion from confirmed orders on the van's routes; evening settlement
+  (opening, loaded, sold, returned, unloaded, closing per item; invoices, coupons, collections).
+- **Not built**: the offline Expo van app with SEF on Android (CLAUDE.md keeps `apps/mobile` out of
+  scope) — the server side it would call is in place; crates/empties; credit check at delivery
+  posting for deliveries without an order. Tests: `DistributionTests` (5).
+
+### 19.9 P7 — specialist retail (2026-11-01)
+
+- **Pharmacy**: ATC code, active ingredient, prescription-only, controlled, state maximum retail
+  price (enforced at the till and in price changes) on items; third-party payers (their share is
+  an on-account tender to the payer's partner, capped at the prescription's coverage); prescriptions
+  dispensed line by line at the till (no more than prescribed; returns give the quantity back);
+  controlled-medicines register read from the stock ledger with prescription, patient and
+  prescriber; substitutes by active ingredient/ATC; GS1 DataMatrix scan (GTIN, expiry, lot, serial).
+  [VERIFY] e-Recetë integration once the Ministry's service is open to pharmacies.
+- **Fuel station**: tanks, nozzles, shift meter readings (opening must equal the last closing),
+  dips, daily reconciliation (pumped vs sold per nozzle and grade, book stock vs dips); fleet cards
+  (company on account, limit per fill, fuel only). Pump controller integration not built (hardware).
+- **Auto parts**: cross-references (normalised part numbers) and vehicle fitments; counter search
+  by number or make/model/year.
+- **Online channels**: channel tokens; public catalogue (price, stock less open orders) and
+  idempotent order intake; orders accepted, picked, fiscalised at the till on collection or
+  dispatch; cash on delivery charged to the courier's receivable and tracked until remitted.
+  Shipping fee is recorded on the order but has no item yet.
+- **Agency items**: sold in a principal's name, exempt on the coupon; the principal is owed price
+  less commission (payable with the partner), the commission is revenue. [VERIFY] VAT on the
+  commission (VAT Law, agents).
+- **Self-checkout** register profile: sales only, cards only. `PosPayment.PartnerId` carries who an
+  on-account tender charges; the quote returns each partner's maximum (`TenderPartners`).
+  Tests: PosTests (Pharmacy_, Agency_…, Parts_, Gs1_).
+
+### 19.10 P8 — ERP verticals, phase 1 (2026-11-01)
+
+Built as first versions with their own master plan, `docs/ERP_VERTICALS_PLAN.md`: construction
+(sites on ledger projects, cost codes, BoQ, progress bills → invoices, site issues, retention,
+percentage of completion), real estate sales (buildings, units, reservations, sale contracts with
+installment plans and compensation, installment invoicing) and property rental (leases, meters,
+monthly rent run with proration, rent roll arrears). Bills and invoices gained a header
+`ProjectId` that tags their ledger lines; bill lines a `CostCodeId`. Tests: `VerticalsTests` (3).
+
+### 19.11 Web for P6–P8 and the state at the end of 1 Nov 2026
+
+Web screens for P6 (sales orders, invoices from orders/deliveries, delivery notes, customer price
+lists and tiers, vans, routes, my day, visits, van load and settlement), P7 (pharmacy, forecourt,
+online orders and cash on delivery, parts search, self-checkout lane, till additions) and P8
+(construction, real estate, rentals; project on bills and invoices, cost code on bill lines) are
+built. Checks: backend 769/769 (run with `-- xUnit.MaxParallelThreads=4`: the Postgres container's
+64 MB /dev/shm runs out under full parallelism), web typecheck/lint/build clean, 334 web tests,
+`scripts/e2e/pos.py` 32/32. All uncommitted on `adonis/pos-foundation`.
+
+Known gaps: a refused order confirmation doesn't say which block it was; invoices prefilled from a
+delivery are in base units; online orders' shipping fee isn't on the coupon (needs a shipping
+item); prepaid online orders have no partner tender; the self-checkout age check doesn't record
+the attendant; no card terminal or pump controller integration; meter readings aren't tied to a
+session; rent-run invoices have no total in `InvoiceResponse`; the offline van app (mobile) is out
+of scope.

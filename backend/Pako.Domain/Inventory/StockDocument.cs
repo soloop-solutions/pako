@@ -19,7 +19,14 @@ public enum StockDocumentType
     // §12 P6: goods from a vendor counted in before the bill arrives (fletëpranim). Stock comes in at
     // the entered net cost against 120800 (goods received, not invoiced); the vendor's bill later
     // clears 120800 for the matched quantity (ReceiptMatch) instead of adding the stock again.
-    Receipt
+    Receipt,
+    // docs/POS_PLAN.md P6: goods sent to a customer (fletëdërgesë) before the invoice. Stock leaves at
+    // average cost with cost of goods sold booked on delivery (IFRS 15: control passes with the
+    // goods); invoice lines that name the delivery line then post revenue only.
+    Delivery,
+    // docs/ERP_VERTICALS_PLAN.md §1: materials sent from the warehouse to a construction site, charged
+    // to the site's project at average cost (Dr cost of sales tagged with the project / Cr stock).
+    SiteIssue
 }
 
 public enum StockDocumentState
@@ -54,8 +61,10 @@ public class StockDocument
     public Guid WarehouseId { get; set; }
     // Transfers only.
     public Guid? DestinationWarehouseId { get; set; }
-    // Receipts only: the vendor the goods came from.
+    // Receipts: the vendor the goods came from. Deliveries: the customer they went to.
     public Guid? PartnerId { get; set; }
+    // Site issues: the construction site.
+    public Guid? SiteId { get; set; }
     public WriteOffReason? Reason { get; set; }
     // D14: destruction of expired or damaged goods needs written notice to ATK 10 days before.
     public DateOnly? AtkNoticeDate { get; set; }
@@ -89,6 +98,10 @@ public class StockDocumentLine
     public decimal? Amount { get; set; }
     // Receipts: the purchase order line the goods were ordered on, if any.
     public Guid? PurchaseOrderLineId { get; set; }
+    // Deliveries: the sales order line the goods were ordered on, if any.
+    public Guid? SalesOrderLineId { get; set; }
+    // Site issues: the cost code charged.
+    public Guid? CostCodeId { get; set; }
     // §12 P8, items that track lots: the lot received (opening, receipt, count overage) or taken
     // from (write-off, transfer, count shortage; the earliest expiry first when empty).
     public string? LotNumber { get; set; }

@@ -695,4 +695,334 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="StockLotsLocked" xml:space="preserve">
     <value>Lot tracking can't be switched on or off once this item's stock has moved.</value>
   </data>
+  <data name="PosRegisterInactive" xml:space="preserve">
+    <value>This register is switched off.</value>
+  </data>
+  <data name="PosAmountInvalid" xml:space="preserve">
+    <value>Enter an amount of 0 or more (payments above 0).</value>
+  </data>
+  <data name="PosSessionAlreadyOpen" xml:space="preserve">
+    <value>This register already has an open session. Close it first.</value>
+  </data>
+  <data name="PosSessionNotOpen" xml:space="preserve">
+    <value>The session isn't open. Open a session on this register to sell.</value>
+  </data>
+  <data name="PosReasonRequired" xml:space="preserve">
+    <value>Give a reason.</value>
+  </data>
+  <data name="PosAccountInvalid" xml:space="preserve">
+    <value>Choose an active posting account.</value>
+  </data>
+  <data name="PosCustomerNotFound" xml:space="preserve">
+    <value>That customer doesn't exist in this company.</value>
+  </data>
+  <data name="PosTenderNotFound" xml:space="preserve">
+    <value>That payment method doesn't exist in this company.</value>
+  </data>
+  <data name="PosDifferenceReasonRequired" xml:space="preserve">
+    <value>{0}: counted and expected differ — give a reason.</value>
+  </data>
+  <data name="PosOrderNoLines" xml:space="preserve">
+    <value>The order has no lines.</value>
+  </data>
+  <data name="PosOrderNoPayments" xml:space="preserve">
+    <value>The order has no payment.</value>
+  </data>
+  <data name="PosOriginalOrderNotFound" xml:space="preserve">
+    <value>The original sale wasn't found.</value>
+  </data>
+  <data name="PosOrderAlreadyCancelled" xml:space="preserve">
+    <value>That sale is already cancelled.</value>
+  </data>
+  <data name="PosItemNotFound" xml:space="preserve">
+    <value>One of the items doesn't exist in this company.</value>
+  </data>
+  <data name="PosTaxNotFiscal" xml:space="preserve">
+    <value>VAT code {0} can't be put on a fiscal coupon (only 18%, 8%, 0% and exempt).</value>
+  </data>
+  <data name="PosOriginalLineNotFound" xml:space="preserve">
+    <value>A returned line isn't on the original sale.</value>
+  </data>
+  <data name="PosReturnTooMuch" xml:space="preserve">
+    <value>{0}: more is being returned than was sold.</value>
+  </data>
+  <data name="PosCancelAfterReturn" xml:space="preserve">
+    <value>Part of this sale was already returned; return the rest instead of cancelling.</value>
+  </data>
+  <data name="PosOnAccountNeedsCustomer" xml:space="preserve">
+    <value>Selling on account needs a customer.</value>
+  </data>
+  <data name="PosPaymentsDontMatch" xml:space="preserve">
+    <value>Payments ({0}) don't match the total ({1}).</value>
+  </data>
+  <data name="PosCashLimit" xml:space="preserve">
+    <value>Cash above {0} € from an individual isn't allowed; take the rest by card or bank.</value>
+  </data>
+  <data name="PosFiscalModeUnsupported" xml:space="preserve">
+    <value>Fiscal printers (PEF) aren't supported by the PAKO till yet; use Training or SEF.</value>
+  </data>
+  <data name="PosFiscalRequired" xml:space="preserve">
+    <value>This register fiscalizes with SEF: the order must carry its signed coupon.</value>
+  </data>
+  <data name="PosRegisterNotOnboarded" xml:space="preserve">
+    <value>This register has no ATK certificate yet. Onboard it first.</value>
+  </data>
+  <data name="PosFiscalSignatureInvalid" xml:space="preserve">
+    <value>The coupon's signature doesn't match this register's certificate.</value>
+  </data>
+  <data name="PosFiscalMismatch" xml:space="preserve">
+    <value>The signed coupon doesn't match the order's lines and totals.</value>
+  </data>
+  <data name="PosLateOrder" xml:space="preserve">
+    <value>(late order)</value>
+  </data>
+  <data name="PosStoreFieldsRequired" xml:space="preserve">
+    <value>Code, name and location are required.</value>
+  </data>
+  <data name="PosBranchNumberInvalid" xml:space="preserve">
+    <value>Fiscal numbers are between 1 and 999.</value>
+  </data>
+  <data name="PosStoreTaken" xml:space="preserve">
+    <value>Another store already has this code or fiscal branch number.</value>
+  </data>
+  <data name="PosStoreNotFound" xml:space="preserve">
+    <value>Choose a store of this company.</value>
+  </data>
+  <data name="PosRegisterTaken" xml:space="preserve">
+    <value>Another register already has this code, or this POS number in the store.</value>
+  </data>
+  <data name="PosCashAccountInvalid" xml:space="preserve">
+    <value>Choose an active cash account for the drawer.</value>
+  </data>
+  <data name="PosPrivateKeyRefused" xml:space="preserve">
+    <value>Send only the certificate. The private key must never leave the till.</value>
+  </data>
+  <data name="PosCertificateInvalid" xml:space="preserve">
+    <value>That isn't a valid ATK certificate (PEM, ECDSA P-256).</value>
+  </data>
+  <data name="PosTenderDuplicate" xml:space="preserve"><value>The same payment method is counted twice. Enter each method once.</value></data>
+  <data name="PosTaxNotForSales" xml:space="preserve"><value>The VAT code "{0}" can't go on a coupon: use an active sales VAT code.</value></data>
+  <data name="PosDiscountTooLarge" xml:space="preserve"><value>The discount on "{0}" is larger than the line. Lower the discount.</value></data>
+  <data name="PosCertificateExpired" xml:space="preserve"><value>The till's ATK certificate isn't valid on the coupon's date. Renew the certificate with ATK and save it on the register.</value></data>
+  <data name="PosFiscalIdentityLocked" xml:space="preserve"><value>Coupons were already issued with this branch or POS number, so it can't change. Create a new register (or store) instead.</value></data>
+  <data name="PosCouponIdTaken" xml:space="preserve"><value>This coupon number was already used. The till must take the next number and send the coupon again.</value></data>
+  <data name="PurchaseOrderOverReceived" xml:space="preserve"><value>"{0}": only {1} is still to arrive on this order (a bill or another receipt already brought the rest in). Receive extra goods on a receipt without the order.</value></data>
+  <data name="StockAccountNeedsItem" xml:space="preserve"><value>Account {0} holds stock: a bill line can post to it only with a stock-tracked item. Pick the item, or another account.</value></data>
+  <data name="ItemPluInvalid" xml:space="preserve"><value>A PLU is 1 to 6 digits.</value></data>
+  <data name="ItemPluTaken" xml:space="preserve"><value>Another item already has this PLU.</value></data>
+  <data name="ItemMinimumAgeInvalid" xml:space="preserve"><value>The minimum age must be between 0 and 99.</value></data>
+  <data name="ItemDepositInvalid" xml:space="preserve"><value>The deposit must be another item that has no deposit of its own.</value></data>
+  <data name="PosAgeNotVerified" xml:space="preserve"><value>"{0}" is sold only to buyers aged {1} or over: confirm the buyer's age.</value></data>
+  <data name="PosBarcodeRuleInvalid" xml:space="preserve"><value>The prefix must be 20–29, the item and value digits must add up to 10, with 0–3 decimals.</value></data>
+  <data name="PosBarcodeRuleTaken" xml:space="preserve"><value>A rule for this prefix already exists.</value></data>
+  <data name="PosProgramNameRequired" xml:space="preserve"><value>Give the program a name.</value></data>
+  <data name="PosProgramCodeRequired" xml:space="preserve"><value>A coupon needs the code the cashier will enter.</value></data>
+  <data name="PosProgramCodeTaken" xml:space="preserve"><value>Another program already uses this code.</value></data>
+  <data name="PosProgramDatesInvalid" xml:space="preserve"><value>Check the dates, days and hours: the end can't be before the start, and hours need both a start and an end.</value></data>
+  <data name="PosProgramRewardInvalid" xml:space="preserve"><value>The reward is incomplete: fill in the figures this kind of program needs.</value></data>
+  <data name="PosLoyaltyProgramExists" xml:space="preserve"><value>Only one loyalty program can be active.</value></data>
+  <data name="PosCardNumberTaken" xml:space="preserve"><value>A card with this number already exists.</value></data>
+  <data name="PosGiftCardNotSetUp" xml:space="preserve"><value>Set up a gift-card payment method (with its liability account) before selling gift cards.</value></data>
+  <data name="PosGiftCardNotFound" xml:space="preserve"><value>Gift card {0} not found, inactive or expired.</value></data>
+  <data name="PosGiftCardBalance" xml:space="preserve"><value>Gift card {0} holds only {1}.</value></data>
+  <data name="PosGiftCardNotReturnable" xml:space="preserve"><value>A gift card sold can't be returned or cancelled.</value></data>
+  <data name="PosLoyaltyCardNotFound" xml:space="preserve"><value>Loyalty card not found or inactive.</value></data>
+  <data name="PosLoyaltyPointsShort" xml:space="preserve"><value>The card holds only {0} points.</value></data>
+  <data name="PosLoyaltyNotSetUp" xml:space="preserve"><value>No loyalty program is active.</value></data>
+  <data name="PosDepositMissing" xml:space="preserve"><value>"{0}" carries a deposit: add its deposit line for every unit.</value></data>
+  <data name="ItemWarrantyInvalid" xml:space="preserve"><value>The warranty must be between 0 and 240 months.</value></data>
+  <data name="ItemAttributeInvalid" xml:space="preserve"><value>An attribute needs a name and at least one value, each value once.</value></data>
+  <data name="ItemAttributeTaken" xml:space="preserve"><value>An attribute with this name already exists.</value></data>
+  <data name="ItemAttributeValueInUse" xml:space="preserve"><value>A value used by a variant can be renamed but not removed.</value></data>
+  <data name="ItemVariantOfVariant" xml:space="preserve"><value>A variant can't have variants of its own.</value></data>
+  <data name="ItemTemplateHasStock" xml:space="preserve"><value>This item already has stock: create a new item for the style and make the variants from it.</value></data>
+  <data name="ItemVariantsTooMany" xml:space="preserve"><value>That makes more than 500 variants: choose fewer values.</value></data>
+  <data name="PosTemplateNotSold" xml:space="preserve"><value>"{0}" is a style with variants: sell one of its variants.</value></data>
+  <data name="PosSerialRequired" xml:space="preserve"><value>"{0}" is sold one unit per line, with its serial number (IMEI).</value></data>
+  <data name="PosSerialSold" xml:space="preserve"><value>Serial number {0} has already been sold.</value></data>
+  <data name="PosReportPeriodInvalid" xml:space="preserve"><value>Choose a period of at most 400 days, ending on or after its start.</value></data>
+  <data name="PosLabelsCountInvalid" xml:space="preserve"><value>Choose between 1 and 600 items for labels.</value></data>
+  <data name="PdfLabelPer" xml:space="preserve"><value>per</value></data>
+  <data name="CustomerOrderClosed" xml:space="preserve"><value>This customer order is already collected or cancelled.</value></data>
+  <data name="CustomerOrderLinesInvalid" xml:space="preserve"><value>Add at least one item, with a quantity above 0.</value></data>
+  <data name="CustomerOrderPriceMissing" xml:space="preserve"><value>An item has no price at this store: enter its price.</value></data>
+  <data name="CustomerOrderRefundNeedsSession" xml:space="preserve"><value>Deposits are paid back in cash: choose an open till session.</value></data>
+  <data name="CustomerOrderNotFound" xml:space="preserve"><value>Customer order not found.</value></data>
+  <data name="PosTableNotFound" xml:space="preserve"><value>Table not found in this store.</value></data>
+  <data name="PosTableInvalid" xml:space="preserve"><value>A table needs a name, 0–100 seats and a size of 1–20 on the plan.</value></data>
+  <data name="PosTabClosed" xml:space="preserve"><value>This tab is closed or doesn't belong here.</value></data>
+  <data name="PosTabLineSent" xml:space="preserve"><value>This line has gone to the kitchen: void it instead of changing it.</value></data>
+  <data name="PosTabLinePaid" xml:space="preserve"><value>Part of this has been paid already.</value></data>
+  <data name="PosTabHasSentLines" xml:space="preserve"><value>The kitchen already has orders from this tab: void them first.</value></data>
+  <data name="PosTabLineNotFound" xml:space="preserve"><value>Line not found on this tab.</value></data>
+  <data name="PosTabLineOverpaid" xml:space="preserve"><value>"{0}": more than is left on the tab.</value></data>
+  <data name="PosVoidNeedsManager" xml:space="preserve"><value>The kitchen already has this: a manager must void it.</value></data>
+  <data name="PosPriceRequired" xml:space="preserve"><value>Enter the price of "{0}".</value></data>
+  <data name="PosPriceMissing" xml:space="preserve"><value>"{0}" has no price at this store.</value></data>
+  <data name="PosModifierInvalid" xml:space="preserve"><value>A choice isn't offered for "{0}".</value></data>
+  <data name="PosModifierCount" xml:space="preserve"><value>Choose the right number of "{0}" for "{1}".</value></data>
+  <data name="PosComboInvalid" xml:space="preserve"><value>A combo choice isn't offered for "{0}".</value></data>
+  <data name="PosComboCount" xml:space="preserve"><value>Choose "{0}" for "{1}".</value></data>
+  <data name="PosModifierGroupInvalid" xml:space="preserve"><value>A modifier group needs a name, valid min/max and at least one named modifier.</value></data>
+  <data name="PosComboSetupInvalid" xml:space="preserve"><value>Each combo slot needs a name, valid min/max and at least one choice.</value></data>
+  <data name="RecipeInvalid" xml:space="preserve"><value>Each ingredient once, with a quantity above 0 and waste under 100 %, and not the dish itself.</value></data>
+  <data name="RecipeLoop" xml:space="preserve"><value>An ingredient's own recipe contains this dish: a recipe can't contain itself.</value></data>
+  <data name="PosPinInvalid" xml:space="preserve"><value>A PIN is 4 to 8 digits.</value></data>
+  <data name="PosPinTaken" xml:space="preserve"><value>Someone else already uses this PIN: choose another.</value></data>
+  <data name="PosPinWrong" xml:space="preserve"><value>Wrong PIN.</value></data>
+  <data name="PosTips" xml:space="preserve"><value>Tips</value></data>
+  <data name="PosWaiterNotFound" xml:space="preserve"><value>This waiter has no orders in the session.</value></data>
+  <data name="PosWaiterSettled" xml:space="preserve"><value>This waiter has already handed over their cash.</value></data>
+  <data name="PosTipsAccountMissing" xml:space="preserve"><value>Choose the store's tips account (a liability to staff) before taking tips.</value></data>
+  <data name="ItemServiceInvalid" xml:space="preserve"><value>Check the service settings: a bookable service takes 5–1440 minutes; a package names another item and 1–1000 sessions; a membership 1–3660 days.</value></data>
+  <data name="PosPackageNotReturnable" xml:space="preserve"><value>Packages and memberships can't be returned at the till.</value></data>
+  <data name="PosPackageInvalid" xml:space="preserve"><value>Package {0} isn't valid for this service (or has expired).</value></data>
+  <data name="PosPackageUsedUp" xml:space="preserve"><value>Package {0} has no sessions left.</value></data>
+  <data name="PosMembershipNotFound" xml:space="preserve"><value>Membership {0} not found.</value></data>
+  <data name="PosAppointmentNotFound" xml:space="preserve"><value>Appointment not found.</value></data>
+  <data name="PosAppointmentClosed" xml:space="preserve"><value>This appointment is already completed, cancelled or a no-show.</value></data>
+  <data name="PosAppointmentNameRequired" xml:space="preserve"><value>Enter the customer's name (and a phone for online bookings).</value></data>
+  <data name="PosRepairNotFound" xml:space="preserve"><value>Repair not found.</value></data>
+  <data name="PosRepairClosed" xml:space="preserve"><value>This repair is already collected or cancelled.</value></data>
+  <data name="PosRepairInvalid" xml:space="preserve"><value>A repair needs the customer, the device and the problem.</value></data>
+  <data name="PosServiceNotBookable" xml:space="preserve"><value>This service can't be booked: mark it bookable and give it a duration.</value></data>
+  <data name="PosResourceNotFound" xml:space="preserve"><value>Resource not found in this store.</value></data>
+  <data name="PosResourceInvalid" xml:space="preserve"><value>A resource needs a name and working hours that end after they start.</value></data>
+  <data name="PosResourceCantServe" xml:space="preserve"><value>{0} doesn't do "{1}".</value></data>
+  <data name="PosOutsideHours" xml:space="preserve"><value>That time is outside {0}'s working hours.</value></data>
+  <data name="PosSlotTaken" xml:space="preserve"><value>That time is no longer free: choose another.</value></data>
+  <data name="PosRepairState_Received" xml:space="preserve"><value>Received</value></data>
+  <data name="PosRepairState_Diagnosing" xml:space="preserve"><value>Being checked</value></data>
+  <data name="PosRepairState_WaitingApproval" xml:space="preserve"><value>Waiting for your approval</value></data>
+  <data name="PosRepairState_Approved" xml:space="preserve"><value>Approved</value></data>
+  <data name="PosRepairState_InRepair" xml:space="preserve"><value>Being repaired</value></data>
+  <data name="PosRepairState_Ready" xml:space="preserve"><value>Ready to collect</value></data>
+  <data name="PosRepairState_Collected" xml:space="preserve"><value>Collected</value></data>
+  <data name="PosRepairState_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Email_AppointmentReminder_Subject" xml:space="preserve"><value>Reminder: {service} tomorrow at {store}</value></data>
+  <data name="Email_AppointmentReminder_Body" xml:space="preserve"><value>Hello {name},
+
+This is a reminder of your appointment for {service} on {time} at {store}, {address}.
+
+Booking number: {number}. If you can't come, please let us know.</value></data>
+  <data name="Email_RepairStatus_Subject" xml:space="preserve"><value>{company}: repair {number} — {status}</value></data>
+  <data name="Email_RepairStatus_Body" xml:space="preserve"><value>Your repair {number} ({device}) is now: {status}.
+
+Estimate: {estimate} €.</value></data>
+  <data name="PosRoomInvalid" xml:space="preserve"><value>Check the name, capacity and the item a night is sold as.</value></data>
+  <data name="PosRoomTooSmall" xml:space="preserve"><value>Too many guests for its capacity.</value></data>
+  <data name="PosRoomTaken" xml:space="preserve"><value>That room is booked for some of those nights.</value></data>
+  <data name="PosRoomRequired" xml:space="preserve"><value>Assign a room before checking in.</value></data>
+  <data name="PosNoRoomFree" xml:space="preserve"><value>No room of this type is free for all those nights.</value></data>
+  <data name="PosBookingInvalid" xml:space="preserve"><value>Check the guest's name, the dates (departure after arrival) and the number of guests.</value></data>
+  <data name="PosBookingClosed" xml:space="preserve"><value>This booking is already checked out, cancelled or not in a state for this.</value></data>
+  <data name="PosBookingNoCompany" xml:space="preserve"><value>This booking has no company that pays: set one first.</value></data>
+  <data name="PosGuestInvalid" xml:space="preserve"><value>Register at least one guest, each with a name.</value></data>
+  <data name="PosFolioNotSettled" xml:space="preserve"><value>The bill still has an amount to pay.</value></data>
+  <data name="PosVenueTaken" xml:space="preserve"><value>The venue already has an event that day.</value></data>
+  <data name="PosEventInvalid" xml:space="preserve"><value>An event needs a name, a capacity and at least one ticket type.</value></data>
+  <data name="PosTicketItemInUse" xml:space="preserve"><value>That ticket item already sells tickets for another upcoming event.</value></data>
+  <data name="PosTicketsSoldOut" xml:space="preserve"><value>Not enough tickets left for "{0}".</value></data>
+  <data name="PosTicketUsed" xml:space="preserve"><value>A ticket of this sale has been used: it can't be returned.</value></data>
+  <data name="PartnerPriceListInvalid" xml:space="preserve"><value>Choose a customer price list.</value></data>
+  <data name="PartnerOverdueBlockDays" xml:space="preserve"><value>Overdue block days must be between 0 and 3650.</value></data>
+  <data name="PriceTierQuantity" xml:space="preserve"><value>The tier quantity must be zero or more.</value></data>
+  <data name="PriceListKindFixed" xml:space="preserve"><value>A price list can't be switched between a customer list and a shop or company list.</value></data>
+  <data name="PriceListCustomerNoWarehouse" xml:space="preserve"><value>A customer price list has no warehouse.</value></data>
+  <data name="StockDocumentDelivery" xml:space="preserve"><value>Delivery note</value></data>
+  <data name="DeliveryCustomerRequired" xml:space="preserve"><value>Choose the customer the goods go to.</value></data>
+  <data name="DeliveryOrderLineInvalid" xml:space="preserve"><value>A line names an order line that isn't on a confirmed order of this customer for the same item.</value></data>
+  <data name="SalesOrderOverDelivered" xml:space="preserve"><value>"{0}": only {1} is still to deliver on the order.</value></data>
+  <data name="InvoiceSalesLinkInvalid" xml:space="preserve"><value>A line names a sales order or delivery line that doesn't belong to this customer and item.</value></data>
+  <data name="InvoiceOverDelivered" xml:space="preserve"><value>"{0}": only {1} of the delivery is still to invoice.</value></data>
+  <data name="SalesOrderNotEditable" xml:space="preserve"><value>Only a draft or a quote can be changed.</value></data>
+  <data name="SalesQuoteExpired" xml:space="preserve"><value>The quote has expired. Give a reason to confirm it anyway, or update its validity.</value></data>
+  <data name="SalesOrderOverdueBlock" xml:space="preserve"><value>The customer has {0} overdue (oldest {1} days; the block is at {2} days). Confirming needs Sales approval and a reason.</value></data>
+  <data name="SalesOrderCreditBlock" xml:space="preserve"><value>The order takes the customer over the credit limit of {0} (owed {1}, open orders {2}, this order {3}). Confirming needs Sales approval and a reason.</value></data>
+  <data name="SalesOrderNotConfirmed" xml:space="preserve"><value>The order isn't confirmed.</value></data>
+  <data name="SalesOrderHasDocuments" xml:space="preserve"><value>Goods were delivered or invoiced on this order. Close it instead.</value></data>
+  <data name="SalesOrderNothingToDeliver" xml:space="preserve"><value>Nothing on the order is left to deliver.</value></data>
+  <data name="SalesOrderNothingToInvoice" xml:space="preserve"><value>Nothing on the order is left to invoice.</value></data>
+  <data name="SalesOrderDatesInvalid" xml:space="preserve"><value>The validity and delivery dates can't be before the order date.</value></data>
+  <data name="RouteVisitNotFound" xml:space="preserve"><value>The visit wasn't found for this customer.</value></data>
+  <data name="SalesRouteName" xml:space="preserve"><value>Give the route a name of up to 120 characters.</value></data>
+  <data name="SalesRouteNameTaken" xml:space="preserve"><value>Another route has this name.</value></data>
+  <data name="SalesRouteDays" xml:space="preserve"><value>The route days are not valid.</value></data>
+  <data name="SalesRouteDuplicateStop" xml:space="preserve"><value>A customer is on the route twice.</value></data>
+  <data name="SalesRouteNotFound" xml:space="preserve"><value>The route wasn't found.</value></data>
+  <data name="RouteVisitPosition" xml:space="preserve"><value>The position isn't valid.</value></data>
+  <data name="RouteVisitCollected" xml:space="preserve"><value>The amount collected isn't valid.</value></data>
+  <data name="PosSelfCheckoutSaleOnly" xml:space="preserve"><value>A self-checkout lane only sells. Returns go to a staffed till.</value></data>
+  <data name="PosSelfCheckoutCardOnly" xml:space="preserve"><value>A self-checkout lane takes cards only.</value></data>
+  <data name="PosPrescriptionNotFound" xml:space="preserve"><value>The prescription wasn't found.</value></data>
+  <data name="PosPrescriptionClosed" xml:space="preserve"><value>Prescription {0} is fully dispensed, cancelled or expired.</value></data>
+  <data name="PosPrescriptionLineInvalid" xml:space="preserve"><value>"{0}" isn't on the prescription.</value></data>
+  <data name="PosPrescriptionExceeded" xml:space="preserve"><value>"{0}": only {1} is left to dispense on the prescription.</value></data>
+  <data name="PosPrescriptionRequired" xml:space="preserve"><value>"{0}" is prescription-only: dispense it against a prescription.</value></data>
+  <data name="PosPrescriptionLocked" xml:space="preserve"><value>Medicines were already dispensed on this prescription; it can't be changed.</value></data>
+  <data name="PosPrescriptionInvalid" xml:space="preserve"><value>Fill in the prescription number, prescriber, patient and at least one medicine (each once, with a quantity).</value></data>
+  <data name="PosPayerInvalid" xml:space="preserve"><value>Give the payer a unique name, a customer partner and a coverage between 0 and 100%.</value></data>
+  <data name="PosAbovePriceCap" xml:space="preserve"><value>"{0}" can't be sold above its maximum retail price of {1}.</value></data>
+  <data name="PosTenderPartnerInvalid" xml:space="preserve"><value>This on-account tender can't charge that partner.</value></data>
+  <data name="PosTenderPartnerLimit" xml:space="preserve"><value>The amount charged to the partner is over its limit of {0}.</value></data>
+  <data name="PosAgencySales" xml:space="preserve"><value>Agency sales</value></data>
+  <data name="PosFleetCardNotFound" xml:space="preserve"><value>The fleet card wasn't found or is blocked.</value></data>
+  <data name="PosFleetCardFuelOnly" xml:space="preserve"><value>This fleet card pays for fuel only.</value></data>
+  <data name="PosFleetCardInvalid" xml:space="preserve"><value>Give the card a unique number, a customer and a positive limit (or none).</value></data>
+  <data name="PosNozzleInvalid" xml:space="preserve"><value>"{0}": the nozzle isn't on this station or doesn't pump that grade.</value></data>
+  <data name="PosFuelSetupInvalid" xml:space="preserve"><value>Check the tank or nozzle: name, capacity, pump 1–99, nozzle 1–9, each once per station.</value></data>
+  <data name="PosFuelGradeInvalid" xml:space="preserve"><value>The fuel grade must be a stock-tracked item.</value></data>
+  <data name="PosMeterInvalid" xml:space="preserve"><value>Each nozzle once, with a closing reading not below the opening.</value></data>
+  <data name="PosMeterGap" xml:space="preserve"><value>Pump {0} nozzle {1}: the opening must be the last closing reading, {2}.</value></data>
+  <data name="PosDipInvalid" xml:space="preserve"><value>The dip must be between zero and the tank's capacity.</value></data>
+  <data name="ItemSpecialistInvalid" xml:space="preserve"><value>Check the ATC code (up to 10 characters), the price cap and the commission (0–100%).</value></data>
+  <data name="ItemAgencyPartnerInvalid" xml:space="preserve"><value>The principal of an agency item must be a vendor.</value></data>
+  <data name="PartDataInvalid" xml:space="preserve"><value>Each reference needs a brand and a number (once each); each vehicle a make, a model and sensible years.</value></data>
+  <data name="PartSearchEmpty" xml:space="preserve"><value>Search by part number or by vehicle make.</value></data>
+  <data name="PosChannelInvalid" xml:space="preserve"><value>Give the channel a name of up to 120 characters and a store.</value></data>
+  <data name="PosChannelOrderNotFound" xml:space="preserve"><value>The online order wasn't found in this store.</value></data>
+  <data name="PosChannelOrderClosed" xml:space="preserve"><value>Online order {0} was already fiscalised, cancelled or completed.</value></data>
+  <data name="PosChannelOrderStateInvalid" xml:space="preserve"><value>The order can't move to that state from where it is.</value></data>
+  <data name="PosChannelOrderInvalid" xml:space="preserve"><value>The order needs a reference, a customer, lines with quantities and, for delivery, an address. Cash on delivery needs delivery.</value></data>
+  <data name="PosCourierInvalid" xml:space="preserve"><value>The courier must be a customer partner, on a delivery order.</value></data>
+  <data name="PosCourierRequired" xml:space="preserve"><value>Name the courier before the order is ready: the cash on delivery is charged to it.</value></data>
+  <data name="PosCodRemitInvalid" xml:space="preserve"><value>Only fiscalised cash-on-delivery orders not yet remitted can be marked, with a reference.</value></data>
+  <data name="StockDocumentSiteIssue" xml:space="preserve"><value>Site issue</value></data>
+  <data name="SiteIssueSiteRequired" xml:space="preserve"><value>Choose an active construction site.</value></data>
+  <data name="SiteIssueCostCodeInvalid" xml:space="preserve"><value>A line names a cost code that isn't on this site.</value></data>
+  <data name="ProjectNotFound" xml:space="preserve"><value>The project wasn't found.</value></data>
+  <data name="SiteProjectCodeInvalid" xml:space="preserve"><value>Give a new project code (up to 20 characters) not used by another project.</value></data>
+  <data name="SiteInvalid" xml:space="preserve"><value>Check the site: name, contract value, retention 0–100% and the dates.</value></data>
+  <data name="SiteBillingItemInvalid" xml:space="preserve"><value>Choose the item it is invoiced as.</value></data>
+  <data name="SiteCostCodesInvalid" xml:space="preserve"><value>Each cost code needs a unique code, a name and a budget of zero or more.</value></data>
+  <data name="SiteBoqInvalid" xml:space="preserve"><value>Each BoQ line needs a unique code, a description, a unit, a quantity and a price.</value></data>
+  <data name="SiteBoqLineCertified" xml:space="preserve"><value>A BoQ line already certified on a progress bill can't be removed.</value></data>
+  <data name="SiteCostCodeUsed" xml:space="preserve"><value>A cost code bills or site issues are charged to can't be removed.</value></data>
+  <data name="SiteNotActive" xml:space="preserve"><value>The site isn't active.</value></data>
+  <data name="SiteCostUnassigned" xml:space="preserve"><value>Costs without a cost code</value></data>
+  <data name="SiteRetentionInvalid" xml:space="preserve"><value>The amount must be more than zero and no more than the retention held.</value></data>
+  <data name="ProgressBillDraftExists" xml:space="preserve"><value>Finish the draft progress bill first.</value></data>
+  <data name="ProgressBillNotDraft" xml:space="preserve"><value>Only a draft progress bill can be changed or approved.</value></data>
+  <data name="ProgressBillNotApproved" xml:space="preserve"><value>Approve the progress bill before invoicing it.</value></data>
+  <data name="ProgressBillInvalid" xml:space="preserve"><value>Each BoQ line once, with a quantity of zero or more.</value></data>
+  <data name="ProgressBillBelowCertified" xml:space="preserve"><value>A quantity to date can't be below what an earlier progress bill certified.</value></data>
+  <data name="ProgressBillNothingDone" xml:space="preserve"><value>Nothing was done in this period.</value></data>
+  <data name="ProgressBillInvoiceNote" xml:space="preserve"><value>Progress bill no. {0}, {1}. Retention held: {2}.</value></data>
+  <data name="BuildingInvalid" xml:space="preserve"><value>Give the building a unique name of up to 160 characters.</value></data>
+  <data name="UnitInvalid" xml:space="preserve"><value>Check the unit: a number unique in the building, area and price of zero or more.</value></data>
+  <data name="UnitNotAvailable" xml:space="preserve"><value>The unit isn't available.</value></data>
+  <data name="ReservationInvalid" xml:space="preserve"><value>Check the reservation dates and deposit.</value></data>
+  <data name="ContractPlanInvalid" xml:space="preserve"><value>The installments must be positive and add up to the price.</value></data>
+  <data name="ContractNotActive" xml:space="preserve"><value>The contract isn't active.</value></data>
+  <data name="ContractHasInvoices" xml:space="preserve"><value>Installments of this contract were invoiced; it can't be cancelled.</value></data>
+  <data name="InstallmentsInvalid" xml:space="preserve"><value>Choose installments of this contract not invoiced yet.</value></data>
+  <data name="InstallmentLine" xml:space="preserve"><value>Installment {0}/{1} — {2}, unit {3} (contract {4})</value></data>
+  <data name="LeaseInvalid" xml:space="preserve"><value>Check the lease: a property or unit, rent, due day 1–28, deposit and dates.</value></data>
+  <data name="LeaseEnded" xml:space="preserve"><value>The lease has ended.</value></data>
+  <data name="LeaseNotDraft" xml:space="preserve"><value>Only a draft lease can be activated.</value></data>
+  <data name="LeaseTermsLocked" xml:space="preserve"><value>A running lease keeps its tenant, property, start and rent; end it and start a new one.</value></data>
+  <data name="LeaseMeterInvalid" xml:space="preserve"><value>Each meter needs a unique name, an item and a reading of zero or more.</value></data>
+  <data name="LeaseMeterBelowLast" xml:space="preserve"><value>The reading can't be below the last one, {0}.</value></data>
+  <data name="LeaseRentLine" xml:space="preserve"><value>Rent {0}, {1} ({2}/{3} days)</value></data>
+  <data name="LeaseMeterLine" xml:space="preserve"><value>{0}: {1} → {2}</value></data>
 </root>

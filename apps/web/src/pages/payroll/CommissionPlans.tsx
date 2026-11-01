@@ -17,7 +17,8 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { formatAmount } from "@/lib/payroll-enums";
 
 // Mirrors CommissionBasis (numeric on the wire).
-const Basis = { InvoicedNet: 0, PaidNet: 1 } as const;
+// PosServicesNet (POS P4): the net of services the employee performed at the till.
+const Basis = { InvoicedNet: 0, PaidNet: 1, PosServicesNet: 2 } as const;
 
 // G11: plans an employee earns commission under, on the partners assigned to them. The amounts
 // are computed by the API from posted invoices ("Calculate commissions" on Payroll → Adjustments).
@@ -74,7 +75,10 @@ export function CommissionPlans() {
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "commission.plan.saveError" }))),
   });
 
-  const basisLabel = (value: number) => intl.formatMessage({ id: value === Basis.PaidNet ? "commission.basis.paidNet" : "commission.basis.invoicedNet" });
+  const basisLabel = (value: number) =>
+    intl.formatMessage({
+      id: value === Basis.PaidNet ? "commission.basis.paidNet" : value === Basis.PosServicesNet ? "svc.commission.basis.posServicesNet" : "commission.basis.invoicedNet",
+    });
 
   const columns = useMemo<ColumnDef<CommissionPlanResponse>[]>(
     () => [
@@ -144,7 +148,7 @@ export function CommissionPlans() {
                 id="plan-basis"
                 value={String(basis)}
                 onValueChange={(v) => setBasis(Number(v))}
-                options={[Basis.InvoicedNet, Basis.PaidNet].map((b) => ({ value: String(b), label: basisLabel(b) }))}
+                options={[Basis.InvoicedNet, Basis.PaidNet, Basis.PosServicesNet].map((b) => ({ value: String(b), label: basisLabel(b) }))}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -168,6 +172,9 @@ export function CommissionPlans() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground sm:col-span-5">{intl.formatMessage({ id: "commission.plan.hint" })}</p>
+            {basis === Basis.PosServicesNet && (
+              <p className="text-xs text-muted-foreground sm:col-span-5">{intl.formatMessage({ id: "svc.commission.basis.posServicesNet.hint" })}</p>
+            )}
           </form>
         )}
         <DataGrid

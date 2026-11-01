@@ -57,11 +57,12 @@ public class InventoryController : ControllerBase
 
         var settings = await _db.StockSettings.AsNoTracking().FirstOrDefaultAsync(s => s.CompanyId == companyId);
         var warehouses = await _db.Warehouses.AsNoTracking().Where(w => w.CompanyId == companyId).OrderBy(w => w.Code).ToListAsync();
-        return Ok(warehouses.Select(w => new WarehouseResponse(w.Id, w.Code, w.Name, w.Address, w.IsActive, w.Id == settings?.DefaultWarehouseId)).ToList());
+        return Ok(warehouses.Select(w => new WarehouseResponse(w.Id, w.Code, w.Name, w.Address, w.IsActive, w.Id == settings?.DefaultWarehouseId, w.IsVan, w.DriverUserId)).ToList());
     }
 
     [HttpPost("warehouses", Name = "CreateWarehouse")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Inventory)]
+    [ProducesResponseType(typeof(WarehouseResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<WarehouseResponse>> CreateWarehouse(Guid companyId, SaveWarehouseRequest request)
     {
         var error = await ValidateWarehouseAsync(companyId, null, request);
@@ -69,8 +70,11 @@ public class InventoryController : ControllerBase
         var isFirst = !await _db.Warehouses.AnyAsync(w => w.CompanyId == companyId);
         var warehouse = await _stock.CreateWarehouseAsync(companyId, request.Code.Trim().ToUpperInvariant(), request.Name.Trim(), Blank(request.Address));
         if (isFirst) (await _stock.SettingsAsync(companyId)).DefaultWarehouseId = warehouse.Id;
+        warehouse.IsVan = request.IsVan;
+        warehouse.DriverUserId = request.IsVan ? request.DriverUserId : null;
         await _db.SaveChangesAsync();
-        return StatusCode(StatusCodes.Status201Created, new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, true, isFirst));
+        return StatusCode(StatusCodes.Status201Created, new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, true, isFirst,
+            warehouse.IsVan, warehouse.DriverUserId));
     }
 
     [HttpPut("warehouses/{warehouseId:guid}", Name = "UpdateWarehouse")]
@@ -96,8 +100,11 @@ public class InventoryController : ControllerBase
         warehouse.Name = request.Name.Trim();
         warehouse.Address = Blank(request.Address);
         warehouse.IsActive = request.IsActive;
+        warehouse.IsVan = request.IsVan;
+        warehouse.DriverUserId = request.IsVan ? request.DriverUserId : null;
         await _db.SaveChangesAsync();
-        return Ok(new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, warehouse.IsActive, settings.DefaultWarehouseId == warehouse.Id));
+        return Ok(new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, warehouse.IsActive, settings.DefaultWarehouseId == warehouse.Id,
+            warehouse.IsVan, warehouse.DriverUserId));
     }
 
     private async Task<string?> ValidateWarehouseAsync(Guid companyId, Guid? id, SaveWarehouseRequest request)
@@ -125,6 +132,7 @@ public class InventoryController : ControllerBase
 
     [HttpPost("categories", Name = "CreateItemCategory")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    [ProducesResponseType(typeof(ItemCategoryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<ItemCategoryResponse>> CreateCategory(Guid companyId, SaveItemCategoryRequest request)
     {
         var category = new ItemCategory { Id = Guid.NewGuid(), CompanyId = companyId };
@@ -350,12 +358,14 @@ public class InventoryController : ControllerBase
             .ToListAsync();
         var itemIds = lastMoves.Select(m => m.ItemId).ToList();
         var items = await _db.Items.AsNoTracking().Where(i => itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id);
-        var accounts = await _stock.AccountsForAsync(companyId, items.Values);
+        var accounts = await _stock.InventoryAccountsForAsync(companyId, items.Values);
         var rows = lastMoves.Where(m => m.QtyAfter != 0 || m.ValueAfter != 0).Select(m => new StockValuationRowResponse(m.ItemId,
             items[m.ItemId].Code, items[m.ItemId].Name, items[m.ItemId].Unit, m.QtyAfter, m.AvgCostAfter, m.ValueAfter))
             .OrderBy(r => r.ItemCode).ToList();
 
-        var stockByAccount = lastMoves.GroupBy(m => accounts[m.ItemId].InventoryAccountId).ToDictionary(g => g.Key, g => g.Sum(m => m.ValueAfter));
+        // An item whose stock account can't be resolved is valued but tied to no ledger account.
+        var stockByAccount = lastMoves.Where(m => accounts[m.ItemId] != null).GroupBy(m => accounts[m.ItemId]!.Value)
+            .ToDictionary(g => g.Key, g => g.Sum(m => m.ValueAfter));
         var accountIds = stockByAccount.Keys.ToList();
         var ledger = await _db.JournalEntryLines.AsNoTracking()
             .Where(l => accountIds.Contains(l.AccountId) && l.JournalEntry!.CompanyId == companyId

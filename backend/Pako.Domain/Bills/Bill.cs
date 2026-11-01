@@ -47,6 +47,9 @@ public class Bill
 
     // docs/INVENTORY_PLAN.md: the warehouse stock-tracked lines arrive in; null = the company default.
     public Guid? WarehouseId { get; set; }
+    // docs/ERP_VERTICALS_PLAN.md: the ledger project (construction site, building) the costs belong to;
+    // the bill's expense lines carry it into the ledger.
+    public Guid? ProjectId { get; set; }
 
     public List<BillLine> Lines { get; set; } = new();
 

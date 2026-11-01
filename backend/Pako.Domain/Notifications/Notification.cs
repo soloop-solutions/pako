@@ -82,6 +82,9 @@ public static class NotificationTemplates
     public const string ExpenseClaimSubmitted = "ExpenseClaimSubmitted";
     public const string ExpenseClaimDecided = "ExpenseClaimDecided";
     public const string FirmPayrollDigest = "FirmPayrollDigest";
+    // docs/POS_PLAN.md P4: to a till's customers.
+    public const string AppointmentReminder = "AppointmentReminder";
+    public const string RepairStatus = "RepairStatus";
 
     // docs/USER_ACCESS_PLAN.md. Security mail: never switchable off per company.
     public const string UserInvitation = "UserInvitation";
@@ -91,7 +94,7 @@ public static class NotificationTemplates
     public static readonly IReadOnlyList<string> CompanyConfigurable = new[]
     {
         LeaveSubmitted, LeaveDecided, PayslipReady, StaffInvitation, EdiDeadline, ContractEnding, ProbationEnding,
-        ProfileChangeRequested, ProfileChangeDecided, ExpenseClaimSubmitted, ExpenseClaimDecided
+        ProfileChangeRequested, ProfileChangeDecided, ExpenseClaimSubmitted, ExpenseClaimDecided, AppointmentReminder, RepairStatus
     };
 }
 

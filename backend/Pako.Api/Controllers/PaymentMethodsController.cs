@@ -53,7 +53,7 @@ public class PaymentMethodsController : ControllerBase
 
         var account = await _db.Accounts.AsNoTracking()
             .FirstOrDefaultAsync(a => a.Id == request.LedgerAccountId && a.CompanyId == companyId);
-        if (account is null || (account.AccountSubType != AccountSubType.Cash && account.AccountSubType != AccountSubType.Bank))
+        if (account is null || !AccountFits(request.Kind, account))
         {
             return BadRequest(_localizer["InvalidPaymentMethodAccount"].Value);
         }
@@ -72,6 +72,19 @@ public class PaymentMethodsController : ControllerBase
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(method));
     }
+
+    // Cash and bank tenders settle into money accounts. docs/POS_PLAN.md D8: a card tender may also
+    // use an acquirer clearing account (103200, a bank sub-type) the settlement later clears;
+    // vouchers and gift cards redeem a liability; on-account charges a receivable.
+    private static bool AccountFits(PaymentMethodKind kind, Account account) => kind switch
+    {
+        PaymentMethodKind.Cash or PaymentMethodKind.Bank or PaymentMethodKind.Card or PaymentMethodKind.Other =>
+            account.AccountSubType is AccountSubType.Cash or AccountSubType.Bank,
+        PaymentMethodKind.Voucher or PaymentMethodKind.GiftCard =>
+            account.AccountType is AccountType.CurrentLiability or AccountType.Payable,
+        PaymentMethodKind.OnAccount => account.AccountType == AccountType.Receivable,
+        _ => false
+    };
 
     private static PaymentMethodResponse ToResponse(PaymentMethod m) => new(m.Id, m.Name, m.Kind, m.LedgerAccountId);
 }

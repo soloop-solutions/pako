@@ -112,7 +112,7 @@ describe("Warehouses", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Prizren" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     await waitFor(() => expect(createWarehouse).toHaveBeenCalledWith("11111111-1111-1111-1111-111111111111",
-      { code: "PZ", name: "Prizren", address: undefined, isActive: true }));
+      { code: "PZ", name: "Prizren", address: undefined, isActive: true, isVan: false, driverUserId: undefined }));
   });
 });
 

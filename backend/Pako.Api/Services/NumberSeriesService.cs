@@ -114,6 +114,18 @@ public class NumberSeriesService
             return MaxSequenceFrom(await orders.Select(d => d.Number!).ToListAsync(), pattern) + 1;
         }
 
+        // docs/POS_PLAN.md P6: quotes and sales orders share a row; each has its own number.
+        if (documentType is "SalesQuote" or "SalesOrder")
+        {
+            var sales = _db.SalesOrders.AsNoTracking().Where(d => d.CompanyId == companyId);
+            if (isDayScoped && date is { } qd) sales = sales.Where(d => d.Date == qd);
+            else if (isYearScoped) sales = sales.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
+            var numbers = documentType == "SalesQuote"
+                ? await sales.Where(d => d.QuoteNumber != null).Select(d => d.QuoteNumber!).ToListAsync()
+                : await sales.Where(d => d.Number != null).Select(d => d.Number!).ToListAsync();
+            return MaxSequenceFrom(numbers, pattern) + 1;
+        }
+
         if (documentType == "PriceChange")
         {
             var changes = _db.PriceChanges.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
@@ -361,6 +373,10 @@ public class NumberSeriesService
         "StockWriteOff" => "NJP-{seq:D4}/{yyyy}",
         "StockWriteDown" => "ZHV-{seq:D4}/{yyyy}",
         "StockReceipt" => "FP-{seq:D4}/{yyyy}",
+        "StockDelivery" => "FD-{seq:D4}/{yyyy}",
+        "StockSiteIssue" => "FDK-{seq:D4}/{yyyy}",
+        "SalesQuote" => "OF-{seq:D4}/{yyyy}",
+        "SalesOrder" => "SO-{seq:D4}/{yyyy}",
         "PriceChange" => "NIV-{seq:D4}/{yyyy}",
         "PurchaseOrder" => "PO-{seq:D4}/{yyyy}",
         _ => "{seq:D4}"

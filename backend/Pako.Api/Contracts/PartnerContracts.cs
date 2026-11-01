@@ -10,7 +10,10 @@ public record CreatePartnerRequest(
     Guid? ReceivableAccountId = null,
     Guid? PayableAccountId = null,
     int? PaymentTermDays = null,
-    decimal? CreditLimit = null);
+    decimal? CreditLimit = null,
+    // docs/POS_PLAN.md P6: the customer's price list and the overdue block (days past due).
+    Guid? PriceListId = null,
+    int? OverdueBlockDays = null);
 
 public record UpdatePartnerRequest(
     string Name,
@@ -22,7 +25,10 @@ public record UpdatePartnerRequest(
     Guid? ReceivableAccountId = null,
     Guid? PayableAccountId = null,
     int? PaymentTermDays = null,
-    decimal? CreditLimit = null);
+    decimal? CreditLimit = null,
+    // docs/POS_PLAN.md P6: the customer's price list and the overdue block (days past due).
+    Guid? PriceListId = null,
+    int? OverdueBlockDays = null);
 
 public record PartnerResponse(
     Guid Id,
@@ -35,7 +41,9 @@ public record PartnerResponse(
     Guid? ReceivableAccountId,
     Guid? PayableAccountId,
     int? PaymentTermDays,
-    decimal? CreditLimit);
+    decimal? CreditLimit,
+    Guid? PriceListId = null,
+    int? OverdueBlockDays = null);
 
 public record CreditExposureResponse(
     decimal? CreditLimit,

@@ -91,6 +91,15 @@ builder.Services.AddScoped<Pako.Api.Services.DashboardService>();
 builder.Services.AddScoped<Pako.Api.Services.StockService>();
 builder.Services.AddScoped<Pako.Api.Services.StockDocumentService>();
 builder.Services.AddScoped<Pako.Api.Services.PriceListService>();
+builder.Services.AddScoped<Pako.Api.Services.PosService>();
+builder.Services.AddScoped<Pako.Api.Services.PosReportService>();
+builder.Services.AddScoped<Pako.Api.Services.TabService>();
+builder.Services.AddScoped<Pako.Api.Services.PosOperatorService>();
+builder.Services.AddScoped<Pako.Api.Services.AppointmentService>();
+builder.Services.AddScoped<Pako.Api.Services.SalesCreditService>();
+builder.Services.AddScoped<Pako.Api.Hubs.PosNotifier>();
+// docs/POS_PLAN.md P3: kitchen screens and floor plans update live.
+builder.Services.AddSignalR();
 builder.Services.AddScoped<Pako.Api.Services.PlatformAdminService>();
 builder.Services.AddScoped<PlatformBootstrap>();
 
@@ -113,6 +122,7 @@ builder.Services.AddScoped<Pako.Api.Services.Notifications.IScheduledJob, Pako.A
 builder.Services.AddScoped<Pako.Api.Services.Notifications.IScheduledJob, Pako.Api.Services.Notifications.ContractRemindersJob>();
 builder.Services.AddScoped<Pako.Api.Services.Notifications.IScheduledJob, Pako.Api.Services.Notifications.LeaveCarryOverJob>();
 builder.Services.AddScoped<Pako.Api.Services.Notifications.IScheduledJob, Pako.Api.Services.Notifications.FirmPayrollDigestJob>();
+builder.Services.AddScoped<Pako.Api.Services.Notifications.IScheduledJob, Pako.Api.Services.Notifications.AppointmentReminderJob>();
 if (builder.Configuration.GetValue("BackgroundJobs:Enabled", true))
 {
     builder.Services.AddHostedService<Pako.Api.Services.Notifications.BackgroundJobsHostedService>();
@@ -131,6 +141,16 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey)),
             ValidateLifetime = true,
             ClockSkew = TimeSpan.FromSeconds(30)
+        };
+        // Browsers can't set headers on a WebSocket: the hubs take the token from the query string.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var token = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(token) && context.HttpContext.Request.Path.StartsWithSegments("/hubs")) context.Token = token;
+                return Task.CompletedTask;
+            },
         };
     });
 
@@ -171,5 +191,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHub<Pako.Api.Hubs.PosHub>("/hubs/pos");
 
 app.Run();

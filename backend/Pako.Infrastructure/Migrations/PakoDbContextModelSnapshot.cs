@@ -170,6 +170,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -186,6 +189,8 @@ namespace Pako.Infrastructure.Migrations
 
                     b.HasIndex("OriginalBillId");
 
+                    b.HasIndex("ProjectId");
+
                     b.HasIndex("WarehouseId");
 
                     b.HasIndex("CompanyId", "State");
@@ -200,6 +205,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("BillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CostCodeId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Description")
@@ -247,6 +255,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("BillId");
+
+                    b.HasIndex("CostCodeId");
 
                     b.HasIndex("ExpenseAccountId");
 
@@ -707,6 +717,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(8)
                         .HasColumnType("character varying(8)");
 
+                    b.Property<string>("PosAccess")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)");
+
                     b.Property<string>("PurchasesAccess")
                         .IsRequired()
                         .HasMaxLength(8)
@@ -826,6 +841,23 @@ namespace Pako.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ActiveIngredient")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal?>("AgencyCommissionPercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<Guid?>("AgencyPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AtcCode")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<int?>("BufferMinutes")
+                        .HasColumnType("integer");
+
                     b.Property<Guid?>("CategoryId")
                         .HasColumnType("uuid");
 
@@ -850,8 +882,35 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<decimal?>("DefaultUnitPrice")
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<Guid?>("DepositItemId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Description")
                         .HasColumnType("text");
+
+                    b.Property<int?>("DurationMinutes")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsBookable")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsControlled")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsPrescriptionOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVariantTemplate")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("MaxRetailPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("MembershipDays")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("MinimumAge")
+                        .HasColumnType("integer");
 
                     b.Property<decimal?>("MinimumStock")
                         .HasColumnType("numeric(18,4)");
@@ -860,6 +919,25 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("OpenPrice")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("PackageServiceItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("PackageSessions")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PackageValidDays")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Plu")
+                        .HasMaxLength(6)
+                        .HasColumnType("character varying(6)");
+
+                    b.Property<Guid?>("ProductionCenterId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("PurchaseUnit")
                         .HasMaxLength(32)
@@ -875,10 +953,16 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<decimal?>("SalesUnitFactor")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<bool>("SellByWeight")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("TrackInventory")
                         .HasColumnType("boolean");
 
                     b.Property<bool>("TrackLots")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("TrackSerials")
                         .HasColumnType("boolean");
 
                     b.Property<int>("Type")
@@ -889,14 +973,84 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<Guid?>("VariantOfItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("WarrantyMonths")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
+                    b.HasIndex("AgencyPartnerId");
+
                     b.HasIndex("CategoryId");
+
+                    b.HasIndex("DepositItemId");
+
+                    b.HasIndex("PackageServiceItemId");
+
+                    b.HasIndex("ProductionCenterId");
+
+                    b.HasIndex("VariantOfItemId");
 
                     b.HasIndex("CompanyId", "Code")
                         .IsUnique();
 
+                    b.HasIndex("CompanyId", "Plu")
+                        .IsUnique()
+                        .HasFilter("\"Plu\" IS NOT NULL");
+
                     b.ToTable("items", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.ItemAttribute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("item_attributes", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.ItemAttributeValue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttributeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AttributeId", "Value")
+                        .IsUnique();
+
+                    b.ToTable("item_attribute_values", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.ItemBarcode", b =>
@@ -924,6 +1078,21 @@ namespace Pako.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("item_barcodes", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.ItemVariantValue", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AttributeValueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ItemId", "AttributeValueId");
+
+                    b.HasIndex("AttributeValueId");
+
+                    b.ToTable("item_variant_values", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.Membership", b =>
@@ -1035,11 +1204,17 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<int?>("OverdueBlockDays")
+                        .HasColumnType("integer");
+
                     b.Property<Guid?>("PayableAccountId")
                         .HasColumnType("uuid");
 
                     b.Property<int?>("PaymentTermDays")
                         .HasColumnType("integer");
+
+                    b.Property<Guid?>("PriceListId")
+                        .HasColumnType("uuid");
 
                     b.Property<Guid?>("ReceivableAccountId")
                         .HasColumnType("uuid");
@@ -1051,6 +1226,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
+
+                    b.HasIndex("PriceListId");
 
                     b.HasIndex("CompanyId", "EmployeeId")
                         .IsUnique()
@@ -1771,6 +1948,52 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("item_costs", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Inventory.ItemSerial", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Serial")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("SoldAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("SoldOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateOnly?>("WarrantyUntil")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("CompanyId", "Serial");
+
+                    b.HasIndex("CompanyId", "ItemId", "Serial")
+                        .IsUnique();
+
+                    b.ToTable("item_serials", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Inventory.Lot", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1892,6 +2115,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal>("MinQuantity")
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<decimal>("NewPrice")
                         .HasColumnType("numeric(18,4)");
 
@@ -1928,6 +2154,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsCustomerList")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -1944,7 +2173,8 @@ namespace Pako.Infrastructure.Migrations
                         .IsUnique();
 
                     b.HasIndex("CompanyId", "WarehouseId")
-                        .IsUnique();
+                        .IsUnique()
+                        .HasFilter("\"IsCustomerList\" = false");
 
                     NpgsqlIndexBuilderExtensions.AreNullsDistinct(b.HasIndex("CompanyId", "WarehouseId"), false);
 
@@ -1962,6 +2192,9 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<Guid>("ItemId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal>("MinQuantity")
+                        .HasColumnType("numeric(18,4)");
 
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric(18,4)");
@@ -2022,6 +2255,163 @@ namespace Pako.Infrastructure.Migrations
                     b.HasIndex("ReceiptLineId");
 
                     b.ToTable("receipt_matches", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.RecipeLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("IngredientItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("WastePercent")
+                        .HasColumnType("numeric(9,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IngredientItemId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("item_recipe_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.RouteVisit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<double?>("AccuracyMeters")
+                        .HasColumnType("double precision");
+
+                    b.Property<DateTime>("CheckInAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("CheckOutAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Collected")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("double precision");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Outcome")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RouteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("RouteId");
+
+                    b.HasIndex("CompanyId", "Date", "UserId");
+
+                    b.ToTable("route_visits", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.SalesRoute", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("sales_routes", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.SalesRouteStop", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RouteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Sequence")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("RouteId", "PartnerId")
+                        .IsUnique();
+
+                    b.ToTable("sales_route_stops", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Inventory.StockBalance", b =>
@@ -2092,6 +2482,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(16)
                         .HasColumnType("character varying(16)");
 
+                    b.Property<Guid?>("SiteId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -2110,6 +2503,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasIndex("DestinationWarehouseId");
 
                     b.HasIndex("PartnerId");
+
+                    b.HasIndex("SiteId");
 
                     b.HasIndex("WarehouseId");
 
@@ -2140,6 +2535,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<decimal?>("BookQuantity")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<Guid?>("CostCodeId")
+                        .HasColumnType("uuid");
+
                     b.Property<decimal?>("Difference")
                         .HasColumnType("numeric(18,4)");
 
@@ -2163,6 +2561,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<decimal>("Quantity")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<Guid?>("SalesOrderLineId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid>("StockDocumentId")
                         .HasColumnType("uuid");
 
@@ -2171,9 +2572,13 @@ namespace Pako.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CostCodeId");
+
                     b.HasIndex("ItemId");
 
                     b.HasIndex("PurchaseOrderLineId");
+
+                    b.HasIndex("SalesOrderLineId");
 
                     b.HasIndex("StockDocumentId");
 
@@ -2376,7 +2781,13 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("DriverUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsVan")
                         .HasColumnType("boolean");
 
                     b.Property<string>("Name")
@@ -2480,6 +2891,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -2491,6 +2905,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("OriginalInvoiceId");
+
+                    b.HasIndex("ProjectId");
 
                     b.HasIndex("WarehouseId");
 
@@ -2507,6 +2923,9 @@ namespace Pako.Infrastructure.Migrations
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DeliveryLineId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Description")
@@ -2536,6 +2955,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid>("RevenueAccountId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("SalesOrderLineId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("TaxDefinitionId")
                         .HasColumnType("uuid");
 
@@ -2553,13 +2975,162 @@ namespace Pako.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("DeliveryLineId");
+
                     b.HasIndex("InvoiceId");
 
                     b.HasIndex("ItemId");
 
                     b.HasIndex("RevenueAccountId");
 
+                    b.HasIndex("SalesOrderLineId");
+
                     b.ToTable("invoice_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Invoicing.SalesOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BlockOverriddenByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BlockOverrideReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerReference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("DeliveryAddress")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateOnly?>("DeliveryDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Number")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("QuoteNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("QuotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RouteVisitId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateOnly?>("ValidUntil")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("RouteVisitId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique()
+                        .HasFilter("\"Number\" IS NOT NULL");
+
+                    b.HasIndex("CompanyId", "QuoteNumber")
+                        .IsUnique()
+                        .HasFilter("\"QuoteNumber\" IS NOT NULL");
+
+                    b.HasIndex("CompanyId", "State", "Date");
+
+                    b.ToTable("sales_orders", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Invoicing.SalesOrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<decimal>("DiscountPercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("SalesOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("TaxDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitFactor")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("UnitName")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("SalesOrderId");
+
+                    b.HasIndex("TaxDefinitionId");
+
+                    b.ToTable("sales_order_lines", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Ledger.Account", b =>
@@ -3592,6 +4163,3660 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("platform_audit_entries", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Pos.Appointment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CancelReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("DepositCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("End")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("PosOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReminderSentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime>("Start")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("DepositCardId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("ResourceId", "Start");
+
+                    b.ToTable("pos_appointments", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.BarcodeRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("ItemDigits")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Prefix")
+                        .IsRequired()
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)");
+
+                    b.Property<int>("ValueDecimals")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ValueDigits")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Prefix")
+                        .IsUnique();
+
+                    b.ToTable("pos_barcode_rules", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ChannelOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("ChannelId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("City")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CourierPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("ExternalRef")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Fulfilment")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Payment")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("PosOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("RemittanceRef")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<DateOnly?>("RemittedOn")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("ShippingFee")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CourierPartnerId");
+
+                    b.HasIndex("ChannelId", "ExternalRef")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "State");
+
+                    b.ToTable("pos_channel_orders", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ChannelOrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChannelOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ChannelOrderId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("pos_channel_order_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ComboChoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("PriceDelta")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("SlotId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("SlotId");
+
+                    b.ToTable("pos_combo_choices", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ComboSlot", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ComboItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("MaxSelect")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinSelect")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComboItemId");
+
+                    b.ToTable("pos_combo_slots", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerMembership", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("EndsOn")
+                        .HasColumnType("date");
+
+                    b.Property<int>("FrozenDays")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("FrozenFrom")
+                        .HasColumnType("date");
+
+                    b.Property<string>("HolderName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("LastOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("PlanItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("StartsOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("PlanItemId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_memberships", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CollectedOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("DepositCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CollectedOrderId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("DepositCardId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_customer_orders", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerOrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CustomerOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerOrderId");
+
+                    b.HasIndex("ItemId");
+
+                    b.ToTable("pos_customer_order_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerPackage", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("HolderName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("ServiceItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SessionsTotal")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SessionsUsed")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("SoldOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitValue")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("ServiceItemId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_packages", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.DiningTable", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FloorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Height")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("QrToken")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Seats")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Shape")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("Width")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("X")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Y")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FloorId");
+
+                    b.HasIndex("QrToken")
+                        .IsUnique();
+
+                    b.ToTable("pos_tables", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.EventBooking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("BanquetNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("DepositCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly?>("From")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int>("GuestsEstimated")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("GuestsFinal")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("PackageItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal?>("PricePerGuest")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TabId")
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly?>("To")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<Guid>("VenueId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("DepositCardId");
+
+                    b.HasIndex("PackageItemId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("TabId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("VenueId", "Date");
+
+                    b.ToTable("pos_event_bookings", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.EventTicketType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Quota")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("EventId", "ItemId")
+                        .IsUnique();
+
+                    b.ToTable("pos_event_ticket_types", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FiscalDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AtkError")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("AtkStatus")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<decimal?>("AtkTransactionNo")
+                        .HasColumnType("numeric(20,0)");
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("CouponId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DailyNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("IssuedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PosCouponDetails")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<string>("QrCode")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long?>("ReferenceCouponId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("RegisterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("SendBy")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Signature")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("VerificationNo")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId")
+                        .IsUnique();
+
+                    b.HasIndex("RegisterId");
+
+                    b.HasIndex("CompanyId", "AtkStatus");
+
+                    b.HasIndex("CompanyId", "CouponId")
+                        .IsUnique();
+
+                    b.ToTable("fiscal_documents", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FleetCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DriverName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("FuelOnly")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal?>("LimitPerFill")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("VehiclePlate")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_fleet_cards", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Floor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("pos_floors", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FuelNozzle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Pump")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TankId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("TankId");
+
+                    b.HasIndex("StoreId", "Pump", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_fuel_nozzles", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FuelTank", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Capacity")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("StoreId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("pos_fuel_tanks", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.GiftCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Balance")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_gift_cards", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.GiftCardMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("At")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("GiftCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GiftCardId");
+
+                    b.HasIndex("OrderId");
+
+                    b.ToTable("pos_gift_card_movements", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.HotelBooking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Adults")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("Arrival")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Channel")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<int>("Children")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CompanyPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Departure")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("DepositCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("FolioTabId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("GuestName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<decimal>("NightlyRate")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateOnly?>("PostedThrough")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("RoomId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("RoomTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyPartnerId");
+
+                    b.HasIndex("DepositCardId");
+
+                    b.HasIndex("FolioTabId");
+
+                    b.HasIndex("RoomId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("RoomTypeId", "Arrival");
+
+                    b.ToTable("pos_hotel_bookings", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.HotelGuest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("BirthDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("BookingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("DocumentNumber")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("DocumentType")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("FullName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("IsPrimary")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nationality")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingId");
+
+                    b.ToTable("pos_hotel_guests", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ItemCrossReference", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Brand")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Normalized")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Normalized");
+
+                    b.HasIndex("ItemId", "Brand", "Normalized")
+                        .IsUnique();
+
+                    b.ToTable("item_cross_references", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ItemFitment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Engine")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Make")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int?>("YearFrom")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("YearTo")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("Make", "Model");
+
+                    b.ToTable("item_fitments", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ItemModifierGroup", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ItemId", "GroupId");
+
+                    b.HasIndex("GroupId");
+
+                    b.ToTable("pos_item_modifier_groups", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.KitchenTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DoneAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsStorno")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("ProductionCenterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ReadyAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("StartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TabId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TabLabel")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<string>("WaiterName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ProductionCenterId");
+
+                    b.HasIndex("TabId");
+
+                    b.HasIndex("StoreId", "State");
+
+                    b.ToTable("pos_kitchen_tickets", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.KitchenTicketLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Course")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Modifiers")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("Seat")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TabLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TicketId");
+
+                    b.ToTable("pos_kitchen_ticket_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.LoyaltyCard", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("HolderName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal>("Points")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_loyalty_cards", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.MeterReading", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Closing")
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("NozzleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Opening")
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("SessionId");
+
+                    b.HasIndex("NozzleId", "Date");
+
+                    b.ToTable("pos_meter_readings", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Modifier", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("GroupId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("IngredientItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("IngredientQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<decimal>("PriceDelta")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GroupId");
+
+                    b.HasIndex("IngredientItemId");
+
+                    b.ToTable("pos_modifiers", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ModifierGroup", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("MaxSelect")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MinSelect")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.ToTable("pos_modifier_groups", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosCashMovement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CounterpartAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("pos_cash_movements", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosOrder", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AppointmentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ChannelOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientUuid")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CouponCodes")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("CreatedOffline")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("FleetCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("LoyaltyCardId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("OperatorName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("OperatorUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("OrderedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("OriginalOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("PointsEarned")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("PointsRedeemed")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid?>("PrescriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime>("ReceivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("RegisterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("RepairTicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TabId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalDiscount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("TotalTax")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AppointmentId");
+
+                    b.HasIndex("ChannelOrderId");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("FleetCardId");
+
+                    b.HasIndex("LoyaltyCardId");
+
+                    b.HasIndex("OriginalOrderId");
+
+                    b.HasIndex("PrescriptionId");
+
+                    b.HasIndex("RepairTicketId");
+
+                    b.HasIndex("TabId");
+
+                    b.HasIndex("CompanyId", "ClientUuid")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "OrderedAt");
+
+                    b.HasIndex("SessionId", "Kind");
+
+                    b.ToTable("pos_orders", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosOrderLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AgeVerified")
+                        .HasColumnType("boolean");
+
+                    b.Property<decimal>("AgencyCommission")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("AgencyPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CostCorrection")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("CostReplay")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("CostValue")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("GiftCardNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<decimal>("Gross")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("LotNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("MembershipNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("ModifierIds")
+                        .HasMaxLength(800)
+                        .HasColumnType("character varying(800)");
+
+                    b.Property<decimal>("Net")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("NozzleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OriginalLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PackageNumber")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid?>("PrescriptionLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ProgramDiscount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("ProgramId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("RevenueAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("StaffUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TabLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Tax")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("TaxDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("TaxLetter")
+                        .IsRequired()
+                        .HasMaxLength(1)
+                        .HasColumnType("character varying(1)");
+
+                    b.Property<decimal>("TaxRate")
+                        .HasColumnType("numeric(9,4)");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<decimal>("UnitFactor")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("NozzleId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PrescriptionLineId");
+
+                    b.HasIndex("TabLineId");
+
+                    b.ToTable("pos_order_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PaymentMethodId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<decimal?>("Tendered")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Tip")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("PaymentMethodId");
+
+                    b.ToTable("pos_payments", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosPin", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PinHash")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("pos_pins", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosProgram", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<int?>("BuyQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Code")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Days")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("GetQuantity")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int?>("MaxUses")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal?>("MinAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal?>("MinQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<decimal?>("Percent")
+                        .HasColumnType("numeric(9,4)");
+
+                    b.Property<decimal?>("PointValue")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("PointsPerEuro")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("Price")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reward")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)");
+
+                    b.Property<bool>("Stackable")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly?>("TimeFrom")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<TimeOnly?>("TimeTo")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<int>("Uses")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("ValidTo")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique()
+                        .HasFilter("\"Code\" IS NOT NULL");
+
+                    b.ToTable("pos_programs", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosProgramTarget", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProgramId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("ProgramId");
+
+                    b.ToTable("pos_program_targets", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosRegister", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CashAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CertificateNotAfter")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CertificatePem")
+                        .HasColumnType("text");
+
+                    b.Property<string>("CertificateThumbprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FiscalMode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<int>("FiscalPosNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("FiscalizationNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Profile")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("StoreId", "FiscalPosNumber")
+                        .IsUnique();
+
+                    b.ToTable("pos_registers", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosSession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("BusinessDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ClosedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("OpenedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("OpeningFloat")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("RegisterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("ZReportJson")
+                        .HasColumnType("jsonb");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("RegisterId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_pos_sessions_one_open")
+                        .HasFilter("\"State\" = 'Open'");
+
+                    b.HasIndex("RegisterId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_sessions", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosSessionTender", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Counted")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Difference")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("DifferenceReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("Expected")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("PaymentMethodId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "PaymentMethodId")
+                        .IsUnique();
+
+                    b.ToTable("pos_session_tenders", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Prescription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CoveragePercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly>("IssuedOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("PatientName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("PatientPersonalNumber")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid?>("PayerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Prescriber")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("PrescriberLicence")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly?>("ValidUntil")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PayerId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("CompanyId", "Number");
+
+                    b.ToTable("pos_prescriptions", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PrescriptionLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Dispensed")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("Dosage")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PrescriptionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("PrescriptionId");
+
+                    b.ToTable("pos_prescription_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ProductionCenter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("PrinterName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("pos_production_centers", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RepairTicket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Accessories")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime?>("ApprovedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CollectedOrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CustomerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CustomerName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Device")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Problem")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateTime?>("ReadyAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("SerialOrPlate")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TechnicianUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_repair_tickets", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RepairTicketLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("TicketId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TicketId");
+
+                    b.ToTable("pos_repair_ticket_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ResourceHours", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("integer");
+
+                    b.Property<TimeOnly>("From")
+                        .HasColumnType("time without time zone");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<TimeOnly>("To")
+                        .HasColumnType("time without time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ResourceId");
+
+                    b.ToTable("pos_resource_hours", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Room", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Floor")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("RoomTypeId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RoomTypeId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("pos_rooms", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RoomType", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("RateItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("RateItemId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("pos_room_types", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.SalesChannel", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Token")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreId");
+
+                    b.HasIndex("Token")
+                        .IsUnique();
+
+                    b.ToTable("pos_sales_channels", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ServiceResource", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("pos_resources", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ServiceResourceLink", b =>
+                {
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ResourceId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("ItemId", "ResourceId");
+
+                    b.HasIndex("ResourceId");
+
+                    b.ToTable("pos_service_resources", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Store", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("BookingToken")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("FiscalBranchNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Location")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid?>("PriceListId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ReceiptFooter")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("ReceiptHeader")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<Guid?>("TipsAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TouristTaxItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("WarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BookingToken")
+                        .IsUnique()
+                        .HasFilter("\"BookingToken\" IS NOT NULL");
+
+                    b.HasIndex("PriceListId");
+
+                    b.HasIndex("TipsAccountId");
+
+                    b.HasIndex("TouristTaxItemId");
+
+                    b.HasIndex("WarehouseId");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "FiscalBranchNumber")
+                        .IsUnique();
+
+                    b.ToTable("pos_stores", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Tab", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ClosedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Covers")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("DeliveryAddress")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("DeliveryPhone")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("DriverName")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Name")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("PreBillCount")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TableId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("WaiterName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("WaiterUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TableId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.HasIndex("StoreId", "State");
+
+                    b.ToTable("pos_tabs", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TabLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Course")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("LineNo")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("ModifierIds")
+                        .HasMaxLength(800)
+                        .HasColumnType("character varying(800)");
+
+                    b.Property<string>("Modifiers")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("PaidQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid?>("ParentLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ProductionCenterId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int?>("Seat")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TabId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("VoidReason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("VoidedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("TabId");
+
+                    b.ToTable("pos_tab_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TankDip", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("MeasuredAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TankId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Volume")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Water")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("TankId", "MeasuredAt");
+
+                    b.ToTable("pos_tank_dips", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ThirdPartyPayer", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CoveragePercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("pos_payers", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Ticket", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("EventId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("EventId", "State");
+
+                    b.ToTable("pos_tickets", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TicketedEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<DateTime>("StartsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("pos_ticketed_events", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Venue", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Capacity")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<Guid>("StoreId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("StoreId");
+
+                    b.ToTable("pos_venues", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.WaiterSettlement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Difference")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Expected")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("Handed")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("WaiterName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<Guid>("WaiterUserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "WaiterUserId")
+                        .IsUnique();
+
+                    b.ToTable("pos_waiter_settlements", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.BoqLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Quantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Unit")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("UnitPrice")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SiteId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("construction_boq_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Building", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SaleItemId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("SaleItemId");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("re_buildings", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ConstructionSite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Address")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("BillingItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ClientPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ContractValue")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("RetentionPercent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal>("RetentionReleased")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly?>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BillingItemId");
+
+                    b.HasIndex("ClientPartnerId");
+
+                    b.HasIndex("CompanyId");
+
+                    b.HasIndex("ProjectId")
+                        .IsUnique();
+
+                    b.ToTable("construction_sites", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.CostCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Budget")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SiteId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("construction_cost_codes", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Installment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("ContractId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("DueDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("ContractId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("re_installments", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Lease", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("Deposit")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly?>("DepositReceivedOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("DepositReturnedOn")
+                        .HasColumnType("date");
+
+                    b.Property<int>("DueDay")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("EndDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Property")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<decimal>("Rent")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("RentItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("StartDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("TenantPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("UnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RentItemId");
+
+                    b.HasIndex("TenantPartnerId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("re_leases", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.LeaseInvoice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("LeaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Period")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("LeaseId", "Period")
+                        .IsUnique();
+
+                    b.ToTable("re_lease_invoices", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.LeaseMeter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("LastReading")
+                        .HasColumnType("numeric(18,3)");
+
+                    b.Property<Guid>("LeaseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<decimal?>("PendingReading")
+                        .HasColumnType("numeric(18,3)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("LeaseId");
+
+                    b.ToTable("re_lease_meters", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ProgressBill", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("PeriodTo")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Retention")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("SiteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("SiteId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("construction_progress_bills", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ProgressBillLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("BoqLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("CumulativeQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal>("PreviousQuantity")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<Guid>("ProgressBillId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BoqLineId");
+
+                    b.HasIndex("ProgressBillId");
+
+                    b.ToTable("construction_progress_bill_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.PropertyUnit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Area")
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<Guid>("BuildingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Floor")
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<decimal>("ListPrice")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuildingId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("re_units", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.UnitReservation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<decimal>("Deposit")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly>("ExpiresOn")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("UnitId");
+
+                    b.ToTable("re_reservations", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.UnitSaleContract", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BuyerPartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("ContractDate")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("UnitId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BuyerPartnerId");
+
+                    b.HasIndex("UnitId");
+
+                    b.HasIndex("CompanyId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("re_sale_contracts", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Reconciliation.Reconciliation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3984,6 +8209,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("OriginalBillId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Pako.Domain.Ledger.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Inventory.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("WarehouseId")
@@ -3997,6 +8227,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("BillId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.CostCode", null)
+                        .WithMany()
+                        .HasForeignKey("CostCodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Pako.Domain.Companies.Item", null)
                         .WithMany()
@@ -4075,10 +8310,53 @@ namespace Pako.Infrastructure.Migrations
 
             modelBuilder.Entity("Pako.Domain.Companies.Item", b =>
                 {
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("AgencyPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Inventory.ItemCategory", null)
                         .WithMany()
                         .HasForeignKey("CategoryId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("DepositItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("PackageServiceItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.ProductionCenter", null)
+                        .WithMany()
+                        .HasForeignKey("ProductionCenterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("VariantOfItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.ItemAttribute", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.ItemAttributeValue", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.ItemAttribute", null)
+                        .WithMany("Values")
+                        .HasForeignKey("AttributeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.ItemBarcode", b =>
@@ -4090,6 +8368,21 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Item");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.ItemVariantValue", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.ItemAttributeValue", null)
+                        .WithMany()
+                        .HasForeignKey("AttributeValueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.Membership", b =>
@@ -4108,6 +8401,14 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("FirmId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.Partner", b =>
+                {
+                    b.HasOne("Pako.Domain.Inventory.PriceList", null)
+                        .WithMany()
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.SetNull);
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.UserInvitation", b =>
@@ -4241,6 +8542,21 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Pako.Domain.Inventory.ItemSerial", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Pako.Domain.Inventory.Lot", b =>
                 {
                     b.HasOne("Pako.Domain.Companies.Company", null)
@@ -4359,6 +8675,70 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Pako.Domain.Inventory.RecipeLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("IngredientItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.RouteVisit", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.SalesRoute", null)
+                        .WithMany()
+                        .HasForeignKey("RouteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.SalesRoute", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.SalesRouteStop", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.SalesRoute", null)
+                        .WithMany("Stops")
+                        .HasForeignKey("RouteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Pako.Domain.Inventory.StockBalance", b =>
                 {
                     b.HasOne("Pako.Domain.Companies.Item", null)
@@ -4392,6 +8772,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("PartnerId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Pako.Domain.Projects.ConstructionSite", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Inventory.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("WarehouseId")
@@ -4401,6 +8786,11 @@ namespace Pako.Infrastructure.Migrations
 
             modelBuilder.Entity("Pako.Domain.Inventory.StockDocumentLine", b =>
                 {
+                    b.HasOne("Pako.Domain.Projects.CostCode", null)
+                        .WithMany()
+                        .HasForeignKey("CostCodeId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Companies.Item", null)
                         .WithMany()
                         .HasForeignKey("ItemId")
@@ -4410,6 +8800,11 @@ namespace Pako.Infrastructure.Migrations
                     b.HasOne("Pako.Domain.Bills.PurchaseOrderLine", null)
                         .WithMany()
                         .HasForeignKey("PurchaseOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Invoicing.SalesOrderLine", null)
+                        .WithMany()
+                        .HasForeignKey("SalesOrderLineId")
                         .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Pako.Domain.Inventory.StockDocument", "StockDocument")
@@ -4507,6 +8902,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("OriginalInvoiceId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Pako.Domain.Ledger.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Inventory.Warehouse", null)
                         .WithMany()
                         .HasForeignKey("WarehouseId")
@@ -4515,6 +8915,11 @@ namespace Pako.Infrastructure.Migrations
 
             modelBuilder.Entity("Pako.Domain.Invoicing.InvoiceLine", b =>
                 {
+                    b.HasOne("Pako.Domain.Inventory.StockDocumentLine", null)
+                        .WithMany()
+                        .HasForeignKey("DeliveryLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Invoicing.Invoice", "Invoice")
                         .WithMany("Lines")
                         .HasForeignKey("InvoiceId")
@@ -4526,7 +8931,58 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("ItemId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Pako.Domain.Invoicing.SalesOrderLine", null)
+                        .WithMany()
+                        .HasForeignKey("SalesOrderLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.Navigation("Invoice");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Invoicing.SalesOrder", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.RouteVisit", null)
+                        .WithMany()
+                        .HasForeignKey("RouteVisitId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Invoicing.SalesOrderLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Invoicing.SalesOrder", "SalesOrder")
+                        .WithMany("Lines")
+                        .HasForeignKey("SalesOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Tax.TaxDefinition", null)
+                        .WithMany()
+                        .HasForeignKey("TaxDefinitionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("SalesOrder");
                 });
 
             modelBuilder.Entity("Pako.Domain.Ledger.AccountGroup", b =>
@@ -4608,6 +9064,1275 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Pako.Domain.Pos.Appointment", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.GiftCard", null)
+                        .WithMany()
+                        .HasForeignKey("DepositCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.ServiceResource", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.BarcodeRule", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ChannelOrder", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.SalesChannel", null)
+                        .WithMany()
+                        .HasForeignKey("ChannelId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CourierPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ChannelOrderLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.ChannelOrder", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("ChannelOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ComboChoice", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.ComboSlot", null)
+                        .WithMany("Choices")
+                        .HasForeignKey("SlotId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ComboSlot", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ComboItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerMembership", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("PlanItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerOrder", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.PosOrder", null)
+                        .WithMany()
+                        .HasForeignKey("CollectedOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.GiftCard", null)
+                        .WithMany()
+                        .HasForeignKey("DepositCardId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerOrderLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.CustomerOrder", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("CustomerOrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerPackage", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ServiceItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.DiningTable", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.Floor", null)
+                        .WithMany("Tables")
+                        .HasForeignKey("FloorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.EventBooking", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.GiftCard", null)
+                        .WithMany()
+                        .HasForeignKey("DepositCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("PackageItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Tab", null)
+                        .WithMany()
+                        .HasForeignKey("TabId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Venue", null)
+                        .WithMany()
+                        .HasForeignKey("VenueId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.EventTicketType", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.TicketedEvent", null)
+                        .WithMany("TicketTypes")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FiscalDocument", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.PosOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.PosRegister", null)
+                        .WithMany()
+                        .HasForeignKey("RegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FleetCard", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Floor", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FuelNozzle", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.FuelTank", null)
+                        .WithMany()
+                        .HasForeignKey("TankId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.FuelTank", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.GiftCard", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.GiftCardMovement", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.GiftCard", null)
+                        .WithMany("Movements")
+                        .HasForeignKey("GiftCardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.PosOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.HotelBooking", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.GiftCard", null)
+                        .WithMany()
+                        .HasForeignKey("DepositCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Tab", null)
+                        .WithMany()
+                        .HasForeignKey("FolioTabId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Room", null)
+                        .WithMany()
+                        .HasForeignKey("RoomId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("RoomTypeId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.HotelGuest", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.HotelBooking", null)
+                        .WithMany()
+                        .HasForeignKey("BookingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ItemCrossReference", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ItemFitment", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ItemModifierGroup", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.ModifierGroup", null)
+                        .WithMany()
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.KitchenTicket", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.ProductionCenter", null)
+                        .WithMany()
+                        .HasForeignKey("ProductionCenterId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Pos.Tab", null)
+                        .WithMany()
+                        .HasForeignKey("TabId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.KitchenTicketLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.KitchenTicket", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.LoyaltyCard", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.MeterReading", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.FuelNozzle", null)
+                        .WithMany()
+                        .HasForeignKey("NozzleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.PosSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Modifier", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.ModifierGroup", null)
+                        .WithMany("Modifiers")
+                        .HasForeignKey("GroupId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("IngredientItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ModifierGroup", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosCashMovement", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.PosSession", "Session")
+                        .WithMany("CashMovements")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosOrder", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.Appointment", null)
+                        .WithMany()
+                        .HasForeignKey("AppointmentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.ChannelOrder", null)
+                        .WithMany()
+                        .HasForeignKey("ChannelOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.FleetCard", null)
+                        .WithMany()
+                        .HasForeignKey("FleetCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.LoyaltyCard", null)
+                        .WithMany()
+                        .HasForeignKey("LoyaltyCardId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.PosOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OriginalOrderId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Prescription", null)
+                        .WithMany()
+                        .HasForeignKey("PrescriptionId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.RepairTicket", null)
+                        .WithMany()
+                        .HasForeignKey("RepairTicketId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.PosSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Tab", null)
+                        .WithMany()
+                        .HasForeignKey("TabId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosOrderLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.FuelNozzle", null)
+                        .WithMany()
+                        .HasForeignKey("NozzleId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.PosOrder", "Order")
+                        .WithMany("Lines")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.PrescriptionLine", null)
+                        .WithMany()
+                        .HasForeignKey("PrescriptionLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.TabLine", null)
+                        .WithMany()
+                        .HasForeignKey("TabLineId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosPayment", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.PosOrder", "Order")
+                        .WithMany("Payments")
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.PaymentMethod", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentMethodId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosPin", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosProgram", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosProgramTarget", b =>
+                {
+                    b.HasOne("Pako.Domain.Inventory.ItemCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Pako.Domain.Pos.PosProgram", null)
+                        .WithMany("Targets")
+                        .HasForeignKey("ProgramId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosRegister", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosSession", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.PosRegister", null)
+                        .WithMany()
+                        .HasForeignKey("RegisterId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosSessionTender", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.PosSession", "Session")
+                        .WithMany("Tenders")
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Prescription", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.ThirdPartyPayer", null)
+                        .WithMany()
+                        .HasForeignKey("PayerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PrescriptionLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Prescription", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("PrescriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ProductionCenter", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RepairTicket", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RepairTicketLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.RepairTicket", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("TicketId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ResourceHours", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.ServiceResource", null)
+                        .WithMany("Hours")
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Room", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.RoomType", null)
+                        .WithMany()
+                        .HasForeignKey("RoomTypeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RoomType", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("RateItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.SalesChannel", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ServiceResource", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ServiceResourceLink", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.ServiceResource", null)
+                        .WithMany()
+                        .HasForeignKey("ResourceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Store", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.PriceList", null)
+                        .WithMany()
+                        .HasForeignKey("PriceListId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Ledger.Account", null)
+                        .WithMany()
+                        .HasForeignKey("TipsAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("TouristTaxItemId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("WarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Tab", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.DiningTable", null)
+                        .WithMany()
+                        .HasForeignKey("TableId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TabLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Tab", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("TabId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TankDip", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.FuelTank", null)
+                        .WithMany()
+                        .HasForeignKey("TankId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ThirdPartyPayer", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Ticket", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.TicketedEvent", null)
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.PosOrder", null)
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TicketedEvent", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Venue", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Pos.Store", null)
+                        .WithMany()
+                        .HasForeignKey("StoreId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.WaiterSettlement", b =>
+                {
+                    b.HasOne("Pako.Domain.Pos.PosSession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.BoqLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Projects.ConstructionSite", null)
+                        .WithMany("Boq")
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Building", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Ledger.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("SaleItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ConstructionSite", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("BillingItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("ClientPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Ledger.Project", null)
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.CostCode", b =>
+                {
+                    b.HasOne("Pako.Domain.Projects.ConstructionSite", null)
+                        .WithMany("CostCodes")
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Installment", b =>
+                {
+                    b.HasOne("Pako.Domain.Projects.UnitSaleContract", null)
+                        .WithMany("Installments")
+                        .HasForeignKey("ContractId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Invoicing.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Lease", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("RentItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("TenantPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.PropertyUnit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.LeaseInvoice", b =>
+                {
+                    b.HasOne("Pako.Domain.Invoicing.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.Lease", null)
+                        .WithMany()
+                        .HasForeignKey("LeaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.LeaseMeter", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.Lease", null)
+                        .WithMany("Meters")
+                        .HasForeignKey("LeaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ProgressBill", b =>
+                {
+                    b.HasOne("Pako.Domain.Invoicing.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Projects.ConstructionSite", null)
+                        .WithMany()
+                        .HasForeignKey("SiteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ProgressBillLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Projects.BoqLine", null)
+                        .WithMany()
+                        .HasForeignKey("BoqLineId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.ProgressBill", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("ProgressBillId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.PropertyUnit", b =>
+                {
+                    b.HasOne("Pako.Domain.Projects.Building", null)
+                        .WithMany()
+                        .HasForeignKey("BuildingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.UnitReservation", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.PropertyUnit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.UnitSaleContract", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("BuyerPartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Projects.PropertyUnit", null)
+                        .WithMany()
+                        .HasForeignKey("UnitId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Pako.Domain.Reconciliation.Reconciliation", b =>
                 {
                     b.HasOne("Pako.Domain.Bills.Bill", null)
@@ -4653,6 +10378,11 @@ namespace Pako.Infrastructure.Migrations
                     b.Navigation("Barcodes");
                 });
 
+            modelBuilder.Entity("Pako.Domain.Companies.ItemAttribute", b =>
+                {
+                    b.Navigation("Values");
+                });
+
             modelBuilder.Entity("Pako.Domain.Hr.ExpenseClaim", b =>
                 {
                     b.Navigation("Lines");
@@ -4661,6 +10391,11 @@ namespace Pako.Infrastructure.Migrations
             modelBuilder.Entity("Pako.Domain.Inventory.PriceChange", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.SalesRoute", b =>
+                {
+                    b.Navigation("Stops");
                 });
 
             modelBuilder.Entity("Pako.Domain.Inventory.StockDocument", b =>
@@ -4673,6 +10408,11 @@ namespace Pako.Infrastructure.Migrations
                     b.Navigation("Lines");
                 });
 
+            modelBuilder.Entity("Pako.Domain.Invoicing.SalesOrder", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("Pako.Domain.Ledger.JournalEntry", b =>
                 {
                     b.Navigation("Lines");
@@ -4681,6 +10421,107 @@ namespace Pako.Infrastructure.Migrations
             modelBuilder.Entity("Pako.Domain.Payroll.PayrollRun", b =>
                 {
                     b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ChannelOrder", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ComboSlot", b =>
+                {
+                    b.Navigation("Choices");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.CustomerOrder", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Floor", b =>
+                {
+                    b.Navigation("Tables");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.GiftCard", b =>
+                {
+                    b.Navigation("Movements");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.KitchenTicket", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ModifierGroup", b =>
+                {
+                    b.Navigation("Modifiers");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosOrder", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("Payments");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosProgram", b =>
+                {
+                    b.Navigation("Targets");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.PosSession", b =>
+                {
+                    b.Navigation("CashMovements");
+
+                    b.Navigation("Tenders");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Prescription", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.RepairTicket", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.ServiceResource", b =>
+                {
+                    b.Navigation("Hours");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.Tab", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Pos.TicketedEvent", b =>
+                {
+                    b.Navigation("TicketTypes");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ConstructionSite", b =>
+                {
+                    b.Navigation("Boq");
+
+                    b.Navigation("CostCodes");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.Lease", b =>
+                {
+                    b.Navigation("Meters");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.ProgressBill", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Projects.UnitSaleContract", b =>
+                {
+                    b.Navigation("Installments");
                 });
 
             modelBuilder.Entity("Pako.Domain.Tax.TaxDefinition", b =>

@@ -787,4 +787,79 @@ public class StockTests : IAsyncLifetime
         }), tokens, tokens.GenerateToken(c.UserId, c.Id, "create-journal-entry").Token);
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
+
+    // Audit fixes (2026-10-31). Order lines and receipts count pieces; a bill in boxes counts its
+    // pieces, and a second receipt for goods already brought in is refused.
+    [Fact]
+    public async Task PurchaseOrders_CountBillBoxesInPieces_AndNeverReceiveTwice()
+    {
+        var c = await SeedAsync();
+        var main = await MainWarehouseAsync(c);
+        var laptop = await c.Db.Items.SingleAsync(i => i.Id == c.Laptop);
+        laptop.PurchaseUnit = "kuti";
+        laptop.PurchaseUnitFactor = 24m;
+        await c.Db.SaveChangesAsync();
+
+        // 48 pieces ordered, received, then billed as 2 boxes.
+        var order = (PurchaseOrderResponse)Assert.IsAssignableFrom<ObjectResult>((await Orders(c).Create(c.Id, new SavePurchaseOrderRequest(
+            c.Vendor, D1, null, new List<PurchaseOrderLineRequest> { new(c.Laptop, "Laptops", 48m, 118m, c.B18) }))).Result).Value!;
+        await Orders(c).Confirm(c.Id, order.Id);
+        var receiptId = (Guid)Assert.IsType<OkObjectResult>((await Orders(c).Receive(c.Id, order.Id)).Result).Value!;
+        // Pressing "receive" again while the draft waits makes no second draft.
+        Assert.IsType<BadRequestObjectResult>((await Orders(c).Receive(c.Id, order.Id)).Result);
+        Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, receiptId)).Result);
+        var created = await Bills(c).Create(c.Id, new CreateBillRequest(c.Vendor, "V-BOX", D2, D2, new List<CreateBillLineRequest>
+            { new("Laptops", 2m, 2832m, c.B18, null, null, c.Laptop, order.Lines[0].Id, UnitName: "kuti") }));
+        var bill = (BillResponse)Assert.IsAssignableFrom<ObjectResult>(created.Result).Value!;
+        Assert.IsType<OkObjectResult>((await Bills(c).Post(c.Id, bill.Id)).Result);
+        var after = (PurchaseOrderResponse)Assert.IsType<OkObjectResult>((await Orders(c).Get(c.Id, order.Id)).Result).Value!;
+        Assert.Equal((48m, 0m, 48m, 0m), (after.Lines[0].Received, after.Lines[0].ToReceive, after.Lines[0].Billed, after.Lines[0].Remaining));
+        Assert.IsType<BadRequestObjectResult>((await Orders(c).Receive(c.Id, order.Id)).Result);
+        Assert.Equal(48m, (await CostAsync(c)).Quantity);
+
+        // A draft receipt waits while the bill brings the 10 in directly: posting it is refused.
+        var second = (PurchaseOrderResponse)Assert.IsAssignableFrom<ObjectResult>((await Orders(c).Create(c.Id, new SavePurchaseOrderRequest(
+            c.Vendor, D2, null, new List<PurchaseOrderLineRequest> { new(c.Laptop, "Laptops", 10m, 118m, c.B18) }))).Result).Value!;
+        await Orders(c).Confirm(c.Id, second.Id);
+        var draftId = (Guid)Assert.IsType<OkObjectResult>((await Orders(c).Receive(c.Id, second.Id)).Result).Value!;
+        var direct = (BillResponse)Assert.IsAssignableFrom<ObjectResult>((await Bills(c).Create(c.Id, new CreateBillRequest(c.Vendor, "V-DIR", D3, D3,
+            new List<CreateBillLineRequest> { new("Laptops", 10m, 118m, c.B18, null, null, c.Laptop, second.Lines[0].Id) }))).Result).Value!;
+        Assert.IsType<OkObjectResult>((await Bills(c).Post(c.Id, direct.Id)).Result);
+        Assert.IsType<BadRequestObjectResult>((await Documents(c).Post(c.Id, draftId)).Result);
+        Assert.Equal(58m, (await CostAsync(c)).Quantity);
+        Assert.Equal(0m, (await ValuationAsync(c, D3)).Difference);
+    }
+
+    // §5.3: entries that moved stock are undone by documents, never reversed; bill lines without a
+    // tracked item can't post to a stock account; an item can't change to a category with another
+    // stock account once it has moved; a company that isn't VAT-registered gives back no VAT.
+    [Fact]
+    public async Task StockAccounts_StayInStepWithTheStockLedger()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var (_, invoice) = await InvoiceAsync(c, D2, 1, 236m);
+        var entry = await c.Db.JournalEntries.AsNoTracking().FirstAsync(e => e.SourceDocumentId == invoice!.Id);
+        var journals = As(new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+        Assert.IsType<BadRequestObjectResult>((await journals.Reverse(c.Id, entry.Id, new ReverseJournalEntryRequest(D3))).Result);
+
+        var stockLine = await Bills(c).Create(c.Id, new CreateBillRequest(c.Vendor, "V-ACC", D2, D2, new List<CreateBillLineRequest>
+            { new("Stock without an item", 1m, 118m, c.B18, c.Account("120100"), null, null) }));
+        Assert.IsType<BadRequestObjectResult>(stockLine.Result);
+
+        var category = new ItemCategory { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Other stock", InventoryAccountId = c.Account("120800") };
+        c.Db.ItemCategories.Add(category);
+        await c.Db.SaveChangesAsync();
+        var items = As(new ItemsController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+        Assert.IsType<BadRequestObjectResult>((await items.Update(c.Id, c.Laptop, new UpdateItemRequest("Laptop", "pc", ItemType.Goods,
+            CategoryId: category.Id, TrackInventory: true))).Result);
+
+        var company = await c.Db.Companies.SingleAsync(x => x.Id == c.Id);
+        company.IsVatRegistered = false;
+        await c.Db.SaveChangesAsync();
+        var theft = await PostDocumentAsync(c, new SaveStockDocumentRequest(StockDocumentType.WriteOff, D3, await MainWarehouseAsync(c),
+            new List<StockDocumentLineRequest> { new(c.Laptop, 1m) }, Reason: WriteOffReason.Theft));
+        Assert.DoesNotContain(await LinesAsync(c, theft.Id), l => l.TaxId != null);
+        Assert.Equal(0m, (await ValuationAsync(c, D3)).Difference);
+    }
 }

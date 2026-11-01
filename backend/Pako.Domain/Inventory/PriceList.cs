@@ -11,6 +11,9 @@ public class PriceList
     public string Name { get; set; } = string.Empty;
     // Null = the company-wide list; otherwise the shop (warehouse) it prices.
     public Guid? WarehouseId { get; set; }
+    // docs/POS_PLAN.md P6: a list for named customers (Partner.PriceListId), not a shop or the
+    // company list; it has no warehouse.
+    public bool IsCustomerList { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -22,6 +25,9 @@ public class PriceListPrice
     public Guid PriceListId { get; set; }
     public Guid ItemId { get; set; }
     public decimal Price { get; set; }
+    // docs/POS_PLAN.md P6: a volume tier — this price applies from this quantity (base units) up;
+    // 0 is the ordinary price.
+    public decimal MinQuantity { get; set; }
     public DateOnly ValidFrom { get; set; }
     public Guid PriceChangeId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -59,6 +65,8 @@ public class PriceChangeLine
     public Guid Id { get; set; }
     public Guid PriceChangeId { get; set; }
     public Guid ItemId { get; set; }
+    // The volume tier the price is for (0 = the ordinary price).
+    public decimal MinQuantity { get; set; }
     public decimal NewPrice { get; set; }
     // Set when posted: the price in force the day before, the quantity on hand in the list's
     // warehouse (company-wide for the company list) and quantity × (new − old), the shelf

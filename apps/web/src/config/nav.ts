@@ -43,7 +43,27 @@ import {
   PieChart,
   BadgeEuro,
   ClipboardList,
+  MonitorSmartphone,
+  Store as StoreIcon,
+  Ticket,
+  Gift,
+  ClipboardCheck,
+  LayoutGrid,
+  UtensilsCrossed,
+  TrendingDown,
+  BedDouble,
+  Hotel as HotelIcon,
+  PartyPopper,
+  TicketCheck,
 } from "lucide-react";
+import { BadgeCheck, CalendarClock, UsersRound, Wrench } from "lucide-react";
+// docs/POS_PLAN.md P6 distribution.
+import { Calculator, ClipboardPen, Footprints, MapPinned, PackagePlus, Route as RouteIcon } from "lucide-react";
+import { SalesOrders } from "@/pages/sales/SalesOrders";
+import { SalesRoutes } from "@/pages/distribution/SalesRoutes";
+import { MyRouteDay } from "@/pages/distribution/MyRouteDay";
+import { RouteVisits } from "@/pages/distribution/RouteVisits";
+import { VanLoad, VanSettlement } from "@/pages/distribution/VanSales";
 
 import { Bills } from "@/pages/bills/Bills";
 import { PurchaseOrders } from "@/pages/bills/PurchaseOrders";
@@ -80,6 +100,29 @@ import { Reports } from "@/pages/Reports";
 import { Items } from "@/pages/items/Items";
 import { ItemCategories } from "@/pages/inventory/ItemCategories";
 import { PriceLists } from "@/pages/inventory/PriceLists";
+import { PosHome } from "@/pages/pos/PosHome";
+import { PosSetup } from "@/pages/pos/PosSetup";
+import { PosPrograms } from "@/pages/pos/PosPrograms";
+import { PosCards } from "@/pages/pos/PosCards";
+import { PosReports } from "@/pages/pos/PosReports";
+import { CustomerOrders } from "@/pages/pos/CustomerOrders";
+import { PosFloors } from "@/pages/pos/PosFloors";
+import { MenuSetup } from "@/pages/pos/MenuSetup";
+import { UsageVariance } from "@/pages/pos/UsageVariance";
+import { PosResources } from "@/pages/pos/PosResources";
+import { Appointments } from "@/pages/pos/Appointments";
+import { Memberships } from "@/pages/pos/Memberships";
+import { Repairs } from "@/pages/pos/Repairs";
+import { HotelChart } from "@/pages/pos/hotel/HotelChart";
+import { HotelSetup } from "@/pages/pos/hotel/HotelSetup";
+import { GuestRegister } from "@/pages/pos/hotel/GuestRegister";
+import { Events } from "@/pages/pos/events/Events";
+import { TicketedEvents } from "@/pages/pos/events/TicketedEvents";
+import { Pill as PharmacyIcon, Fuel as FuelIcon, ShoppingBag as OnlineIcon, CarFront as PartsIcon } from "lucide-react";
+import { Pharmacy } from "@/pages/pos/specialist/Pharmacy";
+import { Forecourt } from "@/pages/pos/specialist/Forecourt";
+import { OnlineSales } from "@/pages/pos/specialist/OnlineSales";
+import { PartsSearch } from "@/pages/pos/specialist/PartsSearch";
 import { StockDocuments } from "@/pages/inventory/StockDocuments";
 import { StockLevels } from "@/pages/inventory/StockLevels";
 import { StockReports } from "@/pages/inventory/StockReports";
@@ -87,6 +130,14 @@ import { Warehouses } from "@/pages/inventory/Warehouses";
 import { Settings } from "@/pages/Settings";
 import { WithholdingTax } from "@/pages/tax/WithholdingTax";
 import { YearEnd } from "@/pages/YearEnd";
+// docs/ERP_VERTICALS_PLAN.md (POS plan P8): construction, real estate sales, property rental.
+import { HardHat, Building as BuildingIcon, CalendarCheck, FileSignature, KeyRound, Repeat } from "lucide-react";
+import { ConstructionSites } from "@/pages/construction/ConstructionSites";
+import { Buildings } from "@/pages/realestate/Buildings";
+import { Reservations as UnitReservations } from "@/pages/realestate/Reservations";
+import { SaleContracts } from "@/pages/realestate/SaleContracts";
+import { Leases } from "@/pages/rentals/Leases";
+import { RentRun } from "@/pages/rentals/RentRun";
 
 /**
  * HR module: the department permission a ClientStaff user needs to see an item (mirrors the
@@ -107,7 +158,9 @@ export type NavModule =
   | "settings"
   | "users"
   // docs/INVENTORY_PLAN.md D7.
-  | "inventory";
+  | "inventory"
+  // docs/POS_PLAN.md D14.
+  | "pos";
 
 export type NavItem = {
   titleKey: string;
@@ -330,6 +383,65 @@ export const navCategories: NavCategory[] = [
         descriptionKey: "nav.proforma.description",
         Element: Proforma,
       },
+      // docs/POS_PLAN.md P6 distribution: quotes and sales orders, routes, the salesperson's day,
+      // visits, and the van's morning load and evening settlement (vans are warehouses: Inventory).
+      { titleKey: "nav.salesOrders", path: "/sales-orders", icon: ClipboardPen, descriptionKey: "nav.salesOrders.description", Element: SalesOrders, gridId: "sales-orders" },
+      { titleKey: "nav.myRouteDay", path: "/distribution/my-day", icon: MapPinned, descriptionKey: "nav.myRouteDay.description", Element: MyRouteDay },
+      { titleKey: "nav.salesRoutes", path: "/distribution/routes", icon: RouteIcon, descriptionKey: "nav.salesRoutes.description", Element: SalesRoutes, gridId: "sales-routes" },
+      { titleKey: "nav.routeVisits", path: "/distribution/visits", icon: Footprints, descriptionKey: "nav.routeVisits.description", Element: RouteVisits, gridId: "route-visits" },
+      { titleKey: "nav.vanLoad", path: "/distribution/van-load", icon: PackagePlus, descriptionKey: "nav.vanLoad.description", Element: VanLoad, module: "inventory", gridId: "van-load" },
+      { titleKey: "nav.vanSettlement", path: "/distribution/van-settlement", icon: Calculator, descriptionKey: "nav.vanSettlement.description", Element: VanSettlement, module: "inventory", gridId: "van-settlement" },
+    ],
+  },
+  {
+    // docs/POS_PLAN.md: the point of sale, after Sales.
+    id: "pos",
+    labelKey: "sidebar.category.pos",
+    module: "pos",
+    items: [
+      { titleKey: "nav.pos", path: "/pos", icon: MonitorSmartphone, descriptionKey: "nav.pos.description", Element: PosHome, gridId: "pos-orders" },
+      { titleKey: "nav.posSetup", path: "/pos/setup", icon: StoreIcon, descriptionKey: "nav.posSetup.description", Element: PosSetup },
+      // P2: promotions, coupons, loyalty; loyalty cards and gift cards.
+      { titleKey: "nav.posPrograms", path: "/pos/programs", icon: Ticket, descriptionKey: "nav.posPrograms.description", Element: PosPrograms },
+      { titleKey: "nav.posCards", path: "/pos/cards", icon: Gift, descriptionKey: "nav.posCards.description", Element: PosCards },
+      // P2: layaways and special orders; store reporting.
+      { titleKey: "nav.posCustomerOrders", path: "/pos/customer-orders", icon: ClipboardCheck, descriptionKey: "nav.posCustomerOrders.description", Element: CustomerOrders, gridId: "pos-customer-orders" },
+      { titleKey: "nav.posReports", path: "/pos/reports", icon: BarChart3, descriptionKey: "nav.posReports.description", Element: PosReports, gridId: "pos-sales-report" },
+      // P3 restaurant back office: floors and tables (QR menu codes), menu setup, usage variance.
+      { titleKey: "pos.setup3.nav.floors", path: "/pos/floors", icon: LayoutGrid, descriptionKey: "pos.setup3.nav.floors.description", Element: PosFloors, gridId: "pos-floors" },
+      { titleKey: "pos.setup3.nav.menu", path: "/pos/menu-setup", icon: UtensilsCrossed, descriptionKey: "pos.setup3.nav.menu.description", Element: MenuSetup },
+      { titleKey: "pos.setup3.nav.variance", path: "/pos/usage-variance", icon: TrendingDown, descriptionKey: "pos.setup3.nav.variance.description", Element: UsageVariance, gridId: "pos-usage-variance" },
+      // P4 services: appointments calendar, resources, packages and memberships, repairs.
+      { titleKey: "svc.nav.appointments", path: "/pos/appointments", icon: CalendarClock, descriptionKey: "svc.nav.appointments.description", Element: Appointments },
+      { titleKey: "svc.nav.resources", path: "/pos/resources", icon: UsersRound, descriptionKey: "svc.nav.resources.description", Element: PosResources, gridId: "pos-resources" },
+      { titleKey: "svc.nav.memberships", path: "/pos/memberships", icon: BadgeCheck, descriptionKey: "svc.nav.memberships.description", Element: Memberships, gridId: "pos-memberships" },
+      { titleKey: "svc.nav.repairs", path: "/pos/repairs", icon: Wrench, descriptionKey: "svc.nav.repairs.description", Element: Repairs, gridId: "pos-repairs" },
+      // P5 hotel and venues: reservation chart, rooms setup, guest register; events; ticketed events.
+      { titleKey: "hotel.nav.chart", path: "/pos/hotel", icon: BedDouble, descriptionKey: "hotel.nav.chart.description", Element: HotelChart, gridId: "pos-hotel-unassigned" },
+      { titleKey: "hotel.nav.setup", path: "/pos/hotel/setup", icon: HotelIcon, descriptionKey: "hotel.nav.setup.description", Element: HotelSetup },
+      { titleKey: "hotel.nav.guests", path: "/pos/hotel/guests", icon: IdCard, descriptionKey: "hotel.nav.guests.description", Element: GuestRegister, gridId: "pos-guest-register" },
+      { titleKey: "hotel.nav.events", path: "/pos/events", icon: PartyPopper, descriptionKey: "hotel.nav.events.description", Element: Events, gridId: "pos-events" },
+      { titleKey: "hotel.nav.tickets", path: "/pos/tickets", icon: TicketCheck, descriptionKey: "hotel.nav.tickets.description", Element: TicketedEvents, gridId: "pos-ticketed-events" },
+      // P7 specialist retail: pharmacy, fuel station, online channels, auto parts (items access).
+      { titleKey: "spec.nav.pharmacy", path: "/pos/pharmacy", icon: PharmacyIcon, descriptionKey: "spec.nav.pharmacy.description", Element: Pharmacy, gridId: "pos-prescriptions" },
+      { titleKey: "spec.nav.forecourt", path: "/pos/forecourt", icon: FuelIcon, descriptionKey: "spec.nav.forecourt.description", Element: Forecourt },
+      { titleKey: "spec.nav.online", path: "/pos/online", icon: OnlineIcon, descriptionKey: "spec.nav.online.description", Element: OnlineSales, gridId: "pos-channel-orders" },
+      { titleKey: "spec.nav.parts", path: "/pos/parts", icon: PartsIcon, descriptionKey: "spec.nav.parts.description", Element: PartsSearch, module: "items" },
+    ],
+  },
+  {
+    // docs/ERP_VERTICALS_PLAN.md (POS plan P8): projects — construction sites, buildings for sale and
+    // rentals, all behind the Sales access area.
+    id: "projects",
+    labelKey: "vx.sidebar.projects",
+    module: "sales",
+    items: [
+      { titleKey: "vx.nav.sites", path: "/construction", icon: HardHat, descriptionKey: "vx.nav.sites.description", Element: ConstructionSites, gridId: "construction-sites" },
+      { titleKey: "vx.nav.buildings", path: "/real-estate/buildings", icon: BuildingIcon, descriptionKey: "vx.nav.buildings.description", Element: Buildings, gridId: "buildings" },
+      { titleKey: "vx.nav.reservations", path: "/real-estate/reservations", icon: CalendarCheck, descriptionKey: "vx.nav.reservations.description", Element: UnitReservations, gridId: "unit-reservations" },
+      { titleKey: "vx.nav.contracts", path: "/real-estate/contracts", icon: FileSignature, descriptionKey: "vx.nav.contracts.description", Element: SaleContracts, gridId: "unit-sale-contracts" },
+      { titleKey: "vx.nav.leases", path: "/rentals/leases", icon: KeyRound, descriptionKey: "vx.nav.leases.description", Element: Leases, gridId: "leases" },
+      { titleKey: "vx.nav.rentRun", path: "/rentals/rent-run", icon: Repeat, descriptionKey: "vx.nav.rentRun.description", Element: RentRun },
     ],
   },
   {

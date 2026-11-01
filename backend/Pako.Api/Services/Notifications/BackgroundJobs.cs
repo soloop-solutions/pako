@@ -287,3 +287,48 @@ public class BackgroundJobsHostedService : BackgroundService
         }
     }
 }
+
+// docs/POS_PLAN.md P4: the day before, customers with an email hear about tomorrow's appointment.
+public class AppointmentReminderJob : IScheduledJob
+{
+    private readonly PakoDbContext _db;
+    private readonly NotificationOutbox _outbox;
+
+    public AppointmentReminderJob(PakoDbContext db, NotificationOutbox outbox)
+    {
+        _db = db;
+        _outbox = outbox;
+    }
+
+    public string Name => "AppointmentReminders";
+
+    public bool IsDue(DateOnly today) => true;
+
+    public async Task RunAsync(DateOnly today, CancellationToken cancellationToken)
+    {
+        var from = Pako.Api.Services.PosService.UtcFromLocal(today.AddDays(1).ToDateTime(TimeOnly.MinValue));
+        var to = Pako.Api.Services.PosService.UtcFromLocal(today.AddDays(2).ToDateTime(TimeOnly.MinValue));
+        var due = await _db.PosAppointments
+            .Where(a => a.Start >= from && a.Start < to && a.Email != null && a.ReminderSentAt == null
+                && (a.State == Pako.Domain.Pos.AppointmentState.Booked || a.State == Pako.Domain.Pos.AppointmentState.Confirmed))
+            .ToListAsync(cancellationToken);
+        foreach (var a in due)
+        {
+            var store = await _db.PosStores.AsNoTracking().FirstAsync(s => s.Id == a.StoreId, cancellationToken);
+            var service = await _db.Items.AsNoTracking().Where(i => i.Id == a.ItemId).Select(i => i.Name).FirstAsync(cancellationToken);
+            await _outbox.EnqueueAsync(a.CompanyId, NotificationTemplates.AppointmentReminder,
+                new[] { new NotificationRecipient(a.Email!, NotificationOutbox.DefaultCulture) }, new Dictionary<string, string>
+                {
+                    ["name"] = a.CustomerName,
+                    ["service"] = service,
+                    ["store"] = store.Name,
+                    ["address"] = store.Address ?? store.Location,
+                    ["time"] = Pako.Api.Services.PosService.LocalTime(a.Start).ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture),
+                    ["number"] = a.Number,
+                });
+            a.ReminderSentAt = DateTime.UtcNow;
+        }
+        await _db.SaveChangesAsync(cancellationToken);
+    }
+}
+

@@ -65,6 +65,8 @@ export function Partners() {
         payableAccountId: fields.payableAccountId ?? undefined,
         paymentTermDays: fields.paymentTermDays ?? undefined,
         creditLimit: fields.creditLimit ?? undefined,
+        priceListId: fields.priceListId ?? undefined,
+        overdueBlockDays: fields.overdueBlockDays ?? undefined,
       });
     },
     onSuccess: async () => {
@@ -88,6 +90,8 @@ export function Partners() {
         payableAccountId: vars.fields.payableAccountId ?? undefined,
         paymentTermDays: vars.fields.paymentTermDays ?? undefined,
         creditLimit: vars.fields.creditLimit ?? undefined,
+        priceListId: vars.fields.priceListId ?? undefined,
+        overdueBlockDays: vars.fields.overdueBlockDays ?? undefined,
       }),
     onSuccess: async () => {
       setMutationError(null);

@@ -275,7 +275,9 @@ public class StockService
                 .OrderBy(m => m.Date).ThenBy(m => m.Sequence).ToListAsync();
         }
 
-        await CheckNegativeStockAsync(item, requests, later, locations, settings);
+        // docs/POS_PLAN.md D7: a till's coupon may already be issued (offline) — its stock is never
+        // refused; negative positions show on the stock reports instead.
+        if (sourceType != StockMoveSource.Pos) await CheckNegativeStockAsync(item, requests, later, locations, settings);
 
         var outcomes = new List<MoveOutcome>();
         foreach (var request in requests)
@@ -614,8 +616,21 @@ public class StockService
     {
         var tracked = await _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId && i.TrackInventory).ToListAsync();
         if (tracked.Count == 0) return new HashSet<Guid>();
-        var accounts = await AccountsForAsync(companyId, tracked);
-        return accounts.Values.Select(a => a.InventoryAccountId).ToHashSet();
+        var accounts = await InventoryAccountsForAsync(companyId, tracked);
+        return accounts.Values.Where(a => a != null).Select(a => a!.Value).ToHashSet();
+    }
+
+    // Each item's stock account only, without the cost-of-goods-sold one: never throws, so a chart
+    // missing 500100 (or 120100) doesn't break every manual entry or the valuation report. Null
+    // where nothing resolves.
+    public async Task<Dictionary<Guid, Guid?>> InventoryAccountsForAsync(Guid companyId, IEnumerable<Item> items)
+    {
+        var list = items.DistinctBy(i => i.Id).ToList();
+        var categoryIds = list.Where(i => i.CategoryId != null).Select(i => i.CategoryId!.Value).Distinct().ToList();
+        var categories = await _db.ItemCategories.AsNoTracking().Where(c => categoryIds.Contains(c.Id)).ToDictionaryAsync(c => c.Id);
+        var inventoryDefault = await AccountIdByCodeAsync(companyId, InventoryAccountCode);
+        return list.ToDictionary(i => i.Id,
+            i => i.DefaultInventoryAccountId ?? (i.CategoryId is { } c ? categories.GetValueOrDefault(c)?.InventoryAccountId : null) ?? inventoryDefault);
     }
 }
 

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- docs/POS_PLAN.md: Kosovo electronic fiscal software (SEF) protocol under AI MF 01/2026 —
+       coupon payloads, signing, certificate requests and the ATK client. Shared by the cloud and
+       PAKO Station so both build and verify the same bytes. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Google.Protobuf" Version="3.28.2" />
+  </ItemGroup>
+
+  <!-- Atk/AtkModels.cs is generated from Protos/atk_models.proto with protoc 28.2 and committed, so
+       building needs no code generator (Grpc.Tools ships no macOS arm64 protoc). Regenerate with:
+       protoc with proto_path Protos and csharp_out Atk on Protos/atk_models.proto. -->
+  <ItemGroup>
+    <None Include="Protos/atk_models.proto" />
+  </ItemGroup>
+
+</Project>

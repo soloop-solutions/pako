@@ -6,8 +6,10 @@ namespace Pako.Api.Contracts;
 
 // ---- Setup ----
 
-public record WarehouseResponse(Guid Id, string Code, string Name, string? Address, bool IsActive, bool IsDefault);
-public record SaveWarehouseRequest(string Code, string Name, string? Address, bool IsActive = true);
+// docs/POS_PLAN.md P6: IsVan marks a delivery van selling from its own stock; DriverUserId the member who drives it.
+public record WarehouseResponse(Guid Id, string Code, string Name, string? Address, bool IsActive, bool IsDefault, bool IsVan = false,
+    Guid? DriverUserId = null);
+public record SaveWarehouseRequest(string Code, string Name, string? Address, bool IsActive = true, bool IsVan = false, Guid? DriverUserId = null);
 
 public record ItemCategoryResponse(Guid Id, string Name, Guid? InventoryAccountId, Guid? CogsAccountId, Guid? RevenueAccountId,
     Guid? ExpenseAccountId, bool IsActive, int ItemCount);
@@ -25,7 +27,11 @@ public record SaveStockSettingsRequest(NegativeStockPolicy NegativeStock, Guid? 
 public record StockDocumentLineRequest(Guid ItemId, decimal Quantity, decimal? UnitCost = null, string? Note = null,
     Guid? PurchaseOrderLineId = null,
     // §12 P8, items tracked by lot: the lot received (with its expiry) or the lot to take from.
-    string? LotNumber = null, DateOnly? ExpiryDate = null);
+    string? LotNumber = null, DateOnly? ExpiryDate = null,
+    // docs/POS_PLAN.md P6, deliveries: the sales order line the goods were ordered on.
+    Guid? SalesOrderLineId = null,
+    // docs/ERP_VERTICALS_PLAN.md §1, site issues: the site cost code charged.
+    Guid? CostCodeId = null);
 
 public record SaveStockDocumentRequest(
     StockDocumentType Type,
@@ -36,8 +42,10 @@ public record SaveStockDocumentRequest(
     WriteOffReason? Reason = null,
     DateOnly? AtkNoticeDate = null,
     string? Notes = null,
-    // Receipts: the vendor.
-    Guid? PartnerId = null);
+    // Receipts: the vendor. Deliveries: the customer.
+    Guid? PartnerId = null,
+    // Site issues: the construction site.
+    Guid? SiteId = null);
 
 // Value: what the line moved, once posted (from the stock ledger).
 // Write-down lines: UnitCost is the net realisable value, Value the allowance change posted, and
@@ -46,8 +54,9 @@ public record StockDocumentLineResponse(Guid Id, Guid ItemId, int ItemCode, stri
     decimal? UnitCost, decimal? BookQuantity, decimal? Difference, decimal? Value, string? Note,
     decimal? AverageCost = null, decimal? AllowanceAfter = null,
     // Receipts: the ordered line, and how much of the line vendor bills have matched so far.
+    // Deliveries: how much of the line posted invoices have billed.
     Guid? PurchaseOrderLineId = null, decimal? Billed = null,
-    string? LotNumber = null, DateOnly? ExpiryDate = null);
+    string? LotNumber = null, DateOnly? ExpiryDate = null, Guid? SalesOrderLineId = null, Guid? CostCodeId = null);
 
 // VatRepaymentDue: a write-off whose reason means the input VAT must be paid back (theft, unexplained
 // shortage — AI 03/2015 Arts. 61.1.4 and 62); phase 1 records it and warns, phase 2 posts it.
@@ -59,11 +68,15 @@ public record StockDocumentResponse(
     // Phase 2: the input VAT the posted write-off reversed (null when none is due).
     decimal? VatRepaid = null,
     // Receipts: the vendor.
-    Guid? PartnerId = null, string? PartnerName = null);
+    Guid? PartnerId = null, string? PartnerName = null,
+    // Site issues: the construction site.
+    Guid? SiteId = null);
 
 public record StockDocumentSummaryResponse(
     Guid Id, StockDocumentType Type, StockDocumentState State, string? Number, DateOnly Date,
-    string WarehouseName, string? DestinationWarehouseName, int LineCount, decimal TotalValue);
+    string WarehouseName, string? DestinationWarehouseName, int LineCount, decimal TotalValue,
+    // Receipts and deliveries: the vendor or customer. Site issues: the site.
+    string? PartnerName = null, Guid? SiteId = null);
 
 // A count sheet row: the book quantity to count against.
 public record CountSheetRowResponse(Guid ItemId, int ItemCode, string ItemName, string Unit, decimal BookQuantity);
@@ -130,24 +143,31 @@ public record LotStockResponse(Guid LotId, string LotNumber, DateOnly? ExpiryDat
 // ---- Price lists and price changes (§12 P4) ----
 
 // WarehouseId null = the company-wide list.
-public record PriceListResponse(Guid Id, string Name, Guid? WarehouseId, string? WarehouseName, bool IsActive, int PricedItems);
-public record SavePriceListRequest(string Name, Guid? WarehouseId, bool IsActive = true);
+public record PriceListResponse(Guid Id, string Name, Guid? WarehouseId, string? WarehouseName, bool IsActive, int PricedItems, bool IsCustomerList = false);
+public record SavePriceListRequest(string Name, Guid? WarehouseId, bool IsActive = true, bool IsCustomerList = false);
 
 // An item's price on a list at a date. Price null = the list has none (the company list or the
 // item's own default price applies, shown as FallbackPrice).
 public record PriceListItemResponse(Guid ItemId, int ItemCode, string ItemName, string Unit, decimal? Price, DateOnly? ValidFrom,
-    decimal? FallbackPrice);
+    decimal? FallbackPrice, List<PriceTierResponse>? Tiers = null);
+// docs/POS_PLAN.md P6: a volume tier — Price from MinQuantity (base units) up.
+public record PriceTierResponse(decimal MinQuantity, decimal Price, DateOnly ValidFrom);
 
 // The price an invoice line should start from: Source = "warehouse", "company" or "item".
-public record ResolvedPriceResponse(Guid ItemId, decimal Price, string Source, Guid? PriceListId);
+// Price is per base unit; Units gives the same price per the item's sales and purchase units, so a
+// line that switches unit takes the server's figure (no multiplying in the browser).
+public record ResolvedPriceResponse(Guid ItemId, decimal Price, string Source, Guid? PriceListId, List<ResolvedUnitPriceResponse>? Units = null,
+    decimal? TierMinQuantity = null);
+public record ResolvedUnitPriceResponse(string UnitName, decimal Factor, decimal Price);
 
-public record PriceChangeLineRequest(Guid ItemId, decimal NewPrice);
+// MinQuantity > 0: a volume tier (docs/POS_PLAN.md P6).
+public record PriceChangeLineRequest(Guid ItemId, decimal NewPrice, decimal MinQuantity = 0m);
 public record SavePriceChangeRequest(Guid PriceListId, DateOnly Date, List<PriceChangeLineRequest> Lines, string? Notes = null);
 
 // OldPrice/Quantity/Difference are the price in force the day before, the quantity on hand and
 // quantity × (new − old). Before posting they are a preview at the document date.
 public record PriceChangeLineResponse(Guid Id, Guid ItemId, int ItemCode, string ItemName, string Unit, decimal NewPrice,
-    decimal? OldPrice, decimal? Quantity, decimal? Difference);
+    decimal? OldPrice, decimal? Quantity, decimal? Difference, decimal MinQuantity = 0m);
 public record PriceChangeResponse(Guid Id, Guid PriceListId, string PriceListName, PriceChangeState State, string? Number, DateOnly Date,
     string? Notes, decimal TotalDifference, DateTime? PostedAt, List<PriceChangeLineResponse> Lines);
 public record PriceChangeSummaryResponse(Guid Id, string PriceListName, PriceChangeState State, string? Number, DateOnly Date,

@@ -50,7 +50,7 @@ export function InvoiceDetail() {
   const { activeCompany } = useCompany();
   const { auth } = useAuth();
   // docs/USER_ACCESS_PLAN.md: posting and payments need Sales: Approve.
-  const { canApprove } = useMyAccess();
+  const { canApprove, canWrite } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
 
   const [invoice, setInvoice] = useState<InvoiceResponse | null>(null);
@@ -535,7 +535,7 @@ export function InvoiceDetail() {
           <CardDescription>{intl.formatMessage({ id: "attachments.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <AttachmentsPanel companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} />
+          <AttachmentsPanel companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} readOnly={!canWrite("sales")} />
         </CardContent>
       </Card>
 

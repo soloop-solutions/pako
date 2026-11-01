@@ -51,7 +51,8 @@ public class MyAccessController : ControllerBase
             _access.LevelFor(AccessModule.Payroll),
             _access.LevelFor(AccessModule.Settings),
             _access.LevelFor(AccessModule.Users),
-            _access.LevelFor(AccessModule.Inventory));
+            _access.LevelFor(AccessModule.Inventory),
+            _access.LevelFor(AccessModule.Pos));
 
         if (_access.IsStaffAccess && _access.Role is { } role)
         {
