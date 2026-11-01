@@ -163,7 +163,7 @@ export function BillForm({
   // C1/C5: PriceMode/inline-payment are Create-only features — UpdateBillRequest (the Draft-edit
   // path) doesn't carry either field, so this state is only read from the Create branch of
   // handleSubmit and its inputs are hidden while editing.
-  const [priceMode, setPriceMode] = useState<number>(PriceMode.GrossInclusive);
+  const [priceMode, setPriceMode] = useState<number>(editingBill?.priceMode ?? PriceMode.GrossInclusive);
   const [takePaymentNow, setTakePaymentNow] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
@@ -619,14 +619,18 @@ export function BillForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
-            </div>
+            {isVatRegistered && (
+              <div className="flex flex-col gap-1">
+                {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
+                <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
+              </div>
+            )}
+            {isVatRegistered && (
+              <div className="flex flex-col gap-1">
+                {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
+                <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
+              </div>
+            )}
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               {intl.formatMessage({ id: "billForm.remove" })}
             </Button>

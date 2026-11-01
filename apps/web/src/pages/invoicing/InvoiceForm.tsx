@@ -173,7 +173,7 @@ export function InvoiceForm({
   // C1/C3: PriceMode/PaymentTermDays/GraceDays/inline-payment are Create-only features —
   // UpdateInvoiceRequest (the Draft-edit path) doesn't carry any of these fields, so this state
   // is only read from the Create branch of handleSubmit and its inputs are hidden while editing.
-  const [priceMode, setPriceMode] = useState<number>(PriceMode.GrossInclusive);
+  const [priceMode, setPriceMode] = useState<number>(editingInvoice?.priceMode ?? PriceMode.GrossInclusive);
   const [paymentTermDays, setPaymentTermDays] = useState("");
   const [graceDays, setGraceDays] = useState("");
   const [takePaymentNow, setTakePaymentNow] = useState(false);
@@ -240,27 +240,24 @@ export function InvoiceForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only react to originalInvoiceId changes
   }, [originalInvoiceId]);
 
-  // F7: preview only, never trusted as the real number — reserved only on post. Not fetched while
-  // editing an existing Draft, since editing never consumes/changes numbering.
-  const [previewNumber, setPreviewNumber] = useState<string | null>(null);
+  // Invoice number: auto-generated from the number series on create, editable by the user.
+  // When editing an existing draft, pre-populated from the saved invoice number.
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(editingInvoice?.invoiceNumber ?? "");
   useEffect(() => {
-    if (editingInvoice) {
-      setPreviewNumber(null);
-      return;
-    }
+    if (editingInvoice) return;
     const documentTypeName = invoiceDocumentTypeName(documentType);
     if (!documentTypeName) {
-      setPreviewNumber(null);
+      setInvoiceNumber("");
       return;
     }
     let cancelled = false;
     apiClient
       .preview(companyId, documentTypeName)
       .then((result) => {
-        if (!cancelled) setPreviewNumber(result.number);
+        if (!cancelled) setInvoiceNumber(result.number);
       })
       .catch(() => {
-        if (!cancelled) setPreviewNumber(null);
+        if (!cancelled) setInvoiceNumber("");
       });
     return () => {
       cancelled = true;
@@ -289,8 +286,12 @@ export function InvoiceForm({
   }, [companyId, partnerId]);
 
   // Compute current invoice total for the "would exceed" warning. This is a display-only estimate
-  // using the entered amounts — the backend enforces the real total on posting.
-  const invoiceEnteredTotal = lines.reduce((sum, line) => sum + lineEnteredAmount(line), 0);
+  // using the entered amounts — the backend enforces the real total on posting. In NetExclusive
+  // mode the entered amount is net, so we add VAT to get the gross total for the credit check.
+  const invoiceEnteredTotal = lines.reduce((sum, line) => {
+    const entered = lineEnteredAmount(line);
+    return sum + computeLine(entered, taxes.find((t) => t.id === line.taxDefinitionId), priceMode).gross;
+  }, 0);
 
   // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
   // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
@@ -401,6 +402,7 @@ export function InvoiceForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
+          invoiceNumber: invoiceNumber.trim() || undefined,
         });
         recordFavorites();
         onSaved?.();
@@ -417,6 +419,7 @@ export function InvoiceForm({
           lines: lineRequests,
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
+          invoiceNumber: invoiceNumber.trim() || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
@@ -430,6 +433,7 @@ export function InvoiceForm({
         setGraceDays("");
         setLines([emptyLine(defaultTaxId)]);
         setInternalNotes("");
+        setInvoiceNumber("");
         setTakePaymentNow(false);
         setPaymentAmount("");
         setPaymentMethodId("");
@@ -526,12 +530,12 @@ export function InvoiceForm({
       </div>
 
       {creditExposure && creditExposure.creditLimit != null && (() => {
-        const isOverLimit = creditExposure.availableCredit != null && creditExposure.availableCredit < 0;
+        const isOverLimit = creditExposure.available != null && creditExposure.available < 0;
         const wouldExceed =
           !isOverLimit &&
-          creditExposure.availableCredit != null &&
+          creditExposure.available != null &&
           invoiceEnteredTotal > 0 &&
-          invoiceEnteredTotal > creditExposure.availableCredit;
+          invoiceEnteredTotal > creditExposure.available;
         const fmt = (n: number) => n.toFixed(2) + " EUR";
         return (
           <div
@@ -547,7 +551,7 @@ export function InvoiceForm({
               <p className="font-medium">
                 {intl.formatMessage(
                   { id: "invoicing.creditLimit.overLimit" },
-                  { amount: fmt(Math.abs(creditExposure.availableCredit!)) },
+                  { amount: fmt(Math.abs(creditExposure.available!)) },
                 )}
               </p>
             ) : wouldExceed ? (
@@ -557,9 +561,9 @@ export function InvoiceForm({
               {intl.formatMessage(
                 { id: "invoicing.creditLimit.info" },
                 {
-                  available: fmt(creditExposure.availableCredit ?? 0),
+                  available: fmt(creditExposure.available ?? 0),
                   limit: fmt(creditExposure.creditLimit),
-                  outstanding: fmt(creditExposure.outstandingBalance),
+                  outstanding: fmt(creditExposure.outstanding),
                 },
               )}
             </p>
@@ -567,11 +571,15 @@ export function InvoiceForm({
         );
       })()}
 
-      {!editingInvoice && previewNumber && (
-        <p className="text-xs text-muted-foreground">
-          {intl.formatMessage({ id: "invoiceForm.nextNumberPreview" }, { number: previewNumber })}
-        </p>
-      )}
+      <div className="flex flex-col gap-2 sm:w-1/4">
+        <Label htmlFor="invoice-number">{intl.formatMessage({ id: "invoiceForm.invoiceNumber" })}</Label>
+        <Input
+          id="invoice-number"
+          value={invoiceNumber}
+          onChange={(event) => setInvoiceNumber(event.target.value)}
+          placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
+        />
+      </div>
 
       <div className="flex flex-col gap-2 sm:w-1/2">
         <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
@@ -772,14 +780,18 @@ export function InvoiceForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
-            </div>
+            {isVatRegistered && (
+              <div className="flex flex-col gap-1">
+                {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
+                <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
+              </div>
+            )}
+            {isVatRegistered && (
+              <div className="flex flex-col gap-1">
+                {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
+                <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
+              </div>
+            )}
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               {intl.formatMessage({ id: "invoiceForm.remove" })}
             </Button>

@@ -78,6 +78,7 @@ export const en: Record<string, string> = {
   "common.cancel": "Cancel",
   "common.create": "Create",
   "common.delete": "Delete",
+  "common.next": "Next",
   "common.edit": "Edit",
   "common.loading": "Loading...",
   "common.uploading": "Uploading...",
@@ -1105,6 +1106,8 @@ export const en: Record<string, string> = {
   "companyProfile.swiftBic": "SWIFT / BIC",
   "companyProfile.documents": "Document & Branding",
   "companyProfile.documents.description": "Footer and payment instructions for printed documents",
+  "companyProfile.branding": "Logo & Stamp",
+  "companyProfile.branding.description": "Upload your company logo and stamp for printed documents",
   "companyProfile.documentFooter": "Document footer",
   "companyProfile.documentFooter.hint": "Shown at the bottom of every invoice, bill and report",
   "companyProfile.paymentInstructions": "Payment instructions",
@@ -1573,6 +1576,8 @@ export const en: Record<string, string> = {
   "costCenters.saveError": "Could not save the cost center.",
   "costCenters.empty": "No cost centers yet.",
   "costCenters.searchPlaceholder": "Search cost centers…",
+  "reports.vatNotRegistered": "Your company is not VAT-registered. VAT reports are not applicable.",
+  "header.vatBadge": "No VAT",
 };
 
 export const sq: Record<string, string> = {
@@ -1645,6 +1650,7 @@ export const sq: Record<string, string> = {
   "common.cancel": "Anulo",
   "common.create": "Krijo",
   "common.delete": "Fshi",
+  "common.next": "Vazhdo",
   "common.edit": "Ndrysho",
   "common.loading": "Duke ngarkuar...",
   "common.uploading": "Duke ngarkuar...",
@@ -2672,6 +2678,8 @@ export const sq: Record<string, string> = {
   "companyProfile.swiftBic": "SWIFT / BIC",
   "companyProfile.documents": "Dokumentet dhe br\u00ebndi",
   "companyProfile.documents.description": "Fundsh\u00ebnimet dhe udh\u00ebzimet e pages\u00ebs p\u00ebr dokumentet e shtypura",
+  "companyProfile.branding": "Logo dhe vula",
+  "companyProfile.branding.description": "Ngarkoni logon dhe vul\u00ebn e kompanisë p\u00ebr dokumentet e shtypura",
   "companyProfile.documentFooter": "Fundsh\u00ebnimi i dokumentit",
   "companyProfile.documentFooter.hint": "Shfaqet n\u00eb fund t\u00eb \u00e7do fature, fatur\u00eb blerje dhe raporti",
   "companyProfile.paymentInstructions": "Udh\u00ebzimet e pages\u00ebs",
@@ -3140,6 +3148,8 @@ export const sq: Record<string, string> = {
   "costCenters.saveError": "Qendra e kostos nuk u ruajt.",
   "costCenters.empty": "Ende nuk ka qendra kostoje.",
   "costCenters.searchPlaceholder": "Kërko qendra kostoje…",
+  "reports.vatNotRegistered": "Kompania juaj nuk është e regjistruar për TVSH. Raportet e TVSH-së nuk janë të aplikueshme.",
+  "header.vatBadge": "Pa TVSH",
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.

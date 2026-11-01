@@ -918,6 +918,7 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>The refund request must be between 0 and the remaining credit balance.</value></data>
   <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>The refund requested cannot exceed the remaining credit ([69]).</value></data>
   <data name="VatDeclarationRefundNegative" xml:space="preserve"><value>The refund requested cannot be negative.</value></data>
+  <data name="VatDeclarationNotVatRegistered" xml:space="preserve"><value>VAT declaration is not available for companies that are not VAT-registered.</value></data>
   <data name="Export_Common_TotalLiabilitiesAndEquity" xml:space="preserve">
     <value>Total liabilities and equity</value>
   </data>

@@ -65,13 +65,15 @@ export function Reports() {
   const { canSee } = useMyAccess();
   const canSeeStock = canSee("inventory");
 
+  const isVatRegistered = activeCompany?.isVatRegistered ?? false;
+
   const TABS: { key: Tab; labelKey: string }[] = [
     { key: "pnl", labelKey: "reports.profitAndLoss" },
     { key: "balance-sheet", labelKey: "reports.balanceSheet" },
-    { key: "vat", labelKey: "reports.vatReturnTab" },
+    ...(isVatRegistered ? [{ key: "vat" as const, labelKey: "reports.vatReturnTab" }] : []),
     { key: "debt", labelKey: "reports.debtAging" },
-    { key: "sales-book", labelKey: "reports.salesBook" },
-    { key: "purchase-book", labelKey: "reports.purchaseBook" },
+    ...(isVatRegistered ? [{ key: "sales-book" as const, labelKey: "reports.salesBook" }] : []),
+    ...(isVatRegistered ? [{ key: "purchase-book" as const, labelKey: "reports.purchaseBook" }] : []),
     { key: "general-ledger", labelKey: "reports.generalLedger" },
     { key: "monthly-pnl", labelKey: "reports.monthlyPnl" },
     { key: "cash-flow", labelKey: "reports.cashFlow" },
@@ -80,7 +82,7 @@ export function Reports() {
     { key: "vendors", labelKey: "reports.vendors" },
     { key: "payables-aging", labelKey: "reports.payablesAging" },
     { key: "purchases", labelKey: "reports.purchases" },
-    { key: "vat-declaration", labelKey: "reports.vatDeclarationTab" },
+    ...(isVatRegistered ? [{ key: "vat-declaration" as const, labelKey: "reports.vatDeclarationTab" }] : []),
     ...(canSeeStock ? [{ key: "stock-movements" as const, labelKey: "reports.stockMovements" }] : []),
   ];
 

@@ -65,6 +65,12 @@ public class VatDeclarationController : ControllerBase
             return (null, null, StatusCode(StatusCodes.Status403Forbidden, _localizer["ReportNotAvailableForScopedUser"].Value));
         }
 
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is not null && !company.IsVatRegistered)
+        {
+            return (null, company, BadRequest(new { error = _localizer["VatDeclarationNotVatRegistered"].Value }));
+        }
+
         if (month is < 1 or > 12 || year is < 2000 or > 2100)
         {
             return (null, null, BadRequest(new { error = _localizer["VatDeclarationPeriodInvalid"].Value }));
@@ -88,7 +94,6 @@ public class VatDeclarationController : ControllerBase
             return (null, null, BadRequest(new { error = _localizer["VatDeclarationRefundExceedsCredit"].Value }));
         }
 
-        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
         var address = company is null
             ? null
             : string.Join(", ", new[] { company.StreetAddress, company.AddressLine2, company.Municipality }
