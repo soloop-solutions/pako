@@ -26,6 +26,9 @@ import { useStockOnHand } from "@/hooks/useStock";
 // docs/ERP_VERTICALS_PLAN.md §1: the bill's project and, on a construction site, each line's cost code.
 import { useProjectCostCodes } from "@/hooks/useVerticals";
 import { BillProjectField, CostCodeSelect } from "@/pages/construction/BillProjectFields";
+import { FormDialog } from "@/components/shared/FormDialog";
+import { PartnerForm } from "@/pages/shared/PartnerForm";
+import { QuickItemForm } from "@/pages/shared/QuickItemForm";
 
 type Line = {
   description: string;
@@ -120,6 +123,10 @@ type BillFormProps = {
   // (PUT, full replace) in place instead of creating a new one (POST).
   editingBill?: BillResponse;
   onSaved?: () => void;
+  /** Called after an inline vendor creation so the parent can refresh its data. */
+  onPartnerCreated?: (id: string) => void;
+  /** Called after an inline item creation so the parent can refresh its data. */
+  onItemCreated?: (id: string) => void;
 };
 
 export function BillForm({
@@ -135,6 +142,8 @@ export function BillForm({
   fixedDocumentType,
   editingBill,
   onSaved,
+  onPartnerCreated,
+  onItemCreated,
 }: BillFormProps) {
   const intl = useIntl();
   const partnerFavs = useEntityFavorites("Partner");
@@ -198,6 +207,9 @@ export function BillForm({
   );
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [newPartnerOpen, setNewPartnerOpen] = useState(false);
+  const [newItemOpen, setNewItemOpen] = useState(false);
+  const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
 
@@ -410,6 +422,10 @@ export function BillForm({
               pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
               frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
             }}
+            createAction={{
+              label: intl.formatMessage({ id: "bills.addVendor" }),
+              onClick: () => setNewPartnerOpen(true),
+            }}
           />
         </div>
         {fixedDocumentType === undefined && (
@@ -528,6 +544,10 @@ export function BillForm({
                   pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
                   frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
                 }}
+                createAction={{
+                  label: intl.formatMessage({ id: "items.createItem" }),
+                  onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
+                }}
               />
             </div>
             <div className="flex flex-col gap-1">
@@ -644,14 +664,18 @@ export function BillForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
-            </div>
+            {isVatRegistered && (
+              <div className="flex flex-col gap-1">
+                {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
+                <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
+              </div>
+            )}
+            {isVatRegistered && (
+              <div className="flex flex-col gap-1">
+                {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
+                <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
+              </div>
+            )}
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               {intl.formatMessage({ id: "billForm.remove" })}
             </Button>
@@ -706,6 +730,44 @@ export function BillForm({
             ? intl.formatMessage({ id: "billForm.creating" })
             : intl.formatMessage({ id: "billForm.createBill" })}
       </Button>
+
+      {/* Inline vendor creation dialog */}
+      <FormDialog
+        open={newPartnerOpen}
+        onOpenChange={(open) => { if (!open) setNewPartnerOpen(false); }}
+        title={intl.formatMessage({ id: "bills.addVendor" })}
+        size="sm"
+      >
+        <PartnerForm
+          companyId={companyId}
+          role="vendor"
+          onCreated={(id) => {
+            setNewPartnerOpen(false);
+            if (id) setPartnerId(id);
+            onPartnerCreated?.(id);
+          }}
+        />
+      </FormDialog>
+
+      {/* Inline item creation dialog */}
+      <FormDialog
+        open={newItemOpen}
+        onOpenChange={(open) => { if (!open) { setNewItemOpen(false); setNewItemLineIndex(null); } }}
+        title={intl.formatMessage({ id: "items.createItem" })}
+        size="sm"
+      >
+        <QuickItemForm
+          companyId={companyId}
+          onCreated={(id) => {
+            setNewItemOpen(false);
+            if (newItemLineIndex != null) {
+              selectLineItem(newItemLineIndex, id);
+            }
+            setNewItemLineIndex(null);
+            onItemCreated?.(id);
+          }}
+        />
+      </FormDialog>
     </form>
   );
 }

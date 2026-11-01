@@ -7,7 +7,7 @@ import {
   useState,
 } from "react";
 import * as Popover from "@radix-ui/react-popover";
-import { Check, ChevronDown, Search, Star, X } from "lucide-react";
+import { Check, ChevronDown, Plus, Search, Star, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -135,6 +135,8 @@ export interface SearchableSelectProps {
    * too large to load at once: the caller searches the server and passes the results as options.
    */
   onSearchChange?: (query: string) => void;
+  /** When set, renders a "+" button next to the trigger to create a new entity inline. */
+  createAction?: { label: string; onClick: () => void };
 }
 
 export function SearchableSelect({
@@ -153,6 +155,7 @@ export function SearchableSelect({
   renderValue,
   favorites,
   onSearchChange,
+  createAction,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [query, setQueryState] = useState("");
@@ -324,7 +327,7 @@ export function SearchableSelect({
     );
   }
 
-  return (
+  const selectElement = (
     <Popover.Root
       open={open}
       onOpenChange={(next) => {
@@ -491,5 +494,25 @@ export function SearchableSelect({
         </Popover.Content>
       </Popover.Portal>
     </Popover.Root>
+  );
+
+  if (!createAction) return selectElement;
+
+  return (
+    <div className="flex items-center gap-1">
+      <div className="min-w-0 flex-1">{selectElement}</div>
+      <button
+        type="button"
+        title={createAction.label}
+        className={cn(
+          "flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-input text-muted-foreground transition-colors",
+          "hover:bg-accent hover:text-accent-foreground",
+          "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none",
+        )}
+        onClick={createAction.onClick}
+      >
+        <Plus className="size-3.5" />
+      </button>
+    </div>
   );
 }

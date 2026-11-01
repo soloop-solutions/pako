@@ -2,6 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 import { ItemType, itemTypeLabel } from "@/lib/item-types";
@@ -25,6 +27,68 @@ import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako
 
 const ITEMS_GRID_ID = "items";
 
+function BarcodeCell({
+  item,
+  onAdd,
+  onRemove,
+}: {
+  item: ItemResponse;
+  onAdd: (itemId: string, barcode: string) => Promise<void>;
+  onRemove: (itemId: string, barcodeId: string) => Promise<void>;
+}) {
+  const intl = useIntl();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState("");
+
+  return (
+    <div className="flex flex-wrap items-center gap-1">
+      {item.barcodes?.map((b) => (
+        <Badge
+          key={b.id}
+          variant="outline"
+          className="cursor-pointer"
+          onClick={() => onRemove(item.id, b.id)}
+        >
+          {b.barcode} ×
+        </Badge>
+      ))}
+      {editing ? (
+        <span className="flex items-center gap-1">
+          <Input
+            className="h-6 w-32 text-xs"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && value.trim()) {
+                onAdd(item.id, value);
+                setValue("");
+                setEditing(false);
+              }
+            }}
+            placeholder="barcode..."
+            autoFocus
+          />
+          <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => { onAdd(item.id, value); setValue(""); setEditing(false); }}>
+            +
+          </Button>
+          <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setEditing(false)}>
+            ×
+          </Button>
+        </span>
+      ) : (
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-6 text-xs"
+          onClick={() => { setEditing(true); setValue(""); }}
+        >
+          + {intl.formatMessage({ id: "items.addBarcode" })}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 export function Items() {
   const intl = useIntl();
   const { activeCompanyId } = useCompany();
@@ -32,14 +96,12 @@ export function Items() {
   const urlState = useDataGridUrlState(ITEMS_GRID_ID, 50);
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useOpenParam();
   const [createFormKey, setCreateFormKey] = useState(0);
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 
-  const [barcodeItemId, setBarcodeItemId] = useState<string | null>(null);
-  const [newBarcode, setNewBarcode] = useState("");
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
 
   const itemsQueryKey = ["items", activeCompanyId, urlState.skip, urlState.take, urlState.globalFilter] as const;
@@ -93,7 +155,10 @@ export function Items() {
   const inventoryAccounts = useMemo(() => accounts.filter((a) => a.accountType === AccountType.CurrentAsset), [accounts]);
 
   async function refreshItems() {
-    await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["item", activeCompanyId] }),
+    ]);
   }
 
   const createMutation = useMutation({
@@ -147,6 +212,7 @@ export function Items() {
       setCreateOpen(false);
       setCreateFormKey((k) => k + 1);
       urlState.setPage(1);
+      toast.success(intl.formatMessage({ id: "toast.itemCreated" }));
       await refreshItems();
     },
     onError: (err: unknown) => setCreateError(getApiErrorMessage(err, intl.formatMessage({ id: "items.createError" }))),
@@ -201,6 +267,7 @@ export function Items() {
       setEditError(null);
       setDirty(false);
       setEditingId(null);
+      toast.success(intl.formatMessage({ id: "toast.itemSaved" }));
       await refreshItems();
     },
     onError: (err: unknown) => setEditError(getApiErrorMessage(err, intl.formatMessage({ id: "items.saveError" }))),
@@ -212,8 +279,6 @@ export function Items() {
       setBarcodeError(null);
       try {
         await apiClient.barcodesPOST(activeCompanyId, itemId, { barcode: barcode.trim() });
-        setNewBarcode("");
-        setBarcodeItemId(null);
         await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
       } catch (err) {
         setBarcodeError(getApiErrorMessage(err, intl.formatMessage({ id: "items.barcodeError" })));
@@ -237,7 +302,14 @@ export function Items() {
 
   const items = itemsQuery.data?.items ?? [];
   const total = itemsQuery.data?.total ?? 0;
-  const editingItem = editingId ? items.find((i) => i.id === editingId) : undefined;
+  const pageItem = editingId ? items.find((i) => i.id === editingId) : undefined;
+  const linkedItemQuery = useQuery({
+    queryKey: ["item", activeCompanyId, editingId],
+    queryFn: () => apiClient.itemsGET2(activeCompanyId as string, editingId as string),
+    enabled: !!activeCompanyId && !!editingId && !itemsQuery.isPending && !pageItem,
+    retry: false,
+  });
+  const editingItem = pageItem ?? (editingId ? linkedItemQuery.data : undefined);
   const hasStockTab = showStock && !!editingItem?.trackInventory;
   // P2 variants: any item but a variant itself can carry variants (generating turns it into a template).
   const hasVariantsTab = !!editingItem && !editingItem.variantOfItemId;
@@ -329,51 +401,9 @@ export function Items() {
         enableSorting: false,
         enableColumnFilter: false,
         enableGrouping: false,
-        cell: ({ row }) => {
-          const item = row.original;
-          return (
-            <div className="flex flex-wrap items-center gap-1">
-              {item.barcodes?.map((b) => (
-                <Badge
-                  key={b.id}
-                  variant="outline"
-                  className="cursor-pointer"
-                  onClick={() => handleRemoveBarcode(item.id, b.id)}
-                >
-                  {b.barcode} ×
-                </Badge>
-              ))}
-              {barcodeItemId === item.id ? (
-                <span className="flex items-center gap-1">
-                  <Input
-                    className="h-6 w-32 text-xs"
-                    value={newBarcode}
-                    onChange={(e) => setNewBarcode(e.target.value)}
-                    placeholder="barcode..."
-                  />
-                  <Button size="sm" variant="outline" className="h-6 text-xs" onClick={() => handleAddBarcode(item.id, newBarcode)}>
-                    +
-                  </Button>
-                  <Button size="sm" variant="ghost" className="h-6 text-xs" onClick={() => setBarcodeItemId(null)}>
-                    ×
-                  </Button>
-                </span>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 text-xs"
-                  onClick={() => {
-                    setBarcodeItemId(item.id);
-                    setNewBarcode("");
-                  }}
-                >
-                  + {intl.formatMessage({ id: "items.addBarcode" })}
-                </Button>
-              )}
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <BarcodeCell item={row.original} onAdd={handleAddBarcode} onRemove={handleRemoveBarcode} />
+        ),
       },
       {
         id: "actions",
@@ -403,7 +433,7 @@ export function Items() {
         ),
       },
     ],
-    [intl, barcodeItemId, newBarcode, handleAddBarcode, handleRemoveBarcode, taxes, accounts],
+    [intl, handleAddBarcode, handleRemoveBarcode, taxes, accounts, setEditingId],
   );
 
   if (!activeCompanyId) {
@@ -520,7 +550,7 @@ export function Items() {
             />
           </div>
         )}
-        {editingItem && shownTab === "stock" && <ItemCardPanel itemId={editingItem.id} />}
+        {editingItem && shownTab === "stock" && <ItemCardPanel itemId={editingItem.id} linkRows={false} />}
         {editingItem && shownTab === "variants" && <ItemVariantsPanel itemId={editingItem.id} />}
         {editingItem && shownTab === "recipe" && <ItemRecipePanel itemId={editingItem.id} />}
         {editingItem && shownTab === "parts" && <ItemPartsPanel itemId={editingItem.id} />}

@@ -5,6 +5,7 @@ import type { AccountResponse, EmployeeDetailResponse, JournalResponse, PartnerR
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { useNumberPreview } from "@/hooks/useNumberPreview";
 import { fetchCostCenters, type CostCenterOption } from "@/api/cost-centers-client";
 import { ActionPasswordDialog } from "@/components/layout/ActionPasswordDialog";
 import { useCompany } from "@/context/CompanyContext";
@@ -51,12 +52,14 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   const { canApprove } = useMyAccess();
   const [journalId, setJournalId] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [description, setDescription] = useState("");
   const [reference, setReference] = useState("");
   const [remarks, setRemarks] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const { activeCompany } = useCompany();
+  const nextNumber = useNumberPreview(companyId, "JournalEntry");
 
   const idCounter = useRef(0);
   function nextId(): string {
@@ -390,6 +393,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       const draftEntry = await apiClient.journalEntries(companyId, token, {
         journalId: effectiveJournalId,
         date,
+        description: description || undefined,
         reference: reference || undefined,
         remarks: remarks || undefined,
         lines: validLines.map((line) => {
@@ -419,6 +423,9 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         toast.success(intl.formatMessage({ id: "journalGrid.savedAsDraft" }));
         setLines([emptyLine(nextId()), emptyLine(nextId())]);
         setFocus({ row: 0, col: 0 });
+        setDescription("");
+        setReference("");
+        setRemarks("");
         onCreated();
         return;
       }
@@ -435,6 +442,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       setLines([emptyLine(nextId()), emptyLine(nextId())]);
       setFocus({ row: 0, col: 0 });
       setOpenDistributionRow(null);
+      setDescription("");
       setReference("");
       setRemarks("");
       onCreated();
@@ -584,7 +592,11 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
 
       <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalGrid.description" })}</p>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
+        <div className="flex flex-col gap-2">
+          <Label>{intl.formatMessage({ id: "journalGrid.number" })}</Label>
+          <Input value={nextNumber || intl.formatMessage({ id: "journalGrid.numberAuto" })} disabled className="text-muted-foreground tabular-nums" />
+        </div>
         <div className="flex flex-col gap-2">
           <Label htmlFor="journal-grid-journal">{intl.formatMessage({ id: "journalGrid.journal" })}</Label>
           <SearchableSelect
@@ -610,9 +622,15 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           <Input id="journal-grid-reference" value={reference} onChange={(event) => setReference(event.target.value)} />
         </div>
       </div>
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="journal-grid-remarks">{intl.formatMessage({ id: "journalGrid.remarks" })}</Label>
-        <Input id="journal-grid-remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder={intl.formatMessage({ id: "journalGrid.remarksPlaceholder" })} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="journal-grid-description">{intl.formatMessage({ id: "journalGrid.entryDescription" })}</Label>
+          <Input id="journal-grid-description" value={description} onChange={(event) => setDescription(event.target.value)} placeholder={intl.formatMessage({ id: "journalGrid.entryDescriptionPlaceholder" })} />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="journal-grid-remarks">{intl.formatMessage({ id: "journalGrid.remarks" })}</Label>
+          <Input id="journal-grid-remarks" value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder={intl.formatMessage({ id: "journalGrid.remarksPlaceholder" })} />
+        </div>
       </div>
 
       <div className="overflow-x-auto rounded-lg border">

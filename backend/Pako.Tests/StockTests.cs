@@ -778,7 +778,7 @@ public class StockTests : IAsyncLifetime
         var c = await SeedAsync();
         var tokens = new ActionTokenService();
         var journal = await c.Db.Journals.AsNoTracking().FirstAsync(j => j.CompanyId == c.Id && j.Type == JournalType.General);
-        var controller = new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>());
+        var controller = new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         As(controller, c.UserId);
         var result = await controller.Create(c.Id, new CreateJournalEntryRequest(journal.Id, D1, null, new List<CreateJournalEntryLineRequest>
         {
@@ -840,7 +840,8 @@ public class StockTests : IAsyncLifetime
         await BillAsync(c, D1, 10, 118m);
         var (_, invoice) = await InvoiceAsync(c, D2, 1, 236m);
         var entry = await c.Db.JournalEntries.AsNoTracking().FirstAsync(e => e.SourceDocumentId == invoice!.Id);
-        var journals = As(new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+        var journals = As(new JournalEntriesController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(),
+            new ExportLabels(new NullStringLocalizer<ErrorMessages>())), c.UserId);
         Assert.IsType<BadRequestObjectResult>((await journals.Reverse(c.Id, entry.Id, new ReverseJournalEntryRequest(D3))).Result);
 
         var stockLine = await Bills(c).Create(c.Id, new CreateBillRequest(c.Vendor, "V-ACC", D2, D2, new List<CreateBillLineRequest>

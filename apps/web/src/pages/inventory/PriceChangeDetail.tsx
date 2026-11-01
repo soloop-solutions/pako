@@ -4,6 +4,7 @@ import type { PriceChangeResponse, SavePriceChangeRequest } from "@pako/shared";
 import { ArrowLeft, Plus, Printer, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -120,6 +121,7 @@ export function PriceChangeDetail() {
       : apiClient.updatePriceChange(activeCompanyId as string, id as string, request()),
     onSuccess: async (saved) => {
       setError(null);
+      toast.success(intl.formatMessage({ id: "toast.priceChangeSaved" }));
       await refresh(saved);
       if (isNew) navigate(`/price-changes/${saved.id}`, { replace: true });
     },
@@ -133,6 +135,7 @@ export function PriceChangeDetail() {
     onSuccess: async (saved) => {
       setError(null);
       setConfirmPost(false);
+      toast.success(intl.formatMessage({ id: "toast.priceChangePosted" }));
       await refresh(saved);
       await queryClient.invalidateQueries({ queryKey: ["resolvedPrices"] });
     },

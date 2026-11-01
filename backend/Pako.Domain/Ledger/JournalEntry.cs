@@ -15,6 +15,7 @@ public class JournalEntry
     public Guid CompanyId { get; set; }
     public Guid JournalId { get; set; }
     public DateOnly Date { get; set; }
+    public string? Description { get; set; }
     public string? Reference { get; set; }
     public string? Remarks { get; set; }
     public JournalEntryState State { get; set; } = JournalEntryState.Draft;
@@ -131,6 +132,7 @@ public class JournalEntry
             CompanyId = CompanyId,
             JournalId = JournalId,
             Date = date,
+            Description = Description,
             Reference = reference ?? $"Reversal of {Reference ?? Id.ToString()}",
             Remarks = Remarks,
             Lines = Lines.Select(l => new JournalEntryLine

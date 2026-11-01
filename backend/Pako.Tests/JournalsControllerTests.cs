@@ -37,7 +37,7 @@ public class JournalsControllerTests : IAsyncLifetime
         };
 
     private static JournalEntriesController NewEntriesController(PakoDbContext db) =>
-        new(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>())
+        new(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()))
         {
             ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext { User = TestUser() } }
         };

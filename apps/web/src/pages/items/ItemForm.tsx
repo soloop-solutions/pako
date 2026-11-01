@@ -4,6 +4,7 @@ import { useIntl } from "react-intl";
 import type { AccountResponse, ItemCategoryResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { apiClient } from "@/api/client";
+import { useNumberPreview } from "@/hooks/useNumberPreview";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +98,8 @@ export function ItemForm({
   onDirtyChange,
 }: ItemFormProps) {
   const intl = useIntl();
+  const { activeCompanyId } = useCompany();
+  const nextCode = useNumberPreview(mode === "create" ? activeCompanyId ?? undefined : undefined, mode === "create" ? "Item" : undefined);
 
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -151,7 +154,6 @@ export function ItemForm({
   const [agencyCommission, setAgencyCommission] = useState(initial?.agencyCommissionPercent != null ? String(initial.agencyCommissionPercent) : "");
   const pharmacyRelevant = !!(initial?.atcCode || initial?.activeIngredient || initial?.isPrescriptionOnly || initial?.isControlled || initial?.maxRetailPrice != null);
   const agencyRelevant = !!initial?.agencyPartnerId;
-  const { activeCompanyId } = useCompany();
   const vendors = (useQuery({
     queryKey: ["partners", activeCompanyId],
     queryFn: () => apiClient.partnersAll(activeCompanyId as string),
@@ -238,6 +240,12 @@ export function ItemForm({
         </Alert>
       )}
 
+      {mode === "create" && nextCode && (
+        <p className="text-xs text-muted-foreground tabular-nums">
+          {intl.formatMessage({ id: "items.nextCode" })}: <span className="font-medium">{nextCode}</span>
+        </p>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-name">{intl.formatMessage({ id: "items.name" })}</Label>
@@ -294,15 +302,14 @@ export function ItemForm({
         </div>
 
         <div className="flex flex-col gap-1">
-          <Label htmlFor="item-revenue-account">{intl.formatMessage({ id: "items.form.revenueAccount" })}</Label>
+          <Label htmlFor="item-revenue-account">{intl.formatMessage({ id: "items.form.revenueAccount" })} *</Label>
           <SearchableSelect
             id="item-revenue-account"
             value={revenueAccountId}
             onChange={setRevenueAccountId}
-            placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+            placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
-            emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
             options={incomeAccounts.map((account) => ({
               value: account.id,
               label: `${account.code} · ${account.name}`,
@@ -310,15 +317,14 @@ export function ItemForm({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="item-expense-account">{intl.formatMessage({ id: "items.form.expenseAccount" })}</Label>
+          <Label htmlFor="item-expense-account">{intl.formatMessage({ id: "items.form.expenseAccount" })} *</Label>
           <SearchableSelect
             id="item-expense-account"
             value={expenseAccountId}
             onChange={setExpenseAccountId}
-            placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+            placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
-            emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
             options={expenseAccounts.map((account) => ({
               value: account.id,
               label: `${account.code} · ${account.name}`,
@@ -326,15 +332,14 @@ export function ItemForm({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="item-inventory-account">{intl.formatMessage({ id: "items.form.inventoryAccount" })}</Label>
+          <Label htmlFor="item-inventory-account">{intl.formatMessage({ id: "items.form.inventoryAccount" })} *</Label>
           <SearchableSelect
             id="item-inventory-account"
             value={inventoryAccountId}
             onChange={setInventoryAccountId}
-            placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+            placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
-            emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
             options={inventoryAccounts.map((account) => ({
               value: account.id,
               label: `${account.code} · ${account.name}`,
@@ -636,7 +641,7 @@ export function ItemForm({
       </details>
 
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting || !name.trim() || !unit.trim()}>
+        <Button type="submit" disabled={submitting || !name.trim() || !unit.trim() || !revenueAccountId || !expenseAccountId || !inventoryAccountId}>
           {submitting
             ? intl.formatMessage({ id: "common.saving" })
             : intl.formatMessage({ id: mode === "create" ? "items.addItem" : "common.save" })}

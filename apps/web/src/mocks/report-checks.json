@@ -1,0 +1,13 @@
+{
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "checks": [
+    { "key": "balance-sheet-balances", "passed": true, "expected": 130000.00, "actual": 130000.00 },
+    { "key": "net-profit-consistent", "passed": true, "expected": 45000.00, "actual": 45000.00 },
+    { "key": "cash-flow-closes", "passed": false, "expected": 45000.00, "actual": 44880.00 },
+    { "key": "trial-balance-balances", "passed": true, "expected": 0.00, "actual": 0.00 },
+    { "key": "books-match-vat-return", "passed": true, "expected": 18000.00, "actual": 18000.00 },
+    { "key": "vendor-total-matches-payables", "passed": true, "expected": 1474.00, "actual": 1474.00 },
+    { "key": "stock-total-matches-inventory-accounts", "passed": true, "expected": 2250.00, "actual": 2250.00 }
+  ]
+}

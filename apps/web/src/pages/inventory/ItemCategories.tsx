@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { AccountResponse, ItemCategoryResponse } from "@pako/shared";
 import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -137,7 +138,10 @@ function CategoryDialog({ category, accounts, onClose, onSaved }: {
         ? apiClient.updateItemCategory(activeCompanyId as string, category.id, body)
         : apiClient.createItemCategory(activeCompanyId as string, body);
     },
-    onSuccess: onSaved,
+    onSuccess: () => {
+      toast.success(intl.formatMessage({ id: "toast.categorySaved" }));
+      onSaved();
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("stock.cat.saveError"))),
   });
 

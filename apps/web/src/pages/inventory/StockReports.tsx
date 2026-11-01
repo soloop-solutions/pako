@@ -13,8 +13,11 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
 import { useUrlParam } from "@/hooks/useUrlParam";
+import { itemPath } from "@/lib/entityLinks";
 import { formatAmount } from "@/lib/payroll-enums";
 import { cn } from "@/lib/utils";
+import { ExportButton } from "@/pages/reports/shared";
+import { useReportExport } from "@/pages/reports/useReportExport";
 
 const TABS = ["valuation", "margin", "grni", "lots"] as const;
 
@@ -72,6 +75,7 @@ function ValuationTab() {
     placeholderData: keepPreviousData,
   });
   const data = query.data;
+  const exporter = useReportExport(() => apiClient.stockValuationExport(activeCompanyId as string, asOf || undefined), "stock-valuation.xlsx");
 
   const accountColumns = useMemo<ColumnDef<StockValuationAccountResponse>[]>(
     () => [
@@ -101,7 +105,9 @@ function ValuationTab() {
           <Label htmlFor="val-as-of">{t("stock.report.asOf")}</Label>
           <Input id="val-as-of" type="date" className="w-44" value={asOf} onChange={(e) => setAsOf(e.target.value)} />
         </div>
+        <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
       </div>
+      {exporter.exportError && <p role="alert" className="text-sm text-destructive">{exporter.exportError}</p>}
       {data && (
         <div className="grid gap-3 sm:grid-cols-3">
           <Tile label={t("stock.report.stockValue")} value={formatAmount(data.stockValue)} />
@@ -152,6 +158,7 @@ function ValuationTab() {
             rowCount={data?.items.length ?? 0}
             isLoading={query.isPending}
             getRowId={(r) => r.itemId}
+            getRowLink={(r) => itemPath(r.itemId)}
             enableGlobalFilter
             globalFilterPlaceholder={t("stock.search")}
             emptyMessage={t("stock.empty")}

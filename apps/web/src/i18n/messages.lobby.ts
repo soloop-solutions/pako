@@ -25,6 +25,8 @@ export const lobbyEn: Record<string, string> = {
   "lobby.replacedUnsaved": "Changes you hadn't saved were discarded.",
   "lobby.replaced": "{closed} was closed here because {opened} was opened in another tab or window. Only one company can be open at a time.",
   "lobby.detailsNotSaved": "The company was created, but its details were not saved. Finish them in Settings → Company profile.",
+  "lobby.step2.title": "Logo, stamp & bank accounts",
+  "lobby.step2.description": "Add your company logo, stamp and bank accounts. You can also do this later in Settings.",
 };
 
 export const lobbySq: Record<string, string> = {
@@ -51,4 +53,6 @@ export const lobbySq: Record<string, string> = {
   "lobby.replacedUnsaved": "Ndryshimet që nuk i kishit ruajtur u hodhën poshtë.",
   "lobby.replaced": "{closed} u mbyll këtu sepse {opened} u hap në një skedë ose dritare tjetër. Vetëm një kompani mund të jetë e hapur njëkohësisht.",
   "lobby.detailsNotSaved": "Kompania u krijua, por të dhënat e saj nuk u ruajtën. Plotësojini te Cilësimet → Profili i kompanisë.",
+  "lobby.step2.title": "Logo, vula dhe llogaritë bankare",
+  "lobby.step2.description": "Shtoni logon, vulën dhe llogaritë bankare të kompanisë. Mund ta bëni edhe më vonë te Cilësimet.",
 };

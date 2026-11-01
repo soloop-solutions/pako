@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 import type { EmployeeContractResponse, EmployeeDetailResponse, SaveEmployeeContractRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -50,6 +51,7 @@ export function EmployeeContracts({
         ? apiClient.updateEmployeeContract(companyId, employee.id, vars.id, vars.request)
         : apiClient.createEmployeeContract(companyId, employee.id, vars.request),
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.contractSaved" }));
       setError(null);
       setEditing(null);
       await refresh();
@@ -60,6 +62,7 @@ export function EmployeeContracts({
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.deleteEmployeeContract(companyId, employee.id, id),
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.contractDeleted" }));
       setError(null);
       setConfirmDeleteId(null);
       await refresh();

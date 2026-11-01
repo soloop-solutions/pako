@@ -10,8 +10,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 
 export interface PartnerListPageLabels {
@@ -37,6 +45,8 @@ interface PartnerListPageProps {
   defaultRole?: "customer" | "vendor";
   /** Show the Type column with Customer/Vendor badges. Defaults to true. */
   showTypeColumn?: boolean;
+  /** Column ids to hide from the grid (e.g. hide payable columns on the Customers page). */
+  hiddenColumnIds?: string[];
   exportFileName: string;
 }
 
@@ -46,6 +56,7 @@ export function PartnerListPage({
   filterFn,
   defaultRole,
   showTypeColumn = true,
+  hiddenColumnIds,
   exportFileName,
 }: PartnerListPageProps) {
   const intl = useIntl();
@@ -53,7 +64,9 @@ export function PartnerListPage({
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  const [selectedCreateRole, setSelectedCreateRole] = useState<"customer" | "vendor" | undefined>(defaultRole);
+  const [editingId, setEditingId] = useOpenParam();
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
 
@@ -89,7 +102,7 @@ export function PartnerListPage({
   };
 
   const editingPartner =
-    editingId ? (partners.find((p) => p.id === editingId) ?? null) : null;
+    editingId ? (allPartners.find((p) => p.id === editingId) ?? null) : null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: partnersQueryKey });
@@ -157,6 +170,7 @@ export function PartnerListPage({
 
   /* eslint-disable react-hooks/exhaustive-deps */
   const columns = useMemo<ColumnDef<PartnerResponse>[]>(() => {
+    const hidden = new Set(hiddenColumnIds ?? []);
     const cols: ColumnDef<PartnerResponse>[] = [
       { accessorKey: "name", header: intl.formatMessage({ id: "partners.form.name" }) },
     ];
@@ -173,6 +187,36 @@ export function PartnerListPage({
             {row.original.isVendor && <Badge variant="outline">{intl.formatMessage({ id: "partners.form.isVendor" })}</Badge>}
           </div>
         ),
+      });
+    }
+
+    // When viewing a role-specific list (Customers or Vendors), show a subtle indicator
+    // for partners that also have the other role.
+    if (defaultRole === "customer") {
+      cols.push({
+        id: "alsoVendor",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) =>
+          row.original.isVendor
+            ? <Badge variant="outline" className="text-muted-foreground text-[10px]">{intl.formatMessage({ id: "partners.alsoVendor" })}</Badge>
+            : null,
+      });
+    } else if (defaultRole === "vendor") {
+      cols.push({
+        id: "alsoCustomer",
+        header: "",
+        enableSorting: false,
+        enableColumnFilter: false,
+        enableGrouping: false,
+        enableHiding: false,
+        cell: ({ row }) =>
+          row.original.isCustomer
+            ? <Badge variant="outline" className="text-muted-foreground text-[10px]">{intl.formatMessage({ id: "partners.alsoCustomer" })}</Badge>
+            : null,
       });
     }
 
@@ -243,8 +287,13 @@ export function PartnerListPage({
       },
     );
 
-    return cols;
-  }, [intl, accounts, editingId, showTypeColumn]);
+    return hidden.size > 0
+      ? cols.filter((c) => {
+          const id = "id" in c ? c.id : "accessorKey" in c ? String(c.accessorKey) : undefined;
+          return !id || !hidden.has(id);
+        })
+      : cols;
+  }, [intl, accounts, editingId, showTypeColumn, defaultRole]);
   /* eslint-enable react-hooks/exhaustive-deps */
 
   if (!activeCompanyId) {
@@ -262,7 +311,15 @@ export function PartnerListPage({
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: labels.titleKey })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: labels.descriptionKey })}</p>
         </div>
-        <Button onClick={() => { setFormOpen(true); setEditingId(null); setMutationError(null); setDirty(false); }}>
+        <Button onClick={() => {
+          if (!defaultRole) {
+            setRolePickerOpen(true);
+          } else {
+            setSelectedCreateRole(defaultRole);
+            setFormOpen(true);
+          }
+          setEditingId(null); setMutationError(null); setDirty(false);
+        }}>
           {intl.formatMessage({ id: labels.addButtonKey })}
         </Button>
       </div>
@@ -270,6 +327,24 @@ export function PartnerListPage({
       {loadError && (
         <Alert variant="destructive"><AlertDescription>{loadError}</AlertDescription></Alert>
       )}
+
+      {/* Role picker — shown when creating from the generic /partners page */}
+      <Dialog open={rolePickerOpen} onOpenChange={setRolePickerOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{intl.formatMessage({ id: "partners.form.selectRole" })}</DialogTitle>
+            <DialogDescription>{intl.formatMessage({ id: "partners.form.selectRoleDescription" })}</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button className="flex-1" variant="outline" onClick={() => { setSelectedCreateRole("customer"); setRolePickerOpen(false); setFormOpen(true); }}>
+              {intl.formatMessage({ id: "partners.form.isCustomer" })}
+            </Button>
+            <Button className="flex-1" variant="outline" onClick={() => { setSelectedCreateRole("vendor"); setRolePickerOpen(false); setFormOpen(true); }}>
+              {intl.formatMessage({ id: "partners.form.isVendor" })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <FormDialog
         open={formOpen}
@@ -285,7 +360,7 @@ export function PartnerListPage({
           error={mutationError}
           onSubmit={(fields) => createMutation.mutate(fields)}
           onCancel={() => { setFormOpen(false); setMutationError(null); setDirty(false); }}
-          defaultRole={defaultRole}
+          defaultRole={selectedCreateRole}
           createButtonLabelKey={labels.addButtonKey}
           onDirtyChange={setDirty}
         />

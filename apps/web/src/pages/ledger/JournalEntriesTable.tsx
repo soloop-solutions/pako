@@ -18,9 +18,10 @@ type JournalEntriesTableProps = {
   journals: JournalResponse[];
   onPosted: () => void;
   isLoading?: boolean;
+  onOpenEntry?: (entry: JournalEntryResponse) => void;
 };
 
-export function JournalEntriesTable({ companyId, entries, journals, onPosted, isLoading }: JournalEntriesTableProps) {
+export function JournalEntriesTable({ companyId, entries, journals, onPosted, isLoading, onOpenEntry }: JournalEntriesTableProps) {
   const intl = useIntl();
   const { canApprove } = useMyAccess();
   const [postingId, setPostingId] = useState<string | null>(null);
@@ -54,6 +55,11 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
         id: "journal",
         header: intl.formatMessage({ id: "journalEntries.journal" }),
         accessorFn: (row) => journalLabel(row.journalId),
+      },
+      {
+        accessorKey: "description",
+        header: intl.formatMessage({ id: "journalEntries.description" }),
+        cell: ({ getValue }) => (getValue() as string | undefined) ?? "-",
       },
       {
         accessorKey: "reference",
@@ -115,6 +121,7 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
       isLoading={isLoading}
       getRowId={(row) => row.id}
       getRowClassName={(row) => getDocumentRowClassName(row.state)}
+      onRowClick={onOpenEntry}
       enableGlobalFilter
       emptyMessage={intl.formatMessage({ id: "ledger.noJournalEntries" })}
       exportFileName="journal-entries"

@@ -1,0 +1,11 @@
+{
+  "from": "2026-01-01",
+  "to": "2026-01-31",
+  "lines": [
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000001", "name": "Prime Properties L.L.C.", "opening": 500.00, "debit": 500.00, "credit": 1180.00, "closing": 1180.00 },
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000002", "name": "KEDS J.S.C.", "opening": 0.00, "debit": 0.00, "credit": 240.00, "closing": 240.00 },
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000003", "name": "Telekomi i Kosoves J.S.C.", "opening": 100.00, "debit": 100.00, "credit": 354.00, "closing": 354.00 },
+    { "partnerId": "5b1f0c2e-1a11-4c01-9a04-000000000004", "name": "Kosova Office Supplies SH.P.K.", "opening": 0.00, "debit": 450.00, "credit": 150.00, "closing": -300.00 }
+  ],
+  "totalClosing": 1474.00
+}

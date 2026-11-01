@@ -78,6 +78,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost(Name = "CreatePurchaseOrder")]
+    [ProducesResponseType(typeof(PurchaseOrderResponse), StatusCodes.Status201Created)]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
     [ProducesResponseType(typeof(PurchaseOrderResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PurchaseOrderResponse>> Create(Guid companyId, SavePurchaseOrderRequest request)

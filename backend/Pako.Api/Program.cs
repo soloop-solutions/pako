@@ -76,6 +76,11 @@ builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();
 builder.Services.AddScoped<Pako.Api.Authorization.CompanyAccessContext>();
 builder.Services.AddScoped<Pako.Api.Services.PayrollRunComposer>();
+builder.Services.AddScoped<Pako.Api.Services.LedgerAggregator>();
+builder.Services.AddScoped<Pako.Api.Services.ExportLabels>();
+builder.Services.AddScoped<Pako.Api.Services.TaxReportService>();
+builder.Services.AddScoped<Pako.Api.Services.ReportSourceResolver>();
+builder.Services.AddScoped<Pako.Api.Services.VendorLedgerService>();
 builder.Services.AddSingleton<Pako.Api.Services.ActionTokenService>();
 builder.Services.AddScoped<Pako.Api.Services.PayrollParameterProvider>();
 builder.Services.AddScoped<Pako.Api.Services.PayslipDocumentService>();
@@ -100,6 +105,8 @@ builder.Services.AddScoped<Pako.Api.Services.SalesCreditService>();
 builder.Services.AddScoped<Pako.Api.Hubs.PosNotifier>();
 // docs/POS_PLAN.md P3: kitchen screens and floor plans update live.
 builder.Services.AddSignalR();
+builder.Services.AddScoped<Pako.Api.Services.StockMovementsService>();
+builder.Services.AddScoped<Pako.Api.Services.StockReportDataService>();
 builder.Services.AddScoped<Pako.Api.Services.PlatformAdminService>();
 builder.Services.AddScoped<PlatformBootstrap>();
 
@@ -183,6 +190,7 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 });
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.UseCors(CorsPolicy);
 

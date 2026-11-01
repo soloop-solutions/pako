@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 import type { DepartmentResponse, SaveDepartmentRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -59,6 +60,7 @@ export function Departments() {
   const createMutation = useMutation({
     mutationFn: (request: SaveDepartmentRequest) => apiClient.createDepartment(activeCompanyId as string, request),
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.departmentCreated" }));
       closeForms();
       await refresh();
     },
@@ -69,6 +71,7 @@ export function Departments() {
     mutationFn: (vars: { id: string; request: SaveDepartmentRequest }) =>
       apiClient.updateDepartment(activeCompanyId as string, vars.id, vars.request),
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.departmentSaved" }));
       closeForms();
       await refresh();
     },
@@ -78,6 +81,7 @@ export function Departments() {
   const deleteMutation = useMutation({
     mutationFn: (id: string) => apiClient.deleteDepartment(activeCompanyId as string, id),
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.departmentDeleted" }));
       closeForms();
       await refresh();
     },

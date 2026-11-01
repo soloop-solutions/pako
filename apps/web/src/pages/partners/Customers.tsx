@@ -17,7 +17,19 @@ const labels: PartnerListPageLabels = {
   searchPlaceholderKey: "customers.searchPlaceholder",
 };
 
+const HIDDEN_COLUMNS = ["payableAccount", "type"];
+
 export function Customers() {
   const filterFn = useCallback((p: PartnerResponse) => p.isCustomer, []);
-  return <PartnerListPage gridId="customers" labels={labels} filterFn={filterFn} defaultRole="customer" exportFileName="customers" />;
+  return (
+    <PartnerListPage
+      gridId="customers"
+      labels={labels}
+      filterFn={filterFn}
+      defaultRole="customer"
+      showTypeColumn={false}
+      hiddenColumnIds={HIDDEN_COLUMNS}
+      exportFileName="customers"
+    />
+  );
 }

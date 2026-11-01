@@ -164,6 +164,14 @@ export function Bills() {
     await refresh();
   }, [refresh]);
 
+  const handleInlinePartnerCreated = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
+  const handleInlineItemCreated = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
   if (!activeCompany) {
     return (
       <Card>
@@ -225,6 +233,8 @@ export function Bills() {
           accounts={accounts}
           isVatRegistered={activeCompany.isVatRegistered}
           onCreated={handleBillCreated}
+          onPartnerCreated={handleInlinePartnerCreated}
+          onItemCreated={handleInlineItemCreated}
         />
       </FormDialog>
 

@@ -14,8 +14,18 @@ namespace Pako.Api.Services;
 // caller already picks a JournalId there, for any of the now-five journals.
 public static class JournalResolver
 {
-    public static Task<Journal?> GetAsync(PakoDbContext db, Guid companyId, JournalType type) =>
-        db.Journals.AsNoTracking().FirstOrDefaultAsync(j => j.CompanyId == companyId && j.Type == type);
+    public static async Task<Journal?> GetAsync(PakoDbContext db, Guid companyId, JournalType type)
+    {
+        var journal = await db.Journals.FirstOrDefaultAsync(j => j.CompanyId == companyId && j.Type == type);
+        if (journal is not null && db.Database.SupportsRowLocking() && db.Database.CurrentTransaction is not null)
+        {
+            await db.Database.ExecuteSqlInterpolatedAsync(
+                $"SELECT \"Id\" FROM journals WHERE \"Id\" = {journal.Id} FOR UPDATE");
+            await db.Entry(journal).ReloadAsync();
+        }
+
+        return journal;
+    }
 
     // A settlement's own account tells you which of Cash/Bank it belongs on — RecordPayment
     // validates cashOrBankAccountId is one or the other before this is ever called.

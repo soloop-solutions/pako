@@ -131,7 +131,8 @@ def main():
         if item is None:
             item = call("POST", f"{c}/items", token, {
                 "name": name, "unit": unit, "type": GOODS, "defaultTaxDefinitionId": taxes[vat],
-                "defaultRevenueAccountId": acc["400100"], "defaultUnitPrice": price, "categoryId": category,
+                "defaultRevenueAccountId": acc["400100"], "defaultExpenseAccountId": acc["500100"],
+                "defaultInventoryAccountId": acc["120100"], "defaultUnitPrice": price, "categoryId": category,
                 "trackInventory": True, "minimumStock": 10})
             new_items.append(item["id"])
         if not item.get("barcodes"):

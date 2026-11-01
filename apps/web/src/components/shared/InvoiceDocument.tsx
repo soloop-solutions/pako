@@ -138,11 +138,11 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
   }
 
   return (
-    <div className="invoice-document relative mx-auto w-[210mm] min-h-[297mm] bg-white text-black p-[20mm] font-[system-ui,sans-serif] text-[11px] leading-[1.5]">
+    <div className="invoice-document relative mx-auto w-full bg-white text-black px-10 py-12 font-[system-ui,sans-serif] text-[13px] leading-[1.6] print:w-[210mm] print:min-h-[297mm] print:p-[20mm] print:text-[11px] print:leading-[1.5]">
       {/* DRAFT / PREVIEW watermark */}
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-          <span className="text-[80px] font-bold text-gray-200 rotate-[-35deg] select-none tracking-widest">
+          <span className="text-6xl font-bold text-gray-200 rotate-[-35deg] select-none tracking-widest print:text-[80px]">
             {data.state === "Preview"
               ? intl.formatMessage({ id: "invoiceDoc.watermark.preview" })
               : intl.formatMessage({ id: "invoiceDoc.watermark.draft" })}
@@ -153,17 +153,17 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
       {/* HEADER */}
       <div className="flex justify-between items-start mb-8">
         <div>
-          <h1 className="text-[24px] font-bold text-gray-800 mb-1">
+          <h1 className="text-[22px] font-bold text-gray-800 mb-1 print:text-[24px]">
             {intl.formatMessage({ id: titleKey })}
           </h1>
-          <p className="text-[13px] text-gray-500">
+          <p className="text-sm text-gray-500 print:text-[13px]">
             {data.invoiceNumber
               ? `${intl.formatMessage({ id: "invoiceDoc.number" })}: ${data.invoiceNumber}`
               : intl.formatMessage({ id: "invoiceDoc.draftReference" })}
           </p>
         </div>
         <div className="text-right">
-          <p className="text-[16px] font-semibold text-gray-800">{data.company.name}</p>
+          <p className="text-base font-semibold text-gray-800 print:text-[16px]">{data.company.name}</p>
           {data.company.address && <p className="text-gray-500">{data.company.address}</p>}
           {data.company.municipality && (
             <p className="text-gray-500">
@@ -191,7 +191,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
           <p className="text-[10px] font-semibold uppercase text-gray-400 mb-1 tracking-wider">
             {intl.formatMessage({ id: "invoiceDoc.billTo" })}
           </p>
-          <p className="text-[13px] font-semibold text-gray-800">{data.customer.name}</p>
+          <p className="text-sm font-semibold text-gray-800 print:text-[13px]">{data.customer.name}</p>
           {data.customer.taxNumber && (
             <p className="text-gray-600">{intl.formatMessage({ id: "invoiceDoc.vatNumber" })}: {data.customer.taxNumber}</p>
           )}
@@ -228,16 +228,16 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
       <table className="w-full mb-6 border-collapse">
         <thead>
           <tr className="border-b-2 border-gray-800">
-            <th className="py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-8">#</th>
-            <th className="py-2 text-left text-[10px] font-semibold uppercase tracking-wider text-gray-500">{intl.formatMessage({ id: "invoiceDoc.col.description" })}</th>
-            <th className="py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-16">{intl.formatMessage({ id: "invoiceDoc.col.qty" })}</th>
-            <th className="py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-24">{intl.formatMessage({ id: "invoiceDoc.col.unitPrice" })}</th>
+            <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-8">#</th>
+            <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px]">{intl.formatMessage({ id: "invoiceDoc.col.description" })}</th>
+            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.qty" })}</th>
+            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-24">{intl.formatMessage({ id: "invoiceDoc.col.unitPrice" })}</th>
             {totalDiscount > 0.005 && (
-              <th className="py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-16">{intl.formatMessage({ id: "invoiceDoc.col.discount" })}</th>
+              <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.discount" })}</th>
             )}
-            <th className="py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-16">{intl.formatMessage({ id: "invoiceDoc.col.vat" })}</th>
-            <th className="py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-20">{intl.formatMessage({ id: "invoiceDoc.col.vatAmount" })}</th>
-            <th className="py-2 text-right text-[10px] font-semibold uppercase tracking-wider text-gray-500 w-24">{intl.formatMessage({ id: "invoiceDoc.col.total" })}</th>
+            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.vat" })}</th>
+            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-20">{intl.formatMessage({ id: "invoiceDoc.col.vatAmount" })}</th>
+            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-24">{intl.formatMessage({ id: "invoiceDoc.col.total" })}</th>
           </tr>
         </thead>
         <tbody>
@@ -286,7 +286,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
               <span className="tabular-nums">{formatMoney(totalTax, data.currency)}</span>
             </div>
           )}
-          <div className="flex justify-between py-2 text-[14px] font-bold text-gray-800 border-t-2 border-gray-800 mt-1">
+          <div className="flex justify-between py-2 text-base font-bold text-gray-800 border-t-2 border-gray-800 mt-1 print:text-[14px]">
             <span>{intl.formatMessage({ id: "invoiceDoc.grandTotal" })}</span>
             <span className="tabular-nums">{formatMoney(grandTotal, data.currency)}</span>
           </div>
@@ -316,7 +316,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
       )}
 
       {/* FOOTER */}
-      <div className="mt-auto pt-6 text-[9px] text-gray-400 text-center border-t border-gray-100">
+      <div className="mt-auto pt-6 text-xs text-gray-400 text-center border-t border-gray-100 print:text-[9px]">
         <p>{data.company.name}</p>
         {data.company.address && (
           <p>{data.company.address}{data.company.municipality ? `, ${data.company.municipality}` : ""}</p>

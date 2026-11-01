@@ -4,9 +4,12 @@ import type { SaveStockDocumentRequest, StockDocumentResponse } from "@pako/shar
 import { ArrowLeft, ClipboardList, FileText, Plus, Printer, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { PrintButton } from "@/components/shared/PrintButton";
+import { useNumberPreview } from "@/hooks/useNumberPreview";
+import { stockDocumentNumberSeriesKey } from "@/lib/document-types";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +102,10 @@ export function StockDocumentDetail() {
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
+  const nextNumber = useNumberPreview(
+    isNew ? activeCompanyId ?? undefined : undefined,
+    isNew ? stockDocumentNumberSeriesKey(type) : undefined,
+  );
 
   // Fill the form from the loaded draft (once).
   useEffect(() => {
@@ -169,6 +176,7 @@ export function StockDocumentDetail() {
       : apiClient.updateStockDocument(activeCompanyId as string, id as string, request()),
     onSuccess: async (saved) => {
       setError(null);
+      toast.success(intl.formatMessage({ id: "toast.stockDocumentSaved" }));
       await refresh(saved);
       if (isNew) navigate(`/stock-documents/${saved.id}`, { replace: true });
     },
@@ -184,6 +192,7 @@ export function StockDocumentDetail() {
     onSuccess: async (saved) => {
       setError(null);
       setConfirmPost(false);
+      toast.success(intl.formatMessage({ id: "toast.stockDocumentPosted" }));
       await refresh(saved);
       await queryClient.invalidateQueries({ queryKey: ["stockOnHand"] });
     },
@@ -248,7 +257,7 @@ export function StockDocumentDetail() {
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              {t(`stock.doc.type.${typeKey}`)} {document?.number ?? ""}
+              {t(`stock.doc.type.${typeKey}`)} {document?.number ?? (nextNumber ? <span className="text-muted-foreground tabular-nums">{nextNumber}</span> : "")}
               {posted ? <Badge variant="success">{t("stock.doc.posted")}</Badge> : <Badge variant="outline" className="italic">{t("stock.doc.draft")}</Badge>}
             </CardTitle>
             <CardDescription>{t(`stock.doc.type.${typeKey}.description`)}</CardDescription>

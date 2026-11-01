@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CommissionPlanResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -70,6 +71,7 @@ export function CommissionPlans() {
     onSuccess: async () => {
       setEditing(null);
       setError(null);
+      toast.success(intl.formatMessage({ id: "toast.commissionPlanSaved" }));
       await queryClient.invalidateQueries({ queryKey: ["commissionPlans", companyId] });
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "commission.plan.saveError" }))),

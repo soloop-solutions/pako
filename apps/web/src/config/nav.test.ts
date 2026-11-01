@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { bottomNavItems, navCategories } from "@/config/nav";
+import { bottomNavItems, hiddenNavItems, navCategories } from "@/config/nav";
 
 describe("sidebar order", () => {
   it("follows the agreed order: Items, Customers, Sales, Purchases, Bank & Cash, …, Settings last", () => {
@@ -24,10 +24,14 @@ describe("sidebar order", () => {
   });
 
   it("keeps every page reachable after the move", () => {
-    const paths = navCategories.flatMap((c) => c.items.map((i) => i.path));
-    for (const path of ["/items", "/customers", "/partners", "/partner-statement", "/reconciliation", "/ledger", "/vendors"]) {
-      expect(paths).toContain(path);
+    const sidebarPaths = navCategories.flatMap((c) => c.items.map((i) => i.path));
+    const hiddenPaths = hiddenNavItems.map((i) => i.path);
+    const allPaths = [...sidebarPaths, ...hiddenPaths];
+    for (const path of ["/items", "/customers", "/partner-statement", "/reconciliation", "/ledger", "/vendors"]) {
+      expect(sidebarPaths).toContain(path);
     }
-    expect(new Set(paths).size).toBe(paths.length);
+    // /partners is hidden from sidebar but still routable
+    expect(hiddenPaths).toContain("/partners");
+    expect(new Set(allPaths).size).toBe(allPaths.length);
   });
 });

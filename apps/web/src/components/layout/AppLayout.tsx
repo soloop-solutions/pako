@@ -93,6 +93,11 @@ function AppShell() {
                 <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1" data-testid="active-company">
                   <Building2 className="size-3.5 text-primary" />
                   <span className="text-xs font-semibold text-primary">{activeCompany.name}</span>
+                  {!activeCompany.isVatRegistered && (
+                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {intl.formatMessage({ id: "header.vatBadge" })}
+                    </span>
+                  )}
                 </div>
               )}
             </div>

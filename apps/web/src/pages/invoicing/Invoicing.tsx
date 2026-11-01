@@ -186,6 +186,15 @@ export function Invoicing() {
     await refresh();
   }, [refresh]);
 
+  // Inline creation from within InvoiceForm — refresh data without closing the form.
+  const handleInlinePartnerCreated = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
+  const handleInlineItemCreated = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
+
   if (!activeCompany) {
     return (
       <Card>
@@ -217,18 +226,16 @@ export function Invoicing() {
       )}
       {prefill.isPending && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dist.invoice.prefillLoading" })}</p>}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
+      <div className="flex flex-wrap items-center gap-3">
+        <Button onClick={() => setInvoiceFormOpen(true)}>
+          {intl.formatMessage({ id: "invoicing.newInvoice" })}
+        </Button>
+        <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
+          {intl.formatMessage({ id: "invoicing.addCustomer" })}
+        </Button>
+        <div className="ml-auto">
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "invoicing.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.description" })}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
-            {intl.formatMessage({ id: "invoicing.addCustomer" })}
-          </Button>
-          <Button onClick={() => setInvoiceFormOpen(true)}>
-            {intl.formatMessage({ id: "invoicing.newInvoice" })}
-          </Button>
         </div>
       </div>
 
@@ -260,6 +267,8 @@ export function Invoicing() {
           accounts={accounts}
           isVatRegistered={activeCompany.isVatRegistered}
           onCreated={handleInvoiceCreated}
+          onPartnerCreated={handleInlinePartnerCreated}
+          onItemCreated={handleInlineItemCreated}
         />
       </FormDialog>
 

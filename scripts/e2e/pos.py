@@ -100,7 +100,9 @@ def main():
     warehouse = call("GET", f"{c}/inventory/warehouses", token)[0]["id"]
     item = call("POST", f"{c}/items", token, {
         "name": "Laptop", "unit": "copë", "type": GOODS, "defaultTaxDefinitionId": s18, "defaultUnitPrice": 236,
-        "trackInventory": True})
+        "trackInventory": True,
+        # Items carry their revenue, expense and stock accounts (required since main's item rules).
+        "defaultRevenueAccountId": acc["400100"], "defaultExpenseAccountId": acc["500100"], "defaultInventoryAccountId": acc["120100"]})
     call("POST", f"{c}/items/{item['id']}/barcodes", token, {"barcode": f"38{RUN}"})
     opening = call("POST", f"{c}/stock-documents", token, {"warehouseId": warehouse, "type": OPENING,
         "date": (today - timedelta(days=1)).isoformat(), "lines": [{"itemId": item["id"], "quantity": 10, "unitCost": 100}]})

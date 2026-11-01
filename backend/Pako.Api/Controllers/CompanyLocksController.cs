@@ -163,6 +163,7 @@ public class CompanyLocksController : ControllerBase
             c.Email, c.Phone, c.Website,
             c.BankName, c.BankAccountHolder, c.Iban, c.SwiftBic,
             c.DocumentFooter, c.PaymentInstructions,
+            c.LogoUrl, c.StampUrl,
             c.VatRegistrationDate, c.FunctionalCurrency,
             c.IsArchived, c.ArchivedAt);
 

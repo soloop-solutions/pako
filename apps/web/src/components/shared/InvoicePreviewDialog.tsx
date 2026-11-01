@@ -1,18 +1,19 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useIntl } from "react-intl";
-import { Printer, Download, X } from "lucide-react";
+import { ArrowLeft, Printer, Download } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { InvoiceDocument, type InvoiceDocumentData } from "@/components/shared/InvoiceDocument";
 import { printElement } from "@/lib/print";
 
 // ---------------------------------------------------------------------------
-// InvoicePreviewDialog — full-screen overlay showing the InvoiceDocument at A4
-// proportions with Print and Download PDF actions.
+// InvoicePreviewDialog — full-screen overlay showing the InvoiceDocument.
 //
-// Uses the shared printElement() utility (lib/print.ts) which prints via an
-// isolated iframe, ensuring the output contains only the invoice document.
-// The browser's "Save as PDF" option in the print dialog serves as PDF export.
+// Portals to document.body so it escapes any parent overflow/z-index context
+// (e.g. the FormDialog's scrollable container). The document renders at a
+// readable width (capped at 800px) and scrolls vertically if taller than the
+// viewport — no scale transform needed, text stays crisp and legible.
 // ---------------------------------------------------------------------------
 
 interface InvoicePreviewDialogProps {
@@ -51,44 +52,73 @@ export function InvoicePreviewDialog({ data, onClose }: InvoicePreviewDialogProp
   const intl = useIntl();
   const documentRef = useRef<HTMLDivElement>(null);
 
+  // Escape key to close — capture phase so we intercept before Radix Dialog
+  // sees it and closes the FormDialog underneath.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        onClose();
+      }
+    }
+    window.addEventListener("keydown", onKeyDown, true);
+    return () => window.removeEventListener("keydown", onKeyDown, true);
+  }, [onClose]);
+
+  // Lock body scroll while overlay is open
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, []);
+
   function handlePrint() {
     const el = documentRef.current;
     if (el) printElement(el, { extraCss: INVOICE_PRINT_CSS });
   }
 
-  return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black/60">
+  const overlay = (
+    <div
+      className="fixed inset-0 flex flex-col"
+      style={{ zIndex: 9999 }}
+      role="dialog"
+      aria-modal="true"
+      data-pako-overlay
+    >
       {/* Toolbar */}
-      <div className="flex h-12 shrink-0 items-center justify-between bg-background border-b px-4">
+      <div className="relative flex h-12 shrink-0 items-center justify-between bg-background border-b px-4 shadow-sm">
+        <Button variant="outline" size="sm" onClick={onClose}>
+          <ArrowLeft className="size-4" />
+          {intl.formatMessage({ id: "invoicePreview.backToForm" })}
+        </Button>
         <h2 className="text-sm font-medium">
           {intl.formatMessage({ id: "invoicePreview.title" })}
         </h2>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="xs" onClick={handlePrint}>
-            <Printer className="size-3.5" />
+          <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Printer className="size-4" />
             {intl.formatMessage({ id: "invoicePreview.print" })}
           </Button>
-          <Button variant="outline" size="xs" onClick={handlePrint}>
-            <Download className="size-3.5" />
+          <Button variant="outline" size="sm" onClick={handlePrint}>
+            <Download className="size-4" />
             {intl.formatMessage({ id: "invoicePreview.downloadPdf" })}
-          </Button>
-          <Button variant="ghost" size="xs" onClick={onClose}>
-            <X className="size-3.5" />
-            {intl.formatMessage({ id: "common.close" })}
           </Button>
         </div>
       </div>
 
-      {/* Scrollable preview area */}
-      <div className="flex-1 overflow-auto p-8 flex justify-center">
-        <div
-          ref={documentRef}
-          className="shadow-2xl"
-          style={{ maxWidth: "210mm" }}
-        >
-          <InvoiceDocument data={data} />
+      {/* Scrollable preview area with dark background */}
+      <div className="flex-1 overflow-y-auto bg-neutral-800/95 py-8 px-4">
+        <div className="mx-auto w-full max-w-[800px]">
+          <div ref={documentRef} className="rounded shadow-2xl">
+            <InvoiceDocument data={data} />
+          </div>
         </div>
       </div>
     </div>
   );
+
+  return createPortal(overlay, document.body);
 }

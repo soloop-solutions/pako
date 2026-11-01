@@ -105,7 +105,8 @@ def item(name, price=None, *, unit="copë", kind=GOODS, vat="S18", tracked=False
     if existing:
         return existing
     created = post("/items", {"name": name, "unit": unit, "type": kind, "defaultTaxDefinitionId": X.tax[vat],
-                              "defaultRevenueAccountId": X.acc.get("400100"), "defaultUnitPrice": price,
+                              "defaultRevenueAccountId": X.acc.get("400100"), "defaultExpenseAccountId": X.acc.get("500100"),
+                              "defaultInventoryAccountId": X.acc.get("120100"), "defaultUnitPrice": price,
                               "trackInventory": tracked and kind == GOODS, **extra})
     if barcode:
         post(f"/items/{created['id']}/barcodes", {"barcode": barcode})

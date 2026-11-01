@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { List, TreePine } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -13,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
 import {
   CitDeductibility,
@@ -55,7 +57,7 @@ export function ChartOfAccounts() {
   );
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useOpenParam();
   const [confirmingDeactivateId, setConfirmingDeactivateId] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -116,6 +118,7 @@ export function ChartOfAccounts() {
       setMutationError(null);
       setDirty(false);
       setFormOpen(false);
+      toast.success(intl.formatMessage({ id: "toast.accountCreated" }));
       await refresh();
     },
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.createError" }))),
@@ -133,6 +136,7 @@ export function ChartOfAccounts() {
       setMutationError(null);
       setDirty(false);
       setEditingId(null);
+      toast.success(intl.formatMessage({ id: "toast.accountSaved" }));
       await refresh();
     },
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.saveError" }))),
@@ -142,6 +146,7 @@ export function ChartOfAccounts() {
     mutationFn: (id: string) => apiClient.deactivate(activeCompanyId as string, id),
     onSuccess: async () => {
       setConfirmingDeactivateId(null);
+      toast.success(intl.formatMessage({ id: "toast.accountDeactivated" }));
       await refresh();
     },
     onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "chartOfAccounts.deactivateError" }))),
@@ -312,7 +317,7 @@ export function ChartOfAccounts() {
         },
       },
     ],
-    [intl, confirmingDeactivateId, deactivateMutation],
+    [intl, confirmingDeactivateId, deactivateMutation, setEditingId],
   );
 
   if (!activeCompanyId) {

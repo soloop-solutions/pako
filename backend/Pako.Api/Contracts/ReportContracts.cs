@@ -9,7 +9,12 @@ public record ProfitAndLossResponse(
     List<ReportLine> Expenses,
     decimal TotalIncome,
     decimal TotalExpenses,
-    decimal NetIncome);
+    decimal NetIncome,
+    List<ReportLine> CostOfRevenue,
+    decimal TotalCostOfRevenue,
+    decimal GrossProfit,
+    List<ReportLine> OperatingExpenses,
+    decimal TotalOperatingExpenses);
 
 public record BalanceSheetResponse(
     DateOnly AsOf,
@@ -19,7 +24,9 @@ public record BalanceSheetResponse(
     decimal CurrentEarnings,
     decimal TotalAssets,
     decimal TotalLiabilities,
-    decimal TotalEquity);
+    decimal TotalEquity,
+    decimal TotalLiabilitiesAndEquity,
+    decimal Difference);
 
 public record VatReturnLine(Guid TaxDefinitionId, string Name, decimal Rate, decimal Amount);
 
@@ -57,7 +64,9 @@ public record DebtAgingLine(
     DateOnly DueDate,
     int? GraceDays,
     decimal Outstanding,
-    string Bucket);
+    string Bucket,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record DebtAgingResponse(
     DateOnly AsOf,
@@ -87,7 +96,9 @@ public record SalesBookLine(
     decimal Rate,
     decimal NetAmount,
     decimal VatAmount,
-    decimal GrossAmount);
+    decimal GrossAmount,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record SalesBookResponse(
     DateOnly From,
@@ -110,7 +121,9 @@ public record PurchaseBookLine(
     decimal Rate,
     decimal NetAmount,
     decimal VatAmount,
-    decimal GrossAmount);
+    decimal GrossAmount,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record PurchaseBookResponse(
     DateOnly From,
@@ -119,3 +132,216 @@ public record PurchaseBookResponse(
     decimal TotalNet,
     decimal TotalVat,
     decimal TotalGross);
+
+public record GeneralLedgerLine(
+    Guid EntryId,
+    string? EntryNumber,
+    DateOnly Date,
+    string? Reference,
+    string AccountCode,
+    string AccountName,
+    Guid? PartnerId,
+    string? PartnerName,
+    string? Description,
+    decimal Debit,
+    decimal Credit,
+    string? DocumentType = null,
+    string? DocumentNumber = null,
+    Guid? AccountId = null,
+    string? SourceKind = null,
+    Guid? SourceId = null);
+
+public record MonthlyReportLine(Guid AccountId, string AccountCode, string AccountName, List<decimal> Months, decimal Total);
+
+public record MonthlyProfitAndLossResponse(
+    int Year,
+    List<MonthlyReportLine> Income,
+    List<MonthlyReportLine> CostOfRevenue,
+    List<MonthlyReportLine> Expenses,
+    List<decimal> GrossProfitByMonth,
+    List<decimal> NetIncomeByMonth,
+    decimal GrossProfit,
+    decimal NetIncome,
+    List<decimal> IncomeByMonth,
+    List<decimal> CostOfRevenueByMonth,
+    List<decimal> ExpensesByMonth,
+    decimal TotalIncome,
+    decimal TotalCostOfRevenue,
+    decimal TotalExpenses);
+
+public record ComparativeLine(Guid AccountId, string AccountCode, string AccountName, decimal Current, decimal Prior, decimal Difference);
+
+public record ComparativeTotals(decimal Current, decimal Prior, decimal Difference);
+
+public record BalanceSheetComparativeResponse(
+    DateOnly AsOf,
+    DateOnly CompareTo,
+    List<ComparativeLine> Assets,
+    List<ComparativeLine> Liabilities,
+    List<ComparativeLine> Equity,
+    decimal TotalAssets,
+    decimal TotalLiabilitiesAndEquity,
+    ComparativeTotals AssetsTotals,
+    ComparativeTotals LiabilitiesTotals,
+    ComparativeTotals EquityTotals);
+
+public record CashFlowLine(Guid AccountId, string AccountCode, string AccountName, decimal Amount);
+
+public record CashFlowResponse(
+    DateOnly From,
+    DateOnly To,
+    decimal OpeningCash,
+    decimal NetIncome,
+    List<CashFlowLine> Operating,
+    List<CashFlowLine> Investing,
+    List<CashFlowLine> Financing,
+    decimal NetChange,
+    decimal ClosingCash,
+    decimal Difference);
+
+public record EquityMovementLine(Guid AccountId, string AccountCode, string AccountName, decimal Amount);
+
+public record EquityStatementResponse(
+    DateOnly From,
+    DateOnly To,
+    decimal OpeningEquity,
+    decimal NetIncome,
+    List<EquityMovementLine> Movements,
+    decimal ClosingEquity);
+
+public record ExpenseBookColumn(Guid AccountId, string AccountCode, string AccountName);
+
+public record ExpenseBookRow(Guid EntryId, DateOnly Date, string? DocumentNumber, string? PartnerName, List<decimal> Amounts, decimal Total,
+    string? SourceKind = null, Guid? SourceId = null, Guid? PartnerId = null);
+
+public record ExpenseBookResponse(
+    DateOnly From,
+    DateOnly To,
+    List<ExpenseBookColumn> Columns,
+    List<ExpenseBookRow> Rows,
+    List<decimal> ColumnTotals,
+    decimal GrandTotal);
+
+public record ReportCheck(string Key, bool Passed, decimal Expected, decimal Actual);
+
+public record ReportChecksResponse(DateOnly From, DateOnly To, List<ReportCheck> Checks);
+
+public record VendorBalanceLine(Guid PartnerId, string Name, decimal Opening, decimal Debit, decimal Credit, decimal Closing);
+
+public record VendorSyntheticResponse(DateOnly From, DateOnly To, List<VendorBalanceLine> Lines, decimal TotalClosing);
+
+public record VendorStatementRow(
+    DateOnly Date,
+    string Type,
+    string? DocumentNumber,
+    string? Description,
+    decimal Debit,
+    decimal Credit,
+    decimal Balance,
+    Guid? EntryId = null,
+    string? SourceKind = null,
+    Guid? SourceId = null);
+
+public record VendorStatementResponse(
+    Guid PartnerId,
+    string Name,
+    DateOnly From,
+    DateOnly To,
+    decimal Opening,
+    List<VendorStatementRow> Rows,
+    decimal Closing,
+    decimal TotalDebit,
+    decimal TotalCredit);
+
+public record PayablesAgingLine(
+    Guid BillId,
+    string? BillNumber,
+    Guid PartnerId,
+    string PartnerName,
+    DateOnly IssueDate,
+    DateOnly DueDate,
+    decimal Outstanding,
+    string Bucket,
+    string? SourceKind = null,
+    Guid? SourceId = null);
+
+public record AgingBucketTotal(string Bucket, decimal Total);
+
+public record PayablesAgingVendorRow(Guid PartnerId, string PartnerName, List<AgingBucketTotal> Buckets, decimal Total);
+
+public record PayablesAgingResponse(
+    DateOnly AsOf,
+    List<PayablesAgingLine> Lines,
+    List<AgingBucketTotal> Buckets,
+    List<PayablesAgingVendorRow> VendorMatrix,
+    decimal TotalOutstanding);
+
+public record PurchaseByVendorLine(
+    Guid PartnerId,
+    string Name,
+    decimal NetAmount,
+    decimal DiscountAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
+
+public record PurchaseByItemLine(
+    Guid? ItemId,
+    string? ItemCode,
+    string Description,
+    string? Unit,
+    decimal Quantity,
+    decimal NetAmount,
+    decimal VatAmount,
+    decimal GrossAmount);
+
+public record PurchaseByVendorResponse(
+    DateOnly From,
+    DateOnly To,
+    List<PurchaseByVendorLine> Lines,
+    decimal TotalNet,
+    decimal TotalDiscount,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record PurchaseByItemResponse(
+    DateOnly From,
+    DateOnly To,
+    List<PurchaseByItemLine> Lines,
+    decimal TotalNet,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record PurchaseTransactionsResponse(
+    List<PurchaseTransactionLine> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    decimal TotalNet,
+    decimal TotalVat,
+    decimal TotalGross);
+
+public record GeneralLedgerResponse(
+    List<GeneralLedgerLine> Items,
+    int Total,
+    int Page,
+    int PageSize,
+    decimal TotalDebit,
+    decimal TotalCredit);
+
+public record PurchaseTransactionLine(
+    DateOnly Date,
+    string? DocumentNumber,
+    string DocumentType,
+    string PartnerName,
+    string? ItemCode,
+    string Description,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal NetAmount,
+    decimal VatAmount,
+    decimal GrossAmount,
+    Guid? DocumentId = null,
+    string? SourceKind = null,
+    Guid? SourceId = null,
+    Guid? PartnerId = null,
+    Guid? ItemId = null);

@@ -651,7 +651,7 @@ public class InvoicesControllerTests : IAsyncLifetime
 
         await controller.Create(companyId, ProformaRequestWithLine(partnerId, 1m, 500m));
 
-        var reportsController = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted());
+        var reportsController = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
         var result = await reportsController.VatReturn(companyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 12, 31));
 
         var vatReturn = Assert.IsType<VatReturnResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);

@@ -19,6 +19,71 @@ public class AtkBookMapperTests
         new(Guid.NewGuid(), "D-1", new DateOnly(2026, 2, 1), PartnerId, code, rate, net, direction, deductible,
             reverseCharge, book, documentType);
 
+    private static AtkTaxRow VatRow(
+        decimal rate, decimal net, decimal vat, TaxDirection direction, decimal? deductible,
+        TaxAtkBook book = TaxAtkBook.Blerje) =>
+        new(Guid.NewGuid(), "D-1", new DateOnly(2026, 2, 1), PartnerId, "X", rate, net, direction, deductible,
+            false, book, "Bill", vat);
+
+    private static Pako.Domain.Reporting.VatBoxAmount Declared(AtkTaxRow row, string box) =>
+        AtkBookMapper.DeclarationAmounts(Array.Empty<AtkTaxRow>(), new[] { row }).Single(a => a.Box == box);
+
+    [Fact]
+    public void Declaration_Bv50_PutsOnlyDeductibleShareOfVatOnBox43()
+    {
+        var amounts = AtkBookMapper.DeclarationAmounts(
+            Array.Empty<AtkTaxRow>(), new[] { VatRow(0.18m, 1000m, 180m, TaxDirection.In, 50m) });
+
+        var deductible = amounts.Single(a => a.Box == "43");
+        Assert.Equal(500m, deductible.Net);
+        Assert.Equal(90m, deductible.Vat);
+        var nonDeductible = amounts.Single(a => a.Box == "33");
+        Assert.Equal(500m, nonDeductible.Net);
+        Assert.Equal(0m, nonDeductible.Vat);
+    }
+
+    [Fact]
+    public void Declaration_Bv50_RoundsDeductibleVatAwayFromZero()
+    {
+        var amounts = AtkBookMapper.DeclarationAmounts(
+            Array.Empty<AtkTaxRow>(), new[] { VatRow(0.18m, 555.61m, 100.01m, TaxDirection.In, 50m) });
+
+        Assert.Equal(277.81m, amounts.Single(a => a.Box == "43").Net);
+        Assert.Equal(50.01m, amounts.Single(a => a.Box == "43").Vat);
+        Assert.Equal(277.8m, amounts.Single(a => a.Box == "33").Net);
+    }
+
+    [Fact]
+    public void Declaration_SeventyPercent_PutsSeventyPercentOfVatOnBox43()
+    {
+        var amounts = AtkBookMapper.DeclarationAmounts(
+            Array.Empty<AtkTaxRow>(), new[] { VatRow(0.18m, 1000m, 180m, TaxDirection.In, 70m) });
+
+        Assert.Equal(700m, amounts.Single(a => a.Box == "43").Net);
+        Assert.Equal(126m, amounts.Single(a => a.Box == "43").Vat);
+        Assert.Equal(300m, amounts.Single(a => a.Box == "33").Net);
+    }
+
+    [Fact]
+    public void Declaration_FullyDeductible_KeepsFullVat()
+    {
+        var amount = Declared(VatRow(0.18m, 1000m, 180m, TaxDirection.In, 100m), "43");
+
+        Assert.Equal(1000m, amount.Net);
+        Assert.Equal(180m, amount.Vat);
+    }
+
+    [Fact]
+    public void Declaration_NonDeductible_HasNoDeductibleVat()
+    {
+        var amounts = AtkBookMapper.DeclarationAmounts(
+            Array.Empty<AtkTaxRow>(), new[] { VatRow(0.18m, 1000m, 180m, TaxDirection.In, 0m) });
+
+        var box = Assert.Single(amounts);
+        Assert.Equal("33", box.Box);
+        Assert.Equal(0m, box.Vat);
+    }
+
     [Fact]
     public void Purchase_Rc18_LandsInBox65_AndGetsSpecialNumber8()
     {
@@ -37,6 +102,31 @@ public class AtkBookMapperTests
 
         Assert.Equal(80m, Assert.Single(book.Documents).Boxes["31"]);
         Assert.Empty(book.Unplaced);
+    }
+
+    [Fact]
+    public void Declaration_Bv50_PostedDeductibleVatOverridesTheShareComputation()
+    {
+        var row = VatRow(0.18m, 169.5m, 30.5m, TaxDirection.In, 50m) with { PostedDeductibleVat = 15.26m };
+
+        Assert.Equal(15.26m, Declared(row, "43").Vat);
+        Assert.Equal(0m, Declared(row, "33").Vat);
+    }
+
+    [Fact]
+    public void Declaration_Bv50_WithoutPostedSplitFallsBackToShare()
+    {
+        var row = VatRow(0.18m, 169.5m, 30.5m, TaxDirection.In, 50m);
+
+        Assert.Equal(15.25m, Declared(row, "43").Vat);
+    }
+
+    [Fact]
+    public void Declaration_Bv50CreditNote_KeepsNegativePostedAmount()
+    {
+        var row = VatRow(0.18m, -169.5m, -30.5m, TaxDirection.In, 50m) with { PostedDeductibleVat = -15.24m };
+
+        Assert.Equal(-15.24m, Declared(row, "43").Vat);
     }
 
     [Fact]

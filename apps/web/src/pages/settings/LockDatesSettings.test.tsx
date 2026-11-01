@@ -39,6 +39,7 @@ const initialCompany: CompanyResponse = {
   email: undefined, phone: undefined, website: undefined,
   bankName: undefined, bankAccountHolder: undefined, iban: undefined, swiftBic: undefined,
   documentFooter: undefined, paymentInstructions: undefined,
+  logoUrl: undefined, stampUrl: undefined,
   isArchived: false,
   archivedAt: undefined,
 };

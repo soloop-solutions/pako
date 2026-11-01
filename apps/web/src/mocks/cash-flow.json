@@ -1,0 +1,19 @@
+{
+  "from": "2026-01-01",
+  "to": "2026-12-31",
+  "openingCash": 30000.00,
+  "netIncome": 45000.00,
+  "operating": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000120", "accountCode": "120", "accountName": "Trade receivables", "amount": -5000.00 },
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000400", "accountCode": "400", "accountName": "Trade payables", "amount": 5000.00 }
+  ],
+  "investing": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000210", "accountCode": "210", "accountName": "Fixed assets", "amount": -10000.00 }
+  ],
+  "financing": [
+    { "accountId": "5b1f0c2e-1a11-4c01-9a03-000000000560", "accountCode": "560", "accountName": "Retained earnings (dividends paid)", "amount": -20000.00 }
+  ],
+  "netChange": 15000.00,
+  "closingCash": 45000.00,
+  "difference": 0.00
+}

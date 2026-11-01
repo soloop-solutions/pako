@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { LeaveTypeResponse, PublicHolidayResponse, SaveLeaveTypeRequest } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -40,6 +41,7 @@ function LeaveTypesSection({ companyId }: { companyId: string }) {
     onSuccess: async () => {
       setError(null);
       setEditing(null);
+      toast.success(intl.formatMessage({ id: "toast.leaveTypeSaved" }));
       await queryClient.invalidateQueries({ queryKey: leaveTypesQueryKey(companyId) });
       // A type's default days and active flag change which balance rows exist.
       await queryClient.invalidateQueries({ queryKey: ["leave", "balances"] });
@@ -339,6 +341,7 @@ function PublicHolidaysSection({ companyId }: { companyId: string }) {
       setError(null);
       setDate("");
       setName("");
+      toast.success(intl.formatMessage({ id: "toast.holidayCreated" }));
       await refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "leave.holidays.saveError" }))),
@@ -349,6 +352,7 @@ function PublicHolidaysSection({ companyId }: { companyId: string }) {
     onSuccess: async () => {
       setError(null);
       setConfirmDeleteId(null);
+      toast.success(intl.formatMessage({ id: "toast.holidayDeleted" }));
       await refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "leave.holidays.deleteError" }))),

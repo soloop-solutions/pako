@@ -5,6 +5,7 @@ import type { PriceChangeSummaryResponse, PriceListItemResponse, PriceListRespon
 import { Pencil, Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -321,7 +322,10 @@ function PriceListDialog({ list, onClose, onSaved }: { list: PriceListResponse |
       const body = { name: name.trim(), warehouseId: isCustomerList ? undefined : warehouseId || undefined, isActive, isCustomerList };
       return list ? apiClient.updatePriceList(activeCompanyId as string, list.id, body) : apiClient.createPriceList(activeCompanyId as string, body);
     },
-    onSuccess: onSaved,
+    onSuccess: (saved) => {
+      toast.success(intl.formatMessage({ id: "toast.priceListSaved" }));
+      onSaved(saved);
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("price.list.saveError"))),
   });
 

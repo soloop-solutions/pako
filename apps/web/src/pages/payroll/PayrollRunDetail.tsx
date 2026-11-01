@@ -5,6 +5,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { flushSync } from "react-dom";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { PayrollRunDetailResponse, PayslipDetailResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -108,7 +109,9 @@ export function PayrollRunDetail() {
       setBusyAction(vars.action);
       setActionError(null);
     },
-    onSuccess: async (result) => {
+    onSuccess: async (result, vars) => {
+      if (vars.action === "approve") toast.success(intl.formatMessage({ id: "toast.payrollRunApproved" }));
+      if (vars.action === "post") toast.success(intl.formatMessage({ id: "toast.payrollRunPosted" }));
       await applyRun(result);
     },
     onError: (err: unknown, vars) =>
@@ -123,6 +126,7 @@ export function PayrollRunDetail() {
       setActionError(null);
     },
     onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.payrollRunDeleted" }));
       queryClient.removeQueries({ queryKey: runKey });
       await queryClient.invalidateQueries({ queryKey: ["payrollRuns", companyId] });
       navigate("/payroll");
@@ -138,6 +142,7 @@ export function PayrollRunDetail() {
       setActionError(null);
     },
     onSuccess: async (result) => {
+      toast.success(intl.formatMessage({ id: "toast.payrollRunPaid" }));
       setPayOpen(false);
       await applyRun(result);
     },

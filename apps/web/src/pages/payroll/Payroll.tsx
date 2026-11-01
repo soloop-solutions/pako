@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 import type { PayrollRunDetailResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -78,6 +79,7 @@ export function Payroll() {
     onSuccess: async (run) => {
       setCreateError(null);
       setNewRunMonth(null);
+      toast.success(intl.formatMessage({ id: "toast.payrollRunCreated" }));
       await queryClient.invalidateQueries({ queryKey: payrollRunsQueryKey(companyId) });
       navigate(`/payroll/${run.id}`);
     },

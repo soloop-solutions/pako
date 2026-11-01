@@ -10,7 +10,15 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useCompany } from "@/context/CompanyContext";
+import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 
 const GRID_ID = "partners";
@@ -21,7 +29,9 @@ export function Partners() {
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  const [selectedCreateRole, setSelectedCreateRole] = useState<"customer" | "vendor" | undefined>(undefined);
+  const [editingId, setEditingId] = useOpenParam();
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
@@ -210,7 +220,7 @@ export function Partners() {
         </div>
         <Button
           onClick={() => {
-            setFormOpen((open) => !open);
+            setRolePickerOpen(true);
             setEditingId(null);
             setMutationError(null);
           }}
@@ -225,6 +235,24 @@ export function Partners() {
         </Alert>
       )}
 
+      {/* Role picker — ask Customer or Vendor first */}
+      <Dialog open={rolePickerOpen} onOpenChange={setRolePickerOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{intl.formatMessage({ id: "partners.form.selectRole" })}</DialogTitle>
+            <DialogDescription>{intl.formatMessage({ id: "partners.form.selectRoleDescription" })}</DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-3 pt-2">
+            <Button className="flex-1" variant="outline" onClick={() => { setSelectedCreateRole("customer"); setRolePickerOpen(false); setFormOpen(true); }}>
+              {intl.formatMessage({ id: "partners.form.isCustomer" })}
+            </Button>
+            <Button className="flex-1" variant="outline" onClick={() => { setSelectedCreateRole("vendor"); setRolePickerOpen(false); setFormOpen(true); }}>
+              {intl.formatMessage({ id: "partners.form.isVendor" })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {formOpen && (
         <Card>
           <CardHeader>
@@ -236,6 +264,7 @@ export function Partners() {
               accounts={accounts}
               submitting={createMutation.isPending}
               error={mutationError}
+              defaultRole={selectedCreateRole}
               onSubmit={(fields) => createMutation.mutate(fields)}
               onCancel={() => {
                 setFormOpen(false);

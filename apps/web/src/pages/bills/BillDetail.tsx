@@ -294,9 +294,9 @@ export function BillDetail() {
                 <TableHead className="text-right">{intl.formatMessage({ id: "billForm.qty" })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "billForm.priceInclVat" })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "billForm.discountPercent" })}</TableHead>
-                <TableHead>{intl.formatMessage({ id: "billForm.tax" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "billForm.net" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "billForm.vat" })}</TableHead>
+                {activeCompany.isVatRegistered && <TableHead>{intl.formatMessage({ id: "billForm.tax" })}</TableHead>}
+                {activeCompany.isVatRegistered && <TableHead className="text-right">{intl.formatMessage({ id: "billForm.net" })}</TableHead>}
+                {activeCompany.isVatRegistered && <TableHead className="text-right">{intl.formatMessage({ id: "billForm.vat" })}</TableHead>}
                 <TableHead className="text-right">{intl.formatMessage({ id: "common.total" })}</TableHead>
               </TableRow>
             </TableHeader>
@@ -310,9 +310,9 @@ export function BillDetail() {
                     <TableCell className="text-right">{line.quantity}</TableCell>
                     <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
                     <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
-                    <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>
-                    <TableCell className="text-right">{net.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{tax.toFixed(2)}</TableCell>
+                    {activeCompany.isVatRegistered && <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>}
+                    {activeCompany.isVatRegistered && <TableCell className="text-right">{net.toFixed(2)}</TableCell>}
+                    {activeCompany.isVatRegistered && <TableCell className="text-right">{tax.toFixed(2)}</TableCell>}
                     <TableCell className="text-right">{gross.toFixed(2)}</TableCell>
                   </TableRow>
                 );
@@ -321,8 +321,8 @@ export function BillDetail() {
           </Table>
 
           <div className="flex flex-col items-end gap-1 text-sm">
-            <p>{intl.formatMessage({ id: "billDetail.netExclVat" }, { amount: estimatedNet.toFixed(2) })}</p>
-            <p>{intl.formatMessage({ id: "billDetail.vatAmount" }, { amount: estimatedTax.toFixed(2) })}</p>
+            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "billDetail.netExclVat" }, { amount: estimatedNet.toFixed(2) })}</p>}
+            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "billDetail.vatAmount" }, { amount: estimatedTax.toFixed(2) })}</p>}
             <p className="font-medium">{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
           </div>
 

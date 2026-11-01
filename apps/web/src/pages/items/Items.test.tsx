@@ -15,6 +15,8 @@ const api = vi.hoisted(() => ({
   taxes: vi.fn(),
   accountsAll: vi.fn(),
   listItemCategories: vi.fn(),
+  // The item form previews the next item code (number series).
+  preview: vi.fn(),
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -38,9 +40,21 @@ vi.mock("@/hooks/useMyAccess", () => ({
 
 const BEER = {
   id: "i3", code: 10, name: "Birrë Peja 0.5L", description: undefined, unit: "copë", type: 0, defaultTaxDefinitionId: undefined,
-  defaultRevenueAccountId: undefined, defaultExpenseAccountId: undefined, defaultInventoryAccountId: undefined, defaultUnitPrice: 0.8,
+  defaultRevenueAccountId: "a4", defaultExpenseAccountId: "a5", defaultInventoryAccountId: "a1", defaultUnitPrice: 0.8,
   barcodes: [], plu: "12", sellByWeight: false, openPrice: false, minimumAge: 18, depositItemId: undefined,
 };
+
+const ACCOUNTS = [
+  { id: "a4", code: "400100", name: "Shitje", accountType: 12, isActive: true, isPostable: true },
+  { id: "a5", code: "500100", name: "Kosto e mallrave", accountType: 17, isActive: true, isPostable: true },
+  { id: "a1", code: "120100", name: "Stoku", accountType: 2, isActive: true, isPostable: true },
+];
+
+async function pick(dialog: HTMLElement, id: string, option: string) {
+  fireEvent.click(dialog.querySelector(`#${id}`)!);
+  // Options select on mouse-down (the list stays open on a click in the search box).
+  fireEvent.mouseDown(await screen.findByRole("option", { name: new RegExp(option) }));
+}
 
 function renderItems() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -60,7 +74,9 @@ describe("Item form — till fields", () => {
     Object.values(api).forEach((f) => f.mockReset());
     api.itemsGET.mockResolvedValue({ items: [BEER], total: 1 });
     api.taxes.mockResolvedValue([]);
-    api.accountsAll.mockResolvedValue([]);
+    api.preview.mockResolvedValue({ number: "1001" });
+    // An item needs revenue, expense and stock accounts (main: the save is disabled without them).
+    api.accountsAll.mockResolvedValue(ACCOUNTS);
     api.listItemCategories.mockResolvedValue([]);
     api.itemsPOST.mockResolvedValue({ ...BEER, id: "i9" });
     api.itemsPUT.mockResolvedValue(BEER);
@@ -75,6 +91,9 @@ describe("Item form — till fields", () => {
     fireEvent.change(within(dialog).getByLabelText("PLU"), { target: { value: "0042" } });
     fireEvent.change(within(dialog).getByLabelText("Minimum age"), { target: { value: "16" } });
     fireEvent.click(within(dialog).getByLabelText("Sold by weight"));
+    await pick(dialog, "item-revenue-account", "400100");
+    await pick(dialog, "item-expense-account", "500100");
+    await pick(dialog, "item-inventory-account", "120100");
     fireEvent.click(within(dialog).getByRole("button", { name: "Add item" }));
     await waitFor(() =>
       expect(api.itemsPOST).toHaveBeenCalledWith("c1", expect.objectContaining({

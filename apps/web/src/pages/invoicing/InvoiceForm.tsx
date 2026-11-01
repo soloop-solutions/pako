@@ -7,7 +7,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -26,6 +26,9 @@ import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/St
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
 import { BillProjectField } from "@/pages/construction/BillProjectFields";
+import { FormDialog } from "@/components/shared/FormDialog";
+import { PartnerForm } from "@/pages/shared/PartnerForm";
+import { QuickItemForm } from "@/pages/shared/QuickItemForm";
 
 type Line = {
   description: string;
@@ -140,6 +143,10 @@ type InvoiceFormProps = {
   onSaved?: () => void;
   // docs/POS_PLAN.md P6: a new invoice filled from a sales order or a delivery note.
   prefill?: InvoicePrefill;
+  /** Called after an inline partner creation so the parent can refresh its data. */
+  onPartnerCreated?: (id: string) => void;
+  /** Called after an inline item creation so the parent can refresh its data. */
+  onItemCreated?: (id: string) => void;
 };
 
 export function InvoiceForm({
@@ -156,6 +163,8 @@ export function InvoiceForm({
   editingInvoice,
   onSaved,
   prefill,
+  onPartnerCreated,
+  onItemCreated,
 }: InvoiceFormProps) {
   const intl = useIntl();
   const activeCompany = useCompany().activeCompany;
@@ -197,7 +206,7 @@ export function InvoiceForm({
   // A draft being edited still starts in its own mode: the line preview, the price label and the
   // price-list rule below all depend on it.
   const [priceMode, setPriceMode] = useState<number>(editingInvoice?.priceMode ?? PriceMode.GrossInclusive);
-  const [paymentTermDays, setPaymentTermDays] = useState("");
+  const [paymentTermDays, setPaymentTermDays] = useState(editingInvoice ? "" : (selectedCustomer?.paymentTermDays != null ? String(selectedCustomer.paymentTermDays) : ""));
   const [graceDays, setGraceDays] = useState("");
   const [takePaymentNow, setTakePaymentNow] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -225,6 +234,22 @@ export function InvoiceForm({
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  const [newPartnerOpen, setNewPartnerOpen] = useState(false);
+  const [newItemOpen, setNewItemOpen] = useState(false);
+  const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
+
+  // Auto-fill payment term days from the selected customer's registration data.
+  useEffect(() => {
+    if (editingInvoice) return;
+    if (!selectedCustomer) return;
+    if (selectedCustomer.paymentTermDays != null) {
+      const days = String(selectedCustomer.paymentTermDays);
+      setPaymentTermDays(days);
+      setDueDate(addDays(issueDate, selectedCustomer.paymentTermDays));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to partner changes
+  }, [partnerId]);
 
   // Auto-populate lines from the original invoice when creating a Sales Return. Only fires when:
   // 1. This form is fixed to SalesReturn (fixedDocumentType === 4)
@@ -267,27 +292,24 @@ export function InvoiceForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only react to originalInvoiceId changes
   }, [originalInvoiceId]);
 
-  // F7: preview only, never trusted as the real number — reserved only on post. Not fetched while
-  // editing an existing Draft, since editing never consumes/changes numbering.
-  const [previewNumber, setPreviewNumber] = useState<string | null>(null);
+  // Invoice number: auto-generated from the number series on create, editable by the user.
+  // When editing an existing draft, pre-populated from the saved invoice number.
+  const [invoiceNumber, setInvoiceNumber] = useState<string>(editingInvoice?.invoiceNumber ?? "");
   useEffect(() => {
-    if (editingInvoice) {
-      setPreviewNumber(null);
-      return;
-    }
+    if (editingInvoice) return;
     const documentTypeName = invoiceDocumentTypeName(documentType);
     if (!documentTypeName) {
-      setPreviewNumber(null);
+      setInvoiceNumber("");
       return;
     }
     let cancelled = false;
     apiClient
       .preview(companyId, documentTypeName)
       .then((result) => {
-        if (!cancelled) setPreviewNumber(result.number);
+        if (!cancelled) setInvoiceNumber(result.number);
       })
       .catch(() => {
-        if (!cancelled) setPreviewNumber(null);
+        if (!cancelled) setInvoiceNumber("");
       });
     return () => {
       cancelled = true;
@@ -316,8 +338,12 @@ export function InvoiceForm({
   }, [companyId, partnerId]);
 
   // Compute current invoice total for the "would exceed" warning. This is a display-only estimate
-  // using the entered amounts — the backend enforces the real total on posting.
-  const invoiceEnteredTotal = lines.reduce((sum, line) => sum + lineEnteredAmount(line), 0);
+  // using the entered amounts — the backend enforces the real total on posting. In NetExclusive
+  // mode the entered amount is net, so we add VAT to get the gross total for the credit check.
+  const invoiceEnteredTotal = lines.reduce((sum, line) => {
+    const entered = lineEnteredAmount(line);
+    return sum + computeLine(entered, taxes.find((t) => t.id === line.taxDefinitionId), priceMode).gross;
+  }, 0);
 
   // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
   // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
@@ -466,6 +492,7 @@ export function InvoiceForm({
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
           projectId: projectId || undefined,
+          invoiceNumber: invoiceNumber.trim() || undefined,
         });
         recordFavorites();
         onSaved?.();
@@ -483,6 +510,7 @@ export function InvoiceForm({
           internalNotes: internalNotes.trim() || undefined,
           warehouseId: warehouseId || undefined,
           projectId: projectId || undefined,
+          invoiceNumber: invoiceNumber.trim() || undefined,
           payment: takePaymentNow
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
@@ -496,6 +524,7 @@ export function InvoiceForm({
         setGraceDays("");
         setLines([emptyLine(defaultTaxId)]);
         setInternalNotes("");
+        setInvoiceNumber("");
         setTakePaymentNow(false);
         setPaymentAmount("");
         setPaymentMethodId("");
@@ -511,16 +540,41 @@ export function InvoiceForm({
     }
   }
 
+  // Totals for display — computed per-line using the same tax logic as the backend.
+  // These are display-only estimates; the backend enforces the real totals on posting.
+  const lineTotals = lines.map((line) => {
+    const entered = lineEnteredAmount(line);
+    return computeLine(entered, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
+  });
+  const totalNet = lineTotals.reduce((sum, l) => sum + l.net, 0);
+  const totalTax = lineTotals.reduce((sum, l) => sum + l.tax, 0);
+  const totalGross = lineTotals.reduce((sum, l) => sum + l.gross, 0);
+
+  // Helper: build item label with barcode if available
+  function itemOptionLabel(item: ItemResponse): string {
+    const barcode = item.barcodes?.[0]?.barcode;
+    return barcode ? `${item.name} [${barcode}]` : item.name;
+  }
+
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-4">
-        <div className="flex flex-col gap-2">
+      <div className="grid gap-4 sm:grid-cols-6">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="invoice-number">{intl.formatMessage({ id: "invoiceForm.invoiceNumber" })}</Label>
+          <Input
+            id="invoice-number"
+            value={invoiceNumber}
+            onChange={(event) => setInvoiceNumber(event.target.value)}
+            placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="invoice-customer">{intl.formatMessage({ id: "invoiceForm.customer" })}</Label>
           <SearchableSelect
             id="invoice-customer"
@@ -543,10 +597,14 @@ export function InvoiceForm({
               pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
               frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
             }}
+            createAction={{
+              label: intl.formatMessage({ id: "invoicing.addCustomer" }),
+              onClick: () => setNewPartnerOpen(true),
+            }}
           />
         </div>
         {fixedDocumentType === undefined && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
             <Select
               id="invoice-document-type"
@@ -562,7 +620,7 @@ export function InvoiceForm({
             />
           </div>
         )}
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
           <Input
             id="invoice-issue-date"
@@ -578,7 +636,7 @@ export function InvoiceForm({
             required
           />
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-1.5">
           <Label htmlFor="invoice-due-date">{intl.formatMessage({ id: "invoiceForm.dueDate" })}</Label>
           <Input
             id="invoice-due-date"
@@ -588,66 +646,11 @@ export function InvoiceForm({
             required
           />
         </div>
-        <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
-        <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
-      </div>
-
-      {creditExposure && creditExposure.creditLimit != null && (() => {
-        const isOverLimit = creditExposure.availableCredit != null && creditExposure.availableCredit < 0;
-        const wouldExceed =
-          !isOverLimit &&
-          creditExposure.availableCredit != null &&
-          invoiceEnteredTotal > 0 &&
-          invoiceEnteredTotal > creditExposure.availableCredit;
-        const fmt = (n: number) => n.toFixed(2) + " EUR";
-        return (
-          <div
-            className={
-              isOverLimit
-                ? "rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
-                : wouldExceed
-                  ? "rounded-md border border-yellow-300 bg-yellow-50 px-3 py-2 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
-                  : "rounded-md border px-3 py-2 text-sm text-muted-foreground"
-            }
-          >
-            {isOverLimit ? (
-              <p className="font-medium">
-                {intl.formatMessage(
-                  { id: "invoicing.creditLimit.overLimit" },
-                  { amount: fmt(Math.abs(creditExposure.availableCredit!)) },
-                )}
-              </p>
-            ) : wouldExceed ? (
-              <p className="font-medium">{intl.formatMessage({ id: "invoicing.creditLimit.wouldExceed" })}</p>
-            ) : null}
-            <p>
-              {intl.formatMessage(
-                { id: "invoicing.creditLimit.info" },
-                {
-                  available: fmt(creditExposure.availableCredit ?? 0),
-                  limit: fmt(creditExposure.creditLimit),
-                  outstanding: fmt(creditExposure.outstandingBalance),
-                },
-              )}
-            </p>
-          </div>
-        );
-      })()}
-
-      {!editingInvoice && previewNumber && (
-        <p className="text-xs text-muted-foreground">
-          {intl.formatMessage({ id: "invoiceForm.nextNumberPreview" }, { number: previewNumber })}
-        </p>
-      )}
-
-      <div className="flex flex-col gap-2 sm:w-1/2">
-        <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
-        <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
       </div>
 
       {!editingInvoice && (
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="flex flex-col gap-2">
+        <div className="grid gap-4 sm:grid-cols-4">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
             <Select
               id="invoice-price-mode"
@@ -659,7 +662,7 @@ export function InvoiceForm({
               ]}
             />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
             <Input
               id="invoice-payment-term-days"
@@ -670,7 +673,7 @@ export function InvoiceForm({
               onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
             />
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="invoice-grace-days">{intl.formatMessage({ id: "invoiceForm.graceDays" })}</Label>
             <Input
               id="invoice-grace-days"
@@ -681,11 +684,67 @@ export function InvoiceForm({
               onChange={(event) => setGraceDays(event.target.value)}
             />
           </div>
+          <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+          <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
         </div>
       )}
 
+      {editingInvoice && (
+        <div className="grid gap-4 sm:grid-cols-4">
+          <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+          <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
+        </div>
+      )}
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
+        <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+      </div>
+
+      {creditExposure && creditExposure.creditLimit != null && (() => {
+        const isOverLimit = creditExposure.available != null && creditExposure.available < 0;
+        const wouldExceed =
+          !isOverLimit &&
+          creditExposure.available != null &&
+          invoiceEnteredTotal > 0 &&
+          invoiceEnteredTotal > creditExposure.available;
+        const fmt = (n: number) => n.toFixed(2) + " EUR";
+        return (
+          <div
+            className={
+              isOverLimit
+                ? "rounded-md border border-red-300 bg-red-50 px-2 py-1.5 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                : wouldExceed
+                  ? "rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
+                  : "rounded-md border px-2 py-1.5 text-sm text-muted-foreground"
+            }
+          >
+            {isOverLimit ? (
+              <p className="font-medium">
+                {intl.formatMessage(
+                  { id: "invoicing.creditLimit.overLimit" },
+                  { amount: fmt(Math.abs(creditExposure.available!)) },
+                )}
+              </p>
+            ) : wouldExceed ? (
+              <p className="font-medium">{intl.formatMessage({ id: "invoicing.creditLimit.wouldExceed" })}</p>
+            ) : null}
+            <p>
+              {intl.formatMessage(
+                { id: "invoicing.creditLimit.info" },
+                {
+                  available: fmt(creditExposure.available ?? 0),
+                  limit: fmt(creditExposure.creditLimit),
+                  outstanding: fmt(creditExposure.outstanding),
+                },
+              )}
+            </p>
+          </div>
+        );
+      })()}
+
       {needsOriginalInvoice && (
-        <div className="flex flex-col gap-2 sm:w-1/2">
+        <div className="flex flex-col gap-1 sm:w-1/3">
           <Label htmlFor="invoice-original">
             {intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
           </Label>
@@ -705,16 +764,14 @@ export function InvoiceForm({
         </div>
       )}
 
-      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}>
+      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-4" : "flex flex-col gap-1.5"}>
         {lines.map((line, index) => {
-          const enteredAmount = lineEnteredAmount(line);
-          const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
           const selectedItem = items.find((i) => i.id === line.itemId);
           const overridden = overriddenFields(line, selectedItem);
           return (
-          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
+          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-1.5">
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
               <SearchableSelect
                 value={line.itemId}
                 onChange={(val) => selectLineItem(index, val)}
@@ -724,7 +781,7 @@ export function InvoiceForm({
                 emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.noItem" })}
                 options={items.map((item) => ({
                   value: item.id,
-                  label: item.name,
+                  label: itemOptionLabel(item),
                   description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
                 }))}
                 favorites={{
@@ -735,10 +792,14 @@ export function InvoiceForm({
                   pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
                   frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
                 }}
+                createAction={{
+                  label: intl.formatMessage({ id: "items.createItem" }),
+                  onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
+                }}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
               <SearchableSelect
                 value={line.revenueAccountId}
                 onChange={(val) => updateLine(index, { revenueAccountId: val })}
@@ -765,8 +826,8 @@ export function InvoiceForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
               {(line.salesOrderLineId || line.deliveryLineId) && (
                 <span className="text-[11px] text-muted-foreground" data-testid={`invoice-line-link-${index}`}>
@@ -774,8 +835,8 @@ export function InvoiceForm({
                 </span>
               )}
             </div>
-            <div className="relative flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
+            <div className="relative flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -793,9 +854,9 @@ export function InvoiceForm({
                 />
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-0.5">
               {index === 0 && (
-                <Label>
+                <Label className="text-xs">
                   {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat" })}
                 </Label>
               )}
@@ -812,8 +873,8 @@ export function InvoiceForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
               <Input
                 type="number"
                 step="0.01"
@@ -823,8 +884,8 @@ export function InvoiceForm({
                 onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
               />
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
+            <div className="flex flex-col gap-0.5">
+              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
               <SearchableSelect
                 value={line.taxDefinitionId}
                 onChange={(val) => updateLine(index, { taxDefinitionId: val })}
@@ -844,58 +905,39 @@ export function InvoiceForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
-              <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
-            </div>
+            {isVatRegistered && (
+              <div className="flex flex-col gap-0.5">
+                {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
+                <p className="px-2 py-1.5 text-sm tabular-nums text-muted-foreground">{lineTotals[index].net.toFixed(2)}</p>
+              </div>
+            )}
+            {isVatRegistered && (
+              <div className="flex flex-col gap-0.5">
+                {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
+                <p className="px-2 py-1.5 text-sm tabular-nums text-muted-foreground">{lineTotals[index].tax.toFixed(2)}</p>
+              </div>
+            )}
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
               {intl.formatMessage({ id: "invoiceForm.remove" })}
             </Button>
           </div>
           );
         })}
-        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
-          {intl.formatMessage({ id: "invoiceForm.addLine" })}
-        </Button>
-      </div>
-
-      {!editingInvoice && (
-        <div className="flex flex-col gap-2 rounded-md border p-3">
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <Checkbox checked={takePaymentNow} onChange={(event) => setTakePaymentNow(event.target.checked)} />
-            {intl.formatMessage({ id: "invoiceForm.takePaymentNow" })}
-          </label>
-          {takePaymentNow && (
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invoice-payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
-                <Input
-                  id="invoice-payment-amount"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={paymentAmount}
-                  onChange={(event) => setPaymentAmount(event.target.value)}
-                />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="invoice-payment-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
-                <PaymentMethodSelect
-                  id="invoice-payment-method"
-                  paymentMethods={paymentMethods}
-                  value={paymentMethodId}
-                  onChange={setPaymentMethodId}
-                  emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
-                />
-              </div>
-            </div>
-          )}
+        <div className="flex items-center justify-between">
+          <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
+            {intl.formatMessage({ id: "invoiceForm.addLine" })}
+          </Button>
+          <div className="flex items-center gap-4 text-sm font-medium tabular-nums">
+            {isVatRegistered && (
+              <>
+                <span>{intl.formatMessage({ id: "invoiceForm.totalNet" })}: {totalNet.toFixed(2)}</span>
+                <span>{intl.formatMessage({ id: "invoiceForm.totalVat" })}: {totalTax.toFixed(2)}</span>
+              </>
+            )}
+            <span className="text-base font-semibold">{intl.formatMessage({ id: "invoiceForm.totalGross" })}: {totalGross.toFixed(2)} EUR</span>
+          </div>
         </div>
-      )}
+      </div>
 
       <div className="flex items-center gap-2">
         <Button type="submit" className="w-fit" disabled={submitting}>
@@ -907,10 +949,109 @@ export function InvoiceForm({
               ? intl.formatMessage({ id: "invoiceForm.creating" })
               : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
         </Button>
+        {!editingInvoice && (
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-fit"
+            disabled={submitting}
+            onClick={() => {
+              setPaymentAmount(totalGross > 0 ? totalGross.toFixed(2) : "");
+              setShowPaymentDialog(true);
+            }}
+          >
+            {intl.formatMessage({ id: "invoiceForm.saveAndPay" })}
+          </Button>
+        )}
         <Button type="button" variant="outline" className="w-fit" onClick={() => setShowPreview(true)}>
           {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
         </Button>
       </div>
+
+      {/* Save & Pay dialog — select payment method, then submit with inline payment */}
+      <Dialog open={showPaymentDialog} onOpenChange={setShowPaymentDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{intl.formatMessage({ id: "invoiceForm.saveAndPay" })}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pay-dialog-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+              <Input
+                id="pay-dialog-amount"
+                type="number"
+                step="0.01"
+                min="0"
+                value={paymentAmount}
+                onChange={(event) => setPaymentAmount(event.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="pay-dialog-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
+              <PaymentMethodSelect
+                id="pay-dialog-method"
+                paymentMethods={paymentMethods}
+                value={paymentMethodId}
+                onChange={setPaymentMethodId}
+                emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
+              />
+            </div>
+            <Button
+              type="button"
+              disabled={submitting || !paymentMethodId || !(parseFloat(paymentAmount) > 0)}
+              onClick={() => {
+                setTakePaymentNow(true);
+                setShowPaymentDialog(false);
+                // Submit the form programmatically after state updates
+                requestAnimationFrame(() => {
+                  const form = document.querySelector<HTMLFormElement>("form");
+                  form?.requestSubmit();
+                });
+              }}
+            >
+              {submitting ? intl.formatMessage({ id: "invoiceForm.creating" }) : intl.formatMessage({ id: "invoiceForm.confirmAndPay" })}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Inline partner creation dialog */}
+      <FormDialog
+        open={newPartnerOpen}
+        onOpenChange={(open) => { if (!open) setNewPartnerOpen(false); }}
+        title={intl.formatMessage({ id: "invoicing.addCustomer" })}
+        size="sm"
+      >
+        <PartnerForm
+          companyId={companyId}
+          role="customer"
+          onCreated={(id) => {
+            setNewPartnerOpen(false);
+            if (id) setPartnerId(id);
+            onPartnerCreated?.(id);
+          }}
+        />
+      </FormDialog>
+
+      {/* Inline item creation dialog */}
+      <FormDialog
+        open={newItemOpen}
+        onOpenChange={(open) => { if (!open) { setNewItemOpen(false); setNewItemLineIndex(null); } }}
+        title={intl.formatMessage({ id: "items.createItem" })}
+        size="sm"
+      >
+        <QuickItemForm
+          companyId={companyId}
+          onCreated={(id) => {
+            setNewItemOpen(false);
+            if (newItemLineIndex != null) {
+              selectLineItem(newItemLineIndex, id);
+            }
+            setNewItemLineIndex(null);
+            onItemCreated?.(id);
+          }}
+        />
+      </FormDialog>
 
       {showPreview && (
         <InvoicePreviewDialog

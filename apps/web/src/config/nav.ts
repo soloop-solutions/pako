@@ -331,7 +331,8 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    // Customers and the partner register (Konsumatorët); each item keeps its own access area.
+    // Customers and the partner statement (Konsumatorët); Partners page kept as a route but removed
+    // from sidebar — accountants work with Customers and Vendors as separate lists.
     id: "customers",
     labelKey: "sidebar.category.customers",
     items: [
@@ -342,14 +343,6 @@ export const navCategories: NavCategory[] = [
         descriptionKey: "nav.customers.description",
         Element: Customers,
         module: "sales",
-      },
-      {
-        titleKey: "nav.partners",
-        path: "/partners",
-        icon: BookUser,
-        descriptionKey: "nav.partners.description",
-        Element: Partners,
-        module: "partners",
       },
       {
         titleKey: "nav.partnerStatement",
@@ -674,9 +667,22 @@ export const favouriteActions: FavouriteAction[] = [
   { id: "action:newJournalEntry", labelKey: "sidebar.action.newJournalEntry", path: "/ledger", icon: Plus },
 ];
 
+/** Routes kept alive but hidden from the sidebar (reachable via URL). */
+export const hiddenNavItems: NavItem[] = [
+  {
+    titleKey: "nav.partners",
+    path: "/partners",
+    icon: BookUser,
+    descriptionKey: "nav.partners.description",
+    Element: Partners,
+    module: "partners",
+  },
+];
+
 /** Flat list of every routable nav item — used by App.tsx to generate <Route> entries. */
 export const navItems: NavItem[] = [
   ...topNavItems,
   ...navCategories.flatMap((category) => category.items),
   ...bottomNavItems,
+  ...hiddenNavItems,
 ];

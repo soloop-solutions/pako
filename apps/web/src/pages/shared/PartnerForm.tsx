@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 type PartnerFormProps = {
   companyId: string;
   role: "customer" | "vendor";
-  onCreated: () => void;
+  onCreated: (id: string) => void;
 };
 
 export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
@@ -28,7 +28,7 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
     setError(null);
     setSubmitting(true);
     try {
-      await apiClient.partnersPOST(companyId, {
+      const result = await apiClient.partnersPOST(companyId, {
         name: name.trim(),
         taxNumber: taxNumber.trim() || undefined,
         isCustomer: role === "customer",
@@ -40,7 +40,7 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
       setTaxNumber("");
       setFiscalNumber("");
       setIsVatRegistered(false);
-      onCreated();
+      onCreated(result.id);
     } catch (err) {
       setError(
         getApiErrorMessage(

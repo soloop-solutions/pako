@@ -1,0 +1,324 @@
+using Pako.Api.Services;
+using Microsoft.AspNetCore.Mvc;
+using Pako.Api;
+using Pako.Api.Authorization;
+using Pako.Api.Contracts;
+using Pako.Api.Controllers;
+using Pako.Domain.Companies;
+using Pako.Domain.Hr;
+using Pako.Domain.Ledger;
+using Pako.Infrastructure;
+
+namespace Pako.Tests;
+
+public class GeneralLedgerReportTests : IAsyncLifetime
+{
+    private readonly List<PakoDbContext> _dbContexts = new();
+
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
+    {
+        foreach (var db in _dbContexts) await db.DisposeAsync();
+    }
+
+    private record Seed(PakoDbContext Db, Guid CompanyId, Guid CashId, Guid RevenueId, Guid CustomerId, Guid VendorId);
+
+    private async Task<Seed> SeedAsync()
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        db.Companies.Add(company);
+        var cash = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.CurrentAsset };
+        var revenue = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income };
+        db.Accounts.AddRange(cash, revenue);
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+        db.Journals.Add(journal);
+        var customer = new Partner { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "Customer Co", IsCustomer = true };
+        var vendor = new Partner { Id = Guid.NewGuid(), CompanyId = company.Id, Name = "Vendor Co", IsVendor = true };
+        db.Partners.AddRange(customer, vendor);
+
+        void Add(DateOnly date, decimal amount, Guid? partnerId, string description, string reference, bool post = true)
+        {
+            var entry = new JournalEntry
+            {
+                Id = Guid.NewGuid(), CompanyId = company.Id, JournalId = journal.Id, Date = date, Reference = reference,
+                Lines =
+                {
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, PartnerId = partnerId, Debit = amount, Description = description },
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = revenue.Id, Credit = amount, Description = description }
+                }
+            };
+            if (post) entry.Post(company);
+            db.JournalEntries.Add(entry);
+        }
+
+        Add(new DateOnly(2026, 1, 10), 100m, customer.Id, "January sale", "REF-A");
+        Add(new DateOnly(2026, 2, 10), 200m, vendor.Id, "February sale", "REF-B");
+        Add(new DateOnly(2026, 3, 10), 300m, customer.Id, "March sale", "REF-C");
+        Add(new DateOnly(2026, 2, 15), 999m, customer.Id, "Draft sale", "REF-D", post: false);
+        await db.SaveChangesAsync();
+        return new Seed(db, company.Id, cash.Id, revenue.Id, customer.Id, vendor.Id);
+    }
+
+    private static GeneralLedgerReportController Controller(PakoDbContext db, CompanyAccessContext? access = null) =>
+        new(db, new NullStringLocalizer<ErrorMessages>(), access ?? CompanyAccessContext.Unrestricted(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+    private static GeneralLedgerResponse Page(ActionResult<GeneralLedgerResponse> result) =>
+        Assert.IsType<GeneralLedgerResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+
+    private static readonly DateOnly Jan1 = new(2026, 1, 1);
+    private static readonly DateOnly Dec31 = new(2026, 12, 31);
+
+    [Fact]
+    public async Task GeneralLedger_ReturnsOnlyPostedLinesInRange()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, new DateOnly(2026, 2, 1), new DateOnly(2026, 3, 31), null, null));
+
+        Assert.Equal(4, page.Total);
+        Assert.DoesNotContain(page.Items, i => i.Reference == "REF-D" || i.Reference == "REF-A");
+        Assert.Equal(new[] { "REF-B", "REF-B", "REF-C", "REF-C" }, page.Items.Select(i => i.Reference));
+    }
+
+    [Fact]
+    public async Task GeneralLedger_FiltersByAccountAndPartner()
+    {
+        var s = await SeedAsync();
+        var byAccount = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, s.RevenueId, null));
+        Assert.Equal(3, byAccount.Total);
+        Assert.All(byAccount.Items, i => Assert.Equal("4000", i.AccountCode));
+
+        var byPartner = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, s.VendorId));
+        var line = Assert.Single(byPartner.Items);
+        Assert.Equal("Vendor Co", line.PartnerName);
+        Assert.Equal(200m, line.Debit);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_PagesWithTotal()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, page: 2, pageSize: 4));
+
+        Assert.Equal(6, page.Total);
+        Assert.Equal(2, page.Page);
+        Assert.Equal(4, page.PageSize);
+        Assert.Equal(2, page.Items.Count);
+        Assert.All(page.Items, i => Assert.Equal("REF-C", i.Reference));
+    }
+
+    [Fact]
+    public async Task GeneralLedger_HugePage_ReturnsEmptyNotError()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, page: int.MaxValue, pageSize: 200));
+
+        Assert.Equal(6, page.Total);
+        Assert.Empty(page.Items);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_ForbiddenForPartnerRestrictedUser()
+    {
+        var s = await SeedAsync();
+        var access = CompanyAccessContext.ForStaff(s.CompanyId, Guid.NewGuid(), Guid.NewGuid(), new Department(), new HashSet<Guid> { s.CustomerId });
+        var controller = Controller(s.Db, access);
+
+        var json = await controller.GeneralLedger(s.CompanyId, Jan1, Dec31, null, null);
+        Assert.Equal(403, Assert.IsType<ObjectResult>(json.Result).StatusCode);
+
+        var export = await controller.GeneralLedgerExport(s.CompanyId, Jan1, Dec31, null, null);
+        Assert.Equal(403, Assert.IsType<ObjectResult>(export).StatusCode);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_Export_IncludesAllRowsIgnoringPaging()
+    {
+        var s = await SeedAsync();
+        var result = await Controller(s.Db).GeneralLedgerExport(s.CompanyId, Jan1, Dec31, null, null);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+        Assert.Equal(8, sheet.LastRowUsed()!.RowNumber());
+        Assert.Equal("Account code", sheet.Cell(1, 5).GetString());
+        Assert.Equal("Credit", sheet.Cell(1, 10).GetString());
+    }
+
+    [Fact]
+    public async Task GeneralLedger_Export_HasDocumentColumns_DateCells_AndTotalRow()
+    {
+        var s = await SeedAsync();
+        var file = Assert.IsType<FileContentResult>(await Controller(s.Db).GeneralLedgerExport(s.CompanyId, Jan1, Dec31, null, null));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        var sheet = workbook.Worksheet(1);
+
+        Assert.Equal("Document type", sheet.Cell(1, 3).GetString());
+        Assert.Equal("Document number", sheet.Cell(1, 4).GetString());
+        Assert.Equal("Manual", sheet.Cell(2, 3).GetString());
+        Assert.Equal("REF-A", sheet.Cell(2, 4).GetString());
+        Assert.Equal(ClosedXML.Excel.XLDataType.DateTime, sheet.Cell(2, 1).DataType);
+        Assert.Equal(new DateTime(2026, 1, 10), sheet.Cell(2, 1).GetDateTime());
+
+        Assert.Equal("Total", sheet.Cell(8, 8).GetString());
+        Assert.Equal(600m, sheet.Cell(8, 9).GetValue<decimal>());
+        Assert.Equal(600m, sheet.Cell(8, 10).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task GeneralLedger_TotalsCoverWholeFilteredSet_NotJustPage()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, page: 1, pageSize: 2));
+
+        Assert.Equal(2, page.Items.Count);
+        Assert.Equal(6, page.Total);
+        Assert.Equal(600m, page.TotalDebit);
+        Assert.Equal(600m, page.TotalCredit);
+        Assert.Equal(100m, page.Items.Sum(i => i.Debit));
+
+        var filtered = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, s.CashId, s.CustomerId, page: 1, pageSize: 1));
+        Assert.Equal(400m, filtered.TotalDebit);
+        Assert.Equal(0m, filtered.TotalCredit);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_Lines_CarryDocumentTypeAndNumber()
+    {
+        var s = await SeedAsync();
+        var page = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null));
+        Assert.All(page.Items, i => Assert.Equal("Manual", i.DocumentType));
+        Assert.Equal("REF-A", page.Items.First().DocumentNumber);
+    }
+
+    [Theory]
+    [InlineData("Invoice", null, true, JournalType.Sale, "Invoice")]
+    [InlineData("CreditNote", null, true, JournalType.Sale, "CreditNote")]
+    [InlineData(null, "Bill", true, JournalType.Purchase, "Bill")]
+    [InlineData(null, "CreditNote", true, JournalType.Purchase, "SupplierCreditNote")]
+    [InlineData(null, null, false, JournalType.Bank, "Payment")]
+    [InlineData(null, null, false, JournalType.General, "Manual")]
+    [InlineData(null, null, true, JournalType.General, "Other")]
+    public void LedgerDocumentType_Classifies(string? invoice, string? bill, bool hasSource, JournalType journal, string expected) =>
+        Assert.Equal(expected, Pako.Domain.Reporting.LedgerDocumentType.Classify(invoice, bill, hasSource, journal));
+
+    [Fact]
+    public async Task GeneralLedger_FromAfterTo_Returns400()
+    {
+        var s = await SeedAsync();
+        var controller = Controller(s.Db);
+
+        var json = await controller.GeneralLedger(s.CompanyId, Dec31, Jan1, null, null);
+        Assert.Equal(400, Assert.IsType<BadRequestObjectResult>(json.Result).StatusCode);
+
+        var export = await controller.GeneralLedgerExport(s.CompanyId, Dec31, Jan1, null, null);
+        Assert.IsType<BadRequestObjectResult>(export);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_SearchFiltersRows()
+    {
+        var s = await SeedAsync();
+        var byPartner = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, search: "vendor"));
+        Assert.Equal(1, byPartner.Total);
+
+        var byDescription = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, search: "MARCH"));
+        Assert.Equal(2, byDescription.Total);
+
+        var byReference = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, search: "ref-a"));
+        Assert.Equal(2, byReference.Total);
+
+        var byAccountName = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, search: "revenue"));
+        Assert.Equal(3, byAccountName.Total);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_SortsDescendingWithDashPrefix()
+    {
+        var s = await SeedAsync();
+        var byDate = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, sort: "-date"));
+        Assert.Equal("REF-C", byDate.Items.First().Reference);
+        Assert.Equal("REF-A", byDate.Items.Last().Reference);
+
+        var byDebit = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, sort: "-debit"));
+        Assert.Equal(300m, byDebit.Items.First().Debit);
+
+        var byAccount = Page(await Controller(s.Db).GeneralLedger(s.CompanyId, Jan1, Dec31, null, null, sort: "-account"));
+        Assert.Equal("4000", byAccount.Items.First().AccountCode);
+    }
+
+    private async Task<(PakoDbContext Db, Guid CompanyId)> SeedDescriptionsAsync(params (string? LineDescription, string? Remarks, string Reference)[] entries)
+    {
+        var db = await PostgresTestDatabase.CreateAsync();
+        _dbContexts.Add(db);
+        var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
+        db.Companies.Add(company);
+        var cash = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "1000", Name = "Cash", AccountType = AccountType.CurrentAsset };
+        var revenue = new Account { Id = Guid.NewGuid(), CompanyId = company.Id, Code = "4000", Name = "Revenue", AccountType = AccountType.Income };
+        db.Accounts.AddRange(cash, revenue);
+        var journal = new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.General, Code = "GEN", Name = "General" };
+        db.Journals.Add(journal);
+        foreach (var e in entries)
+        {
+            var entry = new JournalEntry
+            {
+                Id = Guid.NewGuid(), CompanyId = company.Id, JournalId = journal.Id, Date = new DateOnly(2026, 1, 10),
+                Reference = e.Reference, Remarks = e.Remarks,
+                Lines =
+                {
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 10m, Description = e.LineDescription },
+                    new JournalEntryLine { Id = Guid.NewGuid(), AccountId = revenue.Id, Credit = 10m, Description = e.LineDescription }
+                }
+            };
+            entry.Post(company);
+            db.JournalEntries.Add(entry);
+        }
+        await db.SaveChangesAsync();
+        return (db, company.Id);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_SearchEscapesWildcards()
+    {
+        var (db, companyId) = await SeedDescriptionsAsync(
+            ("50% off", null, "R1"), ("50X off", null, "R2"),
+            ("a_b", null, "R3"), ("aXb", null, "R4"),
+            ("back\\slash", null, "R5"), ("backXslash", null, "R6"));
+
+        var percent = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "50%"));
+        Assert.Equal(2, percent.Total);
+        Assert.All(percent.Items, i => Assert.Equal("R1", i.Reference));
+
+        var underscore = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "a_b"));
+        Assert.Equal(2, underscore.Total);
+        Assert.All(underscore.Items, i => Assert.Equal("R3", i.Reference));
+
+        var backslash = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "\\"));
+        Assert.Equal(2, backslash.Total);
+        Assert.All(backslash.Items, i => Assert.Equal("R5", i.Reference));
+
+        var bare = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "%"));
+        Assert.Equal(2, bare.Total);
+    }
+
+    [Fact]
+    public async Task GeneralLedger_SearchMatchesRemarksFallback()
+    {
+        var (db, companyId) = await SeedDescriptionsAsync(
+            (null, "Quarterly accrual", "R1"),
+            ("Explicit text", "Hidden remark zebra", "R2"));
+
+        var fallback = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "accrual"));
+        Assert.Equal(2, fallback.Total);
+        Assert.All(fallback.Items, i =>
+        {
+            Assert.Equal("R1", i.Reference);
+            Assert.Equal("Quarterly accrual", i.Description);
+        });
+
+        var notDisplayed = Page(await Controller(db).GeneralLedger(companyId, Jan1, Dec31, null, null, search: "zebra"));
+        Assert.Equal(0, notDisplayed.Total);
+    }
+}

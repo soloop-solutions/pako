@@ -101,6 +101,8 @@ public class ItemsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Unit))
             return BadRequest("Unit is required.");
 
+        if (request.DefaultRevenueAccountId is null || request.DefaultExpenseAccountId is null || request.DefaultInventoryAccountId is null)
+            return BadRequest(_localizer["ItemDefaultAccountsRequired"].Value);
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
         var stockError = await ValidateStockFieldsAsync(companyId, null, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock)
@@ -172,6 +174,8 @@ public class ItemsController : ControllerBase
         if (string.IsNullOrWhiteSpace(request.Unit))
             return BadRequest("Unit is required.");
 
+        if (request.DefaultRevenueAccountId is null || request.DefaultExpenseAccountId is null || request.DefaultInventoryAccountId is null)
+            return BadRequest(_localizer["ItemDefaultAccountsRequired"].Value);
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
         var stockError = await ValidateStockFieldsAsync(companyId, item, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock)

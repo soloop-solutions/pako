@@ -110,6 +110,10 @@ public class Company
     public string? DocumentFooter { get; set; }
     public string? PaymentInstructions { get; set; }
 
+    // Branding
+    public string? LogoUrl { get; set; }
+    public string? StampUrl { get; set; }
+
     // Tax
     public DateOnly? VatRegistrationDate { get; set; }
 

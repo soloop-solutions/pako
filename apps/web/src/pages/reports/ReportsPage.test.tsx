@@ -1,4 +1,6 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { CompanyResponse, FileResponse, ProfitAndLossResponse, SalesBookResponse } from "@pako/shared";
 
@@ -31,6 +33,7 @@ const activeCompany: CompanyResponse = {
   email: undefined, phone: undefined, website: undefined,
   bankName: undefined, bankAccountHolder: undefined, iban: undefined, swiftBic: undefined,
   documentFooter: undefined, paymentInstructions: undefined,
+  logoUrl: undefined, stampUrl: undefined,
   isArchived: false,
   archivedAt: undefined,
 };
@@ -50,7 +53,7 @@ vi.mock("@/context/CompanyContext", () => ({
 }));
 
 function pnlResponse(from: string, to: string): ProfitAndLossResponse {
-  return { from, to, income: [], expenses: [], totalIncome: 0, totalExpenses: 0, netIncome: 0 };
+  return { from, to, income: [], expenses: [], totalIncome: 0, totalExpenses: 0, netIncome: 0, costOfRevenue: [], totalCostOfRevenue: 0, grossProfit: 0, operatingExpenses: [], totalOperatingExpenses: 0 };
 }
 
 const profitAndLoss = vi.fn(async (_companyId: string, from: string, to: string) => pnlResponse(from, to));
@@ -105,9 +108,13 @@ vi.mock("@/api/client", async () => {
 
 function renderPage() {
   return render(
-    <IntlProviderWrapper>
-      <Reports />
-    </IntlProviderWrapper>,
+    <MemoryRouter>
+      <IntlProviderWrapper>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <Reports />
+        </QueryClientProvider>
+      </IntlProviderWrapper>
+    </MemoryRouter>,
   );
 }
 

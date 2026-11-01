@@ -11,7 +11,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { downloadFileResponse } from "@/lib/download";
 import { formatAmount, formatPayrollMonth } from "@/lib/payroll-enums";
@@ -149,15 +149,17 @@ export function MyPayslips() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!viewing} onOpenChange={(open) => !open && setViewing(null)}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
-          <DialogTitle>{viewing ? formatPayrollMonth(viewing.periodStart, intl) : ""}</DialogTitle>
+      <FormDialog
+        open={!!viewing}
+        onOpenChange={(open) => !open && setViewing(null)}
+        title={viewing ? formatPayrollMonth(viewing.periodStart, intl) : ""}
+        size="sm"
+      >
           {detailQuery.data && viewing && (
             <Payslip companyName={activeCompany?.name ?? ""} periodStart={viewing.periodStart} periodEnd={viewing.periodEnd} line={detailQuery.data} />
           )}
           {detailQuery.isPending && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.loading" })}</p>}
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
     </div>
   );
 }
