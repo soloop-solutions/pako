@@ -1658,6 +1658,345 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    bankAccountsAll(companyId: string): Promise<CompanyBankAccountResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-accounts";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBankAccountsAll(_response);
+        });
+    }
+
+    protected processBankAccountsAll(response: Response): Promise<CompanyBankAccountResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyBankAccountResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyBankAccountResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    bankAccountsPOST(companyId: string, body: CreateCompanyBankAccountRequest): Promise<CompanyBankAccountResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-accounts";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBankAccountsPOST(_response);
+        });
+    }
+
+    protected processBankAccountsPOST(response: Response): Promise<CompanyBankAccountResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyBankAccountResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyBankAccountResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    bankAccountsPUT(companyId: string, bankAccountId: string, body: UpdateCompanyBankAccountRequest): Promise<CompanyBankAccountResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-accounts/{bankAccountId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (bankAccountId === undefined || bankAccountId === null)
+            throw new globalThis.Error("The parameter 'bankAccountId' must be defined.");
+        url_ = url_.replace("{bankAccountId}", encodeURIComponent("" + bankAccountId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBankAccountsPUT(_response);
+        });
+    }
+
+    protected processBankAccountsPUT(response: Response): Promise<CompanyBankAccountResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyBankAccountResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyBankAccountResponse>(null as any);
+    }
+
+    /**
+     * @return No Content
+     */
+    bankAccountsDELETE(companyId: string, bankAccountId: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-accounts/{bankAccountId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (bankAccountId === undefined || bankAccountId === null)
+            throw new globalThis.Error("The parameter 'bankAccountId' must be defined.");
+        url_ = url_.replace("{bankAccountId}", encodeURIComponent("" + bankAccountId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBankAccountsDELETE(_response);
+        });
+    }
+
+    protected processBankAccountsDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @param file (optional) 
+     * @return OK
+     */
+    logoPOST(companyId: string, file: FileParameter | undefined): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/logo";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (file === null || file === undefined)
+            throw new globalThis.Error("The parameter 'file' cannot be null.");
+        else
+            content_.append("file", file.data, file.fileName ? file.fileName : "file");
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processLogoPOST(_response);
+        });
+    }
+
+    protected processLogoPOST(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    logoDELETE(companyId: string): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/logo";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processLogoDELETE(_response);
+        });
+    }
+
+    protected processLogoDELETE(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @param file (optional) 
+     * @return OK
+     */
+    stampPOST(companyId: string, file: FileParameter | undefined): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stamp";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (file === null || file === undefined)
+            throw new globalThis.Error("The parameter 'file' cannot be null.");
+        else
+            content_.append("file", file.data, file.fileName ? file.fileName : "file");
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processStampPOST(_response);
+        });
+    }
+
+    protected processStampPOST(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    stampDELETE(companyId: string): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stamp";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processStampDELETE(_response);
+        });
+    }
+
+    protected processStampDELETE(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     listCompanyRoles(companyId: string): Promise<CompanyRoleResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/admin/roles";
         if (companyId === undefined || companyId === null)
@@ -15956,6 +16295,18 @@ export interface CommissionResultResponse {
     [key: string]: any;
 }
 
+export interface CompanyBankAccountResponse {
+    id: string;
+    bankName: string;
+    accountHolder: string | undefined;
+    iban: string | undefined;
+    swiftBic: string | undefined;
+    isDefault: boolean;
+    sortOrder: number;
+
+    [key: string]: any;
+}
+
 export interface CompanyResponse {
     id: string;
     name: string;
@@ -15989,6 +16340,8 @@ export interface CompanyResponse {
     swiftBic: string | undefined;
     documentFooter: string | undefined;
     paymentInstructions: string | undefined;
+    logoUrl: string | undefined;
+    stampUrl: string | undefined;
     vatRegistrationDate: string | undefined;
     functionalCurrency: string;
     isArchived: boolean;
@@ -16131,6 +16484,16 @@ export interface CreateBillRequest {
     [key: string]: any;
 }
 
+export interface CreateCompanyBankAccountRequest {
+    bankName: string;
+    accountHolder?: string | undefined;
+    iban?: string | undefined;
+    swiftBic?: string | undefined;
+    isDefault?: boolean;
+
+    [key: string]: any;
+}
+
 export interface CreateCompanyRequest {
     name: string;
     firmId?: string | undefined;
@@ -16194,6 +16557,7 @@ export interface CreateInvoiceRequest {
     payment?: CreateInvoicePaymentRequest | undefined;
     internalNotes?: string | undefined;
     warehouseId?: string | undefined;
+    invoiceNumber?: string | undefined;
 
     [key: string]: any;
 }
@@ -18768,6 +19132,16 @@ export interface UpdateBillRequest {
     [key: string]: any;
 }
 
+export interface UpdateCompanyBankAccountRequest {
+    bankName?: string | undefined;
+    accountHolder?: string | undefined;
+    iban?: string | undefined;
+    swiftBic?: string | undefined;
+    isDefault?: boolean | undefined;
+
+    [key: string]: any;
+}
+
 export interface UpdateCompanyModulesRequest {
     modules: string[];
 
@@ -18820,6 +19194,7 @@ export interface UpdateInvoiceRequest {
     originalInvoiceId: string | undefined;
     internalNotes: string | undefined;
     warehouseId?: string | undefined;
+    invoiceNumber?: string | undefined;
 
     [key: string]: any;
 }

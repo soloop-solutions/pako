@@ -80,7 +80,7 @@ export function profileValuesFrom(company: CompanyResponse): CompanyProfileValue
 }
 
 // Blank fields are sent as "not given" rather than empty strings.
-export function toProfileRequest(v: CompanyProfileValues): UpdateCompanyProfileRequest {
+export function toProfileRequest(v: CompanyProfileValues, isVatRegistered?: boolean): UpdateCompanyProfileRequest {
   const opt = (s: string) => s.trim() || undefined;
   return {
     name: v.name.trim(),
@@ -106,5 +106,6 @@ export function toProfileRequest(v: CompanyProfileValues): UpdateCompanyProfileR
     swiftBic: opt(v.swiftBic),
     documentFooter: opt(v.documentFooter),
     paymentInstructions: opt(v.paymentInstructions),
+    isVatRegistered,
   };
 }

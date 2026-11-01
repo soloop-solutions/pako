@@ -1,6 +1,9 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
+import { Upload, X, Plus, Trash2, Star } from "lucide-react";
 
+import { apiClient, getApiErrorMessage } from "@/api/client";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +11,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { LEGAL_FORM_OPTIONS, type CompanyProfileValues } from "@/lib/company-profile";
+import type { CompanyBankAccountResponse } from "@pako/shared";
+import { toast } from "sonner";
 
 // Every company detail, in the five sections of Settings → Company profile. Used there (as cards)
 // and in the lobby's "New company" dialog (as plain sections), so both ask for the same fields.
@@ -19,6 +24,10 @@ export function CompanyProfileFields({
   vatRegistered,
   onVatRegisteredChange,
   currency,
+  companyId,
+  logoUrl,
+  stampUrl,
+  onBrandingChange,
 }: {
   values: CompanyProfileValues;
   onChange: (patch: Partial<CompanyProfileValues>) => void;
@@ -28,6 +37,10 @@ export function CompanyProfileFields({
   /** When given, VAT registration is chosen here (new company); otherwise it is read-only. */
   onVatRegisteredChange?: (value: boolean) => void;
   currency: string;
+  companyId?: string;
+  logoUrl?: string | null;
+  stampUrl?: string | null;
+  onBrandingChange?: () => void;
 }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
@@ -83,8 +96,6 @@ export function CompanyProfileFields({
       </section>
     );
 
-  const vatLabel = t(vatRegistered ? "companyProfile.vatRegistered.yes" : "companyProfile.vatRegistered.no");
-
   return (
     <>
       {section("companyProfile.general", "companyProfile.general.description", (
@@ -110,7 +121,6 @@ export function CompanyProfileFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {text("businessNumber", "companyProfile.businessNumber")}
           {text("fiscalNumber", "companyProfile.fiscalNumber")}
-          {text("vatNumber", "companyProfile.vatNumber")}
           <div className="flex flex-col gap-1">
             <Label htmlFor={id("vatRegistered")}>{t("companyProfile.vatRegistered")}</Label>
             {onVatRegisteredChange ? (
@@ -124,10 +134,11 @@ export function CompanyProfileFields({
                 ]}
               />
             ) : (
-              <Input id={id("vatRegistered")} readOnly disabled value={vatLabel} />
+              <Input id={id("vatRegistered")} readOnly disabled value={t(vatRegistered ? "companyProfile.vatRegistered.yes" : "companyProfile.vatRegistered.no")} />
             )}
           </div>
-          {text("vatRegistrationDate", "companyProfile.vatRegistrationDate", { type: "date" })}
+          {vatRegistered && text("vatNumber", "companyProfile.vatNumber")}
+          {vatRegistered && text("vatRegistrationDate", "companyProfile.vatRegistrationDate", { type: "date" })}
           <div className="flex flex-col gap-1">
             <Label htmlFor={id("currency")}>{t("companyProfile.currency")}</Label>
             <Input id={id("currency")} readOnly disabled value={currency} />
@@ -148,7 +159,11 @@ export function CompanyProfileFields({
         </div>
       ))}
 
-      {section("companyProfile.banking", "companyProfile.banking.description", (
+      {companyId && section("companyProfile.banking", "companyProfile.banking.description", (
+        <BankAccountsSection companyId={companyId} />
+      ))}
+
+      {!companyId && section("companyProfile.banking", "companyProfile.banking.description", (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {text("bankName", "companyProfile.bankName")}
           {text("bankAccountHolder", "companyProfile.accountHolder")}
@@ -159,10 +174,236 @@ export function CompanyProfileFields({
 
       {section("companyProfile.documents", "companyProfile.documents.description", (
         <div className="grid grid-cols-1 gap-3">
+          {companyId && (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mb-3">
+              <ImageUpload
+                label={t("companyProfile.logo")}
+                imageUrl={logoUrl}
+                onUpload={(file) => apiClient.logoPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
+                onDelete={() => apiClient.logoDELETE(companyId).then(() => onBrandingChange?.())}
+              />
+              <ImageUpload
+                label={t("companyProfile.stamp")}
+                imageUrl={stampUrl}
+                onUpload={(file) => apiClient.stampPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
+                onDelete={() => apiClient.stampDELETE(companyId).then(() => onBrandingChange?.())}
+              />
+            </div>
+          )}
           {area("documentFooter", "companyProfile.documentFooter", "companyProfile.documentFooter.hint")}
           {area("paymentInstructions", "companyProfile.paymentInstructions", "companyProfile.paymentInstructions.hint")}
         </div>
       ))}
     </>
+  );
+}
+
+function ImageUpload({
+  label,
+  imageUrl,
+  onUpload,
+  onDelete,
+}: {
+  label: string;
+  imageUrl?: string | null;
+  onUpload: (file: File) => Promise<unknown>;
+  onDelete: () => Promise<unknown>;
+}) {
+  const intl = useIntl();
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
+  const baseUrl = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:5248";
+  const fullUrl = imageUrl ? `${baseUrl}${imageUrl}` : null;
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    try {
+      await onUpload(file);
+      toast.success(intl.formatMessage({ id: "companyProfile.imageUploaded" }));
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "companyProfile.imageUploadError" })));
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  async function handleDelete() {
+    try {
+      await onDelete();
+      toast.success(intl.formatMessage({ id: "companyProfile.imageDeleted" }));
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "companyProfile.imageDeleteError" })));
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      {fullUrl ? (
+        <div className="relative inline-block w-fit">
+          <img src={fullUrl} alt={label} className="h-24 max-w-48 rounded border object-contain" />
+          <button
+            type="button"
+            onClick={() => void handleDelete()}
+            className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/80"
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={uploading}
+          onClick={() => inputRef.current?.click()}
+          className="flex h-24 w-48 items-center justify-center rounded border-2 border-dashed text-muted-foreground hover:border-primary hover:text-primary"
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          {uploading ? intl.formatMessage({ id: "common.uploading" }) : intl.formatMessage({ id: "companyProfile.uploadImage" })}
+        </button>
+      )}
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/svg+xml,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) void handleFile(file);
+        }}
+      />
+    </div>
+  );
+}
+
+function BankAccountsSection({ companyId }: { companyId: string }) {
+  const intl = useIntl();
+  const t = (id: string) => intl.formatMessage({ id });
+  const [accounts, setAccounts] = useState<CompanyBankAccountResponse[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [newBank, setNewBank] = useState({ bankName: "", accountHolder: "", iban: "", swiftBic: "" });
+
+  useEffect(() => {
+    void loadAccounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
+
+  async function loadAccounts() {
+    try {
+      const data = await apiClient.bankAccountsAll(companyId);
+      setAccounts(data);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function addAccount() {
+    if (!newBank.bankName.trim()) return;
+    try {
+      await apiClient.bankAccountsPOST(companyId, {
+        bankName: newBank.bankName.trim(),
+        accountHolder: newBank.accountHolder.trim() || undefined,
+        iban: newBank.iban.trim() || undefined,
+        swiftBic: newBank.swiftBic.trim() || undefined,
+        isDefault: accounts.length === 0,
+      });
+      setNewBank({ bankName: "", accountHolder: "", iban: "", swiftBic: "" });
+      setAdding(false);
+      await loadAccounts();
+      toast.success(t("companyProfile.bankAccountAdded"));
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, t("companyProfile.bankAccountError")));
+    }
+  }
+
+  async function deleteAccount(id: string) {
+    try {
+      await apiClient.bankAccountsDELETE(companyId, id);
+      await loadAccounts();
+      toast.success(t("companyProfile.bankAccountDeleted"));
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, t("companyProfile.bankAccountError")));
+    }
+  }
+
+  async function setDefault(id: string) {
+    try {
+      await apiClient.bankAccountsPUT(companyId, id, { isDefault: true });
+      await loadAccounts();
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, t("companyProfile.bankAccountError")));
+    }
+  }
+
+  if (loading) return <p className="text-sm text-muted-foreground">{t("common.loading")}</p>;
+
+  return (
+    <div className="flex flex-col gap-3">
+      {accounts.map((acc) => (
+        <div key={acc.id} className="flex items-start gap-3 rounded border p-3">
+          <div className="flex-1 grid grid-cols-1 gap-1 sm:grid-cols-2 text-sm">
+            <div>
+              <span className="font-medium">{acc.bankName}</span>
+              {acc.isDefault && (
+                <span className="ml-2 inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-xs font-medium text-primary">
+                  {t("companyProfile.defaultBank")}
+                </span>
+              )}
+            </div>
+            {acc.accountHolder && <div className="text-muted-foreground">{acc.accountHolder}</div>}
+            {acc.iban && <div className="font-mono text-xs">{acc.iban}</div>}
+            {acc.swiftBic && <div className="text-muted-foreground text-xs">{acc.swiftBic}</div>}
+          </div>
+          <div className="flex gap-1">
+            {!acc.isDefault && (
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => void setDefault(acc.id)} title={t("companyProfile.setDefault")}>
+                <Star className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => void deleteAccount(acc.id)} title={t("common.delete")}>
+              <Trash2 className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      ))}
+
+      {adding ? (
+        <div className="rounded border p-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.bankName")} *</Label>
+              <Input value={newBank.bankName} onChange={(e) => setNewBank((b) => ({ ...b, bankName: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.accountHolder")}</Label>
+              <Input value={newBank.accountHolder} onChange={(e) => setNewBank((b) => ({ ...b, accountHolder: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.iban")}</Label>
+              <Input value={newBank.iban} onChange={(e) => setNewBank((b) => ({ ...b, iban: e.target.value }))} />
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label>{t("companyProfile.swiftBic")}</Label>
+              <Input value={newBank.swiftBic} onChange={(e) => setNewBank((b) => ({ ...b, swiftBic: e.target.value }))} />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
+            <Button type="button" size="sm" onClick={() => void addAccount()} disabled={!newBank.bankName.trim()}>
+              {t("common.save")}
+            </Button>
+            <Button type="button" size="sm" variant="outline" onClick={() => setAdding(false)}>
+              {t("common.cancel")}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => setAdding(true)}>
+          <Plus className="mr-1 h-4 w-4" />
+          {t("companyProfile.addBankAccount")}
+        </Button>
+      )}
+    </div>
   );
 }

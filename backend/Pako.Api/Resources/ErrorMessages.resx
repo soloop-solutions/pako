@@ -42,6 +42,7 @@
 
   <!-- Items -->
   <data name="ItemDefaultAccountNotBelongToCompany" xml:space="preserve"><value>One or more selected default accounts do not belong to this company.</value></data>
+  <data name="ItemDefaultAccountsRequired" xml:space="preserve"><value>Revenue, expense and inventory accounts are required.</value></data>
 
   <!-- Invoices -->
   <data name="InvalidCustomerPartner" xml:space="preserve"><value>Invalid customer partner for this company.</value></data>
@@ -1279,5 +1280,27 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   </data>
   <data name="Export_Stock_Source_StockDocument" xml:space="preserve">
     <value>Stock document</value>
+  </data>
+  <data name="InvoiceNumberAlreadyExists" xml:space="preserve">
+    <value>An invoice with this number already exists.</value>
+  </data>
+
+  <!-- Company bank accounts -->
+  <data name="BankNameRequired" xml:space="preserve">
+    <value>Bank name is required.</value>
+  </data>
+  <data name="BankAccountNotFound" xml:space="preserve">
+    <value>Bank account {0} not found.</value>
+  </data>
+
+  <!-- File upload -->
+  <data name="FileRequired" xml:space="preserve">
+    <value>A file is required.</value>
+  </data>
+  <data name="FileTooLarge" xml:space="preserve">
+    <value>File must be 2 MB or smaller.</value>
+  </data>
+  <data name="InvalidImageType" xml:space="preserve">
+    <value>Only PNG, JPEG, SVG and WebP images are accepted.</value>
   </data>
 </root>

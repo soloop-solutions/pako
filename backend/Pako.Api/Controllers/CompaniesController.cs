@@ -341,6 +341,205 @@ public class CompaniesController : ControllerBase
         return Ok(ToResponse(company));
     }
 
+    // ---- Company bank accounts ----
+
+    [HttpGet("{companyId:guid}/bank-accounts")]
+    [RequireCompanyAccess(module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(List<CompanyBankAccountResponse>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<List<CompanyBankAccountResponse>>> ListBankAccounts(Guid companyId)
+    {
+        var accounts = await _db.CompanyBankAccounts.AsNoTracking()
+            .Where(b => b.CompanyId == companyId)
+            .OrderBy(b => b.SortOrder)
+            .ToListAsync();
+        return Ok(accounts.Select(ToBankAccountResponse).ToList());
+    }
+
+    [HttpPost("{companyId:guid}/bank-accounts")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(CompanyBankAccountResponse), StatusCodes.Status201Created)]
+    public async Task<ActionResult<CompanyBankAccountResponse>> CreateBankAccount(Guid companyId, CreateCompanyBankAccountRequest request)
+    {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+            return NotFound(string.Format(_localizer["CompanyNotFound"], companyId));
+        if (company.IsArchived)
+            return BadRequest(_localizer["CompanyIsArchived"].Value);
+        if (string.IsNullOrWhiteSpace(request.BankName))
+            return BadRequest(_localizer["BankNameRequired"].Value);
+
+        var maxSort = await _db.CompanyBankAccounts.Where(b => b.CompanyId == companyId).MaxAsync(b => (int?)b.SortOrder) ?? -1;
+
+        if (request.IsDefault)
+        {
+            await _db.CompanyBankAccounts.Where(b => b.CompanyId == companyId && b.IsDefault)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsDefault, false));
+        }
+
+        var account = new CompanyBankAccount
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = companyId,
+            BankName = request.BankName.Trim(),
+            AccountHolder = request.AccountHolder?.Trim(),
+            Iban = request.Iban?.Trim(),
+            SwiftBic = request.SwiftBic?.Trim(),
+            IsDefault = request.IsDefault,
+            SortOrder = maxSort + 1
+        };
+        _db.CompanyBankAccounts.Add(account);
+        await _db.SaveChangesAsync();
+
+        return StatusCode(StatusCodes.Status201Created, ToBankAccountResponse(account));
+    }
+
+    [HttpPut("{companyId:guid}/bank-accounts/{bankAccountId:guid}")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(CompanyBankAccountResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CompanyBankAccountResponse>> UpdateBankAccount(Guid companyId, Guid bankAccountId, UpdateCompanyBankAccountRequest request)
+    {
+        var account = await _db.CompanyBankAccounts.FirstOrDefaultAsync(b => b.Id == bankAccountId && b.CompanyId == companyId);
+        if (account is null)
+            return NotFound(string.Format(_localizer["BankAccountNotFound"], bankAccountId));
+
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is { IsArchived: true })
+            return BadRequest(_localizer["CompanyIsArchived"].Value);
+
+        if (request.BankName is not null)
+        {
+            if (string.IsNullOrWhiteSpace(request.BankName))
+                return BadRequest(_localizer["BankNameRequired"].Value);
+            account.BankName = request.BankName.Trim();
+        }
+        if (request.AccountHolder is not null) account.AccountHolder = request.AccountHolder == "" ? null : request.AccountHolder.Trim();
+        if (request.Iban is not null) account.Iban = request.Iban == "" ? null : request.Iban.Trim();
+        if (request.SwiftBic is not null) account.SwiftBic = request.SwiftBic == "" ? null : request.SwiftBic.Trim();
+
+        if (request.IsDefault is true)
+        {
+            await _db.CompanyBankAccounts.Where(b => b.CompanyId == companyId && b.IsDefault && b.Id != bankAccountId)
+                .ExecuteUpdateAsync(s => s.SetProperty(b => b.IsDefault, false));
+            account.IsDefault = true;
+        }
+        else if (request.IsDefault is false)
+        {
+            account.IsDefault = false;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ToBankAccountResponse(account));
+    }
+
+    [HttpDelete("{companyId:guid}/bank-accounts/{bankAccountId:guid}")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<ActionResult> DeleteBankAccount(Guid companyId, Guid bankAccountId)
+    {
+        var account = await _db.CompanyBankAccounts.FirstOrDefaultAsync(b => b.Id == bankAccountId && b.CompanyId == companyId);
+        if (account is null)
+            return NotFound(string.Format(_localizer["BankAccountNotFound"], bankAccountId));
+
+        _db.CompanyBankAccounts.Remove(account);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    // ---- Logo / Stamp upload ----
+
+    [HttpPost("{companyId:guid}/logo")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<CompanyResponse>> UploadLogo(Guid companyId, IFormFile file)
+    {
+        return await UploadBrandingImage(companyId, file, "logo");
+    }
+
+    [HttpDelete("{companyId:guid}/logo")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CompanyResponse>> DeleteLogo(Guid companyId)
+    {
+        return await DeleteBrandingImage(companyId, "logo");
+    }
+
+    [HttpPost("{companyId:guid}/stamp")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    [Consumes("multipart/form-data")]
+    public async Task<ActionResult<CompanyResponse>> UploadStamp(Guid companyId, IFormFile file)
+    {
+        return await UploadBrandingImage(companyId, file, "stamp");
+    }
+
+    [HttpDelete("{companyId:guid}/stamp")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
+    public async Task<ActionResult<CompanyResponse>> DeleteStamp(Guid companyId)
+    {
+        return await DeleteBrandingImage(companyId, "stamp");
+    }
+
+    private async Task<ActionResult<CompanyResponse>> UploadBrandingImage(Guid companyId, IFormFile file, string kind)
+    {
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+            return NotFound(string.Format(_localizer["CompanyNotFound"], companyId));
+        if (company.IsArchived)
+            return BadRequest(_localizer["CompanyIsArchived"].Value);
+
+        if (file.Length == 0)
+            return BadRequest(_localizer["FileRequired"].Value);
+        if (file.Length > 2 * 1024 * 1024) // 2 MB limit
+            return BadRequest(_localizer["FileTooLarge"].Value);
+
+        var allowedTypes = new[] { "image/png", "image/jpeg", "image/svg+xml", "image/webp" };
+        if (!allowedTypes.Contains(file.ContentType))
+            return BadRequest(_localizer["InvalidImageType"].Value);
+
+        var uploadsDir = Path.Combine("wwwroot", "uploads", "companies", companyId.ToString());
+        Directory.CreateDirectory(uploadsDir);
+
+        var ext = Path.GetExtension(file.FileName);
+        var fileName = $"{kind}{ext}";
+        var filePath = Path.Combine(uploadsDir, fileName);
+
+        // Delete old file if exists (different extension)
+        foreach (var old in Directory.GetFiles(uploadsDir, $"{kind}.*"))
+            System.IO.File.Delete(old);
+
+        await using var stream = new FileStream(filePath, FileMode.Create);
+        await file.CopyToAsync(stream);
+
+        var url = $"/uploads/companies/{companyId}/{fileName}";
+        if (kind == "logo") company.LogoUrl = url;
+        else company.StampUrl = url;
+
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(company));
+    }
+
+    private async Task<ActionResult<CompanyResponse>> DeleteBrandingImage(Guid companyId, string kind)
+    {
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null)
+            return NotFound(string.Format(_localizer["CompanyNotFound"], companyId));
+
+        if (kind == "logo") company.LogoUrl = null;
+        else company.StampUrl = null;
+
+        var uploadsDir = Path.Combine("wwwroot", "uploads", "companies", companyId.ToString());
+        if (Directory.Exists(uploadsDir))
+        {
+            foreach (var old in Directory.GetFiles(uploadsDir, $"{kind}.*"))
+                System.IO.File.Delete(old);
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(company));
+    }
+
     private static CompanyResponse ToResponse(Company c) =>
         new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,
             c.SaleLockDate, c.PurchaseLockDate, c.HardLockDate,
@@ -350,6 +549,10 @@ public class CompaniesController : ControllerBase
             c.Email, c.Phone, c.Website,
             c.BankName, c.BankAccountHolder, c.Iban, c.SwiftBic,
             c.DocumentFooter, c.PaymentInstructions,
+            c.LogoUrl, c.StampUrl,
             c.VatRegistrationDate, c.FunctionalCurrency,
             c.IsArchived, c.ArchivedAt);
+
+    private static CompanyBankAccountResponse ToBankAccountResponse(CompanyBankAccount b) =>
+        new(b.Id, b.BankName, b.AccountHolder, b.Iban, b.SwiftBic, b.IsDefault, b.SortOrder);
 }

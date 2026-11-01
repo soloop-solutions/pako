@@ -15,6 +15,7 @@ export function CompanyProfile() {
   const companyId = activeCompany?.id ?? null;
 
   const [values, setValues] = useState<CompanyProfileValues>(emptyProfileValues);
+  const [vatRegistered, setVatRegistered] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -26,6 +27,7 @@ export function CompanyProfile() {
   useEffect(() => {
     if (!activeCompany) return;
     setValues(profileValuesFrom(activeCompany));
+    setVatRegistered(activeCompany.isVatRegistered);
     setDirty(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyKey]);
@@ -41,7 +43,7 @@ export function CompanyProfile() {
     setSaving(true);
     setError(null);
     try {
-      await apiClient.profile(companyId, toProfileRequest(values));
+      await apiClient.profile(companyId, toProfileRequest(values, vatRegistered));
       await refresh();
       setDirty(false);
       toast.success(intl.formatMessage({ id: "companyProfile.saved" }));
@@ -78,8 +80,19 @@ export function CompanyProfile() {
       <CompanyProfileFields
         values={values}
         onChange={change}
-        vatRegistered={activeCompany.isVatRegistered}
+        vatRegistered={vatRegistered}
+        onVatRegisteredChange={(v) => {
+          setVatRegistered(v);
+          setDirty(true);
+        }}
         currency={activeCompany.functionalCurrency}
+        companyId={activeCompany.id}
+        logoUrl={activeCompany.logoUrl}
+        stampUrl={activeCompany.stampUrl}
+        onBrandingChange={() => {
+          void refresh();
+          setDirty(false);
+        }}
       />
 
       {/* Sticky save bar */}

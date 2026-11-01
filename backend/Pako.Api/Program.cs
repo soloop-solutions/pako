@@ -170,6 +170,7 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 });
 
 app.UseHttpsRedirection();
+app.UseStaticFiles();
 
 app.UseCors(CorsPolicy);
 

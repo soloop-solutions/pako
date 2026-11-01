@@ -504,6 +504,10 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<int?>("LegalForm")
                         .HasColumnType("integer");
 
+                    b.Property<string>("LogoUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<string>("Municipality")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -548,6 +552,10 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<DateOnly?>("SaleLockDate")
                         .HasColumnType("date");
+
+                    b.Property<string>("StampUrl")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("StreetAddress")
                         .HasMaxLength(512)
@@ -645,6 +653,47 @@ namespace Pako.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("company_account_defaults", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.CompanyBankAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AccountHolder")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("BankName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Iban")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<bool>("IsDefault")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("SwiftBic")
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "SortOrder");
+
+                    b.ToTable("company_bank_accounts", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.CompanyRole", b =>
@@ -4053,6 +4102,15 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("FirmId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.CompanyBankAccount", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.CompanyRole", b =>

@@ -21,16 +21,30 @@ public record CompanyResponse(
     string? Country, string? Municipality, string? StreetAddress, string? PostalCode, string? AddressLine2,
     // Contact
     string? Email, string? Phone, string? Website,
-    // Banking
+    // Banking (legacy single-bank fields kept for backward compat)
     string? BankName, string? BankAccountHolder, string? Iban, string? SwiftBic,
     // Document
     string? DocumentFooter, string? PaymentInstructions,
+    // Branding
+    string? LogoUrl, string? StampUrl,
     // Tax
     DateOnly? VatRegistrationDate,
     string FunctionalCurrency,
     // Archive
     bool IsArchived,
     DateTime? ArchivedAt);
+
+public record CompanyBankAccountResponse(
+    Guid Id, string BankName, string? AccountHolder, string? Iban, string? SwiftBic,
+    bool IsDefault, int SortOrder);
+
+public record CreateCompanyBankAccountRequest(
+    string BankName, string? AccountHolder = null, string? Iban = null,
+    string? SwiftBic = null, bool IsDefault = false);
+
+public record UpdateCompanyBankAccountRequest(
+    string? BankName = null, string? AccountHolder = null, string? Iban = null,
+    string? SwiftBic = null, bool? IsDefault = null);
 
 public record UpdateCompanyProfileRequest(
     string? Name = null,

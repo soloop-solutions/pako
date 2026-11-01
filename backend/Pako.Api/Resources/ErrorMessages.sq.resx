@@ -42,6 +42,7 @@
 
   <!-- Items -->
   <data name="ItemDefaultAccountNotBelongToCompany" xml:space="preserve"><value>Një ose më shumë llogari të parazgjedhura nuk i përkasin kësaj kompanie.</value></data>
+  <data name="ItemDefaultAccountsRequired" xml:space="preserve"><value>Llogaria e të ardhurave, shpenzimeve dhe inventarit janë të detyrueshme.</value></data>
 
   <!-- Invoices -->
   <data name="InvalidCustomerPartner" xml:space="preserve"><value>Partner klient i pavlefshëm për këtë kompani.</value></data>
@@ -1279,5 +1280,27 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   </data>
   <data name="Export_Stock_Source_StockDocument" xml:space="preserve">
     <value>Dokument stoku</value>
+  </data>
+  <data name="InvoiceNumberAlreadyExists" xml:space="preserve">
+    <value>Ekziston tashmë një faturë me këtë numër.</value>
+  </data>
+
+  <!-- Company bank accounts -->
+  <data name="BankNameRequired" xml:space="preserve">
+    <value>Emri i bankës është i detyrueshëm.</value>
+  </data>
+  <data name="BankAccountNotFound" xml:space="preserve">
+    <value>Llogaria bankare {0} nuk u gjet.</value>
+  </data>
+
+  <!-- File upload -->
+  <data name="FileRequired" xml:space="preserve">
+    <value>Një skedar është i nevojshëm.</value>
+  </data>
+  <data name="FileTooLarge" xml:space="preserve">
+    <value>Skedari duhet të jetë 2 MB ose më i vogël.</value>
+  </data>
+  <data name="InvalidImageType" xml:space="preserve">
+    <value>Vetëm imazhet PNG, JPEG, SVG dhe WebP pranohen.</value>
   </data>
 </root>

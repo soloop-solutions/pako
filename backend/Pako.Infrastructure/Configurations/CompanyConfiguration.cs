@@ -47,5 +47,9 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         // Document
         builder.Property(c => c.DocumentFooter).HasMaxLength(2000);
         builder.Property(c => c.PaymentInstructions).HasMaxLength(2000);
+
+        // Branding
+        builder.Property(c => c.LogoUrl).HasMaxLength(512);
+        builder.Property(c => c.StampUrl).HasMaxLength(512);
     }
 }
