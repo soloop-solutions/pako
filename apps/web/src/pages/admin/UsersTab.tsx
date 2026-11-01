@@ -11,7 +11,7 @@ import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -289,14 +289,15 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
         manualGrouping={false}
       />
 
-      <Dialog open={!!dialog} onOpenChange={(open) => !open && setDialog(null)}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogTitle>
-            {dialog?.mode === "edit"
-              ? intl.formatMessage({ id: "admin.users.editTitle" }, { name: dialog.user.fullName ?? dialog.user.email })
-              : intl.formatMessage({ id: "admin.users.invite" })}
-          </DialogTitle>
-          <DialogDescription>{intl.formatMessage({ id: dialog?.mode === "edit" ? "admin.users.editHint" : "admin.users.inviteHint" })}</DialogDescription>
+      <FormDialog
+        open={!!dialog}
+        onOpenChange={(open) => !open && setDialog(null)}
+        title={dialog?.mode === "edit"
+          ? intl.formatMessage({ id: "admin.users.editTitle" }, { name: dialog.user.fullName ?? dialog.user.email })
+          : intl.formatMessage({ id: "admin.users.invite" })}
+        description={intl.formatMessage({ id: dialog?.mode === "edit" ? "admin.users.editHint" : "admin.users.inviteHint" })}
+        size="sm"
+      >
           <form className="flex flex-col gap-3" onSubmit={handleSubmit}>
             {error && (
               <Alert variant="destructive">
@@ -370,8 +371,7 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+      </FormDialog>
     </div>
   );
 }

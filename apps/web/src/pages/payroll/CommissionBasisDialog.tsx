@@ -6,7 +6,7 @@ import type { CommissionBasisItemResponse } from "@pako/shared";
 
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/shared/FormDialog";
 import { formatAmount } from "@/lib/payroll-enums";
 
 // G11 drill-down: the posted documents (or payments) a computed commission was based on.
@@ -42,9 +42,12 @@ export function CommissionBasisDialog({
 
   const rows = basisQuery.data ?? [];
   return (
-    <Dialog open={!!adjustmentId} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-3xl">
-        <DialogTitle>{title}</DialogTitle>
+    <FormDialog
+      open={!!adjustmentId}
+      onOpenChange={(open) => !open && onClose()}
+      title={title}
+      size="lg"
+    >
         <DataGrid
           gridId="commission-basis"
           columns={columns}
@@ -57,7 +60,6 @@ export function CommissionBasisDialog({
           manualSorting={false}
           manualGrouping={false}
         />
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }

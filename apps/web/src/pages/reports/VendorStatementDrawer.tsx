@@ -6,7 +6,7 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormDialog } from "@/components/shared/FormDialog";
 
 import { entityPath } from "@/lib/entityLinks";
 
@@ -86,12 +86,13 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
   const error = query.error ? getApiErrorMessage(query.error, intl.formatMessage({ id: "reports.vendorStatementLoadError" })) : null;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>{intl.formatMessage({ id: "reports.vendorStatement" })}{data ? ` - ${data.name}` : ""}</DialogTitle>
-          <DialogDescription>{`${from} - ${to}`}</DialogDescription>
-        </DialogHeader>
+    <FormDialog
+      open
+      onOpenChange={(open) => !open && onClose()}
+      title={`${intl.formatMessage({ id: "reports.vendorStatement" })}${data ? ` - ${data.name}` : ""}`}
+      description={`${from} - ${to}`}
+      size="lg"
+    >
         <div className="flex items-center gap-4">
           <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />
         </div>
@@ -117,7 +118,6 @@ export function VendorStatementDrawer({ companyId, partnerId, from, to, onClose 
             }}
           />
         )}
-      </DialogContent>
-    </Dialog>
+    </FormDialog>
   );
 }
