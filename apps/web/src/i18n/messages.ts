@@ -1007,6 +1007,8 @@ export const en: Record<string, string> = {
   "partners.searchPlaceholder": "Search by name, tax number, or fiscal number...",
   "partners.vatRegisteredShort": "VAT registered",
   "partners.notVatRegisteredShort": "Not VAT registered",
+  "partners.alsoCustomer": "Also customer",
+  "partners.alsoVendor": "Also vendor",
 
   // Customers page (P02)
   "customers.title": "Customers",
@@ -2654,6 +2656,8 @@ export const sq: Record<string, string> = {
   "partners.searchPlaceholder": "K\u00ebrko sipas emrit, numrit fiskal ose numrit personal...",
   "partners.vatRegisteredShort": "I regjistruar n\u00eb TVSH",
   "partners.notVatRegisteredShort": "Pa regjistrim n\u00eb TVSH",
+  "partners.alsoCustomer": "Edhe klient",
+  "partners.alsoVendor": "Edhe furnitor",
 
   // Customers page (P02)
   "customers.title": "Klient\u00ebt",

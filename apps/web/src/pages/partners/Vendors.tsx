@@ -17,7 +17,19 @@ const labels: PartnerListPageLabels = {
   searchPlaceholderKey: "vendors.searchPlaceholder",
 };
 
+const HIDDEN_COLUMNS = ["receivableAccount", "creditLimit", "type"];
+
 export function Vendors() {
   const filterFn = useCallback((p: PartnerResponse) => p.isVendor, []);
-  return <PartnerListPage gridId="vendors" labels={labels} filterFn={filterFn} defaultRole="vendor" exportFileName="vendors" />;
+  return (
+    <PartnerListPage
+      gridId="vendors"
+      labels={labels}
+      filterFn={filterFn}
+      defaultRole="vendor"
+      showTypeColumn={false}
+      hiddenColumnIds={HIDDEN_COLUMNS}
+      exportFileName="vendors"
+    />
+  );
 }

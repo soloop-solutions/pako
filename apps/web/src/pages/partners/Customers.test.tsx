@@ -153,13 +153,21 @@ describe("Customers", () => {
     ));
   });
 
-  it("dual-role partner appears with both Customer and Vendor badges", async () => {
+  it("dual-role partner shows 'Also vendor' badge instead of type column", async () => {
     renderPage();
 
     await waitFor(() => expect(screen.getByText("Both Inc")).toBeInTheDocument());
     const row = screen.getByText("Both Inc").closest("tr");
     if (!row) throw new Error("row not found");
-    expect(within(row).getByText("Customer")).toBeInTheDocument();
-    expect(within(row).getByText("Vendor")).toBeInTheDocument();
+    expect(within(row).getByText("Also vendor")).toBeInTheDocument();
+  });
+
+  it("customer-only partner does not show 'Also vendor' badge", async () => {
+    renderPage();
+
+    await waitFor(() => expect(screen.getByText("Customer Corp")).toBeInTheDocument());
+    const row = screen.getByText("Customer Corp").closest("tr");
+    if (!row) throw new Error("row not found");
+    expect(within(row).queryByText("Also vendor")).not.toBeInTheDocument();
   });
 });
