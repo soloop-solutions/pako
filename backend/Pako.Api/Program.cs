@@ -165,6 +165,9 @@ builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
+// Development: keep the local database on the committed demo set (backend/seed, docs/COMPANY_TYPES.md).
+await Pako.Api.Services.DemoDatabaseSync.RunAsync(app.Configuration, app.Environment, app.Logger);
+
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PakoDbContext>();

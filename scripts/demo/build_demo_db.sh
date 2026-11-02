@@ -13,6 +13,9 @@ PORT=5435
 API_PORT=5399
 DB=pako_dev
 OUT="$REPO/backend/seed/pako_demo.sql.gz"
+VERSION_FILE="$REPO/backend/seed/pako_demo.version"
+# Bumping the version makes every developer's API reload the demo set on its next start.
+VERSION="$(date +%Y-%m-%d).$(date +%H%M%S)"
 LOG="$(mktemp -t pako-demo-api.XXXXXX)"
 export DOTNET_ROLL_FORWARD=Major
 
@@ -32,7 +35,8 @@ sleep 2
 echo "==> API on :$API_PORT (migrates the empty database, creates the platform administrator)"
 dotnet build "$REPO/backend/Pako.Api/Pako.Api.csproj" -v q >/dev/null
 # The build signs in hundreds of times: lift the per-minute limit on the account endpoints for this run.
-ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$API_PORT" Platform__AuthRequestsPerMinute=100000 \
+# Demo__AutoLoad=false: this API builds the data set, it must not load the old one first.
+ASPNETCORE_ENVIRONMENT=Development ASPNETCORE_URLS="http://127.0.0.1:$API_PORT" Platform__AuthRequestsPerMinute=100000 Demo__AutoLoad=false \
   ConnectionStrings__Default="Host=localhost;Port=$PORT;Database=$DB;Username=postgres;Password=postgres" \
   dotnet run --no-build --project "$REPO/backend/Pako.Api/Pako.Api.csproj" --no-launch-profile >"$LOG" 2>&1 &
 API_PID=$!
@@ -44,6 +48,12 @@ PAKO_API="http://127.0.0.1:$API_PORT" python3 "$REPO/scripts/demo/build.py"
 
 echo "==> Dump to $OUT"
 kill "$API_PID"; API_PID=""
-docker exec "$PG" pg_dump -U postgres -d $DB --no-owner --no-privileges | gzip -9 > "$OUT"
+{
+  docker exec "$PG" pg_dump -U postgres -d $DB --no-owner --no-privileges
+  printf -- "\n-- Demo data version (read by the API's DemoDatabaseSync)\n"
+  printf "CREATE TABLE public.__pako_demo_seed (version text NOT NULL);\n"
+  printf "INSERT INTO public.__pako_demo_seed (version) VALUES ('%s');\n" "$VERSION"
+} | gzip -9 > "$OUT"
+echo "$VERSION" > "$VERSION_FILE"
 ls -lh "$OUT"
 echo "Done. Accounts: docs/DEMO_ACCOUNTS.md"
