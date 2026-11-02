@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
+import { BusinessTypeSettings } from "@/pages/settings/BusinessTypeSettings";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
 import { NumberingSettings } from "@/pages/settings/NumberingSettings";
@@ -60,6 +61,9 @@ export function Settings() {
           )}
         </CardContent>
       </Card>
+
+      {/* Business types: the company's type and the packs it uses. */}
+      {activeCompany && <BusinessTypeSettings companyId={activeCompany.id} />}
 
       {activeCompany && <NumberingSettings companyId={activeCompany.id} />}
 

@@ -22,6 +22,7 @@ namespace Pako.Api.Controllers;
 [ApiController]
 [Route("api/companies/{companyId:guid}/pos")]
 [Authorize]
+[RequireCompanyFeature(CompanyFeature.Hotel | CompanyFeature.Events)]
 public class PosHotelController : ControllerBase
 {
     private static readonly HotelBookingState[] Holding = { HotelBookingState.Reserved, HotelBookingState.CheckedIn };

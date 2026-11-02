@@ -11,6 +11,8 @@ const ACTIVE_COMPANY_KEY = "pako.activeCompanyId";
 
 export type CreateCompanyOptions = {
   isVatRegistered?: boolean;
+  /** Business types: the type whose preset packs the server switches on (omitted = General). */
+  businessType?: number;
   /** The rest of the company details, saved right after the company is created. */
   profile?: UpdateCompanyProfileRequest;
 };
@@ -145,7 +147,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   // Companies are created only from the lobby, which then opens the new one.
   async function createCompany(name: string, firmId?: string, options?: CreateCompanyOptions): Promise<CreatedCompany> {
-    const created = await apiClient.companies({ name, firmId, isVatRegistered: options?.isVatRegistered });
+    const created = await apiClient.companies({ name, firmId, isVatRegistered: options?.isVatRegistered, businessType: options?.businessType });
     let profileError: unknown = null;
     if (options?.profile) {
       try {

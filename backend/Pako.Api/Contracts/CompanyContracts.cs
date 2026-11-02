@@ -6,7 +6,13 @@ namespace Pako.Api.Contracts;
 // always included regardless of what's passed, per 50_Profiles. IsVatRegistered omitted/null
 // defaults to true (Company.IsVatRegistered's own default) — see C2 (tax-enums.ts / CLAUDE.md)
 // for why a genuinely-empty "no tax" choice is only ever valid once this is false.
-public record CreateCompanyRequest(string Name, Guid? FirmId = null, CompanyProfile? EnabledProfiles = null, bool? IsVatRegistered = null);
+public record CreateCompanyRequest(string Name, Guid? FirmId = null, CompanyProfile? EnabledProfiles = null, bool? IsVatRegistered = null,
+    // docs/COMPANY_TYPES.md: the kind of business; picks its packs and starting modules (null = General).
+    BusinessType? BusinessType = null);
+
+// docs/COMPANY_TYPES.md: changing the type resets the packs to the type's own.
+public record UpdateBusinessTypeRequest(BusinessType BusinessType);
+public record UpdateCompanyFeaturesRequest(List<string> Features);
 
 // B4: SaleLockDate/PurchaseLockDate/HardLockDate alongside the existing two.
 // Company profile fields added in AddCompanyProfile migration; archive in AddCompanyArchive.
@@ -32,7 +38,10 @@ public record CompanyResponse(
     string FunctionalCurrency,
     // Archive
     bool IsArchived,
-    DateTime? ArchivedAt);
+    DateTime? ArchivedAt,
+    // docs/COMPANY_TYPES.md: the kind of business and the vertical packs switched on.
+    BusinessType BusinessType = BusinessType.General,
+    List<string>? Features = null);
 
 public record CompanyBankAccountResponse(
     Guid Id, string BankName, string? AccountHolder, string? Iban, string? SwiftBic,

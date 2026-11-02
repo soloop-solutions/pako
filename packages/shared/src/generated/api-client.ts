@@ -1537,6 +1537,49 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    updateCompanyBusinessType(companyId: string, body: UpdateBusinessTypeRequest): Promise<CompanyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/business-type";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateCompanyBusinessType(_response);
+        });
+    }
+
+    protected processUpdateCompanyBusinessType(response: Response): Promise<CompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as CompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<CompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     profile(companyId: string, body: UpdateCompanyProfileRequest): Promise<CompanyResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/profile";
         if (companyId === undefined || companyId === null)
@@ -13415,6 +13458,49 @@ export class PakoApiClient {
     }
 
     protected processUpdateCompanyModules(response: Response): Promise<PlatformCompanyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PlatformCompanyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PlatformCompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateCompanyFeatures(companyId: string, body: UpdateCompanyFeaturesRequest): Promise<PlatformCompanyResponse> {
+        let url_ = this.baseUrl + "/api/platform/companies/{companyId}/features";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateCompanyFeatures(_response);
+        });
+    }
+
+    protected processUpdateCompanyFeatures(response: Response): Promise<PlatformCompanyResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -27405,6 +27491,8 @@ export interface CompanyResponse {
     functionalCurrency: string;
     isArchived: boolean;
     archivedAt: string | undefined;
+    businessType?: number;
+    features?: string[] | undefined;
 
     [key: string]: any;
 }
@@ -27628,6 +27716,7 @@ export interface CreateCompanyRequest {
     firmId?: string | undefined;
     enabledProfiles?: number | undefined;
     isVatRegistered?: boolean | undefined;
+    businessType?: number | undefined;
 
     [key: string]: any;
 }
@@ -29328,6 +29417,8 @@ export interface MyAccessResponse {
     isTeamManager?: boolean;
     roleName?: string | undefined;
     canManageUsers?: boolean;
+    businessType?: number;
+    features?: string[] | undefined;
 
     [key: string]: any;
 }
@@ -29944,6 +30035,8 @@ export interface PlatformCompanyResponse {
     postedBills: number;
     employees: number;
     lastActivity: string | undefined;
+    businessType?: number;
+    features?: string[] | undefined;
 
     [key: string]: any;
 }
@@ -32992,12 +33085,24 @@ export interface UpdateBillRequest {
     [key: string]: any;
 }
 
+export interface UpdateBusinessTypeRequest {
+    businessType: number;
+
+    [key: string]: any;
+}
+
 export interface UpdateCompanyBankAccountRequest {
     bankName?: string | undefined;
     accountHolder?: string | undefined;
     iban?: string | undefined;
     swiftBic?: string | undefined;
     isDefault?: boolean | undefined;
+
+    [key: string]: any;
+}
+
+export interface UpdateCompanyFeaturesRequest {
+    features: string[];
 
     [key: string]: any;
 }

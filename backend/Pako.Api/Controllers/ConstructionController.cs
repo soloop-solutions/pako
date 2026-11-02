@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
+using Pako.Domain.Companies;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Bills;
@@ -22,6 +23,7 @@ namespace Pako.Api.Controllers;
 [ApiController]
 [Route("api/companies/{companyId:guid}/construction")]
 [Authorize]
+[RequireCompanyFeature(CompanyFeature.Construction)]
 public class ConstructionController : ControllerBase
 {
     private readonly PakoDbContext _db;

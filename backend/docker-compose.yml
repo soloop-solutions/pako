@@ -12,6 +12,9 @@ services:
     shm_size: 256mb
     volumes:
       - pako_postgres_data:/var/lib/postgresql/data
+      # docs/DEMO_ACCOUNTS.md: a NEW (empty) volume starts with the demo data set. An existing volume
+      # keeps its data; load the demo set into it with scripts/demo/load_demo_db.sh.
+      - ./seed:/docker-entrypoint-initdb.d:ro
 
 volumes:
   pako_postgres_data:

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
+using Pako.Domain.Companies;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Hr;
@@ -18,6 +19,7 @@ namespace Pako.Api.Controllers;
 [ApiController]
 [Route("api/companies/{companyId:guid}/real-estate")]
 [Authorize]
+[RequireCompanyFeature(CompanyFeature.RealEstate | CompanyFeature.Rentals)]
 public class RealEstateController : ControllerBase
 {
     private readonly PakoDbContext _db;

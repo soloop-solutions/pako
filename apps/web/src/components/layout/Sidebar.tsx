@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { bottomNavItems, favouriteActions, navCategories, topNavItems, type NavItem, type NavModule } from "@/config/nav";
 import { useAuth } from "@/context/AuthContext";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import {
   emptyPrefs,
@@ -28,6 +29,11 @@ const moduleByPath = new Map<string, NavModule | undefined>(
   navCategories.flatMap((c) => c.items.map((item) => [item.path, item.module ?? c.module] as const)),
 );
 
+// Business types: the vertical pack each nav path belongs to (undefined = every company).
+const featureByPath = new Map<string, NavItem["feature"]>(
+  [...allItemsByPath.values()].filter((item) => item.feature).map((item) => [item.path, item.feature] as const),
+);
+
 function buildSavedViewHref(item: NavItem, filters: Record<string, string>): string {
   if (!item.gridId || Object.keys(filters).length === 0) return item.path;
   const params = new URLSearchParams();
@@ -43,11 +49,14 @@ export function Sidebar() {
   const { auth } = useAuth();
   const userId = auth?.userId ?? null;
   const { access, canSee } = useMyAccess();
+  const { hasFeature } = useFeatures();
 
-  // Display only — hides what the user's department can't open; the API enforces it regardless.
+  // Display only — hides what the user's department can't open, and the pages of vertical packs
+  // the company doesn't use; the API enforces both regardless. A category left empty is hidden.
   function isAllowed(path: string): boolean {
     const module = moduleByPath.get(path);
-    return !module || canSee(module);
+    const feature = featureByPath.get(path);
+    return (!module || canSee(module)) && (!feature || hasFeature(feature));
   }
 
   // `userId` and `prefs` are kept in one state object, set together, so a user switch is atomic
@@ -380,7 +389,7 @@ function FavouritesSection({
   // Over-fetch so we have enough candidates after filtering out pinned/excluded paths.
   const topPaths = userId ? getTopNavPaths(userId, SUGGESTION_LIMIT + pinnedSet.size + excludedPaths.size) : [];
   const suggestions = topPaths
-    .filter((path) => !pinnedSet.has(path) && !excludedPaths.has(path) && allItemsByPath.has(path))
+    .filter((path) => !pinnedSet.has(path) && !excludedPaths.has(path) && allItemsByPath.has(path) && isAllowed(path))
     .slice(0, SUGGESTION_LIMIT)
     .map((path) => allItemsByPath.get(path)!)
 

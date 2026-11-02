@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 import { AtkStatus, FiscalMode, PosOrderKind, PosSessionState, RegisterProfile, atkStatusKey, fiscalModeKey, posOrderKindKey, posSessionStateKey } from "@/lib/pos-enums";
@@ -30,6 +31,7 @@ export function PosHome() {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const navigate = useNavigate();
+  const { hasFeature } = useFeatures();
   const { activeCompanyId } = useCompany();
   const { canWrite } = useMyAccess();
   const registers = (usePosRegisters().data ?? []).filter((r) => r.isActive);
@@ -144,7 +146,7 @@ export function PosHome() {
                     </Button>
                   )}
                   {/* P3: a restaurant's kitchen display for this register's store. */}
-                  {(r.profile === RegisterProfile.Cafe || r.profile === RegisterProfile.Restaurant) && (
+                  {(r.profile === RegisterProfile.Cafe || r.profile === RegisterProfile.Restaurant) && hasFeature("hospitality") && (
                     <Button size="sm" variant="outline" onClick={() => navigate(`/pos/kds?store=${r.storeId}`)}>
                       <ChefHat className="size-4" />
                       {t("rest.kds.open")}

@@ -1634,4 +1634,7 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="InvalidImageType" xml:space="preserve">
     <value>Vetëm imazhet PNG, JPEG, SVG dhe WebP pranohen.</value>
   </data>
+  <data name="FeatureDisabled" xml:space="preserve"><value>Ky funksion nuk përdoret nga kjo kompani. Administratori i saj mund ta ndryshojë llojin e biznesit, ose administratori i platformës mund ta aktivizojë paketën.</value></data>
+  <data name="BusinessTypeInvalid" xml:space="preserve"><value>Zgjidhni llojin e biznesit.</value></data>
+  <data name="FeaturesInvalid" xml:space="preserve"><value>Njëra nga paketat nuk njihet.</value></data>
 </root>

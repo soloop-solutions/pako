@@ -76,4 +76,12 @@ public class PlatformAdminController : ControllerBase
         var (result, error) = await _platform.UpdateModulesAsync(companyId, request.Modules, CurrentUserId);
         return error is null ? Ok(result) : BadRequest(error);
     }
+
+    // docs/COMPANY_TYPES.md: the vertical packs a company uses.
+    [HttpPut("companies/{companyId:guid}/features", Name = "UpdateCompanyFeatures")]
+    public async Task<ActionResult<PlatformCompanyResponse>> UpdateFeatures(Guid companyId, UpdateCompanyFeaturesRequest request)
+    {
+        var (result, error) = await _platform.UpdateFeaturesAsync(companyId, request.Features, CurrentUserId);
+        return error is null ? Ok(result) : BadRequest(error);
+    }
 }

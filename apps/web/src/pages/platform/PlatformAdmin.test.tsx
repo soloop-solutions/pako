@@ -9,6 +9,7 @@ import { PlatformAdmin } from "@/pages/platform/PlatformAdmin";
 let isAdmin = true;
 const approve = vi.fn(async () => ({ request: {}, userId: "new", setPasswordUrl: "https://app.test/reset-password?email=a&token=t" }));
 const updateModules = vi.fn(async () => ({}));
+const updateFeatures = vi.fn(async () => ({}));
 
 const request = {
   id: "r1", fullName: "Ardita Krasniqi", email: "ardita@firm.test", phone: "+383 44", firmName: "Krasniqi Acc", city: "Prishtinë",
@@ -17,6 +18,7 @@ const request = {
 const company = {
   id: "c1", name: "Pako Demo Sh.p.k.", createdByEmail: "demo.admin@pako.test", modules: ["sales", "purchases", "accounting", "reports", "hr", "payroll"],
   isArchived: false, createdAt: "2026-01-01T00:00:00Z", users: 2, postedInvoices: 220, postedBills: 185, employees: 14,
+  businessType: 1, features: ["grocery", "onlineSales"],
 };
 
 vi.mock("@/api/client", async () => {
@@ -39,6 +41,7 @@ vi.mock("@/api/client", async () => {
       approveAccountRequest: (...args: unknown[]) => approve(...(args as [])),
       listPlatformCompanies: async () => ({ items: [company], total: 1, page: 1, pageSize: 50 }),
       updateCompanyModules: (...args: unknown[]) => updateModules(...(args as [])),
+      updateCompanyFeatures: (...args: unknown[]) => updateFeatures(...(args as [])),
       listPlatformUsers: async () => ({ items: [], total: 0, page: 1, pageSize: 50 }),
     },
   };
@@ -102,6 +105,24 @@ describe("Administration panel", () => {
     expect(within(dialog).getByRole("checkbox", { name: /^Payroll/ })).not.toBeChecked();
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
     await waitFor(() => expect(updateModules).toHaveBeenCalledWith("c1", { modules: ["sales", "purchases", "accounting", "reports"] }));
+    // The packs were not touched, so they are not saved.
+    expect(updateFeatures).not.toHaveBeenCalled();
+  });
+
+  // Business types: each company's type and packs, the packs switched on and off like modules.
+  it("shows the business type and saves the company's packs", async () => {
+    renderAt("/platform?tab=companies");
+    expect(await screen.findByText("Market / shop")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("Pako Demo Sh.p.k."));
+    const dialog = await screen.findByRole("dialog");
+    const packs = within(dialog).getByTestId("platform-packs");
+    expect(within(packs).getByRole("checkbox", { name: /^Grocery/ })).toBeChecked();
+    expect(within(packs).getByRole("checkbox", { name: /^Hotel/ })).not.toBeChecked();
+    fireEvent.click(within(packs).getByRole("checkbox", { name: /^Online sales/ }));
+    fireEvent.click(within(packs).getByRole("checkbox", { name: /^Distribution/ }));
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(updateFeatures).toHaveBeenCalledWith("c1", { features: ["grocery", "distribution"] }));
+    expect(updateModules).not.toHaveBeenCalled();
   });
 
   it("moves between tabs with the arrow keys and records every change under Activity", async () => {

@@ -7,6 +7,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RequireCompany } from "@/components/RequireCompany";
+import { FeatureGate } from "@/components/FeatureGate";
 import { navItems } from "@/config/nav";
 import { AuthProvider } from "@/context/AuthContext";
 import { CompanyProvider } from "@/context/CompanyContext";
@@ -79,16 +80,21 @@ export function App() {
                   {/* docs/POS_PLAN.md: the till is full screen, outside the app shell. */}
                   <Route path="/pos/till/:registerId" element={<Till />} />
                   {/* P3: the kitchen display, full screen too (?store=…&center=…). */}
-                  <Route path="/pos/kds" element={<Kds />} />
+                  <Route path="/pos/kds" element={<FeatureGate feature="hospitality" fullScreen><Kds /></FeatureGate>} />
                   {/* P5: the door scanner for ticketed events, full screen (?event=…). */}
-                  <Route path="/pos/scan" element={<TicketScanner />} />
+                  <Route path="/pos/scan" element={<FeatureGate feature="events" fullScreen><TicketScanner /></FeatureGate>} />
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Landing />} />
-                    {navItems.map(({ path, titleKey, descriptionKey, Element }) => (
+                    {/* Business types: a page of a pack the company doesn't use says so (FeatureGate). */}
+                    {navItems.map(({ path, titleKey, descriptionKey, Element, feature }) => (
                       <Route
                         key={path}
                         path={path}
-                        element={Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
+                        element={
+                          <FeatureGate feature={feature}>
+                            {Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
+                          </FeatureGate>
+                        }
                       />
                     ))}
                     <Route path="/invoicing/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
@@ -101,10 +107,10 @@ export function App() {
                     <Route path="/price-changes/:id" element={<InstanceRoute Component={PriceChangeDetail} />} />
                     <Route path="/purchase-orders/:id" element={<InstanceRoute Component={PurchaseOrderDetail} />} />
                     <Route path="/sales-orders/:id" element={<InstanceRoute Component={SalesOrderDetail} />} />
-                    <Route path="/construction/:id" element={<InstanceRoute Component={SiteDetail} />} />
-                    <Route path="/real-estate/buildings/:id" element={<InstanceRoute Component={BuildingDetail} />} />
-                    <Route path="/real-estate/contracts/:id" element={<InstanceRoute Component={SaleContractDetail} />} />
-                    <Route path="/rentals/leases/:id" element={<InstanceRoute Component={LeaseDetail} />} />
+                    <Route path="/construction/:id" element={<FeatureGate feature="construction"><InstanceRoute Component={SiteDetail} /></FeatureGate>} />
+                    <Route path="/real-estate/buildings/:id" element={<FeatureGate feature="realEstate"><InstanceRoute Component={BuildingDetail} /></FeatureGate>} />
+                    <Route path="/real-estate/contracts/:id" element={<FeatureGate feature="realEstate"><InstanceRoute Component={SaleContractDetail} /></FeatureGate>} />
+                    <Route path="/rentals/leases/:id" element={<FeatureGate feature="rentals"><InstanceRoute Component={LeaseDetail} /></FeatureGate>} />
                   </Route>
                 </Route>
               </Route>

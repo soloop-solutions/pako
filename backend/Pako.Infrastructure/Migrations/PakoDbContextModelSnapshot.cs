@@ -450,6 +450,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<int>("BusinessType")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Country")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
@@ -471,6 +474,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<long>("EnabledFeatures")
+                        .HasColumnType("bigint");
 
                     b.Property<int>("EnabledModules")
                         .HasColumnType("integer");

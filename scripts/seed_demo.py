@@ -204,7 +204,7 @@ def main():
         item = call("POST", f"{c}/items", token, {
             "name": name, "unit": unit, "type": kind, "defaultTaxDefinitionId": s18,
             "defaultRevenueAccountId": acc["400100"] if goods else service_revenue,
-            "defaultExpenseAccountId": None if goods else acc["500100"], "defaultUnitPrice": price,
+            "defaultExpenseAccountId": acc["500100"], "defaultInventoryAccountId": acc["120100"], "defaultUnitPrice": price,
             "categoryId": (category["Pajisje rrjeti"] if name.startswith(NETWORK) else category["Pajisje kompjuterike"]) if goods else None,
             "trackInventory": goods, "minimumStock": (2 if price >= 1000 else 8) if goods else None})
         items.append((item["id"], name, kind, price))

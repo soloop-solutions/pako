@@ -19,10 +19,11 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { ShelfLabelsCard } from "@/pages/pos/ShelfLabels";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { posRegistersKey, posStoresKey, usePosRegisters, usePosStores } from "@/hooks/usePos";
 import { useItemSearch, useWarehouses } from "@/hooks/useStock";
-import { BARCODE_RULE_KINDS, BarcodeRuleKind, FiscalMode, REGISTER_PROFILES, barcodeRuleKindKey, fiscalModeKey, registerProfileKey } from "@/lib/pos-enums";
+import { BARCODE_RULE_KINDS, BarcodeRuleKind, FiscalMode, REGISTER_PROFILES, RegisterProfile, barcodeRuleKindKey, fiscalModeKey, registerProfileKey } from "@/lib/pos-enums";
 
 // docs/POS_PLAN.md §12: the shops (each an ATK branch) and their tills.
 export function PosSetup() {
@@ -481,6 +482,15 @@ function RegisterDialog({ register, stores, onClose, onSaved }: {
   const [code, setCode] = useState(register?.code ?? "");
   const [name, setName] = useState(register?.name ?? "");
   const [profile, setProfile] = useState(String(register?.profile ?? 0));
+  // Business types: the till profiles of packs the company doesn't use are not offered (a saved
+  // register keeps its own). Retail and self-checkout are always available.
+  const { hasFeature } = useFeatures();
+  const profileOffered = (p: number) =>
+    p === RegisterProfile.Cafe || p === RegisterProfile.Restaurant ? hasFeature(["hospitality", "hotel"])
+    : p === RegisterProfile.Services ? hasFeature("services")
+    : p === RegisterProfile.Forecourt ? hasFeature("forecourt")
+    : p === RegisterProfile.Grocery ? hasFeature("grocery")
+    : true;
   const [mode, setMode] = useState(String(register?.fiscalMode ?? FiscalMode.Training));
   const [posNumber, setPosNumber] = useState(String(register?.fiscalPosNumber ?? 1));
   const [fiscalizationNo, setFiscalizationNo] = useState(register?.fiscalizationNumber ?? "");
@@ -540,7 +550,7 @@ function RegisterDialog({ register, stores, onClose, onSaved }: {
               id="rg-profile"
               value={profile}
               onValueChange={setProfile}
-              options={REGISTER_PROFILES.map((p) => ({ value: String(p), label: t(`pos.register.profile.${registerProfileKey(p)}`) }))}
+              options={REGISTER_PROFILES.filter((p) => String(p) === String(register?.profile ?? "") || profileOffered(p)).map((p) => ({ value: String(p), label: t(`pos.register.profile.${registerProfileKey(p)}`) }))}
             />
           </Field>
           <Field id="rg-mode" label={t("pos.register.mode")}>

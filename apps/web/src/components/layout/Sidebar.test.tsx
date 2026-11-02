@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -25,6 +25,12 @@ vi.mock("@/context/AuthContext", () => ({
 }));
 
 const FULL = { sales: 2, purchases: 2, partners: 2, accounting: 2, reports: 2, hr: 2 };
+
+/** Opens every "Show more" so pages past a category's first few are in the document. */
+async function expandAll() {
+  await waitFor(() => expect(screen.getAllByRole("button", { name: /^Show more/ }).length).toBeGreaterThan(0));
+  for (const button of screen.getAllByRole("button", { name: /^Show more/ })) fireEvent.click(button);
+}
 
 function renderSidebar() {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -75,5 +81,39 @@ describe("Sidebar module access", () => {
     // Sales stays visible, and the partner-scope hint appears.
     expect(screen.getByText("Sales invoices")).toBeInTheDocument();
     expect(screen.getByTestId("sidebar-partner-scope")).toHaveTextContent("Showing 3 assigned partners");
+  });
+
+  // Business types: vertical pages follow the company's packs (my-access `features`).
+  it("hides hotel pages for a Market company and shows them for a Hotel company", async () => {
+    getMyAccess.mockResolvedValue({
+      isStaff: false, canWrite: true, isAdmin: true, partnerRestricted: false, assignedPartnerCount: 0, modules: FULL,
+      businessType: 1, features: ["grocery", "onlineSales"],
+    });
+    const market = renderSidebar();
+    await waitFor(() => expect(getMyAccess).toHaveBeenCalled());
+    await expandAll();
+    expect(await screen.findByText("Online sales")).toBeInTheDocument();
+    expect(screen.queryByText("Guest register")).not.toBeInTheDocument();
+    expect(screen.queryByText("Pharmacy")).not.toBeInTheDocument();
+    // Every page of the Projects group is off, so the group itself is hidden.
+    expect(screen.queryByText("Projects")).not.toBeInTheDocument();
+    market.unmount();
+
+    getMyAccess.mockResolvedValue({
+      isStaff: false, canWrite: true, isAdmin: true, partnerRestricted: false, assignedPartnerCount: 0, modules: FULL,
+      businessType: 3, features: ["hotel", "hospitality", "events"],
+    });
+    renderSidebar();
+    await waitFor(() => expect(getMyAccess).toHaveBeenCalledTimes(2));
+    await expandAll();
+    expect(await screen.findByText("Guest register")).toBeInTheDocument();
+    expect(screen.queryByText("Online sales")).not.toBeInTheDocument();
+  });
+
+  it("shows no vertical pages while the company's packs are loading", () => {
+    getMyAccess.mockReturnValue(new Promise(() => {}));
+    renderSidebar();
+    expect(screen.getByText("Sales invoices")).toBeInTheDocument();
+    expect(screen.queryByText("Guest register")).not.toBeInTheDocument();
   });
 });

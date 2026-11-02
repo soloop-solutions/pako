@@ -30,7 +30,9 @@ public record UpdatePlatformUserRequest(int? CompanyLimit, bool IsDisabled, bool
 // Modules: "sales", "purchases", "accounting", "reports", "hr", "payroll".
 public record PlatformCompanyResponse(
     Guid Id, string Name, string? BusinessNumber, Guid? CreatedByUserId, string? CreatedByEmail, List<string> Modules,
-    bool IsArchived, DateTime CreatedAt, int Users, int PostedInvoices, int PostedBills, int Employees, DateTime? LastActivity);
+    bool IsArchived, DateTime CreatedAt, int Users, int PostedInvoices, int PostedBills, int Employees, DateTime? LastActivity,
+    // docs/COMPANY_TYPES.md.
+    Pako.Domain.Companies.BusinessType BusinessType = Pako.Domain.Companies.BusinessType.General, List<string>? Features = null);
 
 public record UpdateCompanyModulesRequest(List<string> Modules);
 

@@ -109,13 +109,14 @@ describe("Company lobby", () => {
     fireEvent.click(screen.getByRole("button", { name: "New company" }));
     // Every section of Settings → Company profile is in the dialog.
     const dialog = await screen.findByRole("dialog");
-    for (const label of ["Trading name", "Business number (NRB)", "Fiscal number (NF)", "VAT number (TVSH)", "Municipality / City", "IBAN", "Document footer"]) {
+    // Bank accounts are added as a list (each with its own IBAN) since the create dialog gained
+    // several accounts, so IBAN is no longer a single labelled profile field.
+    for (const label of ["Trading name", "Business number (NRB)", "Fiscal number (NF)", "VAT number (TVSH)", "Municipality / City", "Document footer"]) {
       expect(within(dialog).getByLabelText(label)).toBeInTheDocument();
     }
     fireEvent.change(within(dialog).getByLabelText("Company name *"), { target: { value: "Fresh Co" } });
     fireEvent.change(within(dialog).getByLabelText("Business number (NRB)"), { target: { value: "810000001" } });
     fireEvent.change(within(dialog).getByLabelText("Municipality / City"), { target: { value: "Pejë" } });
-    fireEvent.change(within(dialog).getByLabelText("IBAN"), { target: { value: "XK051212012345678906" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Create and open" }));
 
     await waitFor(() => expect(company.createCompany).toHaveBeenCalled());
@@ -123,7 +124,7 @@ describe("Company lobby", () => {
     expect(name).toBe("Fresh Co");
     expect(firmId).toBeUndefined();
     expect(options.isVatRegistered).toBe(true);
-    expect(options.profile).toMatchObject({ name: "Fresh Co", businessNumber: "810000001", municipality: "Pejë", iban: "XK051212012345678906", country: "Kosovo" });
+    expect(options.profile).toMatchObject({ name: "Fresh Co", businessNumber: "810000001", municipality: "Pejë", country: "Kosovo" });
     expect(options.profile.tradingName).toBeUndefined();
     await waitFor(() => expect(company.setActiveCompanyId).toHaveBeenCalledWith("new"));
   });
@@ -179,5 +180,24 @@ describe("Company lobby", () => {
     expect(screen.queryByText("Inside the company")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Choose a company" })).not.toBeInTheDocument();
     (company as { loaded?: boolean }).loaded = true;
+  });
+
+  // Business types: the type is chosen in the dialog and sent with the new company.
+  it("creates a company with the chosen business type", async () => {
+    renderAt("/select-company");
+    await waitFor(() => expect(screen.getByRole("button", { name: "New company" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "New company" }));
+    const dialog = await screen.findByRole("dialog");
+    // General (every pack) is the default.
+    expect(within(dialog).getByRole("radio", { name: /^General \(all packs\)/ })).toBeChecked();
+    fireEvent.click(within(dialog).getByRole("radio", { name: /^Hotel \/ guesthouse/ }));
+    expect(within(dialog).getByTestId("nc-business-type-packs")).toHaveTextContent("Switches on: Hotel, Restaurant, and Events");
+    fireEvent.change(within(dialog).getByLabelText("Company name *"), { target: { value: "Hotel Prishtina" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create and open" }));
+
+    await waitFor(() => expect(company.createCompany).toHaveBeenCalled());
+    const [name, , options] = company.createCompany.mock.calls[0] as unknown as [string, string | undefined, { businessType?: number }];
+    expect(name).toBe("Hotel Prishtina");
+    expect(options.businessType).toBe(3);
   });
 });

@@ -21,6 +21,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import { navItems } from "@/config/nav";
 import { useTabs, type ResolvedTab } from "@/context/TabsContext";
+import { useFeatures } from "@/hooks/useFeatures";
 import { cn } from "@/lib/utils";
 
 function tabTitle(tab: ResolvedTab, intl: ReturnType<typeof useIntl>): string {
@@ -144,6 +145,7 @@ export function TabStrip() {
   const navigate = useNavigate();
   const location = useLocation();
   const { tabs, activeTabId, closeTab, focusTab, reorderTab } = useTabs();
+  const { hasFeature } = useFeatures();
 
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickOpenAnchor, setQuickOpenAnchor] = useState<DOMRect | null>(null);
@@ -226,9 +228,11 @@ export function TabStrip() {
     };
   }, [quickOpen]);
 
+  // Business types: pages of packs the company doesn't use are not offered.
+  const offered = navItems.filter((item) => !item.feature || hasFeature(item.feature));
   const matches = query.trim()
-    ? navItems.filter((item) => intl.formatMessage({ id: item.titleKey }).toLowerCase().includes(query.trim().toLowerCase()))
-    : navItems;
+    ? offered.filter((item) => intl.formatMessage({ id: item.titleKey }).toLowerCase().includes(query.trim().toLowerCase()))
+    : offered;
 
   // dnd-kit sensors
   const sensors = useSensors(

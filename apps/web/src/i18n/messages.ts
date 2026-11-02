@@ -14,6 +14,7 @@ import { posHotelEn, posHotelSq } from "@/i18n/messages.posHotel";
 import { posSpecialistEn, posSpecialistSq } from "@/i18n/messages.posSpecialist";
 import { distributionEn, distributionSq } from "@/i18n/messages.distribution";
 import { verticalsEn, verticalsSq } from "@/i18n/messages.verticals";
+import { companyTypesEn, companyTypesSq } from "@/i18n/messages.companyTypes";
 
 export const en: Record<string, string> = {
   // Nav
@@ -3336,5 +3337,9 @@ Object.assign(sq, posSpecialistSq);
 // docs/ERP_VERTICALS_PLAN.md (POS plan P8): construction, real estate and rentals (keys "vx.*").
 Object.assign(en, verticalsEn);
 Object.assign(sq, verticalsSq);
+
+// Business types and vertical packs (keys "company.businessType*", "company.pack*", "company.featureOff.*").
+Object.assign(en, companyTypesEn);
+Object.assign(sq, companyTypesSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

@@ -13,6 +13,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useItemSearch } from "@/hooks/useStock";
 import { ITEM_TYPE_OPTION_KEYS, ItemType } from "@/lib/item-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
@@ -154,6 +155,12 @@ export function ItemForm({
   const [agencyCommission, setAgencyCommission] = useState(initial?.agencyCommissionPercent != null ? String(initial.agencyCommissionPercent) : "");
   const pharmacyRelevant = !!(initial?.atcCode || initial?.activeIngredient || initial?.isPrescriptionOnly || initial?.isControlled || initial?.maxRetailPrice != null);
   const agencyRelevant = !!initial?.agencyPartnerId;
+  // Business types: the pharmacy section belongs to the pharmacy pack, agency items to the retail
+  // packs that sell for a principal (shop, fuel station, pharmacy). An item that already carries
+  // the data keeps its section, so nothing saved is hidden.
+  const { hasFeature } = useFeatures();
+  const showPharmacy = pharmacyRelevant || hasFeature("pharmacy");
+  const showAgency = agencyRelevant || hasFeature(["grocery", "forecourt", "pharmacy"]);
   const vendors = (useQuery({
     queryKey: ["partners", activeCompanyId],
     queryFn: () => apiClient.partnersAll(activeCompanyId as string),
@@ -578,6 +585,7 @@ export function ItemForm({
       </fieldset>
 
       {/* P7 pharmacy: collapsed unless the item already carries pharmacy data. */}
+      {showPharmacy && (
       <details className="group rounded-md border p-3" open={pharmacyRelevant} data-testid="item-pharmacy">
         <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "spec.item.pharmacy" })}</summary>
         <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.pharmacy.hint" })}</p>
@@ -613,8 +621,10 @@ export function ItemForm({
           </div>
         </div>
       </details>
+      )}
 
       {/* P7 agency items: sold for a principal (a vendor) for a commission. */}
+      {showAgency && (
       <details className="group rounded-md border p-3" open={agencyRelevant} data-testid="item-agency">
         <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "spec.item.agency" })}</summary>
         <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.agency.hint" })}</p>
@@ -639,6 +649,7 @@ export function ItemForm({
           </div>
         </div>
       </details>
+      )}
 
       <div className="flex items-center gap-2">
         <Button type="submit" disabled={submitting || !name.trim() || !unit.trim() || !revenueAccountId || !expenseAccountId || !inventoryAccountId}>

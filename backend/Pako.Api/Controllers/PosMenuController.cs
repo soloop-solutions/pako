@@ -20,6 +20,7 @@ namespace Pako.Api.Controllers;
 [ApiController]
 [Route("api/companies/{companyId:guid}/pos")]
 [Authorize]
+[RequireCompanyFeature(CompanyFeature.Hospitality)]
 public class PosMenuController : ControllerBase
 {
     private readonly PakoDbContext _db;

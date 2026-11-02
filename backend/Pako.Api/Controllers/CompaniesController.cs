@@ -83,6 +83,9 @@ public class CompaniesController : ControllerBase
             FirmId = request.FirmId,
             EnabledProfiles = (request.EnabledProfiles ?? CompanyProfile.None) | CompanyProfile.Core,
             IsVatRegistered = request.IsVatRegistered ?? true,
+            BusinessType = request.BusinessType ?? BusinessType.General,
+            EnabledFeatures = BusinessTypes.Features(request.BusinessType ?? BusinessType.General),
+            EnabledModules = BusinessTypes.Modules(request.BusinessType ?? BusinessType.General),
             Country = "Kosovo",
             CreatedByUserId = CurrentUserId
         };
@@ -227,6 +230,21 @@ public class CompaniesController : ControllerBase
         if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(company));
+    }
+
+    // docs/COMPANY_TYPES.md: the company's administrator changes what kind of business it is; the
+    // packs follow the type (modules stay as the platform administrator set them).
+    [HttpPut("{companyId:guid}/business-type", Name = "UpdateCompanyBusinessType")]
+    [RequireCompanyAccess(writeAccess: true, adminOnly: true, module: AccessModule.Settings)]
+    public async Task<ActionResult<CompanyResponse>> UpdateBusinessType(Guid companyId, UpdateBusinessTypeRequest request)
+    {
+        if (!Enum.IsDefined(request.BusinessType)) return BadRequest(_localizer["BusinessTypeInvalid"].Value);
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+        company.BusinessType = request.BusinessType;
+        company.EnabledFeatures = BusinessTypes.Features(request.BusinessType);
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(company));
     }
 
     [HttpPut("{companyId:guid}/profile")]
@@ -564,7 +582,7 @@ public class CompaniesController : ControllerBase
             c.DocumentFooter, c.PaymentInstructions,
             c.LogoUrl, c.StampUrl,
             c.VatRegistrationDate, c.FunctionalCurrency,
-            c.IsArchived, c.ArchivedAt);
+            c.IsArchived, c.ArchivedAt, c.BusinessType, BusinessTypes.Names(c.EnabledFeatures));
 
     private static CompanyBankAccountResponse ToBankAccountResponse(CompanyBankAccount b) =>
         new(b.Id, b.BankName, b.AccountHolder, b.Iban, b.SwiftBic, b.IsDefault, b.SortOrder);

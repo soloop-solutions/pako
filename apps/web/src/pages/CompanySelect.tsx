@@ -21,9 +21,11 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useAccount } from "@/hooks/useAccount";
+import { BusinessType, packList, presetPacks } from "@/lib/business-types";
 import { getLastOpenedMap } from "@/lib/company-last-opened";
 import { emptyProfileValues, toProfileRequest, type CompanyProfileValues } from "@/lib/company-profile";
 import { cn } from "@/lib/utils";
+import { BusinessTypePicker } from "@/pages/shared/BusinessTypePicker";
 import { CompanyProfileFields, type PendingBankAccount } from "@/pages/shared/CompanyProfileFields";
 
 type View = "grid" | "list";
@@ -346,6 +348,7 @@ function NewCompanyDialog({
   const queryClient = useQueryClient();
   const [values, setValues] = useState<CompanyProfileValues>(emptyProfileValues);
   const [vatRegistered, setVatRegistered] = useState(true);
+  const [businessType, setBusinessType] = useState<number>(BusinessType.General);
   const [firmId, setFirmId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -358,6 +361,7 @@ function NewCompanyDialog({
   function reset() {
     setValues(emptyProfileValues());
     setVatRegistered(true);
+    setBusinessType(BusinessType.General);
     setFirmId("");
     setError(null);
     setDirty(false);
@@ -380,6 +384,7 @@ function NewCompanyDialog({
     try {
       const { company, profileError } = await createCompany(values.name.trim(), firmId || undefined, {
         isVatRegistered: vatRegistered,
+        businessType,
         profile: toProfileRequest(values),
       });
       void queryClient.invalidateQueries({ queryKey: ["account"] });
@@ -453,6 +458,24 @@ function NewCompanyDialog({
             />
           </div>
         )}
+        {/* Business types: decides the packs (restaurant, hotel, pharmacy…) the company starts with. */}
+        <section className="flex flex-col gap-2" aria-labelledby="nc-business-type">
+          <div>
+            <h3 id="nc-business-type" className="text-sm font-semibold">{t("company.businessType")}</h3>
+            <p className="text-xs text-muted-foreground">{t("company.businessType.hint")}</p>
+          </div>
+          <BusinessTypePicker
+            name="nc-business-type"
+            value={businessType}
+            onChange={(type) => {
+              setBusinessType(type);
+              setDirty(true);
+            }}
+          />
+          <p className="text-xs text-muted-foreground" data-testid="nc-business-type-packs">
+            {intl.formatMessage({ id: "company.businessType.switchesOn" }, { packs: packList(intl, presetPacks(businessType)) })}
+          </p>
+        </section>
         <CompanyProfileFields
           idPrefix="nc"
           variant="plain"

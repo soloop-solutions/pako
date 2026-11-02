@@ -1,5 +1,6 @@
 import type { ComponentType } from "react";
 import type { LucideIcon } from "lucide-react";
+import type { Pack } from "@/lib/business-types";
 import {
   LayoutDashboard,
   BookOpen,
@@ -173,6 +174,11 @@ export type NavItem = {
   /** DataGrid id this item's register uses, so a saved view can build `${gridId}.f.<col>=<val>`. */
   gridId?: string;
   savedViews?: NavSavedView[];
+  /**
+   * The vertical pack (or any of several packs) the page belongs to; hidden, and its route shows
+   * "not used by this company", while the pack is off for the active company. Unset = always on.
+   */
+  feature?: Pack | readonly Pack[];
 };
 
 // A6 (v2 release): the sidebar now names the document, not the module — "Sales invoices"/
@@ -379,11 +385,11 @@ export const navCategories: NavCategory[] = [
       // docs/POS_PLAN.md P6 distribution: quotes and sales orders, routes, the salesperson's day,
       // visits, and the van's morning load and evening settlement (vans are warehouses: Inventory).
       { titleKey: "nav.salesOrders", path: "/sales-orders", icon: ClipboardPen, descriptionKey: "nav.salesOrders.description", Element: SalesOrders, gridId: "sales-orders" },
-      { titleKey: "nav.myRouteDay", path: "/distribution/my-day", icon: MapPinned, descriptionKey: "nav.myRouteDay.description", Element: MyRouteDay },
-      { titleKey: "nav.salesRoutes", path: "/distribution/routes", icon: RouteIcon, descriptionKey: "nav.salesRoutes.description", Element: SalesRoutes, gridId: "sales-routes" },
-      { titleKey: "nav.routeVisits", path: "/distribution/visits", icon: Footprints, descriptionKey: "nav.routeVisits.description", Element: RouteVisits, gridId: "route-visits" },
-      { titleKey: "nav.vanLoad", path: "/distribution/van-load", icon: PackagePlus, descriptionKey: "nav.vanLoad.description", Element: VanLoad, module: "inventory", gridId: "van-load" },
-      { titleKey: "nav.vanSettlement", path: "/distribution/van-settlement", icon: Calculator, descriptionKey: "nav.vanSettlement.description", Element: VanSettlement, module: "inventory", gridId: "van-settlement" },
+      { titleKey: "nav.myRouteDay", path: "/distribution/my-day", feature: "distribution", icon: MapPinned, descriptionKey: "nav.myRouteDay.description", Element: MyRouteDay },
+      { titleKey: "nav.salesRoutes", path: "/distribution/routes", feature: "distribution", icon: RouteIcon, descriptionKey: "nav.salesRoutes.description", Element: SalesRoutes, gridId: "sales-routes" },
+      { titleKey: "nav.routeVisits", path: "/distribution/visits", feature: "distribution", icon: Footprints, descriptionKey: "nav.routeVisits.description", Element: RouteVisits, gridId: "route-visits" },
+      { titleKey: "nav.vanLoad", path: "/distribution/van-load", feature: "distribution", icon: PackagePlus, descriptionKey: "nav.vanLoad.description", Element: VanLoad, module: "inventory", gridId: "van-load" },
+      { titleKey: "nav.vanSettlement", path: "/distribution/van-settlement", feature: "distribution", icon: Calculator, descriptionKey: "nav.vanSettlement.description", Element: VanSettlement, module: "inventory", gridId: "van-settlement" },
     ],
   },
   {
@@ -401,25 +407,25 @@ export const navCategories: NavCategory[] = [
       { titleKey: "nav.posCustomerOrders", path: "/pos/customer-orders", icon: ClipboardCheck, descriptionKey: "nav.posCustomerOrders.description", Element: CustomerOrders, gridId: "pos-customer-orders" },
       { titleKey: "nav.posReports", path: "/pos/reports", icon: BarChart3, descriptionKey: "nav.posReports.description", Element: PosReports, gridId: "pos-sales-report" },
       // P3 restaurant back office: floors and tables (QR menu codes), menu setup, usage variance.
-      { titleKey: "pos.setup3.nav.floors", path: "/pos/floors", icon: LayoutGrid, descriptionKey: "pos.setup3.nav.floors.description", Element: PosFloors, gridId: "pos-floors" },
-      { titleKey: "pos.setup3.nav.menu", path: "/pos/menu-setup", icon: UtensilsCrossed, descriptionKey: "pos.setup3.nav.menu.description", Element: MenuSetup },
-      { titleKey: "pos.setup3.nav.variance", path: "/pos/usage-variance", icon: TrendingDown, descriptionKey: "pos.setup3.nav.variance.description", Element: UsageVariance, gridId: "pos-usage-variance" },
+      { titleKey: "pos.setup3.nav.floors", path: "/pos/floors", feature: "hospitality", icon: LayoutGrid, descriptionKey: "pos.setup3.nav.floors.description", Element: PosFloors, gridId: "pos-floors" },
+      { titleKey: "pos.setup3.nav.menu", path: "/pos/menu-setup", feature: "hospitality", icon: UtensilsCrossed, descriptionKey: "pos.setup3.nav.menu.description", Element: MenuSetup },
+      { titleKey: "pos.setup3.nav.variance", path: "/pos/usage-variance", feature: "hospitality", icon: TrendingDown, descriptionKey: "pos.setup3.nav.variance.description", Element: UsageVariance, gridId: "pos-usage-variance" },
       // P4 services: appointments calendar, resources, packages and memberships, repairs.
-      { titleKey: "svc.nav.appointments", path: "/pos/appointments", icon: CalendarClock, descriptionKey: "svc.nav.appointments.description", Element: Appointments },
-      { titleKey: "svc.nav.resources", path: "/pos/resources", icon: UsersRound, descriptionKey: "svc.nav.resources.description", Element: PosResources, gridId: "pos-resources" },
-      { titleKey: "svc.nav.memberships", path: "/pos/memberships", icon: BadgeCheck, descriptionKey: "svc.nav.memberships.description", Element: Memberships, gridId: "pos-memberships" },
-      { titleKey: "svc.nav.repairs", path: "/pos/repairs", icon: Wrench, descriptionKey: "svc.nav.repairs.description", Element: Repairs, gridId: "pos-repairs" },
+      { titleKey: "svc.nav.appointments", path: "/pos/appointments", feature: "services", icon: CalendarClock, descriptionKey: "svc.nav.appointments.description", Element: Appointments },
+      { titleKey: "svc.nav.resources", path: "/pos/resources", feature: "services", icon: UsersRound, descriptionKey: "svc.nav.resources.description", Element: PosResources, gridId: "pos-resources" },
+      { titleKey: "svc.nav.memberships", path: "/pos/memberships", feature: "services", icon: BadgeCheck, descriptionKey: "svc.nav.memberships.description", Element: Memberships, gridId: "pos-memberships" },
+      { titleKey: "svc.nav.repairs", path: "/pos/repairs", feature: "services", icon: Wrench, descriptionKey: "svc.nav.repairs.description", Element: Repairs, gridId: "pos-repairs" },
       // P5 hotel and venues: reservation chart, rooms setup, guest register; events; ticketed events.
-      { titleKey: "hotel.nav.chart", path: "/pos/hotel", icon: BedDouble, descriptionKey: "hotel.nav.chart.description", Element: HotelChart, gridId: "pos-hotel-unassigned" },
-      { titleKey: "hotel.nav.setup", path: "/pos/hotel/setup", icon: HotelIcon, descriptionKey: "hotel.nav.setup.description", Element: HotelSetup },
-      { titleKey: "hotel.nav.guests", path: "/pos/hotel/guests", icon: IdCard, descriptionKey: "hotel.nav.guests.description", Element: GuestRegister, gridId: "pos-guest-register" },
-      { titleKey: "hotel.nav.events", path: "/pos/events", icon: PartyPopper, descriptionKey: "hotel.nav.events.description", Element: Events, gridId: "pos-events" },
-      { titleKey: "hotel.nav.tickets", path: "/pos/tickets", icon: TicketCheck, descriptionKey: "hotel.nav.tickets.description", Element: TicketedEvents, gridId: "pos-ticketed-events" },
+      { titleKey: "hotel.nav.chart", path: "/pos/hotel", feature: "hotel", icon: BedDouble, descriptionKey: "hotel.nav.chart.description", Element: HotelChart, gridId: "pos-hotel-unassigned" },
+      { titleKey: "hotel.nav.setup", path: "/pos/hotel/setup", feature: "hotel", icon: HotelIcon, descriptionKey: "hotel.nav.setup.description", Element: HotelSetup },
+      { titleKey: "hotel.nav.guests", path: "/pos/hotel/guests", feature: "hotel", icon: IdCard, descriptionKey: "hotel.nav.guests.description", Element: GuestRegister, gridId: "pos-guest-register" },
+      { titleKey: "hotel.nav.events", path: "/pos/events", feature: "events", icon: PartyPopper, descriptionKey: "hotel.nav.events.description", Element: Events, gridId: "pos-events" },
+      { titleKey: "hotel.nav.tickets", path: "/pos/tickets", feature: "events", icon: TicketCheck, descriptionKey: "hotel.nav.tickets.description", Element: TicketedEvents, gridId: "pos-ticketed-events" },
       // P7 specialist retail: pharmacy, fuel station, online channels, auto parts (items access).
-      { titleKey: "spec.nav.pharmacy", path: "/pos/pharmacy", icon: PharmacyIcon, descriptionKey: "spec.nav.pharmacy.description", Element: Pharmacy, gridId: "pos-prescriptions" },
-      { titleKey: "spec.nav.forecourt", path: "/pos/forecourt", icon: FuelIcon, descriptionKey: "spec.nav.forecourt.description", Element: Forecourt },
-      { titleKey: "spec.nav.online", path: "/pos/online", icon: OnlineIcon, descriptionKey: "spec.nav.online.description", Element: OnlineSales, gridId: "pos-channel-orders" },
-      { titleKey: "spec.nav.parts", path: "/pos/parts", icon: PartsIcon, descriptionKey: "spec.nav.parts.description", Element: PartsSearch, module: "items" },
+      { titleKey: "spec.nav.pharmacy", path: "/pos/pharmacy", feature: "pharmacy", icon: PharmacyIcon, descriptionKey: "spec.nav.pharmacy.description", Element: Pharmacy, gridId: "pos-prescriptions" },
+      { titleKey: "spec.nav.forecourt", path: "/pos/forecourt", feature: "forecourt", icon: FuelIcon, descriptionKey: "spec.nav.forecourt.description", Element: Forecourt },
+      { titleKey: "spec.nav.online", path: "/pos/online", feature: "onlineSales", icon: OnlineIcon, descriptionKey: "spec.nav.online.description", Element: OnlineSales, gridId: "pos-channel-orders" },
+      { titleKey: "spec.nav.parts", path: "/pos/parts", feature: "autoParts", icon: PartsIcon, descriptionKey: "spec.nav.parts.description", Element: PartsSearch, module: "items" },
     ],
   },
   {
@@ -429,12 +435,12 @@ export const navCategories: NavCategory[] = [
     labelKey: "vx.sidebar.projects",
     module: "sales",
     items: [
-      { titleKey: "vx.nav.sites", path: "/construction", icon: HardHat, descriptionKey: "vx.nav.sites.description", Element: ConstructionSites, gridId: "construction-sites" },
-      { titleKey: "vx.nav.buildings", path: "/real-estate/buildings", icon: BuildingIcon, descriptionKey: "vx.nav.buildings.description", Element: Buildings, gridId: "buildings" },
-      { titleKey: "vx.nav.reservations", path: "/real-estate/reservations", icon: CalendarCheck, descriptionKey: "vx.nav.reservations.description", Element: UnitReservations, gridId: "unit-reservations" },
-      { titleKey: "vx.nav.contracts", path: "/real-estate/contracts", icon: FileSignature, descriptionKey: "vx.nav.contracts.description", Element: SaleContracts, gridId: "unit-sale-contracts" },
-      { titleKey: "vx.nav.leases", path: "/rentals/leases", icon: KeyRound, descriptionKey: "vx.nav.leases.description", Element: Leases, gridId: "leases" },
-      { titleKey: "vx.nav.rentRun", path: "/rentals/rent-run", icon: Repeat, descriptionKey: "vx.nav.rentRun.description", Element: RentRun },
+      { titleKey: "vx.nav.sites", path: "/construction", feature: "construction", icon: HardHat, descriptionKey: "vx.nav.sites.description", Element: ConstructionSites, gridId: "construction-sites" },
+      { titleKey: "vx.nav.buildings", path: "/real-estate/buildings", feature: "realEstate", icon: BuildingIcon, descriptionKey: "vx.nav.buildings.description", Element: Buildings, gridId: "buildings" },
+      { titleKey: "vx.nav.reservations", path: "/real-estate/reservations", feature: "realEstate", icon: CalendarCheck, descriptionKey: "vx.nav.reservations.description", Element: UnitReservations, gridId: "unit-reservations" },
+      { titleKey: "vx.nav.contracts", path: "/real-estate/contracts", feature: "realEstate", icon: FileSignature, descriptionKey: "vx.nav.contracts.description", Element: SaleContracts, gridId: "unit-sale-contracts" },
+      { titleKey: "vx.nav.leases", path: "/rentals/leases", feature: "rentals", icon: KeyRound, descriptionKey: "vx.nav.leases.description", Element: Leases, gridId: "leases" },
+      { titleKey: "vx.nav.rentRun", path: "/rentals/rent-run", feature: "rentals", icon: Repeat, descriptionKey: "vx.nav.rentRun.description", Element: RentRun },
     ],
   },
   {

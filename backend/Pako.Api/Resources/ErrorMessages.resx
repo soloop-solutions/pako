@@ -1634,4 +1634,7 @@ Estimate: {estimate} €.</value></data>
   <data name="InvalidImageType" xml:space="preserve">
     <value>Only PNG, JPEG, SVG and WebP images are accepted.</value>
   </data>
+  <data name="FeatureDisabled" xml:space="preserve"><value>This feature isn't used by this company. Its administrator can change the business type, or the platform administrator can switch the pack on.</value></data>
+  <data name="BusinessTypeInvalid" xml:space="preserve"><value>Choose a business type.</value></data>
+  <data name="FeaturesInvalid" xml:space="preserve"><value>One of the packs isn't known.</value></data>
 </root>

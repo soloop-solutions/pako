@@ -38,6 +38,10 @@ public class MyAccessController : ControllerBase
         {
             linked = null;
         }
+        // docs/COMPANY_TYPES.md: the business type and its packs, for the web's navigation.
+        var company = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId)
+            .Select(c => new { c.BusinessType, c.EnabledFeatures }).FirstAsync();
+        var features = BusinessTypes.Names(company.EnabledFeatures);
         var isManager = linked is { } me && await _db.Employees.AnyAsync(e => e.ManagerId == me && e.IsActive && e.Id != me);
 
         var modules = new ModuleAccessResponse(
@@ -71,7 +75,8 @@ public class MyAccessController : ControllerBase
                 LinkedEmployeeId: linked,
                 IsTeamManager: isManager,
                 RoleName: role.Name,
-                CanManageUsers: role.CanManageUsers));
+                CanManageUsers: role.CanManageUsers,
+                BusinessType: company.BusinessType, Features: features));
         }
 
         var isAdmin = _access.Roles.Any(r => r is MembershipRole.FirmAdmin or MembershipRole.ClientAdmin);
@@ -88,6 +93,7 @@ public class MyAccessController : ControllerBase
             LinkedEmployeeId: linked,
             IsTeamManager: isManager,
             RoleName: roleName,
-            CanManageUsers: isAdmin));
+            CanManageUsers: isAdmin,
+                BusinessType: company.BusinessType, Features: features));
     }
 }

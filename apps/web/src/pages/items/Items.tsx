@@ -16,6 +16,7 @@ import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 import { ItemType, itemTypeLabel } from "@/lib/item-types";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 import { ItemCardPanel } from "@/pages/inventory/ItemCardDialog";
@@ -132,6 +133,7 @@ export function Items() {
   const taxes = useMemo<TaxDefinitionResponse[]>(() => taxesQuery.data ?? [], [taxesQuery.data]);
   const accounts = useMemo<AccountResponse[]>(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const { canSee } = useMyAccess();
+  const { hasFeature } = useFeatures();
   const showStock = canSee("inventory");
   const categoriesQuery = useQuery({
     queryKey: ["itemCategories", activeCompanyId],
@@ -320,7 +322,8 @@ export function Items() {
   if (hasVariantsTab) editTabs.push("variants");
   if (hasRecipeTab) editTabs.push("recipe");
   // P7 auto parts: other makers' numbers and the vehicles a stocked good fits.
-  if (editingItem && !editingItem.isVariantTemplate && editingItem.type === ItemType.Goods) editTabs.push("parts");
+  // Business types: only for companies on the auto-parts pack.
+  if (editingItem && !editingItem.isVariantTemplate && editingItem.type === ItemType.Goods && hasFeature("autoParts")) editTabs.push("parts");
   const shownTab = editTabs.includes(editTab) ? editTab : "details";
 
   const columns = useMemo<ColumnDef<ItemResponse>[]>(

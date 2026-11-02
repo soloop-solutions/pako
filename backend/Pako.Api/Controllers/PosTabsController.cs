@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
+using Pako.Domain.Companies;
 using Pako.Api.Contracts;
 using Pako.Api.Hubs;
 using Pako.Api.Services;
@@ -21,6 +22,7 @@ namespace Pako.Api.Controllers;
 [ApiController]
 [Route("api/companies/{companyId:guid}/pos")]
 [Authorize]
+[RequireCompanyFeature(CompanyFeature.Hospitality | CompanyFeature.Hotel | CompanyFeature.Events)]
 public class PosTabsController : ControllerBase
 {
     private readonly PakoDbContext _db;

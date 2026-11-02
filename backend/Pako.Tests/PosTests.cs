@@ -607,7 +607,8 @@ public class PosTests : IAsyncLifetime
         var session = await OpenAsync(c, register.Id);
         var sale = (PosOrderResponse)Assert.IsAssignableFrom<ObjectResult>(await Submit(c, Sale(c, session.Id, 2m,
             new List<PosPaymentRequest> { new(c.Cash, 472m) }))!).Value!;
-        Assert.IsAssignableFrom<ObjectResult>(await Submit(c, new PosOrderRequest(Guid.NewGuid(), session.Id, PosOrderKind.Return, DateTime.UtcNow,
+        Assert.IsAssignableFrom<ObjectResult>(await Submit(c, new PosOrderRequest(Guid.NewGuid(), session.Id, PosOrderKind.Return,
+            new DateTime(2026, 10, 31, 12, 0, 0, DateTimeKind.Utc),
             new List<PosOrderLineRequest> { new(c.Laptop, "Laptop", 1m, 236m, null, OriginalLineId: sale.Lines[0].Id) },
             new List<PosPaymentRequest> { new(c.Cash, 236m) }, OriginalOrderId: sale.Id, Reason: "x")));
         var reports = As(new PosReportsController(c.Db, new PosReportService(c.Db),

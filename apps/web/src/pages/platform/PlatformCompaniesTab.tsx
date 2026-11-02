@@ -11,12 +11,20 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PACKS, businessTypeLabel, sortPacks } from "@/lib/business-types";
 
 // The modules a company can have, in the order they appear in the app. Partners, items, settings,
 // users and the dashboard are always on.
 export const MODULES = ["sales", "purchases", "accounting", "reports", "hr", "payroll", "inventory", "pos"] as const;
 
 const GRID_ID = "platform-companies";
+
+/** A failure saving the packs (after the modules saved), so the message names the packs. */
+class PacksSaveError extends Error {
+  constructor(readonly inner: unknown) {
+    super("packs");
+  }
+}
 
 // Every company on PAKO, who created it, what it uses, and which modules it has.
 export function PlatformCompaniesTab() {
@@ -60,6 +68,20 @@ export function PlatformCompaniesTab() {
           </span>
         ),
       },
+      // Business types: the company's type, with its packs under it.
+      {
+        id: "businessType",
+        header: t("platform.col.businessType"),
+        accessorFn: (c) => businessTypeLabel(intl, c.businessType),
+        cell: ({ row }) => (
+          <span className="flex flex-col">
+            <span>{businessTypeLabel(intl, row.original.businessType)}</span>
+            <span className="text-xs text-muted-foreground">
+              {sortPacks(row.original.features).map((p) => t(`company.pack.${p}`)).join(", ") || "—"}
+            </span>
+          </span>
+        ),
+      },
       { accessorKey: "users", header: t("platform.col.users"), meta: { numeric: true } },
       { accessorKey: "postedInvoices", header: t("platform.col.invoices"), meta: { numeric: true } },
       { accessorKey: "employees", header: t("platform.col.employees"), meta: { numeric: true } },
@@ -96,7 +118,14 @@ function ModulesDialog({ company, onClose }: { company: PlatformCompanyResponse;
   const t = (id: string) => intl.formatMessage({ id });
   const queryClient = useQueryClient();
   const [modules, setModules] = useState<string[]>(company.modules);
+  // Business types: the packs on for the company (its type's preset unless changed here).
+  const initialFeatures: string[] = sortPacks(company.features);
+  const [features, setFeatures] = useState<string[]>(initialFeatures);
   const [error, setError] = useState<string | null>(null);
+
+  function togglePack(pack: string, on: boolean) {
+    setFeatures((current) => sortPacks(on ? [...current, pack] : current.filter((p) => p !== pack)));
+  }
 
   function toggle(module: string, on: boolean) {
     setModules((current) => {
@@ -108,25 +137,41 @@ function ModulesDialog({ company, onClose }: { company: PlatformCompanyResponse;
     });
   }
 
+  const modulesChanged = modules.length !== company.modules.length || modules.some((m) => !company.modules.includes(m));
+  const featuresChanged = features.length !== initialFeatures.length || features.some((f) => !initialFeatures.includes(f));
+
   const save = useMutation({
-    mutationFn: () => apiClient.updateCompanyModules(company.id, { modules }),
+    mutationFn: async () => {
+      if (modulesChanged) await apiClient.updateCompanyModules(company.id, { modules });
+      try {
+        if (featuresChanged) await apiClient.updateCompanyFeatures(company.id, { features });
+      } catch (err) {
+        throw new PacksSaveError(err);
+      }
+    },
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["platform"] });
       onClose();
     },
-    onError: (err: unknown) => setError(getApiErrorMessage(err, t("platform.modules.saveError"))),
+    onError: (err: unknown) =>
+      setError(
+        err instanceof PacksSaveError
+          ? getApiErrorMessage(err.inner, t("platform.packs.saveError"))
+          : getApiErrorMessage(err, t("platform.modules.saveError")),
+      ),
   });
 
   const removed = company.modules.filter((m) => !modules.includes(m));
 
   return (
-    <FormDialog open onOpenChange={(o) => !o && onClose()} title={company.name} description={t("platform.modules.description")} size="md" dirty={removed.length > 0 || modules.length !== company.modules.length}>
+    <FormDialog open onOpenChange={(o) => !o && onClose()} title={company.name} description={t("platform.modules.description")} size="md" dirty={modulesChanged || featuresChanged}>
       <div className="flex flex-col gap-4">
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
+        <h3 className="text-sm font-semibold">{t("platform.modules.title")}</h3>
         <ul className="flex flex-col divide-y rounded-md border">
           {MODULES.map((m) => (
             <li key={m}>
@@ -146,6 +191,25 @@ function ModulesDialog({ company, onClose }: { company: PlatformCompanyResponse;
             <AlertDescription>{t("platform.modules.removeWarning")}</AlertDescription>
           </Alert>
         )}
+        <div>
+          <h3 className="text-sm font-semibold">{t("platform.packs.title")}</h3>
+          <p className="text-xs text-muted-foreground">
+            {t("company.businessType")}: {businessTypeLabel(intl, company.businessType)}. {t("platform.packs.description")}
+          </p>
+        </div>
+        <ul className="grid grid-cols-1 gap-x-3 rounded-md border sm:grid-cols-2" data-testid="platform-packs">
+          {PACKS.map((p) => (
+            <li key={p}>
+              <label className="flex items-start gap-3 px-3 py-2">
+                <input type="checkbox" className="mt-1" checked={features.includes(p)} onChange={(e) => togglePack(p, e.target.checked)} />
+                <span className="flex flex-col">
+                  <span className="text-sm font-medium">{t(`company.pack.${p}`)}</span>
+                  <span className="text-xs text-muted-foreground">{t(`company.pack.${p}.description`)}</span>
+                </span>
+              </label>
+            </li>
+          ))}
+        </ul>
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose}>
             {t("common.cancel")}

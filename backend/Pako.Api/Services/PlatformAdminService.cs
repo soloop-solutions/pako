@@ -307,7 +307,7 @@ public class PlatformAdminService
             var st = stats.GetValueOrDefault(c.Id) ?? new CompanyStats(0, 0, 0, 0, 0, 0, null);
             return new PlatformCompanyResponse(c.Id, c.Name, c.BusinessNumber, c.CreatedByUserId,
                 c.CreatedByUserId is { } o ? owners.GetValueOrDefault(o) : null, ModuleNames(c.EnabledModules), c.IsArchived,
-                c.CreatedAt, st.Users, st.Invoices, st.Bills, st.Employees, st.LastActivity);
+                c.CreatedAt, st.Users, st.Invoices, st.Bills, st.Employees, st.LastActivity, c.BusinessType, BusinessTypes.Names(c.EnabledFeatures));
         }).ToList(), total, page, pageSize);
     }
 
@@ -324,6 +324,19 @@ public class PlatformAdminService
         Audit(actor, "UpdateModules", "Company", company.Id, company.Name, new { before = beforeModules, after = ModuleNames(enabled) });
         await _db.SaveChangesAsync();
         _logger.LogInformation("Modules of company {CompanyId} set to {Modules} by {Actor}", companyId, enabled, actor);
+        return ((await ListCompaniesAsync(null, null, 1, 1, companyId)).Items.Single(), null);
+    }
+
+    // docs/COMPANY_TYPES.md: switch a company's vertical packs on or off (its type stays).
+    public async Task<(PlatformCompanyResponse? Result, string? Error)> UpdateFeaturesAsync(Guid companyId, List<string> features, Guid actor)
+    {
+        if (!BusinessTypes.TryParse(features ?? new List<string>(), out var enabled)) return (null, _localizer["FeaturesInvalid"].Value);
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return (null, string.Format(_localizer["CompanyNotFound"].Value, companyId));
+        var before = BusinessTypes.Names(company.EnabledFeatures);
+        company.EnabledFeatures = enabled;
+        Audit(actor, "UpdateFeatures", "Company", company.Id, company.Name, new { before, after = BusinessTypes.Names(enabled) });
+        await _db.SaveChangesAsync();
         return ((await ListCompaniesAsync(null, null, 1, 1, companyId)).Items.Single(), null);
     }
 

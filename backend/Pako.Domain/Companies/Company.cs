@@ -70,6 +70,10 @@ public class Company
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public CompanyProfile EnabledProfiles { get; set; } = CompanyProfile.Core;
 
+    // docs/COMPANY_TYPES.md: the kind of business, and the vertical packs it uses (General = all).
+    public BusinessType BusinessType { get; set; } = BusinessType.General;
+    public CompanyFeature EnabledFeatures { get; set; } = CompanyFeature.All;
+
     // C2: every company seeded so far is VAT-registered (the 26 VAT/WHT tax definitions are
     // always seeded), so this defaults true for zero behavior change on existing/typical
     // companies — a genuinely-empty "no tax" line is only ever valid once this is false.

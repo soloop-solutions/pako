@@ -42,6 +42,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
+import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 import { CASH_MOVEMENT_KINDS, FiscalMode, GiftCardKind, PaymentMethodKind, PosOrderKind, RegisterProfile, cashMovementKindKey, giftCardKindKey } from "@/lib/pos-enums";
@@ -330,6 +331,10 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
   const { activeCompanyId } = useCompany();
   const companyId = activeCompanyId as string;
   const { canApprove } = useMyAccess();
+  // Business types: pharmacy, fuel-station and auto-parts actions only for companies on those packs.
+  const { hasFeature } = useFeatures();
+  const pharmacy = hasFeature("pharmacy");
+  const autoParts = hasFeature("autoParts");
   const searchRef = useRef<HTMLInputElement>(null);
   const [term, setTerm] = useState("");
   const [basket, setBasket] = useState<BasketLine[]>([]);
@@ -348,7 +353,7 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
   const [channelOrder, setChannelOrder] = useState<ChannelOrderResponse | null>(null);
   const [substituteFor, setSubstituteFor] = useState<BasketLine | null>(null);
   const [nozzle, setNozzle] = useState<NozzleResponse | null>(null);
-  const forecourt = boot.register.profile === RegisterProfile.Forecourt;
+  const forecourt = boot.register.profile === RegisterProfile.Forecourt && hasFeature("forecourt");
   // P4: the appointment this sale checks out, or the repair it collects (from ?appointment= / ?repair=),
   // and a deposit card to load (?giftCard=).
   const [appointment, setAppointment] = useState<AppointmentResponse | null>(null);
@@ -1002,17 +1007,21 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
             <Ticket className="size-4" /> {t("till.actions.coupon")}
           </Button>
           {/* P7: pharmacy prescriptions, fleet cards at the pump, the auto-parts search. */}
-          <Button variant="outline" onClick={() => setDialog("prescription")}>
-            <Pill className="size-4" /> {t("spec.till.actions.prescription")}
-          </Button>
+          {pharmacy && (
+            <Button variant="outline" onClick={() => setDialog("prescription")}>
+              <Pill className="size-4" /> {t("spec.till.actions.prescription")}
+            </Button>
+          )}
           {forecourt && (
             <Button variant="outline" onClick={() => setDialog("fleetCard")}>
               <CreditCard className="size-4" /> {t("spec.till.actions.fleetCard")}
             </Button>
           )}
-          <Button variant="outline" onClick={() => setDialog("parts")}>
-            <CarFront className="size-4" /> {t("spec.till.actions.parts")}
-          </Button>
+          {autoParts && (
+            <Button variant="outline" onClick={() => setDialog("parts")}>
+              <CarFront className="size-4" /> {t("spec.till.actions.parts")}
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setDialog("loyalty")}>
             <IdCard className="size-4" /> {t("till.actions.loyalty")}
           </Button>
@@ -1158,7 +1167,7 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
                     />
                     {/* P7: another item with the same active ingredient (not on a prescription line:
                         the server ties that line to the prescribed item). */}
-                    {!l.prescriptionLineId && !l.nozzleId && catalog.some((c) => c.id === l.itemId && !!c.activeIngredient) && (
+                    {pharmacy && !l.prescriptionLineId && !l.nozzleId && catalog.some((c) => c.id === l.itemId && !!c.activeIngredient) && (
                       <Button
                         size="xs"
                         variant="ghost"
@@ -1186,7 +1195,7 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
               <AlertDescription className="flex flex-col gap-2">
                 {quoteError}
                 {/* P7: a prescription-only medicine refused without a prescription — pick one. */}
-                {!prescription && (
+                {!prescription && pharmacy && (
                   <Button size="sm" variant="outline" className="self-start" onMouseDown={keepSearchFocus} onClick={() => setDialog("prescription")}>
                     <Pill className="size-4" /> {t("spec.till.actions.prescription")}
                   </Button>
