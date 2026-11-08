@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PartnerScope, partnerScopeLabel } from "@/lib/hr-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 /**
  * Which partners this employee is assigned to. The list only restricts what the employee sees when
@@ -134,9 +135,9 @@ export function EmployeePartnerAccess({
             {dirty && (
               <label className="flex items-center gap-1 text-xs text-muted-foreground">
                 {intl.formatMessage({ id: "hr.partnerAccess.effectiveFrom" })}
-                <input
+                <Input
                   type="date"
-                  className="h-7 rounded-md border bg-transparent px-1 text-xs"
+                  className="w-36"
                   value={effectiveFrom}
                   onChange={(e) => setEffectiveFrom(e.target.value)}
                 />
@@ -165,7 +166,7 @@ export function EmployeePartnerAccess({
               key={partner.id}
               className="flex h-[30px] items-center gap-2 border-b px-3 text-[12.5px] last:border-b-0 hover:bg-row-hover"
             >
-              <input type="checkbox" disabled={readOnly} checked={current.has(partner.id)} onChange={() => toggle(partner.id)} />
+              <Checkbox disabled={readOnly} checked={current.has(partner.id)} onChange={() => toggle(partner.id)} />
               <span className="min-w-0 flex-1 truncate">{partner.name}</span>
               {partner.taxNumber && <span className="text-[11px] text-muted-foreground tabular-nums">{partner.taxNumber}</span>}
               {partner.isCustomer && <Badge variant="secondary">{intl.formatMessage({ id: "partners.form.isCustomer" })}</Badge>}

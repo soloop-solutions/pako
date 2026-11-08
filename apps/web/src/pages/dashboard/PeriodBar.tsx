@@ -2,6 +2,7 @@ import { useIntl } from "react-intl";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { DateRangePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
@@ -108,15 +109,15 @@ export function PeriodBar({
       )}
 
       {period.kind === "custom" && (
-        <div className="flex items-end gap-2">
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t("dashboard.period.from")}
-            <Input type="date" className="h-7 w-36 text-[12.5px]" value={period.range.from} max={period.range.to} onChange={(e) => e.target.value && onChange({ kind: "custom", from: e.target.value, to: period.range.to })} />
-          </label>
-          <label className="flex flex-col gap-1 text-xs text-muted-foreground">
-            {t("dashboard.period.to")}
-            <Input type="date" className="h-7 w-36 text-[12.5px]" value={period.range.to} min={period.range.from} onChange={(e) => e.target.value && onChange({ kind: "custom", from: period.range.from, to: e.target.value })} />
-          </label>
+        <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+          {t("dashboard.period.from")} - {t("dashboard.period.to")}
+          <DateRangePicker
+            className="h-7 text-[12.5px]"
+            aria-label={`${t("dashboard.period.from")} - ${t("dashboard.period.to")}`}
+            value={{ from: period.range.from, to: period.range.to }}
+            clearable={false}
+            onValueChange={(range) => range.from && range.to && onChange({ kind: "custom", from: range.from, to: range.to })}
+          />
         </div>
       )}
 

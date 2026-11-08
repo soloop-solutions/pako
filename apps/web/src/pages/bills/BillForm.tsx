@@ -573,7 +573,7 @@ export function BillForm({
                 }}
               />
               {overridden.account && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -627,7 +627,7 @@ export function BillForm({
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
               {overridden.price && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "billForm.priceOverridden" })}
                 </Badge>
               )}
@@ -659,7 +659,7 @@ export function BillForm({
                 }))}
               />
               {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}

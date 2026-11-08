@@ -360,7 +360,7 @@ export function DataGrid<TData extends object>({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-lg border">
+      <div className="overflow-x-auto scrollbar-brand rounded-lg border">
         <Table className="text-[13px] [font-variant-numeric:tabular-nums]">
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (

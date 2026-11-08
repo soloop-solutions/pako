@@ -23,6 +23,7 @@ import { useUrlParam } from "@/hooks/useUrlParam";
 import { TABLE_SHAPES, TableShape, tableShapeKey } from "@/lib/pos-enums";
 import { printElement } from "@/lib/print";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // The designer's grid: positions and sizes are whole cells (the server accepts 1–20 per side).
 const COLS = 24;
@@ -255,7 +256,7 @@ function FloorDialog({ floor, storeId, nextOrder, onClose, onSaved }: {
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">
@@ -471,7 +472,7 @@ function FloorDesigner({ floor, canEdit, onSaved }: { floor: FloorResponse; canE
                 <Button type="button" size="sm" variant="outline" aria-label={t("pos.setup3.table.move.right")} onClick={() => patch({ x: draft.x + 1 })}><ArrowRight className="size-4" /></Button>
               </div>
               <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={draft.isActive} onChange={(e) => patch({ isActive: e.target.checked })} />
+                <Checkbox checked={draft.isActive} onChange={(e) => patch({ isActive: e.target.checked })} />
                 {t("common.active")}
               </label>
             </fieldset>

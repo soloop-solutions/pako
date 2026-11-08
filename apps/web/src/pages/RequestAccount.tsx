@@ -4,9 +4,9 @@ import { Link } from "react-router-dom";
 import { CheckCircle2 } from "lucide-react";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -65,13 +65,7 @@ export function RequestAccount() {
   );
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
-      <Card className="w-full max-w-lg">
-        <CardHeader>
-          <CardTitle>{t("requestAccount.title")}</CardTitle>
-          <CardDescription>{t("requestAccount.description")}</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthLayout wide title={t("requestAccount.title")} description={t("requestAccount.description")}>
           {sent ? (
             <div className="flex flex-col items-center gap-3 py-6 text-center">
               <CheckCircle2 className="size-10 text-primary" aria-hidden />
@@ -122,8 +116,6 @@ export function RequestAccount() {
               </p>
             </form>
           )}
-        </CardContent>
-      </Card>
-    </div>
+    </AuthLayout>
   );
 }

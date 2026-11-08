@@ -28,6 +28,7 @@ import { pickTillRegister, todayLocal } from "@/lib/pos-services";
 import { ConfirmDialog, ErrorAlert } from "@/pages/pos/hotel/hotel-shared";
 import { Field, TabBar } from "@/pages/pos/specialist/shared";
 import { money, qty, usePartners } from "@/pages/pos/specialist/specialist-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Tab = "orders" | "cod" | "channels";
 const TABS: Tab[] = ["orders", "cod", "channels"];
@@ -574,7 +575,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel: SalesChannelRes
             <Select id="ch-store" value={storeId} onValueChange={setStoreId} options={stores.map((s) => ({ value: s.id, label: `${s.code} · ${s.name}` }))} />
           </Field>
           <label className="flex items-center gap-2 self-end pb-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("common.active")}
           </label>
         </div>

@@ -14,6 +14,7 @@ import { staticColumn } from "./reportColumns";
 import { DateRangeFields, ReportShell } from "./ReportShell";
 import type { useVendorsReport } from "./useVendorsReport";
 import { VendorStatementDrawer } from "./VendorStatementDrawer";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function VendorsTab({ report, companyId, companyName, accountingLockDate }: { report: ReturnType<typeof useVendorsReport>; companyId: string; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
@@ -29,7 +30,7 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
           const value = row.original[id];
           if (id === "closing" && value < 0) {
             return (
-              <span data-vendor-owes-us="true" className="font-medium text-amber-700">
+              <span data-vendor-owes-us="true" className="font-medium text-warning-foreground">
                 {formatAmount(value)}
               </span>
             );
@@ -81,9 +82,9 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
           <>
             <DateRangeFields idPrefix="vendors" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} />
             <div className="flex items-center gap-2 pb-2">
-              <input
+              <Checkbox
                 id="vendors-include-zero"
-                type="checkbox"
+               
                 className="size-4"
                 checked={report.includeZero}
                 onChange={(event) => report.setIncludeZero(event.target.checked)}
@@ -93,7 +94,7 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
           </>
         }
       >
-        {hasNegativeClosing && <p className="text-xs text-amber-700">{intl.formatMessage({ id: "reports.vendorOwesUs" })}</p>}
+        {hasNegativeClosing && <p className="text-xs text-warning-foreground">{intl.formatMessage({ id: "reports.vendorOwesUs" })}</p>}
         {data && (
           <DataGrid<VendorBalanceLine>
             gridId="vendors"
@@ -104,7 +105,7 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
             defaultPageSize={1000}
             pageSizeOptions={[1000]}
             getRowLink={(row) => partnerPath(row.partnerId, "vendor")}
-            getRowClassName={(row) => (row.closing < 0 ? "bg-amber-50/60" : undefined)}
+            getRowClassName={(row) => (row.closing < 0 ? "bg-warning" : undefined)}
             footerRow={footerRow}
           />
         )}

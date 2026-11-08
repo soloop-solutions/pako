@@ -162,7 +162,8 @@ describe("Company lobby", () => {
     account = { userId: "u1", email: "me@co.test", isPlatformAdmin: false, companyLimit: 1, companiesCreated: 1 };
     renderAt("/select-company");
     expect(await screen.findByText(/Company limit reached \(1 of 1\)/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "New company" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "New company" }));
+    expect((await screen.findAllByText("You have reached your company limit")).length).toBeGreaterThan(0);
     expect(screen.queryByRole("button", { name: "Administration" })).not.toBeInTheDocument();
   });
 

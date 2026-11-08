@@ -1012,6 +1012,80 @@ export class PakoApiClient {
     }
 
     /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @param search (optional) 
+     * @param documentType (optional) 
+     * @param excludeDocumentType (optional) 
+     * @param state (optional) 
+     * @param sort (optional) 
+     * @return OK
+     */
+    paged(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfBillResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bills/paged?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            documentType && documentType.forEach(item => { url_ += "documentType=" + encodeURIComponent("" + item) + "&"; });
+        if (excludeDocumentType === null)
+            throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
+        else if (excludeDocumentType !== undefined)
+            excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaged(_response);
+        });
+    }
+
+    protected processPaged(response: Response): Promise<PaginatedResponseOfBillResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfBillResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfBillResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     billsGET(companyId: string, id: string): Promise<BillResponse> {
@@ -7218,6 +7292,80 @@ export class PakoApiClient {
     }
 
     /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @param search (optional) 
+     * @param documentType (optional) 
+     * @param excludeDocumentType (optional) 
+     * @param state (optional) 
+     * @param sort (optional) 
+     * @return OK
+     */
+    paged2(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfInvoiceResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/paged?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            documentType && documentType.forEach(item => { url_ += "documentType=" + encodeURIComponent("" + item) + "&"; });
+        if (excludeDocumentType === null)
+            throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
+        else if (excludeDocumentType !== undefined)
+            excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaged2(_response);
+        });
+    }
+
+    protected processPaged2(response: Response): Promise<PaginatedResponseOfInvoiceResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfInvoiceResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfInvoiceResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     invoicesGET(companyId: string, id: string): Promise<InvoiceResponse> {
@@ -8451,6 +8599,75 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<JournalEntryResponse>(null as any);
+    }
+
+    /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @param search (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param sort (optional) 
+     * @return OK
+     */
+    paged3(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, from: string | undefined, to: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfJournalEntryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/journal-entries/paged?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaged3(_response);
+        });
+    }
+
+    protected processPaged3(response: Response): Promise<PaginatedResponseOfJournalEntryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfJournalEntryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfJournalEntryResponse>(null as any);
     }
 
     /**
@@ -11218,6 +11435,70 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<PartnerResponse>(null as any);
+    }
+
+    /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @param search (optional) 
+     * @param role (optional) 
+     * @param sort (optional) 
+     * @return OK
+     */
+    paged4(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, role: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfPartnerResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners/paged?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (role === null)
+            throw new globalThis.Error("The parameter 'role' cannot be null.");
+        else if (role !== undefined)
+            url_ += "role=" + encodeURIComponent("" + role) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPaged4(_response);
+        });
+    }
+
+    protected processPaged4(response: Response): Promise<PaginatedResponseOfPartnerResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPartnerResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfPartnerResponse>(null as any);
     }
 
     /**
@@ -30061,6 +30342,15 @@ export interface PaginatedResponseOfAccountRequestResponse {
     [key: string]: any;
 }
 
+export interface PaginatedResponseOfBillResponse {
+    items: BillResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
 export interface PaginatedResponseOfChannelOrderResponse {
     items: ChannelOrderResponse[];
     total: number;
@@ -30097,8 +30387,26 @@ export interface PaginatedResponseOfGiftCardResponse {
     [key: string]: any;
 }
 
+export interface PaginatedResponseOfInvoiceResponse {
+    items: InvoiceResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
 export interface PaginatedResponseOfItemResponse {
     items: ItemResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfJournalEntryResponse {
+    items: JournalEntryResponse[];
     total: number;
     page: number;
     pageSize: number;
@@ -30126,6 +30434,15 @@ export interface PaginatedResponseOfLoyaltyCardResponse {
 
 export interface PaginatedResponseOfNotificationLogResponse {
     items: NotificationLogResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfPartnerResponse {
+    items: PartnerResponse[];
     total: number;
     page: number;
     pageSize: number;

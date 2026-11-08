@@ -18,13 +18,13 @@ import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/le
 import { ItemType, itemTypeLabel } from "@/lib/item-types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
-import { cn } from "@/lib/utils";
 import { ItemCardPanel } from "@/pages/inventory/ItemCardDialog";
 import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
 import { ItemAttributesDialog, ItemVariantsPanel } from "@/pages/items/ItemVariants";
 import { ItemRecipePanel } from "@/pages/items/ItemRecipe";
 import { ItemPartsPanel } from "@/pages/items/ItemParts";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
+import { TabButton } from "@/components/ui/tabs";
 
 const ITEMS_GRID_ID = "items";
 
@@ -518,19 +518,13 @@ export function Items() {
           // docs/INVENTORY_PLAN.md §5.6: a stock-tracked item also shows its item card; P2: variants.
           <div role="tablist" aria-label={intl.formatMessage({ id: "items.editItem" }, { name: editingItem.name })} className="mb-3 flex gap-1 border-b">
             {editTabs.map((tab) => (
-              <button
+              <TabButton
                 key={tab}
-                type="button"
-                role="tab"
-                aria-selected={shownTab === tab}
+                selected={shownTab === tab}
                 onClick={() => setEditTab(tab)}
-                className={cn(
-                  "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-                  shownTab === tab ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-                )}
               >
                 {intl.formatMessage({ id: tab === "recipe" ? "pos.setup3.recipe.tab" : tab === "parts" ? "spec.partData.tab" : `items.tab.${tab}` })}
-              </button>
+              </TabButton>
             ))}
           </div>
         )}

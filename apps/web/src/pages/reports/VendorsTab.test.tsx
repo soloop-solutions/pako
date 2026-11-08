@@ -53,7 +53,7 @@ describe("VendorsTab", () => {
     renderReports(URL_);
     const negative = await screen.findByText("-300.00");
     expect(negative).toHaveAttribute("data-vendor-owes-us", "true");
-    expect(negative.className).toContain("amber");
+    expect(negative.className).toContain("warning");
     expect(screen.getByText(/the vendor owes us/i)).toBeInTheDocument();
   });
 

@@ -4,9 +4,9 @@ import { useIntl } from "react-intl";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
@@ -52,13 +52,10 @@ export function AcceptInvitation() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "auth.acceptTitle" })}</CardTitle>
-          {info && <CardDescription>{intl.formatMessage({ id: "auth.acceptDescription" }, { company: info.companyName, email: info.email })}</CardDescription>}
-        </CardHeader>
-        <CardContent>
+    <AuthLayout
+      title={intl.formatMessage({ id: "auth.acceptTitle" })}
+      description={info ? intl.formatMessage({ id: "auth.acceptDescription" }, { company: info.companyName, email: info.email }) : undefined}
+    >
           {(!token || infoQuery.isError) && (
             <Alert variant="destructive">
               <AlertDescription>
@@ -110,8 +107,6 @@ export function AcceptInvitation() {
               )}
             </form>
           )}
-        </CardContent>
-      </Card>
-    </div>
+    </AuthLayout>
   );
 }

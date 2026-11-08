@@ -9,11 +9,11 @@ export function LockNotice({ lockDate, messageId }: { lockDate: string; messageI
   const intl = useIntl();
   return (
     <div className="flex items-center gap-2">
-      <Badge variant="outline" className="w-fit gap-1 text-amber-600">
+      <Badge variant="outline" className="w-fit gap-1 text-warning-foreground">
         <Lock className="size-3" />
         {intl.formatMessage({ id: "reports.lockBadge" })}
       </Badge>
-      <span className="text-xs text-amber-600">{intl.formatMessage({ id: messageId }, { date: lockDate })}</span>
+      <span className="text-xs text-warning-foreground">{intl.formatMessage({ id: messageId }, { date: lockDate })}</span>
     </div>
   );
 }

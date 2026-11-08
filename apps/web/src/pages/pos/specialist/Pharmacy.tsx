@@ -28,6 +28,7 @@ import { isIsoDate } from "@/pages/pos/hotel/hotel-utils";
 import { PrescriptionForm } from "@/pages/pos/specialist/PrescriptionForm";
 import { Field, TabBar } from "@/pages/pos/specialist/shared";
 import { isPast, parseDecimal, qty, usePartners } from "@/pages/pos/specialist/specialist-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Tab = "prescriptions" | "payers" | "controlled";
 const TABS: Tab[] = ["prescriptions", "payers", "controlled"];
@@ -390,7 +391,7 @@ function PayerDialog({ payer, onClose, onSaved }: { payer: PayerResponse | null;
           <Input id="payer-coverage" inputMode="decimal" required value={coverage} onChange={(e) => setCoverage(e.target.value)} className="text-right tabular-nums" />
         </Field>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">
@@ -542,7 +543,7 @@ const ControlledRegisterPrint = forwardRef<HTMLDivElement, { report: ControlledR
           </thead>
           <tbody>
             {report.rows.map((r, i) => (
-              <tr key={i} className="border-b border-neutral-300">
+              <tr key={i} className="border-b border-input">
                 <td className="py-1">{intl.formatDate(r.date)}</td>
                 <td className="py-1">{r.document}</td>
                 <td className="py-1">{r.counterparty ?? ""}</td>

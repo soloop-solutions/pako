@@ -47,6 +47,53 @@ public class JournalEntriesController : ControllerBase
         return Ok(entries.Select(ToResponse).ToList());
     }
 
+    [HttpGet("paged")]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
+    public async Task<ActionResult<PaginatedResponse<JournalEntryResponse>>> ListPaged(
+        Guid companyId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] string? sort = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = _db.JournalEntries.AsNoTracking()
+            .Include(e => e.Lines)
+            .Where(e => e.CompanyId == companyId);
+
+        if (from is not null) query = query.Where(e => e.Date >= from);
+        if (to is not null) query = query.Where(e => e.Date <= to);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search.Trim()}%";
+            query = query.Where(e =>
+                (e.SequenceNumber != null && EF.Functions.ILike(e.SequenceNumber, pattern)) ||
+                (e.Description != null && EF.Functions.ILike(e.Description, pattern)) ||
+                (e.Reference != null && EF.Functions.ILike(e.Reference, pattern)));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = sortField?.ToLowerInvariant() switch
+        {
+            "sequencenumber" => descending ? query.OrderByDescending(e => e.SequenceNumber) : query.OrderBy(e => e.SequenceNumber),
+            "description" => descending ? query.OrderByDescending(e => e.Description) : query.OrderBy(e => e.Description),
+            "state" => descending ? query.OrderByDescending(e => e.State) : query.OrderBy(e => e.State),
+            "date" => descending ? query.OrderByDescending(e => e.Date) : query.OrderBy(e => e.Date),
+            _ => query.OrderByDescending(e => e.Date)
+        };
+
+        var total = await query.CountAsync();
+        var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PaginatedResponse<JournalEntryResponse>(entries.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
     // B11: any journal entry, exported for the paper record — account code/name and partner name
     // resolved here rather than reusing JournalEntryResponse's raw account/partner ids, since a
     // spreadsheet meant to be read on paper needs the readable identifiers, not Guids.

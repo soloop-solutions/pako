@@ -78,16 +78,6 @@ export function Ledger() {
     });
   }
 
-  const filteredEntries = useMemo(() => {
-    let result = entries;
-    if (fromDate) result = result.filter((e) => e.date >= fromDate);
-    if (toDate) result = result.filter((e) => e.date <= toDate);
-    result = [...result].sort((a, b) =>
-      sortOrder === "oldest" ? a.date.localeCompare(b.date) : b.date.localeCompare(a.date),
-    );
-    return result;
-  }, [entries, fromDate, toDate, sortOrder]);
-
   const refresh = useCallback(async () => {
     if (!companyId) return;
     setLoading(true);
@@ -261,7 +251,7 @@ export function Ledger() {
               </Button>
             )}
           </div>
-          <JournalEntriesTable companyId={activeCompany.id} entries={filteredEntries} journals={journals} onPosted={refresh} isLoading={loading} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
+          <JournalEntriesTable companyId={activeCompany.id} journals={journals} fromDate={fromDate} toDate={toDate} sortOrder={sortOrder === "oldest" ? "oldest" : "newest"} onPosted={refresh} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
           <JournalEntryDialog entry={openEntry} accounts={accounts} journals={journals} onClose={() => setOpenEntryId(null)} />
         </CardContent>
       </Card>

@@ -20,6 +20,7 @@ import {
   type PermissionModule,
 } from "@/lib/hr-enums";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const EMPTY_PERMISSIONS: DepartmentPermissions = {
   sales: AccessLevel.None,
@@ -213,7 +214,7 @@ export function DepartmentForm({
       </div>
 
       <label className="flex items-center gap-2 text-sm">
-        <input type="checkbox" disabled={readOnly} checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+        <Checkbox disabled={readOnly} checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
         {intl.formatMessage({ id: "common.active" })}
       </label>
 

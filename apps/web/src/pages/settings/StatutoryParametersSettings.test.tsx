@@ -6,6 +6,7 @@ import type { CreateStatutoryParameterRequest, StatutoryParameterResponse } from
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { StatutoryParametersSettings } from "@/pages/settings/StatutoryParametersSettings";
+import { chooseOption } from "@/test/chooseOption";
 
 const firmId = "22222222-2222-2222-2222-222222222222";
 
@@ -88,7 +89,7 @@ describe("StatutoryParametersSettings", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("5%")).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Parameter"), { target: { value: "PensionEmployerRate" } });
+    await chooseOption(screen.getByLabelText("Parameter"), "Pension, employer");
     fireEvent.change(screen.getByLabelText("Effective from"), { target: { value: "2027-01-01" } });
     fireEvent.change(screen.getByLabelText("Value (%)"), { target: { value: "6" } });
     fireEvent.change(screen.getByLabelText("Source"), { target: { value: "Law 05/L-xxx" } });

@@ -18,6 +18,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // docs/INVENTORY_PLAN.md D9 — product categories carry the accounts their items post to: stock,
 // cost of goods sold, revenue and (for items without stock) expense. An item's own account wins.
@@ -182,7 +183,7 @@ function CategoryDialog({ category, accounts, onClose, onSaved }: {
         </div>
         {category && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("stock.wh.active")}
           </label>
         )}

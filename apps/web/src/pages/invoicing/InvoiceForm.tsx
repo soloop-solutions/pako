@@ -713,7 +713,7 @@ export function InvoiceForm({
           <div
             className={
               isOverLimit
-                ? "rounded-md border border-red-300 bg-red-50 px-2 py-1.5 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                ? "rounded-md border border-red-300 bg-destructive/10 px-2 py-1.5 text-sm text-destructive"
                 : wouldExceed
                   ? "rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
                   : "rounded-md border px-2 py-1.5 text-sm text-muted-foreground"
@@ -821,7 +821,7 @@ export function InvoiceForm({
                 }}
               />
               {overridden.account && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -868,7 +868,7 @@ export function InvoiceForm({
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
               {overridden.price && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -900,7 +900,7 @@ export function InvoiceForm({
                 }))}
               />
               {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}

@@ -18,6 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
@@ -26,9 +27,13 @@ import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { useInvoicePrefill } from "@/pages/invoicing/invoicePrefill";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 
-const GRID_ID = "invoices";
+export type InvoiceRegisterScope = "invoice" | "proforma";
 
-export function Invoicing() {
+const GRID_IDS: Record<InvoiceRegisterScope, string> = { invoice: "invoices", proforma: "proforma" };
+
+export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope }) {
+  const isProforma = scope === "proforma";
+  const GRID_ID = GRID_IDS[scope];
   const intl = useIntl();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
@@ -45,6 +50,8 @@ export function Invoicing() {
   const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
+  const [convertingId, setConvertingId] = useState<string | null>(null);
+  const [convertMessage, setConvertMessage] = useState<{ text: string; invoiceId: string } | null>(null);
   const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
   const [invoiceFormKey, setInvoiceFormKey] = useState(0);
@@ -75,14 +82,10 @@ export function Invoicing() {
       setItems(itemsResult.items);
       setAccounts(accountsResult);
 
-      const balanceEntries = await Promise.all(
-        invoicesResult.map(async (invoice) => [invoice.id, await apiClient.balance2(companyId, invoice.id)] as const),
-      );
-      setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "invoicing.loadError" })));
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: isProforma ? "proforma.loadError" : "invoicing.loadError" })));
     }
-  }, [companyId, intl]);
+  }, [companyId, intl, isProforma]);
 
   useEffect(() => {
     void refresh();
@@ -90,24 +93,67 @@ export function Invoicing() {
 
   const customers = partners.filter((p) => p.isCustomer);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  // A6 (v2 release): Sales returns and Proforma now have their own pages — this grid stays
-  // scoped to what this page's create form can actually produce (Invoice/CreditNote/DebitNote/
-  // DownPayment). The full `invoices` array (unfiltered) still passes through to InvoiceForm so
-  // its original-invoice picker for CreditNote/DebitNote is unaffected.
-  // `balances` is included as a dependency (even though the filter predicate itself doesn't use
-  // it) so this array gets a fresh reference whenever a balance finishes loading asynchronously —
-  // DataGrid's underlying TanStack Table caches each row's computed cell values keyed off row
-  // identity, and only invalidates that cache when the `data` array reference itself changes, so
-  // the "outstanding" column (whose accessorFn reads `balances`) would otherwise stay stuck at
-  // its first (pre-fetch) value forever.
-  const displayedInvoices = useMemo(
+  const documentScopeFilter = useMemo(
     () =>
-      invoices.filter(
-        (invoice) => invoice.documentType !== InvoiceDocumentType.SalesReturn && invoice.documentType !== InvoiceDocumentType.Proforma,
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [invoices, balances],
+      isProforma
+        ? { documentType: [InvoiceDocumentType.Proforma], excludeDocumentType: undefined }
+        : { documentType: undefined, excludeDocumentType: [InvoiceDocumentType.SalesReturn, InvoiceDocumentType.Proforma] },
+    [isProforma],
   );
+
+  const paged = usePagedGrid<InvoiceResponse>({
+    gridId: GRID_ID,
+    enabled: !!companyId,
+    queryKey: ["invoices-paged", companyId, scope],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort, filters }) => {
+      const result = await apiClient.paged2(
+        companyId as string,
+        page,
+        pageSize,
+        search,
+        documentScopeFilter.documentType,
+        documentScopeFilter.excludeDocumentType,
+        filters.state || undefined,
+        sort,
+      );
+      return { items: result.items, total: result.total };
+    },
+  });
+  const displayedInvoices = paged.items;
+
+  useEffect(() => {
+    if (!companyId || isProforma) return;
+    const missing = displayedInvoices.filter((invoice) => invoice.state === "Posted" && !(invoice.id in balances));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async (invoice) => [invoice.id, await apiClient.balance2(companyId, invoice.id)] as const)).then((entries) => {
+      if (!cancelled) setBalances((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, displayedInvoices, isProforma]);
+
+  async function handleConvert(proformaId: string) {
+    if (!companyId) return;
+    setError(null);
+    setConvertingId(proformaId);
+    try {
+      const newInvoice = await apiClient.convertToInvoice(companyId, proformaId);
+      setConvertMessage({
+        text: intl.formatMessage({ id: "proforma.convertedMessage" }, { number: newInvoice.invoiceNumber ?? newInvoice.id }),
+        invoiceId: newInvoice.id,
+      });
+      await refresh();
+      await paged.query.refetch();
+    } catch (err) {
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "proforma.convertError" })));
+    } finally {
+      setConvertingId(null);
+    }
+  }
 
   const columns = useMemo<ColumnDef<InvoiceResponse>[]>(
     () => [
@@ -120,6 +166,7 @@ export function Invoicing() {
         id: "type",
         header: intl.formatMessage({ id: "common.type" }),
         accessorFn: (row) => invoiceDocumentTypeLabel(row.documentType, intl),
+        enableSorting: false,
         cell: ({ getValue }) => <Badge variant="outline">{getValue() as string}</Badge>,
       },
       {
@@ -148,6 +195,7 @@ export function Invoicing() {
         header: intl.formatMessage({ id: "invoicing.outstanding" }),
         meta: { numeric: true },
         enableColumnFilter: false,
+        enableSorting: false,
         accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.outstanding : undefined),
         cell: ({ getValue, row }) => {
           const value = getValue() as number | undefined;
@@ -163,14 +211,33 @@ export function Invoicing() {
         enableGrouping: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${row.original.id}`}>
-            {intl.formatMessage({ id: "common.view" })}
-          </Link>
+          <div className="flex items-center justify-end gap-3">
+            <Link className="text-sm font-medium text-primary hover:underline" to={`/invoicing/${row.original.id}`}>
+              {intl.formatMessage({ id: "common.view" })}
+            </Link>
+            {isProforma && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={convertingId === row.original.id}
+                onClick={() => void handleConvert(row.original.id)}
+              >
+                {convertingId === row.original.id
+                  ? intl.formatMessage({ id: "proforma.converting" })
+                  : intl.formatMessage({ id: "proforma.convert" })}
+              </Button>
+            )}
+          </div>
         ),
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, partners, balances],
+    [intl, partners, balances, isProforma, convertingId],
+  );
+  const visibleColumns = useMemo(
+    () => serverSideColumns(isProforma ? columns.filter((column) => column.id !== "outstanding") : columns, ["invoiceNumber", "customer", "issueDate", "dueDate", "state"], ["state"]),
+    [columns, isProforma],
   );
 
   const handleInvoiceCreated = useCallback(async () => {
@@ -178,8 +245,9 @@ export function Invoicing() {
     if (prefill.active) prefill.clear();
     setInvoiceFormKey((k) => k + 1);
     await refresh();
+    await paged.query.refetch();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refresh, prefill.active]);
+  }, [refresh, prefill.active, paged.query.refetch]);
 
   const handleCustomerCreated = useCallback(async () => {
     setCustomerFormOpen(false);
@@ -199,8 +267,8 @@ export function Invoicing() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "invoicing.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "invoicing.description" })}</CardDescription>
+          <CardTitle>{intl.formatMessage({ id: isProforma ? "proforma.title" : "invoicing.title" })}</CardTitle>
+          <CardDescription>{intl.formatMessage({ id: isProforma ? "proforma.description" : "invoicing.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>
@@ -224,18 +292,28 @@ export function Invoicing() {
           </AlertDescription>
         </Alert>
       )}
+      {convertMessage && (
+        <Alert>
+          <AlertDescription>
+            {convertMessage.text}{" "}
+            <Link className="font-medium text-primary hover:underline" to={`/invoicing/${convertMessage.invoiceId}`}>
+              {intl.formatMessage({ id: "common.view" })}
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
       {prefill.isPending && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dist.invoice.prefillLoading" })}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
         <Button onClick={() => setInvoiceFormOpen(true)}>
-          {intl.formatMessage({ id: "invoicing.newInvoice" })}
+          {intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
         </Button>
         <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
           {intl.formatMessage({ id: "invoicing.addCustomer" })}
         </Button>
         <div className="ml-auto">
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "invoicing.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "invoicing.description" })}</p>
+          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: isProforma ? "proforma.title" : "invoicing.title" })}</h2>
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: isProforma ? "proforma.description" : "invoicing.description" })}</p>
         </div>
       </div>
 
@@ -251,8 +329,8 @@ export function Invoicing() {
       <FormDialog
         open={formOpen}
         onOpenChange={(open) => { if (!open) closeInvoiceForm(); }}
-        title={intl.formatMessage({ id: "invoicing.newInvoice" })}
-        description={intl.formatMessage({ id: "invoicing.newInvoiceDescription" })}
+        title={intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
+        description={intl.formatMessage({ id: isProforma ? "proforma.newProformaDescription" : "invoicing.newInvoiceDescription" })}
         size="full"
       >
         <InvoiceForm
@@ -269,27 +347,26 @@ export function Invoicing() {
           onCreated={handleInvoiceCreated}
           onPartnerCreated={handleInlinePartnerCreated}
           onItemCreated={handleInlineItemCreated}
+          fixedDocumentType={isProforma ? InvoiceDocumentType.Proforma : undefined}
         />
       </FormDialog>
 
       <Card>
         <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "invoicing.invoices" })}</CardTitle>
+          <CardTitle>{intl.formatMessage({ id: isProforma ? "proforma.proformasTable" : "invoicing.invoices" })}</CardTitle>
         </CardHeader>
         <CardContent>
           <DataGrid
             gridId={GRID_ID}
-            columns={columns}
+            columns={visibleColumns}
             data={displayedInvoices}
-            rowCount={displayedInvoices.length}
+            rowCount={paged.total}
+            isLoading={paged.query.isPending}
             getRowId={(row) => row.id}
             getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
-            emptyMessage={intl.formatMessage({ id: "invoicing.noInvoices" })}
-            exportFileName="invoices"
-            manualFiltering={false}
-            manualSorting={false}
-            manualGrouping={false}
+            emptyMessage={intl.formatMessage({ id: isProforma ? "proforma.noProformas" : "invoicing.noInvoices" })}
+            exportFileName={isProforma ? "proforma" : "invoices"}
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />

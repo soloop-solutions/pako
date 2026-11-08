@@ -175,8 +175,8 @@ describe("LockDatesSettings", () => {
     fireEvent.change(screen.getByLabelText("Sale lock"), { target: { value: "2026-08-31" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(screen.getByLabelText("Global lock")).toHaveValue("2026-08-31"));
-    expect(screen.getByLabelText("Sale lock")).toHaveValue("2026-08-31");
+    await waitFor(() => expect(screen.getByLabelText("Global lock")).toHaveValue("31.08.2026"));
+    expect(screen.getByLabelText("Sale lock")).toHaveValue("31.08.2026");
     expect(softMock).toHaveBeenCalledTimes(2);
     expect(softMock).toHaveBeenCalledWith(companyId, { lockDateField: 0, lockDate: "2026-08-31" });
     expect(softMock).toHaveBeenCalledWith(companyId, { lockDateField: 2, lockDate: "2026-08-31" });

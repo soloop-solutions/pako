@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { WithholdingTaxForm, type WithholdingTaxFormFields } from "@/pages/tax/WithholdingTaxForm";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 const GRID_ID = "withholdingTax";
 const SORTABLE_COLUMNS = new Set(["name", "personalNumber"]);
@@ -46,6 +47,7 @@ function parseYear(raw: string | null): number {
 
 export function WithholdingTax() {
   const intl = useIntl();
+  const confirm = useConfirm();
   const { activeCompanyId } = useCompany();
   const queryClient = useQueryClient();
   const urlState = useDataGridUrlState(GRID_ID, 50);
@@ -211,9 +213,9 @@ export function WithholdingTax() {
               className="h-6 text-xs text-destructive"
               disabled={deleting}
               onClick={() => {
-                if (window.confirm(intl.formatMessage({ id: "withholdingTax.deleteConfirm" }, { name: row.original.name }))) {
+                confirm(intl.formatMessage({ id: "withholdingTax.deleteConfirm" }, { name: row.original.name }), () => {
                   deleteEntry(row.original.id);
-                }
+                });
               }}
             >
               {intl.formatMessage({ id: "common.delete" })}
@@ -222,7 +224,7 @@ export function WithholdingTax() {
         ),
       },
     ],
-    [intl, editingId, deleting, deleteEntry],
+    [intl, editingId, deleting, deleteEntry, confirm],
   );
 
   if (!activeCompanyId) {

@@ -358,7 +358,7 @@ export function TabStrip() {
               placeholder={intl.formatMessage({ id: "sidebar.filterPlaceholder" })}
               className="mb-1 h-7 w-full rounded border bg-background px-2 text-[12.5px] outline-none focus-visible:ring-1 focus-visible:ring-ring"
             />
-            <div className="max-h-72 overflow-y-auto">
+            <div className="max-h-72 overflow-y-auto scrollbar-brand">
               {matches.map((item) => (
                 <button
                   key={item.path}

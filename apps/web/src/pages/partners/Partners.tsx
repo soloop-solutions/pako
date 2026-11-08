@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import {
   Dialog,
   DialogContent,
@@ -35,10 +36,21 @@ export function Partners() {
   const [mutationError, setMutationError] = useState<string | null>(null);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
-  const partnersQuery = useQuery({
-    queryKey: partnersQueryKey,
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+  const paged = usePagedGrid<PartnerResponse>({
+    gridId: GRID_ID,
     enabled: !!activeCompanyId,
+    queryKey: [...partnersQueryKey, "paged"],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort }) => {
+      const result = await apiClient.paged4(activeCompanyId as string, page, pageSize, search, undefined, sort);
+      return { items: result.items, total: result.total };
+    },
+  });
+  const partnersQuery = paged.query;
+  const editingQuery = useQuery({
+    queryKey: [...partnersQueryKey, "one", editingId],
+    queryFn: () => apiClient.partnersGET(activeCompanyId as string, editingId as string),
+    enabled: !!activeCompanyId && !!editingId,
   });
 
   const accountsQuery = useQuery({
@@ -47,7 +59,7 @@ export function Partners() {
     enabled: !!activeCompanyId,
   });
 
-  const partners = useMemo<PartnerResponse[]>(() => partnersQuery.data ?? [], [partnersQuery.data]);
+  const partners = paged.items;
   const accounts = useMemo<AccountResponse[]>(() => accountsQuery.data ?? [], [accountsQuery.data]);
   const accountLabel = (id: string | undefined) => {
     if (!id) return "\u2014";
@@ -55,7 +67,7 @@ export function Partners() {
     return account ? `${account.code} \u2014 ${account.name}` : "\u2014";
   };
 
-  const editingPartner = editingId ? partners.find((p) => p.id === editingId) ?? null : null;
+  const editingPartner = editingId ? partners.find((p) => p.id === editingId) ?? editingQuery.data ?? null : null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: partnersQueryKey });
@@ -205,6 +217,8 @@ export function Partners() {
     [intl, accounts, editingId],
   );
 
+  const visibleColumns = useMemo(() => serverSideColumns(columns, ["name", "taxNumber"]), [columns]);
+
   if (!activeCompanyId) {
     return <p className="text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>;
   }
@@ -300,18 +314,15 @@ export function Partners() {
 
       <DataGrid
         gridId={GRID_ID}
-        columns={columns}
+        columns={visibleColumns}
         data={partners}
-        rowCount={partners.length}
+        rowCount={paged.total}
         isLoading={partnersQuery.isPending}
         getRowId={(row) => row.id}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: "partners.searchPlaceholder" })}
         emptyMessage={intl.formatMessage({ id: "partners.noPartners" })}
         exportFileName="partners"
-        manualFiltering={false}
-        manualSorting={false}
-        manualGrouping={false}
         defaultPageSize={100}
         pageSizeOptions={[50, 100, 200]}
       />

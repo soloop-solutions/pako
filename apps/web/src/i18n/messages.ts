@@ -15,6 +15,7 @@ import { posSpecialistEn, posSpecialistSq } from "@/i18n/messages.posSpecialist"
 import { distributionEn, distributionSq } from "@/i18n/messages.distribution";
 import { verticalsEn, verticalsSq } from "@/i18n/messages.verticals";
 import { companyTypesEn, companyTypesSq } from "@/i18n/messages.companyTypes";
+import { uiEn, uiSq } from "@/i18n/messages.ui";
 
 export const en: Record<string, string> = {
   // Nav
@@ -3371,5 +3372,8 @@ Object.assign(sq, verticalsSq);
 // Business types and vertical packs (keys "company.businessType*", "company.pack*", "company.featureOff.*").
 Object.assign(en, companyTypesEn);
 Object.assign(sq, companyTypesSq);
+
+Object.assign(en, uiEn);
+Object.assign(sq, uiSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

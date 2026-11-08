@@ -19,6 +19,7 @@ import { downloadFileResponse } from "@/lib/download";
 import { formatAmount } from "@/lib/payroll-enums";
 import { cn } from "@/lib/utils";
 import { ExpenseStageBadge } from "@/pages/me/ExpenseStageBadge";
+import { Select } from "@/components/ui/select";
 
 interface LineDraft {
   key: number;
@@ -282,19 +283,15 @@ export function MyExpenses() {
                     value={line.description}
                     onChange={(e) => updateLine(line.key, { description: e.target.value })}
                   />
-                  <select
+                  <Select
                     aria-label={intl.formatMessage({ id: "expenses.line.category" })}
-                    className="h-9 rounded-md border bg-transparent px-2 text-sm"
                     value={line.expenseAccountId}
-                    onChange={(e) => updateLine(line.key, { expenseAccountId: e.target.value })}
-                  >
-                    <option value="">{intl.formatMessage({ id: "expenses.line.category" })}…</option>
-                    {(options?.accounts ?? []).map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.label}
-                      </option>
-                    ))}
-                  </select>
+                    onValueChange={(v) => updateLine(line.key, { expenseAccountId: v })}
+                    options={[
+                      { value: "", label: `${intl.formatMessage({ id: "expenses.line.category" })}…` },
+                      ...(options?.accounts ?? []).map((a) => ({ value: a.id, label: a.label })),
+                    ]}
+                  />
                   <Input
                     aria-label={intl.formatMessage({ id: "expenses.line.amount" })}
                     placeholder="0.00"
@@ -303,19 +300,7 @@ export function MyExpenses() {
                     value={line.amount}
                     onChange={(e) => updateLine(line.key, { amount: e.target.value })}
                   />
-                  <select
-                    aria-label={intl.formatMessage({ id: "expenses.line.vat" })}
-                    className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                    value={line.taxDefinitionId}
-                    onChange={(e) => updateLine(line.key, { taxDefinitionId: e.target.value })}
-                  >
-                    <option value="">{intl.formatMessage({ id: "expenses.line.noVat" })}</option>
-                    {(options?.taxes ?? []).map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
+                  <Select aria-label={intl.formatMessage({ id: "expenses.line.vat" })} value={line.taxDefinitionId} onValueChange={(v) => updateLine(line.key, { taxDefinitionId: v })} options={[{ value: "", label: intl.formatMessage({ id: "expenses.line.noVat" }) }, ...(options?.taxes ?? []).map((t) => ({ value: t.id, label: t.label }))]} />
                   <Input
                     aria-label={intl.formatMessage({ id: "expenses.line.supplier" })}
                     placeholder={intl.formatMessage({ id: "expenses.line.supplier" })}

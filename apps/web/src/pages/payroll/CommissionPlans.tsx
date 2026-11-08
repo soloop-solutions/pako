@@ -16,6 +16,7 @@ import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { formatAmount } from "@/lib/payroll-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Mirrors CommissionBasis (numeric on the wire).
 // PosServicesNet (POS P4): the net of services the employee performed at the till.
@@ -163,7 +164,7 @@ export function CommissionPlans() {
             </div>
             <div className="flex items-center gap-2">
               <label className="flex items-center gap-1 text-sm">
-                <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+                <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
                 {intl.formatMessage({ id: "leave.types.active" })}
               </label>
               <Button type="submit" size="sm" disabled={saveMutation.isPending}>

@@ -25,7 +25,8 @@ import { useUrlParam } from "@/hooks/useUrlParam";
 import { formatAmount } from "@/lib/payroll-enums";
 import { PriceChangeState } from "@/lib/stock-enums";
 import { priceListLabel } from "@/lib/price-lists";
-import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
+import { TabButton } from "@/components/ui/tabs";
 
 const ITEMS_GRID = "price-list-items";
 const CHANGES_GRID = "price-changes";
@@ -72,19 +73,13 @@ export function PriceLists() {
       </div>
       <div role="tablist" aria-label={t("nav.priceLists")} className="flex gap-1 border-b">
         {(["prices", "changes"] as const).map((id) => (
-          <button
+          <TabButton
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
+            selected={tab === id}
             onClick={() => setTab(id)}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-              tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
           >
             {t(`price.tab.${id}`)}
-          </button>
+          </TabButton>
         ))}
       </div>
       <div role="tabpanel">
@@ -192,7 +187,7 @@ function PricesTab({ lists, selected, onSelect, onEdit }: {
             <Input id="pl-date" type="date" className="w-44" value={date} onChange={(e) => setDate(e.target.value)} />
           </div>
           <label className="flex h-8 items-center gap-2 text-sm">
-            <input type="checkbox" checked={onlyPriced === "1"} onChange={(e) => setOnlyPriced(e.target.checked ? "1" : "")} />
+            <Checkbox checked={onlyPriced === "1"} onChange={(e) => setOnlyPriced(e.target.checked ? "1" : "")} />
             {t("price.onlyPriced")}
           </label>
           {!selected.isActive && <Badge variant="secondary">{t("stock.wh.closed")}</Badge>}
@@ -350,7 +345,7 @@ function PriceListDialog({ list, onClose, onSaved }: { list: PriceListResponse |
           list.isCustomerList && <p className="text-sm text-muted-foreground">{t("dist.price.customerListHint")}</p>
         ) : (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isCustomerList} onChange={(e) => setIsCustomerList(e.target.checked)} />
+            <Checkbox checked={isCustomerList} onChange={(e) => setIsCustomerList(e.target.checked)} />
             {t("dist.price.customerList")}
           </label>
         )}
@@ -367,7 +362,7 @@ function PriceListDialog({ list, onClose, onSaved }: { list: PriceListResponse |
         )}
         {list && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("stock.wh.active")}
           </label>
         )}

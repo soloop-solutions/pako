@@ -262,7 +262,7 @@ export function Select({
           <div
             ref={listRef}
             role="listbox"
-            className="max-h-[280px] overflow-auto py-1"
+            className="max-h-[280px] overflow-auto scrollbar-brand py-1"
           >
             {filtered.length === 0 && (
               <div className="px-2 py-4 text-center text-[12.5px] text-muted-foreground">

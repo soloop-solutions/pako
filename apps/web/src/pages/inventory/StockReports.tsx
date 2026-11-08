@@ -18,6 +18,7 @@ import { formatAmount } from "@/lib/payroll-enums";
 import { cn } from "@/lib/utils";
 import { ExportButton } from "@/pages/reports/shared";
 import { useReportExport } from "@/pages/reports/useReportExport";
+import { TabButton } from "@/components/ui/tabs";
 
 const TABS = ["valuation", "margin", "grni", "lots"] as const;
 
@@ -43,19 +44,13 @@ export function StockReports() {
       </div>
       <div role="tablist" aria-label={t("nav.stockReports")} className="flex gap-1 border-b">
         {TABS.map((id) => (
-          <button
+          <TabButton
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
+            selected={tab === id}
             onClick={() => setTab(id)}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-              tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
           >
             {t(`stock.report.${id}`)}
-          </button>
+          </TabButton>
         ))}
       </div>
       <div role="tabpanel">{tab === "margin" ? <MarginTab /> : tab === "grni" ? <GrniTab /> : tab === "lots" ? <LotsTab /> : <ValuationTab />}</div>

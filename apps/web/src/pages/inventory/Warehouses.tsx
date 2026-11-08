@@ -20,6 +20,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { useWarehouses } from "@/hooks/useStock";
 import { NegativeStockPolicy } from "@/lib/stock-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // docs/INVENTORY_PLAN.md — where stock is kept, and the company's stock settings (cost method,
 // selling below zero, default warehouse).
@@ -162,7 +163,7 @@ function WarehouseDialog({ warehouse, onClose, onSaved }: { warehouse: Warehouse
         {warehouse?.isVan && <p className="text-xs text-muted-foreground">{t("stock.wh.vanHint")}</p>}
         {warehouse && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("stock.wh.active")}
           </label>
         )}

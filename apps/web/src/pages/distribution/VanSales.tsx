@@ -268,7 +268,7 @@ const SettlementPrint = ({ ref, settlement, companyName }: {
         </thead>
         <tbody>
           {settlement.lines.map((l) => (
-            <tr key={l.itemId} className="border-b border-neutral-300">
+            <tr key={l.itemId} className="border-b border-input">
               <td className="py-1">{l.itemCode}</td>
               <td className="py-1">{l.itemName}</td>
               <td className="py-1">{l.unit}</td>

@@ -24,6 +24,7 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { posRegistersKey, posStoresKey, usePosRegisters, usePosStores } from "@/hooks/usePos";
 import { useItemSearch, useWarehouses } from "@/hooks/useStock";
 import { BARCODE_RULE_KINDS, BarcodeRuleKind, FiscalMode, REGISTER_PROFILES, RegisterProfile, barcodeRuleKindKey, fiscalModeKey, registerProfileKey } from "@/lib/pos-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // docs/POS_PLAN.md §12: the shops (each an ATK branch) and their tills.
 export function PosSetup() {
@@ -423,8 +424,7 @@ function StoreDialog({ store, onClose, onSaved }: { store: StoreResponse | null;
         {store && (
           <div className="flex flex-col gap-1 rounded-md border p-2" data-testid="booking-link">
             <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={!!bookingToken}
                 disabled={bookingLink.isPending}
                 onChange={(e) => bookingLink.mutate(e.target.checked)}
@@ -451,7 +451,7 @@ function StoreDialog({ store, onClose, onSaved }: { store: StoreResponse | null;
         )}
         {store && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("common.active")}
           </label>
         )}
@@ -595,7 +595,7 @@ function RegisterDialog({ register, stores, onClose, onSaved }: {
         )}
         {register && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("common.active")}
           </label>
         )}
@@ -675,7 +675,7 @@ function BarcodeRuleDialog({ rule, onClose, onSaved }: { rule: BarcodeRuleRespon
         </div>
         <p className={digitsOk ? "text-xs text-muted-foreground" : "text-xs text-destructive"}>{t("pos.barcodeRule.digits.hint")}</p>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">

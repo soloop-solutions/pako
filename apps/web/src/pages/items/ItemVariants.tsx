@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const attributesKey = (companyId: string | null) => ["itemAttributes", companyId] as const;
 
@@ -268,7 +269,7 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
                     on ? "border-primary bg-primary/10 text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  <input type="checkbox" className="size-3.5" checked={on} disabled={!canWrite("items")} onChange={() => toggle(v.id)} />
+                  <Checkbox className="size-3.5" checked={on} disabled={!canWrite("items")} onChange={() => toggle(v.id)} />
                   {v.value}
                 </label>
               );

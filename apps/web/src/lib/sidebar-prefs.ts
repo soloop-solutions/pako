@@ -13,18 +13,18 @@ export interface SidebarPrefs {
   categories: Record<string, CategoryPrefs>;
 }
 
-function storageKey(userId: string): string {
-  return `pako.sidebarPrefs.${userId}`;
+function storageKey(userId: string, scope: string): string {
+  return scope ? `pako.sidebarPrefs.${userId}.${scope}` : `pako.sidebarPrefs.${userId}`;
 }
 
 function defaultCategoryPrefs(category: NavCategory): CategoryPrefs {
   const order = category.items.map((item) => item.path);
-  return { order, hidden: order.slice(DEFAULT_VISIBLE_COUNT) };
+  return { order, hidden: order.slice(category.visibleCount ?? DEFAULT_VISIBLE_COUNT) };
 }
 
-export function emptyPrefs(): SidebarPrefs {
+export function emptyPrefs(source: NavCategory[] = navCategories): SidebarPrefs {
   const categories: Record<string, CategoryPrefs> = {};
-  for (const category of navCategories) {
+  for (const category of source) {
     categories[category.id] = defaultCategoryPrefs(category);
   }
   return { favourites: [], categories };
@@ -42,33 +42,33 @@ function reconcileCategory(category: NavCategory, stored: CategoryPrefs | undefi
   return { order, hidden };
 }
 
-function reconcile(prefs: SidebarPrefs): SidebarPrefs {
-  const allIds = new Set(navCategories.flatMap((c) => c.items.map((i) => i.path)));
+function reconcile(prefs: SidebarPrefs, source: NavCategory[]): SidebarPrefs {
+  const allIds = new Set(source.flatMap((c) => c.items.map((i) => i.path)));
   const categories: Record<string, CategoryPrefs> = {};
-  for (const category of navCategories) {
+  for (const category of source) {
     categories[category.id] = reconcileCategory(category, prefs.categories[category.id]);
   }
   return { favourites: prefs.favourites.filter((id) => allIds.has(id)), categories };
 }
 
-export function loadSidebarPrefs(userId: string): SidebarPrefs {
+export function loadSidebarPrefs(userId: string, source: NavCategory[] = navCategories, scope = ""): SidebarPrefs {
   try {
-    const raw = localStorage.getItem(storageKey(userId));
-    if (!raw) return emptyPrefs();
+    const raw = localStorage.getItem(storageKey(userId, scope));
+    if (!raw) return emptyPrefs(source);
     const parsed = JSON.parse(raw) as Partial<SidebarPrefs>;
-    const base = emptyPrefs();
+    const base = emptyPrefs(source);
     return reconcile({
       favourites: Array.isArray(parsed.favourites) ? parsed.favourites : base.favourites,
       categories: parsed.categories && typeof parsed.categories === "object" ? { ...base.categories, ...parsed.categories } : base.categories,
-    });
+    }, source);
   } catch {
-    return emptyPrefs();
+    return emptyPrefs(source);
   }
 }
 
-export function saveSidebarPrefs(userId: string, prefs: SidebarPrefs): void {
+export function saveSidebarPrefs(userId: string, prefs: SidebarPrefs, scope = ""): void {
   try {
-    localStorage.setItem(storageKey(userId), JSON.stringify(prefs));
+    localStorage.setItem(storageKey(userId, scope), JSON.stringify(prefs));
   } catch {
     // Storage unavailable — customisation just won't persist across reloads.
   }

@@ -138,7 +138,7 @@ export function WithholdingTaxForm({
         {amountField("wht-monthly-rent", "withholdingTax.monthlyGrossRent", monthlyRent, setMonthlyRent, !hasRent)}
       </div>
       {rentDetailsMissing && (
-        <p className="text-xs text-amber-600">{intl.formatMessage({ id: "withholdingTax.rentDetailsHint" })}</p>
+        <p className="text-xs text-warning-foreground">{intl.formatMessage({ id: "withholdingTax.rentDetailsHint" })}</p>
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
