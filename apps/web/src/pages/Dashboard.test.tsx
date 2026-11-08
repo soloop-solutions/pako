@@ -52,6 +52,7 @@ const layout: DashboardLayoutResponse = {
 };
 
 const getDashboard = vi.fn<(...args: unknown[]) => Promise<DashboardResponse>>(async () => data());
+const getDashboardPdf = vi.fn<(...args: unknown[]) => Promise<{ data: Blob; status: number; fileName: string }>>(async () => ({ data: new Blob(["%PDF"]), status: 200, fileName: "dashboard.pdf" }));
 const saveLayout = vi.fn(async (_c: string, body: { widgets: DashboardWidgetConfig[] }) => ({ ...layout, widgets: body.widgets, isDefault: false }));
 
 vi.mock("@/api/client", async () => {
@@ -61,11 +62,17 @@ vi.mock("@/api/client", async () => {
     apiClient: {
       ...actual.apiClient,
       getDashboard: (...args: unknown[]) => getDashboard(...args),
+      getDashboardPdf: (...args: unknown[]) => getDashboardPdf(...args),
       getDashboardLayout: async () => layout,
       saveDashboardLayout: (c: string, body: { widgets: DashboardWidgetConfig[] }) => saveLayout(c, body),
       resetDashboardLayout: async () => layout,
     },
   };
+});
+
+vi.mock("@/pages/reports/helpers", async () => {
+  const actual = await vi.importActual<typeof import("@/pages/reports/helpers")>("@/pages/reports/helpers");
+  return { ...actual, downloadFileResponse: vi.fn() };
 });
 
 vi.mock("@/context/CompanyContext", () => ({
@@ -144,5 +151,17 @@ describe("Dashboard", () => {
     expect(saveLayout.mock.calls[0][1].widgets.map((w) => w.key)).toEqual([
       "kpi.cash", "kpi.receivables", "kpi.payables", "kpi.overduePayables", "cashTrend", "receivablesAging", "payablesAging",
     ]);
+  });
+
+  it("offers only steps finer than the period and exports the PDF for the same period", async () => {
+    renderDashboard();
+    await screen.findByText("Revenue", { selector: "[data-widget='kpi.revenue'] *" });
+    fireEvent.click(screen.getByRole("combobox", { name: "Step" }));
+    const options = screen.getAllByRole("option").map((o) => o.textContent);
+    expect(options).toEqual(["Automatic", "Days", "Weeks"]);
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
+
+    fireEvent.click(screen.getByRole("button", { name: "Export PDF" }));
+    await waitFor(() => expect(getDashboardPdf).toHaveBeenCalledWith("c1", "2026-10-01", "2026-10-31", "2025-10-01", "2025-10-31", undefined));
   });
 });

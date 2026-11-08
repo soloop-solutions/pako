@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compareRangeFor, rangeFor, readPeriod, writePeriod } from "@/pages/dashboard/period";
+import { allowedGranularities, compareRangeFor, rangeFor, readPeriod, writePeriod } from "@/pages/dashboard/period";
 
 const today = new Date(2026, 9, 30); // 30 Oct 2026
 
@@ -26,6 +26,14 @@ describe("dashboard period", () => {
     expect(compareRangeFor("custom", "month", { from: "2026-03-01", to: "2026-03-31" }, { from: "2025-01-01", to: "2025-06-30" })).toEqual({ from: "2025-01-01", to: "2025-06-30" });
   });
 
+  it("offers only steps finer than the selected period", () => {
+    expect(allowedGranularities(rangeFor("month", "2026-10", today))).toEqual(["auto", "day", "week"]);
+    expect(allowedGranularities(rangeFor("month", "2026-02", today))).toEqual(["auto", "day", "week"]);
+    expect(allowedGranularities(rangeFor("quarter", "2026-Q3", today))).toEqual(["auto", "day", "week", "month"]);
+    expect(allowedGranularities(rangeFor("year", "2026", today))).toEqual(["auto", "week", "month", "quarter"]);
+    expect(allowedGranularities(rangeFor("custom", "", today, { from: "2026-10-01", to: "2026-10-03" }))).toEqual(["auto", "day"]);
+  });
+
   it("reads and writes the URL, defaulting to this month against last year", () => {
     const initial = readPeriod(new URLSearchParams(), today);
     expect(initial.kind).toBe("month");
@@ -39,6 +47,10 @@ describe("dashboard period", () => {
     expect(read.range).toEqual({ from: "2026-04-01", to: "2026-06-30" });
     expect(read.compare).toEqual({ from: "2026-01-01", to: "2026-03-31" });
     expect(read.granularity).toBe("week");
+
+    const month = readPeriod(new URLSearchParams("period=month&anchor=2026-10&gran=quarter"), today);
+    expect(month.granularity).toBe("auto");
+    expect(readPeriod(new URLSearchParams("period=month&anchor=2026-10&gran=week"), today).granularity).toBe("week");
 
     // Leaving custom drops its dates.
     params = writePeriod(writePeriod(params, { kind: "custom", from: "2026-01-01", to: "2026-01-31" }), { kind: "year" });

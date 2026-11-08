@@ -6,9 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import {
+  allowedGranularities,
   anchorOptions,
   compareKinds,
-  granularities,
   iso,
   type CompareKind,
   type DashboardPeriod,
@@ -173,7 +173,7 @@ export function PeriodBar({
           aria-label={t("dashboard.granularity.label")}
           value={period.granularity}
           onValueChange={(v) => onChange({ granularity: v as Granularity })}
-          options={granularities.map((g) => ({ value: g, label: t(`dashboard.granularity.${g}`) }))}
+          options={allowedGranularities(period.range).map((g) => ({ value: g, label: t(`dashboard.granularity.${g}`) }))}
         />
       </div>
     </div>

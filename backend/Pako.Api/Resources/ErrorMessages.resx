@@ -1637,4 +1637,60 @@ Estimate: {estimate} €.</value></data>
   <data name="FeatureDisabled" xml:space="preserve"><value>This feature isn't used by this company. Its administrator can change the business type, or the platform administrator can switch the pack on.</value></data>
   <data name="BusinessTypeInvalid" xml:space="preserve"><value>Choose a business type.</value></data>
   <data name="FeaturesInvalid" xml:space="preserve"><value>One of the packs isn't known.</value></data>
+  <data name="Export_Dash_W_kpi_revenue" xml:space="preserve"><value>Revenue</value></data>
+  <data name="Export_Dash_W_kpi_expenses" xml:space="preserve"><value>Expenses</value></data>
+  <data name="Export_Dash_W_kpi_netProfit" xml:space="preserve"><value>Net profit</value></data>
+  <data name="Export_Dash_W_kpi_grossProfit" xml:space="preserve"><value>Gross profit</value></data>
+  <data name="Export_Dash_W_kpi_netMargin" xml:space="preserve"><value>Net margin</value></data>
+  <data name="Export_Dash_W_kpi_cash" xml:space="preserve"><value>Cash &amp; bank</value></data>
+  <data name="Export_Dash_W_kpi_receivables" xml:space="preserve"><value>Receivables</value></data>
+  <data name="Export_Dash_W_kpi_payables" xml:space="preserve"><value>Payables</value></data>
+  <data name="Export_Dash_W_kpi_overdueReceivables" xml:space="preserve"><value>Overdue from customers</value></data>
+  <data name="Export_Dash_W_kpi_overduePayables" xml:space="preserve"><value>Overdue to vendors</value></data>
+  <data name="Export_Dash_W_kpi_salesNet" xml:space="preserve"><value>Sales (net)</value></data>
+  <data name="Export_Dash_W_kpi_purchasesNet" xml:space="preserve"><value>Purchases (net)</value></data>
+  <data name="Export_Dash_W_kpi_invoiceCount" xml:space="preserve"><value>Invoices issued</value></data>
+  <data name="Export_Dash_W_kpi_averageInvoice" xml:space="preserve"><value>Average invoice</value></data>
+  <data name="Export_Dash_W_kpi_payrollCost" xml:space="preserve"><value>Payroll cost</value></data>
+  <data name="Export_Dash_W_kpi_headcount" xml:space="preserve"><value>Headcount</value></data>
+  <data name="Export_Dash_W_kpi_stockValue" xml:space="preserve"><value>Stock value</value></data>
+  <data name="Export_Dash_W_kpi_lowStock" xml:space="preserve"><value>Items below minimum</value></data>
+  <data name="Export_Dash_W_kpi_stockMargin" xml:space="preserve"><value>Stock margin</value></data>
+  <data name="Export_Dash_W_revenueTrend" xml:space="preserve"><value>Revenue over time</value></data>
+  <data name="Export_Dash_W_revenueVsExpenses" xml:space="preserve"><value>Revenue vs expenses</value></data>
+  <data name="Export_Dash_W_profitTrend" xml:space="preserve"><value>Profit over time</value></data>
+  <data name="Export_Dash_W_cashTrend" xml:space="preserve"><value>Cash over time</value></data>
+  <data name="Export_Dash_W_payrollTrend" xml:space="preserve"><value>Payroll over time</value></data>
+  <data name="Export_Dash_W_revenueBreakdown" xml:space="preserve"><value>Revenue by account</value></data>
+  <data name="Export_Dash_W_expenseBreakdown" xml:space="preserve"><value>Expenses by account</value></data>
+  <data name="Export_Dash_W_topCustomers" xml:space="preserve"><value>Top customers</value></data>
+  <data name="Export_Dash_W_topVendors" xml:space="preserve"><value>Top vendors</value></data>
+  <data name="Export_Dash_W_topItems" xml:space="preserve"><value>Top items</value></data>
+  <data name="Export_Dash_W_receivablesAging" xml:space="preserve"><value>Receivables aging</value></data>
+  <data name="Export_Dash_W_payablesAging" xml:space="preserve"><value>Payables aging</value></data>
+  <data name="Export_Dash_W_headcountByDepartment" xml:space="preserve"><value>Headcount by department</value></data>
+  <data name="Export_Dash_W_stockByItem" xml:space="preserve"><value>Stock by item</value></data>
+  <data name="Export_Dash_Title" xml:space="preserve"><value>Dashboard</value></data>
+  <data name="Export_Dash_Compared" xml:space="preserve"><value>{0} compared with {1}</value></data>
+  <data name="Export_Dash_AsOf" xml:space="preserve"><value>As of {0}</value></data>
+  <data name="Export_Dash_OpenAt" xml:space="preserve"><value>Open on {0}</value></data>
+  <data name="Export_Dash_VsPrevious" xml:space="preserve"><value>vs {0} in {1}</value></data>
+  <data name="Export_Dash_Page" xml:space="preserve"><value>Page {0} of {1}</value></data>
+  <data name="Export_Dash_Generated" xml:space="preserve"><value>Generated {0}</value></data>
+  <data name="Export_Dash_Amounts" xml:space="preserve"><value>Amounts in {0}</value></data>
+  <data name="Export_Dash_NoData" xml:space="preserve"><value>Nothing posted in this period.</value></data>
+  <data name="Export_Dash_NothingOpen" xml:space="preserve"><value>Nothing is open. Everything is paid.</value></data>
+  <data name="Export_Dash_Other" xml:space="preserve"><value>Other</value></data>
+  <data name="Export_Dash_NoDepartment" xml:space="preserve"><value>No department</value></data>
+  <data name="Export_Dash_Revenue" xml:space="preserve"><value>Revenue</value></data>
+  <data name="Export_Dash_Expenses" xml:space="preserve"><value>Expenses</value></data>
+  <data name="Export_Dash_Points" xml:space="preserve"><value>pts</value></data>
+  <data name="Export_Dash_Empty" xml:space="preserve"><value>No widgets to show.</value></data>
+  <data name="Export_Dash_Aging_notDue" xml:space="preserve"><value>Not overdue</value></data>
+  <data name="Export_Dash_Aging_d1to30" xml:space="preserve"><value>1–30 days</value></data>
+  <data name="Export_Dash_Aging_d31to60" xml:space="preserve"><value>31–60 days</value></data>
+  <data name="Export_Dash_Aging_d61to90" xml:space="preserve"><value>61–90 days</value></data>
+  <data name="Export_Dash_Aging_d90plus" xml:space="preserve"><value>90+ days</value></data>
+  <data name="Export_Dash_Documents" xml:space="preserve"><value>Documents</value></data>
+  <data name="DashboardPdfNothing" xml:space="preserve"><value>There is nothing to export for this dashboard.</value></data>
 </root>

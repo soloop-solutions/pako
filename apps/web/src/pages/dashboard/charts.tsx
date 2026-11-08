@@ -448,6 +448,7 @@ export function Sparkline({ values, width = 96, height = 28 }: { values: number[
 
 export interface Delta {
   percent: number | null | undefined;
+  unit?: string | null;
   /** True when a rise is good news (revenue), false when it is bad (expenses). */
   upIsGood: boolean;
   label: string;
@@ -468,7 +469,7 @@ export function DeltaBadge({ delta }: { delta: Delta }) {
         style={{ color: good === null ? "var(--muted-foreground)" : good ? "var(--chart-delta-good)" : "var(--chart-delta-bad)" }}
       >
         <Icon className="size-3.5" aria-hidden />
-        {`${p > 0 ? "+" : ""}${intl.formatNumber(p, { maximumFractionDigits: 1 })}%`}
+        {`${p > 0 ? "+" : ""}${intl.formatNumber(p, { maximumFractionDigits: 1 })}${delta.unit === "points" ? ` ${intl.formatMessage({ id: "dashboard.pointsUnit" })}` : "%"}`}
       </span>
       <span className="text-muted-foreground">{delta.label}</span>
     </span>

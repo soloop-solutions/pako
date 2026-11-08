@@ -3813,6 +3813,75 @@ export class PakoApiClient {
     }
 
     /**
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param compareFrom (optional) 
+     * @param compareTo (optional) 
+     * @param granularity (optional) 
+     * @return OK
+     */
+    getDashboardPdf(companyId: string, from: string | undefined, to: string | undefined, compareFrom: string | undefined, compareTo: string | undefined, granularity: string | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/dashboard/pdf?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (compareFrom === null)
+            throw new globalThis.Error("The parameter 'compareFrom' cannot be null.");
+        else if (compareFrom !== undefined)
+            url_ += "compareFrom=" + encodeURIComponent("" + compareFrom) + "&";
+        if (compareTo === null)
+            throw new globalThis.Error("The parameter 'compareTo' cannot be null.");
+        else if (compareTo !== undefined)
+            url_ += "compareTo=" + encodeURIComponent("" + compareTo) + "&";
+        if (granularity === null)
+            throw new globalThis.Error("The parameter 'granularity' cannot be null.");
+        else if (granularity !== undefined)
+            url_ += "granularity=" + encodeURIComponent("" + granularity) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/pdf"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetDashboardPdf(_response);
+        });
+    }
+
+    protected processGetDashboardPdf(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     getDashboardLayout(companyId: string): Promise<DashboardLayoutResponse> {
@@ -28017,6 +28086,7 @@ export interface DashboardKpi {
     previous: number | undefined;
     changePercent: number | undefined;
     trend: number[];
+    changeUnit?: string;
 
     [key: string]: any;
 }
@@ -28070,6 +28140,7 @@ export interface DashboardResponse {
     payablesAging: DashboardAgingBucket[];
     headcountByDepartment: DashboardRankItem[];
     stockByItem?: DashboardRankItem[] | undefined;
+    agingAsOf?: string | undefined;
 
     [key: string]: any;
 }

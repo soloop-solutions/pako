@@ -26,7 +26,7 @@ public class StockReportExportsController : ControllerBase
     public async Task<IActionResult> LevelsExport(Guid companyId, [FromQuery] string? search = null, [FromQuery] Guid? warehouseId = null,
         [FromQuery] Guid? categoryId = null, [FromQuery] bool belowMinimum = false)
     {
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow));
         var rows = await _data.LevelsAsync(companyId, search, warehouseId, categoryId, belowMinimum, today);
 
         var headers = new[]
@@ -49,7 +49,7 @@ public class StockReportExportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<IActionResult> ValuationExport(Guid companyId, [FromQuery(Name = "asOf")] DateOnly? asOfDate = null)
     {
-        var asOf = asOfDate ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var asOf = asOfDate ?? DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow));
         var valuation = await _data.ValuationAsync(companyId, asOf);
 
         var block = new List<(string Label, object? Value)>

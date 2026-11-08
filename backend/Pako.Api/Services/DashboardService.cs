@@ -8,6 +8,7 @@ using Pako.Domain.Documents;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Payroll;
+using Pako.Domain.Reporting;
 using Pako.Domain.Tax;
 using Pako.Infrastructure;
 using BillDocumentType = Pako.Domain.Bills.DocumentType;
@@ -26,7 +27,7 @@ public class DashboardService
     public const string OtherName = "__other";
     public const string NoneName = "__none";
 
-    public static readonly string[] Granularities = ["day", "week", "month", "quarter"];
+    public static readonly string[] Granularities = PeriodGranularity.All;
 
     private readonly PakoDbContext _db;
     private readonly CompanyAccessContext _access;
@@ -188,7 +189,7 @@ public class DashboardService
 
         // Aging is measured at the period end, or today when the period runs into the future, so
         // nothing counts as overdue before its due date has actually passed.
-        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow));
         var agingAsOf = to > today ? today : to;
         if (sections.Finance || sections.Sales)
         {
@@ -269,26 +270,13 @@ public class DashboardService
         return new DashboardResponse(
             from, to, compare?.From, compare?.To, resolvedGranularity, sections, kpis, series, compareSeries,
             revenueByAccount, expensesByAccount, topCustomers, topVendors, topItems, receivablesAging, payablesAging,
-            headcountByDepartment, stockByItem);
+            headcountByDepartment, stockByItem, agingAsOf);
     }
 
     // ---- Periods ----
 
-    public static string ResolveGranularity(DateOnly from, DateOnly to, string? requested)
-    {
-        var days = to.DayNumber - from.DayNumber + 1;
-        if (requested is not null && Granularities.Contains(requested))
-        {
-            // Never more than ~120 points: a request for days over a year falls back to automatic.
-            var points = requested switch { "day" => days, "week" => days / 7, "month" => days / 28, _ => days / 90 };
-            if (points <= 120)
-            {
-                return requested;
-            }
-        }
-
-        return days <= 31 ? "day" : days <= 120 ? "week" : days <= 731 ? "month" : "quarter";
-    }
+    public static string ResolveGranularity(DateOnly from, DateOnly to, string? requested) =>
+        PeriodGranularity.Resolve(to.DayNumber - from.DayNumber + 1, requested);
 
     public static List<(DateOnly Start, DateOnly End)> Buckets(DateOnly from, DateOnly to, string granularity)
     {
@@ -323,14 +311,16 @@ public class DashboardService
 
     // ---- Figures ----
 
+    private static readonly HashSet<string> MarginKeys = ["netMargin", "stockMargin"];
+
     private static DashboardKpi Kpi(string key, decimal current, decimal? previous, IEnumerable<decimal> trend) =>
-        new(key, current, previous, ChangePercent(current, previous), trend.ToList());
+        MarginKeys.Contains(key)
+            ? new(key, current, previous, ChangeMath.PointChange(current, previous), trend.ToList(), ChangeMath.PointsUnit)
+            : new(key, current, previous, ChangeMath.PercentChange(current, previous), trend.ToList());
 
-    public static decimal? ChangePercent(decimal current, decimal? previous) =>
-        previous is { } p && p != 0 ? Math.Round((current - p) / Math.Abs(p) * 100m, 1, MidpointRounding.AwayFromZero) : null;
+    public static decimal? ChangePercent(decimal current, decimal? previous) => ChangeMath.PercentChange(current, previous);
 
-    private static decimal Margin(decimal revenue, decimal profit) =>
-        revenue == 0 ? 0 : Math.Round(profit / revenue * 100m, 1, MidpointRounding.AwayFromZero);
+    private static decimal Margin(decimal revenue, decimal profit) => ChangeMath.MarginPercent(revenue, profit);
 
     private async Task<decimal> DebitBalanceAsync(Guid companyId, List<Guid> accountIds, DateOnly asOf) =>
         accountIds.Count == 0
@@ -433,10 +423,9 @@ public class DashboardService
     }
 
     // The document's own partner line on its journal entry is the amount owed; reconciliations
-    // made up to the period end reduce it (the same rule as the debt-aging report).
+    // dated up to the period end reduce it (the same rule as the debt-aging report).
     private async Task<List<DashboardAgingBucket>> ReceivablesAgingAsync(Guid companyId, DateOnly asOf)
     {
-        var cutoff = asOf.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
         var documents = await (
             from i in _db.Invoices.AsNoTracking().VisibleTo(_access)
             where i.CompanyId == companyId && i.State == InvoiceState.Posted && i.IssueDate <= asOf
@@ -447,17 +436,18 @@ public class DashboardService
             select new { g.Key.Id, g.Key.DueDate, Total = g.Sum(l => l.Debit) })
             .ToListAsync();
         var ids = documents.Select(d => d.Id).ToList();
-        var reconciled = await _db.Reconciliations.AsNoTracking()
-            .Where(r => r.InvoiceId != null && ids.Contains(r.InvoiceId.Value) && r.ReconciledAt <= cutoff)
-            .GroupBy(r => r.InvoiceId!.Value)
-            .Select(g => new { Id = g.Key, Amount = g.Sum(r => r.Amount) })
+        var reconciled = await (
+                from r in _db.Reconciliations.AsNoTracking()
+                join l in _db.JournalEntryLines.AsNoTracking() on r.JournalEntryLineId equals l.Id
+                where r.InvoiceId != null && ids.Contains(r.InvoiceId.Value) && l.JournalEntry!.Date <= asOf
+                group r by r.InvoiceId!.Value into g
+                select new { Id = g.Key, Amount = g.Sum(x => x.Amount) })
             .ToDictionaryAsync(g => g.Id, g => g.Amount);
         return Aging(documents.Select(d => (d.DueDate, d.Total - reconciled.GetValueOrDefault(d.Id))), asOf);
     }
 
     private async Task<List<DashboardAgingBucket>> PayablesAgingAsync(Guid companyId, DateOnly asOf)
     {
-        var cutoff = asOf.ToDateTime(TimeOnly.MaxValue, DateTimeKind.Utc);
         var documents = await (
             from b in _db.Bills.AsNoTracking().VisibleTo(_access)
             where b.CompanyId == companyId && b.State == BillState.Posted && b.IssueDate <= asOf
@@ -468,10 +458,12 @@ public class DashboardService
             select new { g.Key.Id, g.Key.DueDate, Total = g.Sum(l => l.Credit) })
             .ToListAsync();
         var ids = documents.Select(d => d.Id).ToList();
-        var reconciled = await _db.Reconciliations.AsNoTracking()
-            .Where(r => r.BillId != null && ids.Contains(r.BillId.Value) && r.ReconciledAt <= cutoff)
-            .GroupBy(r => r.BillId!.Value)
-            .Select(g => new { Id = g.Key, Amount = g.Sum(r => r.Amount) })
+        var reconciled = await (
+                from r in _db.Reconciliations.AsNoTracking()
+                join l in _db.JournalEntryLines.AsNoTracking() on r.JournalEntryLineId equals l.Id
+                where r.BillId != null && ids.Contains(r.BillId.Value) && l.JournalEntry!.Date <= asOf
+                group r by r.BillId!.Value into g
+                select new { Id = g.Key, Amount = g.Sum(x => x.Amount) })
             .ToDictionaryAsync(g => g.Id, g => g.Amount);
         return Aging(documents.Select(d => (d.DueDate, d.Total - reconciled.GetValueOrDefault(d.Id))), asOf);
     }
