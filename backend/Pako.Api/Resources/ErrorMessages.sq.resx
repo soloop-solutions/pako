@@ -124,6 +124,8 @@
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Numri fiskal duhet të jetë 64 karaktere ose më pak.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>Llogaria e zgjedhur e kontrollit nuk i përket kësaj kompanie.</value></data>
   <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>Ekziston tashmë një partner me këtë NUI në këtë kompani.</value></data>
+  <data name="PartnerEmailInvalid" xml:space="preserve"><value>Adresa e emailit të partnerit nuk është e vlefshme.</value></data>
+  <data name="PartnerContactFieldTooLong" xml:space="preserve"><value>Një fushë e kontaktit ose e adresës së partnerit është shumë e gjatë.</value></data>
 
   <!-- Rregulli i postimit R07: identifikimi i palës -->
   <data name="MissingPartnerTaxNumber_R07" xml:space="preserve"><value>Nuk mund të postohet: {0} është i regjistruar për TVSH por nuk ka Numër Fiskal (NUI). Ndryshoni partnerin dhe shtoni NUI-n, pastaj provoni përsëri.</value></data>
@@ -1637,4 +1639,78 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="FeatureDisabled" xml:space="preserve"><value>Ky funksion nuk përdoret nga kjo kompani. Administratori i saj mund ta ndryshojë llojin e biznesit, ose administratori i platformës mund ta aktivizojë paketën.</value></data>
   <data name="BusinessTypeInvalid" xml:space="preserve"><value>Zgjidhni llojin e biznesit.</value></data>
   <data name="FeaturesInvalid" xml:space="preserve"><value>Njëra nga paketat nuk njihet.</value></data>
+  <data name="Export_Dash_W_kpi_revenue" xml:space="preserve"><value>Të hyrat</value></data>
+  <data name="Export_Dash_W_kpi_expenses" xml:space="preserve"><value>Shpenzimet</value></data>
+  <data name="Export_Dash_W_kpi_netProfit" xml:space="preserve"><value>Fitimi neto</value></data>
+  <data name="Export_Dash_W_kpi_grossProfit" xml:space="preserve"><value>Fitimi bruto</value></data>
+  <data name="Export_Dash_W_kpi_netMargin" xml:space="preserve"><value>Marzha neto</value></data>
+  <data name="Export_Dash_W_kpi_cash" xml:space="preserve"><value>Arka &amp; banka</value></data>
+  <data name="Export_Dash_W_kpi_receivables" xml:space="preserve"><value>Të arkëtueshmet</value></data>
+  <data name="Export_Dash_W_kpi_payables" xml:space="preserve"><value>Të pagueshmet</value></data>
+  <data name="Export_Dash_W_kpi_overdueReceivables" xml:space="preserve"><value>Të vonuara nga klientët</value></data>
+  <data name="Export_Dash_W_kpi_overduePayables" xml:space="preserve"><value>Të vonuara ndaj furnitorëve</value></data>
+  <data name="Export_Dash_W_kpi_salesNet" xml:space="preserve"><value>Shitjet (neto)</value></data>
+  <data name="Export_Dash_W_kpi_purchasesNet" xml:space="preserve"><value>Blerjet (neto)</value></data>
+  <data name="Export_Dash_W_kpi_invoiceCount" xml:space="preserve"><value>Fatura të lëshuara</value></data>
+  <data name="Export_Dash_W_kpi_averageInvoice" xml:space="preserve"><value>Fatura mesatare</value></data>
+  <data name="Export_Dash_W_kpi_payrollCost" xml:space="preserve"><value>Kostoja e pagave</value></data>
+  <data name="Export_Dash_W_kpi_headcount" xml:space="preserve"><value>Numri i punonjësve</value></data>
+  <data name="Export_Dash_W_kpi_stockValue" xml:space="preserve"><value>Vlera e stokut</value></data>
+  <data name="Export_Dash_W_kpi_lowStock" xml:space="preserve"><value>Artikuj nën minimum</value></data>
+  <data name="Export_Dash_W_kpi_stockMargin" xml:space="preserve"><value>Marzha e stokut</value></data>
+  <data name="Export_Dash_W_revenueTrend" xml:space="preserve"><value>Të hyrat në kohë</value></data>
+  <data name="Export_Dash_W_revenueVsExpenses" xml:space="preserve"><value>Të hyrat kundrejt shpenzimeve</value></data>
+  <data name="Export_Dash_W_profitTrend" xml:space="preserve"><value>Fitimi në kohë</value></data>
+  <data name="Export_Dash_W_cashTrend" xml:space="preserve"><value>Paraja në kohë</value></data>
+  <data name="Export_Dash_W_payrollTrend" xml:space="preserve"><value>Pagat në kohë</value></data>
+  <data name="Export_Dash_W_revenueBreakdown" xml:space="preserve"><value>Të hyrat sipas llogarisë</value></data>
+  <data name="Export_Dash_W_expenseBreakdown" xml:space="preserve"><value>Shpenzimet sipas llogarisë</value></data>
+  <data name="Export_Dash_W_topCustomers" xml:space="preserve"><value>Klientët kryesorë</value></data>
+  <data name="Export_Dash_W_topVendors" xml:space="preserve"><value>Furnitorët kryesorë</value></data>
+  <data name="Export_Dash_W_topItems" xml:space="preserve"><value>Artikujt kryesorë</value></data>
+  <data name="Export_Dash_W_receivablesAging" xml:space="preserve"><value>Vjetërsia e të arkëtueshmeve</value></data>
+  <data name="Export_Dash_W_payablesAging" xml:space="preserve"><value>Vjetërsia e të pagueshmeve</value></data>
+  <data name="Export_Dash_W_headcountByDepartment" xml:space="preserve"><value>Punonjësit sipas departamentit</value></data>
+  <data name="Export_Dash_W_stockByItem" xml:space="preserve"><value>Stoku sipas artikullit</value></data>
+  <data name="Export_Dash_Title" xml:space="preserve"><value>Paneli</value></data>
+  <data name="Export_Dash_Compared" xml:space="preserve"><value>{0} krahasuar me {1}</value></data>
+  <data name="Export_Dash_AsOf" xml:space="preserve"><value>Më {0}</value></data>
+  <data name="Export_Dash_OpenAt" xml:space="preserve"><value>Të hapura më {0}</value></data>
+  <data name="Export_Dash_VsPrevious" xml:space="preserve"><value>kundrejt {0} në {1}</value></data>
+  <data name="Export_Dash_Page" xml:space="preserve"><value>Faqja {0} nga {1}</value></data>
+  <data name="Export_Dash_Generated" xml:space="preserve"><value>Gjeneruar më {0}</value></data>
+  <data name="Export_Dash_Amounts" xml:space="preserve"><value>Shumat në {0}</value></data>
+  <data name="Export_Dash_NoData" xml:space="preserve"><value>Asgjë e regjistruar në këtë periudhë.</value></data>
+  <data name="Export_Dash_NothingOpen" xml:space="preserve"><value>Asgjë e hapur. Gjithçka është paguar.</value></data>
+  <data name="Export_Dash_Other" xml:space="preserve"><value>Të tjera</value></data>
+  <data name="Export_Dash_NoDepartment" xml:space="preserve"><value>Pa departament</value></data>
+  <data name="Export_Dash_Revenue" xml:space="preserve"><value>Të hyrat</value></data>
+  <data name="Export_Dash_Expenses" xml:space="preserve"><value>Shpenzimet</value></data>
+  <data name="Export_Dash_Points" xml:space="preserve"><value>pp</value></data>
+  <data name="Export_Dash_Empty" xml:space="preserve"><value>Nuk ka elemente për t'u shfaqur.</value></data>
+  <data name="Export_Dash_Aging_notDue" xml:space="preserve"><value>Pa afat të kaluar</value></data>
+  <data name="Export_Dash_Aging_d1to30" xml:space="preserve"><value>1–30 ditë</value></data>
+  <data name="Export_Dash_Aging_d31to60" xml:space="preserve"><value>31–60 ditë</value></data>
+  <data name="Export_Dash_Aging_d61to90" xml:space="preserve"><value>61–90 ditë</value></data>
+  <data name="Export_Dash_Aging_d90plus" xml:space="preserve"><value>90+ ditë</value></data>
+  <data name="Export_Dash_Documents" xml:space="preserve"><value>Dokumente</value></data>
+  <data name="DashboardPdfNothing" xml:space="preserve"><value>Nuk ka çfarë të eksportohet nga ky panel.</value></data>
+  <data name="VehicleInvalid" xml:space="preserve">
+    <value>Jepini automjetit një targë (deri në 20 shkronja); kapaciteti nuk mund të jetë negativ.</value>
+  </data>
+  <data name="VehiclePlateTaken" xml:space="preserve">
+    <value>Ekziston tashmë një automjet me këtë targë.</value>
+  </data>
+  <data name="VehicleWarehouseInvalid" xml:space="preserve">
+    <value>Zgjidhni një magazinë aktive që nuk përdoret nga automjet tjetër.</value>
+  </data>
+  <data name="VehicleDriverInvalid" xml:space="preserve">
+    <value>Shoferi duhet të jetë anëtar i kësaj kompanie.</value>
+  </data>
+  <data name="ItemVariantPriceInvalid" xml:space="preserve">
+    <value>Çmimi i variantit nuk mund të jetë negativ.</value>
+  </data>
+  <data name="WarehouseVanUseVehicles" xml:space="preserve">
+    <value>Një magazinë nuk mund të shënohet si furgon dhe nuk mund të ketë shofer. Krijoni një automjet te Automjetet dhe lidheni këtë magazinë me të.</value>
+  </data>
 </root>

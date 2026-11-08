@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -75,10 +76,12 @@ public class DashboardController : ControllerBase
     private readonly DashboardService _dashboard;
     private readonly CompanyAccessContext _access;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly ExportLabels _labels;
 
     public DashboardController(PakoDbContext db, DashboardService dashboard, CompanyAccessContext access,
-        IStringLocalizer<ErrorMessages> localizer)
+        IStringLocalizer<ErrorMessages> localizer, ExportLabels? labels = null)
     {
+        _labels = labels ?? new ExportLabels(localizer);
         _db = db;
         _dashboard = dashboard;
         _access = access;
@@ -104,21 +107,75 @@ public class DashboardController : ControllerBase
         return Ok(await _dashboard.BuildAsync(companyId, from, to, compareFrom, compareTo, granularity));
     }
 
-    [HttpGet("layout", Name = "GetDashboardLayout")]
+    [ProducesPdf]
+    [HttpGet("pdf", Name = "GetDashboardPdf")]
     [RequireCompanyAccess]
-    public async Task<ActionResult<DashboardLayoutResponse>> GetLayout(Guid companyId)
+    public async Task<IActionResult> Pdf(
+        Guid companyId,
+        [FromQuery] DateOnly from,
+        [FromQuery] DateOnly to,
+        [FromQuery] DateOnly? compareFrom = null,
+        [FromQuery] DateOnly? compareTo = null,
+        [FromQuery] string? granularity = null)
+    {
+        if (from > to || to.DayNumber - from.DayNumber > 3660
+            || (compareFrom is { } cf && compareTo is { } ct && (cf > ct || ct.DayNumber - cf.DayNumber > 3660)))
+        {
+            return BadRequest(new { error = _localizer["DashboardInvalidPeriod"].Value });
+        }
+
+        var data = await _dashboard.BuildAsync(companyId, from, to, compareFrom, compareTo, granularity);
+        var widgets = DashboardPdfRenderer.Printable((await LoadWidgetsAsync(companyId)).Widgets, data);
+        if (widgets.Count == 0)
+        {
+            return BadRequest(new { error = _localizer["DashboardPdfNothing"].Value });
+        }
+
+        var company = await _db.Companies.AsNoTracking().FirstAsync(c => c.Id == companyId);
+        var bytes = DashboardPdfRenderer.Render(new DashboardPdfInput(
+            DocumentIssuer.From(company), LogoBytes(company.LogoUrl), company.FunctionalCurrency, data, widgets,
+            key => _labels[key], CultureInfo.CurrentUICulture, PosService.LocalTime(DateTime.UtcNow)));
+        return File(bytes, DashboardPdfRenderer.PdfContentType, $"dashboard-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf");
+    }
+
+    private static byte[]? LogoBytes(string? logoUrl)
+    {
+        const string marker = ";base64,";
+        if (logoUrl is null || !logoUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+            || logoUrl.StartsWith("data:image/svg", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+        var at = logoUrl.IndexOf(marker, StringComparison.Ordinal);
+        try
+        {
+            return at < 0 ? null : Convert.FromBase64String(logoUrl[(at + marker.Length)..]);
+        }
+        catch (FormatException)
+        {
+            return null;
+        }
+    }
+
+    private async Task<DashboardLayoutResponse> LoadWidgetsAsync(Guid companyId)
     {
         var canEdit = _access.LevelFor(AccessModule.Settings) >= AccessLevel.Write;
         var saved = await _db.DashboardLayouts.AsNoTracking().FirstOrDefaultAsync(d => d.CompanyId == companyId);
         if (saved is null)
         {
-            return Ok(new DashboardLayoutResponse(DefaultWidgets, true, canEdit, null));
+            return new DashboardLayoutResponse(DefaultWidgets, true, canEdit, null);
         }
 
         var widgets = JsonSerializer.Deserialize<List<DashboardWidgetConfig>>(saved.WidgetsJson, Json) ?? [];
-        // A widget removed from the catalogue after it was saved simply stops showing.
         widgets = widgets.Where(w => Catalog.TryGetValue(w.Key, out var visuals) && visuals.Contains(w.Visual)).ToList();
-        return Ok(new DashboardLayoutResponse(widgets, false, canEdit, saved.UpdatedAt));
+        return new DashboardLayoutResponse(widgets, false, canEdit, saved.UpdatedAt);
+    }
+
+    [HttpGet("layout", Name = "GetDashboardLayout")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<DashboardLayoutResponse>> GetLayout(Guid companyId)
+    {
+        return Ok(await LoadWidgetsAsync(companyId));
     }
 
     [HttpPut("layout", Name = "SaveDashboardLayout")]

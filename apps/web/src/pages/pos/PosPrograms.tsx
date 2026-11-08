@@ -21,6 +21,7 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { usePosStores } from "@/hooks/usePos";
 import { useItemSearch } from "@/hooks/useStock";
 import { PROGRAM_KINDS, PROGRAM_REWARD_KINDS, ProgramKind, ProgramRewardKind, programKindKey, programRewardKey } from "@/lib/pos-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const money = (v: number | undefined) => (v ?? 0).toFixed(2);
 const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
@@ -410,8 +411,7 @@ function ProgramDialog({ program, stores, onClose, onSaved }: {
             <div className="flex flex-wrap gap-3">
               {DAYS.map((d) => (
                 <label key={d} className="flex items-center gap-1 text-sm">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={days.includes(d)}
                     onChange={(e) => setDays((all) => (e.target.checked ? [...all, d] : all.filter((x) => x !== d)))}
                   />
@@ -452,7 +452,7 @@ function ProgramDialog({ program, stores, onClose, onSaved }: {
           </Field>
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={stackable} onChange={(e) => setStackable(e.target.checked)} />
+          <Checkbox checked={stackable} onChange={(e) => setStackable(e.target.checked)} />
           {t("pos.program.stackable")}
           <span className="text-xs text-muted-foreground">— {t("pos.program.stackable.hint")}</span>
         </label>
@@ -495,7 +495,7 @@ function ProgramDialog({ program, stores, onClose, onSaved }: {
 
         {program && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("common.active")}
           </label>
         )}

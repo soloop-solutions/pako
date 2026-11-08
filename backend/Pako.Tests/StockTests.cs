@@ -91,7 +91,7 @@ public class StockTests : IAsyncLifetime
 
     private static StockDocumentsController Documents(Co c) =>
         As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax),
-            Stock(c), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+            Stock(c), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()), c.UserId);
 
     private static InventoryController Inventory(Co c) =>
         As(new InventoryController(c.Db, Stock(c), new NullStringLocalizer<ErrorMessages>(), Tax, CompanyAccessContext.Unrestricted()), c.UserId);
@@ -254,6 +254,7 @@ public class StockTests : IAsyncLifetime
         async Task<StockDocumentResponse> CreateAndPost(SaveStockDocumentRequest request)
         {
             var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+            if (created.State == StockDocumentState.Posted) return created;
             var posted = await Documents(c).Post(c.Id, created.Id);
             return (StockDocumentResponse)Assert.IsType<OkObjectResult>(posted.Result).Value!;
         }
@@ -406,6 +407,7 @@ public class StockTests : IAsyncLifetime
     private async Task<StockDocumentResponse> PostDocumentAsync(Co c, SaveStockDocumentRequest request)
     {
         var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        if (created.State == StockDocumentState.Posted) return created;
         return (StockDocumentResponse)Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, created.Id)).Result).Value!;
     }
 
@@ -554,6 +556,161 @@ public class StockTests : IAsyncLifetime
         Assert.Equal((240m, 250m), (row.Price!.Value, row.FallbackPrice!.Value));
     }
 
+    [Fact]
+    public async Task StockDocumentDraft_HasItsNumberAtCreation_AndPostingKeepsIt()
+    {
+        var c = await SeedAsync();
+        var main = await MainWarehouseAsync(c);
+        var request = new SaveStockDocumentRequest(StockDocumentType.Opening, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 5, 50m) });
+        var first = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        var second = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        var third = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        Assert.Equal(StockDocumentState.Draft, first.State);
+        Assert.Equal(new[] { "HAP-0001/2026", "HAP-0002/2026", "HAP-0003/2026" }, new[] { first.Number!, second.Number!, third.Number! });
+
+        Assert.IsType<NoContentResult>(await Documents(c).Discard(c.Id, second.Id));
+        var posted = (StockDocumentResponse)Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, third.Id)).Result).Value!;
+        Assert.Equal("HAP-0003/2026", posted.Number);
+        var reloaded = await c.Db.StockDocuments.AsNoTracking().SingleAsync(d => d.Id == first.Id);
+        Assert.Equal("HAP-0001/2026", reloaded.Number);
+        var fourth = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        Assert.Equal("HAP-0004/2026", fourth.Number);
+    }
+
+    [Fact]
+    public async Task StockDocumentPost_NumbersALegacyDraftThatHasNoNumber()
+    {
+        var c = await SeedAsync();
+        var main = await MainWarehouseAsync(c);
+        var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id,
+            new SaveStockDocumentRequest(StockDocumentType.Opening, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 5, 50m) }))).Result).Value!;
+        var row = await c.Db.StockDocuments.SingleAsync(d => d.Id == created.Id);
+        row.Number = null;
+        await c.Db.SaveChangesAsync();
+        var posted = (StockDocumentResponse)Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, created.Id)).Result).Value!;
+        Assert.Equal("HAP-0001/2026", posted.Number);
+    }
+
+    [Fact]
+    public async Task PriceChangeDraft_HasItsNumberAtCreation_AndPostingKeepsIt()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        var first = Draft(await Prices(c).CreateChange(c.Id, request));
+        var second = Draft(await Prices(c).CreateChange(c.Id, request));
+        Assert.Equal(("NIV-0001/2026", "NIV-0002/2026"), (first.Number, second.Number));
+
+        Assert.IsType<NoContentResult>(await Prices(c).DiscardChange(c.Id, first.Id));
+        var posted = (PriceChangeResponse)Assert.IsType<OkObjectResult>((await Prices(c).PostChange(c.Id, second.Id)).Result).Value!;
+        Assert.Equal("NIV-0002/2026", posted.Number);
+        Assert.Equal("NIV-0003/2026", Draft(await Prices(c).CreateChange(c.Id, request)).Number);
+    }
+
+    [Fact]
+    public async Task PriceChangeDraft_AfterSwitchingToDateCounter_IgnoresNumbersOfTheOldFormat()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        var series = await c.Db.NumberSeriesSet.SingleAsync(s => s.CompanyId == c.Id && s.DocumentType == "PriceChange");
+        series.Pattern = "{yyyy}{mm}{dd}-{seq:D4}";
+        await c.Db.SaveChangesAsync();
+        var first = Draft(await Prices(c).CreateChange(c.Id, request));
+        var second = Draft(await Prices(c).CreateChange(c.Id, request));
+        var stamp = $"{D1.Year:D4}{D1.Month:D2}{D1.Day:D2}";
+        Assert.Equal(($"{stamp}-0001", $"{stamp}-0002"), (first.Number, second.Number));
+    }
+
+    [Fact]
+    public async Task PriceChangeDraft_AfterSwitchingFromDateToPrefixCounter_StartsTheNewFormatAtOne()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        var series = await c.Db.NumberSeriesSet.SingleAsync(s => s.CompanyId == c.Id && s.DocumentType == "PriceChange");
+        series.Pattern = "{yyyy}{mm}{dd}-{seq:D4}";
+        await c.Db.SaveChangesAsync();
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        series.Pattern = "INV-{seq:D6}";
+        await c.Db.SaveChangesAsync();
+        Assert.Equal("INV-000001", Draft(await Prices(c).CreateChange(c.Id, request)).Number);
+        Assert.Equal("INV-000002", Draft(await Prices(c).CreateChange(c.Id, request)).Number);
+    }
+
+    [Fact]
+    public async Task PriceChangePost_NumbersALegacyDraftThatHasNoNumber()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var created = (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateChange(c.Id,
+            new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) }))).Result).Value!;
+        var row = await c.Db.PriceChanges.SingleAsync(d => d.Id == created.Id);
+        row.Number = null;
+        await c.Db.SaveChangesAsync();
+        var posted = (PriceChangeResponse)Assert.IsType<OkObjectResult>((await Prices(c).PostChange(c.Id, created.Id)).Result).Value!;
+        Assert.Equal("NIV-0001/2026", posted.Number);
+    }
+
+    private static NumberSeriesController Series(Co c) =>
+        As(new NumberSeriesController(c.Db, new NumberSeriesService(c.Db)), c.UserId);
+
+    private static async Task<List<string>> GapsAsync(Co c, string documentType)
+    {
+        var report = Assert.IsType<GapReportResponse>(Assert.IsType<OkObjectResult>((await Series(c).GapReport(c.Id, documentType, 2026)).Result).Value);
+        return report.Gaps.Select(g => g.FormattedNumber).ToList();
+    }
+
+    [Fact]
+    public async Task GapReport_StockDocuments_ListsADiscardedMiddleDraft()
+    {
+        var c = await SeedAsync();
+        var main = await MainWarehouseAsync(c);
+        var request = new SaveStockDocumentRequest(StockDocumentType.Opening, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 5, 50m) });
+        var first = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        var second = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        await Documents(c).Create(c.Id, request);
+        Assert.Empty(await GapsAsync(c, "StockOpening"));
+        Assert.IsType<NoContentResult>(await Documents(c).Discard(c.Id, second.Id));
+        Assert.Equal(new[] { "HAP-0002/2026" }, await GapsAsync(c, "StockOpening"));
+        Assert.Empty(await GapsAsync(c, "StockReceipt"));
+    }
+
+    [Fact]
+    public async Task GapReport_PriceChanges_ListsADiscardedMiddleDraft()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        var second = Draft(await Prices(c).CreateChange(c.Id, request));
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        Assert.Empty(await GapsAsync(c, "PriceChange"));
+        Assert.IsType<NoContentResult>(await Prices(c).DiscardChange(c.Id, second.Id));
+        Assert.Equal(new[] { "NIV-0002/2026" }, await GapsAsync(c, "PriceChange"));
+    }
+
+    [Fact]
+    public async Task GapReport_PurchaseOrders_ListsADeletedMiddleDraft()
+    {
+        var c = await SeedAsync();
+        var request = new SavePurchaseOrderRequest(c.Vendor, D1, D3, new List<PurchaseOrderLineRequest> { new(c.Laptop, "Laptops", 10m, 118m, c.B18) });
+        PurchaseOrderResponse Draft(ActionResult<PurchaseOrderResponse> r) => (PurchaseOrderResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Orders(c).Create(c.Id, request));
+        var second = Draft(await Orders(c).Create(c.Id, request));
+        Draft(await Orders(c).Create(c.Id, request));
+        Assert.Empty(await GapsAsync(c, "PurchaseOrder"));
+        Assert.IsType<NoContentResult>(await Orders(c).Delete(c.Id, second.Id));
+        Assert.Equal(new[] { "PO-0002/2026" }, await GapsAsync(c, "PurchaseOrder"));
+    }
+
     private static PurchaseOrdersController Orders(Co c) =>
         As(new PurchaseOrdersController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), Tax), c.UserId);
 
@@ -565,7 +722,7 @@ public class StockTests : IAsyncLifetime
         var c = await SeedAsync();
         var draft = (PurchaseOrderResponse)Assert.IsAssignableFrom<ObjectResult>((await Orders(c).Create(c.Id, new SavePurchaseOrderRequest(
             c.Vendor, D1, D3, new List<PurchaseOrderLineRequest> { new(c.Laptop, "Laptops", 10m, 118m, c.B18) }))).Result).Value!;
-        Assert.Null(draft.Number);
+        Assert.Equal("PO-0001/2026", draft.Number);
         // A customer isn't a vendor.
         Assert.IsType<BadRequestObjectResult>((await Orders(c).Create(c.Id, new SavePurchaseOrderRequest(
             c.Customer, D1, null, new List<PurchaseOrderLineRequest> { new(c.Laptop, "Laptops", 1m, 1m, null) }))).Result);
@@ -757,6 +914,70 @@ public class StockTests : IAsyncLifetime
         var put = await As(new ItemsController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()), c.UserId)
             .Update(c.Id, c.Laptop, new UpdateItemRequest("Laptop", "pc", ItemType.Goods, TrackInventory: true, TrackLots: false));
         Assert.IsType<BadRequestObjectResult>(put.Result);
+    }
+
+    [Fact]
+    public async Task Transfer_ExecutesOnCreate_AndAFailedOneLeavesNoDraft()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        var shop = (WarehouseResponse)Assert.IsAssignableFrom<ObjectResult>((await Inventory(c).CreateWarehouse(c.Id, new SaveWarehouseRequest("SHOP", "Shop", null))).Result).Value!;
+
+        var transfer = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, new SaveStockDocumentRequest(
+            StockDocumentType.Transfer, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 4) }, shop.Id))).Result).Value!;
+        Assert.Equal(StockDocumentState.Posted, transfer.State);
+        Assert.NotNull(transfer.Number);
+        var onHand = (List<StockOnHandResponse>)Assert.IsType<OkObjectResult>((await Inventory(c).OnHand(c.Id, new[] { c.Laptop }, shop.Id)).Result).Value!;
+        Assert.Equal(4m, Assert.Single(onHand).Quantity);
+
+        var drafts = await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer);
+        var refused = await Documents(c).Create(c.Id, new SaveStockDocumentRequest(
+            StockDocumentType.Transfer, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 50) }, shop.Id));
+        Assert.IsType<BadRequestObjectResult>(refused.Result);
+        c.Db.ChangeTracker.Clear();
+        Assert.Equal(drafts, await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer));
+    }
+
+    [Fact]
+    public async Task Transfer_CreateRefusesAUserWithoutInventoryApprove()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        var shop = (WarehouseResponse)Assert.IsAssignableFrom<ObjectResult>((await Inventory(c).CreateWarehouse(c.Id, new SaveWarehouseRequest("SHOP", "Shop", null))).Result).Value!;
+        var writeOnly = CompanyAccessContext.ForStaff(c.Id, c.UserId, null,
+            new CompanyRole { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Stock clerk", InventoryAccess = Pako.Domain.Hr.AccessLevel.Write }, null);
+        var documents = As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax),
+            Stock(c), new NullStringLocalizer<ErrorMessages>(), writeOnly), c.UserId);
+
+        var result = await documents.Create(c.Id, new SaveStockDocumentRequest(
+            StockDocumentType.Transfer, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 4) }, shop.Id));
+
+        Assert.IsType<ForbidResult>(result.Result);
+        c.Db.ChangeTracker.Clear();
+        Assert.Equal(0, await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer));
+    }
+
+    [Fact]
+    public async Task PriceChange_LeavesOnHandAndTheInvoiceStockCheckWorking()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        await PostPriceChangeAsync(c, list.Id, D1, 300m);
+        var laptop = await c.Db.Items.SingleAsync(i => i.Id == c.Laptop);
+        laptop.DefaultUnitPrice = 280m;
+        await c.Db.SaveChangesAsync();
+
+        var onHand = (List<StockOnHandResponse>)Assert.IsType<OkObjectResult>((await Inventory(c).OnHand(c.Id, new[] { c.Laptop }, main)).Result).Value!;
+        Assert.Equal(10m, Assert.Single(onHand).Quantity);
+        var shortInvoice = await InvoiceAsync(c, D1, 11, 300m);
+        Assert.NotNull(shortInvoice.Error);
+        var ok = await InvoiceAsync(c, D1, 4, 300m);
+        Assert.Null(ok.Error);
+        Assert.Equal(6m, (await CostAsync(c)).Quantity);
     }
 
     [Fact]

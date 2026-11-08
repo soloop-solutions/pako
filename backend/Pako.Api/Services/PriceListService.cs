@@ -139,6 +139,7 @@ public class PriceListService
         if (change is null)
         {
             change = new PriceChange { Id = Guid.NewGuid(), CompanyId = companyId };
+            change.Number = await _numbers.ReserveNextAsync(companyId, "PriceChange", request.Date);
             _db.PriceChanges.Add(change);
         }
         change.PriceListId = request.PriceListId;
@@ -215,7 +216,7 @@ public class PriceListService
                 ValidFrom = change.Date, PriceChangeId = change.Id,
             });
         }
-        change.Number = await _numbers.ReserveNextAsync(companyId, "PriceChange", change.Date);
+        change.Number ??= await _numbers.ReserveNextAsync(companyId, "PriceChange", change.Date);
         change.State = PriceChangeState.Posted;
         change.PostedAt = DateTime.UtcNow;
         change.PostedByUserId = userId;

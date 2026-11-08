@@ -1,16 +1,10 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useContext, useEffect, useState, type ReactNode } from "react";
 
-export type Theme = "light" | "dark";
+import { ThemeContext, type Theme } from "@/context/theme-context";
+
+export type { Theme };
 
 const STORAGE_KEY = "pako.theme";
-
-type ThemeContextValue = {
-  theme: Theme;
-  setTheme: (theme: Theme) => void;
-  toggle: () => void;
-};
-
-const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getStoredTheme(): Theme | null {
   try {

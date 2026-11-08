@@ -68,7 +68,7 @@ describe.each(CASES)("$name keeps its period in the url", (c) => {
     renderReports(`/reports?tab=${c.tab}&${qs}`);
     expect(await screen.findByText(c.visible)).toBeInTheDocument();
     expect(m[c.fn]).toHaveBeenCalledWith(...c.args);
-    for (const [label, value] of Object.entries(c.inputs)) expect(screen.getByLabelText(label)).toHaveValue(value);
+    for (const [label, value] of Object.entries(c.inputs)) expect(screen.getByLabelText(label)).toHaveValue(value.replace(/^(\d{4})-(\d{2})-(\d{2})$/, "$3.$2.$1"));
   });
 
   it("does not run on mount when the url carries no period", async () => {
@@ -100,7 +100,7 @@ describe("balance sheet compare-to", () => {
     m.comparative.mockResolvedValue(fixture);
     renderReports("/reports?tab=balance-sheet&asOf=2025-06-30&compareTo=2024-06-30");
     await waitFor(() => expect(m.comparative).toHaveBeenCalledWith("c1", "2025-06-30", "2024-06-30"));
-    expect(screen.getByLabelText("Compare to")).toHaveValue("2024-06-30");
+    expect(screen.getByLabelText("Compare to")).toHaveValue("30.06.2024");
     expect(m.balanceSheet).not.toHaveBeenCalled();
   });
 });

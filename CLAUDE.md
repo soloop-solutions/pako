@@ -81,6 +81,10 @@ pnpm --filter web build
   vendor / item / transactions, and `reports/checks` (seven reconciliation checks, the seventh is stock valuation vs inventory accounts).
   Trial balance with a period is `ledger/trial-balance` (`/totals` for whole-set sums). Plus the older P&L, balance sheet, VAT return, books,
   CIT add-back and debt aging. Reference: `docs/REPORTS.md`.
+- **Dashboard PDF**: `GET dashboard/pdf` (QuestPDF, `DashboardPdfRenderer` + `DashboardChartSvg`), the
+  report PDF pattern documented at the end of `docs/REPORTS.md`. Step granularity rules live in
+  `Pako.Domain/Reporting/PeriodGranularity` and are mirrored by `allowedGranularities` in
+  `apps/web/src/pages/dashboard/period.ts`; change both together.
 - **Stock reports** under `reports/stock` (ours, additive): period `movements` (+ `/export`) and the
   exports `levels/export`, `valuation/export`, `items/{itemId}/card/export`. Web: Reports > Stock
   movements tab, Export buttons on the stock pages. `StockReportDataService` duplicates the JSON
@@ -168,11 +172,29 @@ Two developers, split by layer. The API is the contract between them:
 Made on `feat/fe-mvp` where `ACCOUNTANT_MILESTONE.md`/`FRONTEND_BRIEF.md` gave no house
 recommendation — each documented with its reasoning in the relevant commit, not picked silently:
 
-- **Item saved with no default accounts**: the form falls through to the existing company-default
-  behavior for that field (same as "no item selected"), never refuses the save.
+- **Item saved with no default accounts**: superseded. `ItemsController` now requires revenue,
+  expense and inventory default accounts (`ItemDefaultAccountsRequired`) and the item form keeps
+  Save disabled until all three are set.
 - **Manual journal line description autofill**: defaults to the *previous line's* description —
   `FRONTEND_BRIEF.md` names a specific person to consult on this one ("ask Adonis from what"), so
   treat this as a default awaiting explicit sign-off, not settled.
 - **Lock exception grantor**: gated the same way `MembersPanel.tsx` already gates admin-only
   actions (`FirmAdmin`/`ClientAdmin`, excluding `FirmAccountant`) — no narrower role model exists
   in this repo to draw a tighter line.
+
+## Web shared UI (UI/UX workstream)
+
+- **Server-side list search**: `usePagedGrid` + `serverSideColumns` (`components/data-grid/usePagedGrid.ts`)
+  read page/size/sort/`q`/column filters from the DataGrid URL state and call the `…/paged`
+  endpoints (partners, invoices, bills, journal entries; `search`, `sort`, `documentType`,
+  `excludeDocumentType`, `state`, `from`/`to`). Lists that still load everything (`*All`) filter
+  client-side across the full set.
+- **Dates**: `<Input type="date">` and `type="month"` render `DatePicker`/`MonthPicker`
+  (`components/ui/date-picker.tsx`); the value stays `yyyy-MM-dd`/`yyyy-MM`, the display is
+  `dd.mm.yyyy`, and `onChange` still receives `e.target.value`. `time`/`datetime-local` stay native.
+- **Nav per business type**: `config/navLayout.ts` is the one table (category order, lead items,
+  visible count, firm overlay); sidebar prefs are stored per layout scope. Nothing is removed from
+  reach, and module/pack gating in `Sidebar.tsx` is untouched.
+- Use `Checkbox`, `Select`, `TabButton`, `EmptyState`, `useConfirm` (never `window.confirm`) and
+  theme tokens (`text-warning-foreground`, `bg-success`, …) rather than raw elements or palette colours.
+- Tests choose a custom `Select` option with `chooseOption` (`src/test/chooseOption.ts`).

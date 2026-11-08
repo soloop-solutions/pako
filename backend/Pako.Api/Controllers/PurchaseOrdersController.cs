@@ -55,9 +55,9 @@ public class PurchaseOrdersController : ControllerBase
         if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern))
-                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar))
+                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.Date).ThenByDescending(o => o.CreatedAt)
@@ -84,10 +84,17 @@ public class PurchaseOrdersController : ControllerBase
     public async Task<ActionResult<PurchaseOrderResponse>> Create(Guid companyId, SavePurchaseOrderRequest request)
     {
         if (await ValidateAsync(companyId, request) is { } error) return BadRequest(error);
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         var order = new PurchaseOrder { Id = Guid.NewGuid(), CompanyId = companyId, CreatedByUserId = CurrentUserId };
         Apply(order, request);
+        order.Number = await _numbers.ReserveNextAsync(companyId, "PurchaseOrder", order.Date);
         _db.PurchaseOrders.Add(order);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
         return StatusCode(StatusCodes.Status201Created, await ToResponseAsync(order));
     }
 
@@ -118,7 +125,7 @@ public class PurchaseOrdersController : ControllerBase
         return NoContent();
     }
 
-    // Confirming numbers the order (it is what the vendor receives).
+    // Drafts are numbered at creation; a legacy draft without a number gets one here.
     [HttpPost("{id:guid}/confirm", Name = "ConfirmPurchaseOrder")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Purchases)]
     public async Task<ActionResult<PurchaseOrderResponse>> Confirm(Guid companyId, Guid id)
@@ -131,7 +138,7 @@ public class PurchaseOrdersController : ControllerBase
         var order = await LoadAsync(companyId, id, tracking: true);
         if (order is null) return NotFound();
         if (order.State != PurchaseOrderState.Draft) return BadRequest(_localizer["PurchaseOrderNotDraft"].Value);
-        order.Number = await _numbers.ReserveNextAsync(companyId, "PurchaseOrder", order.Date);
+        order.Number ??= await _numbers.ReserveNextAsync(companyId, "PurchaseOrder", order.Date);
         order.State = PurchaseOrderState.Confirmed;
         order.ConfirmedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
@@ -196,6 +203,12 @@ public class PurchaseOrdersController : ControllerBase
             Id = Guid.NewGuid(), CompanyId = companyId, Type = StockDocumentType.Receipt, Date = DateOnly.FromDateTime(DateTime.UtcNow),
             WarehouseId = warehouseId, PartnerId = order.PartnerId, Notes = order.Number,
         };
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
+        document.Number = await _numbers.ReserveNextAsync(companyId, StockDocumentService.NumberSeriesKey(StockDocumentType.Receipt), document.Date);
         foreach (var line in open)
         {
             var quantity = line.Quantity - received.GetValueOrDefault(line.Id);
@@ -210,6 +223,7 @@ public class PurchaseOrdersController : ControllerBase
         }
         _db.StockDocuments.Add(document);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
         return Ok(document.Id);
     }
 
@@ -247,6 +261,11 @@ public class PurchaseOrdersController : ControllerBase
         var lastTaxes = await _db.TaxDefinitions.AsNoTracking().Include(t => t.RepartitionLines).Where(t => lastTaxIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id);
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var created = new List<Guid>();
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         foreach (var group in low.Where(i => lastBought.ContainsKey(i.Id)).GroupBy(i => lastBought[i.Id].PartnerId))
         {
             var order = new PurchaseOrder
@@ -265,10 +284,12 @@ public class PurchaseOrdersController : ControllerBase
                     TaxDefinitionId = last.TaxDefinitionId, SortOrder = sort++,
                 });
             }
+            order.Number = await _numbers.ReserveNextAsync(companyId, "PurchaseOrder", order.Date);
             _db.PurchaseOrders.Add(order);
+            await _db.SaveChangesAsync();
             created.Add(order.Id);
         }
-        await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
         return Ok(new LowStockOrdersResponse(created, low.Count, low.Count(i => !lastBought.ContainsKey(i.Id))));
     }
 

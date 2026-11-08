@@ -47,6 +47,53 @@ public class JournalEntriesController : ControllerBase
         return Ok(entries.Select(ToResponse).ToList());
     }
 
+    [HttpGet("paged")]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
+    public async Task<ActionResult<PaginatedResponse<JournalEntryResponse>>> ListPaged(
+        Guid companyId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] string? sort = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = _db.JournalEntries.AsNoTracking()
+            .Include(e => e.Lines)
+            .Where(e => e.CompanyId == companyId);
+
+        if (from is not null) query = query.Where(e => e.Date >= from);
+        if (to is not null) query = query.Where(e => e.Date <= to);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(e =>
+                (e.SequenceNumber != null && EF.Functions.ILike(e.SequenceNumber, pattern, LikePattern.EscapeChar)) ||
+                (e.Description != null && EF.Functions.ILike(e.Description, pattern, LikePattern.EscapeChar)) ||
+                (e.Reference != null && EF.Functions.ILike(e.Reference, pattern, LikePattern.EscapeChar)));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = (sortField?.ToLowerInvariant() switch
+        {
+            "sequencenumber" => descending ? query.OrderByDescending(e => e.SequenceNumber) : query.OrderBy(e => e.SequenceNumber),
+            "description" => descending ? query.OrderByDescending(e => e.Description) : query.OrderBy(e => e.Description),
+            "state" => descending ? query.OrderByDescending(e => e.State) : query.OrderBy(e => e.State),
+            "date" => descending ? query.OrderByDescending(e => e.Date) : query.OrderBy(e => e.Date),
+            _ => query.OrderByDescending(e => e.Date)
+        }).ThenBy(e => e.Id);
+
+        var total = await query.CountAsync();
+        var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PaginatedResponse<JournalEntryResponse>(entries.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
     // B11: any journal entry, exported for the paper record — account code/name and partner name
     // resolved here rather than reusing JournalEntryResponse's raw account/partner ids, since a
     // spreadsheet meant to be read on paper needs the readable identifiers, not Guids.
@@ -181,8 +228,15 @@ public class JournalEntriesController : ControllerBase
             }).ToList()
         };
 
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
+        entry.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
         _db.JournalEntries.Add(entry);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(entry));
     }
@@ -256,7 +310,7 @@ public class JournalEntriesController : ControllerBase
             // the same configurable numbering (Format A: date-based, Format B: prefix-based)
             // as invoices, while invoice/bill/payroll-generated entries continue using
             // JournalSequencer for their per-journal accounting sequence.
-            entry.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
+            entry.SequenceNumber ??= await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
             entry.PostedByUserId = CurrentUserId;
 
             AuditController.Stage(_db, companyId, "JournalEntry", id.ToString(), "Post",
@@ -337,10 +391,16 @@ public class JournalEntriesController : ControllerBase
 
         reversal.PostedByUserId = CurrentUserId;
         reversal.SourceDocumentId = entry.Id;
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         reversal.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", reversal.Date);
 
         _db.JournalEntries.Add(reversal);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(reversal));
     }

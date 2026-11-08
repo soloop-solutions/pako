@@ -63,16 +63,21 @@ var jwtKey = jwtSection["Key"]
     ?? throw new InvalidOperationException("Missing Jwt:Key. Set it in appsettings, or the Jwt__Key environment variable.");
 var jwtIssuer = jwtSection["Issuer"] ?? "Pako";
 var jwtAudience = jwtSection["Audience"] ?? "Pako";
-var jwtExpiryMinutes = int.TryParse(jwtSection["ExpiryMinutes"], out var minutes) ? minutes : 60;
+var jwtExpiryMinutes = int.TryParse(jwtSection["ExpiryMinutes"], out var minutes) ? minutes : 15;
+var refreshDays = int.TryParse(jwtSection["RefreshTokenDays"], out var rd) ? rd : 30;
+var refreshGraceSeconds = int.TryParse(jwtSection["RefreshReuseGraceSeconds"], out var rg) ? rg : 30;
 
 builder.Services.AddSingleton(new JwtOptions
 {
     Key = jwtKey,
     Issuer = jwtIssuer,
     Audience = jwtAudience,
-    ExpiryMinutes = jwtExpiryMinutes
+    ExpiryMinutes = jwtExpiryMinutes,
+    RefreshTokenDays = refreshDays,
+    RefreshReuseGraceSeconds = refreshGraceSeconds
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();
 builder.Services.AddScoped<Pako.Api.Authorization.CompanyAccessContext>();
 builder.Services.AddScoped<Pako.Api.Services.PayrollRunComposer>();

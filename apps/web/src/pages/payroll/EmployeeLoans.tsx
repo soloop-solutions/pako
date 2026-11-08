@@ -20,6 +20,7 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { formatAmount, formatPayrollMonth } from "@/lib/payroll-enums";
 import { cn } from "@/lib/utils";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 // Mirrors EmployeeLoanKind (numeric on the wire).
 const LoanKind = { Advance: 0, Loan: 1 } as const;
@@ -35,6 +36,7 @@ const stateVariant: Record<string, "default" | "secondary" | "outline"> = { Acti
 // payroll in installments. Every amount, outstanding included, is the API's.
 export function EmployeeLoansPanel({ companyId, employeeId }: { companyId: string; employeeId?: string }) {
   const intl = useIntl();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const { canApprove } = useMyAccess();
   const queryKey = ["employeeLoans", companyId, employeeId ?? "all"] as const;
@@ -138,7 +140,7 @@ export function EmployeeLoansPanel({ companyId, employeeId }: { companyId: strin
               variant="ghost"
               disabled={cancelMutation.isPending}
               onClick={() => {
-                if (window.confirm(intl.formatMessage({ id: "loans.cancelConfirm" }))) cancelMutation.mutate(row.original.id);
+                confirm(intl.formatMessage({ id: "loans.cancelConfirm" }), () => cancelMutation.mutate(row.original.id));
               }}
             >
               {intl.formatMessage({ id: "me.leave.cancel" })}

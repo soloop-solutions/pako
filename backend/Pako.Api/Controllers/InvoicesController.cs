@@ -62,6 +62,66 @@ public class InvoicesController : ControllerBase
         return Ok(invoices.Select(ToResponse).ToList());
     }
 
+    [HttpGet("paged")]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
+    public async Task<ActionResult<PaginatedResponse<InvoiceResponse>>> ListPaged(
+        Guid companyId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] DocumentType[]? documentType = null,
+        [FromQuery] DocumentType[]? excludeDocumentType = null,
+        [FromQuery] string? state = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] Guid? partnerId = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = _db.Invoices.AsNoTracking().VisibleTo(_access)
+            .Include(i => i.Lines)
+            .Where(i => i.CompanyId == companyId);
+
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            var states = Enum.GetValues<InvoiceState>().Where(s => s.ToString().StartsWith(state.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+            query = query.Where(i => states.Contains(i.State));
+        }
+
+        if (partnerId is { } pid) query = query.Where(i => i.PartnerId == pid);
+
+        if (documentType is { Length: > 0 }) query = query.Where(i => documentType.Contains(i.DocumentType));
+        if (excludeDocumentType is { Length: > 0 }) query = query.Where(i => !excludeDocumentType.Contains(i.DocumentType));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = LikePattern.Contains(search);
+            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar)).Select(p => p.Id);
+            query = query.Where(i =>
+                (i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern, LikePattern.EscapeChar)) ||
+                partnerIds.Contains(i.PartnerId));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = (sortField?.ToLowerInvariant() switch
+        {
+            "invoicenumber" => descending ? query.OrderByDescending(i => i.InvoiceNumber) : query.OrderBy(i => i.InvoiceNumber),
+            "duedate" => descending ? query.OrderByDescending(i => i.DueDate) : query.OrderBy(i => i.DueDate),
+            "state" => descending ? query.OrderByDescending(i => i.State) : query.OrderBy(i => i.State),
+            "customer" => descending
+                ? query.OrderByDescending(i => _db.Partners.Where(p => p.Id == i.PartnerId).Select(p => p.Name).FirstOrDefault())
+                : query.OrderBy(i => _db.Partners.Where(p => p.Id == i.PartnerId).Select(p => p.Name).FirstOrDefault()),
+            "issuedate" => descending ? query.OrderByDescending(i => i.IssueDate) : query.OrderBy(i => i.IssueDate),
+            _ => query.OrderByDescending(i => i.IssueDate).ThenByDescending(i => i.CreatedAt)
+        }).ThenBy(i => i.Id);
+
+        var total = await query.CountAsync();
+        var invoices = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PaginatedResponse<InvoiceResponse>(invoices.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
     [HttpGet("{id:guid}")]
     [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<InvoiceResponse>> Get(Guid companyId, Guid id)

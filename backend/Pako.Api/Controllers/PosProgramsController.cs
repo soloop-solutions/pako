@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
+using Pako.Api.Services;
 using Pako.Domain.Hr;
 using Pako.Domain.Pos;
 using Pako.Infrastructure;
@@ -137,8 +138,8 @@ public class PosProgramsController : ControllerBase
         var query = _db.LoyaltyCards.AsNoTracking().Where(c => c.CompanyId == companyId);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = $"%{search.Trim()}%";
-            query = query.Where(c => EF.Functions.ILike(c.Number, term) || EF.Functions.ILike(c.HolderName ?? "", term) || EF.Functions.ILike(c.Phone ?? "", term));
+            var term = LikePattern.Contains(search);
+            query = query.Where(c => EF.Functions.ILike(c.Number, term, LikePattern.EscapeChar) || EF.Functions.ILike(c.HolderName ?? "", term, LikePattern.EscapeChar) || EF.Functions.ILike(c.Phone ?? "", term, LikePattern.EscapeChar));
         }
         var total = await query.CountAsync();
         var items = await query.OrderBy(c => c.Number).Skip((page - 1) * pageSize).Take(pageSize).Select(c => ToResponse(c)).ToListAsync();
@@ -194,7 +195,7 @@ public class PosProgramsController : ControllerBase
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
         var query = _db.GiftCards.AsNoTracking().Where(c => c.CompanyId == companyId);
-        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(c => EF.Functions.ILike(c.Number, $"%{search.Trim()}%"));
+        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(c => EF.Functions.ILike(c.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
         var total = await query.CountAsync();
         var cards = await query.OrderByDescending(c => c.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         return Ok(new PaginatedResponse<GiftCardResponse>(cards.Select(c => ToResponse(c, new())).ToList(), total, page, pageSize));

@@ -43,6 +43,49 @@ public class PartnersController : ControllerBase
         return Ok(partners.Select(ToResponse).ToList());
     }
 
+    [HttpGet("paged")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<PaginatedResponse<PartnerResponse>>> ListPaged(
+        Guid companyId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] string? role = null,
+        [FromQuery] string? sort = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = _db.Partners.AsNoTracking().VisibleTo(_access)
+            .Where(p => p.CompanyId == companyId);
+
+        if (string.Equals(role, "customer", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.IsCustomer);
+        else if (string.Equals(role, "vendor", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.IsVendor);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            var pattern = LikePattern.Contains(term);
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar) ||
+                (p.TaxNumber != null && EF.Functions.ILike(p.TaxNumber, pattern, LikePattern.EscapeChar)) ||
+                (p.FiscalNumber != null && EF.Functions.ILike(p.FiscalNumber, pattern, LikePattern.EscapeChar)));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = (sortField?.ToLowerInvariant() switch
+        {
+            "taxnumber" => descending ? query.OrderByDescending(p => p.TaxNumber) : query.OrderBy(p => p.TaxNumber),
+            _ => descending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name)
+        }).ThenBy(p => p.Id);
+
+        var total = await query.CountAsync();
+        var partners = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PaginatedResponse<PartnerResponse>(partners.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
     [HttpGet("{partnerId:guid}")]
     [RequireCompanyAccess]
     public async Task<ActionResult<PartnerResponse>> Get(Guid companyId, Guid partnerId)
@@ -60,7 +103,8 @@ public class PartnersController : ControllerBase
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
         var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit)
-            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays);
+            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
+            ?? ValidateContact(request.Email, request.Phone, request.ContactPerson, request.StreetAddress, request.City, request.PostalCode, request.Country);
         if (validationError is not null) return validationError;
 
         var partner = new Partner
@@ -78,7 +122,14 @@ public class PartnersController : ControllerBase
             PaymentTermDays = request.PaymentTermDays,
             CreditLimit = request.CreditLimit,
             PriceListId = request.PriceListId,
-            OverdueBlockDays = request.OverdueBlockDays
+            OverdueBlockDays = request.OverdueBlockDays,
+            Email = Clean(request.Email),
+            Phone = Clean(request.Phone),
+            ContactPerson = Clean(request.ContactPerson),
+            StreetAddress = Clean(request.StreetAddress),
+            City = Clean(request.City),
+            PostalCode = Clean(request.PostalCode),
+            Country = Clean(request.Country)
         };
 
         _db.Partners.Add(partner);
@@ -116,7 +167,8 @@ public class PartnersController : ControllerBase
         if (partner is null) return NotFound();
 
         var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId)
-            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays);
+            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
+            ?? ValidateContact(request.Email, request.Phone, request.ContactPerson, request.StreetAddress, request.City, request.PostalCode, request.Country);
         if (validationError is not null) return validationError;
 
         partner.Name = request.Name;
@@ -131,6 +183,13 @@ public class PartnersController : ControllerBase
         partner.CreditLimit = request.CreditLimit;
         partner.PriceListId = request.PriceListId;
         partner.OverdueBlockDays = request.OverdueBlockDays;
+        partner.Email = Clean(request.Email);
+        partner.Phone = Clean(request.Phone);
+        partner.ContactPerson = Clean(request.ContactPerson);
+        partner.StreetAddress = Clean(request.StreetAddress);
+        partner.City = Clean(request.City);
+        partner.PostalCode = Clean(request.PostalCode);
+        partner.Country = Clean(request.Country);
 
         try
         {
@@ -216,12 +275,25 @@ public class PartnersController : ControllerBase
         return null;
     }
 
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private ActionResult? ValidateContact(string? email, string? phone, string? contactPerson, string? street, string? city, string? postalCode, string? country)
+    {
+        if (Clean(email) is { } e && (e.Length > 256 || !e.Contains('@') || e.StartsWith('@') || e.EndsWith('@') || e.Contains(' ')))
+            return BadRequest(_localizer["PartnerEmailInvalid"].Value);
+        if (Clean(phone)?.Length > 50 || Clean(contactPerson)?.Length > 256 || Clean(street)?.Length > 512
+            || Clean(city)?.Length > 128 || Clean(postalCode)?.Length > 32 || Clean(country)?.Length > 100)
+            return BadRequest(_localizer["PartnerContactFieldTooLong"].Value);
+        return null;
+    }
+
     private static bool IsTaxNumberUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_partners_CompanyId_TaxNumber_Unique" };
 
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,
-        p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays);
+        p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays,
+        p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country);
 
     // J15: the partner's account statement. Readable by anyone who can see the partner — including
     // partner-restricted staff for their assigned partners, who get 404 for any other partner.

@@ -3,23 +3,17 @@ import { useIntl } from "react-intl";
 import { Link, useSearchParams } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 function Shell({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>{title}</CardTitle>
-          {description && <CardDescription>{description}</CardDescription>}
-        </CardHeader>
-        <CardContent>{children}</CardContent>
-      </Card>
-    </div>
+    <AuthLayout title={title} description={description}>
+      {children}
+    </AuthLayout>
   );
 }
 

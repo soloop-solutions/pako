@@ -108,7 +108,6 @@ type BillFormProps = {
   companyId: string;
   vendors: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
-  bills: BillResponse[];
   paymentMethods: PaymentMethodResponse[];
   isVatRegistered: boolean;
   // F5 — see InvoiceForm.tsx's identical props for the full rationale. Optional/defaulted so
@@ -133,7 +132,6 @@ export function BillForm({
   companyId,
   vendors,
   taxes,
-  bills,
   paymentMethods,
   isVatRegistered,
   items = [],
@@ -260,7 +258,25 @@ export function BillForm({
   // unlike CreditNote it's REQUIRED, not optional — see requiresOriginalBill below.
   const needsOriginalBill = documentType === BillDocumentType.CreditNote || documentType === BillDocumentType.PurchaseReturn;
   const requiresOriginalBill = documentType === BillDocumentType.PurchaseReturn;
-  const originalBillCandidates = bills.filter((bill) => bill.partnerId === partnerId && bill.state === "Posted");
+  const [originalBillCandidates, setOriginalBillCandidates] = useState<BillResponse[]>([]);
+  useEffect(() => {
+    if (!needsOriginalBill || !partnerId) {
+      setOriginalBillCandidates([]);
+      return;
+    }
+    let cancelled = false;
+    void apiClient
+      .paged(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId)
+      .then((result) => {
+        if (!cancelled) setOriginalBillCandidates(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setOriginalBillCandidates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, needsOriginalBill, partnerId]);
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -573,7 +589,7 @@ export function BillForm({
                 }}
               />
               {overridden.account && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -627,7 +643,7 @@ export function BillForm({
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
               {overridden.price && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "billForm.priceOverridden" })}
                 </Badge>
               )}
@@ -659,7 +675,7 @@ export function BillForm({
                 }))}
               />
               {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}

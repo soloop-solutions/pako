@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select } from "@/components/ui/select";
 import { canShow, newWidget, presets, presetWidgets, widgetCatalog, widgetDef, widgetGroups, type WidgetDef } from "@/pages/dashboard/catalog";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // Customising the company dashboard: start from a preset, add widgets from the catalogue (each one
 // says what it answers and which chart suits it best), then choose how each is drawn, its width,
@@ -197,7 +198,7 @@ function WidgetRow({
         options={[1, 2, 3, 4].map((s) => ({ value: String(s), label: t(`dashboard.size.${s}`) }))}
       />
       <label className={`flex items-center gap-1.5 text-xs ${def.comparable ? "" : "invisible"}`}>
-        <input type="checkbox" checked={widget.showComparison} onChange={(e) => onChange({ showComparison: e.target.checked })} disabled={!def.comparable} />
+        <Checkbox checked={widget.showComparison} onChange={(e) => onChange({ showComparison: e.target.checked })} disabled={!def.comparable} />
         {t("dashboard.edit.showComparison")}
       </label>
       <div className="flex">

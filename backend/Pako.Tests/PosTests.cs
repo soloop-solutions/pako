@@ -556,6 +556,10 @@ public class PosTests : IAsyncLifetime
         made = (List<ItemVariantResponse>)Assert.IsType<OkObjectResult>((await variants.Generate(c.Id, shirt.Id, new GenerateVariantsRequest(
             size.Values.Select(v => v.Id).Concat(colour.Values.Select(v => v.Id)).ToList()))).Result).Value!;
         Assert.Equal(4, made.Count);
+        var priced = (List<ItemVariantResponse>)Assert.IsType<OkObjectResult>((await variants.UpdateVariant(c.Id, shirt.Id, made[0].ItemId, new UpdateItemVariantRequest(31m))).Result).Value!;
+        Assert.Equal(31m, priced.Single(v => v.ItemId == made[0].ItemId).Price);
+        Assert.Equal(25m, priced.Where(v => v.ItemId != made[0].ItemId).Select(v => v.Price).Distinct().Single());
+        Assert.IsType<BadRequestObjectResult>((await variants.UpdateVariant(c.Id, shirt.Id, made[0].ItemId, new UpdateItemVariantRequest(-1m))).Result);
         Assert.IsType<BadRequestObjectResult>((await variants.UpdateAttribute(c.Id, size.Id, new SaveItemAttributeRequest("Masa", 1,
             new List<SaveItemAttributeValueRequest> { new(size.Values[0].Id, "M", 1) }))).Result);
 
@@ -889,7 +893,7 @@ public class PosTests : IAsyncLifetime
         await c.Db.SaveChangesAsync();
         var documents = As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()),
             new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax), new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()),
-            new NullStringLocalizer<ErrorMessages>()), c.UserId);
+            new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()), c.UserId);
         async Task Post(SaveStockDocumentRequest r)
         {
             var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await documents.Create(c.Id, r)).Result).Value!;

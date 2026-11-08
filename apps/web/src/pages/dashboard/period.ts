@@ -17,6 +17,30 @@ export const periodKinds: PeriodKind[] = ["month", "quarter", "year", "ytd", "la
 export const compareKinds: CompareKind[] = ["none", "previous", "lastYear", "twoYears", "custom"];
 export const granularities: Granularity[] = ["auto", "day", "week", "month", "quarter"];
 
+const granularityRules: Record<Exclude<Granularity, "auto">, { minDays: number; stepDays: number }> = {
+  day: { minDays: 1, stepDays: 1 },
+  week: { minDays: 8, stepDays: 7 },
+  month: { minDays: 32, stepDays: 28 },
+  quarter: { minDays: 93, stepDays: 90 },
+};
+const maxPoints = 120;
+
+export function rangeDays(range: Range): number {
+  const from = parseIso(range.from);
+  const to = parseIso(range.to);
+  if (!from || !to) return 0;
+  return Math.round((Date.UTC(to.getFullYear(), to.getMonth(), to.getDate()) - Date.UTC(from.getFullYear(), from.getMonth(), from.getDate())) / 86_400_000) + 1;
+}
+
+export function allowedGranularities(range: Range): Granularity[] {
+  const days = rangeDays(range);
+  const fine = (Object.keys(granularityRules) as Exclude<Granularity, "auto">[]).filter((g) => {
+    const rule = granularityRules[g];
+    return days >= rule.minDays && Math.floor(days / rule.stepDays) <= maxPoints;
+  });
+  return ["auto", ...fine];
+}
+
 export interface Range {
   from: string;
   to: string;
@@ -133,7 +157,8 @@ export function readPeriod(params: URLSearchParams, today = new Date()): Dashboa
     ? (params.get("compare") as CompareKind)
     : "lastYear";
   const compare = compareRangeFor(compareKind, kind, range, { from: params.get("cfrom") ?? undefined, to: params.get("cto") ?? undefined });
-  const granularity = (granularities as string[]).includes(params.get("gran") ?? "") ? (params.get("gran") as Granularity) : "auto";
+  const requested = (granularities as string[]).includes(params.get("gran") ?? "") ? (params.get("gran") as Granularity) : "auto";
+  const granularity = allowedGranularities(range).includes(requested) ? requested : "auto";
   return { kind, anchor, range, compareKind, compare, granularity };
 }
 

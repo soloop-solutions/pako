@@ -113,7 +113,7 @@ function AppShell() {
             </div>
           </header>
           <TabStrip />
-          <main className="flex-1 overflow-y-auto p-6">
+          <main className="flex-1 overflow-y-auto scrollbar-brand p-6">
             <Breadcrumbs />
             <Outlet />
           </main>

@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const attributesKey = (companyId: string | null) => ["itemAttributes", companyId] as const;
 
@@ -211,6 +212,7 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
   const [picked, setPicked] = useState<Set<string> | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [manage, setManage] = useState(false);
+  const [editingVariant, setEditingVariant] = useState<ItemVariantResponse | null>(null);
 
   const attrs = useMemo(() => attributes.data ?? [], [attributes.data]);
   const list = useMemo(() => variants.data ?? [], [variants.data]);
@@ -267,7 +269,7 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
                     on ? "border-primary bg-primary/10 text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  <input type="checkbox" className="size-3.5" checked={on} disabled={!canWrite("items")} onChange={() => toggle(v.id)} />
+                  <Checkbox className="size-3.5" checked={on} disabled={!canWrite("items")} onChange={() => toggle(v.id)} />
                   {v.value}
                 </label>
               );
@@ -284,17 +286,18 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
       <div className="flex flex-col gap-2">
         <p className="text-sm font-medium">{t("items.variants.title")} ({list.length})</p>
         {axes.length === 2 && list.length > 0 ? (
-          <VariantMatrix rows={axes[0]} columns={axes[1]} variants={list} />
+          <VariantMatrix rows={axes[0]} columns={axes[1]} variants={list} onEdit={canWrite("items") ? setEditingVariant : undefined} />
         ) : (
-          <VariantList variants={list} isLoading={variants.isPending} />
+          <VariantList variants={list} isLoading={variants.isPending} onEdit={canWrite("items") ? setEditingVariant : undefined} />
         )}
       </div>
+      {editingVariant && <VariantEditDialog itemId={itemId} variant={editingVariant} onClose={() => setEditingVariant(null)} />}
       {manage && <ItemAttributesDialog onClose={() => setManage(false)} />}
     </div>
   );
 }
 
-function VariantList({ variants, isLoading }: { variants: ItemVariantResponse[]; isLoading: boolean }) {
+function VariantList({ variants, isLoading, onEdit }: { variants: ItemVariantResponse[]; isLoading: boolean; onEdit?: (variant: ItemVariantResponse) => void }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const columns = useMemo<ColumnDef<ItemVariantResponse>[]>(
@@ -316,6 +319,7 @@ function VariantList({ variants, isLoading }: { variants: ItemVariantResponse[];
       rowCount={variants.length}
       isLoading={isLoading}
       getRowId={(v) => v.itemId}
+      onRowClick={onEdit}
       emptyMessage={t("items.variants.empty")}
       manualFiltering={false}
       manualSorting={false}
@@ -325,7 +329,7 @@ function VariantList({ variants, isLoading }: { variants: ItemVariantResponse[];
 }
 
 // Rows are the first attribute's values, columns the second's; a cell is the variant of that pair.
-function VariantMatrix({ rows, columns, variants }: { rows: ItemAttributeResponse; columns: ItemAttributeResponse; variants: ItemVariantResponse[] }) {
+function VariantMatrix({ rows, columns, variants, onEdit }: { rows: ItemAttributeResponse; columns: ItemAttributeResponse; variants: ItemVariantResponse[]; onEdit?: (variant: ItemVariantResponse) => void }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const cell = (rowValue: string, columnValue: string) =>
@@ -350,7 +354,12 @@ function VariantMatrix({ rows, columns, variants }: { rows: ItemAttributeRespons
             {columnValues.map((c) => {
               const v = cell(r.id, c.id);
               return (
-                <div key={c.id} role="gridcell" className="bg-background px-2 py-1 tabular-nums">
+                <div
+                  key={c.id}
+                  role="gridcell"
+                  className={cn("bg-background px-2 py-1 tabular-nums", v && onEdit && "cursor-pointer hover:bg-accent/50")}
+                  onClick={v && onEdit ? () => onEdit(v) : undefined}
+                >
                   {v ? (
                     <div className="flex flex-col">
                       <span className="text-muted-foreground">#{v.code}{v.barcodes.length > 0 && ` · ${v.barcodes.join(", ")}`}</span>
@@ -369,5 +378,64 @@ function VariantMatrix({ rows, columns, variants }: { rows: ItemAttributeRespons
         ))}
       </div>
     </div>
+  );
+}
+
+function VariantEditDialog({ itemId, variant, onClose }: { itemId: string; variant: ItemVariantResponse; onClose: () => void }) {
+  const intl = useIntl();
+  const t = (id: string) => intl.formatMessage({ id });
+  const { activeCompanyId } = useCompany();
+  const queryClient = useQueryClient();
+  const [price, setPrice] = useState(variant.price != null ? String(variant.price) : "");
+  const [barcode, setBarcode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      const result = await apiClient.updateItemVariant(activeCompanyId as string, itemId, variant.itemId, {
+        price: price.trim() ? Number(price.replace(",", ".")) : undefined,
+      });
+      if (barcode.trim()) await apiClient.barcodesPOST(activeCompanyId as string, variant.itemId, { barcode: barcode.trim() });
+      return result;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["itemVariants", activeCompanyId, itemId] });
+      await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
+      onClose();
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, t("items.variants.saveError"))),
+  });
+
+  function submit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    save.mutate();
+  }
+
+  return (
+    <FormDialog open onOpenChange={(open) => !open && !save.isPending && onClose()} title={`${t("items.variants.edit")}: ${variant.name}`} size="sm">
+      <form className="flex flex-col gap-3" onSubmit={submit}>
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        <p className="text-sm text-muted-foreground">#{variant.code} · {variant.label}</p>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="variant-price">{t("items.variants.priceOverride")}</Label>
+          <Input id="variant-price" type="number" step="0.01" min="0" className="text-right tabular-nums" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <p className="text-xs text-muted-foreground">{t("items.variants.priceOverrideHint")}</p>
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="variant-barcode">{t("items.barcodes")}</Label>
+          {variant.barcodes.length > 0 && <p className="text-xs tabular-nums">{variant.barcodes.join(", ")}</p>}
+          <Input id="variant-barcode" maxLength={64} value={barcode} onChange={(e) => setBarcode(e.target.value)} />
+        </div>
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={save.isPending}>{t("common.cancel")}</Button>
+          <Button type="submit" disabled={save.isPending}>{t("common.save")}</Button>
+        </div>
+      </form>
+    </FormDialog>
   );
 }

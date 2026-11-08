@@ -23,6 +23,7 @@ import { useItemSearch } from "@/hooks/useStock";
 import { resourcesKey, useCompanyMembers } from "@/hooks/usePosServices";
 import { useUrlParam } from "@/hooks/useUrlParam";
 import { RESOURCE_KINDS, ResourceKind, WEEKDAYS, minutesOf, resourceKindKey } from "@/lib/pos-services";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const GRID_ID = "pos-resources";
 const ALL = "all";
@@ -346,7 +347,7 @@ function ResourceDialog({ resource, defaultStoreId, onClose, onSaved }: {
 
         {resource && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("common.active")}
           </label>
         )}

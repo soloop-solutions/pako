@@ -310,7 +310,7 @@ export const ProgressBillPrint = forwardRef<HTMLDivElement, { site: SiteResponse
           </thead>
           <tbody>
             {bill.lines.map((l) => (
-              <tr key={l.id} className="border-b border-neutral-300">
+              <tr key={l.id} className="border-b border-input">
                 <td className="py-1">{l.code}</td>
                 <td className="py-1">{l.description}</td>
                 <td className="py-1">{l.unit}</td>

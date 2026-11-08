@@ -85,7 +85,8 @@ describe("Rentals (P8)", () => {
     api.invoicesGET.mockImplementation((_c: string, id: string) => Promise.resolve(id === "inv1" ? invoice("inv1", undefined, "p1") : invoice("inv2", undefined, "p2")));
     renderAt("/rentals/rent-run?month=2026-09");
 
-    fireEvent.change(screen.getByLabelText("Month"), { target: { value: "2026-10" } });
+    fireEvent.click(screen.getByLabelText("Month"));
+    fireEvent.click(await screen.findByRole("button", { name: "Oct" }));
     fireEvent.click(screen.getByRole("button", { name: "Run" }));
 
     await waitFor(() => expect(api.runRent).toHaveBeenCalledWith("c1", { month: "2026-10-01" }));

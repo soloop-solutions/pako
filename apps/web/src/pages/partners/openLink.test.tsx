@@ -16,6 +16,16 @@ vi.mock("@/api/client", async (importOriginal) => {
     apiClient: {
       ...actual.apiClient,
       partnersAll: (...args: unknown[]) => partnersAll(...args),
+      paged4: async (_c: unknown, _p: unknown, _n: unknown, _s: unknown, role: string | undefined) => {
+        const all = (await partnersAll()) as Array<{ isCustomer: boolean; isVendor: boolean }>;
+        const items = all.filter((p) => !role || (role === "customer" ? p.isCustomer : p.isVendor));
+        return { items, total: items.length, page: 1, pageSize: 100 };
+      },
+      partnersGET: async (_c: unknown, id: string) => {
+        const found = ((await partnersAll()) as Array<{ id: string }>).find((p) => p.id === id);
+        if (!found) throw new Error("not found");
+        return found;
+      },
       accountsAll: (...args: unknown[]) => accountsAll(...args),
     },
   };
@@ -77,10 +87,11 @@ describe("partner list ?open=", () => {
     expect(screen.getByTestId("location").textContent).toBe("");
   });
 
-  it("opens a partner that is not a vendor", async () => {
+  it("does not open a customer-only partner on the vendors page", async () => {
     partnersAll.mockResolvedValue([VENDOR, CUSTOMER]);
     renderAt("/vendors?open=partner-1");
-    expect(await screen.findByRole("dialog")).toHaveTextContent("Customer SH");
+    expect(await screen.findByText("Vendor LLC")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("ignores an unknown id", async () => {

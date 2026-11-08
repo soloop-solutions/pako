@@ -14,6 +14,7 @@ const m = vi.hoisted(() => ({
   accountsAll: vi.fn(),
   journalsAll: vi.fn(),
   journalEntriesAll: vi.fn(),
+  paged3: vi.fn(),
   trialBalance: vi.fn(),
   trialBalanceExport: vi.fn(),
   trialBalanceTotals: vi.fn(),
@@ -71,6 +72,7 @@ describe("Ledger trial balance period", () => {
     m.accountsAll.mockResolvedValue([]);
     m.journalsAll.mockResolvedValue([]);
     m.journalEntriesAll.mockResolvedValue([]);
+    m.paged3.mockResolvedValue({ items: [], total: [].length, page: 1, pageSize: 100 });
     m.trialBalance.mockResolvedValue(lines);
     m.trialBalanceExport.mockResolvedValue(fileResponse("tb.xlsx"));
     m.trialBalanceTotals.mockResolvedValue(totalsFixture);

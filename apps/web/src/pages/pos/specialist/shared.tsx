@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { usePosStores } from "@/hooks/usePos";
 import { cn } from "@/lib/utils";
+import { TabButton } from "@/components/ui/tabs";
 
 // docs/POS_PLAN.md P7: small pieces shared by the specialist-retail screens.
 
@@ -18,19 +19,13 @@ export function TabBar<T extends string>({ tabs, value, onChange, label }: {
   return (
     <div role="tablist" aria-label={label} className="flex flex-wrap gap-1 border-b">
       {tabs.map((tab) => (
-        <button
+        <TabButton
           key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={value === tab.id}
+          selected={value === tab.id}
           onClick={() => onChange(tab.id)}
-          className={cn(
-            "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-            value === tab.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
         >
           {tab.label}
-        </button>
+        </TabButton>
       ))}
     </div>
   );

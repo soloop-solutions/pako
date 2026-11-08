@@ -54,11 +54,13 @@ export interface SelectProps {
   renderValue?: (option: SelectOption | undefined) => ReactNode;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function filterOptions(options: SelectOption[], query: string): SelectOption[] {
   const q = query.trim().toLowerCase();
   if (!q) return options;
   return options.filter(
-    (o) => o.label.toLowerCase().includes(q) || o.value.toLowerCase().includes(q),
+    (o) => o.label.toLowerCase().includes(q) || (!UUID_PATTERN.test(o.value) && o.value.toLowerCase().includes(q)),
   );
 }
 
@@ -260,7 +262,7 @@ export function Select({
           <div
             ref={listRef}
             role="listbox"
-            className="max-h-[280px] overflow-auto py-1"
+            className="max-h-[280px] overflow-auto scrollbar-brand py-1"
           >
             {filtered.length === 0 && (
               <div className="px-2 py-4 text-center text-[12.5px] text-muted-foreground">

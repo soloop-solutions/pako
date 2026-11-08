@@ -25,6 +25,7 @@ import { BusinessType, packList, presetPacks } from "@/lib/business-types";
 import { getLastOpenedMap } from "@/lib/company-last-opened";
 import { emptyProfileValues, toProfileRequest, type CompanyProfileValues } from "@/lib/company-profile";
 import { cn } from "@/lib/utils";
+import { CompanyLimitNotice } from "@/pages/shared/CompanyLimitNotice";
 import { BusinessTypePicker } from "@/pages/shared/BusinessTypePicker";
 import { CompanyProfileFields, type PendingBankAccount } from "@/pages/shared/CompanyProfileFields";
 
@@ -54,6 +55,7 @@ export function CompanySelect() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState<View>(storedView);
   const [creating, setCreating] = useState(false);
+  const [limitOpen, setLimitOpen] = useState(false);
   const account = useAccount();
   // docs/PLATFORM_ADMIN.md: each accountant may create as many companies as the administrator allows.
   const limit = account.data?.companyLimit;
@@ -164,7 +166,7 @@ export function CompanySelect() {
             <p className="mt-1 text-sm text-muted-foreground">{t("lobby.subtitle")}</p>
           </div>
           <div className="flex flex-col items-end gap-1">
-            <Button onClick={() => setCreating(true)} disabled={atLimit || account.isPending}>
+            <Button onClick={() => (atLimit ? setLimitOpen(true) : setCreating(true))} disabled={account.isPending}>
               <Plus className="size-4" />
               {t("lobby.newCompany")}
             </Button>
@@ -193,18 +195,18 @@ export function CompanySelect() {
         {loading && companies.length === 0 ? (
           <p className="text-center text-sm text-muted-foreground">{t("companies.loadingCompanies")}</p>
         ) : companies.length === 0 ? (
-          <div className="rounded-lg border bg-card p-10 text-center">
-            <Building2 className="mx-auto mb-3 size-10 text-muted-foreground" />
-            <p className="mb-4 text-sm text-muted-foreground">{t("lobby.noCompanies")}</p>
-            {atLimit ? (
-              <p className="text-sm text-muted-foreground">{t("lobby.noCompaniesAllowed")}</p>
-            ) : (
+          atLimit && limit != null ? (
+            <CompanyLimitNotice used={created} limit={limit} />
+          ) : (
+            <div className="rounded-lg border bg-card p-10 text-center">
+              <Building2 className="mx-auto mb-3 size-10 text-muted-foreground" />
+              <p className="mb-4 text-sm text-muted-foreground">{t("lobby.noCompanies")}</p>
               <Button onClick={() => setCreating(true)}>
                 <Plus className="size-4" />
                 {t("lobby.createFirst")}
               </Button>
-            )}
-          </div>
+            </div>
+          )
         ) : (
           <>
             <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -300,6 +302,16 @@ export function CompanySelect() {
           </>
         )}
       </main>
+
+      <Dialog open={limitOpen} onOpenChange={setLimitOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader className="sr-only">
+            <DialogTitle>{t("lobby.limit.title")}</DialogTitle>
+            <DialogDescription>{t("lobby.limit.usage")}</DialogDescription>
+          </DialogHeader>
+          {limit != null && <CompanyLimitNotice used={created} limit={limit} onBack={() => setLimitOpen(false)} />}
+        </DialogContent>
+      </Dialog>
 
       <NewCompanyDialog open={creating} onClose={() => setCreating(false)} onCreated={(company) => void open(company)} />
 

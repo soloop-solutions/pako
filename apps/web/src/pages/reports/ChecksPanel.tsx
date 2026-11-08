@@ -52,7 +52,7 @@ export function ChecksPanel({ companyId }: { companyId: string }) {
           </div>
           {checks.length > 0 && (
             <div className="flex items-center gap-2 pb-1">
-              <span className={cn("text-sm font-medium", failedCount > 0 && "text-amber-700")}>
+              <span className={cn("text-sm font-medium", failedCount > 0 && "text-warning-foreground")}>
                 {failedCount === 0
                   ? intl.formatMessage({ id: "reports.checksSummaryAllPassed" }, { total: checks.length })
                   : intl.formatMessage({ id: "reports.checksSummary" }, { total: checks.length, passed: checks.length - failedCount, failed: failedCount })}
@@ -78,15 +78,15 @@ export function ChecksPanel({ companyId }: { companyId: string }) {
                 data-informational={informational ? "true" : undefined}
                 className={cn(
                   "flex flex-col gap-1 rounded-md border p-2 text-xs",
-                  !check.passed && !informational && "border-amber-300 bg-amber-50 text-amber-900",
-                  informational && "border-slate-300 bg-slate-50 text-slate-700",
+                  !check.passed && !informational && "border-warning-border bg-warning text-warning-foreground",
+                  informational && "border-slate-300 bg-slate-50 text-muted-foreground",
                 )}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-medium">{label}</span>
                   <Badge
                     variant="outline"
-                    className={cn("gap-1", check.passed && "text-emerald-700", informational && "border-slate-400 text-slate-600", !check.passed && !informational && "border-amber-400 text-amber-700")}
+                    className={cn("gap-1", check.passed && "text-success-foreground", informational && "border-slate-400 text-muted-foreground", !check.passed && !informational && "border-amber-400 text-warning-foreground")}
                   >
                     {check.passed ? <CheckCircle2 className="size-3" /> : informational ? <Info className="size-3" /> : <AlertTriangle className="size-3" />}
                     {intl.formatMessage({ id: check.passed ? "reports.checksPassed" : informational ? "reports.checksInformational" : "reports.checksFailed" })}

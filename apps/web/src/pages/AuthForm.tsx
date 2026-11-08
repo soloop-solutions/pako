@@ -4,9 +4,9 @@ import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
 import { getApiErrorMessage } from "@/api/client";
+import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
@@ -52,17 +52,10 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/30 px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>
-            {isLogin
-              ? intl.formatMessage({ id: "auth.loginTitle" })
-              : intl.formatMessage({ id: "auth.registerTitle" })}
-          </CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "auth.platformDescription" })}</CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthLayout
+      title={isLogin ? intl.formatMessage({ id: "auth.loginTitle" }) : intl.formatMessage({ id: "auth.registerTitle" })}
+      description={intl.formatMessage({ id: "auth.platformDescription" })}
+    >
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
             {error && (
               <Alert variant="destructive">
@@ -132,8 +125,6 @@ export function AuthForm({ mode }: AuthFormProps) {
               </>
             )}
           </p>
-        </CardContent>
-      </Card>
-    </div>
+    </AuthLayout>
   );
 }

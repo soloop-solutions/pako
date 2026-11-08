@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -40,7 +39,7 @@ public class NumberSeriesController : ControllerBase
         foreach (var s in series)
         {
             var nextNumber = await _numberSeries.PreviewNextAsync(companyId, s.DocumentType, s.Year);
-            responses.Add(new NumberSeriesResponse(s.Id, s.DocumentType, s.Year, s.Pattern, ExtractSequenceValue(nextNumber) ?? 1));
+            responses.Add(new NumberSeriesResponse(s.Id, s.DocumentType, s.Year, s.Pattern, NumberSeriesService.ExtractSequenceValueFromPattern(s.Pattern, nextNumber) ?? 1));
         }
 
         return Ok(responses);
@@ -70,7 +69,7 @@ public class NumberSeriesController : ControllerBase
         await _db.SaveChangesAsync();
 
         var nextNumber = await _numberSeries.PreviewNextAsync(companyId, series.DocumentType, series.Year);
-        return Ok(new NumberSeriesResponse(series.Id, series.DocumentType, series.Year, series.Pattern, ExtractSequenceValue(nextNumber) ?? 1));
+        return Ok(new NumberSeriesResponse(series.Id, series.DocumentType, series.Year, series.Pattern, NumberSeriesService.ExtractSequenceValueFromPattern(series.Pattern, nextNumber) ?? 1));
     }
 
     // B2: preview the next number without reserving it.
@@ -170,7 +169,7 @@ public class NumberSeriesController : ControllerBase
 
             foreach (var num in jeNumbers.Where(n => string.IsNullOrEmpty(prefix) || n.StartsWith(prefix)))
             {
-                var seqValue = ExtractSequenceValue(num);
+                var seqValue = NumberSeriesService.ExtractSequenceValueFromPattern(series.Pattern, num);
                 if (seqValue.HasValue) issuedNumbers.Add(seqValue.Value);
             }
         }
@@ -183,9 +182,14 @@ public class NumberSeriesController : ControllerBase
 
             foreach (var num in invoiceNumbers)
             {
-                var seqValue = ExtractSequenceValue(num);
+                var seqValue = NumberSeriesService.ExtractSequenceValueFromPattern(series.Pattern, num);
                 if (seqValue.HasValue) issuedNumbers.Add(seqValue.Value);
             }
+        }
+
+        else if (await _numberSeries.GetIssuedSequenceValuesAsync(companyId, documentType, reportYear, series.Pattern) is { } issued)
+        {
+            issuedNumbers = issued;
         }
 
         var maxIssued = issuedNumbers.Count > 0 ? issuedNumbers.Max() : 0;
@@ -201,11 +205,5 @@ public class NumberSeriesController : ControllerBase
         }
 
         return Ok(new GapReportResponse(documentType, reportYear, gaps));
-    }
-
-    private static int? ExtractSequenceValue(string number)
-    {
-        var match = Regex.Match(number, @"\d+");
-        return match.Success && int.TryParse(match.Value, out var val) ? val : null;
     }
 }

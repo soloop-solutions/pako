@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PACKS, businessTypeLabel, sortPacks } from "@/lib/business-types";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // The modules a company can have, in the order they appear in the app. Partners, items, settings,
 // users and the dashboard are always on.
@@ -176,7 +177,7 @@ function ModulesDialog({ company, onClose }: { company: PlatformCompanyResponse;
           {MODULES.map((m) => (
             <li key={m}>
               <label className="flex items-start gap-3 px-3 py-2.5">
-                <input type="checkbox" className="mt-1" checked={modules.includes(m)} onChange={(e) => toggle(m, e.target.checked)} />
+                <Checkbox className="mt-1" checked={modules.includes(m)} onChange={(e) => toggle(m, e.target.checked)} />
                 <span className="flex flex-col">
                   <span className="text-sm font-medium">{t(`platform.module.${m}`)}</span>
                   <span className="text-xs text-muted-foreground">{t(`platform.module.${m}.description`)}</span>
@@ -201,7 +202,7 @@ function ModulesDialog({ company, onClose }: { company: PlatformCompanyResponse;
           {PACKS.map((p) => (
             <li key={p}>
               <label className="flex items-start gap-3 px-3 py-2">
-                <input type="checkbox" className="mt-1" checked={features.includes(p)} onChange={(e) => togglePack(p, e.target.checked)} />
+                <Checkbox className="mt-1" checked={features.includes(p)} onChange={(e) => togglePack(p, e.target.checked)} />
                 <span className="flex flex-col">
                   <span className="text-sm font-medium">{t(`company.pack.${p}`)}</span>
                   <span className="text-xs text-muted-foreground">{t(`company.pack.${p}.description`)}</span>

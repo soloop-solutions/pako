@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, MoreHorizontal, Search, Star, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Link, useLocation } from "react-router-dom";
 
-import { bottomNavItems, favouriteActions, navCategories, topNavItems, type NavItem, type NavModule } from "@/config/nav";
+import { bottomNavItems, favouriteActions, navCategories as defaultNavCategories, topNavItems, type NavItem, type NavModule } from "@/config/nav";
+import { applyNavLayout, navLayoutFor, navLayoutScope } from "@/config/navLayout";
+import { useCompany } from "@/context/CompanyContext";
 import { useAuth } from "@/context/AuthContext";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
@@ -20,13 +22,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
 const allItemsByPath = new Map<string, NavItem>(
-  [...topNavItems, ...navCategories.flatMap((c) => c.items), ...bottomNavItems].map((item) => [item.path, item]),
+  [...topNavItems, ...defaultNavCategories.flatMap((c) => c.items), ...bottomNavItems].map((item) => [item.path, item]),
 );
 
 // HR module: the permission module each nav path needs (item override, else its category's).
 // Paths outside any module-gated category resolve to undefined = always visible.
 const moduleByPath = new Map<string, NavModule | undefined>(
-  navCategories.flatMap((c) => c.items.map((item) => [item.path, item.module ?? c.module] as const)),
+  defaultNavCategories.flatMap((c) => c.items.map((item) => [item.path, item.module ?? c.module] as const)),
 );
 
 // Business types: the vertical pack each nav path belongs to (undefined = every company).
@@ -49,7 +51,16 @@ export function Sidebar() {
   const { auth } = useAuth();
   const userId = auth?.userId ?? null;
   const { access, canSee } = useMyAccess();
-  const { hasFeature } = useFeatures();
+  const { hasFeature, businessType } = useFeatures();
+  const { activeCompany } = useCompany();
+  const isFirmClient = !!activeCompany?.firmId;
+  const layout = useMemo(() => navLayoutFor(businessType, isFirmClient), [businessType, isFirmClient]);
+  const layoutScope = navLayoutScope(businessType, isFirmClient);
+  const navCategories = useMemo(() => applyNavLayout(defaultNavCategories, layout), [layout]);
+  const layoutTopItems = useMemo(
+    () => (layout.topPaths ?? []).map((path) => allItemsByPath.get(path)).filter((item): item is NavItem => !!item),
+    [layout],
+  );
 
   // Display only — hides what the user's department can't open, and the pages of vertical packs
   // the company doesn't use; the API enforces both regardless. A category left empty is hidden.
@@ -63,23 +74,28 @@ export function Sidebar() {
   // — see the matching comment in TabsContext.tsx for why a separate ref-tracked "loaded key"
   // plus a bare prefs state briefly writes the outgoing user's prefs under the incoming user's
   // storage key during the switch.
-  const [prefsState, setPrefsState] = useState<{ userId: string | null; prefs: SidebarPrefs }>({
+  const [prefsState, setPrefsState] = useState<{ userId: string | null; scope: string; prefs: SidebarPrefs }>({
     userId: null,
+    scope: "",
     prefs: emptyPrefs(),
   });
 
   useEffect(() => {
     if (!userId) {
-      setPrefsState((prev) => (prev.userId === null ? prev : { userId: null, prefs: emptyPrefs() }));
+      setPrefsState((prev) => (prev.userId === null ? prev : { userId: null, scope: "", prefs: emptyPrefs(navCategories) }));
       return;
     }
-    setPrefsState((prev) => (prev.userId === userId ? prev : { userId, prefs: loadSidebarPrefs(userId) }));
-  }, [userId]);
+    setPrefsState((prev) =>
+      prev.userId === userId && prev.scope === layoutScope
+        ? prev
+        : { userId, scope: layoutScope, prefs: loadSidebarPrefs(userId, navCategories, layoutScope) },
+    );
+  }, [userId, layoutScope, navCategories]);
 
   useEffect(() => {
-    if (!userId || prefsState.userId !== userId) return;
-    saveSidebarPrefs(userId, prefsState.prefs);
-  }, [userId, prefsState]);
+    if (!userId || prefsState.userId !== userId || prefsState.scope !== layoutScope) return;
+    saveSidebarPrefs(userId, prefsState.prefs, layoutScope);
+  }, [userId, layoutScope, prefsState]);
 
   const prefs = prefsState.prefs;
   const setPrefs = (updater: (prev: SidebarPrefs) => SidebarPrefs) =>
@@ -152,7 +168,7 @@ export function Sidebar() {
     : null;
 
   return (
-    <aside className="flex w-[236px] shrink-0 flex-col overflow-y-auto border-r bg-card">
+    <aside className="flex w-[236px] shrink-0 flex-col overflow-y-auto scrollbar-brand border-r bg-card">
       <div className="flex h-12 shrink-0 items-center border-b px-4">
         <span className="text-base font-semibold">PAKO</span>
       </div>
@@ -183,7 +199,7 @@ export function Sidebar() {
       ) : (
         <>
           <div className="flex flex-col pb-1">
-            {topNavItems.map((item) => (
+            {[...topNavItems, ...layoutTopItems].map((item) => (
               <SidebarLink key={item.path} item={item} label={label(item)} active={isActive(item.path)} />
             ))}
           </div>
@@ -292,7 +308,7 @@ export function Sidebar() {
 
           <div className="border-t" />
           <div className="flex flex-col py-1 pb-2">
-            {bottomNavItems.map((item) => (
+            {bottomNavItems.filter((item) => !layout.topPaths?.includes(item.path)).map((item) => (
               <SidebarLink key={item.path} item={item} label={label(item)} active={isActive(item.path)} />
             ))}
           </div>
@@ -552,7 +568,7 @@ function CategoryCustomizePanel({
         </p>
         <p className="mt-0.5 text-[11.5px] text-muted-foreground">{intl.formatMessage({ id: "sidebar.customizeSubtitle" })}</p>
       </div>
-      <div className="max-h-72 overflow-y-auto">
+      <div className="max-h-72 overflow-y-auto scrollbar-brand">
         {orderedItems.map((item, index) => {
           const hidden = catPrefs.hidden.includes(item.path);
           const isFavourite = favourites.includes(item.path);

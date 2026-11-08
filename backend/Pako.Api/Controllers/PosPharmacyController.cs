@@ -97,9 +97,9 @@ public class PosPharmacyController : ControllerBase
         if (state is { } st) query = query.Where(p => p.State == st);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(p => EF.Functions.ILike(p.Number, pattern) || EF.Functions.ILike(p.PatientName, pattern)
-                || (p.PatientPersonalNumber != null && EF.Functions.ILike(p.PatientPersonalNumber, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(p => EF.Functions.ILike(p.Number, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(p.PatientName, pattern, LikePattern.EscapeChar)
+                || (p.PatientPersonalNumber != null && EF.Functions.ILike(p.PatientPersonalNumber, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var rows = await query.Include(p => p.Lines).OrderByDescending(p => p.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

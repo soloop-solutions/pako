@@ -91,7 +91,7 @@ export function PosHome() {
         header: "ATK",
         cell: ({ row }) =>
           row.original.atkStatus == null ? "—" : (
-            <span className={cn(row.original.atkStatus === AtkStatus.Rejected && "text-destructive", row.original.atkStatus === AtkStatus.Pending && "text-amber-600")}>
+            <span className={cn(row.original.atkStatus === AtkStatus.Rejected && "text-destructive", row.original.atkStatus === AtkStatus.Pending && "text-warning-foreground")}>
               {t(`pos.atk.${atkStatusKey(row.original.atkStatus)}`)}
             </span>
           ),
@@ -136,7 +136,7 @@ export function PosHome() {
                       {t(`pos.register.mode.${fiscalModeKey(r.fiscalMode)}`)}
                     </Badge>
                   </div>
-                  <p className={cn("text-xs", r.openSessionId ? "text-emerald-600" : "text-muted-foreground")}>
+                  <p className={cn("text-xs", r.openSessionId ? "text-success-foreground" : "text-muted-foreground")}>
                     {t(r.openSessionId ? "pos.register.sessionOpen" : "pos.register.sessionClosed")}
                   </p>
                   {canWrite("pos") && (

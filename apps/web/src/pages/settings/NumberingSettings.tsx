@@ -40,7 +40,7 @@ function previewPattern(pattern: string, nextValue: number): string {
 // F7: pattern per document type/year, editable inline per row. NumberSeries rows are created
 // lazily by the backend the first time a document of that type/year is actually numbered (see
 // NumberSeriesService — there is no "create a series ahead of time" endpoint), so a fresh company
-// legitimately shows an empty list until it posts its first document of each type.
+// legitimately shows an empty list until it saves its first document of each type.
 export function NumberingSettings({ companyId }: NumberingSettingsProps) {
   const intl = useIntl();
   const { auth } = useAuth();

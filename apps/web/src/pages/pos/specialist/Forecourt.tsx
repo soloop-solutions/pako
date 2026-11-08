@@ -27,6 +27,7 @@ import { ErrorAlert } from "@/pages/pos/hotel/hotel-shared";
 import { isIsoDate } from "@/pages/pos/hotel/hotel-utils";
 import { Field, StoreSelect, TabBar } from "@/pages/pos/specialist/shared";
 import { money, parseDecimal, qty, usePartners, useStoreParam } from "@/pages/pos/specialist/specialist-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 type Tab = "readings" | "dips" | "reconciliation" | "setup" | "fleet";
 const TABS: Tab[] = ["readings", "dips", "reconciliation", "setup", "fleet"];
@@ -537,7 +538,7 @@ function TankDialog({ storeId, tank, onClose }: { storeId: string; tank: TankRes
           <Input id="tank-capacity" inputMode="decimal" required value={capacity} onChange={(e) => setCapacity(e.target.value)} className="text-right tabular-nums" />
         </Field>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">
@@ -605,7 +606,7 @@ function NozzleDialog({ storeId, tanks, nozzle, onClose }: { storeId: string; ta
           />
         </Field>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">
@@ -763,11 +764,11 @@ function FleetCardEditDialog({ card, onClose }: { card: FleetCardResponse | null
           <Input id="fleet-limit" inputMode="decimal" value={limit} onChange={(e) => setLimit(e.target.value)} className="text-right tabular-nums" />
         </Field>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={fuelOnly} onChange={(e) => setFuelOnly(e.target.checked)} />
+          <Checkbox checked={fuelOnly} onChange={(e) => setFuelOnly(e.target.checked)} />
           {t("spec.fleet.fuelOnly")}
         </label>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">

@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { formatDate, leaveTypesQueryKey, parseYear, useLeaveTypes, yearOptions } from "@/pages/leave/leaveShared";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export function LeaveSettingsTab({ companyId }: { companyId: string }) {
   return (
@@ -275,23 +276,11 @@ function LeaveTypeForm({
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="leave-type-carry-expiry">{intl.formatMessage({ id: "leave.field.carryOverExpiryMonth" })}</Label>
-              <select
-                id="leave-type-carry-expiry"
-                className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                value={carryExpiry}
-                onChange={(e) => setCarryExpiry(e.target.value)}
-              >
-                <option value="">{intl.formatMessage({ id: "leave.types.carryNeverExpires" })}</option>
-                {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                  <option key={m} value={String(m)}>
-                    {intl.formatMessage({ id: "leave.types.carryExpiresEndOf" }, { month: intl.formatDate(new Date(2000, m - 1, 1), { month: "long" }) })}
-                  </option>
-                ))}
-              </select>
+              <Select id="leave-type-carry-expiry" value={carryExpiry} onValueChange={(v) => setCarryExpiry(v)} options={[{ value: "", label: intl.formatMessage({ id: "leave.types.carryNeverExpires" }) }, ...Array.from({ length: 12 }, (_, i) => i + 1).map((m) => ({ value: String(m), label: intl.formatMessage({ id: "leave.types.carryExpiresEndOf" }, { month: intl.formatDate(new Date(2000, m - 1, 1), { month: "long" }) }) }))]} />
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {intl.formatMessage({ id: "leave.types.active" })}
           </label>
           {shownError && (

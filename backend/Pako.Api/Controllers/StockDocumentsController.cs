@@ -23,10 +23,12 @@ public class StockDocumentsController : ControllerBase
     private readonly StockDocumentService _documents;
     private readonly StockService _stock;
     private readonly Microsoft.Extensions.Localization.IStringLocalizer<ErrorMessages> _localizer;
+    private readonly CompanyAccessContext _access;
 
     public StockDocumentsController(PakoDbContext db, StockDocumentService documents, StockService stock,
-        Microsoft.Extensions.Localization.IStringLocalizer<ErrorMessages> localizer)
+        Microsoft.Extensions.Localization.IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
     {
+        _access = access;
         _db = db;
         _documents = documents;
         _stock = stock;
@@ -47,7 +49,7 @@ public class StockDocumentsController : ControllerBase
         var query = _db.StockDocuments.AsNoTracking().Where(d => d.CompanyId == companyId);
         if (type is { } t) query = query.Where(d => d.Type == t);
         if (siteId is { } site) query = query.Where(d => d.SiteId == site);
-        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, $"%{search.Trim()}%"));
+        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
         var total = await query.CountAsync();
         var documents = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
@@ -82,13 +84,49 @@ public class StockDocumentsController : ControllerBase
     [ProducesResponseType(typeof(StockDocumentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<StockDocumentResponse>> Create(Guid companyId, SaveStockDocumentRequest request)
     {
+        if (request.Type == StockDocumentType.Transfer)
+        {
+            if (_access.LevelFor(AccessModule.Inventory) < AccessLevel.Approve) return Forbid();
+            return await CreateAndPostTransferAsync(companyId, request);
+        }
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         try
         {
             var document = await _documents.SaveDraftAsync(companyId, null, request);
             await _db.SaveChangesAsync();
+            if (transaction is not null) await transaction.CommitAsync();
             return StatusCode(StatusCodes.Status201Created, await _documents.ToResponseAsync(document));
         }
         catch (StockException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private async Task<ActionResult<StockDocumentResponse>> CreateAndPostTransferAsync(Guid companyId, SaveStockDocumentRequest request)
+    {
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
+        var company = await _db.Companies.FirstAsync(c => c.Id == companyId);
+        try
+        {
+            var document = await _documents.SaveDraftAsync(companyId, null, request);
+            await _documents.PostAsync(company, document, CurrentUserId);
+            await _db.SaveChangesAsync();
+            if (transaction is not null) await transaction.CommitAsync();
+            return StatusCode(StatusCodes.Status201Created, await _documents.ToResponseAsync(document));
+        }
+        catch (Exception ex) when (ex is StockException or InvalidOperationException
+            or Pako.Domain.Ledger.AccountingLockDateViolationException or Pako.Domain.Ledger.HardLockDateViolationException
+            or Pako.Domain.Ledger.TaxLockDateViolationException
+            or Pako.Domain.Ledger.UnbalancedJournalEntryException)
         {
             return BadRequest(ex.Message);
         }

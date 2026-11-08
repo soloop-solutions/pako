@@ -101,7 +101,7 @@ internal static class StockReportTestSupport
 
     public static StockDocumentsController Documents(StockCo c) =>
         As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax),
-            Stock(c), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+            Stock(c), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()), c.UserId);
 
     public static PriceListService Prices(PakoDbContext db) =>
         new(db, new StockService(db, new NullStringLocalizer<ErrorMessages>()), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>());
@@ -141,6 +141,7 @@ internal static class StockReportTestSupport
     public static async Task<StockDocumentResponse> PostDocumentAsync(StockCo c, SaveStockDocumentRequest request)
     {
         var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        if (created.State == StockDocumentState.Posted) return created;
         return (StockDocumentResponse)Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, created.Id)).Result).Value!;
     }
 

@@ -20,6 +20,16 @@ vi.mock("@/api/client", async (importOriginal) => {
     apiClient: {
       ...actual.apiClient,
       partnersAll: (...args: unknown[]) => partnersAll(...args),
+      paged4: async (_c: unknown, _p: unknown, _n: unknown, _s: unknown, role: string | undefined) => {
+        const all = (await partnersAll()) as Array<{ isCustomer: boolean; isVendor: boolean }>;
+        const items = all.filter((p) => !role || (role === "customer" ? p.isCustomer : p.isVendor));
+        return { items, total: items.length, page: 1, pageSize: 100 };
+      },
+      partnersGET: async (_c: unknown, id: string) => {
+        const found = ((await partnersAll()) as Array<{ id: string }>).find((p) => p.id === id);
+        if (!found) throw new Error("not found");
+        return found;
+      },
       accountsAll: (...args: unknown[]) => accountsAll(...args),
       partnersPOST: (...args: unknown[]) => partnersCreate(...args),
       partnersPUT: (...args: unknown[]) => partnersUpdate(...args),
@@ -160,6 +170,7 @@ describe("Partners", () => {
     await waitFor(() => expect(screen.getByText("Acme Corp")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Add partner" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Customer" }));
 
     const nameInputs = await screen.findAllByLabelText(/^Name/);
     fireEvent.change(nameInputs[nameInputs.length - 1], { target: { value: "New Co" } });

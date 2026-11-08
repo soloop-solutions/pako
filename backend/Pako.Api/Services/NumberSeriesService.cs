@@ -108,10 +108,7 @@ public class NumberSeriesService
 
         if (documentType == "PurchaseOrder")
         {
-            var orders = _db.PurchaseOrders.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
-            if (isDayScoped && date is { } od) orders = orders.Where(d => d.Date == od);
-            else if (isYearScoped) orders = orders.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
-            return MaxSequenceFrom(await orders.Select(d => d.Number!).ToListAsync(), pattern) + 1;
+            return MaxSequenceFrom(await LoadIssuedNumbersAsync(companyId, documentType, year, pattern, date) ?? [], pattern) + 1;
         }
 
         // docs/POS_PLAN.md P6: quotes and sales orders share a row; each has its own number.
@@ -126,22 +123,9 @@ public class NumberSeriesService
             return MaxSequenceFrom(numbers, pattern) + 1;
         }
 
-        if (documentType == "PriceChange")
+        if (await LoadIssuedNumbersAsync(companyId, documentType, year, pattern, date) is { } issued)
         {
-            var changes = _db.PriceChanges.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
-            if (isDayScoped && date is { } pd) changes = changes.Where(d => d.Date == pd);
-            else if (isYearScoped) changes = changes.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
-            return MaxSequenceFrom(await changes.Select(d => d.Number!).ToListAsync(), pattern) + 1;
-        }
-
-        // docs/INVENTORY_PLAN.md: stock documents number per type ("Stock" + StockDocumentType).
-        if (documentType.StartsWith("Stock") && Enum.TryParse<Pako.Domain.Inventory.StockDocumentType>(documentType["Stock".Length..], out var stockType))
-        {
-            var stock = _db.StockDocuments.AsNoTracking()
-                .Where(d => d.CompanyId == companyId && d.Type == stockType && d.Number != null);
-            if (isDayScoped && date is { } sd) stock = stock.Where(d => d.Date == sd);
-            else if (isYearScoped) stock = stock.Where(d => d.Date >= new DateOnly(year, 1, 1) && d.Date <= new DateOnly(year, 12, 31));
-            return MaxSequenceFrom(await stock.Select(d => d.Number!).ToListAsync(), pattern) + 1;
+            return MaxSequenceFrom(issued, pattern) + 1;
         }
 
         if (!Enum.TryParse<DocumentType>(documentType, out var docType))
@@ -168,6 +152,55 @@ public class NumberSeriesService
 
         var issuedNumbers = await query.Select(i => i.InvoiceNumber!).ToListAsync();
         return MaxSequenceFrom(issuedNumbers, pattern) + 1;
+    }
+
+    public async Task<HashSet<int>?> GetIssuedSequenceValuesAsync(Guid companyId, string documentType, int year, string pattern)
+    {
+        var numbers = await LoadIssuedNumbersAsync(companyId, documentType, year, pattern, null);
+        if (numbers is null) return null;
+        var values = new HashSet<int>();
+        foreach (var number in numbers)
+        {
+            var seq = ExtractSequenceValueFromPattern(pattern, number);
+            if (seq is { } v) values.Add(v);
+        }
+        return values;
+    }
+
+    private async Task<List<string>?> LoadIssuedNumbersAsync(Guid companyId, string documentType, int year, string pattern, DateOnly? date)
+    {
+        var isYearScoped = pattern.Contains("{yyyy}");
+        var isDayScoped = pattern.Contains("{dd}");
+        var yearStart = new DateOnly(year, 1, 1);
+        var yearEnd = new DateOnly(year, 12, 31);
+
+        if (documentType == "PurchaseOrder")
+        {
+            var orders = _db.PurchaseOrders.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
+            if (isDayScoped && date is { } od) orders = orders.Where(d => d.Date == od);
+            else if (isYearScoped) orders = orders.Where(d => d.Date >= yearStart && d.Date <= yearEnd);
+            return await orders.Select(d => d.Number!).ToListAsync();
+        }
+
+        if (documentType == "PriceChange")
+        {
+            var changes = _db.PriceChanges.AsNoTracking().Where(d => d.CompanyId == companyId && d.Number != null);
+            if (isDayScoped && date is { } pd) changes = changes.Where(d => d.Date == pd);
+            else if (isYearScoped) changes = changes.Where(d => d.Date >= yearStart && d.Date <= yearEnd);
+            return await changes.Select(d => d.Number!).ToListAsync();
+        }
+
+        // docs/INVENTORY_PLAN.md: stock documents number per type ("Stock" + StockDocumentType).
+        if (documentType.StartsWith("Stock") && Enum.TryParse<Pako.Domain.Inventory.StockDocumentType>(documentType["Stock".Length..], out var stockType))
+        {
+            var stock = _db.StockDocuments.AsNoTracking()
+                .Where(d => d.CompanyId == companyId && d.Type == stockType && d.Number != null);
+            if (isDayScoped && date is { } sd) stock = stock.Where(d => d.Date == sd);
+            else if (isYearScoped) stock = stock.Where(d => d.Date >= yearStart && d.Date <= yearEnd);
+            return await stock.Select(d => d.Number!).ToListAsync();
+        }
+
+        return null;
     }
 
     private async Task<int> GetNextJournalEntrySequenceAsync(
@@ -203,17 +236,10 @@ public class NumberSeriesService
 
     private static int MaxSequenceFrom(List<string> issuedNumbers, string pattern)
     {
-        // Use pattern-aware extraction when the pattern contains date placeholders that would
-        // confuse the simple first-digits heuristic. For non-date patterns the old heuristic
-        // still works and is faster.
-        var usePatternAware = pattern.Contains("{dd}") || pattern.Contains("{mm}");
-
         var maxSeq = 0;
         foreach (var number in issuedNumbers)
         {
-            var seq = usePatternAware
-                ? ExtractSequenceValueFromPattern(pattern, number)
-                : ExtractSequenceValue(number);
+            var seq = ExtractSequenceValueFromPattern(pattern, number);
             if (seq is { } s && s > maxSeq)
             {
                 maxSeq = s;
@@ -234,41 +260,25 @@ public class NumberSeriesService
     }
 
     /// <summary>
-    /// Pattern-aware extraction: computes the character offset of the sequence digits within the
-    /// formatted number by measuring how many fixed-width characters precede {seq} in the pattern.
-    /// This correctly handles date-based patterns where the date digits precede the counter.
+    /// Pattern-aware extraction: matches the whole number against the pattern and reads the {seq}
+    /// digits. Numbers issued under a different pattern do not match and are ignored, so changing
+    /// to a date pattern mid-day does not read digits out of an older format.
     /// </summary>
-    private static int? ExtractSequenceValueFromPattern(string pattern, string number)
+    public static int? ExtractSequenceValueFromPattern(string pattern, string number)
     {
-        // Compute the number of characters before {seq} in the output, by replacing each
-        // known placeholder with its fixed-width equivalent.
-        var seqStart = pattern.IndexOf("{seq", StringComparison.Ordinal);
-        if (seqStart < 0) return ExtractSequenceValue(number);
+        if (pattern.IndexOf("{seq", StringComparison.Ordinal) < 0) return ExtractSequenceValue(number);
 
-        var prefix = pattern[..seqStart];
-        var prefixLen = prefix
-            .Replace("{yyyy}", "0000")
-            .Replace("{mm}", "00")
-            .Replace("{dd}", "00")
-            .Length;
+        var regex = "^" + Regex.Replace(pattern, @"\{(seq(?::[^}]*)?|yyyy|mm|dd)\}|[^{]+|\{", m =>
+        {
+            var token = m.Groups[1].Value;
+            if (token.StartsWith("seq")) return "(?<seq>\\d+)";
+            if (token == "yyyy") return "\\d{4}";
+            if (token is "mm" or "dd") return "\\d{2}";
+            return Regex.Escape(m.Value);
+        }) + "$";
 
-        // Find the end of {seq...}
-        var seqEnd = pattern.IndexOf('}', seqStart);
-        if (seqEnd < 0) return ExtractSequenceValue(number);
-
-        var suffix = pattern[(seqEnd + 1)..];
-        var suffixLen = suffix
-            .Replace("{yyyy}", "0000")
-            .Replace("{mm}", "00")
-            .Replace("{dd}", "00")
-            .Length;
-
-        // The sequence digits are between prefixLen and (number.Length - suffixLen)
-        var seqPartEnd = number.Length - suffixLen;
-        if (prefixLen >= number.Length || prefixLen >= seqPartEnd) return null;
-
-        var seqPart = number[prefixLen..seqPartEnd];
-        return int.TryParse(seqPart, out var val) ? val : null;
+        var match = Regex.Match(number, regex);
+        return match.Success && int.TryParse(match.Groups["seq"].Value, out var val) ? val : null;
     }
 
     /// <summary>

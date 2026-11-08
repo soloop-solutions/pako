@@ -15,6 +15,7 @@ import { posSpecialistEn, posSpecialistSq } from "@/i18n/messages.posSpecialist"
 import { distributionEn, distributionSq } from "@/i18n/messages.distribution";
 import { verticalsEn, verticalsSq } from "@/i18n/messages.verticals";
 import { companyTypesEn, companyTypesSq } from "@/i18n/messages.companyTypes";
+import { uiEn, uiSq } from "@/i18n/messages.ui";
 
 export const en: Record<string, string> = {
   // Nav
@@ -245,7 +246,7 @@ export const en: Record<string, string> = {
   "numbering.saveError": "Could not save this pattern.",
   "numbering.loadError": "Could not load numbering series.",
   "numbering.loading": "Loading...",
-  "numbering.empty": "No numbering series yet — one appears here the first time a document of that type is posted.",
+  "numbering.empty": "No numbering series yet — one appears here the first time a document of that type is saved.",
   "numbering.patternHint": "Must include a {seqExample} or {seqFormatExample} placeholder. {yyyyExample}, {mmExample} and {ddExample} are also available.",
   "numbering.formatA": "Date + Counter",
   "numbering.formatAHint": "Format: YYYYMMDD-counter (e.g. 20261015-0001). Counter resets daily.",
@@ -415,7 +416,7 @@ export const en: Record<string, string> = {
   "invoiceForm.customer": "Customer",
   "invoiceForm.selectCustomer": "Select customer",
   "invoiceForm.documentType": "Document type",
-  "invoiceForm.nextNumberPreview": "Next number: {number} (provisional — the real number is assigned on posting)",
+  "invoiceForm.nextNumberPreview": "Next number: {number} (provisional — the number is assigned when the document is saved)",
   "invoiceForm.invoiceNumber": "Invoice number",
   "invoiceForm.invoiceNumberPlaceholder": "Auto-generated",
   "invoiceForm.issueDate": "Issue date",
@@ -1065,6 +1066,21 @@ export const en: Record<string, string> = {
   "partners.form.entityType": "Entity type",
   "partners.form.entityCompany": "Company",
   "partners.form.entityPerson": "Person",
+  "partners.form.nui": "NUI (unique identification number)",
+  "partners.form.nuiHint": "Kosovo business registration number. Must be unique among your partners.",
+  "partners.form.contactSection": "Contact",
+  "partners.form.addressSection": "Address",
+  "partners.form.email": "Email",
+  "partners.form.phone": "Phone",
+  "partners.form.contactPerson": "Contact person",
+  "partners.form.streetAddress": "Street address",
+  "partners.form.city": "City",
+  "partners.form.postalCode": "Postal code",
+  "partners.form.country": "Country",
+  "partners.form.alsoVendor": "This customer is also a vendor",
+  "partners.form.alsoVendorHint": "Vendor settings are edited from the Vendors page.",
+  "partners.form.alsoCustomer": "This vendor is also a customer",
+  "partners.form.alsoCustomerHint": "Customer settings are edited from the Customers page.",
   "partners.form.selectRole": "What type of partner?",
   "partners.form.selectRoleDescription": "Choose the partner role to continue.",
   "partners.form.createHint": "Register a new customer, vendor, or both.",
@@ -1239,6 +1255,8 @@ export const en: Record<string, string> = {
   "enum.documentType.item": "Item",
   "enum.documentType.purchaseOrder": "Purchase Order",
   "enum.documentType.priceChange": "Price Change",
+  "enum.documentType.salesQuote": "Sales Quote",
+  "enum.documentType.salesOrder": "Sales Order",
   "enum.billDocumentType.bill": "Bill",
   "enum.billDocumentType.creditNote": "Credit Note",
   "enum.billDocumentType.purchaseReturn": "Purchase Return",
@@ -1895,7 +1913,7 @@ export const sq: Record<string, string> = {
   "numbering.saveError": "Nuk u ruajt ky model.",
   "numbering.loadError": "Nuk u ngarkuan seri\u00ebt e num\u00ebrtimit.",
   "numbering.loading": "Duke u ngarkuar...",
-  "numbering.empty": "Ende nuk ka seri num\u00ebrtimi \u2014 nj\u00eb shfaqet k\u00ebtu sapo t\u00eb postohet dokumenti i par\u00eb i at\u00eb lloji.",
+  "numbering.empty": "Ende nuk ka seri num\u00ebrtimi \u2014 nj\u00eb shfaqet k\u00ebtu sapo t\u00eb ruhet dokumenti i par\u00eb i at\u00eb lloji.",
   "numbering.patternHint": "Duhet t\u00eb p\u00ebrfshij\u00eb vendmbajt\u00ebsin {seqExample} ose {seqFormatExample}. {yyyyExample}, {mmExample} dhe {ddExample} jan\u00eb gjithashtu t\u00eb disponuesh\u00ebm.",
   "numbering.formatA": "Dat\u00eb + Num\u00ebrator",
   "numbering.formatAHint": "Formati: VVVVMMDD-num\u00ebrator (p.sh. 20261015-0001). Num\u00ebratori ristarton \u00e7do dit\u00eb.",
@@ -2065,7 +2083,7 @@ export const sq: Record<string, string> = {
   "invoiceForm.customer": "Klienti",
   "invoiceForm.selectCustomer": "Zgjidh klientin",
   "invoiceForm.documentType": "Lloji i dokumentit",
-  "invoiceForm.nextNumberPreview": "Numri tjet\u00ebr: {number} (i p\u00ebrkoh\u00ebsh\u00ebm \u2014 numri i v\u00ebrtet\u00eb caktohet n\u00eb postim)",
+  "invoiceForm.nextNumberPreview": "Numri tjet\u00ebr: {number} (i p\u00ebrkoh\u00ebsh\u00ebm \u2014 numri caktohet kur dokumenti ruhet)",
   "invoiceForm.invoiceNumber": "Numri i fatur\u00ebs",
   "invoiceForm.invoiceNumberPlaceholder": "Gjenerohet automatikisht",
   "invoiceForm.issueDate": "Data e l\u00ebshimit",
@@ -2715,6 +2733,21 @@ export const sq: Record<string, string> = {
   "partners.form.entityType": "Lloji i entitetit",
   "partners.form.entityCompany": "Biznes",
   "partners.form.entityPerson": "Person",
+  "partners.form.nui": "NUI (numri unik identifikues)",
+  "partners.form.nuiHint": "Numri i regjistrimit të biznesit në Kosovë. Duhet të jetë unik mes partnerëve tuaj.",
+  "partners.form.contactSection": "Kontakti",
+  "partners.form.addressSection": "Adresa",
+  "partners.form.email": "Email",
+  "partners.form.phone": "Telefoni",
+  "partners.form.contactPerson": "Personi kontaktues",
+  "partners.form.streetAddress": "Rruga",
+  "partners.form.city": "Qyteti",
+  "partners.form.postalCode": "Kodi postar",
+  "partners.form.country": "Shteti",
+  "partners.form.alsoVendor": "Ky klient është edhe furnitor",
+  "partners.form.alsoVendorHint": "Cilësimet e furnitorit ndryshohen nga faqja Furnitorët.",
+  "partners.form.alsoCustomer": "Ky furnitor është edhe klient",
+  "partners.form.alsoCustomerHint": "Cilësimet e klientit ndryshohen nga faqja Klientët.",
   "partners.form.selectRole": "Çfarë lloji partneri?",
   "partners.form.selectRoleDescription": "Zgjidhni rolin e partnerit për të vazhduar.",
   "partners.form.createHint": "Regjistro nj\u00eb klient, furnitor, ose t\u00eb dyjat.",
@@ -2889,6 +2922,8 @@ export const sq: Record<string, string> = {
   "enum.documentType.item": "Artikull",
   "enum.documentType.purchaseOrder": "Porosi blerjeje",
   "enum.documentType.priceChange": "Ndryshim \u00e7mimi",
+  "enum.documentType.salesQuote": "Ofert\u00eb",
+  "enum.documentType.salesOrder": "Porosi shitjeje",
   "enum.billDocumentType.bill": "Fatura e blerjes",
   "enum.billDocumentType.creditNote": "Nota e kreditimit",
   "enum.billDocumentType.purchaseReturn": "Kthim blerjeje",
@@ -3341,5 +3376,8 @@ Object.assign(sq, verticalsSq);
 // Business types and vertical packs (keys "company.businessType*", "company.pack*", "company.featureOff.*").
 Object.assign(en, companyTypesEn);
 Object.assign(sq, companyTypesSq);
+
+Object.assign(en, uiEn);
+Object.assign(sq, uiSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };

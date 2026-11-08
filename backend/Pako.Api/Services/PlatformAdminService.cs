@@ -107,9 +107,9 @@ public class PlatformAdminService
         if (status is { } st) query = query.Where(r => r.Status == st);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(r => EF.Functions.ILike(r.FullName, pattern) || EF.Functions.ILike(r.Email, pattern)
-                || (r.FirmName != null && EF.Functions.ILike(r.FirmName, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(r => EF.Functions.ILike(r.FullName, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(r.Email, pattern, LikePattern.EscapeChar)
+                || (r.FirmName != null && EF.Functions.ILike(r.FirmName, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         // Pending first (Status is stored as text, so its own order would be alphabetical), newest first.
@@ -204,8 +204,8 @@ public class PlatformAdminService
         var query = _db.Users.AsNoTracking();
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(u => EF.Functions.ILike(u.Email!, pattern) || (u.FullName != null && EF.Functions.ILike(u.FullName, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(u => EF.Functions.ILike(u.Email!, pattern, LikePattern.EscapeChar) || (u.FullName != null && EF.Functions.ILike(u.FullName, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var users = await query.OrderBy(u => u.Email).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
@@ -290,9 +290,9 @@ public class PlatformAdminService
         if (onlyId is { } id) query = query.Where(c => c.Id == id);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            var creators = _db.Users.Where(u => EF.Functions.ILike(u.Email!, pattern)).Select(u => (Guid?)u.Id);
-            query = query.Where(c => EF.Functions.ILike(c.Name, pattern) || (c.BusinessNumber != null && EF.Functions.ILike(c.BusinessNumber, pattern))
+            var pattern = LikePattern.Contains(search);
+            var creators = _db.Users.Where(u => EF.Functions.ILike(u.Email!, pattern, LikePattern.EscapeChar)).Select(u => (Guid?)u.Id);
+            query = query.Where(c => EF.Functions.ILike(c.Name, pattern, LikePattern.EscapeChar) || (c.BusinessNumber != null && EF.Functions.ILike(c.BusinessNumber, pattern, LikePattern.EscapeChar))
                 || creators.Contains(c.CreatedByUserId));
         }
         if (createdBy is { } owner) query = query.Where(c => c.CreatedByUserId == owner);

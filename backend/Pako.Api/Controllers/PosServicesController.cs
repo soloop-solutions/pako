@@ -246,8 +246,8 @@ public class PosServicesController : ControllerBase
         var query = _db.PosPackages.AsNoTracking().Where(p => p.CompanyId == companyId);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = $"%{search.Trim()}%";
-            query = query.Where(p => EF.Functions.ILike(p.Number, term) || EF.Functions.ILike(p.HolderName ?? "", term) || EF.Functions.ILike(p.Phone ?? "", term));
+            var term = LikePattern.Contains(search);
+            query = query.Where(p => EF.Functions.ILike(p.Number, term, LikePattern.EscapeChar) || EF.Functions.ILike(p.HolderName ?? "", term, LikePattern.EscapeChar) || EF.Functions.ILike(p.Phone ?? "", term, LikePattern.EscapeChar));
         }
         var packages = await query.OrderByDescending(p => p.CreatedAt).Take(200).ToListAsync();
         var itemIds = packages.Select(p => p.ServiceItemId).Distinct().ToList();
@@ -263,8 +263,8 @@ public class PosServicesController : ControllerBase
         var query = _db.PosMemberships.AsNoTracking().Where(m => m.CompanyId == companyId);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = $"%{search.Trim()}%";
-            query = query.Where(m => EF.Functions.ILike(m.Number, term) || EF.Functions.ILike(m.HolderName ?? "", term) || EF.Functions.ILike(m.Phone ?? "", term));
+            var term = LikePattern.Contains(search);
+            query = query.Where(m => EF.Functions.ILike(m.Number, term, LikePattern.EscapeChar) || EF.Functions.ILike(m.HolderName ?? "", term, LikePattern.EscapeChar) || EF.Functions.ILike(m.Phone ?? "", term, LikePattern.EscapeChar));
         }
         return Ok(await MembershipResponsesAsync(await query.OrderByDescending(m => m.CreatedAt).Take(200).ToListAsync()));
     }
@@ -339,9 +339,9 @@ public class PosServicesController : ControllerBase
         if (state is { } s) query = query.Where(t => t.State == s);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = $"%{search.Trim()}%";
-            query = query.Where(t => EF.Functions.ILike(t.Number, term) || EF.Functions.ILike(t.CustomerName, term) || EF.Functions.ILike(t.Phone ?? "", term)
-                || EF.Functions.ILike(t.SerialOrPlate ?? "", term) || EF.Functions.ILike(t.Device, term));
+            var term = LikePattern.Contains(search);
+            query = query.Where(t => EF.Functions.ILike(t.Number, term, LikePattern.EscapeChar) || EF.Functions.ILike(t.CustomerName, term, LikePattern.EscapeChar) || EF.Functions.ILike(t.Phone ?? "", term, LikePattern.EscapeChar)
+                || EF.Functions.ILike(t.SerialOrPlate ?? "", term, LikePattern.EscapeChar) || EF.Functions.ILike(t.Device, term, LikePattern.EscapeChar));
         }
         var total = await query.CountAsync();
         var tickets = await query.OrderByDescending(t => t.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

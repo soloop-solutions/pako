@@ -46,8 +46,8 @@ export function CashFlowTab({ report, companyName, accountingLockDate }: { repor
       controls={<DateRangeFields idPrefix="cash-flow" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} />}
     >
       {data && data.difference !== 0 && (
-        <Alert className="border-amber-300 bg-amber-50 text-amber-800">
-          <AlertDescription className="text-amber-800">
+        <Alert className="border-warning-border bg-warning text-warning-foreground">
+          <AlertDescription className="text-warning-foreground">
             {intl.formatMessage({ id: "reports.cashFlowDifferenceAlert" }, { amount: formatAmount(data.difference) })}
           </AlertDescription>
         </Alert>

@@ -9,12 +9,12 @@ import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/context/AuthContext";
 import { useAccount } from "@/hooks/useAccount";
-import { cn } from "@/lib/utils";
 import { AccountRequestsTab } from "@/pages/platform/AccountRequestsTab";
 import { PlatformActivityTab } from "@/pages/platform/PlatformActivityTab";
 import { PlatformCompaniesTab } from "@/pages/platform/PlatformCompaniesTab";
 import { PlatformOverviewTab } from "@/pages/platform/PlatformOverviewTab";
 import { PlatformUsersTab } from "@/pages/platform/PlatformUsersTab";
+import { TabButton } from "@/components/ui/tabs";
 
 const tabs = [
   { key: "overview", icon: LayoutDashboard },
@@ -101,26 +101,20 @@ export function PlatformAdmin() {
           }}
         >
           {tabs.map(({ key, icon: Icon }) => (
-            <button
+            <TabButton
               key={key}
               id={`platform-tab-${key}`}
-              type="button"
-              role="tab"
-              aria-selected={tab === key}
+              selected={tab === key}
               aria-controls={`platform-panel-${key}`}
               tabIndex={tab === key ? 0 : -1}
               onClick={() => select(key)}
-              className={cn(
-                "-mb-px inline-flex items-center gap-2 border-b-2 px-3 py-2 text-sm font-medium outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                tab === key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-              )}
             >
               <Icon className="size-4" />
               {t(`platform.tab.${key}`)}
               {key === "requests" && pending > 0 && (
                 <span className="rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">{pending}</span>
               )}
-            </button>
+            </TabButton>
           ))}
         </div>
 

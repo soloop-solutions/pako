@@ -121,7 +121,6 @@ type InvoiceFormProps = {
   companyId: string;
   customers: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
-  invoices: InvoiceResponse[];
   paymentMethods: PaymentMethodResponse[];
   isVatRegistered: boolean;
   // F5 — item picker on the line editor, and the accounts its default revenue account is picked
@@ -153,7 +152,6 @@ export function InvoiceForm({
   companyId,
   customers,
   taxes,
-  invoices,
   paymentMethods,
   isVatRegistered,
   items = [],
@@ -352,9 +350,25 @@ export function InvoiceForm({
     documentType === InvoiceDocumentType.DebitNote ||
     documentType === InvoiceDocumentType.SalesReturn;
   const requiresOriginalInvoice = documentType === InvoiceDocumentType.SalesReturn;
-  const originalInvoiceCandidates = invoices.filter(
-    (invoice) => invoice.partnerId === partnerId && invoice.state === "Posted",
-  );
+  const [originalInvoiceCandidates, setOriginalInvoiceCandidates] = useState<InvoiceResponse[]>([]);
+  useEffect(() => {
+    if (!needsOriginalInvoice || !partnerId) {
+      setOriginalInvoiceCandidates([]);
+      return;
+    }
+    let cancelled = false;
+    void apiClient
+      .paged2(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId)
+      .then((result) => {
+        if (!cancelled) setOriginalInvoiceCandidates(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setOriginalInvoiceCandidates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, needsOriginalInvoice, partnerId]);
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -713,7 +727,7 @@ export function InvoiceForm({
           <div
             className={
               isOverLimit
-                ? "rounded-md border border-red-300 bg-red-50 px-2 py-1.5 text-sm text-red-800 dark:border-red-800 dark:bg-red-950 dark:text-red-300"
+                ? "rounded-md border border-red-300 bg-destructive/10 px-2 py-1.5 text-sm text-destructive"
                 : wouldExceed
                   ? "rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
                   : "rounded-md border px-2 py-1.5 text-sm text-muted-foreground"
@@ -821,7 +835,7 @@ export function InvoiceForm({
                 }}
               />
               {overridden.account && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -868,7 +882,7 @@ export function InvoiceForm({
                 onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
               />
               {overridden.price && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -900,7 +914,7 @@ export function InvoiceForm({
                 }))}
               />
               {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-amber-600">
+                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
                   {intl.formatMessage({ id: "common.modified" })}
                 </Badge>
               )}
@@ -1066,7 +1080,7 @@ export function InvoiceForm({
             priceMode,
             internalNotes: internalNotes || undefined,
             paymentTermDays,
-            originalDocumentNumber: originalInvoiceId ? (invoices.find((i) => i.id === originalInvoiceId)?.invoiceNumber ?? undefined) : undefined,
+            originalDocumentNumber: originalInvoiceId ? (originalInvoiceCandidates.find((i) => i.id === originalInvoiceId)?.invoiceNumber ?? undefined) : undefined,
           })}
           onClose={() => setShowPreview(false)}
         />

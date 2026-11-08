@@ -23,6 +23,7 @@ import { ItemCardDialog } from "@/pages/inventory/ItemCardDialog";
 import { useUrlParam } from "@/hooks/useUrlParam";
 import { ExportButton } from "@/pages/reports/shared";
 import { useReportExport } from "@/pages/reports/useReportExport";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const GRID_ID = "stock-levels";
 
@@ -163,7 +164,7 @@ export function StockLevels() {
             </div>
           )}
           <label className="flex h-8 items-center gap-2 text-sm">
-            <input type="checkbox" checked={low === "1"} onChange={(e) => setLow(e.target.checked)} />
+            <Checkbox checked={low === "1"} onChange={(e) => setLow(e.target.checked)} />
             {t("stock.onlyBelowMinimum")}
           </label>
           <ExportButton onClick={exporter.exportFile} loading={exporter.exporting} />

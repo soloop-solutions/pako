@@ -2,11 +2,11 @@ import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
 
 import { useCompany } from "@/context/CompanyContext";
-import { cn } from "@/lib/utils";
 import { LeaveBalancesTab } from "@/pages/leave/LeaveBalancesTab";
 import { LeaveCalendarTab } from "@/pages/leave/LeaveCalendarTab";
 import { LeaveRequestsTab } from "@/pages/leave/LeaveRequestsTab";
 import { LeaveSettingsTab } from "@/pages/leave/LeaveSettingsTab";
+import { TabButton } from "@/components/ui/tabs";
 
 const TABS = ["requests", "balances", "calendar", "settings"] as const;
 type LeaveTab = (typeof TABS)[number];
@@ -46,19 +46,13 @@ export function Leave() {
 
       <div role="tablist" aria-label={intl.formatMessage({ id: "leave.title" })} className="flex gap-1 border-b">
         {TABS.map((id) => (
-          <button
+          <TabButton
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
+            selected={tab === id}
             onClick={() => selectTab(id)}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium transition-colors",
-              tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
           >
             {intl.formatMessage({ id: `leave.tab.${id}` })}
-          </button>
+          </TabButton>
         ))}
       </div>
 

@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
+using Pako.Api.Services;
 using Pako.Domain.Hr;
 using Pako.Infrastructure;
 
@@ -39,14 +40,14 @@ public class SearchController : ControllerBase
         }
 
         var query = q.Trim();
-        var pattern = $"%{query}%";
+        var pattern = LikePattern.Contains(query);
         const int limit = 5;
 
         var results = new List<SearchResultItem>();
 
         // Search invoices by number
         var invoices = !CanRead(AccessModule.Sales) ? [] : await _db.Invoices.AsNoTracking().VisibleTo(_access)
-            .Where(i => i.CompanyId == companyId && i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern))
+            .Where(i => i.CompanyId == companyId && i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern, LikePattern.EscapeChar))
             .OrderByDescending(i => i.CreatedAt)
             .Take(limit)
             .Select(i => new { i.Id, i.InvoiceNumber, i.DocumentType })
@@ -64,7 +65,7 @@ public class SearchController : ControllerBase
 
         // Search bills by vendor reference
         var bills = !CanRead(AccessModule.Purchases) ? [] : await _db.Bills.AsNoTracking().VisibleTo(_access)
-            .Where(b => b.CompanyId == companyId && b.VendorReference != null && EF.Functions.ILike(b.VendorReference, pattern))
+            .Where(b => b.CompanyId == companyId && b.VendorReference != null && EF.Functions.ILike(b.VendorReference, pattern, LikePattern.EscapeChar))
             .OrderByDescending(b => b.CreatedAt)
             .Take(limit)
             .Select(b => new { b.Id, b.VendorReference, b.DocumentType })
@@ -81,7 +82,7 @@ public class SearchController : ControllerBase
 
         // Search partners by name
         var partners = !CanRead(AccessModule.Partners) ? [] : await _db.Partners.AsNoTracking().VisibleTo(_access)
-            .Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern))
+            .Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar))
             .OrderBy(p => p.Name)
             .Take(limit)
             .Select(p => new { p.Id, p.Name })
@@ -94,7 +95,7 @@ public class SearchController : ControllerBase
 
         // Search accounts by code or name
         var accounts = !CanRead(AccessModule.Accounting) ? [] : await _db.Accounts.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && (EF.Functions.ILike(a.Code, pattern) || EF.Functions.ILike(a.Name, pattern)))
+            .Where(a => a.CompanyId == companyId && (EF.Functions.ILike(a.Code, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(a.Name, pattern, LikePattern.EscapeChar)))
             .OrderBy(a => a.Code)
             .Take(limit)
             .Select(a => new { a.Id, a.Code, a.Name })
@@ -107,7 +108,7 @@ public class SearchController : ControllerBase
 
         // Search items by name (code is numeric, search by name only)
         var items = !CanRead(AccessModule.Items) ? [] : await _db.Items.AsNoTracking()
-            .Where(i => i.CompanyId == companyId && EF.Functions.ILike(i.Name, pattern))
+            .Where(i => i.CompanyId == companyId && EF.Functions.ILike(i.Name, pattern, LikePattern.EscapeChar))
             .OrderBy(i => i.Code)
             .Take(limit)
             .Select(i => new { i.Id, i.Code, i.Name })

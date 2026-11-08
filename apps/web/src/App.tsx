@@ -8,7 +8,8 @@ import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RequireCompany } from "@/components/RequireCompany";
 import { FeatureGate } from "@/components/FeatureGate";
-import { navItems } from "@/config/nav";
+import { navItems, navModuleForPath } from "@/config/nav";
+import { ModuleGate } from "@/components/ModuleGate";
 import { AuthProvider } from "@/context/AuthContext";
 import { CompanyProvider } from "@/context/CompanyContext";
 import { BillDetail } from "@/pages/bills/BillDetail";
@@ -78,11 +79,11 @@ export function App() {
                 <Route path="/platform" element={<PlatformAdmin />} />
                 <Route element={<RequireCompany />}>
                   {/* docs/POS_PLAN.md: the till is full screen, outside the app shell. */}
-                  <Route path="/pos/till/:registerId" element={<Till />} />
+                  <Route path="/pos/till/:registerId" element={<ModuleGate module="pos"><Till /></ModuleGate>} />
                   {/* P3: the kitchen display, full screen too (?store=…&center=…). */}
-                  <Route path="/pos/kds" element={<FeatureGate feature="hospitality" fullScreen><Kds /></FeatureGate>} />
+                  <Route path="/pos/kds" element={<ModuleGate module="pos"><FeatureGate feature="hospitality" fullScreen><Kds /></FeatureGate></ModuleGate>} />
                   {/* P5: the door scanner for ticketed events, full screen (?event=…). */}
-                  <Route path="/pos/scan" element={<FeatureGate feature="events" fullScreen><TicketScanner /></FeatureGate>} />
+                  <Route path="/pos/scan" element={<ModuleGate module="pos"><FeatureGate feature="events" fullScreen><TicketScanner /></FeatureGate></ModuleGate>} />
                   <Route element={<AppLayout />}>
                     <Route path="/" element={<Landing />} />
                     {/* Business types: a page of a pack the company doesn't use says so (FeatureGate). */}
@@ -91,26 +92,28 @@ export function App() {
                         key={path}
                         path={path}
                         element={
-                          <FeatureGate feature={feature}>
-                            {Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
-                          </FeatureGate>
+                          <ModuleGate module={navModuleForPath(path)}>
+                            <FeatureGate feature={feature}>
+                              {Element ? <Element /> : <ComingSoon titleKey={titleKey} descriptionKey={descriptionKey} />}
+                            </FeatureGate>
+                          </ModuleGate>
                         }
                       />
                     ))}
-                    <Route path="/invoicing/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
-                    <Route path="/sales-returns/:id" element={<InstanceRoute Component={InvoiceDetail} />} />
-                    <Route path="/bills/:id" element={<InstanceRoute Component={BillDetail} />} />
-                    <Route path="/purchase-returns/:id" element={<InstanceRoute Component={BillDetail} />} />
-                    <Route path="/payroll/:id" element={<InstanceRoute Component={PayrollRunDetail} />} />
-                    <Route path="/employees/:id" element={<InstanceRoute Component={EmployeeDetail} />} />
-                    <Route path="/stock-documents/:id" element={<InstanceRoute Component={StockDocumentDetail} />} />
-                    <Route path="/price-changes/:id" element={<InstanceRoute Component={PriceChangeDetail} />} />
-                    <Route path="/purchase-orders/:id" element={<InstanceRoute Component={PurchaseOrderDetail} />} />
-                    <Route path="/sales-orders/:id" element={<InstanceRoute Component={SalesOrderDetail} />} />
-                    <Route path="/construction/:id" element={<FeatureGate feature="construction"><InstanceRoute Component={SiteDetail} /></FeatureGate>} />
-                    <Route path="/real-estate/buildings/:id" element={<FeatureGate feature="realEstate"><InstanceRoute Component={BuildingDetail} /></FeatureGate>} />
-                    <Route path="/real-estate/contracts/:id" element={<FeatureGate feature="realEstate"><InstanceRoute Component={SaleContractDetail} /></FeatureGate>} />
-                    <Route path="/rentals/leases/:id" element={<FeatureGate feature="rentals"><InstanceRoute Component={LeaseDetail} /></FeatureGate>} />
+                    <Route path="/invoicing/:id" element={<ModuleGate module="sales"><InstanceRoute Component={InvoiceDetail} /></ModuleGate>} />
+                    <Route path="/sales-returns/:id" element={<ModuleGate module="sales"><InstanceRoute Component={InvoiceDetail} /></ModuleGate>} />
+                    <Route path="/bills/:id" element={<ModuleGate module="purchases"><InstanceRoute Component={BillDetail} /></ModuleGate>} />
+                    <Route path="/purchase-returns/:id" element={<ModuleGate module="purchases"><InstanceRoute Component={BillDetail} /></ModuleGate>} />
+                    <Route path="/payroll/:id" element={<ModuleGate module="payroll"><InstanceRoute Component={PayrollRunDetail} /></ModuleGate>} />
+                    <Route path="/employees/:id" element={<ModuleGate module="hr"><InstanceRoute Component={EmployeeDetail} /></ModuleGate>} />
+                    <Route path="/stock-documents/:id" element={<ModuleGate module="inventory"><InstanceRoute Component={StockDocumentDetail} /></ModuleGate>} />
+                    <Route path="/price-changes/:id" element={<ModuleGate module="items"><InstanceRoute Component={PriceChangeDetail} /></ModuleGate>} />
+                    <Route path="/purchase-orders/:id" element={<ModuleGate module="purchases"><InstanceRoute Component={PurchaseOrderDetail} /></ModuleGate>} />
+                    <Route path="/sales-orders/:id" element={<ModuleGate module="sales"><InstanceRoute Component={SalesOrderDetail} /></ModuleGate>} />
+                    <Route path="/construction/:id" element={<ModuleGate module="sales"><FeatureGate feature="construction"><InstanceRoute Component={SiteDetail} /></FeatureGate></ModuleGate>} />
+                    <Route path="/real-estate/buildings/:id" element={<ModuleGate module="sales"><FeatureGate feature="realEstate"><InstanceRoute Component={BuildingDetail} /></FeatureGate></ModuleGate>} />
+                    <Route path="/real-estate/contracts/:id" element={<ModuleGate module="sales"><FeatureGate feature="realEstate"><InstanceRoute Component={SaleContractDetail} /></FeatureGate></ModuleGate>} />
+                    <Route path="/rentals/leases/:id" element={<ModuleGate module="sales"><FeatureGate feature="rentals"><InstanceRoute Component={LeaseDetail} /></FeatureGate></ModuleGate>} />
                   </Route>
                 </Route>
               </Route>

@@ -88,7 +88,7 @@ public class VerticalsTests : IAsyncLifetime
         As(new InvoicesController(c.Db, Tax, new DocumentNumberService(), new NumberSeriesService(c.Db), L, CompanyAccessContext.Unrestricted()), c.UserId);
     private static StockService Stock(Co c) => new(c.Db, L);
     private static StockDocumentsController Documents(Co c) =>
-        As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), L, Tax), Stock(c), L), c.UserId);
+        As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), L, Tax), Stock(c), L, CompanyAccessContext.Unrestricted()), c.UserId);
     private static ConstructionController Construction(Co c) => As(new ConstructionController(c.Db, L, Tax), c.UserId);
     private static RealEstateController RealEstate(Co c) => As(new RealEstateController(c.Db, L), c.UserId);
     private static RentalsController Rentals(Co c) =>

@@ -551,9 +551,8 @@ public class InvoicesControllerTests : IAsyncLifetime
         Assert.Contains("500", message);
         Assert.Contains("400", message);
 
-        // The rejected return never got a number and never posted (no number/journal-entry burn).
         var secondReturnAfter = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == secondReturn.Id);
-        Assert.Null(secondReturnAfter.InvoiceNumber);
+        Assert.Equal(InvoiceState.Draft, secondReturnAfter.State);
         Assert.Null(secondReturnAfter.JournalEntryId);
 
         // A return of exactly the 400 remainder succeeds.
@@ -688,28 +687,6 @@ public class InvoicesControllerTests : IAsyncLifetime
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
         await controller.Post(companyId, invoice.Id);
-
-        var result = await controller.Discard(companyId, invoice.Id);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
-    }
-
-    [Fact]
-    public async Task Discard_DraftWithNumberSomehowSet_Rejected()
-    {
-        // Defensive coverage: a Draft should never have InvoiceNumber/JournalEntryId set (only
-        // Post() sets either, and it also flips State to Posted in the same operation) — but the
-        // discard guard checks all three explicitly rather than trusting that invariant silently.
-        var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = NewController(db);
-
-        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
-        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
-
-        var tracked = await db.Invoices.SingleAsync(i => i.Id == invoice.Id);
-        tracked.InvoiceNumber = "INV-9999";
-        await db.SaveChangesAsync();
 
         var result = await controller.Discard(companyId, invoice.Id);
 

@@ -33,8 +33,8 @@ public class StockReportDataService
         var items = _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId && i.TrackInventory && i.Type == ItemType.Goods);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            items = items.Where(i => EF.Functions.ILike(i.Name, pattern) || EF.Functions.ILike(i.Code.ToString(), pattern));
+            var pattern = LikePattern.Contains(search);
+            items = items.Where(i => EF.Functions.ILike(i.Name, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(i.Code.ToString(), pattern, LikePattern.EscapeChar));
         }
         if (categoryId is { } c) items = items.Where(i => i.CategoryId == c);
         if (belowMinimum)

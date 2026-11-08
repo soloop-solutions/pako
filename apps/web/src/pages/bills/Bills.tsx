@@ -12,12 +12,14 @@ import type {
   TaxDefinitionResponse,
 } from "@pako/shared";
 
+import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
@@ -33,7 +35,6 @@ export function Bills() {
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [bills, setBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   // F5 — see Invoicing.tsx's identical fields for the full rationale.
@@ -49,25 +50,19 @@ export function Bills() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, billsResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
+      const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
-        apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
-        apiClient.itemsGET(companyId, 1, 200, undefined, undefined),
+        fetchAllItems(companyId),
         apiClient.accountsAll(companyId),
       ]);
       setPartners(partnersResult);
-      setBills(billsResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
       setItems(itemsResult.items);
       setAccounts(accountsResult);
 
-      const balanceEntries = await Promise.all(
-        billsResult.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const),
-      );
-      setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "bills.loadError" })));
     }
@@ -79,15 +74,36 @@ export function Bills() {
 
   const vendors = partners.filter((p) => p.isVendor);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  // A6 (v2 release): Purchase returns have their own page now — see Invoicing.tsx's identical
-  // displayedInvoices comment for the full rationale.
-  // `balances` is a dependency here too — see Invoicing.tsx's identical comment for why a
-  // balance-dependent column needs the `data` array reference to change when balances update.
+  const paged = usePagedGrid<BillResponse>({
+    gridId: GRID_ID,
+    enabled: !!companyId,
+    queryKey: ["bills-paged", companyId],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort, filters }) => {
+      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort, undefined);
+      return { items: result.items, total: result.total };
+    },
+  });
   const displayedBills = useMemo(
-    () => bills.filter((bill) => bill.documentType !== BillDocumentType.PurchaseReturn),
+    () => [...paged.items],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bills, balances],
+    [paged.items, balances],
   );
+  const refetchPaged = paged.query.refetch;
+
+  useEffect(() => {
+    if (!companyId) return;
+    const missing = displayedBills.filter((bill) => bill.state === "Posted" && !(bill.id in balances));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const)).then((entries) => {
+      if (!cancelled) setBalances((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, displayedBills]);
 
   const columns = useMemo<ColumnDef<BillResponse>[]>(
     () => [
@@ -100,6 +116,7 @@ export function Bills() {
         id: "type",
         header: intl.formatMessage({ id: "common.type" }),
         accessorFn: (row) => billDocumentTypeLabel(row.documentType, intl),
+        enableSorting: false,
         cell: ({ getValue }) => <Badge variant="outline">{getValue() as string}</Badge>,
       },
       {
@@ -128,6 +145,7 @@ export function Bills() {
         header: intl.formatMessage({ id: "invoicing.outstanding" }),
         meta: { numeric: true },
         enableColumnFilter: false,
+        enableSorting: false,
         accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.outstanding : undefined),
         cell: ({ getValue, row }) => {
           const value = getValue() as number | undefined;
@@ -152,12 +170,14 @@ export function Bills() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [intl, partners, balances],
   );
+  const visibleColumns = useMemo(() => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "dueDate", "state"], ["state"]), [columns]);
 
   const handleBillCreated = useCallback(async () => {
     setBillFormOpen(false);
     setBillFormKey((k) => k + 1);
     await refresh();
-  }, [refresh]);
+    await refetchPaged();
+  }, [refresh, refetchPaged]);
 
   const handleVendorCreated = useCallback(async () => {
     setVendorFormOpen(false);
@@ -227,7 +247,6 @@ export function Bills() {
           companyId={activeCompany.id}
           vendors={vendors}
           taxes={taxesForPurchase(taxes)}
-          bills={bills}
           paymentMethods={paymentMethods}
           items={items}
           accounts={accounts}
@@ -245,17 +264,15 @@ export function Bills() {
         <CardContent>
           <DataGrid
             gridId={GRID_ID}
-            columns={columns}
+            columns={visibleColumns}
             data={displayedBills}
-            rowCount={displayedBills.length}
+            rowCount={paged.total}
+            isLoading={paged.query.isPending}
             getRowId={(row) => row.id}
             getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "bills.noBills" })}
             exportFileName="bills"
-            manualFiltering={false}
-            manualSorting={false}
-            manualGrouping={false}
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />

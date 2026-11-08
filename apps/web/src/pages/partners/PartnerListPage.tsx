@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +40,8 @@ export interface PartnerListPageLabels {
 interface PartnerListPageProps {
   gridId: string;
   labels: PartnerListPageLabels;
-  /** Filter partners for this list. Omit to show all. */
-  filterFn?: (partner: PartnerResponse) => boolean;
+  /** Server-side role filter for this list. Omit to show all. */
+  role?: "customer" | "vendor";
   /** Default role when creating from this page. */
   defaultRole?: "customer" | "vendor";
   /** Show the Type column with Customer/Vendor badges. Defaults to true. */
@@ -53,7 +54,7 @@ interface PartnerListPageProps {
 export function PartnerListPage({
   gridId,
   labels,
-  filterFn,
+  role,
   defaultRole,
   showTypeColumn = true,
   hiddenColumnIds,
@@ -71,10 +72,21 @@ export function PartnerListPage({
   const [dirty, setDirty] = useState(false);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
-  const partnersQuery = useQuery({
-    queryKey: partnersQueryKey,
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+  const paged = usePagedGrid<PartnerResponse>({
+    gridId,
     enabled: !!activeCompanyId,
+    queryKey: [...partnersQueryKey, "paged", role ?? "all"],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort }) => {
+      const result = await apiClient.paged4(activeCompanyId as string, page, pageSize, search, role, sort);
+      return { items: result.items, total: result.total };
+    },
+  });
+  const partnersQuery = paged.query;
+  const editingQuery = useQuery({
+    queryKey: [...partnersQueryKey, "one", editingId],
+    queryFn: () => apiClient.partnersGET(activeCompanyId as string, editingId as string),
+    enabled: !!activeCompanyId && !!editingId,
   });
 
   const accountsQuery = useQuery({
@@ -83,14 +95,7 @@ export function PartnerListPage({
     enabled: !!activeCompanyId,
   });
 
-  const allPartners = useMemo<PartnerResponse[]>(
-    () => partnersQuery.data ?? [],
-    [partnersQuery.data],
-  );
-  const partners = useMemo(
-    () => (filterFn ? allPartners.filter(filterFn) : allPartners),
-    [allPartners, filterFn],
-  );
+  const partners = paged.items;
   const accounts = useMemo<AccountResponse[]>(
     () => accountsQuery.data ?? [],
     [accountsQuery.data],
@@ -101,8 +106,14 @@ export function PartnerListPage({
     return account ? `${account.code} \u2014 ${account.name}` : "\u2014";
   };
 
+  const fetchedPartner = editingQuery.data;
+  const fetchedBelongsToList =
+    !!fetchedPartner &&
+    (role === "customer" ? fetchedPartner.isCustomer : role === "vendor" ? fetchedPartner.isVendor : true);
   const editingPartner =
-    editingId ? (allPartners.find((p) => p.id === editingId) ?? null) : null;
+    editingId
+      ? (partners.find((p) => p.id === editingId) ?? (fetchedBelongsToList ? fetchedPartner : null) ?? null)
+      : null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: partnersQueryKey });
@@ -124,6 +135,13 @@ export function PartnerListPage({
         creditLimit: fields.creditLimit ?? undefined,
         priceListId: fields.priceListId ?? undefined,
         overdueBlockDays: fields.overdueBlockDays ?? undefined,
+        email: fields.email ?? undefined,
+        phone: fields.phone ?? undefined,
+        contactPerson: fields.contactPerson ?? undefined,
+        streetAddress: fields.streetAddress ?? undefined,
+        city: fields.city ?? undefined,
+        postalCode: fields.postalCode ?? undefined,
+        country: fields.country ?? undefined,
       });
     },
     onSuccess: async () => {
@@ -154,6 +172,13 @@ export function PartnerListPage({
         creditLimit: vars.fields.creditLimit ?? undefined,
         priceListId: vars.fields.priceListId ?? undefined,
         overdueBlockDays: vars.fields.overdueBlockDays ?? undefined,
+        email: vars.fields.email ?? undefined,
+        phone: vars.fields.phone ?? undefined,
+        contactPerson: vars.fields.contactPerson ?? undefined,
+        streetAddress: vars.fields.streetAddress ?? undefined,
+        city: vars.fields.city ?? undefined,
+        postalCode: vars.fields.postalCode ?? undefined,
+        country: vars.fields.country ?? undefined,
       }),
     onSuccess: async () => {
       setMutationError(null);
@@ -235,7 +260,7 @@ export function PartnerListPage({
       },
       {
         accessorKey: "taxNumber",
-        header: intl.formatMessage({ id: "partners.form.taxNumber" }),
+        header: intl.formatMessage({ id: "partners.form.nui" }),
         cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
       {
@@ -295,6 +320,8 @@ export function PartnerListPage({
       : cols;
   }, [intl, accounts, editingId, showTypeColumn, defaultRole]);
   /* eslint-enable react-hooks/exhaustive-deps */
+
+  const visibleColumns = useMemo(() => serverSideColumns(columns, ["name", "taxNumber"]), [columns]);
 
   if (!activeCompanyId) {
     return <p className="text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>;
@@ -361,6 +388,7 @@ export function PartnerListPage({
           onSubmit={(fields) => createMutation.mutate(fields)}
           onCancel={() => { setFormOpen(false); setMutationError(null); setDirty(false); }}
           defaultRole={selectedCreateRole}
+          role={selectedCreateRole}
           createButtonLabelKey={labels.addButtonKey}
           onDirtyChange={setDirty}
         />
@@ -379,6 +407,7 @@ export function PartnerListPage({
             mode="edit"
             accounts={accounts}
             initial={editingPartner}
+            role={defaultRole}
             submitting={updateMutation.isPending}
             error={mutationError}
             onSubmit={(fields) => updateMutation.mutate({ id: editingPartner.id, fields })}
@@ -390,18 +419,15 @@ export function PartnerListPage({
 
       <DataGrid
         gridId={gridId}
-        columns={columns}
+        columns={visibleColumns}
         data={partners}
-        rowCount={partners.length}
+        rowCount={paged.total}
         isLoading={partnersQuery.isPending}
         getRowId={(row) => row.id}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: labels.searchPlaceholderKey })}
         emptyMessage={intl.formatMessage({ id: labels.emptyKey })}
         exportFileName={exportFileName}
-        manualFiltering={false}
-        manualSorting={false}
-        manualGrouping={false}
         defaultPageSize={100}
         pageSizeOptions={[50, 100, 200]}
       />

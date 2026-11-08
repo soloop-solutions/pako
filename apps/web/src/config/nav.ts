@@ -128,6 +128,7 @@ import { StockDocuments } from "@/pages/inventory/StockDocuments";
 import { StockLevels } from "@/pages/inventory/StockLevels";
 import { StockReports } from "@/pages/inventory/StockReports";
 import { Warehouses } from "@/pages/inventory/Warehouses";
+import { Vehicles } from "@/pages/inventory/Vehicles";
 import { Settings } from "@/pages/Settings";
 import { WithholdingTax } from "@/pages/tax/WithholdingTax";
 import { YearEnd } from "@/pages/YearEnd";
@@ -208,6 +209,8 @@ export interface NavCategory {
   /** Default NavModule for every item in the category. */
   module?: NavModule;
   items: NavItem[];
+  /** How many items show before "Show more"; set by the business-type layout. */
+  visibleCount?: number;
 }
 
 /** A pinned action in Favourites that opens a document-creation flow rather than a plain list. */
@@ -332,6 +335,7 @@ export const navCategories: NavCategory[] = [
       { titleKey: "nav.stockDocuments", path: "/stock-documents", icon: ArrowLeftRight, descriptionKey: "nav.stockDocuments.description", Element: StockDocuments, module: "inventory", gridId: "stock-documents" },
       { titleKey: "nav.stockReports", path: "/stock-reports", icon: PieChart, descriptionKey: "nav.stockReports.description", Element: StockReports, module: "inventory" },
       { titleKey: "nav.warehouses", path: "/warehouses", icon: WarehouseIcon, descriptionKey: "nav.warehouses.description", Element: Warehouses, module: "inventory" },
+      { titleKey: "nav.vehicles", path: "/vehicles", icon: Truck, descriptionKey: "nav.vehicles.description", Element: Vehicles, module: "inventory", gridId: "vehicles" },
       { titleKey: "nav.priceLists", path: "/price-lists", icon: BadgeEuro, descriptionKey: "nav.priceLists.description", Element: PriceLists, module: "items", gridId: "price-list-items" },
       { titleKey: "nav.itemCategories", path: "/item-categories", icon: Tags, descriptionKey: "nav.itemCategories.description", Element: ItemCategories, module: "items" },
     ],
@@ -692,3 +696,16 @@ export const navItems: NavItem[] = [
   ...bottomNavItems,
   ...hiddenNavItems,
 ];
+
+const navModuleByPath = new Map<string, NavModule>(
+  navCategories.flatMap((category) =>
+    category.items.flatMap((item) => {
+      const module = item.module ?? category.module;
+      return module ? [[item.path, module] as const] : [];
+    }),
+  ),
+);
+
+export function navModuleForPath(path: string): NavModule | undefined {
+  return navModuleByPath.get(path);
+}

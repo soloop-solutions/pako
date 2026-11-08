@@ -50,7 +50,7 @@ describe("BillForm", () => {
       <IntlProviderWrapper>
         <QueryClientProvider client={new QueryClient()}>
           <BillForm
-            companyId="c1" vendors={[{ id: "p1", name: "Mulliri", isVendor: true } as never]} taxes={[]} bills={[]}
+            companyId="c1" vendors={[{ id: "p1", name: "Mulliri", isVendor: true } as never]} taxes={[]}
             paymentMethods={[]} isVatRegistered={false} onCreated={() => {}} editingBill={DRAFT} onSaved={onSaved}
           />
         </QueryClientProvider>

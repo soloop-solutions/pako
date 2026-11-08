@@ -197,3 +197,32 @@ Known limitations:
 - General ledger lines of one document are not grouped.
 - Legacy data keeps duplicate journal numbers (see `CLAUDE.md`, repo hazards).
 - Albanian wording has not been reviewed by an accountant.
+
+## Report PDF pattern
+
+First user: the dashboard (`GET api/companies/{id}/dashboard/pdf`, same query as the JSON endpoint,
+widgets taken from the company's saved layout, minus what the caller's role cannot see). Built
+server-side with QuestPDF (already a dependency, also used for payslips and count sheets) so the
+figures come from the very `DashboardResponse` the screen renders and cannot drift from it.
+
+- **Page**: A4 portrait, 32 pt margins, QuestPDF default font (Lato), ink `#2A2824`, muted
+  `#6F6D66`, brand `#2B5C6B` (PAKO primary), hairlines `#E1E0D9`, chart palette = the web
+  `--chart-*` tokens.
+- **Header (every page)**: brand tile (company logo when `LogoUrl` is a raster data URI, otherwise the
+  company initial), company name, fiscal and business number; right side the report title, the period
+  and the comparison period. A 1.5 pt brand rule closes it.
+- **Body**: widgets laid out on the screen's 4-unit grid (`Size` 1-4), each row kept whole
+  (`ShowEntire`) so no card is split across pages. Card = bordered white box, title, subtitle (period or
+  "as of" date), content. KPI tile = value, optional sparkline, delta (green/red by whether up is good;
+  margins show percentage points) and the comparison value. Charts are vector SVG
+  (`DashboardChartSvg`: gridlines, bars, lines, areas; no text inside the SVG) with axis and category
+  labels drawn as PDF text, so they stay crisp and selectable. Rankings are bar rows with values at the
+  right; aging adds a table under the chart.
+- **Footer (every page)**: "Generated <local date and time>", "Amounts in <company currency>",
+  "Page x of y".
+- **Language**: labels are `Export_Dash_*` and `Export_Dash_W_<widget>` keys resolved by `ExportLabels`
+  from `Accept-Language`; numbers and dates use the request culture, as the web does.
+- **Errors**: bad period or nothing printable returns 400 JSON (`[ProducesPdf]` leaves error results
+  as JSON, like `[ProducesXlsx]`).
+- A new report PDF reuses `DashboardChartSvg` and the header/footer in `DashboardPdfRenderer`; amounts
+  are formatted from the response only, never recomputed.

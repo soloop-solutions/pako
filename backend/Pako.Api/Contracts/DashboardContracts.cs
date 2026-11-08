@@ -7,7 +7,8 @@ public record DashboardSections(bool Finance, bool Sales, bool Purchases, bool P
 // One headline figure. Previous is the comparison period's value (null without a comparison);
 // ChangePercent is computed here so the browser never divides money. Trend is the figure per
 // bucket of the selected period, for sparklines.
-public record DashboardKpi(string Key, decimal Current, decimal? Previous, decimal? ChangePercent, List<decimal> Trend);
+public record DashboardKpi(
+    string Key, decimal Current, decimal? Previous, decimal? ChangePercent, List<decimal> Trend, string ChangeUnit = "percent");
 
 // One time bucket. CashBalance is the closing cash and bank balance at End.
 public record DashboardPoint(
@@ -37,7 +38,8 @@ public record DashboardResponse(
     List<DashboardAgingBucket> ReceivablesAging,
     List<DashboardAgingBucket> PayablesAging,
     List<DashboardRankItem> HeadcountByDepartment,
-    List<DashboardRankItem>? StockByItem = null);
+    List<DashboardRankItem>? StockByItem = null,
+    DateOnly? AgingAsOf = null);
 
 // A widget on the company dashboard: what it shows (Key), how (Visual), its width in grid
 // columns (1-4), and whether it draws the comparison period.

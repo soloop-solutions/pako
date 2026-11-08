@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   accountsAll: vi.fn(),
   journalsAll: vi.fn(),
   journalEntriesAll: vi.fn(),
+  paged3: vi.fn(),
   trialBalance: vi.fn(),
   trialBalanceTotals: vi.fn(),
 }));
@@ -62,6 +63,7 @@ describe("ledger ?entry=", () => {
     ]);
     m.journalsAll.mockResolvedValue([{ id: "j1", code: "GJ", name: "General" }]);
     m.journalEntriesAll.mockResolvedValue([ENTRY]);
+    m.paged3.mockResolvedValue({ items: [ENTRY], total: [ENTRY].length, page: 1, pageSize: 100 });
     m.trialBalance.mockResolvedValue([]);
     m.trialBalanceTotals.mockResolvedValue({ opening: 0, debit: 0, credit: 0, closing: 0 });
   });

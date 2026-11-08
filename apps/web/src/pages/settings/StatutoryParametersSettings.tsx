@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 // Mirrors StatutoryParameterKeys on the backend. Rates are stored as fractions (0.05) but typed
 // and shown as percentages; the server validates the stored value either way.
@@ -54,6 +56,7 @@ interface StatutoryParametersSettingsProps {
 // applies from its date to payroll runs created afterwards; existing runs keep their snapshot.
 export function StatutoryParametersSettings({ firmId }: StatutoryParametersSettingsProps) {
   const intl = useIntl();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const queryKey = ["statutoryParameters", firmId] as const;
 
@@ -141,9 +144,9 @@ export function StatutoryParametersSettings({ firmId }: StatutoryParametersSetti
               variant="ghost"
               disabled={deleteMutation.isPending}
               onClick={() => {
-                if (window.confirm(intl.formatMessage({ id: "statutory.confirmDelete" }, { key: keyLabel(row.original.key), date: row.original.effectiveFrom }))) {
+                confirm(intl.formatMessage({ id: "statutory.confirmDelete" }, { key: keyLabel(row.original.key), date: row.original.effectiveFrom }), () => {
                   deleteMutation.mutate(row.original.id!);
-                }
+                });
               }}
             >
               {intl.formatMessage({ id: "common.delete" })}
@@ -181,18 +184,7 @@ export function StatutoryParametersSettings({ firmId }: StatutoryParametersSetti
         <form className="grid gap-3 sm:grid-cols-5 sm:items-end" onSubmit={handleSubmit} aria-label={intl.formatMessage({ id: "statutory.addTitle" })}>
           <div className="flex flex-col gap-1">
             <Label htmlFor="statutory-key">{intl.formatMessage({ id: "statutory.column.key" })}</Label>
-            <select
-              id="statutory-key"
-              className="h-9 rounded-md border bg-transparent px-2 text-sm"
-              value={key}
-              onChange={(e) => setKey(e.target.value)}
-            >
-              {STATUTORY_KEYS.map((k) => (
-                <option key={k} value={k}>
-                  {keyLabel(k)}
-                </option>
-              ))}
-            </select>
+            <Select id="statutory-key" value={key} onValueChange={(v) => setKey(v)} options={[...STATUTORY_KEYS.map((k) => ({ value: k, label: keyLabel(k) }))]} />
           </div>
           <div className="flex flex-col gap-1">
             <Label htmlFor="statutory-from">{intl.formatMessage({ id: "statutory.column.effectiveFrom" })}</Label>

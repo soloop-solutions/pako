@@ -26,6 +26,7 @@ import {
 } from "@/lib/payroll-enums";
 import { AdjustmentForm } from "@/pages/payroll/AdjustmentForm";
 import { CommissionBasisDialog } from "@/pages/payroll/CommissionBasisDialog";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 const GRID_ID = "payrollAdjustments";
 
@@ -40,6 +41,7 @@ type PayrollAdjustmentsProps = {
 // set) are read-only here and link to the run that included them.
 export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollAdjustmentsProps) {
   const intl = useIntl();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const period = monthBounds(month).start;
 
@@ -110,13 +112,13 @@ export function PayrollAdjustments({ companyId, month, onMonthChange }: PayrollA
   });
 
   function handleDelete(adjustment: PayrollAdjustmentResponse) {
-    const confirmed = window.confirm(
+    confirm(
       intl.formatMessage(
         { id: "payroll.adjustment.confirmDelete" },
         { kind: payrollAdjustmentKindLabel(adjustment.kind, intl), employee: adjustment.employeeName },
       ),
+      () => deleteMutation.mutate(adjustment.id),
     );
-    if (confirmed) deleteMutation.mutate(adjustment.id);
   }
 
   const columns = useMemo<ColumnDef<PayrollAdjustmentResponse>[]>(

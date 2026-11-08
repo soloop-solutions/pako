@@ -127,8 +127,8 @@ public class PriceListsController : ControllerBase
         var items = _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            items = items.Where(i => EF.Functions.ILike(i.Name, pattern) || EF.Functions.ILike(i.Code.ToString(), pattern));
+            var pattern = LikePattern.Contains(search);
+            items = items.Where(i => EF.Functions.ILike(i.Name, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(i.Code.ToString(), pattern, LikePattern.EscapeChar));
         }
         if (onlyPriced) items = items.Where(i => _db.PriceListPrices.Any(p => p.PriceListId == priceListId && p.ItemId == i.Id && p.ValidFrom <= date));
         var total = await items.CountAsync();
@@ -177,7 +177,7 @@ public class PriceListsController : ControllerBase
         pageSize = Math.Clamp(pageSize, 1, 200);
         var query = _db.PriceChanges.AsNoTracking().Where(d => d.CompanyId == companyId);
         if (priceListId is { } l) query = query.Where(d => d.PriceListId == l);
-        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, $"%{search.Trim()}%"));
+        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
         var total = await query.CountAsync();
         var rows = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize)
             .Select(d => new { d.Id, d.PriceListId, d.State, d.Number, d.Date, Lines = d.Lines.Count, Difference = d.Lines.Sum(x => x.Difference ?? 0m) })
@@ -201,10 +201,16 @@ public class PriceListsController : ControllerBase
     [ProducesResponseType(typeof(PriceChangeResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PriceChangeResponse>> CreateChange(Guid companyId, SavePriceChangeRequest request)
     {
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         try
         {
             var change = await _prices.SaveDraftAsync(companyId, null, request);
             await _db.SaveChangesAsync();
+            if (transaction is not null) await transaction.CommitAsync();
             return StatusCode(StatusCodes.Status201Created, await _prices.ToResponseAsync(companyId, change));
         }
         catch (StockException ex)

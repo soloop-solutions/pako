@@ -18,6 +18,16 @@ vi.mock("@/api/client", async (importOriginal) => {
     apiClient: {
       ...actual.apiClient,
       partnersAll: (...args: unknown[]) => partnersAll(...args),
+      paged4: async (_c: unknown, _p: unknown, _n: unknown, _s: unknown, role: string | undefined) => {
+        const all = (await partnersAll()) as Array<{ isCustomer: boolean; isVendor: boolean }>;
+        const items = all.filter((p) => !role || (role === "customer" ? p.isCustomer : p.isVendor));
+        return { items, total: items.length, page: 1, pageSize: 100 };
+      },
+      partnersGET: async (_c: unknown, id: string) => {
+        const found = ((await partnersAll()) as Array<{ id: string }>).find((p) => p.id === id);
+        if (!found) throw new Error("not found");
+        return found;
+      },
       accountsAll: (...args: unknown[]) => accountsAll(...args),
       partnersPOST: (...args: unknown[]) => partnersCreate(...args),
       partnersPUT: (...args: unknown[]) => partnersUpdate(...args),
@@ -169,5 +179,40 @@ describe("Vendors", () => {
     const row = screen.getByText("Vendor LLC").closest("tr");
     if (!row) throw new Error("row not found");
     expect(within(row).queryByText("Also customer")).not.toBeInTheDocument();
+  });
+
+  it("vendor edit shows contact fields and hides customer-only fields", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Vendor LLC")).toBeInTheDocument());
+    const row = screen.getByText("Vendor LLC").closest("tr");
+    if (!row) throw new Error("row not found");
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+
+    expect(await screen.findByLabelText("Payable account")).toBeInTheDocument();
+    expect(screen.getByLabelText("Email")).toBeInTheDocument();
+    expect(screen.getByLabelText("City")).toBeInTheDocument();
+    expect(screen.getByLabelText(/^NUI/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Receivable account")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Credit limit")).not.toBeInTheDocument();
+    expect(screen.getByText("This vendor is also a customer")).toBeInTheDocument();
+  });
+
+  it("sends contact and address fields on save", async () => {
+    partnersUpdate.mockResolvedValue({ ...VENDOR_ONLY });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Vendor LLC")).toBeInTheDocument());
+    const row = screen.getByText("Vendor LLC").closest("tr");
+    if (!row) throw new Error("row not found");
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+
+    fireEvent.change(await screen.findByLabelText("Email"), { target: { value: "a@b.test" } });
+    fireEvent.change(screen.getByLabelText("City"), { target: { value: "Prizren" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(partnersUpdate).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      "partner-2",
+      expect.objectContaining({ email: "a@b.test", city: "Prizren", isVendor: true }),
+    ));
   });
 });

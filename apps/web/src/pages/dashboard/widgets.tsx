@@ -56,13 +56,14 @@ export function WidgetCard({
     subtitle = balance ? intl.formatMessage({ id: "dashboard.asOf" }, { date: intl.formatDate(new Date(`${data.to}T00:00`), { dateStyle: "medium" }) }) : currentName;
     body = (
       <StatFigure
-        value={def.kpi.format === "money" && Math.abs(kpi.current) >= 1_000_000 ? f.compact(kpi.current) : format(kpi.current)}
+        value={format(kpi.current)}
         hero={widget.visual === "hero"}
         trend={widget.visual !== "tile" && kpi.trend.length > 1 ? kpi.trend : undefined}
         delta={
           hasCompare
             ? {
                 percent: kpi.changePercent,
+                unit: kpi.changeUnit,
                 upIsGood: def.kpi.upIsGood,
                 label: kpi.previous === undefined || kpi.previous === null
                   ? ""
@@ -180,9 +181,7 @@ export function WidgetCard({
   // ---- Aging ----
   if (widget.key === "receivablesAging" || widget.key === "payablesAging") {
     const buckets = widget.key === "receivablesAging" ? data.receivablesAging : data.payablesAging;
-    // The API measures aging at the period end, or today if the period ends later.
-    const end = new Date(`${data.to}T00:00`);
-    const asOf = end > new Date() ? new Date() : end;
+    const asOf = new Date(`${data.agingAsOf ?? data.to}T00:00`);
     subtitle = intl.formatMessage({ id: "dashboard.openAt" }, { date: intl.formatDate(asOf, { dateStyle: "medium" }) });
     const names = agingKeys.map((k) => intl.formatMessage({ id: `dashboard.aging.${k}` }));
     const amounts = agingKeys.map((k) => buckets.find((b) => b.key === k)?.amount ?? 0);
