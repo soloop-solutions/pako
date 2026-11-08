@@ -94,6 +94,8 @@ const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
   StockSiteIssue: "stock.doc.type.siteIssue",
   PurchaseOrder: "enum.documentType.purchaseOrder",
   PriceChange: "enum.documentType.priceChange",
+  SalesQuote: "enum.documentType.salesQuote",
+  SalesOrder: "enum.documentType.salesOrder",
 };
 
 // Numbering settings lists series by their raw string DocumentType key (NumberSeries.DocumentType

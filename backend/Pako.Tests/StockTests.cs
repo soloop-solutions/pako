@@ -609,6 +609,42 @@ public class StockTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PriceChangeDraft_AfterSwitchingToDateCounter_IgnoresNumbersOfTheOldFormat()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        var series = await c.Db.NumberSeriesSet.SingleAsync(s => s.CompanyId == c.Id && s.DocumentType == "PriceChange");
+        series.Pattern = "{yyyy}{mm}{dd}-{seq:D4}";
+        await c.Db.SaveChangesAsync();
+        var first = Draft(await Prices(c).CreateChange(c.Id, request));
+        var second = Draft(await Prices(c).CreateChange(c.Id, request));
+        var stamp = $"{D1.Year:D4}{D1.Month:D2}{D1.Day:D2}";
+        Assert.Equal(($"{stamp}-0001", $"{stamp}-0002"), (first.Number, second.Number));
+    }
+
+    [Fact]
+    public async Task PriceChangeDraft_AfterSwitchingFromDateToPrefixCounter_StartsTheNewFormatAtOne()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        var series = await c.Db.NumberSeriesSet.SingleAsync(s => s.CompanyId == c.Id && s.DocumentType == "PriceChange");
+        series.Pattern = "{yyyy}{mm}{dd}-{seq:D4}";
+        await c.Db.SaveChangesAsync();
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        series.Pattern = "INV-{seq:D6}";
+        await c.Db.SaveChangesAsync();
+        Assert.Equal("INV-000001", Draft(await Prices(c).CreateChange(c.Id, request)).Number);
+        Assert.Equal("INV-000002", Draft(await Prices(c).CreateChange(c.Id, request)).Number);
+    }
+
+    [Fact]
     public async Task PriceChangePost_NumbersALegacyDraftThatHasNoNumber()
     {
         var c = await SeedAsync();
