@@ -44,8 +44,8 @@ public class CustomerOrdersController : ControllerBase
         if (state is { } s) query = query.Where(o => o.State == s);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var term = $"%{search.Trim()}%";
-            query = query.Where(o => EF.Functions.ILike(o.Number, term) || _db.Partners.Any(p => p.Id == o.CustomerId && EF.Functions.ILike(p.Name, term)));
+            var term = LikePattern.Contains(search);
+            query = query.Where(o => EF.Functions.ILike(o.Number, term, LikePattern.EscapeChar) || _db.Partners.Any(p => p.Id == o.CustomerId && EF.Functions.ILike(p.Name, term, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

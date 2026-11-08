@@ -38,9 +38,9 @@ public class VehiclesController : ControllerBase
         if (!includeArchived) query = query.Where(v => !v.IsArchived);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(v => EF.Functions.ILike(v.Plate, pattern) || (v.Make != null && EF.Functions.ILike(v.Make, pattern))
-                || (v.Model != null && EF.Functions.ILike(v.Model, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(v => EF.Functions.ILike(v.Plate, pattern, LikePattern.EscapeChar) || (v.Make != null && EF.Functions.ILike(v.Make, pattern, LikePattern.EscapeChar))
+                || (v.Model != null && EF.Functions.ILike(v.Model, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var vehicles = await query.OrderBy(v => v.Plate).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

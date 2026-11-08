@@ -61,9 +61,14 @@ namespace Pako.Infrastructure.Migrations
 
             migrationBuilder.Sql(@"
 INSERT INTO vehicles (""Id"", ""CompanyId"", ""Plate"", ""Make"", ""Model"", ""Type"", ""Status"", ""DriverUserId"", ""CapacityKg"", ""Notes"", ""StockWarehouseId"", ""IsArchived"", ""CreatedAt"")
-SELECT gen_random_uuid(), w.""CompanyId"", w.""Code"", NULL, NULL, 1, CASE WHEN w.""IsActive"" THEN 0 ELSE 2 END, w.""DriverUserId"", NULL, w.""Name"", w.""Id"", NOT w.""IsActive"", w.""CreatedAt""
-FROM warehouses w
-WHERE w.""IsVan"" = TRUE;");
+SELECT gen_random_uuid(), x.""CompanyId"",
+       CASE WHEN x.rn = 1 THEN UPPER(x.""Code"") ELSE LEFT(UPPER(x.""Code""), 20 - LENGTH('-' || x.rn::text)) || '-' || x.rn::text END,
+       NULL, NULL, 1, CASE WHEN x.""IsActive"" THEN 0 ELSE 2 END, x.""DriverUserId"", NULL, x.""Name"", x.""Id"", NOT x.""IsActive"", x.""CreatedAt""
+FROM (
+    SELECT w.*, ROW_NUMBER() OVER (PARTITION BY w.""CompanyId"", UPPER(w.""Code"") ORDER BY w.""CreatedAt"", w.""Id"") AS rn
+    FROM warehouses w
+    WHERE w.""IsVan"" = TRUE
+) x;");
         }
 
         /// <inheritdoc />

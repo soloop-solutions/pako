@@ -106,10 +106,10 @@ public class PosChannelsController : ControllerBase
         if (state is { } st) query = query.Where(o => o.State == st);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(o => EF.Functions.ILike(o.Number, pattern) || EF.Functions.ILike(o.ExternalRef, pattern)
-                || EF.Functions.ILike(o.CustomerName, pattern) || (o.Phone != null && EF.Functions.ILike(o.Phone, pattern))
-                || (o.TrackingNumber != null && EF.Functions.ILike(o.TrackingNumber, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(o => EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(o.ExternalRef, pattern, LikePattern.EscapeChar)
+                || EF.Functions.ILike(o.CustomerName, pattern, LikePattern.EscapeChar) || (o.Phone != null && EF.Functions.ILike(o.Phone, pattern, LikePattern.EscapeChar))
+                || (o.TrackingNumber != null && EF.Functions.ILike(o.TrackingNumber, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var rows = await query.Include(o => o.Lines).OrderByDescending(o => o.CreatedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

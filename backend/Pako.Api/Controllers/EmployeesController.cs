@@ -56,12 +56,12 @@ public class EmployeesController : ControllerBase
         if (withoutLogin) query = query.Where(e => e.UserId == null);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
+            var pattern = LikePattern.Contains(search);
             query = query.Where(e =>
-                EF.Functions.ILike(e.Name, pattern) ||
-                (e.PersonalNumber != null && EF.Functions.ILike(e.PersonalNumber, pattern)) ||
-                (e.Email != null && EF.Functions.ILike(e.Email, pattern)) ||
-                (e.JobTitle != null && EF.Functions.ILike(e.JobTitle, pattern)));
+                EF.Functions.ILike(e.Name, pattern, LikePattern.EscapeChar) ||
+                (e.PersonalNumber != null && EF.Functions.ILike(e.PersonalNumber, pattern, LikePattern.EscapeChar)) ||
+                (e.Email != null && EF.Functions.ILike(e.Email, pattern, LikePattern.EscapeChar)) ||
+                (e.JobTitle != null && EF.Functions.ILike(e.JobTitle, pattern, LikePattern.EscapeChar)));
         }
 
         query = sort switch

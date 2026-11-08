@@ -40,7 +40,6 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   // F5 — item picker on the line editor and the accounts its default revenue account is picked
@@ -68,16 +67,14 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, invoicesResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
+      const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
-        apiClient.invoicesAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
         fetchAllItems(companyId),
         apiClient.accountsAll(companyId),
       ]);
       setPartners(partnersResult);
-      setInvoices(invoicesResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
       setItems(itemsResult.items);
@@ -117,11 +114,16 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         documentScopeFilter.excludeDocumentType,
         filters.state || undefined,
         sort,
+        undefined,
       );
       return { items: result.items, total: result.total };
     },
   });
-  const displayedInvoices = paged.items;
+  const displayedInvoices = useMemo(
+    () => [...paged.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paged.items, balances],
+  );
 
   useEffect(() => {
     if (!companyId || isProforma) return;
@@ -340,7 +342,6 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           prefill={prefill.prefill}
           customers={customers}
           taxes={taxesForSale(taxes)}
-          invoices={invoices}
           paymentMethods={paymentMethods}
           items={items}
           accounts={accounts}

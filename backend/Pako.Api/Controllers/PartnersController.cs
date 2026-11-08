@@ -65,11 +65,11 @@ public class PartnersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
-            var pattern = $"%{term}%";
+            var pattern = LikePattern.Contains(term);
             query = query.Where(p =>
-                EF.Functions.ILike(p.Name, pattern) ||
-                (p.TaxNumber != null && EF.Functions.ILike(p.TaxNumber, pattern)) ||
-                (p.FiscalNumber != null && EF.Functions.ILike(p.FiscalNumber, pattern)));
+                EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar) ||
+                (p.TaxNumber != null && EF.Functions.ILike(p.TaxNumber, pattern, LikePattern.EscapeChar)) ||
+                (p.FiscalNumber != null && EF.Functions.ILike(p.FiscalNumber, pattern, LikePattern.EscapeChar)));
         }
 
         var descending = sort is not null && sort.StartsWith('-');

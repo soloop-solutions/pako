@@ -70,11 +70,11 @@ public class JournalEntriesController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
+            var pattern = LikePattern.Contains(search);
             query = query.Where(e =>
-                (e.SequenceNumber != null && EF.Functions.ILike(e.SequenceNumber, pattern)) ||
-                (e.Description != null && EF.Functions.ILike(e.Description, pattern)) ||
-                (e.Reference != null && EF.Functions.ILike(e.Reference, pattern)));
+                (e.SequenceNumber != null && EF.Functions.ILike(e.SequenceNumber, pattern, LikePattern.EscapeChar)) ||
+                (e.Description != null && EF.Functions.ILike(e.Description, pattern, LikePattern.EscapeChar)) ||
+                (e.Reference != null && EF.Functions.ILike(e.Reference, pattern, LikePattern.EscapeChar)));
         }
 
         var descending = sort is not null && sort.StartsWith('-');

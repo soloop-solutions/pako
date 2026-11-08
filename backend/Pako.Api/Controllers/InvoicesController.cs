@@ -72,7 +72,8 @@ public class InvoicesController : ControllerBase
         [FromQuery] DocumentType[]? documentType = null,
         [FromQuery] DocumentType[]? excludeDocumentType = null,
         [FromQuery] string? state = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] Guid? partnerId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
@@ -87,15 +88,17 @@ public class InvoicesController : ControllerBase
             query = query.Where(i => states.Contains(i.State));
         }
 
+        if (partnerId is { } pid) query = query.Where(i => i.PartnerId == pid);
+
         if (documentType is { Length: > 0 }) query = query.Where(i => documentType.Contains(i.DocumentType));
         if (excludeDocumentType is { Length: > 0 }) query = query.Where(i => !excludeDocumentType.Contains(i.DocumentType));
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern)).Select(p => p.Id);
+            var pattern = LikePattern.Contains(search);
+            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar)).Select(p => p.Id);
             query = query.Where(i =>
-                (i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern)) ||
+                (i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern, LikePattern.EscapeChar)) ||
                 partnerIds.Contains(i.PartnerId));
         }
 

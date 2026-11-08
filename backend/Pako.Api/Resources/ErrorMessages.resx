@@ -1710,4 +1710,7 @@ Estimate: {estimate} €.</value></data>
   <data name="ItemVariantPriceInvalid" xml:space="preserve">
     <value>The variant price cannot be negative.</value>
   </data>
+  <data name="WarehouseVanUseVehicles" xml:space="preserve">
+    <value>A warehouse cannot be marked as a van or have a driver. Create a vehicle under Vehicles and link this warehouse to it.</value>
+  </data>
 </root>

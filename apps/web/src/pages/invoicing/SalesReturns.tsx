@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType } from "@/lib/document-types";
@@ -27,7 +28,7 @@ export function SalesReturns() {
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [invoices, setInvoices] = useState<InvoiceResponse[]>([]);
+  const [originalNumbers, setOriginalNumbers] = useState<Record<string, string>>({});
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
@@ -39,22 +40,14 @@ export function SalesReturns() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, invoicesResult, taxesResult, paymentMethodsResult] = await Promise.all([
+      const [partnersResult, taxesResult, paymentMethodsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
-        apiClient.invoicesAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
       ]);
       setPartners(partnersResult);
-      setInvoices(invoicesResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
-
-      const returns = invoicesResult.filter((invoice) => invoice.documentType === InvoiceDocumentType.SalesReturn);
-      const balanceEntries = await Promise.all(
-        returns.map(async (invoice) => [invoice.id, await apiClient.balance2(companyId, invoice.id)] as const),
-      );
-      setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "salesReturns.loadError" })));
     }
@@ -66,13 +59,62 @@ export function SalesReturns() {
 
   const customers = partners.filter((p) => p.isCustomer);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  // `balances` is a dependency here too — see Invoicing.tsx's identical comment for why a
-  // balance-dependent column needs the `data` array reference to change when balances update.
+  const paged = usePagedGrid<InvoiceResponse>({
+    gridId: GRID_ID,
+    enabled: !!companyId,
+    queryKey: ["sales-returns-paged", companyId],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort, filters }) => {
+      const result = await apiClient.paged2(
+        companyId as string,
+        page,
+        pageSize,
+        search,
+        [InvoiceDocumentType.SalesReturn],
+        undefined,
+        filters.state || undefined,
+        sort,
+        undefined,
+      );
+      return { items: result.items, total: result.total };
+    },
+  });
   const returns = useMemo(
-    () => invoices.filter((invoice) => invoice.documentType === InvoiceDocumentType.SalesReturn),
+    () => [...paged.items],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [invoices, balances],
+    [paged.items, balances, originalNumbers],
   );
+  const refetchPaged = paged.query.refetch;
+
+  useEffect(() => {
+    if (!companyId) return;
+    const missing = returns.filter((invoice) => invoice.state === "Posted" && !(invoice.id in balances));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async (invoice) => [invoice.id, await apiClient.balance2(companyId, invoice.id)] as const)).then((entries) => {
+      if (!cancelled) setBalances((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+    });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, returns]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    const missing = [...new Set(returns.map((invoice) => invoice.originalInvoiceId).filter((id): id is string => !!id && !(id in originalNumbers)))];
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async (id) => [id, (await apiClient.invoicesGET(companyId, id)).invoiceNumber ?? id] as const))
+      .then((entries) => {
+        if (!cancelled) setOriginalNumbers((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, returns]);
 
   const columns = useMemo<ColumnDef<InvoiceResponse>[]>(
     () => [
@@ -90,8 +132,7 @@ export function SalesReturns() {
         id: "originalInvoice",
         header: intl.formatMessage({ id: "salesReturns.originalInvoice" }),
         accessorFn: (row) => {
-          const original = invoices.find((candidate) => candidate.id === row.originalInvoiceId);
-          return original?.invoiceNumber ?? row.originalInvoiceId ?? "-";
+          return row.originalInvoiceId ? (originalNumbers[row.originalInvoiceId] ?? "...") : "-";
         },
       },
       {
@@ -133,14 +174,19 @@ export function SalesReturns() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, partners, invoices, balances],
+    [intl, partners, originalNumbers, balances],
+  );
+  const visibleColumns = useMemo(
+    () => serverSideColumns(columns, ["invoiceNumber", "customer", "issueDate", "state"], ["state"]),
+    [columns],
   );
 
   const handleCreated = useCallback(async () => {
     setFormOpen(false);
     setFormKey((k) => k + 1);
     await refresh();
-  }, [refresh]);
+    await refetchPaged();
+  }, [refresh, refetchPaged]);
 
   if (!activeCompany) {
     return (
@@ -186,7 +232,6 @@ export function SalesReturns() {
           companyId={activeCompany.id}
           customers={customers}
           taxes={taxesForSale(taxes)}
-          invoices={invoices}
           paymentMethods={paymentMethods}
           isVatRegistered={activeCompany.isVatRegistered}
           onCreated={handleCreated}
@@ -201,17 +246,15 @@ export function SalesReturns() {
         <CardContent>
           <DataGrid
             gridId={GRID_ID}
-            columns={columns}
+            columns={visibleColumns}
             data={returns}
-            rowCount={returns.length}
+            rowCount={paged.total}
+            isLoading={paged.query.isPending}
             getRowId={(row) => row.id}
             getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "salesReturns.noReturns" })}
             exportFileName="sales-returns"
-            manualFiltering={false}
-            manualSorting={false}
-            manualGrouping={false}
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />
