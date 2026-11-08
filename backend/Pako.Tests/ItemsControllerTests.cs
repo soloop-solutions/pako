@@ -33,6 +33,13 @@ public class ItemsControllerTests : IAsyncLifetime
         return db;
     }
 
+    private readonly Guid _revenueAccountId = Guid.NewGuid();
+    private readonly Guid _expenseAccountId = Guid.NewGuid();
+    private readonly Guid _inventoryAccountId = Guid.NewGuid();
+
+    private CreateItemRequest NewItem(string name, string unit, ItemType type = ItemType.Goods) =>
+        new(name, unit, type, null, _revenueAccountId, _expenseAccountId, _inventoryAccountId);
+
     private static ItemsController NewController(PakoDbContext db) => new(db, new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>());
 
     private async Task<(PakoDbContext Db, Guid CompanyId)> SeedCompanyAsync()
@@ -40,6 +47,10 @@ public class ItemsControllerTests : IAsyncLifetime
         var db = await NewContextAsync();
         var company = new Company { Id = Guid.NewGuid(), Name = "Test Co" };
         db.Companies.Add(company);
+        db.Accounts.AddRange(
+            new Pako.Domain.Ledger.Account { Id = _revenueAccountId, CompanyId = company.Id, Code = "601000", Name = "Revenue", AccountType = Pako.Domain.Ledger.AccountType.Income },
+            new Pako.Domain.Ledger.Account { Id = _expenseAccountId, CompanyId = company.Id, Code = "701000", Name = "Cost of goods", AccountType = Pako.Domain.Ledger.AccountType.Expense },
+            new Pako.Domain.Ledger.Account { Id = _inventoryAccountId, CompanyId = company.Id, Code = "301000", Name = "Inventory", AccountType = Pako.Domain.Ledger.AccountType.CurrentAsset });
         await db.SaveChangesAsync();
         return (db, company.Id);
     }
@@ -50,7 +61,7 @@ public class ItemsControllerTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateItemRequest("Widget", "pcs"));
+        var result = await controller.Create(companyId, NewItem("Widget", "pcs"));
 
         var created = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal("Widget", created.Name);
@@ -64,8 +75,8 @@ public class ItemsControllerTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var first = await controller.Create(companyId, new CreateItemRequest("Widget A", "pcs"));
-        var second = await controller.Create(companyId, new CreateItemRequest("Widget B", "pcs"));
+        var first = await controller.Create(companyId, NewItem("Widget A", "pcs"));
+        var second = await controller.Create(companyId, NewItem("Widget B", "pcs"));
 
         var firstCreated = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(first.Result).Value);
         var secondCreated = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(second.Result).Value);
@@ -79,7 +90,7 @@ public class ItemsControllerTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateItemRequest("  ", "pcs"));
+        var result = await controller.Create(companyId, NewItem("  ", "pcs"));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -90,7 +101,7 @@ public class ItemsControllerTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, new CreateItemRequest("Consulting Hour", "hr", ItemType.Service));
+        var result = await controller.Create(companyId, NewItem("Consulting Hour", "hr", ItemType.Service));
 
         var created = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
         Assert.Equal(ItemType.Service, created.Type);
@@ -101,18 +112,15 @@ public class ItemsControllerTests : IAsyncLifetime
     {
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
-        var revenueAccountId = Guid.NewGuid();
-        db.Accounts.Add(new Pako.Domain.Ledger.Account { Id = revenueAccountId, CompanyId = companyId, Code = "601000", Name = "Revenue", AccountType = Pako.Domain.Ledger.AccountType.Income });
-        await db.SaveChangesAsync();
-        var createResult = await controller.Create(companyId, new CreateItemRequest("Widget", "pcs"));
+        var createResult = await controller.Create(companyId, NewItem("Widget", "pcs"));
         var created = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
 
         var updateResult = await controller.Update(companyId, created.Id, new UpdateItemRequest(
-            "Widget Deluxe", "pcs", ItemType.Goods, null, revenueAccountId, null, null, 25.50m));
+            "Widget Deluxe", "pcs", ItemType.Goods, null, _revenueAccountId, _expenseAccountId, _inventoryAccountId, 25.50m));
 
         var updated = Assert.IsType<ItemResponse>(Assert.IsType<OkObjectResult>(updateResult.Result).Value);
         Assert.Equal("Widget Deluxe", updated.Name);
-        Assert.Equal(revenueAccountId, updated.DefaultRevenueAccountId);
+        Assert.Equal(_revenueAccountId, updated.DefaultRevenueAccountId);
         Assert.Equal(25.50m, updated.DefaultUnitPrice);
     }
 
@@ -121,7 +129,7 @@ public class ItemsControllerTests : IAsyncLifetime
     {
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
-        var createResult = await controller.Create(companyId, new CreateItemRequest("Widget", "pcs"));
+        var createResult = await controller.Create(companyId, NewItem("Widget", "pcs"));
         var created = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
 
         var result = await controller.AddBarcode(companyId, created.Id, new AddBarcodeRequest("012345678905"));
@@ -139,9 +147,9 @@ public class ItemsControllerTests : IAsyncLifetime
     {
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
-        var firstResult = await controller.Create(companyId, new CreateItemRequest("Widget A", "pcs"));
+        var firstResult = await controller.Create(companyId, NewItem("Widget A", "pcs"));
         var first = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(firstResult.Result).Value);
-        var secondResult = await controller.Create(companyId, new CreateItemRequest("Widget B", "pcs"));
+        var secondResult = await controller.Create(companyId, NewItem("Widget B", "pcs"));
         var second = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(secondResult.Result).Value);
         await controller.AddBarcode(companyId, first.Id, new AddBarcodeRequest("012345678905"));
 
@@ -155,7 +163,7 @@ public class ItemsControllerTests : IAsyncLifetime
     {
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
-        var createResult = await controller.Create(companyId, new CreateItemRequest("Widget", "pcs"));
+        var createResult = await controller.Create(companyId, NewItem("Widget", "pcs"));
         var created = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(createResult.Result).Value);
         var addResult = await controller.AddBarcode(companyId, created.Id, new AddBarcodeRequest("012345678905"));
         var barcode = Assert.IsType<ItemBarcodeResponse>(Assert.IsType<ObjectResult>(addResult.Result).Value);
@@ -170,9 +178,9 @@ public class ItemsControllerTests : IAsyncLifetime
     {
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
-        var laptopResult = await controller.Create(companyId, new CreateItemRequest("Laptop Stand", "pcs"));
+        var laptopResult = await controller.Create(companyId, NewItem("Laptop Stand", "pcs"));
         var laptop = Assert.IsType<ItemResponse>(Assert.IsType<ObjectResult>(laptopResult.Result).Value);
-        await controller.Create(companyId, new CreateItemRequest("Desk Chair", "pcs"));
+        await controller.Create(companyId, NewItem("Desk Chair", "pcs"));
         await controller.AddBarcode(companyId, laptop.Id, new AddBarcodeRequest("999888777"));
 
         var byName = await controller.List(companyId, search: "laptop");
@@ -191,7 +199,7 @@ public class ItemsControllerTests : IAsyncLifetime
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
         for (var i = 0; i < 5; i++)
-            await controller.Create(companyId, new CreateItemRequest($"Item {i}", "pcs"));
+            await controller.Create(companyId, NewItem($"Item {i}", "pcs"));
 
         var page1 = await controller.List(companyId, page: 1, pageSize: 2);
         var page3 = await controller.List(companyId, page: 3, pageSize: 2);
@@ -212,9 +220,9 @@ public class ItemsControllerTests : IAsyncLifetime
     {
         var (db, companyId) = await SeedCompanyAsync();
         var controller = NewController(db);
-        await controller.Create(companyId, new CreateItemRequest("Zebra", "pcs"));
-        await controller.Create(companyId, new CreateItemRequest("Apple", "pcs"));
-        await controller.Create(companyId, new CreateItemRequest("Mango", "pcs"));
+        await controller.Create(companyId, NewItem("Zebra", "pcs"));
+        await controller.Create(companyId, NewItem("Apple", "pcs"));
+        await controller.Create(companyId, NewItem("Mango", "pcs"));
 
         var asc = await controller.List(companyId, sort: "name");
         var desc = await controller.List(companyId, sort: "-name");

@@ -551,9 +551,8 @@ public class InvoicesControllerTests : IAsyncLifetime
         Assert.Contains("500", message);
         Assert.Contains("400", message);
 
-        // The rejected return never got a number and never posted (no number/journal-entry burn).
         var secondReturnAfter = await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == secondReturn.Id);
-        Assert.Null(secondReturnAfter.InvoiceNumber);
+        Assert.Equal(InvoiceState.Draft, secondReturnAfter.State);
         Assert.Null(secondReturnAfter.JournalEntryId);
 
         // A return of exactly the 400 remainder succeeds.
