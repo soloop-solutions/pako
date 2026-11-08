@@ -115,6 +115,7 @@ public class InventoryController : ControllerBase
         {
             return _localizer["WarehouseInvalid"].Value;
         }
+        if (request.IsVan || request.DriverUserId is not null) return _localizer["WarehouseVanUseVehicles"].Value;
         var code = request.Code.Trim().ToUpperInvariant();
         if (await _db.Warehouses.AnyAsync(w => w.CompanyId == companyId && w.Code == code && w.Id != id)) return _localizer["WarehouseCodeTaken"].Value;
         return null;
@@ -230,8 +231,8 @@ public class InventoryController : ControllerBase
         var items = _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId && i.TrackInventory && i.Type == ItemType.Goods);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            items = items.Where(i => EF.Functions.ILike(i.Name, pattern) || EF.Functions.ILike(i.Code.ToString(), pattern));
+            var pattern = LikePattern.Contains(search);
+            items = items.Where(i => EF.Functions.ILike(i.Name, pattern, LikePattern.EscapeChar) || EF.Functions.ILike(i.Code.ToString(), pattern, LikePattern.EscapeChar));
         }
         if (categoryId is { } c) items = items.Where(i => i.CategoryId == c);
         if (belowMinimum)

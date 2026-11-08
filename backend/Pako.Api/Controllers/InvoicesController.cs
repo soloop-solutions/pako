@@ -92,10 +92,10 @@ public class InvoicesController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern)).Select(p => p.Id);
+            var pattern = LikePattern.Contains(search);
+            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar)).Select(p => p.Id);
             query = query.Where(i =>
-                (i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern)) ||
+                (i.InvoiceNumber != null && EF.Functions.ILike(i.InvoiceNumber, pattern, LikePattern.EscapeChar)) ||
                 partnerIds.Contains(i.PartnerId));
         }
 

@@ -674,8 +674,8 @@ public class PosController : ControllerBase
         {
             var term = search.Trim();
             query = long.TryParse(term, out var coupon)
-                ? query.Where(o => _db.FiscalDocuments.Any(d => d.OrderId == o.Id && d.CouponId == coupon) || EF.Functions.ILike(o.Number, $"%{term}%"))
-                : query.Where(o => EF.Functions.ILike(o.Number, $"%{term}%"));
+                ? query.Where(o => _db.FiscalDocuments.Any(d => d.OrderId == o.Id && d.CouponId == coupon) || EF.Functions.ILike(o.Number, LikePattern.Contains(term), LikePattern.EscapeChar))
+                : query.Where(o => EF.Functions.ILike(o.Number, LikePattern.Contains(term), LikePattern.EscapeChar));
         }
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.OrderedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

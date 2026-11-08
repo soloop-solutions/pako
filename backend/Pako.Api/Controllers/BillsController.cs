@@ -83,10 +83,10 @@ public class BillsController : ControllerBase
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern)).Select(p => p.Id);
+            var pattern = LikePattern.Contains(search);
+            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern, LikePattern.EscapeChar)).Select(p => p.Id);
             query = query.Where(b =>
-                (b.VendorReference != null && EF.Functions.ILike(b.VendorReference, pattern)) ||
+                (b.VendorReference != null && EF.Functions.ILike(b.VendorReference, pattern, LikePattern.EscapeChar)) ||
                 partnerIds.Contains(b.PartnerId));
         }
 

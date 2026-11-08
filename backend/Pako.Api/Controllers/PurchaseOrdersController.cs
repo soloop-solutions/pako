@@ -55,9 +55,9 @@ public class PurchaseOrdersController : ControllerBase
         if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern))
-                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar))
+                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern, LikePattern.EscapeChar)));
         }
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.Date).ThenByDescending(o => o.CreatedAt)

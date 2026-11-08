@@ -49,7 +49,7 @@ public class StockDocumentsController : ControllerBase
         var query = _db.StockDocuments.AsNoTracking().Where(d => d.CompanyId == companyId);
         if (type is { } t) query = query.Where(d => d.Type == t);
         if (siteId is { } site) query = query.Where(d => d.SiteId == site);
-        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, $"%{search.Trim()}%"));
+        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
         var total = await query.CountAsync();
         var documents = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)

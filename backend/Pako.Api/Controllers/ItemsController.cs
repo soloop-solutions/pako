@@ -57,7 +57,7 @@ public class ItemsController : ControllerBase
             // first before either ever has to examine the search term.
             var term = search.Trim();
             query = query.Where(i =>
-                EF.Functions.ILike(i.Name, $"%{term}%") ||
+                EF.Functions.ILike(i.Name, LikePattern.Contains(term), LikePattern.EscapeChar) ||
                 i.Code.ToString().Contains(term) ||
                 i.Barcodes.Any(b => b.Barcode.Contains(term)));
         }

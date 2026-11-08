@@ -270,8 +270,8 @@ public class PosForecourtController : ControllerBase
         var query = _db.PosFleetCards.AsNoTracking().Where(c => c.CompanyId == companyId);
         if (!string.IsNullOrWhiteSpace(search))
         {
-            var pattern = $"%{search.Trim()}%";
-            query = query.Where(c => EF.Functions.ILike(c.Number, pattern) || (c.VehiclePlate != null && EF.Functions.ILike(c.VehiclePlate, pattern)));
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(c => EF.Functions.ILike(c.Number, pattern, LikePattern.EscapeChar) || (c.VehiclePlate != null && EF.Functions.ILike(c.VehiclePlate, pattern, LikePattern.EscapeChar)));
         }
         return Ok(await CardResponsesAsync(await query.OrderBy(c => c.Number).Take(500).ToListAsync()));
     }
