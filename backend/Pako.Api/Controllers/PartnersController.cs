@@ -74,11 +74,11 @@ public class PartnersController : ControllerBase
 
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
-        query = sortField?.ToLowerInvariant() switch
+        query = (sortField?.ToLowerInvariant() switch
         {
             "taxnumber" => descending ? query.OrderByDescending(p => p.TaxNumber) : query.OrderBy(p => p.TaxNumber),
             _ => descending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name)
-        };
+        }).ThenBy(p => p.Id);
 
         var total = await query.CountAsync();
         var partners = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

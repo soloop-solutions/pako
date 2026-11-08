@@ -893,7 +893,7 @@ public class PosTests : IAsyncLifetime
         await c.Db.SaveChangesAsync();
         var documents = As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()),
             new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax), new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()),
-            new NullStringLocalizer<ErrorMessages>()), c.UserId);
+            new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()), c.UserId);
         async Task Post(SaveStockDocumentRequest r)
         {
             var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await documents.Create(c.Id, r)).Result).Value!;

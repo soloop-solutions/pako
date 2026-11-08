@@ -54,8 +54,9 @@ public class RefreshTokenService
         }
         else
         {
-            token.UsedAt = now;
-            await _db.SaveChangesAsync();
+            await _db.RefreshTokens
+                .Where(t => t.Id == token.Id && t.UsedAt == null)
+                .ExecuteUpdateAsync(u => u.SetProperty(t => t.UsedAt, now));
         }
 
         return (token.UserId, await IssueAsync(token.UserId, token.FamilyId));

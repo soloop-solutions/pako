@@ -92,7 +92,7 @@ public class DistributionTests : IAsyncLifetime
     private static BillsController Bills(Co c) => As(new BillsController(c.Db, Tax, L, CompanyAccessContext.Unrestricted()), c.UserId);
 
     private static StockDocumentsController Documents(Co c) =>
-        As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), L, Tax), Stock(c), L), c.UserId);
+        As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), L, Tax), Stock(c), L, CompanyAccessContext.Unrestricted()), c.UserId);
 
     private static InventoryController Inventory(Co c) => As(new InventoryController(c.Db, Stock(c), L, Tax, CompanyAccessContext.Unrestricted()), c.UserId);
 

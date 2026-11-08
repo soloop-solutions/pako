@@ -23,10 +23,12 @@ public class StockDocumentsController : ControllerBase
     private readonly StockDocumentService _documents;
     private readonly StockService _stock;
     private readonly Microsoft.Extensions.Localization.IStringLocalizer<ErrorMessages> _localizer;
+    private readonly CompanyAccessContext _access;
 
     public StockDocumentsController(PakoDbContext db, StockDocumentService documents, StockService stock,
-        Microsoft.Extensions.Localization.IStringLocalizer<ErrorMessages> localizer)
+        Microsoft.Extensions.Localization.IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access)
     {
+        _access = access;
         _db = db;
         _documents = documents;
         _stock = stock;
@@ -82,7 +84,11 @@ public class StockDocumentsController : ControllerBase
     [ProducesResponseType(typeof(StockDocumentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<StockDocumentResponse>> Create(Guid companyId, SaveStockDocumentRequest request)
     {
-        if (request.Type == StockDocumentType.Transfer) return await CreateAndPostTransferAsync(companyId, request);
+        if (request.Type == StockDocumentType.Transfer)
+        {
+            if (_access.LevelFor(AccessModule.Inventory) < AccessLevel.Approve) return Forbid();
+            return await CreateAndPostTransferAsync(companyId, request);
+        }
         try
         {
             var document = await _documents.SaveDraftAsync(companyId, null, request);

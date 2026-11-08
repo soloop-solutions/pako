@@ -92,7 +92,7 @@ public class BillsController : ControllerBase
 
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
-        query = sortField?.ToLowerInvariant() switch
+        query = (sortField?.ToLowerInvariant() switch
         {
             "vendorreference" => descending ? query.OrderByDescending(b => b.VendorReference) : query.OrderBy(b => b.VendorReference),
             "duedate" => descending ? query.OrderByDescending(b => b.DueDate) : query.OrderBy(b => b.DueDate),
@@ -102,7 +102,7 @@ public class BillsController : ControllerBase
                 : query.OrderBy(b => _db.Partners.Where(p => p.Id == b.PartnerId).Select(p => p.Name).FirstOrDefault()),
             "issuedate" => descending ? query.OrderByDescending(b => b.IssueDate) : query.OrderBy(b => b.IssueDate),
             _ => query.OrderByDescending(b => b.IssueDate).ThenByDescending(b => b.CreatedAt)
-        };
+        }).ThenBy(b => b.Id);
 
         var total = await query.CountAsync();
         var bills = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

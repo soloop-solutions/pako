@@ -79,14 +79,14 @@ public class JournalEntriesController : ControllerBase
 
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
-        query = sortField?.ToLowerInvariant() switch
+        query = (sortField?.ToLowerInvariant() switch
         {
             "sequencenumber" => descending ? query.OrderByDescending(e => e.SequenceNumber) : query.OrderBy(e => e.SequenceNumber),
             "description" => descending ? query.OrderByDescending(e => e.Description) : query.OrderBy(e => e.Description),
             "state" => descending ? query.OrderByDescending(e => e.State) : query.OrderBy(e => e.State),
             "date" => descending ? query.OrderByDescending(e => e.Date) : query.OrderBy(e => e.Date),
             _ => query.OrderByDescending(e => e.Date)
-        };
+        }).ThenBy(e => e.Id);
 
         var total = await query.CountAsync();
         var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

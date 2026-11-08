@@ -91,7 +91,7 @@ public class StockTests : IAsyncLifetime
 
     private static StockDocumentsController Documents(Co c) =>
         As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax),
-            Stock(c), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+            Stock(c), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()), c.UserId);
 
     private static InventoryController Inventory(Co c) =>
         As(new InventoryController(c.Db, Stock(c), new NullStringLocalizer<ErrorMessages>(), Tax, CompanyAccessContext.Unrestricted()), c.UserId);
@@ -782,6 +782,26 @@ public class StockTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>(refused.Result);
         c.Db.ChangeTracker.Clear();
         Assert.Equal(drafts, await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer));
+    }
+
+    [Fact]
+    public async Task Transfer_CreateRefusesAUserWithoutInventoryApprove()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        var shop = (WarehouseResponse)Assert.IsAssignableFrom<ObjectResult>((await Inventory(c).CreateWarehouse(c.Id, new SaveWarehouseRequest("SHOP", "Shop", null))).Result).Value!;
+        var writeOnly = CompanyAccessContext.ForStaff(c.Id, c.UserId, null,
+            new CompanyRole { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Stock clerk", InventoryAccess = Pako.Domain.Hr.AccessLevel.Write }, null);
+        var documents = As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax),
+            Stock(c), new NullStringLocalizer<ErrorMessages>(), writeOnly), c.UserId);
+
+        var result = await documents.Create(c.Id, new SaveStockDocumentRequest(
+            StockDocumentType.Transfer, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 4) }, shop.Id));
+
+        Assert.IsType<ForbidResult>(result.Result);
+        c.Db.ChangeTracker.Clear();
+        Assert.Equal(0, await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer));
     }
 
     [Fact]

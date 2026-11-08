@@ -101,7 +101,7 @@ internal static class StockReportTestSupport
 
     public static StockDocumentsController Documents(StockCo c) =>
         As(new StockDocumentsController(c.Db, new StockDocumentService(c.Db, Stock(c), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), Tax),
-            Stock(c), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+            Stock(c), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted()), c.UserId);
 
     public static PriceListService Prices(PakoDbContext db) =>
         new(db, new StockService(db, new NullStringLocalizer<ErrorMessages>()), new NumberSeriesService(db), new NullStringLocalizer<ErrorMessages>());

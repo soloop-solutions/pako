@@ -101,7 +101,7 @@ public class InvoicesController : ControllerBase
 
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
-        query = sortField?.ToLowerInvariant() switch
+        query = (sortField?.ToLowerInvariant() switch
         {
             "invoicenumber" => descending ? query.OrderByDescending(i => i.InvoiceNumber) : query.OrderBy(i => i.InvoiceNumber),
             "duedate" => descending ? query.OrderByDescending(i => i.DueDate) : query.OrderBy(i => i.DueDate),
@@ -111,7 +111,7 @@ public class InvoicesController : ControllerBase
                 : query.OrderBy(i => _db.Partners.Where(p => p.Id == i.PartnerId).Select(p => p.Name).FirstOrDefault()),
             "issuedate" => descending ? query.OrderByDescending(i => i.IssueDate) : query.OrderBy(i => i.IssueDate),
             _ => query.OrderByDescending(i => i.IssueDate).ThenByDescending(i => i.CreatedAt)
-        };
+        }).ThenBy(i => i.Id);
 
         var total = await query.CountAsync();
         var invoices = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();

@@ -65,6 +65,7 @@ var jwtIssuer = jwtSection["Issuer"] ?? "Pako";
 var jwtAudience = jwtSection["Audience"] ?? "Pako";
 var jwtExpiryMinutes = int.TryParse(jwtSection["ExpiryMinutes"], out var minutes) ? minutes : 15;
 var refreshDays = int.TryParse(jwtSection["RefreshTokenDays"], out var rd) ? rd : 30;
+var refreshGraceSeconds = int.TryParse(jwtSection["RefreshReuseGraceSeconds"], out var rg) ? rg : 30;
 
 builder.Services.AddSingleton(new JwtOptions
 {
@@ -72,7 +73,8 @@ builder.Services.AddSingleton(new JwtOptions
     Issuer = jwtIssuer,
     Audience = jwtAudience,
     ExpiryMinutes = jwtExpiryMinutes,
-    RefreshTokenDays = refreshDays
+    RefreshTokenDays = refreshDays,
+    RefreshReuseGraceSeconds = refreshGraceSeconds
 });
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<RefreshTokenService>();
