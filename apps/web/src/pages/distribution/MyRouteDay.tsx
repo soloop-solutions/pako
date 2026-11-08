@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { RouteDayStopResponse } from "@pako/shared";
-import { MapPin, ShoppingCart } from "lucide-react";
+import { CalendarOff, ChevronLeft, ChevronRight, MapPin, ShoppingCart } from "lucide-react";
 import { useIntl } from "react-intl";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
@@ -14,11 +14,41 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { dateToIso, isoToDate } from "@/lib/dates";
 import { currentPosition } from "@/lib/geolocation";
 import { useUrlParam } from "@/hooks/useUrlParam";
 import { formatAmount } from "@/lib/payroll-enums";
 import { RouteVisitOutcome, VISIT_OUTCOMES, isoToday } from "@/lib/sales-order-enums";
 import { cn } from "@/lib/utils";
+
+function isDone(stop: RouteDayStopResponse): boolean {
+  return stop.outcome != null && stop.outcome !== RouteVisitOutcome.Open;
+}
+
+function shiftDay(iso: string, delta: number): string {
+  const base = isoToDate(iso) ?? new Date();
+  base.setDate(base.getDate() + delta);
+  return dateToIso(base);
+}
+
+function Stat({ label, value, tone }: { label: string; value: number; tone?: "warning" }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className={cn("text-2xl font-semibold tnum leading-none", tone === "warning" && value > 0 && "text-warning-foreground")}>{value}</span>
+    </div>
+  );
+}
+
+function DaySkeleton() {
+  return (
+    <div className="flex flex-col gap-3" aria-hidden="true">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className="h-20 animate-pulse rounded-lg border bg-muted/50 motion-reduce:animate-none" />
+      ))}
+    </div>
+  );
+}
 
 // docs/POS_PLAN.md P6 — the salesperson's day on the phone: today's stops in order, what each
 // customer owes, check in at the door, record what came of it, start an order.
@@ -35,6 +65,19 @@ export function MyRouteDay() {
 
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
   const routes = query.data ?? [];
+  const allStops = routes.flatMap((route) => route.stops);
+  const visited = allStops.filter(isDone).length;
+  const blocked = allStops.filter((stop) => stop.blocked).length;
+  const overdueCount = allStops.filter((stop) => stop.overdue > 0).length;
+  const nextKey = (() => {
+    for (const route of routes) {
+      const next = [...route.stops].sort((a, b) => a.sequence - b.sequence).find((stop) => !isDone(stop));
+      if (next) return `${route.routeId}-${next.partnerId}`;
+    }
+    return null;
+  })();
+  const today = isoToday();
+  const percent = allStops.length === 0 ? 0 : Math.round((visited / allStops.length) * 100);
 
   return (
     <div className="flex flex-col gap-4">
@@ -43,34 +86,97 @@ export function MyRouteDay() {
           <h2 className="text-xl font-semibold">{t("nav.myRouteDay")}</h2>
           <p className="text-sm text-muted-foreground">{t("nav.myRouteDay.description")}</p>
         </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="day-date">{t("dist.date")}</Label>
-          <Input id="day-date" type="date" className="w-44" value={date} onChange={(e) => setDate(e.target.value)} />
+        <div className="flex items-end gap-1.5">
+          <Button type="button" variant="outline" size="icon" className="size-8" aria-label={t("dist.day.previous")} onClick={() => setDate(shiftDay(date || today, -1))}>
+            <ChevronLeft className="size-4" />
+          </Button>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="day-date">{t("dist.date")}</Label>
+            <Input id="day-date" type="date" required className="w-40" value={date} onChange={(e) => setDate(e.target.value)} />
+          </div>
+          <Button type="button" variant="outline" size="icon" className="size-8" aria-label={t("dist.day.next")} onClick={() => setDate(shiftDay(date || today, 1))}>
+            <ChevronRight className="size-4" />
+          </Button>
+          <Button type="button" variant="outline" size="sm" disabled={date === today} onClick={() => setDate(today)}>
+            {t("date.today")}
+          </Button>
         </div>
       </div>
-      {query.isPending && <p className="text-sm text-muted-foreground">{t("platform.loading")}</p>}
-      {query.isError && <p className="text-sm text-destructive">{getApiErrorMessage(query.error, t("dist.day.loadError"))}</p>}
-      {!query.isPending && routes.length === 0 && (
-        <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">{t("dist.day.empty")}</CardContent></Card>
+
+      {allStops.length > 0 && (
+        <section aria-label={t("dist.day.summary")} className="flex flex-col gap-3 rounded-lg border bg-card p-4">
+          <div className="flex flex-wrap items-end gap-x-8 gap-y-3">
+            <Stat label={t("dist.day.stops")} value={allStops.length} />
+            <Stat label={t("dist.day.visited")} value={visited} />
+            <Stat label={t("dist.day.remaining")} value={allStops.length - visited} />
+            <Stat label={t("dist.day.withOverdue")} value={overdueCount} tone="warning" />
+            <Stat label={t("dist.day.blockedCount")} value={blocked} tone="warning" />
+          </div>
+          <div
+            className="h-1.5 overflow-hidden rounded-full bg-muted"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={allStops.length}
+            aria-valuenow={visited}
+            aria-label={t("dist.day.visited")}
+          >
+            <div className="h-full rounded-full bg-primary transition-[width] duration-300 motion-reduce:transition-none" style={{ width: `${percent}%` }} />
+          </div>
+        </section>
       )}
-      {routes.map((route) => (
-        <Card key={route.routeId}>
-          <CardHeader>
-            <CardTitle>{route.name}</CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "dist.day.stopCount" }, { count: route.stops.length })}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {[...route.stops].sort((a, b) => a.sequence - b.sequence).map((stop) => (
-              <StopCard key={`${stop.partnerId}-${stop.visitId ?? ""}`} stop={stop} routeId={route.routeId} date={date} />
-            ))}
-          </CardContent>
-        </Card>
-      ))}
+
+      {query.isPending && <DaySkeleton />}
+      {query.isError && <p className="text-sm text-destructive" role="alert">{getApiErrorMessage(query.error, t("dist.day.loadError"))}</p>}
+      {!query.isPending && !query.isError && routes.length === 0 && (
+        <div className="flex flex-col items-center gap-3 rounded-lg border bg-card px-6 py-10 text-center">
+          <span className="flex size-12 items-center justify-center rounded-xl border bg-muted text-muted-foreground">
+            <CalendarOff className="size-6" />
+          </span>
+          <p className="text-sm font-medium">{t("dist.day.empty")}</p>
+          <p className="max-w-sm text-sm text-muted-foreground">{t("dist.day.emptyHint")}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            {date !== today && (
+              <Button type="button" size="sm" onClick={() => setDate(today)}>
+                {t("dist.day.goToday")}
+              </Button>
+            )}
+            <Button asChild size="sm" variant="outline">
+              <Link to="/distribution/routes">{t("dist.day.openRoutes")}</Link>
+            </Button>
+          </div>
+        </div>
+      )}
+      {routes.map((route) => {
+        const routeDone = route.stops.filter(isDone).length;
+        return (
+          <Card key={route.routeId}>
+            <CardHeader>
+              <CardTitle>{route.name}</CardTitle>
+              <CardDescription>
+                {intl.formatMessage({ id: "dist.day.stopCount" }, { count: route.stops.length })}
+                {" · "}
+                {intl.formatMessage({ id: "dist.day.routeProgress" }, { done: routeDone, total: route.stops.length })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-3">
+              {[...route.stops].sort((a, b) => a.sequence - b.sequence).map((stop) => (
+                <StopCard
+                  key={`${stop.partnerId}-${stop.visitId ?? ""}`}
+                  stop={stop}
+                  routeId={route.routeId}
+                  date={date}
+                  isNext={nextKey === `${route.routeId}-${stop.partnerId}`}
+                />
+              ))}
+            </CardContent>
+          </Card>
+        );
+      })}
     </div>
   );
 }
 
-function StopCard({ stop, routeId, date }: { stop: RouteDayStopResponse; routeId: string; date: string }) {
+function StopCard({ stop, routeId, date, isNext }: { stop: RouteDayStopResponse; routeId: string; date: string; isNext: boolean }) {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
   const navigate = useNavigate();
@@ -81,6 +187,7 @@ function StopCard({ stop, routeId, date }: { stop: RouteDayStopResponse; routeId
   const [collected, setCollected] = useState("");
   const [notes, setNotes] = useState("");
   const [message, setMessage] = useState<{ text: string; error: boolean } | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const refresh = () => queryClient.invalidateQueries({ queryKey: ["myRouteDay", activeCompanyId, date] });
 
   const checkIn = useMutation({
@@ -116,9 +223,29 @@ function StopCard({ stop, routeId, date }: { stop: RouteDayStopResponse; routeId
   });
 
   const checkedIn = !!stop.visitId;
-  const done = stop.outcome != null && stop.outcome !== RouteVisitOutcome.Open;
+  const done = isDone(stop);
+  if (done && !expanded) {
+    return (
+      <article className="flex flex-wrap items-center justify-between gap-2 rounded-lg border bg-muted/40 px-3 py-2" aria-label={stop.partnerName}>
+        <p className="text-sm text-muted-foreground">
+          <span className="mr-1 tnum">{stop.sequence}.</span>
+          {stop.partnerName}
+        </p>
+        <div className="flex items-center gap-2">
+          <Badge variant="success">{t(`dist.visit.outcome.${stop.outcome}`)}</Badge>
+          <button type="button" className="text-xs font-medium text-primary hover:underline" onClick={() => setExpanded(true)}>
+            {t("dist.day.details")}
+          </button>
+        </div>
+      </article>
+    );
+  }
   return (
-    <article className={cn("flex flex-col gap-3 rounded-lg border p-3", done && "bg-muted/40")} aria-label={stop.partnerName}>
+    <article
+      className={cn("flex flex-col gap-3 rounded-lg border p-3", done && "bg-muted/40", isNext && "border-primary ring-1 ring-primary/40")}
+      aria-label={stop.partnerName}
+      aria-current={isNext ? "step" : undefined}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-medium">
@@ -128,6 +255,7 @@ function StopCard({ stop, routeId, date }: { stop: RouteDayStopResponse; routeId
           {stop.notes && <p className="text-xs text-muted-foreground">{stop.notes}</p>}
         </div>
         <div className="flex flex-wrap gap-1">
+          {isNext && <Badge variant="info">{t("dist.day.nextStop")}</Badge>}
           {stop.blocked && <Badge variant="destructive">{t("dist.credit.blocked")}</Badge>}
           {stop.overdue > 0 && <Badge variant="warning">{t("dist.stop.overdue", { amount: formatAmount(stop.overdue) })}</Badge>}
           {stop.outstanding > 0 && <Badge variant="outline">{t("dist.stop.outstanding", { amount: formatAmount(stop.outstanding) })}</Badge>}
