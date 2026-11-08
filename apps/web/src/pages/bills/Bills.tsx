@@ -84,7 +84,11 @@ export function Bills() {
       return { items: result.items, total: result.total };
     },
   });
-  const displayedBills = paged.items;
+  const displayedBills = useMemo(
+    () => [...paged.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paged.items, balances],
+  );
   const refetchPaged = paged.query.refetch;
 
   useEffect(() => {

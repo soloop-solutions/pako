@@ -79,7 +79,11 @@ export function SalesReturns() {
       return { items: result.items, total: result.total };
     },
   });
-  const returns = paged.items;
+  const returns = useMemo(
+    () => [...paged.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paged.items, balances, originalNumbers],
+  );
   const refetchPaged = paged.query.refetch;
 
   useEffect(() => {

@@ -119,7 +119,11 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
       return { items: result.items, total: result.total };
     },
   });
-  const displayedInvoices = paged.items;
+  const displayedInvoices = useMemo(
+    () => [...paged.items],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [paged.items, balances],
+  );
 
   useEffect(() => {
     if (!companyId || isProforma) return;
