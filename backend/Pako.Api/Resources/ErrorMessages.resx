@@ -1637,4 +1637,19 @@ Estimate: {estimate} €.</value></data>
   <data name="FeatureDisabled" xml:space="preserve"><value>This feature isn't used by this company. Its administrator can change the business type, or the platform administrator can switch the pack on.</value></data>
   <data name="BusinessTypeInvalid" xml:space="preserve"><value>Choose a business type.</value></data>
   <data name="FeaturesInvalid" xml:space="preserve"><value>One of the packs isn't known.</value></data>
+  <data name="VehicleInvalid" xml:space="preserve">
+    <value>Give the vehicle a plate (up to 20 characters); capacity cannot be negative.</value>
+  </data>
+  <data name="VehiclePlateTaken" xml:space="preserve">
+    <value>A vehicle with this plate already exists.</value>
+  </data>
+  <data name="VehicleWarehouseInvalid" xml:space="preserve">
+    <value>Choose an active warehouse that no other vehicle uses.</value>
+  </data>
+  <data name="VehicleDriverInvalid" xml:space="preserve">
+    <value>The driver must be a member of this company.</value>
+  </data>
+  <data name="ItemVariantPriceInvalid" xml:space="preserve">
+    <value>The variant price cannot be negative.</value>
+  </data>
 </root>

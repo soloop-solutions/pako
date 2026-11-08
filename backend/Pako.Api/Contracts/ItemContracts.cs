@@ -178,6 +178,8 @@ public record GenerateVariantsRequest(List<Guid> AttributeValueIds);
 public record ItemVariantResponse(Guid ItemId, int Code, string Name, string Label, List<Guid> AttributeValueIds, List<string> Barcodes,
     decimal? Price, decimal OnHand, bool IsActive);
 
+public record UpdateItemVariantRequest(decimal? Price);
+
 // ---- P3: recipes ----
 
 public record RecipeLineResponse(Guid IngredientItemId, string IngredientName, string Unit, decimal Quantity, decimal WastePercent, int SortOrder);

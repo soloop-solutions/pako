@@ -57,7 +57,9 @@ public class InventoryController : ControllerBase
 
         var settings = await _db.StockSettings.AsNoTracking().FirstOrDefaultAsync(s => s.CompanyId == companyId);
         var warehouses = await _db.Warehouses.AsNoTracking().Where(w => w.CompanyId == companyId).OrderBy(w => w.Code).ToListAsync();
-        return Ok(warehouses.Select(w => new WarehouseResponse(w.Id, w.Code, w.Name, w.Address, w.IsActive, w.Id == settings?.DefaultWarehouseId, w.IsVan, w.DriverUserId)).ToList());
+        var vehicles = await VehicleLinksAsync(companyId);
+        return Ok(warehouses.Select(w => new WarehouseResponse(w.Id, w.Code, w.Name, w.Address, w.IsActive, w.Id == settings?.DefaultWarehouseId,
+            vehicles.ContainsKey(w.Id), vehicles.GetValueOrDefault(w.Id))).ToList());
     }
 
     [HttpPost("warehouses", Name = "CreateWarehouse")]
@@ -70,11 +72,8 @@ public class InventoryController : ControllerBase
         var isFirst = !await _db.Warehouses.AnyAsync(w => w.CompanyId == companyId);
         var warehouse = await _stock.CreateWarehouseAsync(companyId, request.Code.Trim().ToUpperInvariant(), request.Name.Trim(), Blank(request.Address));
         if (isFirst) (await _stock.SettingsAsync(companyId)).DefaultWarehouseId = warehouse.Id;
-        warehouse.IsVan = request.IsVan;
-        warehouse.DriverUserId = request.IsVan ? request.DriverUserId : null;
         await _db.SaveChangesAsync();
-        return StatusCode(StatusCodes.Status201Created, new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, true, isFirst,
-            warehouse.IsVan, warehouse.DriverUserId));
+        return StatusCode(StatusCodes.Status201Created, new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, true, isFirst));
     }
 
     [HttpPut("warehouses/{warehouseId:guid}", Name = "UpdateWarehouse")]
@@ -100,12 +99,15 @@ public class InventoryController : ControllerBase
         warehouse.Name = request.Name.Trim();
         warehouse.Address = Blank(request.Address);
         warehouse.IsActive = request.IsActive;
-        warehouse.IsVan = request.IsVan;
-        warehouse.DriverUserId = request.IsVan ? request.DriverUserId : null;
         await _db.SaveChangesAsync();
+        var vehicles = await VehicleLinksAsync(companyId);
         return Ok(new WarehouseResponse(warehouse.Id, warehouse.Code, warehouse.Name, warehouse.Address, warehouse.IsActive, settings.DefaultWarehouseId == warehouse.Id,
-            warehouse.IsVan, warehouse.DriverUserId));
+            vehicles.ContainsKey(warehouse.Id), vehicles.GetValueOrDefault(warehouse.Id)));
     }
+
+    private async Task<Dictionary<Guid, Guid?>> VehicleLinksAsync(Guid companyId) =>
+        await _db.Vehicles.AsNoTracking().Where(v => v.CompanyId == companyId && !v.IsArchived && v.StockWarehouseId != null)
+            .ToDictionaryAsync(v => v.StockWarehouseId!.Value, v => v.DriverUserId);
 
     private async Task<string?> ValidateWarehouseAsync(Guid companyId, Guid? id, SaveWarehouseRequest request)
     {

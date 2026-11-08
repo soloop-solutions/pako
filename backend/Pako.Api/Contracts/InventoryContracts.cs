@@ -11,6 +11,11 @@ public record WarehouseResponse(Guid Id, string Code, string Name, string? Addre
     Guid? DriverUserId = null);
 public record SaveWarehouseRequest(string Code, string Name, string? Address, bool IsActive = true, bool IsVan = false, Guid? DriverUserId = null);
 
+public record VehicleResponse(Guid Id, string Plate, string? Make, string? Model, VehicleType Type, VehicleStatus Status, Guid? DriverUserId,
+    decimal? CapacityKg, string? Notes, Guid? StockWarehouseId, string? StockWarehouseName, bool IsArchived);
+public record SaveVehicleRequest(string Plate, string? Make, string? Model, VehicleType Type = VehicleType.Van, VehicleStatus Status = VehicleStatus.Active,
+    Guid? DriverUserId = null, decimal? CapacityKg = null, string? Notes = null, Guid? StockWarehouseId = null, bool CreateStockWarehouse = false);
+
 public record ItemCategoryResponse(Guid Id, string Name, Guid? InventoryAccountId, Guid? CogsAccountId, Guid? RevenueAccountId,
     Guid? ExpenseAccountId, bool IsActive, int ItemCount);
 public record SaveItemCategoryRequest(string Name, Guid? InventoryAccountId, Guid? CogsAccountId, Guid? RevenueAccountId,

@@ -1637,4 +1637,19 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="FeatureDisabled" xml:space="preserve"><value>Ky funksion nuk përdoret nga kjo kompani. Administratori i saj mund ta ndryshojë llojin e biznesit, ose administratori i platformës mund ta aktivizojë paketën.</value></data>
   <data name="BusinessTypeInvalid" xml:space="preserve"><value>Zgjidhni llojin e biznesit.</value></data>
   <data name="FeaturesInvalid" xml:space="preserve"><value>Njëra nga paketat nuk njihet.</value></data>
+  <data name="VehicleInvalid" xml:space="preserve">
+    <value>Jepini automjetit një targë (deri në 20 shkronja); kapaciteti nuk mund të jetë negativ.</value>
+  </data>
+  <data name="VehiclePlateTaken" xml:space="preserve">
+    <value>Ekziston tashmë një automjet me këtë targë.</value>
+  </data>
+  <data name="VehicleWarehouseInvalid" xml:space="preserve">
+    <value>Zgjidhni një magazinë aktive që nuk përdoret nga automjet tjetër.</value>
+  </data>
+  <data name="VehicleDriverInvalid" xml:space="preserve">
+    <value>Shoferi duhet të jetë anëtar i kësaj kompanie.</value>
+  </data>
+  <data name="ItemVariantPriceInvalid" xml:space="preserve">
+    <value>Çmimi i variantit nuk mund të jetë negativ.</value>
+  </data>
 </root>
