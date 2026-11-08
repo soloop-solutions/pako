@@ -57,7 +57,7 @@ const emptyLine = (): Line => ({ itemId: "", quantity: "", unitCost: "", note: "
 const parse = (s: string) => Number(s.replace(",", "."));
 
 // docs/INVENTORY_PLAN.md — one screen for all four stock documents. A draft can be edited and
-// discarded; posting (Inventory: Approve) numbers it, moves the stock and writes the ledger.
+// discarded; it is numbered when first saved; posting (Inventory: Approve) moves the stock and writes the ledger.
 export function StockDocumentDetail() {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string>) => intl.formatMessage({ id }, values);

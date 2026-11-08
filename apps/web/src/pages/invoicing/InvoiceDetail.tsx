@@ -137,7 +137,7 @@ export function InvoiceDetail() {
   }, [refresh]);
 
   // Task 8: instance tabs are titled with the document number, per the same fallback InvoiceForm
-  // already uses ("Draft invoice" until a number is assigned on posting). `dirty` is the existing
+  // already uses ("Draft invoice" only for a legacy draft with no number). `dirty` is the existing
   // inline-edit toggle, not real field-level change tracking — no form in the app tracks that yet.
   useTabMeta({
     title: invoice ? (invoice.invoiceNumber ?? intl.formatMessage({ id: "invoiceDetail.draftInvoice" })) : undefined,

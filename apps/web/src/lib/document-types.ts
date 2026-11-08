@@ -90,6 +90,8 @@ const NUMBER_SERIES_DOCUMENT_TYPE_LABEL_KEYS: Record<string, string> = {
   StockWriteOff: "stock.doc.type.writeOff",
   StockWriteDown: "stock.doc.type.writeDown",
   StockReceipt: "stock.doc.type.receipt",
+  StockDelivery: "stock.doc.type.delivery",
+  StockSiteIssue: "stock.doc.type.siteIssue",
   PurchaseOrder: "enum.documentType.purchaseOrder",
   PriceChange: "enum.documentType.priceChange",
 };
