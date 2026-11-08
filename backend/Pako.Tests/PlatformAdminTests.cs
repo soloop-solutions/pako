@@ -168,6 +168,53 @@ public class PlatformAdminTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task DisabledModule_StaffWithFullRoleStillRefusedAndSeesNoLevel_EveryModule()
+    {
+        var seed = await SeedAsync();
+        var staff = new AppUser { Id = Guid.NewGuid(), Email = "staff@co.test", UserName = "staff@co.test" };
+        await seed.Users.CreateAsync(staff, Password);
+        var company = new Company { Id = Guid.NewGuid(), Name = "Staff Co", CreatedByUserId = staff.Id };
+        var role = new CompanyRole
+        {
+            Id = Guid.NewGuid(), CompanyId = company.Id, Name = "All",
+            SalesAccess = AccessLevel.Approve, PurchasesAccess = AccessLevel.Approve, AccountingAccess = AccessLevel.Approve,
+            ReportsAccess = AccessLevel.Approve, HrAccess = AccessLevel.Approve, PayrollAccess = AccessLevel.Approve,
+            InventoryAccess = AccessLevel.Approve, PosAccess = AccessLevel.Approve
+        };
+        var membership = Membership.ForCompany(staff.Id, company.Id, MembershipRole.ClientStaff);
+        membership.CompanyRoleId = role.Id;
+        seed.Db.Companies.Add(company);
+        seed.Db.CompanyRoles.Add(role);
+        seed.Db.Memberships.Add(membership);
+        await seed.Db.SaveChangesAsync();
+
+        var areas = new[]
+        {
+            (AccessModule.Sales, AppModule.Sales), (AccessModule.Purchases, AppModule.Purchases), (AccessModule.Accounting, AppModule.Accounting),
+            (AccessModule.Reports, AppModule.Reports), (AccessModule.Hr, AppModule.Hr), (AccessModule.Payroll, AppModule.Payroll),
+            (AccessModule.Inventory, AppModule.Inventory), (AccessModule.Pos, AppModule.Pos)
+        };
+        foreach (var (area, module) in areas)
+        {
+            var (before, enabledAccess) = await FilterAsync(seed.Db, staff.Id, company.Id, area);
+            Assert.Null(before);
+            Assert.Equal(AccessLevel.Approve, enabledAccess.LevelFor(area));
+
+            var tracked = await seed.Db.Companies.SingleAsync(c => c.Id == company.Id);
+            tracked.EnabledModules = AppModule.All & ~module;
+            await seed.Db.SaveChangesAsync();
+
+            var (after, _) = await FilterAsync(seed.Db, staff.Id, company.Id, area);
+            Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(after).StatusCode);
+            var (_, general) = await FilterAsync(seed.Db, staff.Id, company.Id, AccessModule.None);
+            Assert.Equal(AccessLevel.None, general.LevelFor(area));
+
+            tracked.EnabledModules = AppModule.All;
+            await seed.Db.SaveChangesAsync();
+        }
+    }
+
+    [Fact]
     public async Task DisabledAccount_IsRefusedOnTheNextRequest_AndAnAdminCantLockThemselfOut()
     {
         var seed = await SeedAsync();

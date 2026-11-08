@@ -21,13 +21,15 @@ public class AuthController : ControllerBase
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly ActionTokenService _actionTokenService;
     private readonly PlatformOptions _platform;
+    private readonly RefreshTokenService? _refreshTokens;
 
     // platform is optional only so tests can construct the controller directly; the app always
     // supplies it. Without it, self-registration behaves as before (allowed).
     public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService,
         IStringLocalizer<ErrorMessages> localizer, ActionTokenService actionTokenService,
-        IOptions<PlatformOptions>? platform = null)
+        IOptions<PlatformOptions>? platform = null, RefreshTokenService? refreshTokens = null)
     {
+        _refreshTokens = refreshTokens;
         _userManager = userManager;
         _tokenService = tokenService;
         _localizer = localizer;
@@ -60,8 +62,7 @@ public class AuthController : ControllerBase
             return BadRequest(string.Join(" ", result.Errors.Select(e => e.Description)));
         }
 
-        var token = _tokenService.GenerateToken(user);
-        return Ok(new AuthResponse(token, user.Id, user.Email!));
+        return Ok(await BuildAuthAsync(user));
     }
 
     [HttpPost("login")]
@@ -101,8 +102,41 @@ public class AuthController : ControllerBase
         }
         await _userManager.UpdateAsync(user);
 
-        var token = _tokenService.GenerateToken(user);
-        return Ok(new AuthResponse(token, user.Id, user.Email!));
+        return Ok(await BuildAuthAsync(user));
+    }
+
+    [HttpPost("refresh", Name = "RefreshToken")]
+    public async Task<ActionResult<AuthResponse>> Refresh(RefreshRequest request)
+    {
+        if (_refreshTokens is null) return Unauthorized();
+        var rotated = await _refreshTokens.RotateAsync(request.RefreshToken);
+        if (rotated is not { } result) return Unauthorized();
+
+        var user = await _userManager.FindByIdAsync(result.UserId.ToString());
+        if (user is null || user.IsDisabled)
+        {
+            await _refreshTokens.RevokeAllForUserAsync(result.UserId);
+            return Unauthorized();
+        }
+
+        return Ok(new AuthResponse(_tokenService.GenerateToken(user), user.Id, user.Email!, result.NewToken));
+    }
+
+    [HttpPost("logout", Name = "Logout")]
+    public async Task<IActionResult> Logout(LogoutRequest request)
+    {
+        if (_refreshTokens is not null && !string.IsNullOrWhiteSpace(request.RefreshToken))
+        {
+            await _refreshTokens.RevokeAsync(request.RefreshToken);
+        }
+
+        return NoContent();
+    }
+
+    private async Task<AuthResponse> BuildAuthAsync(AppUser user)
+    {
+        var refresh = _refreshTokens is null ? null : await _refreshTokens.IssueAsync(user.Id);
+        return new AuthResponse(_tokenService.GenerateToken(user), user.Id, user.Email!, refresh);
     }
 
     // ---- Invitations (docs/USER_ACCESS_PLAN.md) ----
@@ -130,7 +164,7 @@ public class AuthController : ControllerBase
 
         user.LastLoginAt = DateTime.UtcNow;
         await _userManager.UpdateAsync(user);
-        return Ok(new AuthResponse(_tokenService.GenerateToken(user), user.Id, user.Email!));
+        return Ok(await BuildAuthAsync(user));
     }
 
     // ---- Password reset ----
@@ -166,6 +200,7 @@ public class AuthController : ControllerBase
                 : string.Join(" ", result.Errors.Select(e => e.Description)));
         }
 
+        if (_refreshTokens is not null) await _refreshTokens.RevokeAllForUserAsync(user.Id);
         // A reset also lifts a lockout.
         await _userManager.SetLockoutEndDateAsync(user, null);
         await _userManager.ResetAccessFailedCountAsync(user);
