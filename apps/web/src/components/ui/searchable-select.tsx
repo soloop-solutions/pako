@@ -56,6 +56,8 @@ function flattenOptions(items: OptionOrGroup[]): SelectOption[] {
   return result;
 }
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function filterItems(items: OptionOrGroup[], query: string): OptionOrGroup[] {
   const q = query.trim().toLowerCase();
   if (!q) return items;
@@ -67,7 +69,7 @@ function filterItems(items: OptionOrGroup[], query: string): OptionOrGroup[] {
         (o) =>
           o.label.toLowerCase().includes(q) ||
           (o.description ?? "").toLowerCase().includes(q) ||
-          o.value.toLowerCase().includes(q),
+          (!UUID_PATTERN.test(o.value) && o.value.toLowerCase().includes(q)),
       );
       if (filtered.length > 0) {
         result.push({ label: item.label, options: filtered });
@@ -76,7 +78,7 @@ function filterItems(items: OptionOrGroup[], query: string): OptionOrGroup[] {
       if (
         item.label.toLowerCase().includes(q) ||
         (item.description ?? "").toLowerCase().includes(q) ||
-        item.value.toLowerCase().includes(q)
+        (!UUID_PATTERN.test(item.value) && item.value.toLowerCase().includes(q))
       ) {
         result.push(item);
       }

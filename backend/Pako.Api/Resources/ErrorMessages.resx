@@ -1695,4 +1695,19 @@ Estimate: {estimate} €.</value></data>
   <data name="Export_Dash_Aging_d90plus" xml:space="preserve"><value>90+ days</value></data>
   <data name="Export_Dash_Documents" xml:space="preserve"><value>Documents</value></data>
   <data name="DashboardPdfNothing" xml:space="preserve"><value>There is nothing to export for this dashboard.</value></data>
+  <data name="VehicleInvalid" xml:space="preserve">
+    <value>Give the vehicle a plate (up to 20 characters); capacity cannot be negative.</value>
+  </data>
+  <data name="VehiclePlateTaken" xml:space="preserve">
+    <value>A vehicle with this plate already exists.</value>
+  </data>
+  <data name="VehicleWarehouseInvalid" xml:space="preserve">
+    <value>Choose an active warehouse that no other vehicle uses.</value>
+  </data>
+  <data name="VehicleDriverInvalid" xml:space="preserve">
+    <value>The driver must be a member of this company.</value>
+  </data>
+  <data name="ItemVariantPriceInvalid" xml:space="preserve">
+    <value>The variant price cannot be negative.</value>
+  </data>
 </root>

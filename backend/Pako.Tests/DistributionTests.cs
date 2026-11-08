@@ -96,6 +96,8 @@ public class DistributionTests : IAsyncLifetime
 
     private static InventoryController Inventory(Co c) => As(new InventoryController(c.Db, Stock(c), L, Tax, CompanyAccessContext.Unrestricted()), c.UserId);
 
+    private static VehiclesController Vehicles(Co c) => As(new VehiclesController(c.Db, Stock(c), L), c.UserId);
+
     private static PriceListsController Prices(Co c) =>
         As(new PriceListsController(c.Db, new PriceListService(c.Db, Stock(c), new NumberSeriesService(c.Db), L), L), c.UserId);
 
@@ -305,6 +307,34 @@ public class DistributionTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>((await Prices(c).UpdateList(c.Id, wholesale.Id, new SavePriceListRequest("Wholesale", null, true, false))).Result);
     }
 
+    [Fact]
+    public async Task Vehicles_Crud_PlateUnique_Archive_AndTheStockLinkIsExplicit()
+    {
+        var c = await SeedAsync();
+        var created = (VehicleResponse)Assert.IsAssignableFrom<ObjectResult>((await Vehicles(c).Create(c.Id,
+            new SaveVehicleRequest("01-555-AA", "Mercedes", "Sprinter", VehicleType.Truck, VehicleStatus.Active, null, 1200m))).Result).Value!;
+        Assert.Null(created.StockWarehouseId);
+        Assert.IsType<BadRequestObjectResult>((await Vehicles(c).Create(c.Id, new SaveVehicleRequest("01-555-aa", null, null))).Result);
+        Assert.IsType<BadRequestObjectResult>((await Vehicles(c).Create(c.Id, new SaveVehicleRequest(" ", null, null))).Result);
+
+        var updated = (VehicleResponse)Assert.IsType<OkObjectResult>((await Vehicles(c).Update(c.Id, created.Id,
+            new SaveVehicleRequest("01-555-AA", "Mercedes", "Sprinter", VehicleType.Truck, VehicleStatus.InMaintenance, c.UserId, 1500m, null, null, true))).Result).Value!;
+        Assert.Equal((VehicleStatus.InMaintenance, 1500m), (updated.Status, updated.CapacityKg));
+        Assert.NotNull(updated.StockWarehouseId);
+        var warehouse = await c.Db.Warehouses.AsNoTracking().SingleAsync(w => w.Id == updated.StockWarehouseId);
+        Assert.False(warehouse.IsVan);
+
+        var other = (VehicleResponse)Assert.IsAssignableFrom<ObjectResult>((await Vehicles(c).Create(c.Id, new SaveVehicleRequest("01-777-BB", null, null))).Result).Value!;
+        Assert.IsType<BadRequestObjectResult>((await Vehicles(c).Update(c.Id, other.Id,
+            new SaveVehicleRequest("01-777-BB", null, null, StockWarehouseId: updated.StockWarehouseId))).Result);
+
+        Assert.IsType<OkObjectResult>((await Vehicles(c).Archive(c.Id, created.Id)).Result);
+        var active = (PaginatedResponse<VehicleResponse>)Assert.IsType<OkObjectResult>((await Vehicles(c).List(c.Id)).Result).Value!;
+        Assert.Equal(other.Id, Assert.Single(active.Items).Id);
+        var all = (PaginatedResponse<VehicleResponse>)Assert.IsType<OkObjectResult>((await Vehicles(c).List(c.Id, includeArchived: true)).Result).Value!;
+        Assert.Equal(2, all.Total);
+    }
+
     // A van's day: loaded by transfer, a visit checked in on the route, an order taken there and an
     // invoice from the van; the settlement shows the stock moved and the money the day brought.
     [Fact]
@@ -313,9 +343,11 @@ public class DistributionTests : IAsyncLifetime
         var c = await SeedAsync();
         await BillAsync(c, D1, 10, 118m);
         var main = ((List<WarehouseResponse>)((OkObjectResult)(await Inventory(c).Warehouses(c.Id)).Result!).Value!).Single(w => w.IsDefault).Id;
-        var van = (WarehouseResponse)Assert.IsAssignableFrom<ObjectResult>((await Inventory(c).CreateWarehouse(c.Id,
-            new SaveWarehouseRequest("VAN1", "Van 1", null, true, true, c.UserId))).Result).Value!;
+        var vehicle = (VehicleResponse)Assert.IsAssignableFrom<ObjectResult>((await Vehicles(c).Create(c.Id,
+            new SaveVehicleRequest("01-123-AB", "Fiat", "Doblo", VehicleType.Van, VehicleStatus.Active, c.UserId, null, null, null, true))).Result).Value!;
+        var van = ((List<WarehouseResponse>)((OkObjectResult)(await Inventory(c).Warehouses(c.Id)).Result!).Value!).Single(w => w.Id == vehicle.StockWarehouseId);
         Assert.True(van.IsVan);
+        Assert.Equal(c.UserId, van.DriverUserId);
 
         var route = (SalesRouteResponse)Assert.IsAssignableFrom<ObjectResult>((await Distribution(c).CreateRoute(c.Id, new SaveSalesRouteRequest("Prishtina north",
             c.UserId, van.Id, 127, new List<SalesRouteStopRequest> { new(c.Customer, "Back door") }))).Result).Value!;
@@ -331,7 +363,7 @@ public class DistributionTests : IAsyncLifetime
         // Morning load of six by transfer.
         var transfer = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, new SaveStockDocumentRequest(
             StockDocumentType.Transfer, Today, main, new List<StockDocumentLineRequest> { new(c.Laptop, 6m) }, van.Id))).Result).Value!;
-        await PostDocumentAsync(c, transfer.Id);
+        Assert.Equal(StockDocumentState.Posted, transfer.State);
 
         // At the customer: check in, sell two from the van on an invoice, collect cash.
         var visit = (RouteVisitResponse)Assert.IsAssignableFrom<ObjectResult>((await Distribution(c).CheckIn(c.Id,

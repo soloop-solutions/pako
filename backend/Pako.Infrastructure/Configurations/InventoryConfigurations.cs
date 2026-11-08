@@ -284,3 +284,21 @@ public class StockMoveLotConfiguration : IEntityTypeConfiguration<StockMoveLot>
         builder.HasOne<Lot>().WithMany().HasForeignKey(m => m.LotId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+public class VehicleConfiguration : IEntityTypeConfiguration<Vehicle>
+{
+    public void Configure(EntityTypeBuilder<Vehicle> builder)
+    {
+        builder.ToTable("vehicles");
+        builder.HasKey(v => v.Id);
+        builder.Property(v => v.Plate).IsRequired().HasMaxLength(20);
+        builder.Property(v => v.Make).HasMaxLength(60);
+        builder.Property(v => v.Model).HasMaxLength(60);
+        builder.Property(v => v.Notes).HasMaxLength(500);
+        builder.Property(v => v.CapacityKg).HasPrecision(12, 2);
+        builder.HasIndex(v => new { v.CompanyId, v.Plate }).IsUnique();
+        builder.HasIndex(v => v.StockWarehouseId).IsUnique().HasFilter("\"StockWarehouseId\" IS NOT NULL");
+        builder.HasOne<Company>().WithMany().HasForeignKey(v => v.CompanyId).OnDelete(DeleteBehavior.Cascade);
+        builder.HasOne<Warehouse>().WithMany().HasForeignKey(v => v.StockWarehouseId).OnDelete(DeleteBehavior.Restrict);
+    }
+}

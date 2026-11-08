@@ -241,7 +241,8 @@ public class DistributionController : ControllerBase
     // ---- Vans ----
 
     private async Task<Warehouse?> VanAsync(Guid companyId, Guid warehouseId) =>
-        await _db.Warehouses.AsNoTracking().FirstOrDefaultAsync(w => w.Id == warehouseId && w.CompanyId == companyId && w.IsVan);
+        await _db.Warehouses.AsNoTracking().FirstOrDefaultAsync(w => w.Id == warehouseId && w.CompanyId == companyId
+            && _db.Vehicles.Any(v => v.StockWarehouseId == w.Id && !v.IsArchived));
 
     // The morning load: what confirmed orders of the customers on the van's routes that day still
     // wait for, less what is already on the van.
@@ -334,7 +335,8 @@ public class DistributionController : ControllerBase
             .ToListAsync();
         var couponSales = coupons.Sum(o => o.Kind == Pako.Domain.Pos.PosOrderKind.Sale ? o.Total : -o.Total);
 
-        var visits = van.DriverUserId is { } driver
+        var driverUserId = await _db.Vehicles.AsNoTracking().Where(v => v.StockWarehouseId == van.Id && !v.IsArchived).Select(v => v.DriverUserId).FirstOrDefaultAsync();
+        var visits = driverUserId is { } driver
             ? await _db.RouteVisits.AsNoTracking().Where(v => v.CompanyId == companyId && v.Date == day && v.UserId == driver).ToListAsync()
             : new List<RouteVisit>();
 

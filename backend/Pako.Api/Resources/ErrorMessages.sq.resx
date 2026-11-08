@@ -1695,4 +1695,19 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="Export_Dash_Aging_d90plus" xml:space="preserve"><value>90+ ditë</value></data>
   <data name="Export_Dash_Documents" xml:space="preserve"><value>Dokumente</value></data>
   <data name="DashboardPdfNothing" xml:space="preserve"><value>Nuk ka çfarë të eksportohet nga ky panel.</value></data>
+  <data name="VehicleInvalid" xml:space="preserve">
+    <value>Jepini automjetit një targë (deri në 20 shkronja); kapaciteti nuk mund të jetë negativ.</value>
+  </data>
+  <data name="VehiclePlateTaken" xml:space="preserve">
+    <value>Ekziston tashmë një automjet me këtë targë.</value>
+  </data>
+  <data name="VehicleWarehouseInvalid" xml:space="preserve">
+    <value>Zgjidhni një magazinë aktive që nuk përdoret nga automjet tjetër.</value>
+  </data>
+  <data name="VehicleDriverInvalid" xml:space="preserve">
+    <value>Shoferi duhet të jetë anëtar i kësaj kompanie.</value>
+  </data>
+  <data name="ItemVariantPriceInvalid" xml:space="preserve">
+    <value>Çmimi i variantit nuk mund të jetë negativ.</value>
+  </data>
 </root>

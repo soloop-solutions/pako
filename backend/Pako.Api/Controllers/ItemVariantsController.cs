@@ -175,6 +175,18 @@ public class ItemVariantsController : ControllerBase
         return Ok(await VariantsAsync(companyId, itemId));
     }
 
+    [HttpPut("{itemId:guid}/variants/{variantId:guid}", Name = "UpdateItemVariant")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    public async Task<ActionResult<List<ItemVariantResponse>>> UpdateVariant(Guid companyId, Guid itemId, Guid variantId, UpdateItemVariantRequest request)
+    {
+        var variant = await _db.Items.FirstOrDefaultAsync(i => i.Id == variantId && i.CompanyId == companyId && i.VariantOfItemId == itemId);
+        if (variant is null) return NotFound();
+        if (request.Price is < 0) return BadRequest(_localizer["ItemVariantPriceInvalid"].Value);
+        variant.DefaultUnitPrice = request.Price;
+        await _db.SaveChangesAsync();
+        return Ok(await VariantsAsync(companyId, itemId));
+    }
+
     private async Task<List<ItemVariantResponse>> VariantsAsync(Guid companyId, Guid templateId)
     {
         var variants = await _db.Items.AsNoTracking().Include(i => i.Barcodes).Where(i => i.CompanyId == companyId && i.VariantOfItemId == templateId)

@@ -8235,6 +8235,55 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    updateItemVariant(companyId: string, itemId: string, variantId: string, body: UpdateItemVariantRequest): Promise<ItemVariantResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/{itemId}/variants/{variantId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (itemId === undefined || itemId === null)
+            throw new globalThis.Error("The parameter 'itemId' must be defined.");
+        url_ = url_.replace("{itemId}", encodeURIComponent("" + itemId));
+        if (variantId === undefined || variantId === null)
+            throw new globalThis.Error("The parameter 'variantId' must be defined.");
+        url_ = url_.replace("{variantId}", encodeURIComponent("" + variantId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateItemVariant(_response);
+        });
+    }
+
+    protected processUpdateItemVariant(response: Response): Promise<ItemVariantResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ItemVariantResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ItemVariantResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     getItemRecipe(companyId: string, itemId: string): Promise<RecipeLineResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/items/{itemId}/recipe";
         if (companyId === undefined || companyId === null)
@@ -26571,6 +26620,280 @@ export class PakoApiClient {
     }
 
     /**
+     * @param search (optional) 
+     * @param includeArchived (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listVehicles(companyId: string, search: string | undefined, includeArchived: boolean | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfVehicleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/vehicles?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (includeArchived === null)
+            throw new globalThis.Error("The parameter 'includeArchived' cannot be null.");
+        else if (includeArchived !== undefined)
+            url_ += "includeArchived=" + encodeURIComponent("" + includeArchived) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListVehicles(_response);
+        });
+    }
+
+    protected processListVehicles(response: Response): Promise<PaginatedResponseOfVehicleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfVehicleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfVehicleResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    createVehicle(companyId: string, body: SaveVehicleRequest): Promise<VehicleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/vehicles";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateVehicle(_response);
+        });
+    }
+
+    protected processCreateVehicle(response: Response): Promise<VehicleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as VehicleResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<VehicleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getVehicle(companyId: string, id: string): Promise<VehicleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/vehicles/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetVehicle(_response);
+        });
+    }
+
+    protected processGetVehicle(response: Response): Promise<VehicleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as VehicleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<VehicleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateVehicle(companyId: string, id: string, body: SaveVehicleRequest): Promise<VehicleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/vehicles/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateVehicle(_response);
+        });
+    }
+
+    protected processUpdateVehicle(response: Response): Promise<VehicleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as VehicleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<VehicleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    archiveVehicle(companyId: string, id: string): Promise<VehicleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/vehicles/{id}/archive";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processArchiveVehicle(_response);
+        });
+    }
+
+    protected processArchiveVehicle(response: Response): Promise<VehicleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as VehicleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<VehicleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    restoreVehicle(companyId: string, id: string): Promise<VehicleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/vehicles/{id}/restore";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRestoreVehicle(_response);
+        });
+    }
+
+    protected processRestoreVehicle(response: Response): Promise<VehicleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as VehicleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<VehicleResponse>(null as any);
+    }
+
+    /**
      * @param year (optional) 
      * @param page (optional) 
      * @param pageSize (optional) 
@@ -29936,6 +30259,15 @@ export interface PaginatedResponseOfStockLevelResponse {
     [key: string]: any;
 }
 
+export interface PaginatedResponseOfVehicleResponse {
+    items: VehicleResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
 export interface PartDataResponse {
     itemId: string;
     references: CrossReferenceResponse[];
@@ -32473,6 +32805,21 @@ export interface SaveUnitRequest {
     [key: string]: any;
 }
 
+export interface SaveVehicleRequest {
+    plate: string;
+    make: string | undefined;
+    model: string | undefined;
+    type?: number;
+    status?: number;
+    driverUserId?: string | undefined;
+    capacityKg?: number | undefined;
+    notes?: string | undefined;
+    stockWarehouseId?: string | undefined;
+    createStockWarehouse?: boolean;
+
+    [key: string]: any;
+}
+
 export interface SaveVenueRequest {
     storeId: string;
     name: string;
@@ -33383,6 +33730,12 @@ export interface UpdateItemRequest {
     [key: string]: any;
 }
 
+export interface UpdateItemVariantRequest {
+    price: number | undefined;
+
+    [key: string]: any;
+}
+
 export interface UpdateMyProfileRequest {
     phone: string | undefined;
     address: string | undefined;
@@ -33576,6 +33929,23 @@ export interface VatReturnResponse {
     totalOutputVat: number;
     totalInputVat: number;
     netVatDue: number;
+
+    [key: string]: any;
+}
+
+export interface VehicleResponse {
+    id: string;
+    plate: string;
+    make: string | undefined;
+    model: string | undefined;
+    type: number;
+    status: number;
+    driverUserId: string | undefined;
+    capacityKg: number | undefined;
+    notes: string | undefined;
+    stockWarehouseId: string | undefined;
+    stockWarehouseName: string | undefined;
+    isArchived: boolean;
 
     [key: string]: any;
 }

@@ -2843,6 +2843,66 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("stock_settings", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Inventory.Vehicle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("CapacityKg")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DriverUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsArchived")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Make")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Plate")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("StockWarehouseId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StockWarehouseId")
+                        .IsUnique()
+                        .HasFilter("\"StockWarehouseId\" IS NOT NULL");
+
+                    b.HasIndex("CompanyId", "Plate")
+                        .IsUnique();
+
+                    b.ToTable("vehicles", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Inventory.Warehouse", b =>
                 {
                     b.Property<Guid>("Id")
@@ -9020,6 +9080,20 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("DefaultWarehouseId")
                         .OnDelete(DeleteBehavior.SetNull);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Inventory.Vehicle", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.Warehouse", null)
+                        .WithMany()
+                        .HasForeignKey("StockWarehouseId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Pako.Domain.Inventory.Warehouse", b =>

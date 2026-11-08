@@ -254,6 +254,7 @@ public class StockTests : IAsyncLifetime
         async Task<StockDocumentResponse> CreateAndPost(SaveStockDocumentRequest request)
         {
             var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+            if (created.State == StockDocumentState.Posted) return created;
             var posted = await Documents(c).Post(c.Id, created.Id);
             return (StockDocumentResponse)Assert.IsType<OkObjectResult>(posted.Result).Value!;
         }
@@ -406,6 +407,7 @@ public class StockTests : IAsyncLifetime
     private async Task<StockDocumentResponse> PostDocumentAsync(Co c, SaveStockDocumentRequest request)
     {
         var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        if (created.State == StockDocumentState.Posted) return created;
         return (StockDocumentResponse)Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, created.Id)).Result).Value!;
     }
 
@@ -757,6 +759,50 @@ public class StockTests : IAsyncLifetime
         var put = await As(new ItemsController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()), c.UserId)
             .Update(c.Id, c.Laptop, new UpdateItemRequest("Laptop", "pc", ItemType.Goods, TrackInventory: true, TrackLots: false));
         Assert.IsType<BadRequestObjectResult>(put.Result);
+    }
+
+    [Fact]
+    public async Task Transfer_ExecutesOnCreate_AndAFailedOneLeavesNoDraft()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        var shop = (WarehouseResponse)Assert.IsAssignableFrom<ObjectResult>((await Inventory(c).CreateWarehouse(c.Id, new SaveWarehouseRequest("SHOP", "Shop", null))).Result).Value!;
+
+        var transfer = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, new SaveStockDocumentRequest(
+            StockDocumentType.Transfer, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 4) }, shop.Id))).Result).Value!;
+        Assert.Equal(StockDocumentState.Posted, transfer.State);
+        Assert.NotNull(transfer.Number);
+        var onHand = (List<StockOnHandResponse>)Assert.IsType<OkObjectResult>((await Inventory(c).OnHand(c.Id, new[] { c.Laptop }, shop.Id)).Result).Value!;
+        Assert.Equal(4m, Assert.Single(onHand).Quantity);
+
+        var drafts = await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer);
+        var refused = await Documents(c).Create(c.Id, new SaveStockDocumentRequest(
+            StockDocumentType.Transfer, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 50) }, shop.Id));
+        Assert.IsType<BadRequestObjectResult>(refused.Result);
+        c.Db.ChangeTracker.Clear();
+        Assert.Equal(drafts, await c.Db.StockDocuments.CountAsync(d => d.CompanyId == c.Id && d.Type == StockDocumentType.Transfer));
+    }
+
+    [Fact]
+    public async Task PriceChange_LeavesOnHandAndTheInvoiceStockCheckWorking()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        await PostPriceChangeAsync(c, list.Id, D1, 300m);
+        var laptop = await c.Db.Items.SingleAsync(i => i.Id == c.Laptop);
+        laptop.DefaultUnitPrice = 280m;
+        await c.Db.SaveChangesAsync();
+
+        var onHand = (List<StockOnHandResponse>)Assert.IsType<OkObjectResult>((await Inventory(c).OnHand(c.Id, new[] { c.Laptop }, main)).Result).Value!;
+        Assert.Equal(10m, Assert.Single(onHand).Quantity);
+        var shortInvoice = await InvoiceAsync(c, D1, 11, 300m);
+        Assert.NotNull(shortInvoice.Error);
+        var ok = await InvoiceAsync(c, D1, 4, 300m);
+        Assert.Null(ok.Error);
+        Assert.Equal(6m, (await CostAsync(c)).Quantity);
     }
 
     [Fact]
