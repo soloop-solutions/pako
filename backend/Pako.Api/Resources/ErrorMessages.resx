@@ -124,6 +124,8 @@
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Fiscal number must be 64 characters or fewer.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>The selected control account does not belong to this company.</value></data>
   <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>A partner with this NUI already exists in this company.</value></data>
+  <data name="PartnerEmailInvalid" xml:space="preserve"><value>The partner email address is not valid.</value></data>
+  <data name="PartnerContactFieldTooLong" xml:space="preserve"><value>A partner contact or address field is too long.</value></data>
 
   <!-- Posting rule R07: counterparty identification -->
   <data name="MissingPartnerTaxNumber_R07" xml:space="preserve"><value>Cannot post: {0} is VAT-registered but has no Tax Number (NUI). Edit the partner and add the NUI, then retry.</value></data>

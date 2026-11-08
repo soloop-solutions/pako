@@ -102,7 +102,7 @@ export function PartnerListPage({
   };
 
   const editingPartner =
-    editingId ? (allPartners.find((p) => p.id === editingId) ?? null) : null;
+    editingId ? (partners.find((p) => p.id === editingId) ?? null) : null;
 
   async function refresh() {
     await queryClient.invalidateQueries({ queryKey: partnersQueryKey });
@@ -124,6 +124,13 @@ export function PartnerListPage({
         creditLimit: fields.creditLimit ?? undefined,
         priceListId: fields.priceListId ?? undefined,
         overdueBlockDays: fields.overdueBlockDays ?? undefined,
+        email: fields.email ?? undefined,
+        phone: fields.phone ?? undefined,
+        contactPerson: fields.contactPerson ?? undefined,
+        streetAddress: fields.streetAddress ?? undefined,
+        city: fields.city ?? undefined,
+        postalCode: fields.postalCode ?? undefined,
+        country: fields.country ?? undefined,
       });
     },
     onSuccess: async () => {
@@ -154,6 +161,13 @@ export function PartnerListPage({
         creditLimit: vars.fields.creditLimit ?? undefined,
         priceListId: vars.fields.priceListId ?? undefined,
         overdueBlockDays: vars.fields.overdueBlockDays ?? undefined,
+        email: vars.fields.email ?? undefined,
+        phone: vars.fields.phone ?? undefined,
+        contactPerson: vars.fields.contactPerson ?? undefined,
+        streetAddress: vars.fields.streetAddress ?? undefined,
+        city: vars.fields.city ?? undefined,
+        postalCode: vars.fields.postalCode ?? undefined,
+        country: vars.fields.country ?? undefined,
       }),
     onSuccess: async () => {
       setMutationError(null);
@@ -235,7 +249,7 @@ export function PartnerListPage({
       },
       {
         accessorKey: "taxNumber",
-        header: intl.formatMessage({ id: "partners.form.taxNumber" }),
+        header: intl.formatMessage({ id: "partners.form.nui" }),
         cell: ({ getValue }) => (getValue() as string | undefined) || "\u2014",
       },
       {
@@ -361,6 +375,7 @@ export function PartnerListPage({
           onSubmit={(fields) => createMutation.mutate(fields)}
           onCancel={() => { setFormOpen(false); setMutationError(null); setDirty(false); }}
           defaultRole={selectedCreateRole}
+          role={selectedCreateRole}
           createButtonLabelKey={labels.addButtonKey}
           onDirtyChange={setDirty}
         />
@@ -379,6 +394,7 @@ export function PartnerListPage({
             mode="edit"
             accounts={accounts}
             initial={editingPartner}
+            role={defaultRole}
             submitting={updateMutation.isPending}
             error={mutationError}
             onSubmit={(fields) => updateMutation.mutate({ id: editingPartner.id, fields })}

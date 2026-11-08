@@ -27890,6 +27890,13 @@ export interface CreatePartnerRequest {
     creditLimit?: number | undefined;
     priceListId?: string | undefined;
     overdueBlockDays?: number | undefined;
+    email?: string | undefined;
+    phone?: string | undefined;
+    contactPerson?: string | undefined;
+    streetAddress?: string | undefined;
+    city?: string | undefined;
+    postalCode?: string | undefined;
+    country?: string | undefined;
 
     [key: string]: any;
 }
@@ -29796,6 +29803,13 @@ export interface PartnerResponse {
     creditLimit: number | undefined;
     priceListId?: string | undefined;
     overdueBlockDays?: number | undefined;
+    email?: string | undefined;
+    phone?: string | undefined;
+    contactPerson?: string | undefined;
+    streetAddress?: string | undefined;
+    city?: string | undefined;
+    postalCode?: string | undefined;
+    country?: string | undefined;
 
     [key: string]: any;
 }
@@ -33238,6 +33252,13 @@ export interface UpdatePartnerRequest {
     creditLimit?: number | undefined;
     priceListId?: string | undefined;
     overdueBlockDays?: number | undefined;
+    email?: string | undefined;
+    phone?: string | undefined;
+    contactPerson?: string | undefined;
+    streetAddress?: string | undefined;
+    city?: string | undefined;
+    postalCode?: string | undefined;
+    country?: string | undefined;
 
     [key: string]: any;
 }

@@ -13,6 +13,13 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(p => p.Name).IsRequired().HasMaxLength(256);
         builder.Property(p => p.TaxNumber).HasMaxLength(64);
         builder.Property(p => p.FiscalNumber).HasMaxLength(64);
+        builder.Property(p => p.Email).HasMaxLength(256);
+        builder.Property(p => p.Phone).HasMaxLength(50);
+        builder.Property(p => p.ContactPerson).HasMaxLength(256);
+        builder.Property(p => p.StreetAddress).HasMaxLength(512);
+        builder.Property(p => p.City).HasMaxLength(128);
+        builder.Property(p => p.PostalCode).HasMaxLength(32);
+        builder.Property(p => p.Country).HasMaxLength(100);
         builder.Property(p => p.IsVatRegistered).HasDefaultValue(false);
         builder.Property(p => p.CreditLimit).HasColumnType("numeric(18,2)");
         builder.HasOne<Pako.Domain.Inventory.PriceList>().WithMany().HasForeignKey(p => p.PriceListId).OnDelete(DeleteBehavior.SetNull);

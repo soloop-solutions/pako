@@ -29,6 +29,13 @@ export interface PartnerRegisterFormFields {
   // invoice may be overdue before new orders are blocked (null = never).
   priceListId: string | null;
   overdueBlockDays: number | null;
+  email: string | null;
+  phone: string | null;
+  contactPerson: string | null;
+  streetAddress: string | null;
+  city: string | null;
+  postalCode: string | null;
+  country: string | null;
 }
 
 export interface PartnerRegisterFormProps {
@@ -41,6 +48,8 @@ export interface PartnerRegisterFormProps {
   onCancel?: () => void;
   /** Pre-select a role when creating from the Customers or Vendors page. */
   defaultRole?: "customer" | "vendor";
+  /** Edit the partner strictly as a customer or as a vendor: only that role's fields are shown. */
+  role?: "customer" | "vendor";
   /** Label override for the submit button in create mode. */
   createButtonLabelKey?: string;
   /** Called when form dirty state changes (for unsaved-changes protection). */
@@ -53,15 +62,15 @@ function inferEntityType(initial?: PartnerResponse): PartnerEntityType {
   return "company";
 }
 
-export function PartnerRegisterForm({ mode, accounts, initial, submitting, error, onSubmit, onCancel, defaultRole, createButtonLabelKey, onDirtyChange }: PartnerRegisterFormProps) {
+export function PartnerRegisterForm({ mode, accounts, initial, submitting, error, onSubmit, onCancel, defaultRole, role, createButtonLabelKey, onDirtyChange }: PartnerRegisterFormProps) {
   const intl = useIntl();
 
   const [entityType, setEntityType] = useState<PartnerEntityType>(inferEntityType(initial));
   const [name, setName] = useState(initial?.name ?? "");
   const [taxNumber, setTaxNumber] = useState(initial?.taxNumber ?? "");
   const [fiscalNumber, setFiscalNumber] = useState(initial?.fiscalNumber ?? "");
-  const [isCustomer, setIsCustomer] = useState(initial?.isCustomer ?? (defaultRole === "vendor" ? false : true));
-  const [isVendor, setIsVendor] = useState(initial?.isVendor ?? (defaultRole === "vendor" ? true : false));
+  const [isCustomer, setIsCustomer] = useState(role === "customer" ? true : (initial?.isCustomer ?? (defaultRole === "vendor" ? false : true)));
+  const [isVendor, setIsVendor] = useState(role === "vendor" ? true : (initial?.isVendor ?? (defaultRole === "vendor" ? true : false)));
   const [isVatRegistered, setIsVatRegistered] = useState(initial?.isVatRegistered ?? false);
   const [receivableAccountId, setReceivableAccountId] = useState(initial?.receivableAccountId ?? "");
   const [payableAccountId, setPayableAccountId] = useState(initial?.payableAccountId ?? "");
@@ -69,13 +78,22 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit != null ? String(initial.creditLimit) : "");
   const [priceListId, setPriceListId] = useState(initial?.priceListId ?? "");
   const [overdueBlockDays, setOverdueBlockDays] = useState(initial?.overdueBlockDays != null ? String(initial.overdueBlockDays) : "");
+  const [email, setEmail] = useState(initial?.email ?? "");
+  const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [contactPerson, setContactPerson] = useState(initial?.contactPerson ?? "");
+  const [streetAddress, setStreetAddress] = useState(initial?.streetAddress ?? "");
+  const [city, setCity] = useState(initial?.city ?? "");
+  const [postalCode, setPostalCode] = useState(initial?.postalCode ?? "");
+  const [country, setCountry] = useState(initial?.country ?? "");
+  const showCustomerFields = role ? role === "customer" : isCustomer;
+  const showVendorFields = role ? role === "vendor" : isVendor;
   const customerLists = (usePriceLists().data ?? []).filter((l) => l.isCustomerList && (l.isActive || l.id === initial?.priceListId));
 
   useEffect(() => {
     onDirtyChange?.(true);
   // only on field changes, not initial render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, overdueBlockDays, entityType]);
+  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, overdueBlockDays, entityType, email, phone, contactPerson, streetAddress, city, postalCode, country]);
 
   const receivableAccounts = accounts.filter((a) => a.accountType === AccountType.Receivable);
   // Bug fix: also include CurrentLiability accounts that have a Partner subledger (value 1),
@@ -99,6 +117,13 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       creditLimit: creditLimit ? parseFloat(creditLimit) : null,
       priceListId: isCustomer ? priceListId || null : null,
       overdueBlockDays: isCustomer && overdueBlockDays !== "" ? parseInt(overdueBlockDays, 10) : null,
+      email: email.trim() || null,
+      phone: phone.trim() || null,
+      contactPerson: contactPerson.trim() || null,
+      streetAddress: streetAddress.trim() || null,
+      city: city.trim() || null,
+      postalCode: postalCode.trim() || null,
+      country: country.trim() || null,
     });
   }
 
@@ -134,7 +159,21 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       </div>
 
       {/* --- Role (only when no defaultRole — i.e. from /partners page) --- */}
-      {!defaultRole && (
+      {role && (
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={role === "customer" ? isVendor : isCustomer}
+              onChange={(e) => (role === "customer" ? setIsVendor(e.target.checked) : setIsCustomer(e.target.checked))}
+            />
+            {intl.formatMessage({ id: role === "customer" ? "partners.form.alsoVendor" : "partners.form.alsoCustomer" })}
+          </label>
+          <p className="text-xs text-muted-foreground">
+            {intl.formatMessage({ id: role === "customer" ? "partners.form.alsoVendorHint" : "partners.form.alsoCustomerHint" })}
+          </p>
+        </div>
+      )}
+      {!defaultRole && !role && (
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
           <label className="flex items-center gap-2 text-sm">
             <Checkbox checked={isCustomer} onChange={(e) => setIsCustomer(e.target.checked)} />
@@ -157,8 +196,9 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
         </div>
         {entityType === "company" ? (
           <div className="flex flex-col gap-1">
-            <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.taxNumber" })}</Label>
-            <Input id="partner-tax-number" value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+            <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.nui" })}</Label>
+            <Input id="partner-tax-number" inputMode="numeric" maxLength={64} value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
+            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.nuiHint" })}</p>
           </div>
         ) : (
           <div className="flex flex-col gap-1">
@@ -166,6 +206,42 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
             <Input id="partner-fiscal-number" value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
           </div>
         )}
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="partner-contact-person">{intl.formatMessage({ id: "partners.form.contactPerson" })}</Label>
+          <Input id="partner-contact-person" maxLength={256} value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="partner-email">{intl.formatMessage({ id: "partners.form.email" })}</Label>
+          <Input id="partner-email" type="email" maxLength={256} value={email} onChange={(e) => setEmail(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="partner-phone">{intl.formatMessage({ id: "partners.form.phone" })}</Label>
+          <Input id="partner-phone" type="tel" maxLength={50} value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1 sm:col-span-2">
+          <Label htmlFor="partner-street">{intl.formatMessage({ id: "partners.form.streetAddress" })}</Label>
+          <Input id="partner-street" maxLength={512} value={streetAddress} onChange={(e) => setStreetAddress(e.target.value)} />
+        </div>
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="partner-city">{intl.formatMessage({ id: "partners.form.city" })}</Label>
+          <Input id="partner-city" maxLength={128} value={city} onChange={(e) => setCity(e.target.value)} />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="partner-postal-code">{intl.formatMessage({ id: "partners.form.postalCode" })}</Label>
+            <Input id="partner-postal-code" maxLength={32} value={postalCode} onChange={(e) => setPostalCode(e.target.value)} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="partner-country">{intl.formatMessage({ id: "partners.form.country" })}</Label>
+            <Input id="partner-country" maxLength={100} value={country} onChange={(e) => setCountry(e.target.value)} />
+          </div>
+        </div>
       </div>
 
       {/* --- Accounting --- */}
@@ -177,7 +253,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {isCustomer && (
+        {showCustomerFields && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="partner-receivable-account">{intl.formatMessage({ id: "partners.form.receivableAccount" })}</Label>
             <SearchableSelect
@@ -193,7 +269,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.receivableAccountHint" })}</p>
           </div>
         )}
-        {isVendor && (
+        {showVendorFields && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="partner-payable-account">{intl.formatMessage({ id: "partners.form.payableAccount" })}</Label>
             <SearchableSelect
@@ -225,7 +301,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           />
           <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.paymentTermDaysHint" })}</p>
         </div>
-        <div className="flex flex-col gap-1">
+        {showCustomerFields && <div className="flex flex-col gap-1">
           <Label htmlFor="partner-credit-limit">{intl.formatMessage({ id: "partners.form.creditLimit" })}</Label>
           <Input
             id="partner-credit-limit"
@@ -236,11 +312,11 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
             onChange={(e) => setCreditLimit(e.target.value)}
             placeholder="0.00"
           />
-        </div>
+        </div>}
       </div>
 
       {/* --- Distribution (docs/POS_PLAN.md P6) --- */}
-      {isCustomer && (
+      {showCustomerFields && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="partner-price-list">{intl.formatMessage({ id: "dist.partner.priceList" })}</Label>

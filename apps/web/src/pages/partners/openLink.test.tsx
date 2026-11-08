@@ -77,10 +77,11 @@ describe("partner list ?open=", () => {
     expect(screen.getByTestId("location").textContent).toBe("");
   });
 
-  it("opens a partner that is not a vendor", async () => {
+  it("does not open a customer-only partner on the vendors page", async () => {
     partnersAll.mockResolvedValue([VENDOR, CUSTOMER]);
     renderAt("/vendors?open=partner-1");
-    expect(await screen.findByRole("dialog")).toHaveTextContent("Customer SH");
+    expect(await screen.findByText("Vendor LLC")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("ignores an unknown id", async () => {

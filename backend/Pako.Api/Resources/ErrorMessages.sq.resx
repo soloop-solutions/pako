@@ -124,6 +124,8 @@
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Numri fiskal duhet të jetë 64 karaktere ose më pak.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>Llogaria e zgjedhur e kontrollit nuk i përket kësaj kompanie.</value></data>
   <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>Ekziston tashmë një partner me këtë NUI në këtë kompani.</value></data>
+  <data name="PartnerEmailInvalid" xml:space="preserve"><value>Adresa e emailit të partnerit nuk është e vlefshme.</value></data>
+  <data name="PartnerContactFieldTooLong" xml:space="preserve"><value>Një fushë e kontaktit ose e adresës së partnerit është shumë e gjatë.</value></data>
 
   <!-- Rregulli i postimit R07: identifikimi i palës -->
   <data name="MissingPartnerTaxNumber_R07" xml:space="preserve"><value>Nuk mund të postohet: {0} është i regjistruar për TVSH por nuk ka Numër Fiskal (NUI). Ndryshoni partnerin dhe shtoni NUI-n, pastaj provoni përsëri.</value></data>

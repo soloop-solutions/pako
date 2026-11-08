@@ -60,7 +60,8 @@ public class PartnersController : ControllerBase
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
         var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit)
-            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays);
+            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
+            ?? ValidateContact(request.Email, request.Phone, request.ContactPerson, request.StreetAddress, request.City, request.PostalCode, request.Country);
         if (validationError is not null) return validationError;
 
         var partner = new Partner
@@ -78,7 +79,14 @@ public class PartnersController : ControllerBase
             PaymentTermDays = request.PaymentTermDays,
             CreditLimit = request.CreditLimit,
             PriceListId = request.PriceListId,
-            OverdueBlockDays = request.OverdueBlockDays
+            OverdueBlockDays = request.OverdueBlockDays,
+            Email = Clean(request.Email),
+            Phone = Clean(request.Phone),
+            ContactPerson = Clean(request.ContactPerson),
+            StreetAddress = Clean(request.StreetAddress),
+            City = Clean(request.City),
+            PostalCode = Clean(request.PostalCode),
+            Country = Clean(request.Country)
         };
 
         _db.Partners.Add(partner);
@@ -116,7 +124,8 @@ public class PartnersController : ControllerBase
         if (partner is null) return NotFound();
 
         var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId)
-            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays);
+            ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
+            ?? ValidateContact(request.Email, request.Phone, request.ContactPerson, request.StreetAddress, request.City, request.PostalCode, request.Country);
         if (validationError is not null) return validationError;
 
         partner.Name = request.Name;
@@ -131,6 +140,13 @@ public class PartnersController : ControllerBase
         partner.CreditLimit = request.CreditLimit;
         partner.PriceListId = request.PriceListId;
         partner.OverdueBlockDays = request.OverdueBlockDays;
+        partner.Email = Clean(request.Email);
+        partner.Phone = Clean(request.Phone);
+        partner.ContactPerson = Clean(request.ContactPerson);
+        partner.StreetAddress = Clean(request.StreetAddress);
+        partner.City = Clean(request.City);
+        partner.PostalCode = Clean(request.PostalCode);
+        partner.Country = Clean(request.Country);
 
         try
         {
@@ -216,12 +232,25 @@ public class PartnersController : ControllerBase
         return null;
     }
 
+    private static string? Clean(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    private ActionResult? ValidateContact(string? email, string? phone, string? contactPerson, string? street, string? city, string? postalCode, string? country)
+    {
+        if (Clean(email) is { } e && (e.Length > 256 || !e.Contains('@') || e.StartsWith('@') || e.EndsWith('@') || e.Contains(' ')))
+            return BadRequest(_localizer["PartnerEmailInvalid"].Value);
+        if (Clean(phone)?.Length > 50 || Clean(contactPerson)?.Length > 256 || Clean(street)?.Length > 512
+            || Clean(city)?.Length > 128 || Clean(postalCode)?.Length > 32 || Clean(country)?.Length > 100)
+            return BadRequest(_localizer["PartnerContactFieldTooLong"].Value);
+        return null;
+    }
+
     private static bool IsTaxNumberUniqueViolation(DbUpdateException ex) =>
         ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: "IX_partners_CompanyId_TaxNumber_Unique" };
 
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,
-        p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays);
+        p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays,
+        p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country);
 
     // J15: the partner's account statement. Readable by anyone who can see the partner — including
     // partner-restricted staff for their assigned partners, who get 404 for any other partner.
