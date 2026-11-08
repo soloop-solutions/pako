@@ -7,6 +7,7 @@ export const testCompany = {
   accountingLockDate: "2026-08-31",
   taxLockDate: undefined,
   isArchived: false,
+  isVatRegistered: true,
 } as CompanyResponse;
 
 export const companyContextMock: { useCompany: () => Record<string, unknown> } = {

@@ -86,7 +86,13 @@ describe("items ?open=", () => {
   });
 
   it("refetches the single-item cache of an off-page item after a save", async () => {
-    m.itemsGET2.mockResolvedValue({ ...item("i9", "Off Page"), unit: "pc" });
+    m.itemsGET2.mockResolvedValue({
+      ...item("i9", "Off Page"),
+      unit: "pc",
+      defaultRevenueAccountId: "a1",
+      defaultExpenseAccountId: "a2",
+      defaultInventoryAccountId: "a3",
+    });
     m.itemsPUT.mockResolvedValue(item("i9", "Off Page"));
     renderAt("/items?open=i9");
     const dialog = await screen.findByRole("dialog");

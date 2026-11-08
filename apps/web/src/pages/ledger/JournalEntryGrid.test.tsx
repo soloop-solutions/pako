@@ -16,6 +16,7 @@ const listEmployees = vi.fn();
 const journalEntriesCreate = vi.fn();
 const post3 = vi.fn();
 const actionTokens = vi.fn();
+const preview = vi.fn(() => Promise.resolve({ number: "JE-0001" }));
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -29,6 +30,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       journalEntries: (...args: unknown[]) => journalEntriesCreate(...args),
       post3: (...args: unknown[]) => post3(...args),
       actionTokens: (...args: unknown[]) => actionTokens(...args),
+      preview: (...args: unknown[]) => preview(...(args as [])),
     },
   };
 });

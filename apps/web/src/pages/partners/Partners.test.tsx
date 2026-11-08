@@ -170,6 +170,7 @@ describe("Partners", () => {
     await waitFor(() => expect(screen.getByText("Acme Corp")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Add partner" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Customer" }));
 
     const nameInputs = await screen.findAllByLabelText(/^Name/);
     fireEvent.change(nameInputs[nameInputs.length - 1], { target: { value: "New Co" } });
