@@ -310,7 +310,6 @@ export function InvoiceDetail() {
               companyId={activeCompany.id}
               customers={partners.filter((p) => p.isCustomer)}
               taxes={taxes}
-              invoices={allInvoices}
               paymentMethods={paymentMethods}
               items={items}
               accounts={accounts}

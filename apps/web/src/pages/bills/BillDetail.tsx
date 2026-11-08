@@ -260,7 +260,6 @@ export function BillDetail() {
               companyId={activeCompany.id}
               vendors={partners.filter((p) => p.isVendor)}
               taxes={taxes}
-              bills={allBills}
               paymentMethods={paymentMethods}
               items={items}
               accounts={accounts}

@@ -146,7 +146,7 @@ describe("Editing a draft invoice (P6)", () => {
     };
     const onSaved = vi.fn();
     renderAt("/invoicing/inv1", (
-      <InvoiceForm companyId="c1" customers={[CUSTOMER as never]} taxes={[]} invoices={[]} paymentMethods={[]} isVatRegistered={false}
+      <InvoiceForm companyId="c1" customers={[CUSTOMER as never]} taxes={[]} paymentMethods={[]} isVatRegistered={false}
         items={[WATER as never]} onCreated={() => {}} editingInvoice={draft} onSaved={onSaved} />
     ));
     expect(screen.getByTestId("invoice-line-link-0")).toHaveTextContent("From the delivery note");

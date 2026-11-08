@@ -63,7 +63,8 @@ public class BillsController : ControllerBase
         [FromQuery] DocumentType[]? documentType = null,
         [FromQuery] DocumentType[]? excludeDocumentType = null,
         [FromQuery] string? state = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] Guid? partnerId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
@@ -77,6 +78,8 @@ public class BillsController : ControllerBase
             var states = Enum.GetValues<BillState>().Where(s => s.ToString().StartsWith(state.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
             query = query.Where(b => states.Contains(b.State));
         }
+
+        if (partnerId is { } pid) query = query.Where(b => b.PartnerId == pid);
 
         if (documentType is { Length: > 0 }) query = query.Where(b => documentType.Contains(b.DocumentType));
         if (excludeDocumentType is { Length: > 0 }) query = query.Where(b => !excludeDocumentType.Contains(b.DocumentType));

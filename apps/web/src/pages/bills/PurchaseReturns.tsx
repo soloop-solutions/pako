@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
@@ -26,7 +27,7 @@ export function PurchaseReturns() {
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [bills, setBills] = useState<BillResponse[]>([]);
+  const [originalNumbers, setOriginalNumbers] = useState<Record<string, string>>({});
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
@@ -38,22 +39,14 @@ export function PurchaseReturns() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, billsResult, taxesResult, paymentMethodsResult] = await Promise.all([
+      const [partnersResult, taxesResult, paymentMethodsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
-        apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
       ]);
       setPartners(partnersResult);
-      setBills(billsResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
-
-      const returns = billsResult.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn);
-      const balanceEntries = await Promise.all(
-        returns.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const),
-      );
-      setBalances(Object.fromEntries(balanceEntries));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "purchaseReturns.loadError" })));
     }
@@ -65,13 +58,58 @@ export function PurchaseReturns() {
 
   const vendors = partners.filter((p) => p.isVendor);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
-  // `balances` is a dependency here too — see Invoicing.tsx's identical comment for why a
-  // balance-dependent column needs the `data` array reference to change when balances update.
-  const returns = useMemo(
-    () => bills.filter((bill) => bill.documentType === BillDocumentType.PurchaseReturn),
+  const paged = usePagedGrid<BillResponse>({
+    gridId: GRID_ID,
+    enabled: !!companyId,
+    queryKey: ["purchase-returns-paged", companyId],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort, filters }) => {
+      const result = await apiClient.paged(
+        companyId as string,
+        page,
+        pageSize,
+        search,
+        [BillDocumentType.PurchaseReturn],
+        undefined,
+        filters.state || undefined,
+        sort,
+        undefined,
+      );
+      return { items: result.items, total: result.total };
+    },
+  });
+  const returns = paged.items;
+  const refetchPaged = paged.query.refetch;
+
+  useEffect(() => {
+    if (!companyId) return;
+    const missing = returns.filter((bill) => bill.state === "Posted" && !(bill.id in balances));
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async (bill) => [bill.id, await apiClient.balance(companyId, bill.id)] as const)).then((entries) => {
+      if (!cancelled) setBalances((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+    });
+    return () => {
+      cancelled = true;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [bills, balances],
-  );
+  }, [companyId, returns]);
+
+  useEffect(() => {
+    if (!companyId) return;
+    const missing = [...new Set(returns.map((bill) => bill.originalBillId).filter((id): id is string => !!id && !(id in originalNumbers)))];
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void Promise.all(missing.map(async (id) => [id, (await apiClient.billsGET(companyId, id)).vendorReference ?? id] as const))
+      .then((entries) => {
+        if (!cancelled) setOriginalNumbers((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId, returns]);
 
   const columns = useMemo<ColumnDef<BillResponse>[]>(
     () => [
@@ -89,8 +127,7 @@ export function PurchaseReturns() {
         id: "originalBill",
         header: intl.formatMessage({ id: "purchaseReturns.originalBill" }),
         accessorFn: (row) => {
-          const original = bills.find((candidate) => candidate.id === row.originalBillId);
-          return original?.vendorReference ?? row.originalBillId ?? "-";
+          return row.originalBillId ? (originalNumbers[row.originalBillId] ?? "...") : "-";
         },
       },
       {
@@ -132,14 +169,19 @@ export function PurchaseReturns() {
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [intl, partners, bills, balances],
+    [intl, partners, originalNumbers, balances],
+  );
+  const visibleColumns = useMemo(
+    () => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "state"], ["state"]),
+    [columns],
   );
 
   const handleCreated = useCallback(async () => {
     setFormOpen(false);
     setFormKey((k) => k + 1);
     await refresh();
-  }, [refresh]);
+    await refetchPaged();
+  }, [refresh, refetchPaged]);
 
   if (!activeCompany) {
     return (
@@ -185,7 +227,6 @@ export function PurchaseReturns() {
           companyId={activeCompany.id}
           vendors={vendors}
           taxes={taxesForPurchase(taxes)}
-          bills={bills}
           paymentMethods={paymentMethods}
           isVatRegistered={activeCompany.isVatRegistered}
           onCreated={handleCreated}
@@ -200,17 +241,15 @@ export function PurchaseReturns() {
         <CardContent>
           <DataGrid
             gridId={GRID_ID}
-            columns={columns}
+            columns={visibleColumns}
             data={returns}
-            rowCount={returns.length}
+            rowCount={paged.total}
+            isLoading={paged.query.isPending}
             getRowId={(row) => row.id}
             getRowClassName={(row) => getDocumentRowClassName(row.state)}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "purchaseReturns.noReturns" })}
             exportFileName="purchase-returns"
-            manualFiltering={false}
-            manualSorting={false}
-            manualGrouping={false}
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />

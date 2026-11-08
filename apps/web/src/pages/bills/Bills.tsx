@@ -35,7 +35,6 @@ export function Bills() {
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [bills, setBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   // F5 — see Invoicing.tsx's identical fields for the full rationale.
@@ -51,16 +50,14 @@ export function Bills() {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, billsResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
+      const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
         apiClient.partnersAll(companyId),
-        apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
         fetchAllItems(companyId),
         apiClient.accountsAll(companyId),
       ]);
       setPartners(partnersResult);
-      setBills(billsResult);
       setTaxes(taxesResult);
       setPaymentMethods(paymentMethodsResult);
       setItems(itemsResult.items);
@@ -83,7 +80,7 @@ export function Bills() {
     queryKey: ["bills-paged", companyId],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort, filters }) => {
-      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort);
+      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort, undefined);
       return { items: result.items, total: result.total };
     },
   });
@@ -246,7 +243,6 @@ export function Bills() {
           companyId={activeCompany.id}
           vendors={vendors}
           taxes={taxesForPurchase(taxes)}
-          bills={bills}
           paymentMethods={paymentMethods}
           items={items}
           accounts={accounts}

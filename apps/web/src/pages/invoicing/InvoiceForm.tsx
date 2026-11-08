@@ -121,7 +121,6 @@ type InvoiceFormProps = {
   companyId: string;
   customers: PartnerResponse[];
   taxes: TaxDefinitionResponse[];
-  invoices: InvoiceResponse[];
   paymentMethods: PaymentMethodResponse[];
   isVatRegistered: boolean;
   // F5 — item picker on the line editor, and the accounts its default revenue account is picked
@@ -153,7 +152,6 @@ export function InvoiceForm({
   companyId,
   customers,
   taxes,
-  invoices,
   paymentMethods,
   isVatRegistered,
   items = [],
@@ -352,9 +350,25 @@ export function InvoiceForm({
     documentType === InvoiceDocumentType.DebitNote ||
     documentType === InvoiceDocumentType.SalesReturn;
   const requiresOriginalInvoice = documentType === InvoiceDocumentType.SalesReturn;
-  const originalInvoiceCandidates = invoices.filter(
-    (invoice) => invoice.partnerId === partnerId && invoice.state === "Posted",
-  );
+  const [originalInvoiceCandidates, setOriginalInvoiceCandidates] = useState<InvoiceResponse[]>([]);
+  useEffect(() => {
+    if (!needsOriginalInvoice || !partnerId) {
+      setOriginalInvoiceCandidates([]);
+      return;
+    }
+    let cancelled = false;
+    void apiClient
+      .paged2(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId)
+      .then((result) => {
+        if (!cancelled) setOriginalInvoiceCandidates(result.items);
+      })
+      .catch(() => {
+        if (!cancelled) setOriginalInvoiceCandidates([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [companyId, needsOriginalInvoice, partnerId]);
 
   function updateLine(index: number, patch: Partial<Line>) {
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
@@ -1066,7 +1080,7 @@ export function InvoiceForm({
             priceMode,
             internalNotes: internalNotes || undefined,
             paymentTermDays,
-            originalDocumentNumber: originalInvoiceId ? (invoices.find((i) => i.id === originalInvoiceId)?.invoiceNumber ?? undefined) : undefined,
+            originalDocumentNumber: originalInvoiceId ? (originalInvoiceCandidates.find((i) => i.id === originalInvoiceId)?.invoiceNumber ?? undefined) : undefined,
           })}
           onClose={() => setShowPreview(false)}
         />
