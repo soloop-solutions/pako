@@ -8400,10 +8400,12 @@ export class PakoApiClient {
      * @param page (optional) 
      * @param pageSize (optional) 
      * @param search (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
      * @param sort (optional) 
      * @return OK
      */
-    paged3(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfJournalEntryResponse> {
+    paged3(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, from: string | undefined, to: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfJournalEntryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/journal-entries/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -8420,6 +8422,14 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'search' cannot be null.");
         else if (search !== undefined)
             url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
         if (sort === null)
             throw new globalThis.Error("The parameter 'sort' cannot be null.");
         else if (sort !== undefined)

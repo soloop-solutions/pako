@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { JournalEntryResponse, JournalResponse } from "@pako/shared";
@@ -7,6 +7,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
 import { useMyAccess } from "@/hooks/useMyAccess";
 
@@ -14,18 +15,44 @@ const GRID_ID = "journalEntries";
 
 type JournalEntriesTableProps = {
   companyId: string;
-  entries: JournalEntryResponse[];
   journals: JournalResponse[];
+  fromDate?: string;
+  toDate?: string;
+  sortOrder?: "newest" | "oldest";
   onPosted: () => void;
-  isLoading?: boolean;
   onOpenEntry?: (entry: JournalEntryResponse) => void;
 };
 
-export function JournalEntriesTable({ companyId, entries, journals, onPosted, isLoading, onOpenEntry }: JournalEntriesTableProps) {
+export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sortOrder = "newest", onPosted, onOpenEntry }: JournalEntriesTableProps) {
   const intl = useIntl();
   const { canApprove } = useMyAccess();
   const [postingId, setPostingId] = useState<string | null>(null);
   const [postErrors, setPostErrors] = useState<Record<string, string>>({});
+
+  const paged = usePagedGrid<JournalEntryResponse>({
+    gridId: GRID_ID,
+    enabled: true,
+    queryKey: ["journal-entries-paged", companyId, fromDate ?? "", toDate ?? "", sortOrder],
+    defaultPageSize: 100,
+    fetchPage: async ({ page, pageSize, search, sort }) => {
+      const result = await apiClient.paged3(
+        companyId,
+        page,
+        pageSize,
+        search,
+        fromDate || undefined,
+        toDate || undefined,
+        sort ?? (sortOrder === "oldest" ? "date" : "-date"),
+      );
+      return { items: result.items, total: result.total };
+    },
+  });
+  const entries = paged.items;
+  const setPage = paged.urlState.setPage;
+
+  useEffect(() => {
+    setPage(1);
+  }, [fromDate, toDate, sortOrder, setPage]);
 
   function journalLabel(journalId: string) {
     const journal = journals.find((j) => j.id === journalId);
@@ -37,6 +64,7 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
     setPostErrors((prev) => ({ ...prev, [entryId]: "" }));
     try {
       await apiClient.post3(companyId, entryId);
+      await paged.query.refetch();
       onPosted();
     } catch (err) {
       setPostErrors((prev) => ({ ...prev, [entryId]: getApiErrorMessage(err, intl.formatMessage({ id: "journalEntries.postError" })) }));
@@ -112,22 +140,21 @@ export function JournalEntriesTable({ companyId, entries, journals, onPosted, is
     [intl, journals, postingId, postErrors],
   );
 
+  const visibleColumns = useMemo(() => serverSideColumns(columns, ["date", "description", "state", "sequenceNumber"]), [columns]);
+
   return (
     <DataGrid
       gridId={GRID_ID}
-      columns={columns}
+      columns={visibleColumns}
       data={entries}
-      rowCount={entries.length}
-      isLoading={isLoading}
+      rowCount={paged.total}
+      isLoading={paged.query.isPending}
       getRowId={(row) => row.id}
       getRowClassName={(row) => getDocumentRowClassName(row.state)}
       onRowClick={onOpenEntry}
       enableGlobalFilter
       emptyMessage={intl.formatMessage({ id: "ledger.noJournalEntries" })}
       exportFileName="journal-entries"
-      manualFiltering={false}
-      manualSorting={false}
-      manualGrouping={false}
       defaultPageSize={100}
       pageSizeOptions={[50, 100, 200]}
     />

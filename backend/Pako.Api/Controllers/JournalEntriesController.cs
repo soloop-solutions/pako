@@ -54,6 +54,8 @@ public class JournalEntriesController : ControllerBase
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 50,
         [FromQuery] string? search = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
         [FromQuery] string? sort = null)
     {
         page = Math.Max(page, 1);
@@ -62,6 +64,9 @@ public class JournalEntriesController : ControllerBase
         var query = _db.JournalEntries.AsNoTracking()
             .Include(e => e.Lines)
             .Where(e => e.CompanyId == companyId);
+
+        if (from is not null) query = query.Where(e => e.Date >= from);
+        if (to is not null) query = query.Where(e => e.Date <= to);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
