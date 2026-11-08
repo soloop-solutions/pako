@@ -53,6 +53,56 @@ public class BillsController : ControllerBase
         return Ok(bills.Select(ToResponse).ToList());
     }
 
+    [HttpGet("paged")]
+    [RequireCompanyAccess(module: AccessModule.Purchases)]
+    public async Task<ActionResult<PaginatedResponse<BillResponse>>> ListPaged(
+        Guid companyId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] DocumentType[]? documentType = null,
+        [FromQuery] DocumentType[]? excludeDocumentType = null,
+        [FromQuery] string? sort = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = _db.Bills.AsNoTracking().VisibleTo(_access)
+            .Include(b => b.Lines)
+            .Where(b => b.CompanyId == companyId);
+
+        if (documentType is { Length: > 0 }) query = query.Where(b => documentType.Contains(b.DocumentType));
+        if (excludeDocumentType is { Length: > 0 }) query = query.Where(b => !excludeDocumentType.Contains(b.DocumentType));
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = $"%{search.Trim()}%";
+            var partnerIds = _db.Partners.Where(p => p.CompanyId == companyId && EF.Functions.ILike(p.Name, pattern)).Select(p => p.Id);
+            query = query.Where(b =>
+                (b.VendorReference != null && EF.Functions.ILike(b.VendorReference, pattern)) ||
+                partnerIds.Contains(b.PartnerId));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = sortField?.ToLowerInvariant() switch
+        {
+            "vendorreference" => descending ? query.OrderByDescending(b => b.VendorReference) : query.OrderBy(b => b.VendorReference),
+            "duedate" => descending ? query.OrderByDescending(b => b.DueDate) : query.OrderBy(b => b.DueDate),
+            "state" => descending ? query.OrderByDescending(b => b.State) : query.OrderBy(b => b.State),
+            "vendor" => descending
+                ? query.OrderByDescending(b => _db.Partners.Where(p => p.Id == b.PartnerId).Select(p => p.Name).FirstOrDefault())
+                : query.OrderBy(b => _db.Partners.Where(p => p.Id == b.PartnerId).Select(p => p.Name).FirstOrDefault()),
+            "issuedate" => descending ? query.OrderByDescending(b => b.IssueDate) : query.OrderBy(b => b.IssueDate),
+            _ => query.OrderByDescending(b => b.IssueDate).ThenByDescending(b => b.CreatedAt)
+        };
+
+        var total = await query.CountAsync();
+        var bills = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PaginatedResponse<BillResponse>(bills.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
     [HttpGet("{id:guid}")]
     [RequireCompanyAccess(module: AccessModule.Purchases)]
     public async Task<ActionResult<BillResponse>> Get(Guid companyId, Guid id)

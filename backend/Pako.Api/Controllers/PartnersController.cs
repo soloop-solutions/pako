@@ -43,6 +43,49 @@ public class PartnersController : ControllerBase
         return Ok(partners.Select(ToResponse).ToList());
     }
 
+    [HttpGet("paged")]
+    [RequireCompanyAccess]
+    public async Task<ActionResult<PaginatedResponse<PartnerResponse>>> ListPaged(
+        Guid companyId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 50,
+        [FromQuery] string? search = null,
+        [FromQuery] string? role = null,
+        [FromQuery] string? sort = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+
+        var query = _db.Partners.AsNoTracking().VisibleTo(_access)
+            .Where(p => p.CompanyId == companyId);
+
+        if (string.Equals(role, "customer", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.IsCustomer);
+        else if (string.Equals(role, "vendor", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.IsVendor);
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var term = search.Trim();
+            var pattern = $"%{term}%";
+            query = query.Where(p =>
+                EF.Functions.ILike(p.Name, pattern) ||
+                (p.TaxNumber != null && EF.Functions.ILike(p.TaxNumber, pattern)) ||
+                (p.FiscalNumber != null && EF.Functions.ILike(p.FiscalNumber, pattern)));
+        }
+
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        query = sortField?.ToLowerInvariant() switch
+        {
+            "taxnumber" => descending ? query.OrderByDescending(p => p.TaxNumber) : query.OrderBy(p => p.TaxNumber),
+            _ => descending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name)
+        };
+
+        var total = await query.CountAsync();
+        var partners = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        return Ok(new PaginatedResponse<PartnerResponse>(partners.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
     [HttpGet("{partnerId:guid}")]
     [RequireCompanyAccess]
     public async Task<ActionResult<PartnerResponse>> Get(Guid companyId, Guid partnerId)
