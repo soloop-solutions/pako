@@ -262,6 +262,8 @@ public class SalesOrdersController : ControllerBase
             Date = DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow)), WarehouseId = warehouseId, PartnerId = order.PartnerId,
             Notes = order.Number,
         };
+        await using var transaction = await LockCompanyAsync(companyId);
+        document.Number = await _numbers.ReserveNextAsync(companyId, StockDocumentService.NumberSeriesKey(StockDocumentType.Delivery), document.Date);
         foreach (var (line, quantity) in open)
         {
             document.Lines.Add(new StockDocumentLine
@@ -271,6 +273,7 @@ public class SalesOrdersController : ControllerBase
         }
         _db.StockDocuments.Add(document);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
         return Ok(document.Id);
     }
 

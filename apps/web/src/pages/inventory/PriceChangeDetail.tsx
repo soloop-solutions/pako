@@ -18,6 +18,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { useNumberPreview } from "@/hooks/useNumberPreview";
 import { useItemSearch } from "@/hooks/useStock";
 import { downloadFileResponse } from "@/lib/download";
 import { formatAmount } from "@/lib/payroll-enums";
@@ -83,6 +84,7 @@ export function PriceChangeDetail() {
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
   const [confirmPost, setConfirmPost] = useState(false);
+  const nextNumber = useNumberPreview(isNew ? activeCompanyId ?? undefined : undefined, isNew ? "PriceChange" : undefined);
 
   useEffect(() => {
     if (!change) return;
@@ -183,7 +185,7 @@ export function PriceChangeDetail() {
         <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
           <div>
             <CardTitle className="flex items-center gap-2">
-              {t("price.change.title")} {change?.number ?? ""}
+              {t("price.change.title")} {change?.number ?? (nextNumber ? <span className="text-muted-foreground tabular-nums">{nextNumber}</span> : "")}
               {posted ? <Badge variant="success">{t("stock.doc.posted")}</Badge> : <Badge variant="outline" className="italic">{t("stock.doc.draft")}</Badge>}
             </CardTitle>
             <CardDescription>{t("price.change.description")}</CardDescription>

@@ -40,7 +40,7 @@ function isoToday() {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-// docs/INVENTORY_PLAN.md §12 P5 — a purchase order: drafted, confirmed (numbered), billed in one or
+// docs/INVENTORY_PLAN.md §12 P5 — a purchase order: drafted (numbered when first saved), confirmed, billed in one or
 // more bills that keep the link, then closed. Billed quantities come from the bills themselves.
 export function PurchaseOrderDetail() {
   const intl = useIntl();

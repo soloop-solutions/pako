@@ -201,10 +201,16 @@ public class PriceListsController : ControllerBase
     [ProducesResponseType(typeof(PriceChangeResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PriceChangeResponse>> CreateChange(Guid companyId, SavePriceChangeRequest request)
     {
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         try
         {
             var change = await _prices.SaveDraftAsync(companyId, null, request);
             await _db.SaveChangesAsync();
+            if (transaction is not null) await transaction.CommitAsync();
             return StatusCode(StatusCodes.Status201Created, await _prices.ToResponseAsync(companyId, change));
         }
         catch (StockException ex)
