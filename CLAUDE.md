@@ -176,3 +176,20 @@ recommendation — each documented with its reasoning in the relevant commit, no
 - **Lock exception grantor**: gated the same way `MembersPanel.tsx` already gates admin-only
   actions (`FirmAdmin`/`ClientAdmin`, excluding `FirmAccountant`) — no narrower role model exists
   in this repo to draw a tighter line.
+
+## Web shared UI (UI/UX workstream)
+
+- **Server-side list search**: `usePagedGrid` + `serverSideColumns` (`components/data-grid/usePagedGrid.ts`)
+  read page/size/sort/`q`/column filters from the DataGrid URL state and call the `…/paged`
+  endpoints (partners, invoices, bills, journal entries; `search`, `sort`, `documentType`,
+  `excludeDocumentType`, `state`, `from`/`to`). Lists that still load everything (`*All`) filter
+  client-side across the full set.
+- **Dates**: `<Input type="date">` and `type="month"` render `DatePicker`/`MonthPicker`
+  (`components/ui/date-picker.tsx`); the value stays `yyyy-MM-dd`/`yyyy-MM`, the display is
+  `dd.mm.yyyy`, and `onChange` still receives `e.target.value`. `time`/`datetime-local` stay native.
+- **Nav per business type**: `config/navLayout.ts` is the one table (category order, lead items,
+  visible count, firm overlay); sidebar prefs are stored per layout scope. Nothing is removed from
+  reach, and module/pack gating in `Sidebar.tsx` is untouched.
+- Use `Checkbox`, `Select`, `TabButton`, `EmptyState`, `useConfirm` (never `window.confirm`) and
+  theme tokens (`text-warning-foreground`, `bg-success`, …) rather than raw elements or palette colours.
+- Tests choose a custom `Select` option with `chooseOption` (`src/test/chooseOption.ts`).
