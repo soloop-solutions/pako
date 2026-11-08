@@ -1,5 +1,3 @@
-import { useCallback } from "react";
-import type { PartnerResponse } from "@pako/shared";
 
 import { PartnerListPage, type PartnerListPageLabels } from "@/pages/partners/PartnerListPage";
 
@@ -20,12 +18,11 @@ const labels: PartnerListPageLabels = {
 const HIDDEN_COLUMNS = ["payableAccount", "type"];
 
 export function Customers() {
-  const filterFn = useCallback((p: PartnerResponse) => p.isCustomer, []);
   return (
     <PartnerListPage
       gridId="customers"
       labels={labels}
-      filterFn={filterFn}
+      role="customer"
       defaultRole="customer"
       showTypeColumn={false}
       hiddenColumnIds={HIDDEN_COLUMNS}
