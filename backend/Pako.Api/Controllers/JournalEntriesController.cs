@@ -391,10 +391,16 @@ public class JournalEntriesController : ControllerBase
 
         reversal.PostedByUserId = CurrentUserId;
         reversal.SourceDocumentId = entry.Id;
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
         reversal.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", reversal.Date);
 
         _db.JournalEntries.Add(reversal);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(reversal));
     }

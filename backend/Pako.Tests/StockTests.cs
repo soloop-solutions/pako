@@ -622,6 +622,59 @@ public class StockTests : IAsyncLifetime
         Assert.Equal("NIV-0001/2026", posted.Number);
     }
 
+    private static NumberSeriesController Series(Co c) =>
+        As(new NumberSeriesController(c.Db, new NumberSeriesService(c.Db)), c.UserId);
+
+    private static async Task<List<string>> GapsAsync(Co c, string documentType)
+    {
+        var report = Assert.IsType<GapReportResponse>(Assert.IsType<OkObjectResult>((await Series(c).GapReport(c.Id, documentType, 2026)).Result).Value);
+        return report.Gaps.Select(g => g.FormattedNumber).ToList();
+    }
+
+    [Fact]
+    public async Task GapReport_StockDocuments_ListsADiscardedMiddleDraft()
+    {
+        var c = await SeedAsync();
+        var main = await MainWarehouseAsync(c);
+        var request = new SaveStockDocumentRequest(StockDocumentType.Opening, D1, main, new List<StockDocumentLineRequest> { new(c.Laptop, 5, 50m) });
+        var first = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        var second = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        await Documents(c).Create(c.Id, request);
+        Assert.Empty(await GapsAsync(c, "StockOpening"));
+        Assert.IsType<NoContentResult>(await Documents(c).Discard(c.Id, second.Id));
+        Assert.Equal(new[] { "HAP-0002/2026" }, await GapsAsync(c, "StockOpening"));
+        Assert.Empty(await GapsAsync(c, "StockReceipt"));
+    }
+
+    [Fact]
+    public async Task GapReport_PriceChanges_ListsADiscardedMiddleDraft()
+    {
+        var c = await SeedAsync();
+        var list = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null))).Result).Value!;
+        var request = new SavePriceChangeRequest(list.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) });
+        PriceChangeResponse Draft(ActionResult<PriceChangeResponse> r) => (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        var second = Draft(await Prices(c).CreateChange(c.Id, request));
+        Draft(await Prices(c).CreateChange(c.Id, request));
+        Assert.Empty(await GapsAsync(c, "PriceChange"));
+        Assert.IsType<NoContentResult>(await Prices(c).DiscardChange(c.Id, second.Id));
+        Assert.Equal(new[] { "NIV-0002/2026" }, await GapsAsync(c, "PriceChange"));
+    }
+
+    [Fact]
+    public async Task GapReport_PurchaseOrders_ListsADeletedMiddleDraft()
+    {
+        var c = await SeedAsync();
+        var request = new SavePurchaseOrderRequest(c.Vendor, D1, D3, new List<PurchaseOrderLineRequest> { new(c.Laptop, "Laptops", 10m, 118m, c.B18) });
+        PurchaseOrderResponse Draft(ActionResult<PurchaseOrderResponse> r) => (PurchaseOrderResponse)Assert.IsAssignableFrom<ObjectResult>(r.Result).Value!;
+        Draft(await Orders(c).Create(c.Id, request));
+        var second = Draft(await Orders(c).Create(c.Id, request));
+        Draft(await Orders(c).Create(c.Id, request));
+        Assert.Empty(await GapsAsync(c, "PurchaseOrder"));
+        Assert.IsType<NoContentResult>(await Orders(c).Delete(c.Id, second.Id));
+        Assert.Equal(new[] { "PO-0002/2026" }, await GapsAsync(c, "PurchaseOrder"));
+    }
+
     private static PurchaseOrdersController Orders(Co c) =>
         As(new PurchaseOrdersController(c.Db, new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), Tax), c.UserId);
 

@@ -327,6 +327,24 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         Assert.Equal("URD-000001", posted.SequenceNumber);
     }
 
+    [Fact]
+    public async Task Reverse_NumbersTheReversalFromTheSameSeries()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId,
+            new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), "Original", new List<CreateJournalEntryLineRequest>
+            {
+                new(accountAId, null, 100m, 0m, null),
+                new(accountBId, null, 0m, 100m, null)
+            }), _actionTokenService, MakeActionToken(companyId))).Result).Value);
+        await controller.Post(companyId, created.Id);
+
+        var reversal = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>((await controller.Reverse(companyId, created.Id, new ReverseJournalEntryRequest(new DateOnly(2026, 8, 27)))).Result).Value);
+
+        Assert.Equal(("URD-000001", "URD-000002"), (created.SequenceNumber, reversal.SequenceNumber));
+    }
+
     // R16 (storno).
     [Fact]
     public async Task Reverse_PostedEntry_CreatesPostedMirrorAndCancelsOriginal()

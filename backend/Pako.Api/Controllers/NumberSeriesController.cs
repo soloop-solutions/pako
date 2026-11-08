@@ -188,6 +188,11 @@ public class NumberSeriesController : ControllerBase
             }
         }
 
+        else if (await _numberSeries.GetIssuedSequenceValuesAsync(companyId, documentType, reportYear, series.Pattern) is { } issued)
+        {
+            issuedNumbers = issued;
+        }
+
         var maxIssued = issuedNumbers.Count > 0 ? issuedNumbers.Max() : 0;
         var gaps = new List<GapReportEntry>();
 
