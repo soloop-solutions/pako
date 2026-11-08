@@ -60,6 +60,52 @@ public class PartnersControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Create_PersistsContactAndAddressFields()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, new CreatePartnerRequest(
+            "Acme LLC", "810123456", true, false,
+            Email: " info@acme.test ", Phone: "+383 44 111 222", ContactPerson: "Arta Berisha",
+            StreetAddress: "Rr. Nena Tereze 1", City: "Prishtine", PostalCode: "10000", Country: "XK"));
+
+        var created = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal("info@acme.test", created.Email);
+        Assert.Equal("Arta Berisha", created.ContactPerson);
+        Assert.Equal("Prishtine", created.City);
+        var stored = await db.Partners.AsNoTracking().SingleAsync(p => p.Id == created.Id);
+        Assert.Equal("10000", stored.PostalCode);
+        Assert.Equal("XK", stored.Country);
+    }
+
+    [Fact]
+    public async Task Create_InvalidEmail_Rejected()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Create(companyId, new CreatePartnerRequest("Acme LLC", null, true, false, Email: "not-an-email"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Update_ReplacesContactFields()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId,
+            new CreatePartnerRequest("Acme LLC", null, true, false, Phone: "1"))).Result).Value);
+
+        var updated = await controller.Update(companyId, created.Id, new UpdatePartnerRequest("Acme LLC", null, true, false, Phone: "2", City: "Peje"));
+
+        var body = Assert.IsType<PartnerResponse>(Assert.IsType<OkObjectResult>(updated.Result).Value);
+        Assert.Equal("2", body.Phone);
+        Assert.Equal("Peje", body.City);
+    }
+
+    [Fact]
     public async Task Create_MissingName_Rejected()
     {
         var (db, companyId, _) = await SeedCompanyWithAccountAsync();

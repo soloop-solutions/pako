@@ -1230,11 +1230,27 @@ namespace Pako.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("City")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
                     b.Property<Guid>("CompanyId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ContactPerson")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Country")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<decimal?>("CreditLimit")
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("Email")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
 
                     b.Property<Guid?>("EmployeeId")
                         .HasColumnType("uuid");
@@ -1268,11 +1284,23 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<int?>("PaymentTermDays")
                         .HasColumnType("integer");
 
+                    b.Property<string>("Phone")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
                     b.Property<Guid?>("PriceListId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("ReceivableAccountId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("StreetAddress")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.Property<string>("TaxNumber")
                         .HasMaxLength(64)
