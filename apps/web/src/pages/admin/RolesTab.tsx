@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { AccessLevel, PartnerScope } from "@/lib/hr-enums";
 import { cn } from "@/lib/utils";
 import { ACCESS_AREAS, ACCESS_LEVELS, areaLabel, emptyLevels, levelLabel, pagesFor, type AccessArea } from "@/pages/admin/accessAreas";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 interface Draft {
   id: string | null;
@@ -38,6 +40,7 @@ const toDraft = (role: CompanyRoleResponse | null, copy = false): Draft =>
 // partner scope — like QuickBooks Advanced custom roles and Odoo's app groups.
 export function RolesTab({ companyId, canManage }: { companyId: string; canManage: boolean }) {
   const intl = useIntl();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -183,8 +186,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
               <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.roles.levelsHint" })}</p>
 
               <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="checkbox"
+                <Checkbox
                   className="mt-0.5"
                   checked={draft.partnerScope === PartnerScope.Assigned}
                   onChange={(e) => setDraft({ ...draft, partnerScope: e.target.checked ? PartnerScope.Assigned : PartnerScope.All })}
@@ -234,7 +236,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                     className="text-destructive"
                     disabled={deleteMutation.isPending}
                     onClick={() => {
-                      if (window.confirm(intl.formatMessage({ id: "admin.roles.deleteConfirm" }, { name: selected.name }))) deleteMutation.mutate(selected.id);
+                      confirm(intl.formatMessage({ id: "admin.roles.deleteConfirm" }, { name: selected.name }), () => deleteMutation.mutate(selected.id));
                     }}
                   >
                     <Trash2 className="size-4" />

@@ -14,7 +14,8 @@ import { Button } from "@/components/ui/button";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { Select } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 const statusVariant: Record<string, "success" | "cancelled" | "warning" | "outline"> = {
   Active: "success",
@@ -35,6 +36,7 @@ interface AccessForm {
 // emailed, and the link is also shown here to pass on directly.
 export function UsersTab({ companyId, canManage }: { companyId: string; canManage: boolean }) {
   const intl = useIntl();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const usersKey = ["admin", "users", companyId] as const;
   const [dialog, setDialog] = useState<{ mode: "invite" } | { mode: "edit"; user: CompanyUserResponse } | null>(null);
@@ -116,7 +118,7 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
   });
 
   function confirmThen(user: CompanyUserResponse, action: string, messageId: string) {
-    if (window.confirm(intl.formatMessage({ id: messageId }, { email: user.email }))) actionMutation.mutate({ user, action });
+    confirm(intl.formatMessage({ id: messageId }, { email: user.email }), () => actionMutation.mutate({ user, action }));
   }
 
   function openInvite() {
@@ -329,20 +331,7 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
                 <input type="radio" className="mt-0.5" checked={!form.administrator} onChange={() => setForm({ ...form, administrator: false })} />
                 <span className="flex grow flex-col gap-1">
                   {intl.formatMessage({ id: "admin.users.withRole" })}
-                  <select
-                    aria-label={intl.formatMessage({ id: "admin.users.role" })}
-                    className={cn("h-9 rounded-md border bg-transparent px-2 text-sm", form.administrator && "opacity-50")}
-                    disabled={form.administrator}
-                    value={form.roleId}
-                    onChange={(e) => setForm({ ...form, roleId: e.target.value })}
-                  >
-                    <option value="">{intl.formatMessage({ id: "admin.users.chooseRole" })}</option>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
+                  <Select aria-label={intl.formatMessage({ id: "admin.users.role" })} disabled={form.administrator} value={form.roleId} onValueChange={(v) => setForm({ ...form, roleId: v })} options={[{ value: "", label: intl.formatMessage({ id: "admin.users.chooseRole" }) }, ...roles.map((r) => ({ value: r.id, label: r.name }))]} />
                   {selectedRole?.description && !form.administrator && (
                     <span className="text-xs text-muted-foreground">{selectedRole.description}</span>
                   )}

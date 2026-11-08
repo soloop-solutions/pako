@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { formatDate } from "@/pages/leave/leaveShared";
+import { Select } from "@/components/ui/select";
 
 function ReadOnly({ label, value }: { label: string; value: string | undefined | null }) {
   return (
@@ -167,10 +168,7 @@ export function MyProfile() {
             </label>
             <label className="flex items-center gap-2 text-sm">
               {intl.formatMessage({ id: "hr.employee.preferredLanguage" })}
-              <select className="h-8 rounded-md border bg-transparent px-2 text-sm" value={language} onChange={(e) => setLanguage(e.target.value)}>
-                <option value="sq">Shqip</option>
-                <option value="en">English</option>
-              </select>
+              <Select value={language} onValueChange={(v) => setLanguage(v)} options={[{ value: "sq", label: "Shqip" }, { value: "en", label: "English" }]} />
             </label>
 
             <div>

@@ -34,6 +34,7 @@ import { ComboPicker, ModifierPicker, type ComboChoice } from "@/pages/pos/resta
 import { PreBillDialog } from "@/pages/pos/restaurant/PreBill";
 import { PayTabDialog } from "@/pages/pos/restaurant/TabPay";
 import { chargeableToRoom, tabKindLabelKey, type TabPayment } from "@/pages/pos/restaurant/tab-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const money = (v: number | undefined) => (v ?? 0).toFixed(2);
 
@@ -568,8 +569,7 @@ function TabLineRow({ tab, line: l, choices, selected, onSelect, editing, onEdit
   return (
     <li className={cn("flex flex-col gap-0.5 px-3 py-1.5", voided && "text-muted-foreground")} data-testid="tab-line" data-state={tabLineStateKey(l.state)}>
       <div className="flex items-start gap-2">
-        <input
-          type="checkbox"
+        <Checkbox
           className="mt-1"
           aria-label={t("rest.line.select", { item: l.description })}
           disabled={!movable}

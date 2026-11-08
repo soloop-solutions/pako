@@ -101,7 +101,7 @@ export function Memberships() {
           <span className="flex items-center gap-1">
             <Badge variant={row.original.state === MembershipState.Active ? "default" : "secondary"}>{getValue() as string}</Badge>
             {row.original.activeToday ? (
-              <Badge variant="outline" className="border-emerald-500 text-emerald-700 dark:text-emerald-400">{t("svc.member.today")}</Badge>
+              <Badge variant="outline" className="border-success-border text-success-foreground">{t("svc.member.today")}</Badge>
             ) : null}
           </span>
         ),

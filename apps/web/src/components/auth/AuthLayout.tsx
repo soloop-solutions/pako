@@ -4,7 +4,7 @@ import { useIntl } from "react-intl";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
-import { ThemeContext } from "@/context/ThemeContext";
+import { ThemeContext } from "@/context/theme-context";
 import { cn } from "@/lib/utils";
 
 const points = [

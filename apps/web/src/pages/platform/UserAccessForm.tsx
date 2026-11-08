@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface UserAccessValues {
   userId: string;
@@ -66,7 +67,7 @@ export function UserAccessForm({ user, onSaved, onCancel }: { user: UserAccessVa
         <div className="flex flex-wrap items-center gap-3">
           <Input id="pu-limit" type="number" min={0} className="w-28" value={limit} disabled={unlimited || admin} onChange={(e) => setLimit(e.target.value)} />
           <label className="flex items-center gap-1.5 text-sm">
-            <input type="checkbox" checked={unlimited || admin} disabled={admin} onChange={(e) => setUnlimited(e.target.checked)} />
+            <Checkbox checked={unlimited || admin} disabled={admin} onChange={(e) => setUnlimited(e.target.checked)} />
             {t("platform.user.unlimited")}
           </label>
         </div>
@@ -76,14 +77,14 @@ export function UserAccessForm({ user, onSaved, onCancel }: { user: UserAccessVa
         </p>
       </div>
       <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" className="mt-0.5" checked={disabled} disabled={isSelf} onChange={(e) => setDisabled(e.target.checked)} />
+        <Checkbox className="mt-0.5" checked={disabled} disabled={isSelf} onChange={(e) => setDisabled(e.target.checked)} />
         <span>
           {t("platform.user.disable")}
           <span className="block text-xs text-muted-foreground">{t("platform.user.disableHint")}</span>
         </span>
       </label>
       <label className="flex items-start gap-2 text-sm">
-        <input type="checkbox" className="mt-0.5" checked={admin} disabled={isSelf} onChange={(e) => setAdmin(e.target.checked)} />
+        <Checkbox className="mt-0.5" checked={admin} disabled={isSelf} onChange={(e) => setAdmin(e.target.checked)} />
         <span>
           {t("platform.user.admin")}
           <span className="block text-xs text-muted-foreground">{t("platform.user.adminHint")}</span>

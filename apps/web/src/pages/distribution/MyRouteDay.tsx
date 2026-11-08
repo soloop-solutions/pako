@@ -9,6 +9,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -128,23 +129,23 @@ export function MyRouteDay() {
       {query.isPending && <DaySkeleton />}
       {query.isError && <p className="text-sm text-destructive" role="alert">{getApiErrorMessage(query.error, t("dist.day.loadError"))}</p>}
       {!query.isPending && !query.isError && routes.length === 0 && (
-        <div className="flex flex-col items-center gap-3 rounded-lg border bg-card px-6 py-10 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl border bg-muted text-muted-foreground">
-            <CalendarOff className="size-6" />
-          </span>
-          <p className="text-sm font-medium">{t("dist.day.empty")}</p>
-          <p className="max-w-sm text-sm text-muted-foreground">{t("dist.day.emptyHint")}</p>
-          <div className="flex flex-wrap justify-center gap-2">
-            {date !== today && (
-              <Button type="button" size="sm" onClick={() => setDate(today)}>
-                {t("dist.day.goToday")}
+        <EmptyState
+          icon={CalendarOff}
+          title={t("dist.day.empty")}
+          description={t("dist.day.emptyHint")}
+          actions={
+            <>
+              {date !== today && (
+                <Button type="button" size="sm" onClick={() => setDate(today)}>
+                  {t("dist.day.goToday")}
+                </Button>
+              )}
+              <Button asChild size="sm" variant="outline">
+                <Link to="/distribution/routes">{t("dist.day.openRoutes")}</Link>
               </Button>
-            )}
-            <Button asChild size="sm" variant="outline">
-              <Link to="/distribution/routes">{t("dist.day.openRoutes")}</Link>
-            </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
       )}
       {routes.map((route) => {
         const routeDone = route.stops.filter(isDone).length;

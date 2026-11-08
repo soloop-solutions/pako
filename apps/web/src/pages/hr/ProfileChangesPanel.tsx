@@ -35,7 +35,7 @@ export function ProfileChangesPanel({ companyId, canDecide }: { companyId: strin
   if (changes.length === 0) return null;
 
   return (
-    <Card className="border-amber-300 dark:border-amber-700">
+    <Card className="border-warning-border dark:border-warning-border">
       <CardHeader>
         <CardTitle>{intl.formatMessage({ id: "hr.profileChanges.title" }, { count: changes.length })}</CardTitle>
         <CardDescription>{intl.formatMessage({ id: "hr.profileChanges.description" })}</CardDescription>

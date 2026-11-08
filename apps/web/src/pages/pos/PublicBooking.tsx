@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { formatAmount } from "@/lib/payroll-enums";
 import { addDays, localDate, localTime, todayLocal } from "@/lib/pos-services";
+import { Select } from "@/components/ui/select";
 
 const isNotFound = (err: unknown) => err instanceof ApiException && err.status === 404;
 // The server books up to 90 days ahead.
@@ -205,20 +206,10 @@ export function PublicBooking() {
         {service.resources.length > 1 && (
           <div className="flex flex-col gap-1">
             <Label htmlFor="book-person">{t("svc.book.person")}</Label>
-            <select
-              id="book-person"
-              className="h-9 rounded-md border bg-background px-2 text-sm"
-              value={resourceId}
-              onChange={(e) => {
-                setResourceId(e.target.value);
+            <Select id="book-person" value={resourceId} onValueChange={(v) => {
+                setResourceId(v);
                 setStart(null);
-              }}
-            >
-              <option value="">{t("svc.book.person.any")}</option>
-              {service.resources.map((r) => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
+              }} options={[{ value: "", label: t("svc.book.person.any") }, ...service.resources.map((r) => ({ value: r.id, label: r.name }))]} />
           </div>
         )}
       </div>

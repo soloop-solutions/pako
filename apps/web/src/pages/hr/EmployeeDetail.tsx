@@ -22,6 +22,7 @@ import { EmployeeAnnualStatement } from "@/pages/hr/EmployeeAnnualStatement";
 import { EmployeeContracts } from "@/pages/hr/EmployeeContracts";
 import { EmployeePartnerAccess } from "@/pages/hr/EmployeePartnerAccess";
 import { EmployeeLoansPanel } from "@/pages/payroll/EmployeeLoans";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const SECTIONS = ["personal", "employment", "pay", "contracts", "partners", "loans", "statement"] as const;
 type Section = (typeof SECTIONS)[number];
@@ -419,12 +420,11 @@ function EmployeeEditor({
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" disabled={readOnly} checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} />
+                    <Checkbox disabled={readOnly} checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} />
                     {intl.formatMessage({ id: "common.active" })}
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       disabled={readOnly}
                       checked={form.isPrimaryEmployer}
                       onChange={(e) => set("isPrimaryEmployer", e.target.checked)}
@@ -432,12 +432,11 @@ function EmployeeEditor({
                     {intl.formatMessage({ id: "hr.employee.primaryEmployer" })}
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" disabled={readOnly} checked={form.pensionExempt} onChange={(e) => set("pensionExempt", e.target.checked)} />
+                    <Checkbox disabled={readOnly} checked={form.pensionExempt} onChange={(e) => set("pensionExempt", e.target.checked)} />
                     {intl.formatMessage({ id: "hr.employee.pensionExempt" })}
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       disabled={readOnly}
                       checked={form.receivePayslipsByEmail}
                       onChange={(e) => set("receivePayslipsByEmail", e.target.checked)}
@@ -446,15 +445,7 @@ function EmployeeEditor({
                   </label>
                   <label className="flex items-center gap-2 text-sm">
                     {intl.formatMessage({ id: "hr.employee.preferredLanguage" })}
-                    <select
-                      className="h-7 rounded-md border bg-transparent px-1 text-sm"
-                      disabled={readOnly}
-                      value={form.preferredLanguage}
-                      onChange={(e) => set("preferredLanguage", e.target.value)}
-                    >
-                      <option value="sq">Shqip</option>
-                      <option value="en">English</option>
-                    </select>
+                    <Select disabled={readOnly} value={form.preferredLanguage} onValueChange={(v) => set("preferredLanguage", v)} options={[{ value: "sq", label: "Shqip" }, { value: "en", label: "English" }]} />
                   </label>
                 </div>
                 <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.primaryEmployerHint" })}</p>
@@ -492,22 +483,8 @@ function EmployeeEditor({
                   <Input id="emp-bank" disabled={readOnly} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
                 </Field>
                 <Field id="emp-commission" label={intl.formatMessage({ id: "hr.employee.commissionPlan" })} hint={intl.formatMessage({ id: "hr.employee.commissionPlanHint" })}>
-                  <select
-                    id="emp-commission"
-                    className="h-9 rounded-md border bg-transparent px-2 text-sm"
-                    disabled={readOnly}
-                    value={form.commissionPlanId}
-                    onChange={(e) => set("commissionPlanId", e.target.value)}
-                  >
-                    <option value="">{intl.formatMessage({ id: "hr.employee.noCommission" })}</option>
-                    {(commissionPlansQuery.data ?? [])
-                      .filter((p) => p.isActive || p.id === form.commissionPlanId)
-                      .map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                  </select>
+                  <Select id="emp-commission" disabled={readOnly} value={form.commissionPlanId} onValueChange={(v) => set("commissionPlanId", v)} options={[{ value: "", label: intl.formatMessage({ id: "hr.employee.noCommission" }) }, ...(commissionPlansQuery.data ?? [])
+                      .filter((p) => p.isActive || p.id === form.commissionPlanId).map((p) => ({ value: p.id, label: p.name }))]} />
                 </Field>
               </div>
             )}

@@ -22,6 +22,7 @@ import { useWarehouses } from "@/hooks/useStock";
 import { useCompanyMembers } from "@/hooks/usePosServices";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { NegativeStockPolicy } from "@/lib/stock-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // docs/INVENTORY_PLAN.md — where stock is kept, and the company's stock settings (cost method,
 // selling below zero, default warehouse).
@@ -167,7 +168,7 @@ function WarehouseDialog({ warehouse, onClose, onSaved }: { warehouse: Warehouse
           <Input id="wh-address" value={address} onChange={(e) => setAddress(e.target.value)} />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isVan} onChange={(e) => setIsVan(e.target.checked)} />
+          <Checkbox checked={isVan} onChange={(e) => setIsVan(e.target.checked)} />
           {t("dist.wh.isVan")}
         </label>
         {isVan && (
@@ -191,7 +192,7 @@ function WarehouseDialog({ warehouse, onClose, onSaved }: { warehouse: Warehouse
         )}
         {warehouse && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("stock.wh.active")}
           </label>
         )}

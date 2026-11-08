@@ -3,9 +3,9 @@ import { useSearchParams } from "react-router-dom";
 
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
-import { cn } from "@/lib/utils";
 import { RolesTab } from "@/pages/admin/RolesTab";
 import { UsersTab } from "@/pages/admin/UsersTab";
+import { TabButton } from "@/components/ui/tabs";
 
 const TABS = ["users", "roles"] as const;
 
@@ -30,19 +30,13 @@ export function UsersAndRoles() {
       </div>
       <div role="tablist" aria-label={intl.formatMessage({ id: "nav.usersAndRoles" })} className="flex gap-1 border-b">
         {TABS.map((id) => (
-          <button
+          <TabButton
             key={id}
-            type="button"
-            role="tab"
-            aria-selected={tab === id}
+            selected={tab === id}
             onClick={() => setSearchParams(id === "users" ? {} : { tab: id }, { replace: true })}
-            className={cn(
-              "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-              tab === id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
           >
             {intl.formatMessage({ id: `admin.tab.${id}` })}
-          </button>
+          </TabButton>
         ))}
       </div>
       <div role="tabpanel">

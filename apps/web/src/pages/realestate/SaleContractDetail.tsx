@@ -22,6 +22,7 @@ import { cn } from "@/lib/utils";
 import { ContractState } from "@/lib/verticals-enums";
 import { ContractStateBadge, ErrorAlert, Field, Tile } from "@/pages/verticals/shared";
 import { amount, useT } from "@/pages/verticals/verticals-utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 // docs/ERP_VERTICALS_PLAN.md §2 — one sale contract: the payment plan (këstet) with what is open and
 // overdue on each installment; installments not yet invoiced are picked and invoiced together.
@@ -83,7 +84,7 @@ export function SaleContractDetail() {
         id: "pick",
         header: "",
         cell: ({ row }) => (row.original.invoiceId || !active || !canWrite("sales") ? null : (
-          <input type="checkbox" aria-label={t("vx.contract.pickInstallment", { number: row.original.number })}
+          <Checkbox aria-label={t("vx.contract.pickInstallment", { number: row.original.number })}
             checked={selected.has(row.original.id)} onChange={() => toggle(row.original.id)} onClick={(e) => e.stopPropagation()} />
         )),
       },
@@ -196,11 +197,11 @@ const ContractPrint = forwardRef<HTMLDivElement, { contract: SaleContractRespons
         </header>
         <section className="grid grid-cols-2 gap-4">
           <div>
-            <p className="text-[10px] uppercase text-neutral-600">{t("vx.contract.buyer")}</p>
+            <p className="text-[10px] uppercase text-muted-foreground">{t("vx.contract.buyer")}</p>
             <p className="font-semibold">{contract.buyerName}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase text-neutral-600">{t("vx.unit.label")}</p>
+            <p className="text-[10px] uppercase text-muted-foreground">{t("vx.unit.label")}</p>
             <p className="font-semibold">{contract.buildingName} · {contract.unitNumber}</p>
             <p>{t(`vx.contractKind.${contract.kind}`)}</p>
           </div>
@@ -218,7 +219,7 @@ const ContractPrint = forwardRef<HTMLDivElement, { contract: SaleContractRespons
           </thead>
           <tbody>
             {contract.installments.map((i) => (
-              <tr key={i.id} className="border-b border-neutral-300">
+              <tr key={i.id} className="border-b border-input">
                 <td className="py-1">{i.number}</td>
                 <td className="py-1">{formatIsoDate(intl, i.dueDate)}</td>
                 <td className="py-1 text-right tabular-nums">{amount(i.amount)}</td>

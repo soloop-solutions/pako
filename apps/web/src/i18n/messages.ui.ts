@@ -37,6 +37,9 @@ export const uiEn: Record<string, string> = {
   "dist.day.goToday": "Go to today",
   "dist.day.openRoutes": "Open sales routes",
 
+  "confirm.title": "Please confirm",
+  "confirm.confirm": "Confirm",
+
   "date.placeholder": "dd.mm.yyyy",
   "date.open": "Open calendar",
   "date.clear": "Clear date",
@@ -85,6 +88,9 @@ export const uiSq: Record<string, string> = {
   "dist.day.emptyHint": "Itinerarët ecin në ditët e javës për të cilat janë planifikuar. Zgjidhni një ditë tjetër ose kontrolloni ditët e itinerarëve tuaj.",
   "dist.day.goToday": "Shko te sot",
   "dist.day.openRoutes": "Hap itinerarët e shitjes",
+
+  "confirm.title": "Ju lutem konfirmoni",
+  "confirm.confirm": "Konfirmo",
 
   "date.placeholder": "dd.mm.vvvv",
   "date.open": "Hap kalendarin",

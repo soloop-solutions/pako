@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { EmployeeFilter } from "@/pages/leave/LeaveRequestsTab";
 import { parseYear, remainingTone, useLeaveTypes, yearOptions } from "@/pages/leave/leaveShared";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 const GRID_ID = "leaveBalances";
 
@@ -29,6 +30,7 @@ function balanceKey(row: { employeeId: string; leaveTypeId: string }) {
 
 export function LeaveBalancesTab({ companyId }: { companyId: string }) {
   const intl = useIntl();
+  const confirm = useConfirm();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const year = parseYear(searchParams.get("year"));
@@ -263,7 +265,7 @@ export function LeaveBalancesTab({ companyId }: { companyId: string }) {
             hidden={!canApprove("hr")}
             disabled={carryOverMutation.isPending}
             onClick={() => {
-              if (window.confirm(intl.formatMessage({ id: "leave.balances.carryOverConfirm" }, { year, next: year + 1 }))) carryOverMutation.mutate();
+              confirm(intl.formatMessage({ id: "leave.balances.carryOverConfirm" }, { year, next: year + 1 }), () => carryOverMutation.mutate());
             }}
           >
             {intl.formatMessage({ id: "leave.balances.carryOver" }, { year })}

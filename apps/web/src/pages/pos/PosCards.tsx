@@ -19,6 +19,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { GiftCardKind, giftCardKindKey } from "@/lib/pos-enums";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const money = (v: number) => v.toFixed(2);
 
@@ -235,7 +236,7 @@ function LoyaltyCardDialog({ card, onClose, onSaved }: { card: LoyaltyCardRespon
         )}
         {card && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("common.active")}
           </label>
         )}

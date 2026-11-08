@@ -329,7 +329,7 @@ export function SalesOrderDetail() {
             <CardDescription>{t("so.description")}</CardDescription>
             {order?.number && order.quoteNumber && <p className="text-xs text-muted-foreground">{t("so.fromQuote", { quote: order.quoteNumber })}</p>}
             {order?.blockOverrideReason && (
-              <p className="text-xs text-amber-700 dark:text-amber-400">{t("so.overridden", { reason: order.blockOverrideReason })}</p>
+              <p className="text-xs text-warning-foreground">{t("so.overridden", { reason: order.blockOverrideReason })}</p>
             )}
           </div>
           <div className="flex flex-wrap gap-2">

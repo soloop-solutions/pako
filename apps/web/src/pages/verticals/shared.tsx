@@ -11,6 +11,7 @@ import {
   ContractState, LeaseState, ProgressBillState, ReservationState, SiteState, UnitState,
 } from "@/lib/verticals-enums";
 import { useT } from "@/pages/verticals/verticals-utils";
+import { TabButton } from "@/components/ui/tabs";
 
 // docs/ERP_VERTICALS_PLAN.md (POS plan P8) — pieces shared by the construction, real estate and
 // rental screens. Every figure shown comes from the API; nothing here computes money.
@@ -39,19 +40,13 @@ export function TabBar({ tabs, value, onChange, label }: {
   return (
     <div role="tablist" aria-label={label} className="flex flex-wrap gap-1 border-b">
       {tabs.map((tab) => (
-        <button
+        <TabButton
           key={tab.id}
-          type="button"
-          role="tab"
-          aria-selected={value === tab.id}
+          selected={value === tab.id}
           onClick={() => onChange(tab.id)}
-          className={cn(
-            "-mb-px border-b-2 px-3 py-1.5 text-[13px] font-medium",
-            value === tab.id ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground",
-          )}
         >
           {tab.label}
-        </button>
+        </TabButton>
       ))}
     </div>
   );

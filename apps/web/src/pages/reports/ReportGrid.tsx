@@ -20,7 +20,7 @@ const ROW_CLASS: Record<ReportRow["kind"], string | undefined> = {
   section: "bg-muted/60 font-semibold",
   line: undefined,
   summary: "border-t font-semibold",
-  flag: "bg-amber-50 font-semibold text-amber-700",
+  flag: "bg-warning font-semibold text-warning-foreground",
 };
 
 interface ReportGridProps {

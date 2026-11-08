@@ -18,6 +18,8 @@ import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { formatPayrollMonth } from "@/lib/payroll-enums";
+import { Select } from "@/components/ui/select";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 // Mirrors TimeEntryKind (numeric on the wire).
 const KINDS = ["Regular", "Overtime", "Night", "Weekend", "Holiday"] as const;
@@ -32,6 +34,7 @@ const hours = (value: number) => (value === 0 ? "—" : String(value));
 // into the overtime / night / weekend / holiday adjustments payroll uses.
 export function Timesheets() {
   const intl = useIntl();
+  const confirm = useConfirm();
   const { activeCompanyId: companyId } = useCompany();
   const { canWrite, canApprove } = useMyAccess();
   const queryClient = useQueryClient();
@@ -206,7 +209,7 @@ export function Timesheets() {
                     hidden={!canApprove("hr")}
                     disabled={approveMutation.isPending || summary.length === 0}
                     onClick={() => {
-                      if (window.confirm(intl.formatMessage({ id: "timesheets.approveConfirm" }, { month: formatPayrollMonth(month, intl) }))) approveMutation.mutate();
+                      confirm(intl.formatMessage({ id: "timesheets.approveConfirm" }, { month: formatPayrollMonth(month, intl) }), () => approveMutation.mutate());
                     }}
                   >
                     {intl.formatMessage({ id: "timesheets.approveMonth" })}
@@ -271,14 +274,7 @@ export function Timesheets() {
               </div>
               <div className="flex flex-col gap-1">
                 <Label htmlFor="te-kind">{intl.formatMessage({ id: "timesheets.kindLabel" })}</Label>
-                <select id="te-kind" className="h-9 rounded-md border bg-transparent px-2 text-sm" value={kind} onChange={(e) => setKind(e.target.value)}>
-                  <option value="">{intl.formatMessage({ id: "timesheets.kindAuto" })}</option>
-                  {KINDS.map((k) => (
-                    <option key={k} value={k}>
-                      {kindLabel(k)}
-                    </option>
-                  ))}
-                </select>
+                <Select id="te-kind" value={kind} onValueChange={(v) => setKind(v)} options={[{ value: "", label: intl.formatMessage({ id: "timesheets.kindAuto" }) }, ...KINDS.map((k) => ({ value: k, label: kindLabel(k) }))]} />
               </div>
               <Button type="submit" disabled={createMutation.isPending}>
                 {intl.formatMessage({ id: "timesheets.add" })}

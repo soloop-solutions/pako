@@ -22,6 +22,7 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { useCompanyMembers } from "@/hooks/usePosServices";
 import { useWarehouses } from "@/hooks/useStock";
 import { WEEK_DAYS, dayBit, hasDay } from "@/lib/sales-order-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface Stop {
   partnerId: string;
@@ -213,7 +214,7 @@ function RouteDialog({ route, onClose, onSaved }: { route: SalesRouteResponse | 
           <div className="flex flex-wrap gap-3">
             {WEEK_DAYS.map((d) => (
               <label key={d} className="flex items-center gap-1.5 text-sm">
-                <input type="checkbox" checked={hasDay(days, d)} onChange={(e) => setDays((v) => (e.target.checked ? v | dayBit(d) : v & ~dayBit(d)))} />
+                <Checkbox checked={hasDay(days, d)} onChange={(e) => setDays((v) => (e.target.checked ? v | dayBit(d) : v & ~dayBit(d)))} />
                 {t(`dist.day.${d}`)}
               </label>
             ))}
@@ -249,7 +250,7 @@ function RouteDialog({ route, onClose, onSaved }: { route: SalesRouteResponse | 
         </section>
         {route && (
           <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+            <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
             {t("dist.route.active")}
           </label>
         )}

@@ -22,6 +22,7 @@ import { useUrlParam } from "@/hooks/useUrlParam";
 import { PRODUCTION_CENTER_KINDS, ProductionCenterKind, productionCenterKindKey } from "@/lib/pos-enums";
 import { useItemLookup } from "@/hooks/useItemLookup";
 import { ItemChips, ItemPicker } from "@/pages/pos/menuPickers";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const centersKey = (companyId: string | null) => ["posProductionCenters", companyId] as const;
 const groupsKey = (companyId: string | null) => ["posModifierGroups", companyId] as const;
@@ -287,7 +288,7 @@ function CenterDialog({ center, onClose, onSaved }: { center: ProductionCenterRe
           <Input id="pc-printer" maxLength={120} value={printer} onChange={(e) => setPrinter(e.target.value)} />
         </Field>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">
@@ -425,7 +426,7 @@ function ModifierGroupDialog({ group, onClose, onSaved }: { group: ModifierGroup
                   />
                 </Field>
                 <label className="flex h-7 items-center gap-1 text-xs">
-                  <input type="checkbox" checked={m.isActive} onChange={(e) => patch(m.key, { isActive: e.target.checked })} />
+                  <Checkbox checked={m.isActive} onChange={(e) => patch(m.key, { isActive: e.target.checked })} />
                   {t("common.active")}
                 </label>
                 <Button
@@ -466,7 +467,7 @@ function ModifierGroupDialog({ group, onClose, onSaved }: { group: ModifierGroup
         </Field>
 
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
+          <Checkbox checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
           {t("common.active")}
         </label>
         <div className="flex justify-end gap-2">

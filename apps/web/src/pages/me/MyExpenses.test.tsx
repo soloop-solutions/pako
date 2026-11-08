@@ -7,6 +7,7 @@ import type { SaveExpenseClaimRequest } from "@pako/shared";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { FirmPayroll } from "@/pages/hr/FirmPayroll";
 import { MyExpenses } from "@/pages/me/MyExpenses";
+import { chooseOption } from "@/test/chooseOption";
 
 const companyId = "11111111-1111-1111-1111-111111111111";
 
@@ -70,11 +71,10 @@ describe("My expenses", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
     expect(screen.getByText(/fill in date, description, category and amount/)).toBeInTheDocument();
 
-    await screen.findByRole("option", { name: "600500 Travel" });
     fireEvent.change(screen.getByLabelText("What it was for"), { target: { value: "Fuel" } });
-    fireEvent.change(screen.getByLabelText("Category"), { target: { value: "acc-travel" } });
+    await chooseOption(screen.getByLabelText("Category"), "600500 Travel");
     fireEvent.change(screen.getByLabelText("Amount paid (VAT incl.)"), { target: { value: "59,00" } });
-    fireEvent.change(screen.getByLabelText("VAT on the receipt"), { target: { value: "vat18" } });
+    await chooseOption(screen.getByLabelText("VAT on the receipt"), "TVSH 18%");
     fireEvent.change(screen.getByLabelText("Shop / supplier"), { target: { value: "Petrol" } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
 

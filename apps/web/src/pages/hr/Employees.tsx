@@ -16,6 +16,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { ProfileChangesPanel } from "@/pages/hr/ProfileChangesPanel";
 import { employeeWarningLabel } from "@/lib/hr-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const GRID_ID = "employees";
 const DEPARTMENT_PARAM = `${GRID_ID}.dept`;
@@ -200,7 +201,7 @@ export function Employees() {
           />
         </div>
         <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={includeInactive} onChange={(e) => setParam(INACTIVE_PARAM, e.target.checked ? "1" : null)} />
+          <Checkbox checked={includeInactive} onChange={(e) => setParam(INACTIVE_PARAM, e.target.checked ? "1" : null)} />
           {intl.formatMessage({ id: "hr.employees.includeInactive" })}
         </label>
       </div>

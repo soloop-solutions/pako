@@ -39,12 +39,12 @@ describe("ChecksPanel", () => {
     expect(screen.getAllByText("Passed").length).toBe(6);
     const failing = screen.getByText("Cash flow closes").closest("[data-check]") as HTMLElement;
     expect(failing).toHaveAttribute("data-passed", "false");
-    expect(failing.className).toContain("amber");
+    expect(failing.className).toContain("warning");
     expect(failing).toHaveTextContent("Failed");
     expect(failing).toHaveTextContent("45000.00");
     expect(failing).toHaveTextContent("44880.00");
     const passing = screen.getByText("Balance sheet balances").closest("[data-check]") as HTMLElement;
-    expect(passing.className).not.toContain("amber");
+    expect(passing.className).not.toContain("warning");
   });
 
   it("has its own From input bound to the URL that re-runs the checks for the new range", async () => {
@@ -63,12 +63,12 @@ describe("ChecksPanel", () => {
     renderReports("/reports?from=2026-01-01&to=2026-12-31");
     const vat = (await screen.findByText("Books match VAT return")).closest("[data-check]") as HTMLElement;
     expect(vat).toHaveAttribute("data-informational", "true");
-    expect(vat.className).not.toContain("amber");
+    expect(vat.className).not.toContain("warning");
     expect(vat).toHaveTextContent("Informational");
     expect(vat).toHaveTextContent("Reverse-charge");
     const other = screen.getByText("Cash flow closes").closest("[data-check]") as HTMLElement;
     expect(other).not.toHaveAttribute("data-informational");
-    expect(other.className).toContain("amber");
+    expect(other.className).toContain("warning");
     expect(other).not.toHaveTextContent("Reverse-charge");
   });
 

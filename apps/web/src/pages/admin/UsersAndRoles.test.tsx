@@ -9,6 +9,7 @@ import { RolesTab } from "@/pages/admin/RolesTab";
 import { UsersTab } from "@/pages/admin/UsersTab";
 import { AcceptInvitation } from "@/pages/AcceptInvitation";
 import { ForgotPassword } from "@/pages/PasswordReset";
+import { chooseOption } from "@/test/chooseOption";
 
 const companyId = "11111111-1111-1111-1111-111111111111";
 const none = { sales: 0, purchases: 0, partners: 0, accounting: 0, reports: 0, hr: 0, items: 0, payroll: 0, settings: 0, users: 0 };
@@ -75,7 +76,7 @@ describe("Users tab", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Invite user" }));
     fireEvent.change(await screen.findByLabelText("Email"), { target: { value: "new@co.test" } });
-    fireEvent.change(screen.getByLabelText("Role"), { target: { value: "r-sales" } });
+    await chooseOption(screen.getByLabelText("Role"), "Shitje");
     fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
 
     await waitFor(() => expect(inviteMock).toHaveBeenCalled());

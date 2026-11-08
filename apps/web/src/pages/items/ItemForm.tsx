@@ -17,6 +17,7 @@ import { useFeatures } from "@/hooks/useFeatures";
 import { useItemSearch } from "@/hooks/useStock";
 import { ITEM_TYPE_OPTION_KEYS, ItemType } from "@/lib/item-types";
 import { taxRatePercentLabel } from "@/lib/tax-enums";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export interface ItemFormFields {
   name: string;
@@ -377,9 +378,9 @@ export function ItemForm({
               <div className="flex flex-col gap-1">
                 <Label className="invisible" aria-hidden>{intl.formatMessage({ id: "items.trackInventory" })}</Label>
                 <label className="flex h-9 items-center gap-2 text-sm" title={intl.formatMessage({ id: trackingLocked ? "items.trackInventory.locked" : "items.trackInventory.hint" })}>
-                  <input
+                  <Checkbox
                     id="item-track"
-                    type="checkbox"
+                   
                     checked={trackInventory}
                     disabled={trackingLocked}
                     onChange={(e) => setTrackInventory(e.target.checked)}
@@ -409,7 +410,7 @@ export function ItemForm({
                 <div className="flex flex-col gap-1">
                   <Label className="invisible" aria-hidden>{intl.formatMessage({ id: "items.trackLots" })}</Label>
                   <label className="flex h-9 items-center gap-2 text-sm">
-                    <input type="checkbox" checked={trackLots} disabled={trackingLocked} onChange={(e) => setTrackLots(e.target.checked)} />
+                    <Checkbox checked={trackLots} disabled={trackingLocked} onChange={(e) => setTrackLots(e.target.checked)} />
                     {intl.formatMessage({ id: "items.trackLots" })}
                   </label>
                   <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.trackLots.hint" })}</p>
@@ -491,21 +492,21 @@ export function ItemForm({
           </div>
           <div className="flex flex-col gap-1">
             <label className="flex h-9 items-center gap-2 text-sm">
-              <input type="checkbox" checked={sellByWeight} onChange={(e) => setSellByWeight(e.target.checked)} />
+              <Checkbox checked={sellByWeight} onChange={(e) => setSellByWeight(e.target.checked)} />
               {intl.formatMessage({ id: "items.sellByWeight" })}
             </label>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.sellByWeight.hint" })}</p>
           </div>
           <div className="flex flex-col gap-1">
             <label className="flex h-9 items-center gap-2 text-sm">
-              <input type="checkbox" checked={openPrice} onChange={(e) => setOpenPrice(e.target.checked)} />
+              <Checkbox checked={openPrice} onChange={(e) => setOpenPrice(e.target.checked)} />
               {intl.formatMessage({ id: "items.openPrice" })}
             </label>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.openPrice.hint" })}</p>
           </div>
           <div className="flex flex-col gap-1">
             <label className="flex h-9 items-center gap-2 text-sm">
-              <input type="checkbox" checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} />
+              <Checkbox checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} />
               {intl.formatMessage({ id: "items.trackSerials" })}
             </label>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.trackSerials.hint" })}</p>
@@ -533,7 +534,7 @@ export function ItemForm({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="flex flex-col gap-1">
             <label className="flex h-9 items-center gap-2 text-sm">
-              <input type="checkbox" checked={isBookable} onChange={(e) => setIsBookable(e.target.checked)} />
+              <Checkbox checked={isBookable} onChange={(e) => setIsBookable(e.target.checked)} />
               {intl.formatMessage({ id: "svc.item.bookable" })}
             </label>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.bookable.hint" })}</p>
@@ -607,14 +608,14 @@ export function ItemForm({
           </div>
           <div className="flex flex-col gap-1">
             <label className="flex h-9 items-center gap-2 text-sm">
-              <input type="checkbox" checked={isPrescriptionOnly} onChange={(e) => setIsPrescriptionOnly(e.target.checked)} />
+              <Checkbox checked={isPrescriptionOnly} onChange={(e) => setIsPrescriptionOnly(e.target.checked)} />
               {intl.formatMessage({ id: "spec.item.rxOnly" })}
             </label>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.rxOnly.hint" })}</p>
           </div>
           <div className="flex flex-col gap-1">
             <label className="flex h-9 items-center gap-2 text-sm">
-              <input type="checkbox" checked={isControlled} onChange={(e) => setIsControlled(e.target.checked)} />
+              <Checkbox checked={isControlled} onChange={(e) => setIsControlled(e.target.checked)} />
               {intl.formatMessage({ id: "spec.item.controlled" })}
             </label>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.controlled.hint" })}</p>

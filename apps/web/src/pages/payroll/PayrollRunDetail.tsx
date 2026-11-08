@@ -31,6 +31,7 @@ import { PayrollRunActions } from "@/pages/payroll/PayrollRunActions";
 import { downloadFileResponse } from "@/lib/download";
 import { Payslip, PayslipPrintPortal } from "@/pages/payroll/Payslip";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { useConfirm } from "@/components/ui/confirm-context";
 
 const PAYSLIPS_GRID_ID = "payslips";
 
@@ -50,6 +51,7 @@ function TotalTile({ label, value, strong }: { label: string; value: string; str
 
 export function PayrollRunDetail() {
   const intl = useIntl();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { id } = useParams<{ id: string }>();
@@ -155,10 +157,10 @@ export function PayrollRunDetail() {
     const month = formatPayrollMonth(run.periodStart, intl);
     switch (action) {
       case "delete":
-        if (window.confirm(intl.formatMessage({ id: "payroll.action.confirmDelete" }, { month }))) deleteMutation.mutate();
+        confirm(intl.formatMessage({ id: "payroll.action.confirmDelete" }, { month }), () => deleteMutation.mutate());
         return;
       case "post":
-        if (window.confirm(intl.formatMessage({ id: "payroll.action.confirmPost" }, { month }))) actionMutation.mutate({ action });
+        confirm(intl.formatMessage({ id: "payroll.action.confirmPost" }, { month }), () => actionMutation.mutate({ action }));
         return;
       case "pay":
         setPayOpen(true);
@@ -475,7 +477,7 @@ export function PayrollRunDetail() {
 
           {run.warnings.length > 0 && (
             <Alert>
-              <AlertTriangle className="size-4 text-amber-600" />
+              <AlertTriangle className="size-4 text-warning-foreground" />
               <AlertDescription>
                 <p className="font-medium text-foreground">{intl.formatMessage({ id: "payroll.warnings.title" }, { count: run.warnings.length })}</p>
                 <ul className="list-disc pl-4">
