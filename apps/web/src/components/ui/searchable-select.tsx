@@ -420,7 +420,7 @@ export function SearchableSelect({
           <div
             ref={listRef}
             role="listbox"
-            className="max-h-[280px] overflow-auto py-1"
+            className="max-h-[280px] overflow-auto scrollbar-brand py-1"
           >
             {/* Empty / clear option */}
             {emptyOptionLabel &&

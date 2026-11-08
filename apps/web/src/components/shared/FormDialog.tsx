@@ -71,7 +71,7 @@ export function FormDialog({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
-          className={`overflow-y-auto ${size === "full" ? "max-h-[calc(100vh-2rem)]" : "max-h-[90vh]"} ${sizeClasses[size]}`}
+          className={`overflow-y-auto scrollbar-brand ${size === "full" ? "max-h-[calc(100vh-2rem)]" : "max-h-[90vh]"} ${sizeClasses[size]}`}
           onPointerDownOutside={(e) => {
             // Prevent closing when clicking inside portalled popovers (SearchableSelect,
             // date pickers) or portalled overlays (InvoicePreviewDialog).

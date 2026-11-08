@@ -260,3 +260,27 @@
     font-variant-numeric: tabular-nums;
   }
 }
+
+@utility scrollbar-brand {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklch, var(--primary) 32%, transparent) transparent;
+
+  &::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  &::-webkit-scrollbar-track,
+  &::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: color-mix(in oklch, var(--primary) 28%, transparent);
+    border-radius: 999px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: color-mix(in oklch, var(--primary) 55%, transparent);
+  }
+  &:hover {
+    scrollbar-color: color-mix(in oklch, var(--primary) 50%, transparent) transparent;
+  }
+}

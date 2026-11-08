@@ -129,7 +129,7 @@ export function GlobalSearch() {
           </button>
         </div>
 
-        <div className="max-h-80 overflow-y-auto p-2">
+        <div className="max-h-80 overflow-y-auto scrollbar-brand p-2">
           {loading && (
             <p className="px-3 py-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "common.loading" })}</p>
           )}

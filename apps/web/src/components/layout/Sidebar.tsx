@@ -152,7 +152,7 @@ export function Sidebar() {
     : null;
 
   return (
-    <aside className="flex w-[236px] shrink-0 flex-col overflow-y-auto border-r bg-card">
+    <aside className="flex w-[236px] shrink-0 flex-col overflow-y-auto scrollbar-brand border-r bg-card">
       <div className="flex h-12 shrink-0 items-center border-b px-4">
         <span className="text-base font-semibold">PAKO</span>
       </div>
@@ -552,7 +552,7 @@ function CategoryCustomizePanel({
         </p>
         <p className="mt-0.5 text-[11.5px] text-muted-foreground">{intl.formatMessage({ id: "sidebar.customizeSubtitle" })}</p>
       </div>
-      <div className="max-h-72 overflow-y-auto">
+      <div className="max-h-72 overflow-y-auto scrollbar-brand">
         {orderedItems.map((item, index) => {
           const hidden = catPrefs.hidden.includes(item.path);
           const isFavourite = favourites.includes(item.path);
