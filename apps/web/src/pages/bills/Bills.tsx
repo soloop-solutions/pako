@@ -12,6 +12,7 @@ import type {
   TaxDefinitionResponse,
 } from "@pako/shared";
 
+import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -55,7 +56,7 @@ export function Bills() {
         apiClient.billsAll(companyId),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
-        apiClient.itemsGET(companyId, 1, 200, undefined, undefined),
+        fetchAllItems(companyId),
         apiClient.accountsAll(companyId),
       ]);
       setPartners(partnersResult);

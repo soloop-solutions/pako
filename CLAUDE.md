@@ -172,8 +172,9 @@ Two developers, split by layer. The API is the contract between them:
 Made on `feat/fe-mvp` where `ACCOUNTANT_MILESTONE.md`/`FRONTEND_BRIEF.md` gave no house
 recommendation — each documented with its reasoning in the relevant commit, not picked silently:
 
-- **Item saved with no default accounts**: the form falls through to the existing company-default
-  behavior for that field (same as "no item selected"), never refuses the save.
+- **Item saved with no default accounts**: superseded. `ItemsController` now requires revenue,
+  expense and inventory default accounts (`ItemDefaultAccountsRequired`) and the item form keeps
+  Save disabled until all three are set.
 - **Manual journal line description autofill**: defaults to the *previous line's* description —
   `FRONTEND_BRIEF.md` names a specific person to consult on this one ("ask Adonis from what"), so
   treat this as a default awaiting explicit sign-off, not settled.

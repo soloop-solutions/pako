@@ -15,6 +15,7 @@ import type {
   TaxDefinitionResponse,
 } from "@pako/shared";
 
+import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -88,7 +89,7 @@ export function InvoiceDetail() {
           apiClient.invoicesAll(companyId),
           apiClient.paymentMethodsAll(companyId),
           apiClient.membersAll(companyId),
-          apiClient.itemsGET(companyId, 1, 200, undefined, undefined),
+          fetchAllItems(companyId),
           apiClient.accountsAll(companyId),
         ]);
       setInvoice(invoiceResult);

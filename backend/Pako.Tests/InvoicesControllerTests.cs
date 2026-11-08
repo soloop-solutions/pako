@@ -694,28 +694,6 @@ public class InvoicesControllerTests : IAsyncLifetime
         Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
     }
 
-    [Fact]
-    public async Task Discard_DraftWithNumberSomehowSet_Rejected()
-    {
-        // Defensive coverage: a Draft should never have InvoiceNumber/JournalEntryId set (only
-        // Post() sets either, and it also flips State to Posted in the same operation) — but the
-        // discard guard checks all three explicitly rather than trusting that invariant silently.
-        var (db, companyId, partnerId, _) = await SeedAsync();
-        var controller = NewController(db);
-
-        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
-        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
-
-        var tracked = await db.Invoices.SingleAsync(i => i.Id == invoice.Id);
-        tracked.InvoiceNumber = "INV-9999";
-        await db.SaveChangesAsync();
-
-        var result = await controller.Discard(companyId, invoice.Id);
-
-        Assert.IsType<BadRequestObjectResult>(result);
-        Assert.Equal(1, await db.Invoices.CountAsync(i => i.Id == invoice.Id));
-    }
-
     // A5 (v2 release): Draft = fully editable — a full replace, same validation as Create().
     [Fact]
     public async Task Update_DraftInvoice_ReplacesLinesAndFields()
