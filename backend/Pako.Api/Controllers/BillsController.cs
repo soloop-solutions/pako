@@ -62,6 +62,7 @@ public class BillsController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] DocumentType[]? documentType = null,
         [FromQuery] DocumentType[]? excludeDocumentType = null,
+        [FromQuery] string? state = null,
         [FromQuery] string? sort = null)
     {
         page = Math.Max(page, 1);
@@ -70,6 +71,12 @@ public class BillsController : ControllerBase
         var query = _db.Bills.AsNoTracking().VisibleTo(_access)
             .Include(b => b.Lines)
             .Where(b => b.CompanyId == companyId);
+
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            var states = Enum.GetValues<BillState>().Where(s => s.ToString().StartsWith(state.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+            query = query.Where(b => states.Contains(b.State));
+        }
 
         if (documentType is { Length: > 0 }) query = query.Where(b => documentType.Contains(b.DocumentType));
         if (excludeDocumentType is { Length: > 0 }) query = query.Where(b => !excludeDocumentType.Contains(b.DocumentType));

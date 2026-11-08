@@ -106,7 +106,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     enabled: !!companyId,
     queryKey: ["invoices-paged", companyId, scope],
     defaultPageSize: 100,
-    fetchPage: async ({ page, pageSize, search, sort }) => {
+    fetchPage: async ({ page, pageSize, search, sort, filters }) => {
       const result = await apiClient.paged2(
         companyId as string,
         page,
@@ -114,6 +114,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         search,
         documentScopeFilter.documentType,
         documentScopeFilter.excludeDocumentType,
+        filters.state || undefined,
         sort,
       );
       return { items: result.items, total: result.total };
@@ -235,7 +236,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     [intl, partners, balances, isProforma, convertingId],
   );
   const visibleColumns = useMemo(
-    () => serverSideColumns(isProforma ? columns.filter((column) => column.id !== "outstanding") : columns, ["invoiceNumber", "customer", "issueDate", "dueDate", "state"]),
+    () => serverSideColumns(isProforma ? columns.filter((column) => column.id !== "outstanding") : columns, ["invoiceNumber", "customer", "issueDate", "dueDate", "state"], ["state"]),
     [columns, isProforma],
   );
 

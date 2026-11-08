@@ -81,8 +81,8 @@ export function Bills() {
     enabled: !!companyId,
     queryKey: ["bills-paged", companyId],
     defaultPageSize: 100,
-    fetchPage: async ({ page, pageSize, search, sort }) => {
-      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], sort);
+    fetchPage: async ({ page, pageSize, search, sort, filters }) => {
+      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort);
       return { items: result.items, total: result.total };
     },
   });
@@ -168,7 +168,7 @@ export function Bills() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [intl, partners, balances],
   );
-  const visibleColumns = useMemo(() => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "dueDate", "state"]), [columns]);
+  const visibleColumns = useMemo(() => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "dueDate", "state"], ["state"]), [columns]);
 
   const handleBillCreated = useCallback(async () => {
     setBillFormOpen(false);

@@ -8,6 +8,7 @@ export interface PagedRequest {
   pageSize: number;
   search: string | undefined;
   sort: string | undefined;
+  filters: Record<string, string>;
 }
 
 export interface PagedResult<T> {
@@ -29,8 +30,8 @@ export function usePagedGrid<T>({ gridId, enabled, queryKey, fetchPage, defaultP
   const sort = urlState.sort ? `${urlState.sort.desc ? "-" : ""}${urlState.sort.id}` : undefined;
 
   const query = useQuery({
-    queryKey: [...queryKey, gridId, urlState.page, urlState.pageSize, search ?? "", sort ?? ""],
-    queryFn: () => fetchPage({ page: urlState.page, pageSize: urlState.pageSize, search, sort }),
+    queryKey: [...queryKey, gridId, urlState.page, urlState.pageSize, search ?? "", sort ?? "", JSON.stringify(urlState.columnFilters)],
+    queryFn: () => fetchPage({ page: urlState.page, pageSize: urlState.pageSize, search, sort, filters: urlState.columnFilters }),
     enabled,
     placeholderData: keepPreviousData,
   });
@@ -48,10 +49,11 @@ function columnKey<T>(column: ColumnDef<T>): string | undefined {
   return "accessorKey" in column && typeof column.accessorKey === "string" ? column.accessorKey : undefined;
 }
 
-export function serverSideColumns<T>(columns: ColumnDef<T>[], sortableIds?: string[]): ColumnDef<T>[] {
+export function serverSideColumns<T>(columns: ColumnDef<T>[], sortableIds?: string[], filterableIds: string[] = []): ColumnDef<T>[] {
   return columns.map((column) => {
     const key = columnKey(column);
     const sortable = sortableIds === undefined || (key !== undefined && sortableIds.includes(key));
-    return { ...column, enableColumnFilter: false, enableGrouping: false, ...(sortable ? {} : { enableSorting: false }) };
+    const filterable = key !== undefined && filterableIds.includes(key);
+    return { ...column, enableColumnFilter: filterable, enableGrouping: false, ...(sortable ? {} : { enableSorting: false }) };
   });
 }

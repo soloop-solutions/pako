@@ -940,10 +940,11 @@ export class PakoApiClient {
      * @param search (optional) 
      * @param documentType (optional) 
      * @param excludeDocumentType (optional) 
+     * @param state (optional) 
      * @param sort (optional) 
      * @return OK
      */
-    paged(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, sort: string | undefined): Promise<PaginatedResponseOfBillResponse> {
+    paged(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfBillResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/bills/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -968,6 +969,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
         else if (excludeDocumentType !== undefined)
             excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
         if (sort === null)
             throw new globalThis.Error("The parameter 'sort' cannot be null.");
         else if (sort !== undefined)
@@ -7146,10 +7151,11 @@ export class PakoApiClient {
      * @param search (optional) 
      * @param documentType (optional) 
      * @param excludeDocumentType (optional) 
+     * @param state (optional) 
      * @param sort (optional) 
      * @return OK
      */
-    paged2(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, sort: string | undefined): Promise<PaginatedResponseOfInvoiceResponse> {
+    paged2(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfInvoiceResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -7174,6 +7180,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
         else if (excludeDocumentType !== undefined)
             excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
         if (sort === null)
             throw new globalThis.Error("The parameter 'sort' cannot be null.");
         else if (sort !== undefined)
