@@ -253,7 +253,9 @@ export function ItemForm({
         </p>
       )}
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+        <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.general" })}</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-name">{intl.formatMessage({ id: "items.name" })}</Label>
           <Input id="item-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Laptop HP ProBook 450" />
@@ -273,11 +275,6 @@ export function ItemForm({
           <Input id="item-unit" required value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="copë" />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="item-price">{intl.formatMessage({ id: "items.defaultPrice" })}</Label>
-          <Input id="item-price" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
-        </div>
-
-        <div className="flex flex-col gap-1">
           <Label htmlFor="item-type">{intl.formatMessage({ id: "items.form.type" })}</Label>
           <Select
             id="item-type"
@@ -290,6 +287,32 @@ export function ItemForm({
           />
           <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.form.typeHint" })}</p>
         </div>
+        {categories.length > 0 && (
+          <div className="flex flex-col gap-1">
+            <Label htmlFor="item-category">{intl.formatMessage({ id: "items.category" })}</Label>
+            <SearchableSelect
+              id="item-category"
+              value={categoryId}
+              onChange={setCategoryId}
+              placeholder={intl.formatMessage({ id: "items.noCategory" })}
+              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })}
+              emptyOptionLabel={intl.formatMessage({ id: "items.noCategory" })}
+              options={categories.filter((c) => c.isActive || c.id === categoryId).map((c) => ({ value: c.id, label: c.name }))}
+            />
+          </div>
+        )}
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+        <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.pricing" })}</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="flex flex-col gap-1">
+          <Label htmlFor="item-price">{intl.formatMessage({ id: "items.defaultPrice" })}</Label>
+          <Input id="item-price" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
+        </div>
+
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-tax">{intl.formatMessage({ id: "items.form.vatCode" })}</Label>
           <SearchableSelect
@@ -308,6 +331,12 @@ export function ItemForm({
           />
         </div>
 
+        </div>
+      </fieldset>
+
+      <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+        <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.accounts" })}</legend>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
           <Label htmlFor="item-revenue-account">{intl.formatMessage({ id: "items.form.revenueAccount" })} *</Label>
           <SearchableSelect
@@ -353,26 +382,15 @@ export function ItemForm({
             }))}
           />
         </div>
-      </div>
+        </div>
+      </fieldset>
 
-      {(categories.length > 0 || (showStock && canTrack)) && (
+      {canTrack && (
+      <fieldset className="flex flex-col gap-3 rounded-md border p-3" data-testid="item-stock-section">
+        <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.stock" })}</legend>
+      {showStock && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          {categories.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="item-category">{intl.formatMessage({ id: "items.category" })}</Label>
-              <SearchableSelect
-                id="item-category"
-                value={categoryId}
-                onChange={setCategoryId}
-                placeholder={intl.formatMessage({ id: "items.noCategory" })}
-                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-                noResultsText={intl.formatMessage({ id: "common.noResults" })}
-                emptyOptionLabel={intl.formatMessage({ id: "items.noCategory" })}
-                options={categories.filter((c) => c.isActive || c.id === categoryId).map((c) => ({ value: c.id, label: c.name }))}
-              />
-            </div>
-          )}
-          {showStock && canTrack && (
+          {(
             <>
               <div className="flex flex-col gap-1">
                 <Label className="invisible" aria-hidden>{intl.formatMessage({ id: "items.trackInventory" })}</Label>
@@ -420,7 +438,6 @@ export function ItemForm({
         </div>
       )}
 
-      {canTrack && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
           {([
             ["purchase", purchaseUnit, setPurchaseUnit, purchaseFactor, setPurchaseFactor],
@@ -441,6 +458,7 @@ export function ItemForm({
           ))}
           <p className="text-xs text-muted-foreground sm:col-span-4">{intl.formatMessage({ id: "items.units.hint" })}</p>
         </div>
+      </fieldset>
       )}
 
       <fieldset className="flex flex-col gap-2 rounded-md border p-3">
