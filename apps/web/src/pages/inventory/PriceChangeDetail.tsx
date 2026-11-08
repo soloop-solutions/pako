@@ -138,6 +138,8 @@ export function PriceChangeDetail() {
       toast.success(intl.formatMessage({ id: "toast.priceChangePosted" }));
       await refresh(saved);
       await queryClient.invalidateQueries({ queryKey: ["resolvedPrices"] });
+      await queryClient.invalidateQueries({ queryKey: ["stockOnHand"] });
+      await queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] });
     },
     onError: (err: unknown) => {
       setConfirmPost(false);

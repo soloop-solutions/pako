@@ -160,6 +160,8 @@ export function Items() {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ["items", activeCompanyId] }),
       queryClient.invalidateQueries({ queryKey: ["item", activeCompanyId] }),
+      queryClient.invalidateQueries({ queryKey: ["stockOnHand"] }),
+      queryClient.invalidateQueries({ queryKey: ["resolvedPrices"] }),
     ]);
   }
 

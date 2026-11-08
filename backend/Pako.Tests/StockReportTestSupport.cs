@@ -141,6 +141,7 @@ internal static class StockReportTestSupport
     public static async Task<StockDocumentResponse> PostDocumentAsync(StockCo c, SaveStockDocumentRequest request)
     {
         var created = (StockDocumentResponse)Assert.IsAssignableFrom<ObjectResult>((await Documents(c).Create(c.Id, request)).Result).Value!;
+        if (created.State == StockDocumentState.Posted) return created;
         return (StockDocumentResponse)Assert.IsType<OkObjectResult>((await Documents(c).Post(c.Id, created.Id)).Result).Value!;
     }
 

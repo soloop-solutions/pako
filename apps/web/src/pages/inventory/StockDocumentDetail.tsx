@@ -133,6 +133,7 @@ export function StockDocumentDetail() {
   const posted = document?.state === StockDocumentState.Posted;
   const editable = !posted && canWrite("inventory");
   const typeKey = stockDocumentTypeKey(type);
+  const instantTransfer = isNew && type === StockDocumentType.Transfer;
   const isWriteDown = type === StockDocumentType.WriteDown;
   const isReceipt = type === StockDocumentType.Receipt;
   const isDelivery = type === StockDocumentType.Delivery;
@@ -176,8 +177,9 @@ export function StockDocumentDetail() {
       : apiClient.updateStockDocument(activeCompanyId as string, id as string, request()),
     onSuccess: async (saved) => {
       setError(null);
-      toast.success(intl.formatMessage({ id: "toast.stockDocumentSaved" }));
+      toast.success(intl.formatMessage({ id: saved.state === StockDocumentState.Posted ? "toast.stockDocumentPosted" : "toast.stockDocumentSaved" }));
       await refresh(saved);
+      await queryClient.invalidateQueries({ queryKey: ["stockOnHand"] });
       if (isNew) navigate(`/stock-documents/${saved.id}`, { replace: true });
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("stock.doc.saveError"))),
@@ -258,7 +260,7 @@ export function StockDocumentDetail() {
           <div>
             <CardTitle className="flex items-center gap-2">
               {t(`stock.doc.type.${typeKey}`)} {document?.number ?? (nextNumber ? <span className="text-muted-foreground tabular-nums">{nextNumber}</span> : "")}
-              {posted ? <Badge variant="success">{t("stock.doc.posted")}</Badge> : <Badge variant="outline" className="italic">{t("stock.doc.draft")}</Badge>}
+              {posted ? <Badge variant="success">{t("stock.doc.posted")}</Badge> : !instantTransfer && <Badge variant="outline" className="italic">{t("stock.doc.draft")}</Badge>}
             </CardTitle>
             <CardDescription>{t(`stock.doc.type.${typeKey}.description`)}</CardDescription>
           </div>
@@ -486,8 +488,8 @@ export function StockDocumentDetail() {
                     {t("stock.doc.discard")}
                   </Button>
                 )}
-                <Button type="submit" variant="outline" disabled={save.isPending}>
-                  {t("stock.doc.saveDraft")}
+                <Button type="submit" variant={instantTransfer ? "default" : "outline"} disabled={save.isPending}>
+                  {t(instantTransfer ? "stock.doc.transferNow" : "stock.doc.saveDraft")}
                 </Button>
                 {!isNew && canApprove("inventory") && (
                   confirmPost ? (

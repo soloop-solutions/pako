@@ -82,6 +82,7 @@ public class StockDocumentsController : ControllerBase
     [ProducesResponseType(typeof(StockDocumentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<StockDocumentResponse>> Create(Guid companyId, SaveStockDocumentRequest request)
     {
+        if (request.Type == StockDocumentType.Transfer) return await CreateAndPostTransferAsync(companyId, request);
         try
         {
             var document = await _documents.SaveDraftAsync(companyId, null, request);
@@ -89,6 +90,31 @@ public class StockDocumentsController : ControllerBase
             return StatusCode(StatusCodes.Status201Created, await _documents.ToResponseAsync(document));
         }
         catch (StockException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private async Task<ActionResult<StockDocumentResponse>> CreateAndPostTransferAsync(Guid companyId, SaveStockDocumentRequest request)
+    {
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
+        var company = await _db.Companies.FirstAsync(c => c.Id == companyId);
+        try
+        {
+            var document = await _documents.SaveDraftAsync(companyId, null, request);
+            await _documents.PostAsync(company, document, CurrentUserId);
+            await _db.SaveChangesAsync();
+            if (transaction is not null) await transaction.CommitAsync();
+            return StatusCode(StatusCodes.Status201Created, await _documents.ToResponseAsync(document));
+        }
+        catch (Exception ex) when (ex is StockException or InvalidOperationException
+            or Pako.Domain.Ledger.AccountingLockDateViolationException or Pako.Domain.Ledger.HardLockDateViolationException
+            or Pako.Domain.Ledger.TaxLockDateViolationException
+            or Pako.Domain.Ledger.UnbalancedJournalEntryException)
         {
             return BadRequest(ex.Message);
         }
