@@ -25,7 +25,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<List<ProjectResponse>>> List(Guid companyId)
     {
         var projects = await _db.Projects.AsNoTracking()

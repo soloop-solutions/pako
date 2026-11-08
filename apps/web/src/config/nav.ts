@@ -692,3 +692,16 @@ export const navItems: NavItem[] = [
   ...bottomNavItems,
   ...hiddenNavItems,
 ];
+
+const navModuleByPath = new Map<string, NavModule>(
+  navCategories.flatMap((category) =>
+    category.items.flatMap((item) => {
+      const module = item.module ?? category.module;
+      return module ? [[item.path, module] as const] : [];
+    }),
+  ),
+);
+
+export function navModuleForPath(path: string): NavModule | undefined {
+  return navModuleByPath.get(path);
+}

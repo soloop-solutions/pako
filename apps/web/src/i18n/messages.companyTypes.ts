@@ -74,6 +74,8 @@ export const companyTypesEn: Record<string, string> = {
   "company.featureOff.title": "This feature isn't used by this company",
   "company.featureOff.description": "This page belongs to a pack that is switched off for the company's business type. A company administrator can change the business type in Settings.",
   "company.featureOff.back": "Back to the dashboard",
+  "company.moduleOff.title": "This area isn't available",
+  "company.moduleOff.description": "This area is switched off for the company or isn't part of your role. Ask a company administrator if you need it.",
 
   // Platform administration
   "platform.col.businessType": "Business type",
@@ -154,6 +156,8 @@ export const companyTypesSq: Record<string, string> = {
   "company.featureOff.title": "Kjo veçori nuk përdoret nga kjo kompani",
   "company.featureOff.description": "Kjo faqe i përket një pakete që është e çaktivizuar për llojin e biznesit të kompanisë. Administratori i kompanisë mund ta ndryshojë llojin e biznesit te Cilësimet.",
   "company.featureOff.back": "Kthehu te paneli",
+  "company.moduleOff.title": "Kjo zonë nuk është e disponueshme",
+  "company.moduleOff.description": "Kjo zonë është e çaktivizuar për kompaninë ose nuk është pjesë e rolit tuaj. Pyesni administratorin e kompanisë nëse ju duhet.",
 
   // Platform administration
   "platform.col.businessType": "Lloji i biznesit",

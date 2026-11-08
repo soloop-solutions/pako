@@ -29,7 +29,7 @@ export function useFeatures(): Features {
     queryKey: ["myAccess", activeCompanyId] as const,
     queryFn: () => apiClient.getMyAccess(activeCompanyId as string),
     enabled: !!activeCompanyId,
-    staleTime: 60_000,
+    staleTime: 15_000,
   });
 
   const loading = !!activeCompanyId && query.isPending;

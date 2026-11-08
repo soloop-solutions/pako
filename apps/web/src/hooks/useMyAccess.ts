@@ -31,7 +31,7 @@ export function useMyAccess(): MyAccess {
     queryKey: myAccessQueryKey(activeCompanyId),
     queryFn: () => apiClient.getMyAccess(activeCompanyId as string),
     enabled: !!activeCompanyId,
-    staleTime: 60_000,
+    staleTime: 15_000,
   });
 
   const access = query.data ?? null;

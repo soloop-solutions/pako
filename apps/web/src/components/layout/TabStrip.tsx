@@ -19,9 +19,10 @@ import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { navItems } from "@/config/nav";
+import { navItems, navModuleForPath } from "@/config/nav";
 import { useTabs, type ResolvedTab } from "@/context/TabsContext";
 import { useFeatures } from "@/hooks/useFeatures";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 
 function tabTitle(tab: ResolvedTab, intl: ReturnType<typeof useIntl>): string {
@@ -146,6 +147,7 @@ export function TabStrip() {
   const location = useLocation();
   const { tabs, activeTabId, closeTab, focusTab, reorderTab } = useTabs();
   const { hasFeature } = useFeatures();
+  const { canSee } = useMyAccess();
 
   const [quickOpen, setQuickOpen] = useState(false);
   const [quickOpenAnchor, setQuickOpenAnchor] = useState<DOMRect | null>(null);
@@ -229,7 +231,10 @@ export function TabStrip() {
   }, [quickOpen]);
 
   // Business types: pages of packs the company doesn't use are not offered.
-  const offered = navItems.filter((item) => !item.feature || hasFeature(item.feature));
+  const offered = navItems.filter((item) => {
+    const module = navModuleForPath(item.path);
+    return (!item.feature || hasFeature(item.feature)) && (!module || canSee(module));
+  });
   const matches = query.trim()
     ? offered.filter((item) => intl.formatMessage({ id: item.titleKey }).toLowerCase().includes(query.trim().toLowerCase()))
     : offered;

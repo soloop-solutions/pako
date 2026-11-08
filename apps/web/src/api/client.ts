@@ -1,7 +1,7 @@
 import { ApiException, PakoApiClient } from "@pako/shared";
 
 import { en, sq } from "@/i18n/messages";
-import { getStoredAuth } from "@/lib/auth-storage";
+import { getStoredAuth, setStoredAuth } from "@/lib/auth-storage";
 import { POS_OPERATOR_HEADER, posOperatorTokenFor } from "@/lib/pos-operator";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
@@ -17,23 +17,76 @@ function currentLocale(): string {
   return "en";
 }
 
-export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
-  const auth = getStoredAuth();
+const ANONYMOUS_AUTH_PATH = /\/api\/auth\/(?!me\b|verify-password\b|action-tokens\b)/;
+
+function urlOf(url: RequestInfo): string {
+  return typeof url === "string" ? url : url.url;
+}
+
+let refreshInFlight: Promise<string | null> | null = null;
+
+async function performRefresh(refreshToken: string): Promise<string | null> {
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}/api/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ refreshToken }),
+    });
+  } catch {
+    return null;
+  }
+  if (!response.ok) {
+    if (response.status === 401 || response.status === 403) {
+      window.dispatchEvent(new Event("pako:auth-expired"));
+    }
+    return null;
+  }
+  const body = (await response.json()) as { token: string; userId: string; email: string; refreshToken?: string };
+  setStoredAuth({ token: body.token, userId: body.userId, email: body.email, refreshToken: body.refreshToken ?? refreshToken });
+  window.dispatchEvent(new Event("pako:auth-refreshed"));
+  return body.token;
+}
+
+function refreshAccessToken(failedToken: string): Promise<string | null> {
+  const current = getStoredAuth();
+  if (!current) return Promise.resolve(null);
+  if (current.token !== failedToken) return Promise.resolve(current.token);
+  if (!current.refreshToken) {
+    window.dispatchEvent(new Event("pako:auth-expired"));
+    return Promise.resolve(null);
+  }
+  if (!refreshInFlight) {
+    refreshInFlight = performRefresh(current.refreshToken).finally(() => {
+      refreshInFlight = null;
+    });
+  }
+  return refreshInFlight;
+}
+
+function buildHeaders(url: RequestInfo, init: RequestInit | undefined, token: string | null): Headers {
   const headers = new Headers(init?.headers);
-  if (auth) {
-    headers.set("Authorization", `Bearer ${auth.token}`);
+  if (token) {
+    headers.set("Authorization", `Bearer ${token}`);
   }
   headers.set("Accept-Language", currentLocale());
   // P3: a waiter signed in with their PIN on a shared till (lib/pos-operator.ts) — the generated
   // client takes no custom headers, so the operator token is added here, to POS requests only.
-  const operatorToken = posOperatorTokenFor(typeof url === "string" ? url : url.url);
+  const operatorToken = posOperatorTokenFor(urlOf(url));
   if (operatorToken) headers.set(POS_OPERATOR_HEADER, operatorToken);
+  return headers;
+}
 
-  const response = await fetch(url, { ...init, headers });
-  if (response.status === 401 && auth) {
-    window.dispatchEvent(new Event("pako:auth-expired"));
-  }
-  return response;
+export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
+  const auth = getStoredAuth();
+  const response = await fetch(url, { ...init, headers: buildHeaders(url, init, auth?.token ?? null) });
+  if (response.status !== 401 || !auth || ANONYMOUS_AUTH_PATH.test(urlOf(url))) return response;
+
+  const fresh = await refreshAccessToken(auth.token);
+  if (!fresh) return response;
+  const retried = await fetch(url, { ...init, headers: buildHeaders(url, init, fresh) });
+  if (retried.status === 401) window.dispatchEvent(new Event("pako:auth-expired"));
+  return retried;
 }
 
 export const apiClient = new PakoApiClient(API_BASE_URL, { fetch: authorizedFetch });
