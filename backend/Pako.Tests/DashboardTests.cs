@@ -132,6 +132,12 @@ public class DashboardTests : IAsyncLifetime
         Assert.Equal(338.98m, Kpi(r, "expenses").Current);
         Assert.Equal(508.48m, Kpi(r, "netProfit").Current);
         Assert.Equal(60m, Kpi(r, "netMargin").Current);
+        Assert.Equal(100m, Kpi(r, "netMargin").Previous);
+        Assert.Equal(-40m, Kpi(r, "netMargin").ChangePercent);
+        Assert.Equal("points", Kpi(r, "netMargin").ChangeUnit);
+        Assert.Equal("percent", Kpi(r, "revenue").ChangeUnit);
+        Assert.NotNull(r.AgingAsOf);
+        Assert.Equal(new DateOnly(2026, 6, 30), r.AgingAsOf);
 
         // February holds the invoice; March the bill. Cash only moved with the capital in January.
         Assert.Equal(847.46m, r.Series[1].Revenue);
@@ -160,6 +166,74 @@ public class DashboardTests : IAsyncLifetime
         Assert.Equal(2, r.ReceivablesAging.Single(b => b.Key == "d90plus").Count);
         Assert.Equal(1500m, Kpi(r, "overdueReceivables").Current);
         Assert.Equal(400m, r.PayablesAging.Single(b => b.Key == "d90plus").Amount);
+    }
+
+    [Fact]
+    public async Task Aging_CountsAPaymentByItsDate_NotByWhenItWasMatched()
+    {
+        var seed = await SeedAsync();
+        var db = seed.Db;
+        var company = db.Companies.Single(c => c.Id == seed.CompanyId);
+        var cash = db.Accounts.Single(a => a.CompanyId == seed.CompanyId && a.Code == "1000");
+        var receivable = db.Accounts.Single(a => a.CompanyId == seed.CompanyId && a.Code == "1200");
+        var invoice = db.Invoices.Single(i => i.CompanyId == seed.CompanyId && i.IssueDate == new DateOnly(2026, 2, 1));
+        var journalId = db.Journals.Single(j => j.CompanyId == seed.CompanyId).Id;
+        var payment = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = seed.CompanyId, JournalId = journalId, Date = new DateOnly(2026, 3, 5),
+            Lines =
+            {
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cash.Id, Debit = 600m },
+                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = receivable.Id, Credit = 600m, PartnerId = seed.CustomerId }
+            }
+        };
+        payment.Post(company);
+        db.JournalEntries.Add(payment);
+        db.Reconciliations.Add(Pako.Domain.Reconciliation.Reconciliation.ForInvoice(
+            seed.CompanyId, invoice.Id, payment.Lines.Single(l => l.Credit > 0).Id, 600m));
+        await db.SaveChangesAsync();
+
+        var controller = Controller(db, CompanyAccessContext.Unrestricted());
+        async Task<DashboardResponse> At(DateOnly to) =>
+            Assert.IsType<DashboardResponse>(Assert.IsType<OkObjectResult>((await controller.Get(seed.CompanyId, new DateOnly(2026, 1, 1), to)).Result).Value);
+
+        var afterPayment = await At(new DateOnly(2026, 6, 30));
+        Assert.Equal(900m, afterPayment.ReceivablesAging.Sum(b => b.Amount));
+
+        var beforePayment = await At(new DateOnly(2026, 3, 1));
+        Assert.Equal(1500m, beforePayment.ReceivablesAging.Sum(b => b.Amount));
+    }
+
+    [Fact]
+    public async Task Pdf_RendersTheDefaultLayout_AndRefusesABadPeriodAsJson()
+    {
+        var seed = await SeedAsync();
+        var controller = Controller(seed.Db, CompanyAccessContext.Unrestricted());
+        var ok = await controller.Pdf(seed.CompanyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30), new DateOnly(2025, 1, 1), new DateOnly(2025, 6, 30));
+        var file = Assert.IsType<FileContentResult>(ok);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(file.FileContents, 0, 4));
+        Assert.True(file.FileContents.Length > 5000);
+
+        var bad = await controller.Pdf(seed.CompanyId, new DateOnly(2026, 6, 30), new DateOnly(2026, 1, 1));
+        Assert.IsType<BadRequestObjectResult>(bad);
+    }
+
+    [Fact]
+    public async Task Pdf_PrintsOnlyWidgetsTheRoleCanSee()
+    {
+        var seed = await SeedAsync();
+        var data = await new DashboardService(seed.Db, CompanyAccessContext.Unrestricted(), new TaxComputationService())
+            .BuildAsync(seed.CompanyId, new DateOnly(2026, 1, 1), new DateOnly(2026, 6, 30), null, null, null);
+        var layout = new[]
+        {
+            new DashboardWidgetConfig("kpi.revenue", "tile", 1, true),
+            new DashboardWidgetConfig("kpi.headcount", "tile", 1, true),
+            new DashboardWidgetConfig("kpi.lowStock", "tile", 1, false),
+        };
+        var restricted = data with { Sections = data.Sections with { Hr = false, Inventory = false } };
+        var printable = DashboardPdfRenderer.Printable(layout, restricted);
+        Assert.Equal(["kpi.revenue"], printable.Select(w => w.Key));
     }
 
     [Fact]

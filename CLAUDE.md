@@ -81,6 +81,10 @@ pnpm --filter web build
   vendor / item / transactions, and `reports/checks` (seven reconciliation checks, the seventh is stock valuation vs inventory accounts).
   Trial balance with a period is `ledger/trial-balance` (`/totals` for whole-set sums). Plus the older P&L, balance sheet, VAT return, books,
   CIT add-back and debt aging. Reference: `docs/REPORTS.md`.
+- **Dashboard PDF**: `GET dashboard/pdf` (QuestPDF, `DashboardPdfRenderer` + `DashboardChartSvg`), the
+  report PDF pattern documented at the end of `docs/REPORTS.md`. Step granularity rules live in
+  `Pako.Domain/Reporting/PeriodGranularity` and are mirrored by `allowedGranularities` in
+  `apps/web/src/pages/dashboard/period.ts`; change both together.
 - **Stock reports** under `reports/stock` (ours, additive): period `movements` (+ `/export`) and the
   exports `levels/export`, `valuation/export`, `items/{itemId}/card/export`. Web: Reports > Stock
   movements tab, Export buttons on the stock pages. `StockReportDataService` duplicates the JSON

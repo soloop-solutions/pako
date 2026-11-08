@@ -399,7 +399,7 @@ public class ReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<DebtAgingResponse>> DebtAging(Guid companyId, [FromQuery] DateOnly? asOf = null)
     {
-        var today = asOf ?? DateOnly.FromDateTime(DateTime.UtcNow);
+        var today = asOf ?? DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow));
 
         var companyDefaultReceivableAccountId = (await _db.CompanyAccountDefaults.AsNoTracking()
             .FirstOrDefaultAsync(d => d.CompanyId == companyId))?.ReceivableAccountId ?? Guid.Empty;

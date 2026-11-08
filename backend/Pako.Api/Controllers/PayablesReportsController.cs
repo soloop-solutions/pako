@@ -116,7 +116,7 @@ public class PayablesReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<PayablesAgingResponse>> PayablesAging(Guid companyId, [FromQuery] DateOnly asOf)
     {
-        var date = asOf == default ? DateOnly.FromDateTime(DateTime.UtcNow) : asOf;
+        var date = asOf == default ? DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow)) : asOf;
         return Ok(await _vendors.PayablesAgingAsync(companyId, date));
     }
 
@@ -125,7 +125,7 @@ public class PayablesReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PayablesAgingExport(Guid companyId, [FromQuery] DateOnly asOf)
     {
-        var date = asOf == default ? DateOnly.FromDateTime(DateTime.UtcNow) : asOf;
+        var date = asOf == default ? DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow)) : asOf;
         var aging = await _vendors.PayablesAgingAsync(companyId, date);
         var rows = aging.Lines
             .Select(l => (IReadOnlyList<object?>)new object?[] { l.BillNumber, l.PartnerName, l.IssueDate, l.DueDate, l.Outstanding, _labels.Bucket(l.Bucket) })

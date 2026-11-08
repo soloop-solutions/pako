@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Building2, Lightbulb, Settings2, X } from "lucide-react";
+import { Building2, FileDown, Lightbulb, Settings2, X } from "lucide-react";
 import type { DashboardLayoutResponse, DashboardWidgetConfig } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -16,6 +16,7 @@ import { readPeriod, writePeriod, type PeriodChange } from "@/pages/dashboard/pe
 import { PeriodBar } from "@/pages/dashboard/PeriodBar";
 import { useFormatters } from "@/pages/dashboard/format";
 import { WidgetCard } from "@/pages/dashboard/widgets";
+import { downloadFileResponse } from "@/pages/reports/helpers";
 
 // The home dashboard. The period, comparison and time step live in the URL; the widget layout is
 // saved per company (Settings: Edit can change it); each figure comes from the dashboard API, and
@@ -106,6 +107,22 @@ function CompanyDashboard({ companyId, companyName }: { companyId: string; compa
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("dashboard.edit.saveError"))),
   });
 
+  const pdfMutation = useMutation({
+    mutationFn: async () =>
+      downloadFileResponse(
+        await apiClient.getDashboardPdf(
+          companyId,
+          period.range.from,
+          period.range.to,
+          period.compare?.from,
+          period.compare?.to,
+          period.granularity === "auto" ? undefined : period.granularity,
+        ),
+        `dashboard-${period.range.from}-${period.range.to}.pdf`,
+      ),
+    onError: (err: unknown) => setError(getApiErrorMessage(err, t("dashboard.export.error"))),
+  });
+
   const data = dataQuery.data;
   const layout = layoutQuery.data;
   const widgets = draft ?? layout?.widgets ?? [];
@@ -142,12 +159,18 @@ function CompanyDashboard({ companyId, companyName }: { companyId: string; compa
           <h1 className="text-xl font-semibold tracking-tight">{companyName}</h1>
           <p className="text-sm text-muted-foreground">{t("dashboard.subtitle")}</p>
         </div>
-        {layout?.canEdit && !draft && (
-          <Button size="sm" variant="outline" onClick={() => setDraft(layout.widgets.filter((w) => widgetDef(w.key)))}>
-            <Settings2 className="size-4" />
-            {t("dashboard.edit.open")}
+        <div className="flex items-center gap-2">
+          <Button size="sm" variant="outline" disabled={pdfMutation.isPending || !!draft} onClick={() => pdfMutation.mutate()}>
+            <FileDown className="size-4" />
+            {t("dashboard.export.pdf")}
           </Button>
-        )}
+          {layout?.canEdit && !draft && (
+            <Button size="sm" variant="outline" onClick={() => setDraft(layout.widgets.filter((w) => widgetDef(w.key)))}>
+              <Settings2 className="size-4" />
+              {t("dashboard.edit.open")}
+            </Button>
+          )}
+        </div>
       </div>
 
       <PeriodBar period={period} onChange={changePeriod} />

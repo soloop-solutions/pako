@@ -196,6 +196,9 @@ export const dashboardEn: Record<string, string> = {
   "dashboard.suggest.doCompare": "Compare",
   "dashboard.suggest.doAdd": "Add to dashboard",
   "dashboard.suggest.dismiss": "Dismiss",
+  "dashboard.export.pdf": "Export PDF",
+  "dashboard.export.error": "The dashboard PDF could not be created.",
+  "dashboard.pointsUnit": "pts",
 };
 
 export const dashboardSq: Record<string, string> = {
@@ -318,4 +321,7 @@ export const dashboardSq: Record<string, string> = {
   "dashboard.suggest.doCompare": "Krahaso",
   "dashboard.suggest.doAdd": "Shto në panel",
   "dashboard.suggest.dismiss": "Mbyll",
+  "dashboard.export.pdf": "Eksporto PDF",
+  "dashboard.export.error": "PDF-ja e panelit nuk u krijua.",
+  "dashboard.pointsUnit": "pp",
 };
