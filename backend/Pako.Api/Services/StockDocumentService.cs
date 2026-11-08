@@ -45,6 +45,7 @@ public class StockDocumentService
         if (document is null)
         {
             document = new StockDocument { Id = Guid.NewGuid(), CompanyId = companyId, Type = request.Type };
+            document.Number = await _numbers.ReserveNextAsync(companyId, NumberSeriesKey(request.Type), request.Date);
             _db.StockDocuments.Add(document);
         }
         else if (document.Type != request.Type)
@@ -336,7 +337,7 @@ public class StockDocumentService
                 }
         }
 
-        document.Number = await _numbers.ReserveNextAsync(company.Id, NumberSeriesKey(document.Type), document.Date);
+        document.Number ??= await _numbers.ReserveNextAsync(company.Id, NumberSeriesKey(document.Type), document.Date);
         if (document.Type == StockDocumentType.WriteDown)
         {
             if (await WriteDownEntryAsync(company.Id, document) is { } writeDown)

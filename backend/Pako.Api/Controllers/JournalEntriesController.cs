@@ -228,8 +228,15 @@ public class JournalEntriesController : ControllerBase
             }).ToList()
         };
 
+        await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
+        if (transaction is not null)
+        {
+            await _db.Database.ExecuteSqlInterpolatedAsync($"SELECT \"Id\" FROM companies WHERE \"Id\" = {companyId} FOR UPDATE");
+        }
+        entry.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
         _db.JournalEntries.Add(entry);
         await _db.SaveChangesAsync();
+        if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(entry));
     }
@@ -303,7 +310,7 @@ public class JournalEntriesController : ControllerBase
             // the same configurable numbering (Format A: date-based, Format B: prefix-based)
             // as invoices, while invoice/bill/payroll-generated entries continue using
             // JournalSequencer for their per-journal accounting sequence.
-            entry.SequenceNumber = await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
+            entry.SequenceNumber ??= await _numberSeries.ReserveNextAsync(companyId, "JournalEntry", entry.Date);
             entry.PostedByUserId = CurrentUserId;
 
             AuditController.Stage(_db, companyId, "JournalEntry", id.ToString(), "Post",

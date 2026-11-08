@@ -285,6 +285,48 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         Assert.Equal(TestUserId, lastEntry.PostedByUserId);
     }
 
+    [Fact]
+    public async Task Create_NumbersTheDraftAtCreation_AndPostKeepsTheSameNumber()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var controller = NewController(db);
+
+        async Task<JournalEntryResponse> CreateDraft() => Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId,
+            new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
+            {
+                new(accountAId, null, 100m, 0m, null),
+                new(accountBId, null, 0m, 100m, null)
+            }), _actionTokenService, MakeActionToken(companyId))).Result).Value);
+
+        var first = await CreateDraft();
+        var second = await CreateDraft();
+        Assert.Equal(("Draft", "URD-000001", "URD-000002"), (first.State, first.SequenceNumber, second.SequenceNumber));
+
+        var posted = Assert.IsType<JournalEntryResponse>(Assert.IsType<OkObjectResult>((await controller.Post(companyId, second.Id)).Result).Value);
+        Assert.Equal("URD-000002", posted.SequenceNumber);
+        var third = await CreateDraft();
+        Assert.Equal("URD-000003", third.SequenceNumber);
+    }
+
+    [Fact]
+    public async Task Post_NumbersALegacyDraftThatHasNoNumber()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<JournalEntryResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId,
+            new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
+            {
+                new(accountAId, null, 100m, 0m, null),
+                new(accountBId, null, 0m, 100m, null)
+            }), _actionTokenService, MakeActionToken(companyId))).Result).Value);
+        var row = await db.JournalEntries.FirstAsync(e => e.Id == created.Id);
+        row.SequenceNumber = null;
+        await db.SaveChangesAsync();
+
+        var posted = Assert.IsType<JournalEntryResponse>(Assert.IsType<OkObjectResult>((await controller.Post(companyId, created.Id)).Result).Value);
+        Assert.Equal("URD-000001", posted.SequenceNumber);
+    }
+
     // R16 (storno).
     [Fact]
     public async Task Reverse_PostedEntry_CreatesPostedMirrorAndCancelsOriginal()
