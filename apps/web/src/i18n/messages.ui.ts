@@ -21,6 +21,15 @@ export const uiEn: Record<string, string> = {
   "lobby.limit.copied": "Request copied. Send it to the PAKO administrator.",
   "lobby.limit.message": "Hello, please raise the company limit for {email}. The account has created {used} of {limit} companies.",
   "lobby.limit.back": "Back to companies",
+
+  "date.placeholder": "dd.mm.yyyy",
+  "date.open": "Open calendar",
+  "date.clear": "Clear date",
+  "date.today": "Today",
+  "date.rangePlaceholder": "Select a period",
+  "date.monthPlaceholder": "Select a month",
+  "date.previousYear": "Previous year",
+  "date.nextYear": "Next year",
 };
 
 export const uiSq: Record<string, string> = {
@@ -46,4 +55,13 @@ export const uiSq: Record<string, string> = {
   "lobby.limit.copied": "Kërkesa u kopjua. Dërgojeni te administratori i PAKO.",
   "lobby.limit.message": "Përshëndetje, ju lutem rritni kufirin e kompanive për {email}. Llogaria ka krijuar {used} nga {limit} kompani.",
   "lobby.limit.back": "Kthehu te kompanitë",
+
+  "date.placeholder": "dd.mm.vvvv",
+  "date.open": "Hap kalendarin",
+  "date.clear": "Pastro datën",
+  "date.today": "Sot",
+  "date.rangePlaceholder": "Zgjidhni një periudhë",
+  "date.monthPlaceholder": "Zgjidhni një muaj",
+  "date.previousYear": "Viti i kaluar",
+  "date.nextYear": "Viti tjetër",
 };

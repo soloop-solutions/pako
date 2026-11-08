@@ -87,6 +87,7 @@ export function Bills() {
     },
   });
   const displayedBills = paged.items;
+  const refetchPaged = paged.query.refetch;
 
   useEffect(() => {
     if (!companyId) return;
@@ -173,8 +174,8 @@ export function Bills() {
     setBillFormOpen(false);
     setBillFormKey((k) => k + 1);
     await refresh();
-    await paged.query.refetch();
-  }, [refresh, paged.query.refetch]);
+    await refetchPaged();
+  }, [refresh, refetchPaged]);
 
   const handleVendorCreated = useCallback(async () => {
     setVendorFormOpen(false);

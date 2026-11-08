@@ -49,8 +49,8 @@ describe("legacy report tabs", () => {
 
   it("P&L takes its period from the URL, runs it, and exports from the server", async () => {
     renderReports("/reports?tab=pnl&from=2025-01-01&to=2025-03-31");
-    expect(screen.getByLabelText("From")).toHaveValue("2025-01-01");
-    expect(screen.getByLabelText("To")).toHaveValue("2025-03-31");
+    expect(screen.getByLabelText("From")).toHaveValue("01.01.2025");
+    expect(screen.getByLabelText("To")).toHaveValue("31.03.2025");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.profitAndLossExport).toHaveBeenCalledWith("c1", "2025-01-01", "2025-03-31"));
     expect(m.profitAndLoss).toHaveBeenCalledWith("c1", "2025-01-01", "2025-03-31");
@@ -59,7 +59,7 @@ describe("legacy report tabs", () => {
 
   it("VAT return takes its period from the URL, runs it, and exports from the server", async () => {
     renderReports("/reports?tab=vat&from=2025-02-01&to=2025-02-28");
-    expect(screen.getByLabelText("From")).toHaveValue("2025-02-01");
+    expect(screen.getByLabelText("From")).toHaveValue("01.02.2025");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.vatReturnExport).toHaveBeenCalledWith("c1", "2025-02-01", "2025-02-28"));
     expect(exportRows).not.toHaveBeenCalled();
@@ -67,7 +67,7 @@ describe("legacy report tabs", () => {
 
   it("balance sheet exports the plain sheet from the server, or the comparative when compare-to is set", async () => {
     renderReports("/reports?tab=balance-sheet&asOf=2025-12-31");
-    expect(screen.getByLabelText("As of")).toHaveValue("2025-12-31");
+    expect(screen.getByLabelText("As of")).toHaveValue("31.12.2025");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
     await waitFor(() => expect(m.balanceSheetExport).toHaveBeenCalledWith("c1", "2025-12-31"));
     fireEvent.change(screen.getByLabelText("Compare to"), { target: { value: "2024-12-31" } });
@@ -96,14 +96,14 @@ describe("legacy report tabs", () => {
 
   it("sales book takes its period from the URL", () => {
     renderReports("/reports?tab=sales-book&from=2025-04-01&to=2025-04-30");
-    expect(screen.getByLabelText("From")).toHaveValue("2025-04-01");
-    expect(screen.getByLabelText("To")).toHaveValue("2025-04-30");
+    expect(screen.getByLabelText("From")).toHaveValue("01.04.2025");
+    expect(screen.getByLabelText("To")).toHaveValue("30.04.2025");
   });
 
   it("purchase book takes its period from the URL", () => {
     renderReports("/reports?tab=purchase-book&from=2025-05-01&to=2025-05-31");
-    expect(screen.getByLabelText("From")).toHaveValue("2025-05-01");
-    expect(screen.getByLabelText("To")).toHaveValue("2025-05-31");
+    expect(screen.getByLabelText("From")).toHaveValue("01.05.2025");
+    expect(screen.getByLabelText("To")).toHaveValue("31.05.2025");
   });
   it("P&L shows the cost of revenue lines and the server gross profit without recomputing", async () => {
     m.profitAndLoss.mockResolvedValue({

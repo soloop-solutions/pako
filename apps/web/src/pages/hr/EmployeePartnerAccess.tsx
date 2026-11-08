@@ -134,9 +134,9 @@ export function EmployeePartnerAccess({
             {dirty && (
               <label className="flex items-center gap-1 text-xs text-muted-foreground">
                 {intl.formatMessage({ id: "hr.partnerAccess.effectiveFrom" })}
-                <input
+                <Input
                   type="date"
-                  className="h-7 rounded-md border bg-transparent px-1 text-xs"
+                  className="w-36"
                   value={effectiveFrom}
                   onChange={(e) => setEffectiveFrom(e.target.value)}
                 />

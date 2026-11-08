@@ -10,7 +10,7 @@ type ThemeContextValue = {
   toggle: () => void;
 };
 
-const ThemeContext = createContext<ThemeContextValue | null>(null);
+export const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 function getStoredTheme(): Theme | null {
   try {

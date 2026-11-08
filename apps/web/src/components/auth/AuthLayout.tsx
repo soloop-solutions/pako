@@ -1,9 +1,10 @@
-import type { ReactNode } from "react";
+import { useContext, type ReactNode } from "react";
 import { BookCheck, Building2, FileCheck2, Layers } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
+import { ThemeContext } from "@/context/ThemeContext";
 import { cn } from "@/lib/utils";
 
 const points = [
@@ -31,6 +32,7 @@ type AuthLayoutProps = {
 
 export function AuthLayout({ title, description, children, wide }: AuthLayoutProps) {
   const intl = useIntl();
+  const hasTheme = useContext(ThemeContext) !== null;
   const t = (id: string) => intl.formatMessage({ id });
 
   return (
@@ -66,7 +68,7 @@ export function AuthLayout({ title, description, children, wide }: AuthLayoutPro
 
       <main className="flex flex-col">
         <div className="flex items-center justify-end gap-2 px-6 pt-5">
-          <ThemeToggleButton />
+          {hasTheme && <ThemeToggleButton />}
           <LanguageSwitcher />
         </div>
         <div className="flex flex-1 items-center justify-center px-6 py-10">
