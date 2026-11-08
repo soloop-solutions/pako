@@ -208,6 +208,8 @@ export interface NavCategory {
   /** Default NavModule for every item in the category. */
   module?: NavModule;
   items: NavItem[];
+  /** How many items show before "Show more"; set by the business-type layout. */
+  visibleCount?: number;
 }
 
 /** A pinned action in Favourites that opens a document-creation flow rather than a plain list. */
