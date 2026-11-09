@@ -1737,4 +1737,8 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="ConcurrencyConflict" xml:space="preserve">
     <value>Ky regjistrim është ndryshuar nga një përdorues tjetër. Ju lutemi ringarkoni dhe provoni përsëri.</value>
   </data>
+
+  <!-- Items -->
+  <data name="ItemInUse" xml:space="preserve"><value>Ky artikull nuk mund të fshihet sepse është përdorur në dokumente. Çaktivizoni atë në vend.</value></data>
+  <data name="ItemNotFound" xml:space="preserve"><value>Artikulli nuk u gjet.</value></data>
 </root>

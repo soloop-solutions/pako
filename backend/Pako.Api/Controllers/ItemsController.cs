@@ -292,6 +292,50 @@ public class ItemsController : ControllerBase
         return NoContent();
     }
 
+    [HttpDelete("{itemId:guid}")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    public async Task<ActionResult> Delete(Guid companyId, Guid itemId)
+    {
+        var item = await _db.Items.Include(i => i.Barcodes)
+            .FirstOrDefaultAsync(i => i.Id == itemId && i.CompanyId == companyId);
+        if (item is null) return NotFound(_localizer["ItemNotFound"].Value);
+
+        var inUse = await _db.InvoiceLines.AnyAsync(l => l.ItemId == itemId)
+            || await _db.BillLines.AnyAsync(l => l.ItemId == itemId)
+            || await _db.StockDocumentLines.AnyAsync(l => l.ItemId == itemId)
+            || await _db.StockMoves.AnyAsync(m => m.ItemId == itemId)
+            || await _db.PurchaseOrderLines.AnyAsync(l => l.ItemId == itemId)
+            || await _db.SalesOrderLines.AnyAsync(l => l.ItemId == itemId);
+
+        if (inUse) return BadRequest(_localizer["ItemInUse"].Value);
+
+        _db.Items.Remove(item);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPost("{itemId:guid}/deactivate")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    public async Task<ActionResult> Deactivate(Guid companyId, Guid itemId)
+    {
+        var item = await _db.Items.FirstOrDefaultAsync(i => i.Id == itemId && i.CompanyId == companyId);
+        if (item is null) return NotFound(_localizer["ItemNotFound"].Value);
+        item.IsActive = false;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPost("{itemId:guid}/reactivate")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    public async Task<ActionResult> Reactivate(Guid companyId, Guid itemId)
+    {
+        var item = await _db.Items.FirstOrDefaultAsync(i => i.Id == itemId && i.CompanyId == companyId);
+        if (item is null) return NotFound(_localizer["ItemNotFound"].Value);
+        item.IsActive = true;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     private async Task<ActionResult?> ValidateDefaultAccounts(Guid companyId, Guid? revenueAccountId, Guid? expenseAccountId, Guid? inventoryAccountId)
     {
         var accountIds = new[] { revenueAccountId, expenseAccountId, inventoryAccountId }
@@ -361,7 +405,7 @@ public class ItemsController : ControllerBase
         i.TrackSerials, i.WarrantyMonths, i.IsVariantTemplate, i.VariantOfItemId, null, i.IsBookable, i.DurationMinutes, i.BufferMinutes,
         i.PackageServiceItemId, i.PackageSessions, i.PackageValidDays, i.MembershipDays, i.ProductionCenterId,
         i.AtcCode, i.ActiveIngredient, i.IsPrescriptionOnly, i.IsControlled, i.MaxRetailPrice, i.AgencyPartnerId, i.AgencyCommissionPercent,
-        averageCost);
+        averageCost, i.IsActive);
 
     // P7: pharmacy and agency fields.
     private static void ApplySpecialistFields(Item item, string? atc, string? ingredient, bool rxOnly, bool controlled, decimal? cap,

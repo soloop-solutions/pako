@@ -1737,4 +1737,8 @@ Estimate: {estimate} €.</value></data>
   <data name="ConcurrencyConflict" xml:space="preserve">
     <value>This record was modified by another user. Please reload and try again.</value>
   </data>
+
+  <!-- Items -->
+  <data name="ItemInUse" xml:space="preserve"><value>This item cannot be deleted because it has been used on documents. Deactivate it instead.</value></data>
+  <data name="ItemNotFound" xml:space="preserve"><value>Item not found.</value></data>
 </root>
