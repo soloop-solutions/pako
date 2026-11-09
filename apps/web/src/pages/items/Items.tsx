@@ -24,6 +24,7 @@ import { ItemAttributesDialog, ItemVariantsPanel } from "@/pages/items/ItemVaria
 import { ItemRecipePanel } from "@/pages/items/ItemRecipe";
 import { ItemPartsPanel } from "@/pages/items/ItemParts";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
+import { useConfirm } from "@/components/ui/confirm-context";
 import { TabButton } from "@/components/ui/tabs";
 
 const ITEMS_GRID_ID = "items";
@@ -304,6 +305,43 @@ export function Items() {
     [activeCompanyId, queryClient],
   );
 
+  const confirm = useConfirm();
+
+  const handleDelete = useCallback(
+    (itemId: string) => {
+      if (!activeCompanyId) return;
+      confirm(intl.formatMessage({ id: "items.deleteConfirm" }), async () => {
+        try {
+          await apiClient.itemsDELETE(activeCompanyId, itemId);
+          toast.success(intl.formatMessage({ id: "toast.itemDeleted" }));
+          await refreshItems();
+        } catch (err) {
+          toast.error(getApiErrorMessage(err));
+        }
+      }, { destructive: true });
+    },
+    [activeCompanyId, confirm, intl, refreshItems],
+  );
+
+  const handleToggleActive = useCallback(
+    async (item: ItemResponse) => {
+      if (!activeCompanyId) return;
+      try {
+        if (item.isActive) {
+          await apiClient.deactivate2(activeCompanyId, item.id);
+          toast.success(intl.formatMessage({ id: "toast.itemDeactivated" }));
+        } else {
+          await apiClient.reactivate(activeCompanyId, item.id);
+          toast.success(intl.formatMessage({ id: "toast.itemReactivated" }));
+        }
+        await refreshItems();
+      } catch (err) {
+        toast.error(getApiErrorMessage(err));
+      }
+    },
+    [activeCompanyId, intl, refreshItems],
+  );
+
   const items = itemsQuery.data?.items ?? [];
   const total = itemsQuery.data?.total ?? 0;
   const pageItem = editingId ? items.find((i) => i.id === editingId) : undefined;
@@ -418,27 +456,43 @@ export function Items() {
         enableGrouping: false,
         enableHiding: false,
         cell: ({ row }) => (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 text-xs"
-            // Bug fix (code review): an edit already in progress must be finished or cancelled
-            // before starting another — without this, clicking Edit on a second row while the
-            // first row's form is still showing (unsaved) let the two get mixed up (see the `key`
-            // prop below for the other half of this fix).
-            onClick={() => {
-              setEditingId(row.original.id);
-              setCreateOpen(false);
-              setEditError(null);
-              setDirty(false);
-            }}
-          >
-            {intl.formatMessage({ id: "common.edit" })}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 text-xs"
+              onClick={() => {
+                setEditingId(row.original.id);
+                setCreateOpen(false);
+                setEditError(null);
+                setDirty(false);
+              }}
+            >
+              {intl.formatMessage({ id: "common.edit" })}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-xs"
+              onClick={() => handleToggleActive(row.original)}
+            >
+              {row.original.isActive
+                ? intl.formatMessage({ id: "common.deactivate" })
+                : intl.formatMessage({ id: "common.reactivate" })}
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-6 text-xs text-destructive"
+              onClick={() => handleDelete(row.original.id)}
+            >
+              {intl.formatMessage({ id: "common.delete" })}
+            </Button>
+          </div>
         ),
       },
     ],
-    [intl, handleAddBarcode, handleRemoveBarcode, taxes, accounts, setEditingId],
+    [intl, handleAddBarcode, handleRemoveBarcode, taxes, accounts, setEditingId, handleToggleActive, handleDelete],
   );
 
   if (!activeCompanyId) {
