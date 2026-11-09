@@ -4,6 +4,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { ItemAttributeResponse, ItemVariantResponse } from "@pako/shared";
 import { Plus, X } from "lucide-react";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -194,6 +195,80 @@ function AttributeDialog({ attribute, nextOrder, onClose }: { attribute: ItemAtt
   );
 }
 
+// Inline "+ Add value" on an attribute's chip row: type a name, press Enter, the value is added to
+// the attribute via the API, and the new chip appears already ticked.
+function InlineAddValue({ attribute, onAdded }: { attribute: ItemAttributeResponse; onAdded: (newValueId: string) => void }) {
+  const intl = useIntl();
+  const { activeCompanyId } = useCompany();
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function submit() {
+    const trimmed = value.trim();
+    if (!trimmed || !activeCompanyId) return;
+    setSaving(true);
+    try {
+      const updated = await apiClient.updateItemAttribute(activeCompanyId, attribute.id, {
+        name: attribute.name,
+        sortOrder: attribute.sortOrder,
+        values: [
+          ...attribute.values.map((v) => ({ id: v.id, value: v.value, sortOrder: v.sortOrder })),
+          { id: undefined, value: trimmed, sortOrder: attribute.values.length },
+        ],
+      });
+      await queryClient.invalidateQueries({ queryKey: attributesKey(activeCompanyId) });
+      // Find the newly added value (no pre-existing id) and auto-tick it.
+      const existingIds = new Set(attribute.values.map((v) => v.id));
+      const newVal = updated.values.find((v) => !existingIds.has(v.id));
+      if (newVal) onAdded(newVal.id);
+      setValue("");
+      setOpen(false);
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "items.attributes.saveError" })));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        className="flex items-center gap-1 rounded-full border border-dashed px-2.5 py-0.5 text-sm text-muted-foreground hover:border-primary hover:text-foreground"
+        onClick={() => setOpen(true)}
+      >
+        <Plus className="size-3" />
+        {intl.formatMessage({ id: "items.attributes.addValue" })}
+      </button>
+    );
+  }
+
+  return (
+    <span className="flex items-center gap-1">
+      <Input
+        className="h-7 w-28 rounded-full px-2.5 text-sm"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        placeholder={intl.formatMessage({ id: "items.attributes.value" })}
+        autoFocus
+        disabled={saving}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") { e.preventDefault(); submit(); }
+          if (e.key === "Escape") { setOpen(false); setValue(""); }
+        }}
+      />
+      <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={saving || !value.trim()} onClick={submit}>
+        <Plus className="size-3.5" />
+      </Button>
+      <Button type="button" size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => { setOpen(false); setValue(""); }}>
+        <X className="size-3.5" />
+      </Button>
+    </span>
+  );
+}
+
 // An item's variants: pick values per attribute and generate every combination; then the variants
 // as a size × colour matrix (exactly two attributes) or a list. Prices and stock are the server's.
 export function ItemVariantsPanel({ itemId }: { itemId: string }) {
@@ -258,7 +333,7 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
       {attrs.map((a) => (
         <fieldset key={a.id} className="flex flex-col gap-1">
           <legend className="text-sm font-medium">{a.name}</legend>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap items-center gap-1">
             {a.values.map((v) => {
               const on = selected.has(v.id);
               return (
@@ -274,6 +349,11 @@ export function ItemVariantsPanel({ itemId }: { itemId: string }) {
                 </label>
               );
             })}
+            {canWrite("items") && (
+              <InlineAddValue attribute={a} onAdded={(newId) => {
+                setPicked(() => { const next = new Set(selected); next.add(newId); return next; });
+              }} />
+            )}
           </div>
         </fieldset>
       ))}

@@ -18,6 +18,7 @@ import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/le
 import { ItemType, itemTypeLabel } from "@/lib/item-types";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { useStockOnHand } from "@/hooks/useStock";
 import { ItemCardPanel } from "@/pages/inventory/ItemCardDialog";
 import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
 import { ItemAttributesDialog, ItemVariantsPanel } from "@/pages/items/ItemVariants";
@@ -105,6 +106,12 @@ export function Items() {
   const [dirty, setDirty] = useState(false);
 
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
+
+  // Wizard step state for create dialog.
+  const [wizardStep, setWizardStep] = useState(0);
+  const WIZARD_STEPS = ["general", "pricing", "stock", "review"] as const;
+  const totalWizardSteps = WIZARD_STEPS.length;
+
 
   const itemsQueryKey = ["items", activeCompanyId, urlState.skip, urlState.take, urlState.globalFilter] as const;
 
@@ -344,6 +351,11 @@ export function Items() {
 
   const items = itemsQuery.data?.items ?? [];
   const total = itemsQuery.data?.total ?? 0;
+
+  // Fetch stock on hand for tracked items on the current page.
+  const trackedItemIds = useMemo(() => items.filter((i) => i.trackInventory).map((i) => i.id), [items]);
+  const stockOnHandQuery = useStockOnHand(trackedItemIds, null);
+  const stockOnHand = stockOnHandQuery.data;
   const pageItem = editingId ? items.find((i) => i.id === editingId) : undefined;
   const linkedItemQuery = useQuery({
     queryKey: ["item", activeCompanyId, editingId],
@@ -412,6 +424,19 @@ export function Items() {
         cell: ({ getValue }) => {
           const value = getValue();
           return typeof value === "number" ? `${value.toFixed(2)} €` : "—";
+        },
+      },
+      {
+        id: "onHand",
+        header: intl.formatMessage({ id: "items.onHand" }),
+        meta: { numeric: true },
+        enableSorting: false,
+        cell: ({ row }) => {
+          if (!row.original.trackInventory) return <span className="text-muted-foreground">{intl.formatMessage({ id: "items.onHand.na" })}</span>;
+          const qty = stockOnHand?.get(row.original.id);
+          if (qty === undefined) return "…";
+          const belowMin = row.original.minimumStock != null && qty < row.original.minimumStock;
+          return <span className={belowMin ? "text-warning-foreground font-medium" : undefined}>{qty}</span>;
         },
       },
       {
@@ -495,7 +520,7 @@ export function Items() {
         ),
       },
     ],
-    [intl, handleAddBarcode, handleRemoveBarcode, taxes, accounts, setEditingId, handleToggleActive, handleDelete],
+    [intl, handleAddBarcode, handleRemoveBarcode, taxes, accounts, stockOnHand, setEditingId, handleToggleActive, handleDelete],
   );
 
   if (!activeCompanyId) {
@@ -522,7 +547,10 @@ export function Items() {
           <Button variant="outline" onClick={() => setAttributesOpen(true)}>
             {intl.formatMessage({ id: "items.attributes.manage" })}
           </Button>
-          <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); }}>
+          <Button variant="outline" onClick={() => toast.info(intl.formatMessage({ id: "items.import.title" }) + " — coming soon")}>
+            {intl.formatMessage({ id: "items.import.title" })}
+          </Button>
+          <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); setWizardStep(0); }}>
             {intl.formatMessage({ id: "items.addItem" })}
           </Button>
         </div>
@@ -542,10 +570,41 @@ export function Items() {
 
       <FormDialog
         open={createOpen}
-        onOpenChange={(open) => { if (!open) { setCreateOpen(false); setCreateError(null); setDirty(false); } }}
+        onOpenChange={(open) => { if (!open) { setCreateOpen(false); setCreateError(null); setDirty(false); setWizardStep(0); } }}
         title={intl.formatMessage({ id: "items.newItem" })}
+        description={intl.formatMessage({ id: "items.wizard.stepOf" }, { current: wizardStep + 1, total: totalWizardSteps })}
         size="lg"
         dirty={dirty}
+        footer={
+          <div className="flex items-center justify-between">
+            <div className="flex gap-1">
+              {WIZARD_STEPS.map((_, i) => (
+                <span key={i} className={`h-1.5 w-6 rounded-full ${i <= wizardStep ? "bg-primary" : "bg-muted"}`} />
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={() => { setCreateOpen(false); setCreateError(null); setDirty(false); setWizardStep(0); }}>
+                {intl.formatMessage({ id: "common.cancel" })}
+              </Button>
+              {wizardStep > 0 && (
+                <Button type="button" variant="outline" onClick={() => setWizardStep((s) => s - 1)}>
+                  {intl.formatMessage({ id: "items.wizard.back" })}
+                </Button>
+              )}
+              {wizardStep < totalWizardSteps - 1 ? (
+                <Button type="button" onClick={() => setWizardStep((s) => s + 1)}>
+                  {intl.formatMessage({ id: "items.wizard.next" })}
+                </Button>
+              ) : (
+                <Button type="submit" form="item-create-form" disabled={createMutation.isPending}>
+                  {createMutation.isPending
+                    ? intl.formatMessage({ id: "common.saving" })
+                    : intl.formatMessage({ id: "items.addItem" })}
+                </Button>
+              )}
+            </div>
+          </div>
+        }
       >
         <ItemForm
           key={createFormKey}
@@ -559,8 +618,11 @@ export function Items() {
           submitting={createMutation.isPending}
           error={createError}
           onSubmit={(fields) => createMutation.mutate(fields)}
-          onCancel={() => { setCreateOpen(false); setCreateError(null); setDirty(false); }}
+          onCancel={() => { setCreateOpen(false); setCreateError(null); setDirty(false); setWizardStep(0); }}
           onDirtyChange={setDirty}
+          onCategoryCreated={() => queryClient.invalidateQueries({ queryKey: ["itemCategories", activeCompanyId] })}
+          wizardStep={wizardStep}
+          formId="item-create-form"
         />
       </FormDialog>
 
@@ -603,6 +665,7 @@ export function Items() {
               onSubmit={(fields) => updateMutation.mutate({ id: editingItem.id, fields })}
               onCancel={() => { setEditingId(null); setEditError(null); setDirty(false); }}
               onDirtyChange={setDirty}
+              onCategoryCreated={() => queryClient.invalidateQueries({ queryKey: ["itemCategories", activeCompanyId] })}
             />
           </div>
         )}

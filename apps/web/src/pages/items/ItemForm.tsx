@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
+import { toast } from "sonner";
 import type { AccountResponse, ItemCategoryResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 
-import { apiClient } from "@/api/client";
+import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useNumberPreview } from "@/hooks/useNumberPreview";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -78,10 +80,18 @@ interface ItemFormProps {
   showStock?: boolean;
   initial?: ItemResponse;
   submitting: boolean;
-  error: string | null;
+  /** @deprecated Use `apiError` instead. Kept as alias for backward compat. */
+  error?: string | null;
+  apiError?: string | null;
   onSubmit: (fields: ItemFormFields) => void;
   onCancel?: () => void;
   onDirtyChange?: (dirty: boolean) => void;
+  /** Called after an inline category is created so the parent can refresh its list. */
+  onCategoryCreated?: () => void;
+  /** When set, the form shows only the section(s) for that wizard step (0–3). Undefined = show all. */
+  wizardStep?: number;
+  /** HTML id for the <form> element, so an external button can submit it via form="...". */
+  formId?: string;
 }
 
 export function ItemForm({
@@ -95,17 +105,47 @@ export function ItemForm({
   initial,
   submitting,
   error,
+  apiError,
   onSubmit,
   onCancel,
   onDirtyChange,
+  onCategoryCreated,
+  wizardStep,
+  formId,
 }: ItemFormProps) {
+  const resolvedApiError = apiError ?? error ?? null;
+  // Wizard step mapping: 0=general, 1=pricing+accounts, 2=stock, 3=review (all visible).
+  const isWizard = wizardStep !== undefined;
+  const showSection = (section: "general" | "pricing" | "accounts" | "stock" | "till" | "services" | "pharmacy" | "agency") => {
+    if (!isWizard) return true;
+    switch (section) {
+      case "general": return wizardStep === 0 || wizardStep === 3;
+      case "pricing": case "accounts": return wizardStep === 1 || wizardStep === 3;
+      case "stock": return wizardStep === 2 || wizardStep === 3;
+      case "till": case "services": case "pharmacy": case "agency": return wizardStep === 2 || wizardStep === 3;
+    }
+  };
   const intl = useIntl();
+  const requiredMsg = intl.formatMessage({ id: "validation.required" });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+  const clearFieldError = (field: string) =>
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   const { activeCompanyId } = useCompany();
+  const queryClient = useQueryClient();
   const nextCode = useNumberPreview(mode === "create" ? activeCompanyId ?? undefined : undefined, mode === "create" ? "Item" : undefined);
 
   const [name, setName] = useState(initial?.name ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [unit, setUnit] = useState(initial?.unit ?? "");
+
+  // Inline category creation state.
+  const [newCategoryOpen, setNewCategoryOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState("");
 
   const initialRef = useRef({ name: initial?.name ?? "", unit: initial?.unit ?? "" });
   useEffect(() => {
@@ -119,6 +159,43 @@ export function ItemForm({
   const [expenseAccountId, setExpenseAccountId] = useState(initial?.defaultExpenseAccountId ?? "");
   const [inventoryAccountId, setInventoryAccountId] = useState(initial?.defaultInventoryAccountId ?? "");
   const [categoryId, setCategoryId] = useState(initial?.categoryId ?? "");
+
+  // Auto-fill accounts from category when category changes (only fill empty fields).
+  const handleCategoryChange = (id: string) => {
+    setCategoryId(id);
+    if (!id) return;
+    const cat = categories.find((c) => c.id === id);
+    if (!cat) return;
+    if (!revenueAccountId && cat.revenueAccountId) setRevenueAccountId(cat.revenueAccountId);
+    if (!expenseAccountId && cat.expenseAccountId) setExpenseAccountId(cat.expenseAccountId);
+    if (!inventoryAccountId && cat.inventoryAccountId) setInventoryAccountId(cat.inventoryAccountId);
+  };
+
+  // Track which accounts were auto-filled so we can show "(from category)" hints.
+  const selectedCategory = categories.find((c) => c.id === categoryId);
+  const revenueFromCategory = !!selectedCategory?.revenueAccountId && revenueAccountId === selectedCategory.revenueAccountId;
+  const expenseFromCategory = !!selectedCategory?.expenseAccountId && expenseAccountId === selectedCategory.expenseAccountId;
+  const inventoryFromCategory = !!selectedCategory?.inventoryAccountId && inventoryAccountId === selectedCategory.inventoryAccountId;
+
+  // Inline category creation.
+  const createCategoryMutation = useMutation({
+    mutationFn: async (catName: string) => {
+      if (!activeCompanyId) throw new Error("no company");
+      return apiClient.createItemCategory(activeCompanyId, { name: catName, inventoryAccountId: undefined, cogsAccountId: undefined, revenueAccountId: undefined, expenseAccountId: undefined });
+    },
+    onSuccess: async (created) => {
+      setCategoryId(created.id);
+      setNewCategoryOpen(false);
+      setNewCategoryName("");
+      await queryClient.invalidateQueries({ queryKey: ["itemCategories", activeCompanyId] });
+      onCategoryCreated?.();
+      toast.success(intl.formatMessage({ id: "items.category.create" }));
+    },
+    onError: (err: unknown) => {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "items.category.createError" })));
+    },
+  });
+
   const [trackInventory, setTrackInventory] = useState(initial?.trackInventory ?? false);
   const [trackLots, setTrackLots] = useState(initial?.trackLots ?? false);
   const [minimumStock, setMinimumStock] = useState(initial?.minimumStock != null ? String(initial.minimumStock) : "");
@@ -198,6 +275,17 @@ export function ItemForm({
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const errs: Record<string, string> = {};
+    if (!name.trim()) errs.name = requiredMsg;
+    if (!unit.trim()) errs.unit = requiredMsg;
+    if (!revenueAccountId) errs.revenueAccountId = requiredMsg;
+    if (!expenseAccountId) errs.expenseAccountId = requiredMsg;
+    if (!inventoryAccountId) errs.inventoryAccountId = requiredMsg;
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
+      return;
+    }
+    setFieldErrors({});
     onSubmit({
       name: name.trim(),
       description: description.trim() || undefined,
@@ -241,10 +329,10 @@ export function ItemForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {error && (
+    <form id={formId} className="flex flex-col gap-4" onSubmit={handleSubmit}>
+      {resolvedApiError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{resolvedApiError}</AlertDescription>
         </Alert>
       )}
 
@@ -254,15 +342,13 @@ export function ItemForm({
         </p>
       )}
 
-      <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+      <fieldset className={`flex flex-col gap-3 rounded-md border p-3${showSection("general") ? "" : " hidden"}`}>
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.general" })}</legend>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-name">{intl.formatMessage({ id: "items.name" })} *</Label>
-          <Input id="item-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Laptop HP ProBook 450" />
-        </div>
-        <div className="flex flex-col gap-1 sm:col-span-2">
-          <Label htmlFor="item-description">{intl.formatMessage({ id: "items.form.description" })}</Label>
+        <FormField label={intl.formatMessage({ id: "items.name" })} htmlFor="item-name" required error={fieldErrors.name}>
+          <Input id="item-name" required aria-invalid={!!fieldErrors.name} value={name} onChange={(e) => { setName(e.target.value); clearFieldError("name"); }} placeholder="Laptop HP ProBook 450" />
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "items.form.description" })} htmlFor="item-description" className="sm:col-span-2">
           <Textarea
             id="item-description"
             value={description}
@@ -270,13 +356,11 @@ export function ItemForm({
             placeholder={intl.formatMessage({ id: "items.form.descriptionPlaceholder" })}
             rows={2}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-unit">{intl.formatMessage({ id: "items.unit" })} *</Label>
-          <Input id="item-unit" required value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="copë" />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-type">{intl.formatMessage({ id: "items.form.type" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "items.unit" })} htmlFor="item-unit" required error={fieldErrors.unit}>
+          <Input id="item-unit" required aria-invalid={!!fieldErrors.unit} value={unit} onChange={(e) => { setUnit(e.target.value); clearFieldError("unit"); }} placeholder="cope" />
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "items.form.type" })} htmlFor="item-type" hint={intl.formatMessage({ id: "items.form.typeHint" })}>
           <Select
             id="item-type"
             value={String(type)}
@@ -286,36 +370,60 @@ export function ItemForm({
               label: intl.formatMessage({ id: option.labelKey }),
             }))}
           />
-          <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.form.typeHint" })}</p>
-        </div>
-        {categories.length > 0 && (
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="item-category">{intl.formatMessage({ id: "items.category" })}</Label>
-            <SearchableSelect
-              id="item-category"
-              value={categoryId}
-              onChange={setCategoryId}
-              placeholder={intl.formatMessage({ id: "items.noCategory" })}
-              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-              noResultsText={intl.formatMessage({ id: "common.noResults" })}
-              emptyOptionLabel={intl.formatMessage({ id: "items.noCategory" })}
-              options={categories.filter((c) => c.isActive || c.id === categoryId).map((c) => ({ value: c.id, label: c.name }))}
-            />
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "items.category" })} htmlFor="item-category">
+          <div className="flex gap-1">
+            <div className="flex-1">
+              <SearchableSelect
+                id="item-category"
+                value={categoryId}
+                onChange={handleCategoryChange}
+                placeholder={intl.formatMessage({ id: "items.noCategory" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "items.noCategory" })}
+                options={categories.filter((c) => c.isActive || c.id === categoryId).map((c) => ({ value: c.id, label: c.name }))}
+              />
+            </div>
+            {!newCategoryOpen ? (
+              <Button type="button" size="sm" variant="outline" className="h-9 shrink-0" onClick={() => setNewCategoryOpen(true)}>+</Button>
+            ) : (
+              <span className="flex items-center gap-1 shrink-0">
+                <Input
+                  className="h-9 w-36 text-sm"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  placeholder={intl.formatMessage({ id: "items.category.createInline" })}
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newCategoryName.trim()) {
+                      e.preventDefault();
+                      createCategoryMutation.mutate(newCategoryName.trim());
+                    }
+                    if (e.key === "Escape") setNewCategoryOpen(false);
+                  }}
+                />
+                <Button type="button" size="sm" variant="outline" className="h-9"
+                  disabled={!newCategoryName.trim() || createCategoryMutation.isPending}
+                  onClick={() => createCategoryMutation.mutate(newCategoryName.trim())}>
+                  {createCategoryMutation.isPending ? "…" : "+"}
+                </Button>
+                <Button type="button" size="sm" variant="ghost" className="h-9" onClick={() => { setNewCategoryOpen(false); setNewCategoryName(""); }}>x</Button>
+              </span>
+            )}
           </div>
-        )}
+        </FormField>
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+      <fieldset className={`flex flex-col gap-3 rounded-md border p-3${showSection("pricing") ? "" : " hidden"}`}>
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.pricing" })}</legend>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-price">{intl.formatMessage({ id: "items.defaultPrice" })}</Label>
+        <FormField label={intl.formatMessage({ id: "items.defaultPrice" })} htmlFor="item-price">
           <Input id="item-price" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-tax">{intl.formatMessage({ id: "items.form.vatCode" })}</Label>
+        <FormField label={intl.formatMessage({ id: "items.form.vatCode" })} htmlFor="item-tax">
           <SearchableSelect
             id="item-tax"
             value={taxId}
@@ -330,20 +438,21 @@ export function ItemForm({
               description: tax.code ?? undefined,
             }))}
           />
-        </div>
+        </FormField>
 
         </div>
       </fieldset>
 
-      <fieldset className="flex flex-col gap-3 rounded-md border p-3">
+      <fieldset className={`flex flex-col gap-3 rounded-md border p-3${showSection("accounts") ? "" : " hidden"}`}>
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.accounts" })}</legend>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-revenue-account">{intl.formatMessage({ id: "items.form.revenueAccount" })} *</Label>
+        <FormField label={intl.formatMessage({ id: "items.form.revenueAccount" })} htmlFor="item-revenue-account" required error={fieldErrors.revenueAccountId}
+          hint={revenueFromCategory ? intl.formatMessage({ id: "items.accounts.fromCategory" }) : undefined}>
           <SearchableSelect
             id="item-revenue-account"
+            aria-invalid={!!fieldErrors.revenueAccountId}
             value={revenueAccountId}
-            onChange={setRevenueAccountId}
+            onChange={(v) => { setRevenueAccountId(v); clearFieldError("revenueAccountId"); }}
             placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
@@ -352,13 +461,14 @@ export function ItemForm({
               label: `${account.code} · ${account.name}`,
             }))}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-expense-account">{intl.formatMessage({ id: "items.form.expenseAccount" })} *</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "items.form.expenseAccount" })} htmlFor="item-expense-account" required error={fieldErrors.expenseAccountId}
+          hint={expenseFromCategory ? intl.formatMessage({ id: "items.accounts.fromCategory" }) : undefined}>
           <SearchableSelect
             id="item-expense-account"
+            aria-invalid={!!fieldErrors.expenseAccountId}
             value={expenseAccountId}
-            onChange={setExpenseAccountId}
+            onChange={(v) => { setExpenseAccountId(v); clearFieldError("expenseAccountId"); }}
             placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
@@ -367,13 +477,14 @@ export function ItemForm({
               label: `${account.code} · ${account.name}`,
             }))}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="item-inventory-account">{intl.formatMessage({ id: "items.form.inventoryAccount" })} *</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "items.form.inventoryAccount" })} htmlFor="item-inventory-account" required error={fieldErrors.inventoryAccountId}
+          hint={inventoryFromCategory ? intl.formatMessage({ id: "items.accounts.fromCategory" }) : undefined}>
           <SearchableSelect
             id="item-inventory-account"
+            aria-invalid={!!fieldErrors.inventoryAccountId}
             value={inventoryAccountId}
-            onChange={setInventoryAccountId}
+            onChange={(v) => { setInventoryAccountId(v); clearFieldError("inventoryAccountId"); }}
             placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
@@ -382,11 +493,11 @@ export function ItemForm({
               label: `${account.code} · ${account.name}`,
             }))}
           />
-        </div>
+        </FormField>
         </div>
       </fieldset>
 
-      {canTrack && (
+      {canTrack && showSection("stock") && (
       <fieldset className="flex flex-col gap-3 rounded-md border p-3" data-testid="item-stock-section">
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.stock" })}</legend>
       {showStock && (
@@ -462,7 +573,7 @@ export function ItemForm({
       </fieldset>
       )}
 
-      <fieldset className="flex flex-col gap-2 rounded-md border p-3">
+      {showSection("till") && <fieldset className="flex flex-col gap-2 rounded-md border p-3">
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.till" })}</legend>
         <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.till.hint" })}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -544,9 +655,9 @@ export function ItemForm({
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.warrantyMonths.hint" })}</p>
           </div>
         </div>
-      </fieldset>
+      </fieldset>}
 
-      <fieldset className="flex flex-col gap-2 rounded-md border p-3" data-testid="item-services">
+      {showSection("services") && <fieldset className="flex flex-col gap-2 rounded-md border p-3" data-testid="item-services">
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "svc.item.section" })}</legend>
         <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.hint" })}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -601,10 +712,10 @@ export function ItemForm({
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.membershipDays.hint" })}</p>
           </div>
         </div>
-      </fieldset>
+      </fieldset>}
 
       {/* P7 pharmacy: collapsed unless the item already carries pharmacy data. */}
-      {showPharmacy && (
+      {showSection("pharmacy") && showPharmacy && (
       <details className="group rounded-md border p-3" open={pharmacyRelevant} data-testid="item-pharmacy">
         <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "spec.item.pharmacy" })}</summary>
         <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.pharmacy.hint" })}</p>
@@ -643,7 +754,7 @@ export function ItemForm({
       )}
 
       {/* P7 agency items: sold for a principal (a vendor) for a commission. */}
-      {showAgency && (
+      {showSection("agency") && showAgency && (
       <details className="group rounded-md border p-3" open={agencyRelevant} data-testid="item-agency">
         <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "spec.item.agency" })}</summary>
         <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "spec.item.agency.hint" })}</p>
@@ -670,18 +781,20 @@ export function ItemForm({
       </details>
       )}
 
-      <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting || !name.trim() || !unit.trim() || !revenueAccountId || !expenseAccountId || !inventoryAccountId}>
-          {submitting
-            ? intl.formatMessage({ id: "common.saving" })
-            : intl.formatMessage({ id: mode === "create" ? "items.addItem" : "common.save" })}
-        </Button>
-        {onCancel && (
-          <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
-            {intl.formatMessage({ id: "common.cancel" })}
+      {!isWizard && (
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={submitting || !name.trim() || !unit.trim() || !revenueAccountId || !expenseAccountId || !inventoryAccountId}>
+            {submitting
+              ? intl.formatMessage({ id: "common.saving" })
+              : intl.formatMessage({ id: mode === "create" ? "items.addItem" : "common.save" })}
           </Button>
-        )}
-      </div>
+          {onCancel && (
+            <Button type="button" variant="outline" onClick={onCancel} disabled={submitting}>
+              {intl.formatMessage({ id: "common.cancel" })}
+            </Button>
+          )}
+        </div>
+      )}
     </form>
   );
 }
