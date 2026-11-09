@@ -89,7 +89,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet(Name = "GetDashboard")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<DashboardResponse>> Get(
         Guid companyId,
         [FromQuery] DateOnly from,
@@ -98,7 +98,7 @@ public class DashboardController : ControllerBase
         [FromQuery] DateOnly? compareTo = null,
         [FromQuery] string? granularity = null)
     {
-        if (from > to || to.DayNumber - from.DayNumber > 3660
+        if (from == DateOnly.MinValue || to == DateOnly.MinValue || from > to || to.DayNumber - from.DayNumber > 3660
             || (compareFrom is { } cf && compareTo is { } ct && (cf > ct || ct.DayNumber - cf.DayNumber > 3660)))
         {
             return BadRequest(_localizer["DashboardInvalidPeriod"].Value);
@@ -109,7 +109,7 @@ public class DashboardController : ControllerBase
 
     [ProducesPdf]
     [HttpGet("pdf", Name = "GetDashboardPdf")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<IActionResult> Pdf(
         Guid companyId,
         [FromQuery] DateOnly from,
@@ -118,7 +118,7 @@ public class DashboardController : ControllerBase
         [FromQuery] DateOnly? compareTo = null,
         [FromQuery] string? granularity = null)
     {
-        if (from > to || to.DayNumber - from.DayNumber > 3660
+        if (from == DateOnly.MinValue || to == DateOnly.MinValue || from > to || to.DayNumber - from.DayNumber > 3660
             || (compareFrom is { } cf && compareTo is { } ct && (cf > ct || ct.DayNumber - cf.DayNumber > 3660)))
         {
             return BadRequest(new { error = _localizer["DashboardInvalidPeriod"].Value });
@@ -172,7 +172,7 @@ public class DashboardController : ControllerBase
     }
 
     [HttpGet("layout", Name = "GetDashboardLayout")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<DashboardLayoutResponse>> GetLayout(Guid companyId)
     {
         return Ok(await LoadWidgetsAsync(companyId));

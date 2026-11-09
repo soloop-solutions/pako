@@ -31,7 +31,7 @@ public class SearchController : ControllerBase
     public record SearchResponse(List<SearchResultItem> Results);
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<SearchResponse>> Search(Guid companyId, [FromQuery] string? q)
     {
         if (string.IsNullOrWhiteSpace(q) || q.Length < 2)

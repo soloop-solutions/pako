@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Domain.Companies;
+using Pako.Domain.Hr;
 using Pako.Domain.Pos;
 using Pako.Infrastructure;
 
@@ -51,12 +53,31 @@ public class PosOperatorService
     // The member whose PIN this is (an active member of the company), with a token for the till.
     public async Task<(Guid UserId, string Token, DateTime ExpiresAt)?> SignInAsync(Guid companyId, string pin)
     {
+        if (await FindByPinAsync(companyId, pin) is not { } userId) return null;
+        var expires = DateTimeOffset.UtcNow.Add(Lifetime);
+        var token = _protector.Protect(JsonSerializer.Serialize(new Claim(companyId, userId)), expires);
+        return (userId, token, expires.UtcDateTime);
+    }
+
+    public async Task<Guid?> FindByPinAsync(Guid companyId, string? pin)
+    {
         var pins = await _db.PosPins.AsNoTracking().Where(p => p.CompanyId == companyId).ToListAsync();
         var match = pins.FirstOrDefault(p => _hasher.VerifyHashedPassword(p, p.PinHash, pin ?? "") != PasswordVerificationResult.Failed);
-        if (match is null || !await IsMemberAsync(companyId, match.UserId)) return null;
-        var expires = DateTimeOffset.UtcNow.Add(Lifetime);
-        var token = _protector.Protect(JsonSerializer.Serialize(new Claim(companyId, match.UserId)), expires);
-        return (match.UserId, token, expires.UtcDateTime);
+        return match is not null && await IsMemberAsync(companyId, match.UserId) ? match.UserId : null;
+    }
+
+    public async Task<bool> CanApproveAsync(Guid companyId, Guid userId)
+    {
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null || !AppModules.IsEnabled(company.EnabledModules, AccessModule.Pos)) return false;
+        var memberships = await _db.Memberships.AsNoTracking()
+            .Where(m => m.UserId == userId && m.IsActive && (m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId)))
+            .Select(m => new { m.Role, m.CompanyRoleId })
+            .ToListAsync();
+        if (memberships.Any(m => m.Role is MembershipRole.FirmAdmin or MembershipRole.FirmAccountant or MembershipRole.ClientAdmin)) return true;
+        var roleIds = memberships.Where(m => m.Role == MembershipRole.ClientStaff && m.CompanyRoleId != null).Select(m => m.CompanyRoleId!.Value).ToList();
+        var roles = await _db.CompanyRoles.AsNoTracking().Where(r => r.CompanyId == companyId && roleIds.Contains(r.Id)).ToListAsync();
+        return roles.Any(r => r.LevelFor(AccessModule.Pos) >= AccessLevel.Approve);
     }
 
     // The operator a request names, or null when there is no (valid) token for this company.

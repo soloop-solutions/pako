@@ -316,6 +316,9 @@ public record UsageVarianceRow(Guid ItemId, string Name, string Unit, decimal Th
 
 public record SetPosPinRequest(string Pin);
 public record PosPinSignInRequest(string Pin);
+public record PosApprovalRequest(string Pin);
+// Send Token as the X-Pos-Approval header on the one request that needs a manager; it works once, for a minute.
+public record PosApprovalResponse(Guid ApproverUserId, string ApproverName, string Token, DateTime ExpiresAt);
 // Send Token as the X-Pos-Operator header with orders and tabs.
 public record PosOperatorResponse(Guid UserId, string Name, string Token, DateTime ExpiresAt);
 

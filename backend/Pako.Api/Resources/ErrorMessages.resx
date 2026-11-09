@@ -1713,4 +1713,11 @@ Estimate: {estimate} €.</value></data>
   <data name="WarehouseVanUseVehicles" xml:space="preserve">
     <value>A warehouse cannot be marked as a van or have a driver. Create a vehicle under Vehicles and link this warehouse to it.</value>
   </data>
+  <data name="PeriodDatesRequired" xml:space="preserve"><value>Both the period start and end dates are required.</value></data>
+  <data name="ItemNotBelongToCompany" xml:space="preserve"><value>Item {0} does not belong to this company.</value></data>
+  <data name="TaxDefinitionNotBelongToCompany" xml:space="preserve"><value>Tax code {0} does not belong to this company.</value></data>
+  <data name="RoleLevelInvalid" xml:space="preserve"><value>Each access level must be None, View, Edit or Approve, and the partner scope must be All or Assigned.</value></data>
+  <data name="PosApprovalPinInvalid" xml:space="preserve"><value>That PIN doesn't belong to a manager who can approve this.</value></data>
+  <data name="PosApprovedBy" xml:space="preserve"><value>approved by {0}</value></data>
+  <data name="PosPinTooManyAttempts" xml:space="preserve"><value>Too many wrong PINs. Wait 15 minutes and try again.</value></data>
 </root>

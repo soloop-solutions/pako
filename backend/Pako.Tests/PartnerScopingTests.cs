@@ -385,10 +385,10 @@ public class PartnerScopingTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Filter_ClientStaffWithoutEmployeeOrRole_ReferenceDataOnly_NoSelfService()
+    public async Task Filter_ClientStaffWithoutEmployeeOrRole_NoBusinessArea_NoReferenceData_NoSelfService()
     {
         // docs/USER_ACCESS_PLAN.md: a staff user with no role is treated like the built-in Employee
-        // role — general reference data, no module, and no "My HR" without an employee record.
+        // role — no business area, so no reference data either, and no "My HR" without an employee record.
         var db = await NewContextAsync();
         var company = new Company { Id = Guid.NewGuid(), Name = "Staff Co" };
         var userId = Guid.NewGuid();
@@ -397,7 +397,7 @@ public class PartnerScopingTests : IAsyncLifetime
         await db.SaveChangesAsync();
 
         var (reference, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.None);
-        Assert.Null(reference);
+        Assert.IsType<ForbidResult>(reference);
         var (sales, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.Sales);
         Assert.IsType<ForbidResult>(sales);
         var (self, _) = await RunFilterAsync(db, new CompanyAccessContext(), userId, company.Id, writeAccess: false, AccessModule.Self);

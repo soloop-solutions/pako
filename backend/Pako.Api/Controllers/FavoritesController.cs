@@ -34,7 +34,7 @@ public class FavoritesController : ControllerBase
     /// Returns all favorites for the current user in a company, optionally filtered by entity type.
     /// </summary>
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<FavoritesListResponse>> List(
         Guid companyId,
         [FromQuery] string? entityType)
@@ -61,7 +61,7 @@ public class FavoritesController : ControllerBase
     /// Pin or unpin a favorite. Creates the record if it doesn't exist.
     /// </summary>
     [HttpPut("{entityType}/{entityId:guid}/pin")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<FavoriteResponse>> Pin(
         Guid companyId, string entityType, Guid entityId,
         [FromBody] PinFavoriteRequest request)
@@ -104,7 +104,7 @@ public class FavoritesController : ControllerBase
     /// Suppress or unsuppress an automatic favorite suggestion.
     /// </summary>
     [HttpPut("{entityType}/{entityId:guid}/suppress")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<FavoriteResponse>> Suppress(
         Guid companyId, string entityType, Guid entityId,
         [FromBody] SuppressFavoriteRequest request)

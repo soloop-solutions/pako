@@ -36,7 +36,13 @@ public class CompanyAccessContext
     // its menus, dashboard widgets and buttons disappear like any other area without access.
     public AccessLevel LevelFor(AccessModule module) =>
         !AppModules.IsEnabled(EnsureResolved()._enabledModules, module) ? AccessLevel.None
+        : module == AccessModule.Pos && PosApprovedBy is not null ? AccessLevel.Approve
         : Role is { } role ? role.LevelFor(module) : _unrestrictedLevel;
+
+    // The manager whose PIN approved this one request at the till (X-Pos-Approval); POS only.
+    public Guid? PosApprovedBy { get; private set; }
+
+    internal void ApplyPosApproval(Guid approverUserId) => PosApprovedBy = approverUserId;
 
     private AppModule _enabledModules = AppModule.All;
     public AppModule EnabledModules => EnsureResolved()._enabledModules;

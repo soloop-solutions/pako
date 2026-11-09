@@ -22,7 +22,7 @@ namespace Pako.Api.Controllers;
 [ApiController]
 [Route("api/companies/{companyId:guid}/pos")]
 [Authorize]
-[RequireCompanyFeature(CompanyFeature.Hospitality | CompanyFeature.Hotel | CompanyFeature.Events)]
+[RequireCompanyFeature(CompanyFeature.Hospitality)]
 public class PosTabsController : ControllerBase
 {
     private readonly PakoDbContext _db;
@@ -245,7 +245,13 @@ public class PosTabsController : ControllerBase
             {
                 throw new PosException(_localizer["PosVoidNeedsManager"].Value);
             }
-            if ((await _tabs.VoidLineAsync(tab, line, request.Reason, await OperatorIdAsync(companyId))).Count > 0) _ticketsChanged = true;
+            var reason = request.Reason;
+            if (_access.PosApprovedBy is { } approver)
+            {
+                var approvedBy = string.Format(_localizer["PosApprovedBy"].Value, await _operators.NameAsync(companyId, approver));
+                reason = string.IsNullOrWhiteSpace(reason) ? approvedBy : $"{reason} ({approvedBy})";
+            }
+            if ((await _tabs.VoidLineAsync(tab, line, reason, await OperatorIdAsync(companyId))).Count > 0) _ticketsChanged = true;
         });
 
     [HttpPost("tabs/{tabId:guid}/send", Name = "SendPosTab")]

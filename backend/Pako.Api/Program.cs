@@ -87,6 +87,7 @@ builder.Services.AddScoped<Pako.Api.Services.TaxReportService>();
 builder.Services.AddScoped<Pako.Api.Services.ReportSourceResolver>();
 builder.Services.AddScoped<Pako.Api.Services.VendorLedgerService>();
 builder.Services.AddSingleton<Pako.Api.Services.ActionTokenService>();
+builder.Services.AddSingleton<Pako.Api.Services.PosApprovalTokens>();
 builder.Services.AddScoped<Pako.Api.Services.PayrollParameterProvider>();
 builder.Services.AddScoped<Pako.Api.Services.PayslipDocumentService>();
 builder.Services.AddScoped<Pako.Api.Services.LeaveService>();

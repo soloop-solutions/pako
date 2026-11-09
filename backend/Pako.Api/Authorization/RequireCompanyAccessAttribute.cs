@@ -9,9 +9,9 @@ namespace Pako.Api.Authorization;
 // Full-access memberships (firm, company admin) pass every level.
 public class RequireCompanyAccessAttribute : TypeFilterAttribute
 {
-    public RequireCompanyAccessAttribute(bool writeAccess = false, bool adminOnly = false, AccessModule module = AccessModule.None, bool approve = false)
+    public RequireCompanyAccessAttribute(bool writeAccess = false, bool adminOnly = false, AccessModule module = AccessModule.None, bool approve = false, bool anyMember = false)
         : base(typeof(CompanyAccessFilter))
     {
-        Arguments = new object[] { writeAccess, adminOnly, module, approve };
+        Arguments = new object[] { writeAccess, adminOnly, module, approve, anyMember };
     }
 }

@@ -26,7 +26,7 @@ public class MyAccessController : ControllerBase
     }
 
     [HttpGet(Name = "GetMyAccess")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<MyAccessResponse>> Get(Guid companyId)
     {
         var linked = await _db.Employees.AsNoTracking()

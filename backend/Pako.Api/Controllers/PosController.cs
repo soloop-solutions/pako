@@ -16,9 +16,9 @@ using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
 
-// docs/POS_PLAN.md — the point of sale. Pos: Read sees sessions and orders; Write sells, moves cash
-// and closes its own session; Approve sets up stores and registers and makes returns and
-// cancellations (D14). Every request is refused while the company's POS module is off.
+// docs/POS_PLAN.md — the point of sale. Pos: Read sees sessions and orders; Write sells and moves cash;
+// Approve sets up stores and registers, closes sessions and makes returns and cancellations (D14).
+// Every request is refused while the company's POS module is off.
 [ApiController]
 [Route("api/companies/{companyId:guid}/pos")]
 [Authorize]
@@ -31,10 +31,12 @@ public class PosController : ControllerBase
     private readonly CompanyAccessContext _access;
 
     private readonly PosOperatorService _operators;
+    private readonly PosApprovalTokens _approvals;
 
     public PosController(PakoDbContext db, PosService pos, PriceListService prices, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access,
-        PosOperatorService operators)
+        PosOperatorService operators, PosApprovalTokens? approvals = null)
     {
+        _approvals = approvals ?? new PosApprovalTokens();
         _db = db;
         _pos = pos;
         _prices = prices;
@@ -522,7 +524,7 @@ public class PosController : ControllerBase
 
     // Counts the drawer, records the differences, prints the Z report and posts the session's entry.
     [HttpPost("sessions/{sessionId:guid}/close", Name = "ClosePosSession")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
+    [RequireCompanyAccess(approve: true, module: AccessModule.Pos)]
     public async Task<ActionResult<SessionReportResponse>> CloseSession(Guid companyId, Guid sessionId, CloseSessionRequest request)
     {
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
@@ -565,6 +567,11 @@ public class PosController : ControllerBase
     public async Task<ActionResult<PosOrderResponse>> SubmitOrder(Guid companyId, PosOrderRequest request)
     {
         if (request.Kind != PosOrderKind.Sale && _access.LevelFor(AccessModule.Pos) < AccessLevel.Approve) return Forbid();
+        if (request.Kind != PosOrderKind.Sale && _access.PosApprovedBy is { } approver)
+        {
+            var approvedBy = string.Format(_localizer["PosApprovedBy"].Value, await _operators.NameAsync(companyId, approver));
+            request = request with { Reason = string.IsNullOrWhiteSpace(request.Reason) ? approvedBy : $"{request.Reason} ({approvedBy})" };
+        }
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         if (transaction is not null)
         {
@@ -625,8 +632,34 @@ public class PosController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<PosOperatorResponse>> PinSignIn(Guid companyId, PosPinSignInRequest request)
     {
-        if (await _operators.SignInAsync(companyId, request.Pin) is not { } found) return BadRequest(_localizer["PosPinWrong"].Value);
+        if (_approvals.IsLocked(CurrentUserId)) return StatusCode(StatusCodes.Status429TooManyRequests, _localizer["PosPinTooManyAttempts"].Value);
+        if (await _operators.SignInAsync(companyId, request.Pin) is not { } found)
+        {
+            _approvals.RecordFailure(CurrentUserId);
+            return BadRequest(_localizer["PosPinWrong"].Value);
+        }
+
+        _approvals.ResetFailures(CurrentUserId);
         return Ok(new PosOperatorResponse(found.UserId, await _operators.NameAsync(companyId, found.UserId), found.Token, found.ExpiresAt));
+    }
+
+    // A manager types their PIN at the till to approve one action the signed-in user may not do
+    // (a return, a cancellation, a void, closing the session). The token works once, for a minute.
+    [HttpPost("approvals", Name = "ApprovePosAction")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
+    public async Task<ActionResult<PosApprovalResponse>> Approve(Guid companyId, PosApprovalRequest request)
+    {
+        if (_approvals.IsLocked(CurrentUserId)) return StatusCode(StatusCodes.Status429TooManyRequests, _localizer["PosPinTooManyAttempts"].Value);
+        var approver = await _operators.FindByPinAsync(companyId, request.Pin);
+        if (approver is not { } approverId || !await _operators.CanApproveAsync(companyId, approverId))
+        {
+            _approvals.RecordFailure(CurrentUserId);
+            return BadRequest(_localizer["PosApprovalPinInvalid"].Value);
+        }
+
+        _approvals.ResetFailures(CurrentUserId);
+        var (token, expires) = _approvals.Issue(companyId, approverId);
+        return Ok(new PosApprovalResponse(approverId, await _operators.NameAsync(companyId, approverId), token, expires));
     }
 
     [HttpGet("sessions/{sessionId:guid}/waiters", Name = "ListPosSessionWaiters")]

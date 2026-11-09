@@ -40,7 +40,7 @@ public class AttachmentsController : ControllerBase
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
     [HttpGet]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<ActionResult<List<AttachmentResponse>>> List(Guid companyId, [FromQuery] AttachmentOwnerType ownerType, [FromQuery] Guid ownerId)
     {
         if (!await CanAccessOwnerAsync(companyId, ownerType, ownerId))
@@ -57,7 +57,7 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpPost]
-    [RequireCompanyAccess] // Edit on the owner's area is checked per owner below
+    [RequireCompanyAccess(anyMember: true)] // Edit on the owner's area is checked per owner below
     [Consumes("multipart/form-data")]
     [ProducesResponseType(typeof(AttachmentResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<AttachmentResponse>> Upload(Guid companyId, [FromForm] UploadAttachmentRequest request)
@@ -120,7 +120,7 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpGet("{id:guid}/download")]
-    [RequireCompanyAccess]
+    [RequireCompanyAccess(anyMember: true)]
     public async Task<IActionResult> Download(Guid companyId, Guid id)
     {
         var attachment = await _db.Attachments.AsNoTracking()
@@ -134,7 +134,7 @@ public class AttachmentsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
-    [RequireCompanyAccess] // Edit on the owner's area is checked per owner below
+    [RequireCompanyAccess(anyMember: true)] // Edit on the owner's area is checked per owner below
     public async Task<ActionResult> Delete(Guid companyId, Guid id)
     {
         var attachment = await _db.Attachments.FirstOrDefaultAsync(a => a.Id == id && a.CompanyId == companyId);

@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Infrastructure;
@@ -37,9 +38,14 @@ public class CompanyAccessFilter : IAsyncActionFilter
     private readonly bool _adminOnly;
     private readonly AccessModule _module;
     private readonly bool _approve;
+    private readonly PosApprovalTokens? _approvals;
+    private readonly bool _anyMember;
 
-    public CompanyAccessFilter(PakoDbContext db, CompanyAccessContext access, bool writeAccess, bool adminOnly, AccessModule module, bool approve = false)
+    public CompanyAccessFilter(PakoDbContext db, CompanyAccessContext access, bool writeAccess, bool adminOnly, AccessModule module, bool approve = false,
+        PosApprovalTokens? approvals = null, bool anyMember = false)
     {
+        _anyMember = anyMember;
+        _approvals = approvals;
         _db = db;
         _access = access;
         _writeAccess = writeAccess || approve;
@@ -47,6 +53,8 @@ public class CompanyAccessFilter : IAsyncActionFilter
         _module = module;
         _approve = approve;
     }
+
+    public const string PosApprovalHeader = "X-Pos-Approval";
 
     private AccessLevel Required => _approve ? AccessLevel.Approve : _writeAccess ? AccessLevel.Write : AccessLevel.Read;
 
@@ -100,7 +108,10 @@ public class CompanyAccessFilter : IAsyncActionFilter
 
         var roleId = memberships.Where(m => m.Role == MembershipRole.ClientStaff && m.CompanyRoleId != null)
             .Select(m => m.CompanyRoleId).FirstOrDefault();
-        if (roles.Contains(MembershipRole.ClientStaff) && await TryResolveStaffAsync(companyId, userId, roles, roleId))
+        var approvedBy = _module == AccessModule.Pos
+            ? _approvals?.TryConsume(context.HttpContext.Request.Headers[PosApprovalHeader].ToString(), companyId)
+            : null;
+        if (roles.Contains(MembershipRole.ClientStaff) && await TryResolveStaffAsync(companyId, userId, roles, roleId, approvedBy))
         {
             if (RefuseDisabledModule(context, company.EnabledModules)) return;
             _access.ApplyCompanyModules(company.EnabledModules);
@@ -124,7 +135,12 @@ public class CompanyAccessFilter : IAsyncActionFilter
         return true;
     }
 
-    private async Task<bool> TryResolveStaffAsync(Guid companyId, Guid userId, IReadOnlyList<MembershipRole> roles, Guid? roleId)
+    private static readonly AccessModule[] NonBusinessAreas = { AccessModule.None, AccessModule.Self, AccessModule.Users };
+
+    private static bool HasBusinessAreaAccess(CompanyRole role) =>
+        Enum.GetValues<AccessModule>().Where(m => !NonBusinessAreas.Contains(m)).Any(m => role.LevelFor(m) >= AccessLevel.Read);
+
+    private async Task<bool> TryResolveStaffAsync(Guid companyId, Guid userId, IReadOnlyList<MembershipRole> roles, Guid? roleId, Guid? approvedBy = null)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var employee = await _db.Employees.AsNoTracking()
@@ -161,7 +177,8 @@ public class CompanyAccessFilter : IAsyncActionFilter
         var granted = _module == AccessModule.None
             ? (_writeAccess ? AccessLevel.None : AccessLevel.Read)
             : role.LevelFor(_module);
-        if (!_adminOnly && granted < Required) return false;
+        if (!_adminOnly && granted < Required && approvedBy is null) return false;
+        if (_module == AccessModule.None && !_anyMember && !_adminOnly && !HasBusinessAreaAccess(role)) return false;
 
         IReadOnlySet<Guid>? visiblePartnerIds = null;
         if (role.PartnerScope == PartnerScope.Assigned)
@@ -175,6 +192,7 @@ public class CompanyAccessFilter : IAsyncActionFilter
         }
 
         _access.ResolveStaff(companyId, userId, roles, role, employee?.Id, department, visiblePartnerIds);
+        if (approvedBy is { } approver) _access.ApplyPosApproval(approver);
         return true;
     }
 }

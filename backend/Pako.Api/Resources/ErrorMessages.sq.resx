@@ -1713,4 +1713,11 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="WarehouseVanUseVehicles" xml:space="preserve">
     <value>Një magazinë nuk mund të shënohet si furgon dhe nuk mund të ketë shofer. Krijoni një automjet te Automjetet dhe lidheni këtë magazinë me të.</value>
   </data>
+  <data name="PeriodDatesRequired" xml:space="preserve"><value>Datat e fillimit dhe të përfundimit të periudhës janë të detyrueshme.</value></data>
+  <data name="ItemNotBelongToCompany" xml:space="preserve"><value>Artikulli {0} nuk i përket kësaj kompanie.</value></data>
+  <data name="TaxDefinitionNotBelongToCompany" xml:space="preserve"><value>Kodi tatimor {0} nuk i përket kësaj kompanie.</value></data>
+  <data name="RoleLevelInvalid" xml:space="preserve"><value>Çdo nivel qasjeje duhet të jetë Asnjë, Shikim, Redaktim ose Miratim, dhe fusha e partnerëve duhet të jetë Të gjithë ose Të caktuar.</value></data>
+  <data name="PosApprovalPinInvalid" xml:space="preserve"><value>Ky PIN nuk i përket një menaxheri që mund ta miratojë këtë.</value></data>
+  <data name="PosApprovedBy" xml:space="preserve"><value>miratuar nga {0}</value></data>
+  <data name="PosPinTooManyAttempts" xml:space="preserve"><value>Shumë PIN të gabuar. Prisni 15 minuta dhe provoni përsëri.</value></data>
 </root>
