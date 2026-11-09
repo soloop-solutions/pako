@@ -470,24 +470,27 @@ export function Items() {
             >
               {intl.formatMessage({ id: "common.edit" })}
             </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 text-xs"
-              onClick={() => handleToggleActive(row.original)}
-            >
-              {row.original.isActive
-                ? intl.formatMessage({ id: "common.deactivate" })
-                : intl.formatMessage({ id: "common.reactivate" })}
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-6 text-xs text-destructive"
-              onClick={() => handleDelete(row.original.id)}
-            >
-              {intl.formatMessage({ id: "common.delete" })}
-            </Button>
+            {row.original.isInUse ? (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs"
+                onClick={() => handleToggleActive(row.original)}
+              >
+                {row.original.isActive
+                  ? intl.formatMessage({ id: "common.deactivate" })
+                  : intl.formatMessage({ id: "common.reactivate" })}
+              </Button>
+            ) : (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-6 text-xs text-destructive"
+                onClick={() => handleDelete(row.original.id)}
+              >
+                {intl.formatMessage({ id: "common.delete" })}
+              </Button>
+            )}
           </div>
         ),
       },

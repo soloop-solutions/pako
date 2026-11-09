@@ -81,7 +81,12 @@ public class ItemsController : ControllerBase
             .Where(c => itemIds.Contains(c.ItemId))
             .ToDictionaryAsync(c => c.ItemId, c => c.AverageCost);
 
-        return Ok(new PaginatedResponse<ItemResponse>(items.Select(i => ToResponse(i, averageCost: costs.GetValueOrDefault(i.Id))).ToList(), total, page, pageSize));
+        var usedOnInvoices = await _db.InvoiceLines.Where(l => l.ItemId != null && itemIds.Contains(l.ItemId.Value)).Select(l => l.ItemId!.Value).Distinct().ToListAsync();
+        var usedOnBills = await _db.BillLines.Where(l => l.ItemId != null && itemIds.Contains(l.ItemId.Value)).Select(l => l.ItemId!.Value).Distinct().ToListAsync();
+        var usedOnStock = await _db.StockMoves.Where(m => itemIds.Contains(m.ItemId)).Select(m => m.ItemId).Distinct().ToListAsync();
+        var usedIds = new HashSet<Guid>(usedOnInvoices.Concat(usedOnBills).Concat(usedOnStock));
+
+        return Ok(new PaginatedResponse<ItemResponse>(items.Select(i => ToResponse(i, averageCost: costs.GetValueOrDefault(i.Id), isInUse: usedIds.Contains(i.Id))).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{itemId:guid}")]
@@ -94,7 +99,10 @@ public class ItemsController : ControllerBase
 
         if (item == null) return NotFound();
         var cost = await _db.ItemCosts.AsNoTracking().FirstOrDefaultAsync(c => c.ItemId == itemId);
-        return Ok(ToResponse(item, averageCost: cost?.AverageCost));
+        var inUse = await _db.InvoiceLines.AnyAsync(l => l.ItemId == itemId)
+            || await _db.BillLines.AnyAsync(l => l.ItemId == itemId)
+            || await _db.StockMoves.AnyAsync(m => m.ItemId == itemId);
+        return Ok(ToResponse(item, await _db.StockMoves.AnyAsync(m => m.ItemId == itemId), cost?.AverageCost, inUse));
     }
 
     [HttpPost]
@@ -395,7 +403,7 @@ public class ItemsController : ControllerBase
         return null;
     }
 
-    private static ItemResponse ToResponse(Item i, bool hasStockMoves = false, decimal? averageCost = null) => new(
+    private static ItemResponse ToResponse(Item i, bool hasStockMoves = false, decimal? averageCost = null, bool isInUse = false) => new(
         i.Id, i.Code, i.Name, i.Description, i.Unit, i.Type,
         i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
@@ -405,7 +413,7 @@ public class ItemsController : ControllerBase
         i.TrackSerials, i.WarrantyMonths, i.IsVariantTemplate, i.VariantOfItemId, null, i.IsBookable, i.DurationMinutes, i.BufferMinutes,
         i.PackageServiceItemId, i.PackageSessions, i.PackageValidDays, i.MembershipDays, i.ProductionCenterId,
         i.AtcCode, i.ActiveIngredient, i.IsPrescriptionOnly, i.IsControlled, i.MaxRetailPrice, i.AgencyPartnerId, i.AgencyCommissionPercent,
-        averageCost, i.IsActive);
+        averageCost, i.IsActive, isInUse);
 
     // P7: pharmacy and agency fields.
     private static void ApplySpecialistFields(Item item, string? atc, string? ingredient, bool rxOnly, bool controlled, decimal? cap,

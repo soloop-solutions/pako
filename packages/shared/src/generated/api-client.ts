@@ -29897,6 +29897,7 @@ export interface ItemResponse {
     agencyCommissionPercent?: number | undefined;
     averageCost?: number | undefined;
     isActive?: boolean;
+    isInUse?: boolean;
 
     [key: string]: any;
 }
