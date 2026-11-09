@@ -667,10 +667,13 @@ def real_estate(firm, firm_admin):
     if not new:
         return "already there"
     bank_account(co, "TEB Banka", "XK052001000000090909")
-    roles(co, [("Agjent shitjesh pronash", {"sales": W, "partners": W, "items": R, "reports": R}, "Reservations and sale contracts; no posting.")])
+    roles(co, [
+        ("Agjent shitjesh pronash", {"sales": W, "partners": W, "items": R, "reports": R}, "Reservations and sale contracts; no posting."),
+        ("Administrator pronash", {"sales": A, "partners": W, "items": R, "reports": R}, "Leases and the monthly rent run; posts the rent invoices."),
+    ])
     staff(co, [
         ("Rudina", "Hoti", "Agjente shitjesh", "Shitja", 800, "realestate.agent@pako.test", "Agjent shitjesh pronash"),
-        ("Lulzim", "Kurti", "Administrator pronash", "Qiratë", 750, "realestate.rentals@pako.test", "sales"),
+        ("Lulzim", "Kurti", "Administrator pronash", "Qiratë", 750, "realestate.rentals@pako.test", "Administrator pronash"),
         ("Majlinda", "Gecaj", "Kontabiliste", "Administrata", 900, None, None),
     ])
     opening_capital(co, 200000)
