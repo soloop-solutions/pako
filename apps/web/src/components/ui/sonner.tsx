@@ -7,7 +7,7 @@ export function Toaster() {
   return (
     <SonnerToaster
       theme={theme}
-      position="bottom-right"
+      position="top-right"
       toastOptions={{
         duration: 4000,
         className: "text-sm",

@@ -262,6 +262,7 @@ const companyProfileItem: NavItem = {
   icon: Building,
   descriptionKey: "nav.companyProfile.description",
   Element: CompanyProfile,
+  module: "settings",
 };
 
 const companiesItem: NavItem = {
@@ -270,6 +271,7 @@ const companiesItem: NavItem = {
   icon: Building2,
   descriptionKey: "nav.companies.description",
   Element: Companies,
+  module: "settings",
 };
 
 const settingsItem: NavItem = {
@@ -278,6 +280,7 @@ const settingsItem: NavItem = {
   icon: SettingsIcon,
   descriptionKey: "nav.settings.description",
   Element: Settings,
+  module: "settings",
 };
 
 const salesInvoicesItem: NavItem = {

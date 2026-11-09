@@ -86,8 +86,8 @@ describe("Item form — till fields", () => {
     renderItems();
     fireEvent.click(await screen.findByRole("button", { name: "Add item" }));
     const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("Name"), { target: { value: "Djathë i bardhë" } });
-    fireEvent.change(within(dialog).getByLabelText("Unit"), { target: { value: "kg" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Name/), { target: { value: "Djathë i bardhë" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Unit/), { target: { value: "kg" } });
     fireEvent.change(within(dialog).getByLabelText("PLU"), { target: { value: "0042" } });
     fireEvent.change(within(dialog).getByLabelText("Minimum age"), { target: { value: "16" } });
     fireEvent.click(within(dialog).getByLabelText("Sold by weight"));

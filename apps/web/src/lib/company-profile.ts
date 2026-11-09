@@ -45,7 +45,7 @@ export function emptyProfileValues(): CompanyProfileValues {
     name: "", tradingName: "", legalForm: null, businessActivity: "", description: "",
     businessNumber: "", fiscalNumber: "", vatNumber: "", vatRegistrationDate: "",
     country: "Kosovo", municipality: "", streetAddress: "", postalCode: "", addressLine2: "",
-    email: "", phone: "", website: "",
+    email: "", phone: "+383 ", website: "",
     bankName: "", bankAccountHolder: "", iban: "", swiftBic: "",
     documentFooter: "", paymentInstructions: "",
   };

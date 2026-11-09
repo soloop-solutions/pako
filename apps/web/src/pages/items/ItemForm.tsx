@@ -258,7 +258,7 @@ export function ItemForm({
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.general" })}</legend>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1">
-          <Label htmlFor="item-name">{intl.formatMessage({ id: "items.name" })}</Label>
+          <Label htmlFor="item-name">{intl.formatMessage({ id: "items.name" })} *</Label>
           <Input id="item-name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="Laptop HP ProBook 450" />
         </div>
         <div className="flex flex-col gap-1 sm:col-span-2">
@@ -272,7 +272,7 @@ export function ItemForm({
           />
         </div>
         <div className="flex flex-col gap-1">
-          <Label htmlFor="item-unit">{intl.formatMessage({ id: "items.unit" })}</Label>
+          <Label htmlFor="item-unit">{intl.formatMessage({ id: "items.unit" })} *</Label>
           <Input id="item-unit" required value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="copë" />
         </div>
         <div className="flex flex-col gap-1">

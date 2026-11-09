@@ -6,13 +6,17 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { emptyProfileValues, profileValuesFrom, toProfileRequest, type CompanyProfileValues } from "@/lib/company-profile";
 import { CompanyProfileFields } from "@/pages/shared/CompanyProfileFields";
 
 export function CompanyProfile() {
   const intl = useIntl();
   const { activeCompany, refresh } = useCompany();
+  const { canSee, canWrite } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
+  const hasSettingsAccess = canSee("settings");
+  const canEdit = canWrite("settings");
 
   const [values, setValues] = useState<CompanyProfileValues>(emptyProfileValues);
   const [vatRegistered, setVatRegistered] = useState(true);
@@ -62,6 +66,14 @@ export function CompanyProfile() {
     );
   }
 
+  if (!hasSettingsAccess) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        {intl.formatMessage({ id: "errors.noPermission" })}
+      </p>
+    );
+  }
+
   const isArchived = activeCompany.isArchived;
 
   return (
@@ -97,7 +109,7 @@ export function CompanyProfile() {
 
       {/* Sticky save bar */}
       <div className="sticky bottom-0 flex items-center gap-3 border-t bg-background py-3">
-        <Button type="submit" disabled={saving || !dirty || isArchived}>
+        <Button type="submit" disabled={saving || !dirty || isArchived || !canEdit}>
           {saving
             ? intl.formatMessage({ id: "common.saving" })
             : intl.formatMessage({ id: "common.save" })}

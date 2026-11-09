@@ -58,7 +58,10 @@ export function CompanySelect() {
   const [limitOpen, setLimitOpen] = useState(false);
   const account = useAccount();
   // docs/PLATFORM_ADMIN.md: each accountant may create as many companies as the administrator allows.
-  const limit = account.data?.companyLimit;
+  // A limit of 0 means "not a company creator" (e.g. an employee who only gets invited) — don't
+  // show it as "limit reached" since they can still access companies they're members of.
+  const rawLimit = account.data?.companyLimit;
+  const limit = rawLimit === 0 ? undefined : rawLimit;
   const created = account.data?.companiesCreated ?? 0;
   const atLimit = limit != null && created >= limit;
 

@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { BusinessTypeSettings } from "@/pages/settings/BusinessTypeSettings";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
@@ -16,6 +17,10 @@ export function Settings() {
   const intl = useIntl();
   const { auth } = useAuth();
   const { activeCompany } = useCompany();
+  const { canSee } = useMyAccess();
+
+  // Account card (email) is always visible; company settings require Settings access.
+  const hasSettingsAccess = canSee("settings");
 
   return (
     <div className="flex flex-col gap-6">
@@ -27,7 +32,7 @@ export function Settings() {
         <CardContent>
           <div className="flex max-w-sm flex-col gap-2">
             <Label htmlFor="settings-email">{intl.formatMessage({ id: "common.email" })}</Label>
-            <Input id="settings-email" value={auth?.email ?? ""} readOnly />
+            <Input id="settings-email" value={auth?.email ?? ""} readOnly disabled />
           </div>
         </CardContent>
       </Card>
@@ -63,15 +68,15 @@ export function Settings() {
       </Card>
 
       {/* Business types: the company's type and the packs it uses. */}
-      {activeCompany && <BusinessTypeSettings companyId={activeCompany.id} />}
+      {activeCompany && hasSettingsAccess && <BusinessTypeSettings companyId={activeCompany.id} />}
 
-      {activeCompany && <NumberingSettings companyId={activeCompany.id} />}
+      {activeCompany && hasSettingsAccess && <NumberingSettings companyId={activeCompany.id} />}
 
-      {activeCompany && <LockDatesSettings companyId={activeCompany.id} />}
+      {activeCompany && hasSettingsAccess && <LockDatesSettings companyId={activeCompany.id} />}
 
-      {activeCompany && <NotificationSettings companyId={activeCompany.id} />}
+      {activeCompany && hasSettingsAccess && <NotificationSettings companyId={activeCompany.id} />}
 
-      {activeCompany?.firmId && <StatutoryParametersSettings firmId={activeCompany.firmId} />}
+      {activeCompany?.firmId && hasSettingsAccess && <StatutoryParametersSettings firmId={activeCompany.firmId} />}
     </div>
   );
 }

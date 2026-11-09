@@ -64,22 +64,37 @@ export function CompanyProfileFields({
   const t = (id: string) => intl.formatMessage({ id });
   const id = (name: string) => `${idPrefix}-${name}`;
 
-  const text = (name: keyof CompanyProfileValues, labelId: string, extra?: { type?: string; placeholder?: string; required?: boolean; className?: string }) => (
-    <div className={cn("flex flex-col gap-1", extra?.className)}>
-      <Label htmlFor={id(name)}>
-        {t(labelId)}
-        {extra?.required ? " *" : ""}
-      </Label>
-      <Input
-        id={id(name)}
-        type={extra?.type}
-        required={extra?.required}
-        placeholder={extra?.placeholder}
-        value={values[name] as string}
-        onChange={(e) => onChange({ [name]: e.target.value })}
-      />
-    </div>
-  );
+  // Field validators — return a localized error or null.
+  const validateEmail = (v: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : t("validation.invalidEmail");
+  const validatePhone = (v: string) => /^\+?\d[\d\s\-()]{5,}$/.test(v) ? null : t("validation.invalidPhone");
+  const validateUrl = (v: string) => /^https?:\/\/.+\..+/.test(v) ? null : t("validation.invalidUrl");
+  const validatePostalCode = (v: string) => /^\d{5}$/.test(v) ? null : t("validation.invalidPostalCode");
+  const validateBusinessNumber = (v: string) => /^\d+$/.test(v) ? null : t("validation.invalidBusinessNumber");
+  const validateFiscalNumber = (v: string) => /^\d+$/.test(v) ? null : t("validation.invalidFiscalNumber");
+  const validateIban = (v: string) => /^[A-Z]{2}\d{2}[\s]?[\dA-Z\s]{4,}$/.test(v.replace(/\s/g, "").toUpperCase()) ? null : t("validation.invalidIban");
+
+  const text = (name: keyof CompanyProfileValues, labelId: string, extra?: { type?: string; placeholder?: string; required?: boolean; className?: string; validate?: (v: string) => string | null }) => {
+    const value = values[name] as string;
+    const error = extra?.validate && value ? extra.validate(value) : null;
+    return (
+      <div className={cn("flex flex-col gap-1", extra?.className)}>
+        <Label htmlFor={id(name)}>
+          {t(labelId)}
+          {extra?.required ? " *" : ""}
+        </Label>
+        <Input
+          id={id(name)}
+          type={extra?.type}
+          required={extra?.required}
+          placeholder={extra?.placeholder}
+          value={value}
+          aria-invalid={!!error || undefined}
+          onChange={(e) => onChange({ [name]: e.target.value })}
+        />
+        {error && <p className="text-[11px] text-destructive">{error}</p>}
+      </div>
+    );
+  };
 
   const area = (name: keyof CompanyProfileValues, labelId: string, placeholderId?: string, className?: string) => (
     <div className={cn("flex flex-col gap-1", className)}>
@@ -163,8 +178,8 @@ export function CompanyProfileFields({
 
       {section("companyProfile.legalFiscal", "companyProfile.legalFiscal.description", (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {text("businessNumber", "companyProfile.businessNumber")}
-          {text("fiscalNumber", "companyProfile.fiscalNumber")}
+          {text("businessNumber", "companyProfile.businessNumber", { validate: validateBusinessNumber })}
+          {text("fiscalNumber", "companyProfile.fiscalNumber", { validate: validateFiscalNumber })}
           <div className="flex flex-col gap-1">
             <Label htmlFor={id("vatRegistered")}>{t("companyProfile.vatRegistered")}</Label>
             {onVatRegisteredChange ? (
@@ -194,12 +209,12 @@ export function CompanyProfileFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {text("country", "companyProfile.country")}
           {text("municipality", "companyProfile.municipality")}
-          {text("postalCode", "companyProfile.postalCode")}
+          {text("postalCode", "companyProfile.postalCode", { validate: validatePostalCode })}
           {text("streetAddress", "companyProfile.streetAddress", { className: "sm:col-span-2" })}
           {text("addressLine2", "companyProfile.addressLine2")}
-          {text("email", "companyProfile.email", { type: "email" })}
-          {text("phone", "companyProfile.phone", { type: "tel" })}
-          {text("website", "companyProfile.website", { type: "url", placeholder: "https://" })}
+          {text("email", "companyProfile.email", { type: "email", validate: validateEmail })}
+          {text("phone", "companyProfile.phone", { type: "tel", placeholder: "+383", validate: validatePhone })}
+          {text("website", "companyProfile.website", { type: "url", placeholder: "https://", validate: validateUrl })}
         </div>
       ))}
 
@@ -215,7 +230,7 @@ export function CompanyProfileFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {text("bankName", "companyProfile.bankName")}
           {text("bankAccountHolder", "companyProfile.accountHolder")}
-          {text("iban", "companyProfile.iban")}
+          {text("iban", "companyProfile.iban", { validate: validateIban })}
           {text("swiftBic", "companyProfile.swiftBic")}
         </div>
       ))}
@@ -510,7 +525,11 @@ function BankAccountsSection({ companyId }: { companyId: string }) {
             {acc.swiftBic && <div className="text-muted-foreground text-xs">{acc.swiftBic}</div>}
           </div>
           <div className="flex gap-1">
-            {!acc.isDefault && (
+            {acc.isDefault ? (
+              <span className="flex h-7 w-7 items-center justify-center">
+                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+              </span>
+            ) : (
               <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => void setDefault(acc.id)} title={t("companyProfile.setDefault")}>
                 <Star className="h-3.5 w-3.5" />
               </Button>

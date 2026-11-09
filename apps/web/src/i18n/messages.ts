@@ -1172,6 +1172,13 @@ export const en: Record<string, string> = {
   "companyProfile.bankAccountError": "Failed to save bank account",
   "companyProfile.defaultBank": "Default",
   "companyProfile.setDefault": "Set as default",
+  "validation.invalidEmail": "Enter a valid email address.",
+  "validation.invalidPhone": "Enter a valid phone number (e.g. +383 44 123 456).",
+  "validation.invalidUrl": "Enter a valid URL (e.g. https://example.com).",
+  "validation.invalidPostalCode": "Enter a valid Kosovo postal code (5 digits, e.g. 10000).",
+  "validation.invalidBusinessNumber": "Enter a valid business number (digits only).",
+  "validation.invalidFiscalNumber": "Enter a valid fiscal number (digits only).",
+  "validation.invalidIban": "Enter a valid IBAN (e.g. XK05 1234 0000 0000 1234).",
 
   // Number series (B1/B2/B4)
   "numberSeries.title": "Number series",
@@ -2839,6 +2846,13 @@ export const sq: Record<string, string> = {
   "companyProfile.bankAccountError": "Dështoi ruajtja e llogarisë bankare",
   "companyProfile.defaultBank": "Kryesore",
   "companyProfile.setDefault": "Vendose si kryesore",
+  "validation.invalidEmail": "Shkruani nj\u00eb adres\u00eb emaili t\u00eb vlefshme.",
+  "validation.invalidPhone": "Shkruani nj\u00eb num\u00ebr telefoni t\u00eb vlefsh\u00ebm (p.sh. +383 44 123 456).",
+  "validation.invalidUrl": "Shkruani nj\u00eb URL t\u00eb vlefshme (p.sh. https://example.com).",
+  "validation.invalidPostalCode": "Shkruani nj\u00eb kod postar t\u00eb vlefsh\u00ebm (5 shifra, p.sh. 10000).",
+  "validation.invalidBusinessNumber": "Shkruani nj\u00eb num\u00ebr biznesi t\u00eb vlefsh\u00ebm (vet\u00ebm shifra).",
+  "validation.invalidFiscalNumber": "Shkruani nj\u00eb num\u00ebr fiskal t\u00eb vlefsh\u00ebm (vet\u00ebm shifra).",
+  "validation.invalidIban": "Shkruani nj\u00eb IBAN t\u00eb vlefsh\u00ebm (p.sh. XK05 1234 0000 0000 1234).",
 
   // Number series (B1/B2/B4)
   "numberSeries.title": "Serit\u00eb e numrave",

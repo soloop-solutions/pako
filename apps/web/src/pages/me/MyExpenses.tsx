@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
@@ -58,6 +58,8 @@ export function MyExpenses() {
   const [title, setTitle] = useState("");
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
   const [error, setError] = useState<string | null>(null);
+  // Field-level validation: "title" or "lineKey:field"
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   const claimsQuery = useQuery({
     queryKey: ["me", "expenseClaims", companyId],
@@ -81,6 +83,7 @@ export function MyExpenses() {
   function open(claim: ExpenseClaimResponse | "new") {
     setEditing(claim);
     setError(null);
+    setFieldErrors({});
     if (claim === "new") {
       setTitle("");
       setLines([emptyLine()]);
@@ -167,14 +170,46 @@ export function MyExpenses() {
     onError: onError("expenses.decideError"),
   });
 
+  const clearFieldError = useCallback((key: string) => {
+    setFieldErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  }, []);
+
   function updateLine(key: number, patch: Partial<LineDraft>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+    // Clear field errors for the changed fields
+    for (const field of Object.keys(patch)) {
+      clearFieldError(`${key}:${field}`);
+    }
   }
 
   function handleSave(e: FormEvent) {
     e.preventDefault();
-    if (!title.trim() || lines.some((l) => !l.description.trim() || !l.expenseAccountId || !l.amount || !l.date)) {
-      setError(intl.formatMessage({ id: "expenses.missingFields" }));
+    const errors: Record<string, string> = {};
+    if (!title.trim()) {
+      errors.title = intl.formatMessage({ id: "expenses.error.titleRequired" });
+    }
+    for (const line of lines) {
+      if (!line.date) {
+        errors[`${line.key}:date`] = intl.formatMessage({ id: "expenses.error.dateRequired" });
+      }
+      if (!line.description.trim()) {
+        errors[`${line.key}:description`] = intl.formatMessage({ id: "expenses.error.descriptionRequired" });
+      }
+      if (!line.expenseAccountId) {
+        errors[`${line.key}:expenseAccountId`] = intl.formatMessage({ id: "expenses.error.categoryRequired" });
+      }
+      if (!line.amount) {
+        errors[`${line.key}:amount`] = intl.formatMessage({ id: "expenses.error.amountRequired" });
+      }
+    }
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) {
+      setError(null);
       return;
     }
     saveMutation.mutate();
@@ -270,36 +305,76 @@ export function MyExpenses() {
             <form className="flex flex-col gap-3" onSubmit={handleSave}>
               <div className="flex flex-col gap-1 sm:max-w-md">
                 <Label htmlFor="claim-title">{intl.formatMessage({ id: "expenses.title" })}</Label>
-                <Input id="claim-title" disabled={!editable} value={title} onChange={(e) => setTitle(e.target.value)} />
+                <Input
+                  id="claim-title"
+                  disabled={!editable}
+                  value={title}
+                  onChange={(e) => {
+                    setTitle(e.target.value);
+                    clearFieldError("title");
+                  }}
+                  className={fieldErrors.title ? "border-destructive" : ""}
+                  aria-invalid={!!fieldErrors.title}
+                />
+                {fieldErrors.title && <p className="text-xs text-destructive">{fieldErrors.title}</p>}
               </div>
 
-              {lines.map((line, index) => (
-                <fieldset key={line.key} disabled={!editable} className="grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-8">
-                  <Input aria-label={intl.formatMessage({ id: "expenses.line.date" })} type="date" value={line.date} onChange={(e) => updateLine(line.key, { date: e.target.value })} />
-                  <Input
-                    aria-label={intl.formatMessage({ id: "expenses.line.description" })}
-                    placeholder={intl.formatMessage({ id: "expenses.line.description" })}
-                    className="sm:col-span-2"
-                    value={line.description}
-                    onChange={(e) => updateLine(line.key, { description: e.target.value })}
-                  />
-                  <Select
-                    aria-label={intl.formatMessage({ id: "expenses.line.category" })}
-                    value={line.expenseAccountId}
-                    onValueChange={(v) => updateLine(line.key, { expenseAccountId: v })}
-                    options={[
-                      { value: "", label: `${intl.formatMessage({ id: "expenses.line.category" })}…` },
-                      ...(options?.accounts ?? []).map((a) => ({ value: a.id, label: a.label })),
-                    ]}
-                  />
-                  <Input
-                    aria-label={intl.formatMessage({ id: "expenses.line.amount" })}
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    className="text-right tabular-nums"
-                    value={line.amount}
-                    onChange={(e) => updateLine(line.key, { amount: e.target.value })}
-                  />
+              {lines.map((line, index) => {
+                const lineErrors = {
+                  date: fieldErrors[`${line.key}:date`],
+                  description: fieldErrors[`${line.key}:description`],
+                  expenseAccountId: fieldErrors[`${line.key}:expenseAccountId`],
+                  amount: fieldErrors[`${line.key}:amount`],
+                };
+                const hasLineErrors = lineErrors.date || lineErrors.description || lineErrors.expenseAccountId || lineErrors.amount;
+                return (
+                <fieldset key={line.key} disabled={!editable} className={cn("grid grid-cols-2 gap-2 rounded-md border p-2 sm:grid-cols-8", hasLineErrors && "border-destructive")}>
+                  <div className="flex flex-col gap-0.5">
+                    <Input
+                      aria-label={intl.formatMessage({ id: "expenses.line.date" })}
+                      type="date"
+                      value={line.date}
+                      onChange={(e) => updateLine(line.key, { date: e.target.value })}
+                      className={lineErrors.date ? "border-destructive" : ""}
+                      aria-invalid={!!lineErrors.date}
+                    />
+                    {lineErrors.date && <p className="text-xs text-destructive">{lineErrors.date}</p>}
+                  </div>
+                  <div className="flex flex-col gap-0.5 sm:col-span-2">
+                    <Input
+                      aria-label={intl.formatMessage({ id: "expenses.line.description" })}
+                      placeholder={intl.formatMessage({ id: "expenses.line.description" })}
+                      value={line.description}
+                      onChange={(e) => updateLine(line.key, { description: e.target.value })}
+                      className={lineErrors.description ? "border-destructive" : ""}
+                      aria-invalid={!!lineErrors.description}
+                    />
+                    {lineErrors.description && <p className="text-xs text-destructive">{lineErrors.description}</p>}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <Select
+                      aria-label={intl.formatMessage({ id: "expenses.line.category" })}
+                      value={line.expenseAccountId}
+                      onValueChange={(v) => updateLine(line.key, { expenseAccountId: v })}
+                      options={[
+                        { value: "", label: `${intl.formatMessage({ id: "expenses.line.category" })}…` },
+                        ...(options?.accounts ?? []).map((a) => ({ value: a.id, label: a.label })),
+                      ]}
+                    />
+                    {lineErrors.expenseAccountId && <p className="text-xs text-destructive">{lineErrors.expenseAccountId}</p>}
+                  </div>
+                  <div className="flex flex-col gap-0.5">
+                    <Input
+                      aria-label={intl.formatMessage({ id: "expenses.line.amount" })}
+                      placeholder="0.00"
+                      inputMode="decimal"
+                      className={cn("text-right tabular-nums", lineErrors.amount && "border-destructive")}
+                      value={line.amount}
+                      onChange={(e) => updateLine(line.key, { amount: e.target.value })}
+                      aria-invalid={!!lineErrors.amount}
+                    />
+                    {lineErrors.amount && <p className="text-xs text-destructive">{lineErrors.amount}</p>}
+                  </div>
                   <Select aria-label={intl.formatMessage({ id: "expenses.line.vat" })} value={line.taxDefinitionId} onValueChange={(v) => updateLine(line.key, { taxDefinitionId: v })} options={[{ value: "", label: intl.formatMessage({ id: "expenses.line.noVat" }) }, ...(options?.taxes ?? []).map((t) => ({ value: t.id, label: t.label }))]} />
                   <Input
                     aria-label={intl.formatMessage({ id: "expenses.line.supplier" })}
@@ -327,7 +402,8 @@ export function MyExpenses() {
                     )}
                   </div>
                 </fieldset>
-              ))}
+                );
+              })}
 
               {saved && (
                 <div className="flex flex-wrap items-center gap-2 text-sm">

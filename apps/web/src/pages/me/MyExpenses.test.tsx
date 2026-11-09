@@ -69,7 +69,10 @@ describe("My expenses", () => {
     fireEvent.click(await screen.findByRole("button", { name: "New expense claim" }));
     fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Trip" } });
     fireEvent.click(screen.getByRole("button", { name: "Save draft" }));
-    expect(screen.getByText(/fill in date, description, category and amount/)).toBeInTheDocument();
+    // Field-specific inline errors appear instead of one generic banner
+    expect(screen.getByText("Describe what this expense was for.")).toBeInTheDocument();
+    expect(screen.getByText("Pick an expense category.")).toBeInTheDocument();
+    expect(screen.getByText("Enter the amount paid.")).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText("What it was for"), { target: { value: "Fuel" } });
     await chooseOption(screen.getByLabelText("Category"), "600500 Travel");

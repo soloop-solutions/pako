@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 import { useIntl } from "react-intl";
 import type { EmployeeDetailResponse } from "@pako/shared";
 
@@ -52,6 +53,26 @@ export function EmployeePicker({
   const [search, setSearch] = useState("");
   const [active, setActive] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    setDropdownPos({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    updatePosition();
+    // Reposition on scroll (any ancestor) and resize
+    window.addEventListener("scroll", updatePosition, true);
+    window.addEventListener("resize", updatePosition);
+    return () => {
+      window.removeEventListener("scroll", updatePosition, true);
+      window.removeEventListener("resize", updatePosition);
+    };
+  }, [open, updatePosition]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearch(text.trim()), DEBOUNCE_MS);
@@ -82,7 +103,8 @@ export function EmployeePicker({
   useEffect(() => {
     if (!open) return;
     function onPointerDown(event: PointerEvent) {
-      if (!containerRef.current?.contains(event.target as Node)) close();
+      const target = event.target as Node;
+      if (!containerRef.current?.contains(target) && !listRef.current?.contains(target)) close();
     }
     document.addEventListener("pointerdown", onPointerDown);
     return () => document.removeEventListener("pointerdown", onPointerDown);
@@ -148,11 +170,14 @@ export function EmployeePicker({
           </button>
         )}
       </div>
-      {open && (
+      {open && dropdownPos && createPortal(
         <ul
+          ref={listRef}
           id={listboxId}
           role="listbox"
-          className="absolute z-50 mt-1 max-h-64 w-full min-w-56 overflow-auto rounded-md border bg-popover p-1 text-[12.5px] shadow-md"
+          style={{ position: "fixed", top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width }}
+          data-radix-popper-content-wrapper=""
+          className="z-50 max-h-64 min-w-56 overflow-auto rounded-md border bg-popover p-1 text-[12.5px] shadow-md"
         >
           {resultsQuery.isPending && <li className="px-2 py-1 text-muted-foreground">{intl.formatMessage({ id: "hr.picker.loading" })}</li>}
           {!resultsQuery.isPending && options.length === 0 && (
@@ -181,7 +206,8 @@ export function EmployeePicker({
               {intl.formatMessage({ id: "hr.picker.more" }, { shown: options.length, total })}
             </li>
           )}
-        </ul>
+        </ul>,
+        document.body,
       )}
     </div>
   );

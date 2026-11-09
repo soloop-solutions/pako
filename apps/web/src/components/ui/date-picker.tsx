@@ -10,7 +10,7 @@ import { dateToIso, formatDisplayDate, isoToDate, isoWithin, parseTypedDate } fr
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "group flex h-7 w-full min-w-0 items-center rounded-md border border-input bg-transparent text-[12.5px] transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50 has-[input[aria-invalid=true]]:border-destructive";
+  "group flex h-7 w-full min-w-0 items-center rounded-md border border-input bg-transparent text-[12.5px] text-foreground transition-colors focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 has-[input:disabled]:cursor-not-allowed has-[input:disabled]:opacity-50 has-[input[aria-invalid=true]]:border-destructive";
 
 const iconButtonClass =
   "inline-flex size-6 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring/60 disabled:pointer-events-none";

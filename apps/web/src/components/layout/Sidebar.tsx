@@ -27,9 +27,10 @@ const allItemsByPath = new Map<string, NavItem>(
 
 // HR module: the permission module each nav path needs (item override, else its category's).
 // Paths outside any module-gated category resolve to undefined = always visible.
-const moduleByPath = new Map<string, NavModule | undefined>(
-  defaultNavCategories.flatMap((c) => c.items.map((item) => [item.path, item.module ?? c.module] as const)),
-);
+const moduleByPath = new Map<string, NavModule | undefined>([
+  ...defaultNavCategories.flatMap((c) => c.items.map((item) => [item.path, item.module ?? c.module] as const)),
+  ...bottomNavItems.filter((i) => i.module).map((i) => [i.path, i.module] as const),
+]);
 
 // Business types: the vertical pack each nav path belongs to (undefined = every company).
 const featureByPath = new Map<string, NavItem["feature"]>(
@@ -206,7 +207,10 @@ export function Sidebar() {
 
           <div className="border-t" />
 
-          <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} onPin={toggleFavourite} userId={userId} />
+          {/* TASK-018: hide Favourites/Suggested when the sidebar has fewer than 10 accessible items. */}
+          {navCategories.reduce((n, c) => n + c.items.filter((i) => isAllowed(i.path)).length, 0) >= 10 && (
+            <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} onPin={toggleFavourite} userId={userId} />
+          )}
 
           {navCategories.map((category) => {
             const allowedItems = category.items.filter((i) => isAllowed(i.path));
@@ -308,7 +312,7 @@ export function Sidebar() {
 
           <div className="border-t" />
           <div className="flex flex-col py-1 pb-2">
-            {bottomNavItems.filter((item) => !layout.topPaths?.includes(item.path)).map((item) => (
+            {bottomNavItems.filter((item) => !layout.topPaths?.includes(item.path) && isAllowed(item.path)).map((item) => (
               <SidebarLink key={item.path} item={item} label={label(item)} active={isActive(item.path)} />
             ))}
           </div>

@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { useConfirm } from "@/components/ui/confirm-context";
+
+const UNSAVED_MESSAGE = "You have unsaved changes. Leave without saving?";
+
 /**
  * Warns the user before leaving the page when there are unsaved changes.
  * Covers:
@@ -16,6 +20,9 @@ export function useUnsavedChanges(isDirty: boolean) {
   const dirtyRef = useRef(isDirty);
   dirtyRef.current = isDirty;
   const navigate = useNavigate();
+  const confirm = useConfirm();
+  const confirmRef = useRef(confirm);
+  confirmRef.current = confirm;
 
   // Browser close/refresh protection
   useEffect(() => {
@@ -36,11 +43,10 @@ export function useUnsavedChanges(isDirty: boolean) {
       if (!dirtyRef.current) return;
       // Re-push the guard to prevent the navigation
       window.history.pushState({ unsavedGuard: true }, "");
-      const leave = window.confirm("You have unsaved changes. Leave without saving?");
-      if (leave) {
+      confirmRef.current(UNSAVED_MESSAGE, () => {
         dirtyRef.current = false;
         window.history.go(-2); // Go back past the guard
-      }
+      }, { destructive: true });
     };
 
     window.addEventListener("popstate", handlePopState);
@@ -63,11 +69,10 @@ export function useUnsavedChanges(isDirty: boolean) {
 
     e.preventDefault();
     e.stopPropagation();
-    const leave = window.confirm("You have unsaved changes. Leave without saving?");
-    if (leave) {
+    confirmRef.current(UNSAVED_MESSAGE, () => {
       dirtyRef.current = false;
       navigate(href);
-    }
+    }, { destructive: true });
   }, [navigate]);
 
   useEffect(() => {
