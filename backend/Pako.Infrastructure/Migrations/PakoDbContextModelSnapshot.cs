@@ -173,6 +173,12 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -216,7 +222,7 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.Property<decimal>("DiscountPercent")
-                        .HasColumnType("numeric");
+                        .HasColumnType("numeric(5,2)");
 
                     b.Property<Guid>("ExpenseAccountId")
                         .HasColumnType("uuid");
@@ -565,6 +571,12 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<DateOnly?>("PurchaseLockDate")
                         .HasColumnType("date");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<DateOnly?>("SaleLockDate")
                         .HasColumnType("date");
@@ -946,6 +958,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<int?>("DurationMinutes")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsBookable")
                         .HasColumnType("boolean");
 
@@ -1000,6 +1015,12 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<decimal?>("PurchaseUnitFactor")
                         .HasColumnType("numeric(18,4)");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("SalesUnit")
                         .HasMaxLength(32)
@@ -1300,6 +1321,12 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<Guid?>("ReceivableAccountId")
                         .HasColumnType("uuid");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("StreetAddress")
                         .HasMaxLength(512)
@@ -3040,6 +3067,12 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid?>("ProjectId")
                         .HasColumnType("uuid");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<string>("State")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -3080,7 +3113,7 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.Property<decimal>("DiscountPercent")
-                        .HasColumnType("numeric");
+                        .HasColumnType("numeric(5,2)");
 
                     b.Property<DateOnly?>("ExpiryDate")
                         .HasColumnType("date");
@@ -3544,6 +3577,12 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(1024)
                         .HasColumnType("character varying(1024)");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<long?>("SecureSequenceNumber")
                         .HasColumnType("bigint");
 
@@ -3889,6 +3928,12 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<bool>("ReceivePayslipsByEmail")
                         .HasColumnType("boolean");
 
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
+
                     b.Property<DateOnly?>("TerminationDate")
                         .HasColumnType("date");
 
@@ -4078,6 +4123,12 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<DateOnly>("PeriodStart")
                         .HasColumnType("date");
+
+                    b.Property<uint>("RowVersion")
+                        .IsConcurrencyToken()
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("xid")
+                        .HasColumnName("xmin");
 
                     b.Property<string>("State")
                         .IsRequired()
