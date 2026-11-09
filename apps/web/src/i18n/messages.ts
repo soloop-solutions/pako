@@ -1436,6 +1436,9 @@ export const en: Record<string, string> = {
   "attachments.deleteError": "Could not delete this attachment.",
   "attachments.unsupportedType": "“{fileName}” is not an image or PDF and was not uploaded.",
   "attachments.tooLarge": "“{fileName}” is larger than 10 MB and was not uploaded.",
+  "attachments.dropZoneActiveHint": "Drop to upload",
+  "attachments.dropZoneFormats": "PNG, JPG, GIF, WebP or PDF — max {maxSizeMb} MB. You can also paste from clipboard.",
+  "attachments.count": "{count, plural, one {# attachment} other {# attachments}}",
 
   // Task 8 — app shell: tab strip
   "shell.tabs.unsaved": "Unsaved changes",
@@ -3134,6 +3137,9 @@ export const sq: Record<string, string> = {
   "attachments.deleteError": "Kjo bashkëngjitje nuk u fshi dot.",
   "attachments.unsupportedType": "“{fileName}” nuk është imazh apo PDF dhe nuk u ngarkua.",
   "attachments.tooLarge": "“{fileName}” është më e madhe se 10 MB dhe nuk u ngarkua.",
+  "attachments.dropZoneActiveHint": "Lëshoni për ta ngarkuar",
+  "attachments.dropZoneFormats": "PNG, JPG, GIF, WebP ose PDF — maks {maxSizeMb} MB. Mund të ngjisni edhe nga clipboard.",
+  "attachments.count": "{count, plural, one {# bashkëngjitje} other {# bashkëngjitje}}",
 
   // Task 8 — app shell: tab strip
   "shell.tabs.unsaved": "Ndryshime të paruajtura",

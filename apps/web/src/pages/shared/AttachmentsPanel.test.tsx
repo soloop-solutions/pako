@@ -146,21 +146,19 @@ describe("AttachmentsPanel", () => {
     expect(screen.getByText("No attachments yet.")).toBeInTheDocument();
   });
 
-  it("opens the original file when a thumbnail is clicked", async () => {
+  it("opens the original file when the filename is clicked", async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText("No attachments yet.")).toBeInTheDocument());
 
     dropFile(makeImageFile("open-me.png"));
     await waitFor(() => expect(screen.getByText("open-me.png")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: "Preview open-me.png" }));
-    await waitFor(() => expect(screen.getByText("Preview")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: "Open original" }));
+    // Click the filename link to open original
+    fireEvent.click(screen.getByText("open-me.png"));
     await waitFor(() => expect(window.open).toHaveBeenCalledWith(expect.stringContaining("blob:mock-"), "_blank", "noopener,noreferrer"));
   });
 
-  it("shows a placeholder region for the future extracted-fields (OCR) panel beside the preview", async () => {
+  it("shows preview and extracted-fields placeholder when thumbnail is clicked", async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByText("No attachments yet.")).toBeInTheDocument());
 
@@ -168,7 +166,7 @@ describe("AttachmentsPanel", () => {
     await waitFor(() => expect(screen.getByText("placeholder-check.png")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Preview placeholder-check.png" }));
-    await waitFor(() => expect(screen.getByText("Extracted fields")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Preview")).toBeInTheDocument());
     expect(screen.getByText(/OCR is not available yet/)).toBeInTheDocument();
   });
 
@@ -184,5 +182,35 @@ describe("AttachmentsPanel", () => {
 
     const second = renderPanel();
     await waitFor(() => expect(within(second.container).getByText("persists.png")).toBeInTheDocument());
+  });
+
+  it("the entire dropzone is clickable to open the file picker", async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText("No attachments yet.")).toBeInTheDocument());
+
+    const dropzone = screen.getByTestId("attachments-dropzone");
+    // Clicking the dropzone should trigger the hidden file input
+    const input = screen.getByLabelText("Or choose a file") as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, "click");
+    fireEvent.click(dropzone);
+    expect(clickSpy).toHaveBeenCalled();
+    clickSpy.mockRestore();
+  });
+
+  it("shows accepted formats and size limit in the dropzone", async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText(/PNG, JPG, GIF, WebP or PDF/)).toBeInTheDocument());
+    expect(screen.getByText(/max 10 MB/)).toBeInTheDocument();
+  });
+
+  it("shows attachment count when files exist", async () => {
+    renderPanel();
+    await waitFor(() => expect(screen.getByText("No attachments yet.")).toBeInTheDocument());
+
+    dropFile(makeImageFile("one.png"));
+    await waitFor(() => expect(screen.getByText("1 attachment")).toBeInTheDocument());
+
+    dropFile(makeImageFile("two.png"));
+    await waitFor(() => expect(screen.getByText("2 attachments")).toBeInTheDocument());
   });
 });

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type ClipboardEvent, type DragEvent } from "react";
 import { useIntl } from "react-intl";
-import { FileText, Trash2, Upload } from "lucide-react";
+import { FileText, Paperclip, Trash2, Upload, X } from "lucide-react";
 
 import {
   deleteAttachment,
@@ -12,19 +12,19 @@ import {
 } from "@/api/attachments-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { formatAttachmentSize, isImageAttachmentType, validateAttachmentFile } from "@/lib/attachment-validation";
+import {
+  ATTACHMENT_ACCEPTED_TYPES,
+  ATTACHMENT_MAX_SIZE_BYTES,
+  formatAttachmentSize,
+  isImageAttachmentType,
+  validateAttachmentFile,
+} from "@/lib/attachment-validation";
 import { cn } from "@/lib/utils";
 
-// F11 — files on a document, through the real AttachmentsController. Shared between
-// InvoiceDetail.tsx, BillDetail.tsx and StockDocumentDetail.tsx, same composition style as RecordPaymentForm.tsx/
-// ApplyCreditNoteForm.tsx/EditPostedFieldsForm.tsx on those pages.
 type AttachmentsPanelProps = {
   companyId: string;
   documentKind: AttachmentDocumentKind;
   documentId: string;
-  /** Without write access to the document's module: files can be viewed but not added or removed. */
   readOnly?: boolean;
 };
 
@@ -35,9 +35,11 @@ interface AttachmentWithPreview extends Attachment {
 export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly = false }: AttachmentsPanelProps) {
   const intl = useIntl();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // One object URL per attachment id, created lazily and reused — shared by the grid thumbnail,
-  // the selected-item preview and "open original", so a given file's bytes are only ever fetched
-  // and turned into an object URL once per mount. Revoked on unmount.
+  const dropRef = useRef<HTMLDivElement>(null);
+  // Drag counter: incremented on dragenter, decremented on dragleave. Only when it
+  // reaches 0 do we remove the highlight. This fixes the flicker caused by child elements
+  // firing their own enter/leave events.
+  const dragCounter = useRef(0);
   const objectUrlCache = useRef<Map<string, string>>(new Map());
 
   const [attachments, setAttachments] = useState<AttachmentWithPreview[]>([]);
@@ -112,14 +114,29 @@ export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly
     };
   }, [selectedId, getContentUrl]);
 
-  async function handleFiles(files: FileList | null) {
-    if (!files || files.length === 0) return;
+  // --- Paste support: listen for Ctrl+V / Cmd+V with image data ---
+  function handlePaste(event: ClipboardEvent<HTMLDivElement>) {
+    if (readOnly || uploading) return;
+    const items = event.clipboardData?.items;
+    if (!items) return;
+    const files: File[] = [];
+    for (const item of Array.from(items)) {
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      event.preventDefault();
+      void handleFiles(files);
+    }
+  }
+
+  async function handleFiles(files: File[] | FileList | null) {
+    if (!files || (files instanceof FileList && files.length === 0) || (Array.isArray(files) && files.length === 0))
+      return;
     setError(null);
     setUploading(true);
-    // Validation failures are collected and surfaced only AFTER refresh() below, deliberately —
-    // refresh() clears the error state at its own start (it has its own load-failure case to
-    // report), so setting a validation message before calling it would get silently wiped the
-    // instant the (successful) refetch resolves.
     let validationMessage: string | null = null;
     let uploadedAny = false;
     try {
@@ -146,14 +163,40 @@ export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly
     }
   }
 
+  // --- Drag handlers with counter to prevent child-element flicker ---
+  function handleDragEnter(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current++;
+    if (!dragActive) setDragActive(true);
+  }
+
+  function handleDragOver(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
+  function handleDragLeave(event: DragEvent<HTMLDivElement>) {
+    event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current--;
+    if (dragCounter.current === 0) setDragActive(false);
+  }
+
   function handleDrop(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
+    event.stopPropagation();
+    dragCounter.current = 0;
     setDragActive(false);
     void handleFiles(event.dataTransfer.files);
   }
 
   function handleFileInputChange(event: ChangeEvent<HTMLInputElement>) {
     void handleFiles(event.target.files);
+  }
+
+  function openFilePicker() {
+    fileInputRef.current?.click();
   }
 
   async function handleDelete(attachmentId: string) {
@@ -184,9 +227,12 @@ export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly
   }
 
   const selectedAttachment = attachments.find((a) => a.id === selectedId) ?? null;
+  const acceptString = ATTACHMENT_ACCEPTED_TYPES.join(",");
+  const maxSizeMb = ATTACHMENT_MAX_SIZE_BYTES / (1024 * 1024);
 
   return (
-    <div className="flex flex-col gap-4">
+    // tabIndex makes the div focusable so paste events fire on it
+    <div className="flex flex-col gap-4" onPaste={handlePaste} tabIndex={-1}>
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -195,91 +241,133 @@ export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly
 
       {!readOnly && (
         <div
+          ref={dropRef}
           data-testid="attachments-dropzone"
-          className={cn(
-            "flex flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed px-4 py-6 text-center text-sm transition-colors",
-            dragActive ? "border-primary bg-accent" : "border-muted-foreground/30",
-          )}
-          onDragOver={(event) => {
-            event.preventDefault();
-            setDragActive(true);
+          role="button"
+          tabIndex={0}
+          onClick={openFilePicker}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              openFilePicker();
+            }
           }}
-          onDragLeave={() => setDragActive(false)}
+          className={cn(
+            "group relative flex cursor-pointer flex-col items-center justify-center gap-1.5 rounded-md border-2 border-dashed px-4 py-5 text-center text-sm transition-colors",
+            "hover:border-primary/50 hover:bg-accent/50",
+            "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:outline-none focus-visible:ring-[3px]",
+            dragActive ? "border-primary bg-accent" : "border-muted-foreground/25",
+          )}
+          onDragEnter={handleDragEnter}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
           onDrop={handleDrop}
         >
-          <Upload className="size-5 text-muted-foreground" />
-          <p className="text-muted-foreground">{intl.formatMessage({ id: "attachments.dropZoneHint" })}</p>
-          <div className="flex flex-col items-center gap-1">
-            <Label htmlFor="attachments-file-input">{intl.formatMessage({ id: "attachments.browseFiles" })}</Label>
-            <Input
-              ref={fileInputRef}
-              id="attachments-file-input"
-              type="file"
-              multiple
-              accept="image/png,image/jpeg,image/gif,image/webp,application/pdf"
-              disabled={uploading}
-              onChange={handleFileInputChange}
-              className="h-auto max-w-xs text-xs"
-            />
-          </div>
-          {uploading && <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "attachments.uploading" })}</p>}
+          <Upload className={cn("size-5 transition-colors", dragActive ? "text-primary" : "text-muted-foreground")} />
+          <p className={cn("font-medium transition-colors", dragActive ? "text-primary" : "text-muted-foreground")}>
+            {dragActive
+              ? intl.formatMessage({ id: "attachments.dropZoneActiveHint" })
+              : intl.formatMessage({ id: "attachments.dropZoneHint" })}
+          </p>
+          <p className="text-xs text-muted-foreground/70">
+            {intl.formatMessage({ id: "attachments.dropZoneFormats" }, { maxSizeMb })}
+          </p>
+          {uploading && (
+            <p className="text-xs font-medium text-primary">{intl.formatMessage({ id: "attachments.uploading" })}</p>
+          )}
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={acceptString}
+            disabled={uploading}
+            onChange={handleFileInputChange}
+            className="sr-only"
+            aria-label={intl.formatMessage({ id: "attachments.browseFiles" })}
+          />
         </div>
       )}
 
       {attachments.length === 0 ? (
         <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "attachments.empty" })}</p>
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+        <ul className="divide-y divide-border rounded-md border">
           {attachments.map((attachment) => (
-            <li key={attachment.id}>
-              <div
-                className={cn(
-                  "flex flex-col gap-2 rounded-md border p-2 text-left transition-colors",
-                  selectedId === attachment.id ? "border-primary bg-accent" : "border-border",
-                )}
+            <li
+              key={attachment.id}
+              className={cn(
+                "flex items-center gap-3 px-3 py-2 transition-colors",
+                selectedId === attachment.id && "bg-accent",
+              )}
+            >
+              {/* Thumbnail */}
+              <button
+                type="button"
+                className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded bg-muted"
+                onClick={() => setSelectedId(selectedId === attachment.id ? null : attachment.id)}
+                aria-label={intl.formatMessage({ id: "attachments.select" }, { fileName: attachment.fileName })}
               >
+                {attachment.previewUrl ? (
+                  <img src={attachment.previewUrl} alt={attachment.fileName} className="size-full object-cover" />
+                ) : (
+                  <FileText className="size-4 text-muted-foreground" />
+                )}
+              </button>
+
+              {/* File info */}
+              <div className="flex min-w-0 flex-1 flex-col">
                 <button
                   type="button"
-                  className="flex aspect-square w-full items-center justify-center overflow-hidden rounded bg-muted"
-                  onClick={() => setSelectedId(attachment.id)}
-                  aria-label={intl.formatMessage({ id: "attachments.select" }, { fileName: attachment.fileName })}
+                  className="truncate text-left text-sm font-medium hover:underline"
+                  title={attachment.fileName}
+                  onClick={() => openOriginal(attachment)}
                 >
-                  {attachment.previewUrl ? (
-                    <img src={attachment.previewUrl} alt={attachment.fileName} className="size-full object-cover" />
-                  ) : (
-                    <FileText className="size-8 text-muted-foreground" />
-                  )}
-                </button>
-                <p className="truncate text-xs font-medium" title={attachment.fileName}>
                   {attachment.fileName}
-                </p>
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">{formatAttachmentSize(attachment.sizeBytes)}</span>
-                  {readOnly ? null : confirmingDeleteId === attachment.id ? (
-                    <div className="flex items-center gap-1">
-                      <Button size="sm" variant="destructive" className="h-6 px-2 text-xs" onClick={() => void handleDelete(attachment.id)}>
-                        {intl.formatMessage({ id: "common.confirm" })}
-                      </Button>
-                      <Button size="sm" variant="ghost" className="h-6 px-2 text-xs" onClick={() => setConfirmingDeleteId(null)}>
-                        {intl.formatMessage({ id: "common.cancel" })}
-                      </Button>
-                    </div>
-                  ) : (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-6 px-2 text-xs text-destructive"
-                      onClick={() => setConfirmingDeleteId(attachment.id)}
-                      aria-label={intl.formatMessage({ id: "attachments.delete" }, { fileName: attachment.fileName })}
-                    >
-                      <Trash2 className="size-3" />
-                    </Button>
-                  )}
-                </div>
+                </button>
+                <span className="text-xs text-muted-foreground">{formatAttachmentSize(attachment.sizeBytes)}</span>
               </div>
+
+              {/* Actions */}
+              {!readOnly &&
+                (confirmingDeleteId === attachment.id ? (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      size="xs"
+                      variant="destructive"
+                      onClick={() => void handleDelete(attachment.id)}
+                    >
+                      {intl.formatMessage({ id: "common.confirm" })}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => setConfirmingDeleteId(null)}
+                    >
+                      <X className="size-3" />
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="size-7 text-muted-foreground hover:text-destructive"
+                    onClick={() => setConfirmingDeleteId(attachment.id)}
+                    aria-label={intl.formatMessage({ id: "attachments.delete" }, { fileName: attachment.fileName })}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </Button>
+                ))}
             </li>
           ))}
         </ul>
+      )}
+
+      {/* Attachment count badge when there are files */}
+      {attachments.length > 0 && (
+        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Paperclip className="size-3" />
+          {intl.formatMessage({ id: "attachments.count" }, { count: attachments.length })}
+        </p>
       )}
 
       {selectedAttachment && (
@@ -288,7 +376,11 @@ export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly
             <p className="text-sm font-medium">{intl.formatMessage({ id: "attachments.previewTitle" })}</p>
             <div className="flex aspect-video items-center justify-center overflow-hidden rounded bg-muted">
               {selectedUrl && isImageAttachmentType(selectedAttachment.contentType) ? (
-                <img src={selectedUrl} alt={selectedAttachment.fileName} className="max-h-full max-w-full object-contain" />
+                <img
+                  src={selectedUrl}
+                  alt={selectedAttachment.fileName}
+                  className="max-h-full max-w-full object-contain"
+                />
               ) : (
                 <div className="flex flex-col items-center gap-2 text-muted-foreground">
                   <FileText className="size-10" />
@@ -296,7 +388,13 @@ export function AttachmentsPanel({ companyId, documentKind, documentId, readOnly
                 </div>
               )}
             </div>
-            <Button type="button" variant="outline" size="sm" className="w-fit" onClick={() => openOriginal(selectedAttachment)}>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-fit"
+              onClick={() => openOriginal(selectedAttachment)}
+            >
               {intl.formatMessage({ id: "attachments.openOriginal" })}
             </Button>
           </div>
