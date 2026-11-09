@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Services;
 using Pako.Domain.Hr;
@@ -21,6 +23,7 @@ public class StockReportExportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("levels/export", Name = "StockLevelsExport")]
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<IActionResult> LevelsExport(Guid companyId, [FromQuery] string? search = null, [FromQuery] Guid? warehouseId = null,
@@ -45,6 +48,7 @@ public class StockReportExportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("valuation/export", Name = "StockValuationExport")]
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<IActionResult> ValuationExport(Guid companyId, [FromQuery(Name = "asOf")] DateOnly? asOfDate = null)
@@ -75,6 +79,7 @@ public class StockReportExportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("items/{itemId:guid}/card/export", Name = "ItemCardExport")]
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<IActionResult> ItemCardExport(Guid companyId, Guid itemId, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)

@@ -275,7 +275,7 @@ public class PlatformAdminTests : IAsyncLifetime
         var seed = await SeedAsync();
         var off = new AuthController(seed.Users, new JwtTokenService(new JwtOptions
             { Key = new string('k', 64), Issuer = "t", Audience = "t", ExpiryMinutes = 5 }),
-            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), Options.Create(new PlatformOptions()));
+            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance, Options.Create(new PlatformOptions()));
         var result = await off.Register(new RegisterRequest("new@x.test", Password));
         Assert.Equal(StatusCodes.Status403Forbidden, Assert.IsType<ObjectResult>(result.Result).StatusCode);
         Assert.Null(await seed.Users.FindByEmailAsync("new@x.test"));

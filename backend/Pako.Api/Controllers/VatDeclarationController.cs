@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -40,6 +42,7 @@ public class VatDeclarationController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("vat-declaration/export", Name = "VatDeclarationExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> Export(

@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Mvc.Filters;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Pako.Api;
 using Pako.Api.Authorization;
@@ -284,7 +285,7 @@ public class UserAdminTests : IAsyncLifetime
         var seed = await SeedAsync();
         var auth = new Pako.Api.Controllers.AuthController(seed.Users,
             new Pako.Api.Auth.JwtTokenService(new Pako.Api.Auth.JwtOptions { Key = "test-only-signing-key-not-for-production-32chars+", Issuer = "Pako", Audience = "Pako" }),
-            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService());
+            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance);
 
         for (var i = 0; i < 5; i++)
         {
@@ -387,7 +388,7 @@ public class UserAdminTests : IAsyncLifetime
         var seed = await SeedAsync();
         var auth = new Pako.Api.Controllers.AuthController(seed.Users,
             new Pako.Api.Auth.JwtTokenService(new Pako.Api.Auth.JwtOptions { Key = "test-only-signing-key-not-for-production-32chars+", Issuer = "Pako", Audience = "Pako" }),
-            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService());
+            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance);
         for (var i = 0; i < 5; i++)
         {
             await auth.Login(new LoginRequest("admin@co.test", "wrong"));

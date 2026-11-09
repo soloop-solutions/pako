@@ -16,6 +16,7 @@ public class JournalEntryConfiguration : IEntityTypeConfiguration<JournalEntry>
         builder.Property(e => e.SequenceNumber).HasMaxLength(64);
         builder.Property(e => e.EntryHash).HasMaxLength(128);
         builder.Property(e => e.PrevHash).HasMaxLength(128);
+        builder.Property(e => e.RowVersion).IsRowVersion();
         builder.HasMany(e => e.Lines)
             .WithOne(l => l.JournalEntry)
             .HasForeignKey(l => l.JournalEntryId)

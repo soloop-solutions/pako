@@ -31,6 +31,8 @@ public class PartnersController : ControllerBase
 
     // Reads stay AccessModule.None (every document form needs the partner picker) but are
     // partner-filtered: a partner-scoped staff user sees only their assigned partners.
+    // TODO CFA-050: add pagination — this unbounded endpoint coexists with ListPaged below;
+    // it is kept for dropdown/select pickers but should eventually be retired or capped.
     [HttpGet]
     [RequireCompanyAccess]
     public async Task<ActionResult<List<PartnerResponse>>> List(Guid companyId)

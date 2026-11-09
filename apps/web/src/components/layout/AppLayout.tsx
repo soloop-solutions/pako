@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Building2 } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Outlet, useNavigate } from "react-router-dom";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
@@ -16,6 +17,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { TabsProvider, useTabs } from "@/context/TabsContext";
+import { useSessionWarning } from "@/hooks/useSessionWarning";
 
 // Leaving the company with unsaved edits: a real dialog (focus stays inside, Escape or a click
 // outside means "stay"), so it works by keyboard and with screen readers.
@@ -56,6 +58,7 @@ function AppShell() {
   const { tabs } = useTabs();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const hasDirtyTabs = tabs.some((t) => t.dirty);
+  useSessionWarning();
 
   // Other windows ask before opening a different company; tell them if edits here would be lost.
   useEffect(() => {
@@ -115,7 +118,11 @@ function AppShell() {
           <TabStrip />
           <main className="flex-1 overflow-y-auto scrollbar-brand p-6">
             <Breadcrumbs />
-            <Outlet />
+            <RouteErrorBoundary>
+              <Suspense fallback={<div className="flex-1" />}>
+                <Outlet />
+              </Suspense>
+            </RouteErrorBoundary>
           </main>
         </div>
       </div>

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -37,6 +39,7 @@ public class StockMovementsReportController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("movements/export", Name = "StockMovementsExport")]
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<IActionResult> MovementsExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to,

@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -83,6 +85,7 @@ public class LedgerController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("trial-balance/export", Name = "TrialBalanceExport")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> TrialBalanceExport(Guid companyId, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)

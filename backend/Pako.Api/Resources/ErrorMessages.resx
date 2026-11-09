@@ -1734,4 +1734,7 @@ Estimate: {estimate} €.</value></data>
   <data name="CompanyIbanInvalid" xml:space="preserve">
     <value>The IBAN is not valid.</value>
   </data>
+  <data name="ConcurrencyConflict" xml:space="preserve">
+    <value>This record was modified by another user. Please reload and try again.</value>
+  </data>
 </root>

@@ -2,8 +2,10 @@ using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -366,6 +368,7 @@ public class PayrollRunsController : ControllerBase
 
     // Payroll register: one row per payslip, every component.
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("{id:guid}/register/export", Name = "PayrollRegisterExport")]
     [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> RegisterExport(Guid companyId, Guid id)
@@ -394,6 +397,7 @@ public class PayrollRunsController : ControllerBase
     // order. ATK publishes no import layout this repo has seen — confirm the column order against
     // the live EDI form before relying on it for upload (same caveat as ExcelExportService).
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("{id:guid}/edi/export", Name = "PayrollEdiExport")]
     [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> EdiExport(Guid companyId, Guid id)

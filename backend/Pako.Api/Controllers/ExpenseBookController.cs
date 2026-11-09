@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -51,6 +53,7 @@ public class ExpenseBookController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("expense-book/export", Name = "ExpenseBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> ExpenseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)

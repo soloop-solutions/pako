@@ -24,6 +24,9 @@ public class AccountsController : ControllerBase
         _localizer = localizer;
     }
 
+    // TODO CFA-050: add pagination — this endpoint returns the full chart of accounts unbounded.
+    // A paged variant (like PartnersController.ListPaged) should be added once the web list
+    // migrates to server-side paging; the unbounded version stays for dropdowns/selects.
     [HttpGet]
     [RequireCompanyAccess]
     public async Task<ActionResult<List<AccountResponse>>> List(Guid companyId)

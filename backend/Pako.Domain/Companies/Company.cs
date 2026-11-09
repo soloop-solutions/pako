@@ -126,6 +126,9 @@ public class Company
     public bool IsArchived { get; set; }
     public DateTime? ArchivedAt { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     // Kosovo VAT Law Article 45/56 requires invoice numbering to be gapless and strictly
     // monotonic per company. This mints the number and advances the counter together so a
     // failed Invoice.Post (e.g. a lock-date violation) never burns a number.

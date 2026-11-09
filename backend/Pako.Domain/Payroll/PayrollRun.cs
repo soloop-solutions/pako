@@ -53,6 +53,9 @@ public class PayrollRun
     public string? ParametersSnapshot { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     public List<PayslipLine> Lines { get; set; } = new();
 
     public bool IsLocked => State is PayrollRunState.Posted or PayrollRunState.Paid;

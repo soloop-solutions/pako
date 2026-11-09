@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Pako.Api;
 using Pako.Api.Auth;
 using Pako.Api.Contracts;
@@ -48,7 +49,7 @@ public class AuthControllerTests : IAsyncLifetime
     public async Task Register_DuplicateEmail_DoesNotRevealEmailWasTaken()
     {
         var (_, userManager) = await NewContextAsync();
-        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>(), new Pako.Api.Services.ActionTokenService());
+        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>(), new Pako.Api.Services.ActionTokenService(), NullLogger<AuthController>.Instance);
 
         var first = await controller.Register(new RegisterRequest("dup@example.com", "Passw0rd!123"));
         Assert.IsType<OkObjectResult>(first.Result);
@@ -68,7 +69,7 @@ public class AuthControllerTests : IAsyncLifetime
         // hiding them behind the same generic message just breaks registration for anyone who
         // trips a real, fixable validation rule (a very real bug this test used to enshrine).
         var (_, userManager) = await NewContextAsync();
-        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>(), new Pako.Api.Services.ActionTokenService());
+        var controller = new AuthController(userManager, NewTokenService(), new NullStringLocalizer<ErrorMessages>(), new Pako.Api.Services.ActionTokenService(), NullLogger<AuthController>.Instance);
 
         var result = await controller.Register(new RegisterRequest("weak@example.com", "abc"));
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);

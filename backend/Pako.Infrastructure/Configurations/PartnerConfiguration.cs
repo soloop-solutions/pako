@@ -20,6 +20,7 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(p => p.City).HasMaxLength(128);
         builder.Property(p => p.PostalCode).HasMaxLength(32);
         builder.Property(p => p.Country).HasMaxLength(100);
+        builder.Property(p => p.RowVersion).IsRowVersion();
         builder.Property(p => p.IsVatRegistered).HasDefaultValue(false);
         builder.Property(p => p.CreditLimit).HasColumnType("numeric(18,2)");
         builder.HasOne<Pako.Domain.Inventory.PriceList>().WithMany().HasForeignKey(p => p.PriceListId).OnDelete(DeleteBehavior.SetNull);

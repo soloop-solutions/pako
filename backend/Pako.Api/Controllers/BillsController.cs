@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Domain.Documents;
@@ -949,6 +951,7 @@ public class BillsController : ControllerBase
 
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(module: AccessModule.Purchases, approve: true)]
+    [EnableRateLimiting(AuthRateLimit.DocumentPostingPolicy)]
     public async Task<ActionResult<BillResponse>> Post(Guid companyId, Guid id)
     {
         // Track A (v2 release): Bill never had a numbering counter to protect (VendorReference is

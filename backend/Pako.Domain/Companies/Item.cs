@@ -40,6 +40,9 @@ public class Item
     // Below this, the item shows on the low-stock report.
     public decimal? MinimumStock { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     public List<ItemBarcode> Barcodes { get; set; } = new();
 
     // docs/INVENTORY_PLAN.md §12 P7: Unit is the base (stock) unit. A purchase and a sales unit can

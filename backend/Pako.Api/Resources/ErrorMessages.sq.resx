@@ -1734,4 +1734,7 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="CompanyIbanInvalid" xml:space="preserve">
     <value>IBAN-i nuk është i vlefshëm.</value>
   </data>
+  <data name="ConcurrencyConflict" xml:space="preserve">
+    <value>Ky regjistrim është ndryshuar nga një përdorues tjetër. Ju lutemi ringarkoni dhe provoni përsëri.</value>
+  </data>
 </root>

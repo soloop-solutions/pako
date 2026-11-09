@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
 
 namespace Pako.Api.Middleware;
@@ -19,6 +20,26 @@ public class GlobalExceptionHandler : IExceptionHandler
 
     public async ValueTask<bool> TryHandleAsync(HttpContext httpContext, Exception exception, CancellationToken cancellationToken)
     {
+        // CFA-002: optimistic concurrency conflict — another user modified this record.
+        if (exception is DbUpdateConcurrencyException)
+        {
+            _logger.LogWarning(exception, "Concurrency conflict on {Method} {Path}",
+                httpContext.Request.Method, httpContext.Request.Path);
+
+            var conflict = new ProblemDetails
+            {
+                Status = StatusCodes.Status409Conflict,
+                Title = _localizer["ConcurrencyConflict"].Value,
+                Instance = httpContext.Request.Path
+            };
+
+            httpContext.Response.StatusCode = StatusCodes.Status409Conflict;
+            httpContext.Response.ContentType = "application/problem+json";
+            await httpContext.Response.WriteAsJsonAsync(conflict, cancellationToken);
+
+            return true;
+        }
+
         _logger.LogError(exception, "Unhandled exception handling {Method} {Path}",
             httpContext.Request.Method, httpContext.Request.Path);
 

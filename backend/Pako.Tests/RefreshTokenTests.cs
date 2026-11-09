@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using Pako.Api;
 using Pako.Api.Auth;
 using Pako.Api.Contracts;
@@ -43,7 +44,7 @@ public class RefreshTokenTests : IAsyncLifetime
         var users = services.BuildServiceProvider().GetRequiredService<UserManager<AppUser>>();
         var tokens = new RefreshTokenService(db, Options);
         var controller = new AuthController(users, new JwtTokenService(Options), new NullStringLocalizer<ErrorMessages>(),
-            new Pako.Api.Services.ActionTokenService(), null, tokens);
+            new Pako.Api.Services.ActionTokenService(), NullLogger<AuthController>.Instance, null, tokens);
         return (db, users, controller, tokens);
     }
 

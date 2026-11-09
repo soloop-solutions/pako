@@ -51,6 +51,9 @@ public class Partner
     // days past due (null = never block). Sales: Approve overrides with a reason.
     public int? OverdueBlockDays { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     // TASK-023: track creation time so lists can default to newest-first.
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 

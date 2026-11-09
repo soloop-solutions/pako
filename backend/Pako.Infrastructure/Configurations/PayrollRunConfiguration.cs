@@ -11,6 +11,7 @@ public class PayrollRunConfiguration : IEntityTypeConfiguration<PayrollRun>
         builder.ToTable("payroll_runs");
         builder.HasKey(p => p.Id);
         builder.Property(p => p.State).HasConversion<string>().HasMaxLength(16);
+        builder.Property(p => p.RowVersion).IsRowVersion();
         builder.Property(p => p.Notes).HasMaxLength(1024);
         builder.Property(p => p.ParametersSnapshot).HasColumnType("jsonb");
         builder.HasMany(p => p.Lines)

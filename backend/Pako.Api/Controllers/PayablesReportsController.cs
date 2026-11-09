@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -42,6 +44,7 @@ public class PayablesReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("vendors/synthetic/export", Name = "VendorSyntheticExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VendorSyntheticExport(
@@ -82,6 +85,7 @@ public class PayablesReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("vendors/{partnerId:guid}/statement/export", Name = "VendorStatementExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VendorStatementExport(
@@ -121,6 +125,7 @@ public class PayablesReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("payables-aging/export", Name = "PayablesAgingExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PayablesAgingExport(Guid companyId, [FromQuery] DateOnly asOf)
@@ -168,6 +173,7 @@ public class PayablesReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("purchases/by-vendor/export", Name = "PurchasesByVendorExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchasesByVendorExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -202,6 +208,7 @@ public class PayablesReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("purchases/by-item/export", Name = "PurchasesByItemExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchasesByItemExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -246,6 +253,7 @@ public class PayablesReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("purchases/transactions/export", Name = "PurchaseTransactionsExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseTransactionsExport(

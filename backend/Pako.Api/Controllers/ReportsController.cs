@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -91,6 +93,7 @@ public class ReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("profit-and-loss/export", Name = "ProfitAndLossExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> ProfitAndLossExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -132,6 +135,7 @@ public class ReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("balance-sheet/export", Name = "BalanceSheetExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> BalanceSheetExport(Guid companyId, [FromQuery] DateOnly asOf)
@@ -179,6 +183,7 @@ public class ReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("vat-return/export", Name = "VatReturnExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> VatReturnExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -234,6 +239,7 @@ public class ReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("sales-book/export", Name = "SalesBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> SalesBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -288,6 +294,7 @@ public class ReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("purchase-book/export", Name = "PurchaseBookExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> PurchaseBookExport(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -472,6 +479,7 @@ public class ReportsController : ControllerBase
     }
 
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("debt-aging/export", Name = "DebtAgingExport")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> DebtAgingExport(Guid companyId, [FromQuery] DateOnly? asOf = null)

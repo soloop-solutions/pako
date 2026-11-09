@@ -22,11 +22,13 @@ public class AuthController : ControllerBase
     private readonly ActionTokenService _actionTokenService;
     private readonly PlatformOptions _platform;
     private readonly RefreshTokenService? _refreshTokens;
+    private readonly ILogger<AuthController> _logger;
 
     // platform is optional only so tests can construct the controller directly; the app always
     // supplies it. Without it, self-registration behaves as before (allowed).
     public AuthController(UserManager<AppUser> userManager, IJwtTokenService tokenService,
         IStringLocalizer<ErrorMessages> localizer, ActionTokenService actionTokenService,
+        ILogger<AuthController> logger,
         IOptions<PlatformOptions>? platform = null, RefreshTokenService? refreshTokens = null)
     {
         _refreshTokens = refreshTokens;
@@ -34,6 +36,7 @@ public class AuthController : ControllerBase
         _tokenService = tokenService;
         _localizer = localizer;
         _actionTokenService = actionTokenService;
+        _logger = logger;
         _platform = platform?.Value ?? new PlatformOptions { AllowSelfRegistration = true };
     }
 
@@ -70,7 +73,11 @@ public class AuthController : ControllerBase
     public async Task<ActionResult<AuthResponse>> Login(LoginRequest request)
     {
         var user = await _userManager.FindByEmailAsync(request.Email);
-        if (user is null) return Unauthorized();
+        if (user is null)
+        {
+            _logger.LogWarning("AuthEvent: Login failed for {Email} from {IP} (unknown user)", request.Email, HttpContext.Connection.RemoteIpAddress);
+            return Unauthorized();
+        }
 
         // docs/USER_ACCESS_PLAN.md §5: 5 wrong passwords lock the account for 15 minutes.
         if (await _userManager.IsLockedOutAsync(user))
@@ -85,15 +92,18 @@ public class AuthController : ControllerBase
         if (!await _userManager.CheckPasswordAsync(user, request.Password))
         {
             await _userManager.AccessFailedAsync(user);
+            _logger.LogWarning("AuthEvent: Login failed for {Email} from {IP}", request.Email, HttpContext.Connection.RemoteIpAddress);
             return Unauthorized();
         }
 
         if (user.IsDisabled)
         {
+            _logger.LogWarning("AuthEvent: Login failed for {Email} from {IP} (account disabled)", request.Email, HttpContext.Connection.RemoteIpAddress);
             return StatusCode(StatusCodes.Status403Forbidden, _localizer["AccountDisabled"].Value);
         }
 
         await _userManager.ResetAccessFailedCountAsync(user);
+        _logger.LogInformation("AuthEvent: Login success for {Email} from {IP}", request.Email, HttpContext.Connection.RemoteIpAddress);
         user.LastLoginAt = DateTime.UtcNow;
         if (_platform.IsAdminEmail(user.Email) && !user.IsPlatformAdmin)
         {
@@ -178,6 +188,7 @@ public class AuthController : ControllerBase
         var user = await _userManager.FindByEmailAsync(request.Email?.Trim() ?? string.Empty);
         if (user is not null)
         {
+            _logger.LogInformation("AuthEvent: Password reset requested for {Email} from {IP}", request.Email, HttpContext.Connection.RemoteIpAddress);
             await admin.QueuePasswordResetAsync(user, null);
             await db.SaveChangesAsync();
         }

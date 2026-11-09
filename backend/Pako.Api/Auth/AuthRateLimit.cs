@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.RateLimiting;
 
@@ -10,6 +11,10 @@ public static class AuthRateLimit
 {
     public const string Policy = "auth";
 
+    // CFA-006: per-user rate limits on financial mutation and export endpoints.
+    public const string DocumentPostingPolicy = "DocumentPosting";
+    public const string ExcelExportPolicy = "ExcelExport";
+
     public static IServiceCollection AddAuthRateLimit(this IServiceCollection services, int permitsPerMinute) =>
         services.AddRateLimiter(options =>
         {
@@ -17,5 +22,15 @@ public static class AuthRateLimit
             options.AddPolicy(Policy, http => RateLimitPartition.GetFixedWindowLimiter(
                 http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = permitsPerMinute, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+            // CFA-006: 30 posting requests per minute per authenticated user.
+            options.AddPolicy(DocumentPostingPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+                http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+
+            // CFA-006: 10 Excel export requests per minute per authenticated user.
+            options.AddPolicy(ExcelExportPolicy, http => RateLimitPartition.GetFixedWindowLimiter(
+                http.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? http.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
         });
 }

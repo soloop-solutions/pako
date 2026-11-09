@@ -1,8 +1,10 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -1282,6 +1284,7 @@ public class InvoicesController : ControllerBase
 
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
+    [EnableRateLimiting(AuthRateLimit.DocumentPostingPolicy)]
     public async Task<ActionResult<InvoiceResponse>> Post(Guid companyId, Guid id)
     {
         // Company.NextInvoiceNumber is reserved via a read-increment-write on the Company row

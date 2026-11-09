@@ -51,6 +51,9 @@ public class Employee
     // G11: the commission plan this employee earns under, if any.
     public Guid? CommissionPlanId { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     public static string DisplayName(string? first, string? last, string? fallback) =>
         string.Join(' ', new[] { first, last }.Where(s => !string.IsNullOrWhiteSpace(s)).Select(s => s!.Trim())) is { Length: > 0 } joined
             ? joined

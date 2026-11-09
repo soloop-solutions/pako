@@ -1,7 +1,9 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Microsoft.Extensions.Localization;
@@ -98,6 +100,7 @@ public class JournalEntriesController : ControllerBase
     // resolved here rather than reusing JournalEntryResponse's raw account/partner ids, since a
     // spreadsheet meant to be read on paper needs the readable identifiers, not Guids.
     [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
     [HttpGet("{id:guid}/export", Name = "JournalEntryExport")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> Export(Guid companyId, Guid id)
@@ -243,6 +246,7 @@ public class JournalEntriesController : ControllerBase
 
     [HttpPost("{id:guid}/post")]
     [RequireCompanyAccess(module: AccessModule.Accounting, approve: true)]
+    [EnableRateLimiting(AuthRateLimit.DocumentPostingPolicy)]
     public async Task<ActionResult<JournalEntryResponse>> Post(Guid companyId, Guid id)
     {
         // R23: finish JournalEntry.SequenceNumber the same way Invoice numbering already does —

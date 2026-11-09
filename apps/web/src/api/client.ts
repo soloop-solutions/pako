@@ -77,14 +77,24 @@ function buildHeaders(url: RequestInfo, init: RequestInit | undefined, token: st
   return headers;
 }
 
+const REQUEST_TIMEOUT_MS = 30_000;
+
+function fetchWithTimeout(url: RequestInfo, init?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const existing = init?.signal;
+  if (existing) existing.addEventListener("abort", () => controller.abort(existing.reason));
+  const timer = setTimeout(() => controller.abort("timeout"), REQUEST_TIMEOUT_MS);
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
   const auth = getStoredAuth();
-  const response = await fetch(url, { ...init, headers: buildHeaders(url, init, auth?.token ?? null) });
+  const response = await fetchWithTimeout(url, { ...init, headers: buildHeaders(url, init, auth?.token ?? null) });
   if (response.status !== 401 || !auth || ANONYMOUS_AUTH_PATH.test(urlOf(url))) return response;
 
   const fresh = await refreshAccessToken(auth.token);
   if (!fresh) return response;
-  const retried = await fetch(url, { ...init, headers: buildHeaders(url, init, fresh) });
+  const retried = await fetchWithTimeout(url, { ...init, headers: buildHeaders(url, init, fresh) });
   if (retried.status === 401) window.dispatchEvent(new Event("pako:auth-expired"));
   return retried;
 }
@@ -98,6 +108,7 @@ export function getApiErrorMessage(err: unknown, fallback?: string): string {
     // Map common HTTP status codes to user-friendly messages
     if (err.status === 403) return msgs["errors.noPermission"];
     if (err.status === 404) return msgs["errors.notFound"];
+    if (err.status === 409) return msgs["errors.conflict"];
     const raw = err.response?.trim();
     if (raw) {
       try {
@@ -125,6 +136,9 @@ export function getApiErrorMessage(err: unknown, fallback?: string): string {
   }
   if (err instanceof TypeError && err.message === "Failed to fetch") {
     return msgs["errors.networkError"];
+  }
+  if (err instanceof DOMException && err.name === "AbortError") {
+    return msgs["errors.requestTimeout"];
   }
   if (err instanceof Error) return err.message;
   return fb;

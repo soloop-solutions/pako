@@ -54,6 +54,13 @@ builder.Services.AddIdentityCore<AppUser>(options =>
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
         options.Lockout.AllowedForNewUsers = true;
         options.User.RequireUniqueEmail = true;
+
+        // CFA-047: enforce strong passwords.
+        options.Password.RequiredLength = 10;
+        options.Password.RequireDigit = true;
+        options.Password.RequireUppercase = true;
+        options.Password.RequireLowercase = true;
+        options.Password.RequireNonAlphanumeric = true;
     })
     .AddEntityFrameworkStores<PakoDbContext>()
     .AddDefaultTokenProviders();

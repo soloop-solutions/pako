@@ -179,6 +179,14 @@ export const en: Record<string, string> = {
   "errors.conflict": "This record has been modified by another user. Please refresh and try again.",
   "errors.serverError": "Something went wrong on the server. Please try again or contact support.",
   "errors.networkError": "Unable to reach the server. Please check your connection and try again.",
+  "errors.requestTimeout": "The request took too long. Please try again.",
+  "errors.errorBoundary.title": "Something went wrong",
+  "errors.errorBoundary.description": "An unexpected error occurred on this page. Your other work is safe.",
+  "errors.errorBoundary.reload": "Reload page",
+
+  // Session
+  "session.expiringTitle": "Session expiring soon",
+  "session.expiringDescription": "Your session will be renewed automatically.",
 
   // Companies
   "companies.title": "Companies",
@@ -1855,6 +1863,14 @@ export const sq: Record<string, string> = {
   "errors.conflict": "Ky regjistrim është ndryshuar nga një përdorues tjetër. Ju lutemi rifreskoni dhe provoni përsëri.",
   "errors.serverError": "Diçka shkoi keq në server. Ju lutemi provoni përsëri ose kontaktoni mbështetjen.",
   "errors.networkError": "Nuk mund të arrihet serveri. Ju lutemi kontrolloni lidhjen tuaj dhe provoni përsëri.",
+  "errors.requestTimeout": "K\u00ebrkesa zgjati shum\u00eb. Ju lutemi provoni p\u00ebrs\u00ebri.",
+  "errors.errorBoundary.title": "Di\u00e7ka shkoi keq",
+  "errors.errorBoundary.description": "Ndodhi nj\u00eb gabim i papritur n\u00eb k\u00ebt\u00eb faqe. Puna juaj tjet\u00ebr \u00ebsht\u00eb e sigurt.",
+  "errors.errorBoundary.reload": "Ringarko faqen",
+
+  // Session
+  "session.expiringTitle": "Sesioni po skadon s\u00eb shpejti",
+  "session.expiringDescription": "Sesioni juaj do t\u00eb rinovohet automatikisht.",
 
   // Companies
   "companies.title": "Kompanit\u00eb",

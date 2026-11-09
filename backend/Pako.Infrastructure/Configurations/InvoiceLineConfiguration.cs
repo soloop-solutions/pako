@@ -17,6 +17,7 @@ public class InvoiceLineConfiguration : IEntityTypeConfiguration<InvoiceLine>
         builder.Property(l => l.UnitName).HasMaxLength(32);
         builder.Property(l => l.LotNumber).HasMaxLength(64);
         builder.Property(l => l.UnitFactor).HasColumnType("numeric(18,4)").HasDefaultValue(1m);
+        builder.Property(l => l.DiscountPercent).HasColumnType("numeric(5,2)");
         builder.HasIndex(l => l.RevenueAccountId);
         builder.HasOne<Item>().WithMany().HasForeignKey(l => l.ItemId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<SalesOrderLine>().WithMany().HasForeignKey(l => l.SalesOrderLineId).OnDelete(DeleteBehavior.Restrict);

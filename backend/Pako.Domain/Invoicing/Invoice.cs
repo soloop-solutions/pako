@@ -65,6 +65,9 @@ public class Invoice
     // docs/ERP_VERTICALS_PLAN.md: the ledger project the revenue belongs to (its revenue lines carry it).
     public Guid? ProjectId { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     public List<InvoiceLine> Lines { get; set; } = new();
 
     public JournalEntry Post(

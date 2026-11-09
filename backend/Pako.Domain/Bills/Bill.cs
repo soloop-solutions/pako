@@ -51,6 +51,9 @@ public class Bill
     // the bill's expense lines carry it into the ledger.
     public Guid? ProjectId { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     public List<BillLine> Lines { get; set; } = new();
 
     public JournalEntry Post(

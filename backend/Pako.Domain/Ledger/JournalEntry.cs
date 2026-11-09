@@ -38,6 +38,9 @@ public class JournalEntry
     public string? PostedFromIp { get; set; }
     public Guid? SourceDocumentId { get; set; }
 
+    // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
+    public uint RowVersion { get; set; }
+
     public List<JournalEntryLine> Lines { get; set; } = new();
 
     public void Post(Company company)
