@@ -33,10 +33,10 @@ function describe(intl: IntlShape, entry: PlatformAuditResponse): string {
     if (before.isPlatformAdmin !== after.isPlatformAdmin) parts.push(`${t("platform.admin")}: ${yesNo(before.isPlatformAdmin)} → ${yesNo(after.isPlatformAdmin)}`);
     return parts.join(" · ") || t("platform.activity.noChange");
   }
-  if (entry.action === "UpdateModules") {
+  if (entry.action === "UpdateModules" || entry.action === "UpdateFeatures") {
     const before = new Set((details.before as string[] | undefined) ?? []);
     const after = new Set((details.after as string[] | undefined) ?? []);
-    const name = (m: string) => t(`platform.module.${m}`);
+    const name = (m: string) => t(entry.action === "UpdateModules" ? `platform.module.${m}` : `company.pack.${m}`);
     const added = [...after].filter((m) => !before.has(m)).map((m) => `+ ${name(m)}`);
     const removed = [...before].filter((m) => !after.has(m)).map((m) => `− ${name(m)}`);
     return [...added, ...removed].join(", ") || t("platform.activity.noChange");

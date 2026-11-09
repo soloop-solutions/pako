@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/dialog";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 
@@ -62,6 +63,7 @@ export function PartnerListPage({
 }: PartnerListPageProps) {
   const intl = useIntl();
   const { activeCompanyId } = useCompany();
+  const { canWrite } = useMyAccess();
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -338,17 +340,19 @@ export function PartnerListPage({
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: labels.titleKey })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: labels.descriptionKey })}</p>
         </div>
-        <Button onClick={() => {
-          if (!defaultRole) {
-            setRolePickerOpen(true);
-          } else {
-            setSelectedCreateRole(defaultRole);
-            setFormOpen(true);
-          }
-          setEditingId(null); setMutationError(null); setDirty(false);
-        }}>
-          {intl.formatMessage({ id: labels.addButtonKey })}
-        </Button>
+        {canWrite("partners") && (
+          <Button onClick={() => {
+            if (!defaultRole) {
+              setRolePickerOpen(true);
+            } else {
+              setSelectedCreateRole(defaultRole);
+              setFormOpen(true);
+            }
+            setEditingId(null); setMutationError(null); setDirty(false);
+          }}>
+            {intl.formatMessage({ id: labels.addButtonKey })}
+          </Button>
+        )}
       </div>
 
       {loadError && (

@@ -22,6 +22,7 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
@@ -37,6 +38,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
   const GRID_ID = GRID_IDS[scope];
   const intl = useIntl();
   const { activeCompany } = useCompany();
+  const { canWrite } = useMyAccess();
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
@@ -308,12 +310,16 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
       {prefill.isPending && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dist.invoice.prefillLoading" })}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => setInvoiceFormOpen(true)}>
-          {intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
-        </Button>
-        <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
-          {intl.formatMessage({ id: "invoicing.addCustomer" })}
-        </Button>
+        {canWrite("sales") && (
+          <Button onClick={() => setInvoiceFormOpen(true)}>
+            {intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
+          </Button>
+        )}
+        {canWrite("partners") && (
+          <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
+            {intl.formatMessage({ id: "invoicing.addCustomer" })}
+          </Button>
+        )}
         <div className="ml-auto">
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: isProforma ? "proforma.title" : "invoicing.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: isProforma ? "proforma.description" : "invoicing.description" })}</p>

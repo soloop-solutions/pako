@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useCompany } from "@/context/CompanyContext";
+import { useMyAccess } from "@/hooks/useMyAccess";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 
@@ -27,6 +28,7 @@ const GRID_ID = "partners";
 export function Partners() {
   const intl = useIntl();
   const { activeCompanyId } = useCompany();
+  const { canWrite } = useMyAccess();
   const queryClient = useQueryClient();
 
   const [formOpen, setFormOpen] = useState(false);
@@ -232,15 +234,17 @@ export function Partners() {
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "partners.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "partners.description" })}</p>
         </div>
-        <Button
-          onClick={() => {
-            setRolePickerOpen(true);
-            setEditingId(null);
-            setMutationError(null);
-          }}
-        >
-          {intl.formatMessage({ id: "partners.addPartner" })}
-        </Button>
+        {canWrite("partners") && (
+          <Button
+            onClick={() => {
+              setRolePickerOpen(true);
+              setEditingId(null);
+              setMutationError(null);
+            }}
+          >
+            {intl.formatMessage({ id: "partners.addPartner" })}
+          </Button>
+        )}
       </div>
 
       {loadError && (

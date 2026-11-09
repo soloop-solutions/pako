@@ -155,6 +155,7 @@ export const platformEn: Record<string, string> = {
   "platform.activity.action.RejectRequest": "Rejected account request",
   "platform.activity.action.UpdateUser": "Changed user access",
   "platform.activity.action.UpdateModules": "Changed company modules",
+  "platform.activity.action.UpdateFeatures": "Changed company packs",
   "platform.requests.copyFailed": "Couldn't copy — select the link and copy it by hand.",
 };
 
@@ -286,5 +287,6 @@ export const platformSq: Record<string, string> = {
   "platform.activity.action.RejectRequest": "Refuzoi kërkesën për llogari",
   "platform.activity.action.UpdateUser": "Ndryshoi qasjen e përdoruesit",
   "platform.activity.action.UpdateModules": "Ndryshoi modulet e kompanisë",
+  "platform.activity.action.UpdateFeatures": "Ndryshoi paketat e kompanisë",
   "platform.requests.copyFailed": "Nuk u kopjua — përzgjidheni lidhjen dhe kopjojeni me dorë.",
 };
