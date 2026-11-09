@@ -17,6 +17,7 @@ import {
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { withPosApproval } from "@/lib/pos-approval";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -689,13 +690,21 @@ function VoidDialog({ tab, line, canApprove, onClose, onDone }: {
   const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
   const { activeCompanyId } = useCompany();
   const [reason, setReason] = useState("");
+  const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const sent = line.state === TabLineState.Sent;
+  const needsPin = sent && !canApprove;
   const run = useMutation({
-    mutationFn: () => apiClient.voidPosTabLine(activeCompanyId as string, tab.id, line.id, { reason: reason.trim() }),
+    mutationFn: async () => {
+      const companyId = activeCompanyId as string;
+      const body = { reason: reason.trim() };
+      if (!needsPin) return apiClient.voidPosTabLine(companyId, tab.id, line.id, body);
+      const approval = await apiClient.approvePosAction(companyId, { pin: pin.trim() });
+      return withPosApproval(companyId, approval.token, () => apiClient.voidPosTabLine(companyId, tab.id, line.id, body));
+    },
     onSuccess: onDone,
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("pos.saveError"))),
   });
-  const sent = line.state === TabLineState.Sent;
   return (
     <FormDialog open onOpenChange={(o) => !o && !run.isPending && onClose()} title={t("rest.void.title", { item: line.description })} size="sm">
       <form
@@ -703,10 +712,10 @@ function VoidDialog({ tab, line, canApprove, onClose, onDone }: {
         onSubmit={(e) => {
           e.preventDefault();
           setError(null);
-          if (reason.trim()) run.mutate();
+          if (reason.trim() && (!needsPin || pin.trim())) run.mutate();
         }}
       >
-        {sent && <p className="text-sm text-muted-foreground">{t(canApprove ? "rest.void.storno" : "rest.void.needsManager")}</p>}
+        {sent && <p className="text-sm text-muted-foreground">{t(canApprove ? "rest.void.storno" : "rest.void.needsManagerPin")}</p>}
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -714,9 +723,15 @@ function VoidDialog({ tab, line, canApprove, onClose, onDone }: {
         )}
         <Label htmlFor="void-reason">{t("rest.void.reason")}</Label>
         <Input id="void-reason" autoFocus maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} />
+        {needsPin && (
+          <>
+            <Label htmlFor="void-manager-pin">{t("rest.void.managerPin")}</Label>
+            <Input id="void-manager-pin" type="password" inputMode="numeric" autoComplete="off" maxLength={8} value={pin} onChange={(e) => setPin(e.target.value)} />
+          </>
+        )}
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={onClose} disabled={run.isPending}>{t("common.cancel")}</Button>
-          <Button type="submit" variant="destructive" disabled={!reason.trim() || run.isPending}>{t("rest.void.confirm")}</Button>
+          <Button type="submit" variant="destructive" disabled={!reason.trim() || (needsPin && !pin.trim()) || run.isPending}>{t("rest.void.confirm")}</Button>
         </div>
       </form>
     </FormDialog>

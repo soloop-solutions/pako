@@ -2,6 +2,7 @@ import { ApiException, PakoApiClient } from "@pako/shared";
 
 import { en, sq } from "@/i18n/messages";
 import { getStoredAuth, setStoredAuth } from "@/lib/auth-storage";
+import { POS_APPROVAL_HEADER, posApprovalTokenFor } from "@/lib/pos-approval";
 import { POS_OPERATOR_HEADER, posOperatorTokenFor } from "@/lib/pos-operator";
 
 export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
@@ -74,6 +75,8 @@ function buildHeaders(url: RequestInfo, init: RequestInit | undefined, token: st
   // client takes no custom headers, so the operator token is added here, to POS requests only.
   const operatorToken = posOperatorTokenFor(urlOf(url));
   if (operatorToken) headers.set(POS_OPERATOR_HEADER, operatorToken);
+  const approvalToken = posApprovalTokenFor(typeof url === "string" ? url : url.url);
+  if (approvalToken) headers.set(POS_APPROVAL_HEADER, approvalToken);
   return headers;
 }
 

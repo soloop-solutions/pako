@@ -26,7 +26,10 @@ const api = vi.hoisted(() => ({
   getPosHotelCalendar: vi.fn(),
   chargePosTabToRoom: vi.fn(),
   preBillPosTab: vi.fn(),
+  approvePosAction: vi.fn(),
+  voidPosTabLine: vi.fn(),
 }));
+const access = vi.hoisted(() => ({ approve: true }));
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -65,7 +68,7 @@ vi.mock("@/context/CompanyContext", () => ({
 }));
 
 vi.mock("@/hooks/useMyAccess", () => ({
-  useMyAccess: () => ({ access: null, isLoading: false, isStaff: false, canSee: () => true, canWrite: () => true, canApprove: () => true }),
+  useMyAccess: () => ({ access: null, isLoading: false, isStaff: false, canSee: () => true, canWrite: () => true, canApprove: () => access.approve }),
 }));
 
 const STORE = {
@@ -141,6 +144,7 @@ function renderTill(url = "/pos/till/r1") {
 describe("Till — restaurant (P3)", () => {
   beforeEach(() => {
     Object.values(api).forEach((f) => f.mockReset());
+    access.approve = true;
     hub.invoke.mockClear();
     setPosOperator(null);
     api.getPosBootstrap.mockResolvedValue(BOOT);
@@ -287,6 +291,37 @@ describe("Till — restaurant (P3)", () => {
     expect(taxes).toHaveTextContent("1.53");
     expect(taxes).toHaveTextContent("4.63");
     expect(taxes).toHaveTextContent("0.37");
+  });
+
+  it("lets a waiter void a sent line with a manager's PIN: the PIN is checked first, then the void goes out", async () => {
+    access.approve = false;
+    api.getPosTab.mockResolvedValue(tab());
+    api.approvePosAction.mockResolvedValue({ approverUserId: "m1", approverName: "Agim", token: "ap-token", expiresAt: "2099-01-01T00:00:00Z" });
+    api.voidPosTabLine.mockResolvedValue(tab({ lines: [line({ state: 2, voidReason: "Wrong order" })] }));
+    renderTill("/pos/till/r1?tab=tab1");
+    fireEvent.click(await screen.findByRole("button", { name: "Void Burger" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText(/must enter their PIN/)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole("button", { name: "Void" });
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "Wrong order" } });
+    expect(confirm).toBeDisabled();
+    fireEvent.change(within(dialog).getByLabelText("Manager PIN"), { target: { value: "4321" } });
+    fireEvent.click(confirm);
+    await waitFor(() => expect(api.approvePosAction).toHaveBeenCalledWith("c1", { pin: "4321" }));
+    await waitFor(() => expect(api.voidPosTabLine).toHaveBeenCalledWith("c1", "tab1", "l1", { reason: "Wrong order" }));
+  });
+
+  it("does not ask a manager for a PIN", async () => {
+    api.getPosTab.mockResolvedValue(tab());
+    api.voidPosTabLine.mockResolvedValue(tab({ lines: [line({ state: 2, voidReason: "Wrong order" })] }));
+    renderTill("/pos/till/r1?tab=tab1");
+    fireEvent.click(await screen.findByRole("button", { name: "Void Burger" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).queryByLabelText("Manager PIN")).toBeNull();
+    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "Wrong order" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Void" }));
+    await waitFor(() => expect(api.voidPosTabLine).toHaveBeenCalledWith("c1", "tab1", "l1", { reason: "Wrong order" }));
+    expect(api.approvePosAction).not.toHaveBeenCalled();
   });
 
   it("signs a waiter in with a PIN, and the till's POS requests then carry the operator header", async () => {

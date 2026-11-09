@@ -1051,9 +1051,11 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
           <Button variant="outline" onClick={() => setDialog("x")}>
             <FileBarChart className="size-4" /> {t("till.actions.x")}
           </Button>
-          <Button variant="outline" onClick={() => setDialog("close")} disabled={basket.length > 0}>
-            <Lock className="size-4" /> {t("till.actions.close")}
-          </Button>
+          {canApprove("pos") && (
+            <Button variant="outline" onClick={() => setDialog("close")} disabled={basket.length > 0}>
+              <Lock className="size-4" /> {t("till.actions.close")}
+            </Button>
+          )}
         </div>
       </section>
 
