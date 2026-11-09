@@ -138,6 +138,8 @@ public class VehiclesController : ControllerBase
             if (!usable && !_db.ChangeTracker.Entries<Warehouse>().Any(e => e.Entity.Id == id && e.State == EntityState.Added)) return _localizer["VehicleWarehouseInvalid"].Value;
         }
 
+        if (r.DriverUserId is { } driver && !await CompanyMembers.ExistsAsync(_db, companyId, driver)) return _localizer["VehicleDriverInvalid"].Value;
+
         vehicle.Plate = plate;
         vehicle.Make = Blank(r.Make);
         vehicle.Model = Blank(r.Model);

@@ -1027,6 +1027,7 @@ public class PosTests : IAsyncLifetime
         var artaUser = Guid.NewGuid();
         var arta = new Pako.Domain.Payroll.Employee { Id = Guid.NewGuid(), CompanyId = c.Id, UserId = artaUser, Name = "Arta" };
         c.Db.Employees.Add(arta);
+        c.Db.Memberships.Add(Membership.ForCompany(artaUser, c.Id, MembershipRole.ClientStaff));
         await c.Db.SaveChangesAsync();
         var hours = Enumerable.Range(0, 7).Select(d => new ResourceHoursResponse(d, new TimeOnly(9, 0), new TimeOnly(17, 0))).ToList();
         var chair = Ok(await ServicesApi(c).CreateResource(c.Id, new SaveResourceRequest(store.Id, "Arta", ResourceKind.Staff, hours,

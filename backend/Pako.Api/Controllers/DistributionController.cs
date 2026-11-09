@@ -93,6 +93,7 @@ public class DistributionController : ControllerBase
         {
             return _localizer["WarehouseNotFound"].Value;
         }
+        if (request.UserId is { } routeUser && !await CompanyMembers.ExistsAsync(_db, companyId, routeUser)) return _localizer["UserNotCompanyMember"].Value;
         var stops = request.Stops ?? new();
         if (stops.Count > 500) return _localizer["StockDocumentTooManyLines"].Value;
         var partnerIds = stops.Select(s => s.PartnerId).Distinct().ToList();

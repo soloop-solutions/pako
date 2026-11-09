@@ -86,6 +86,7 @@ public class PosServicesController : ControllerBase
         if (!await _db.PosStores.AnyAsync(s => s.Id == req.StoreId && s.CompanyId == companyId)) return _localizer["PosStoreNotFound"].Value;
         var serviceIds = req.ServiceItemIds.Distinct().ToList();
         if (await _db.Items.CountAsync(i => i.CompanyId == companyId && serviceIds.Contains(i.Id) && i.IsBookable) != serviceIds.Count) return _localizer["PosServiceNotBookable"].Value;
+        if (req.UserId is { } resourceUser && !await CompanyMembers.ExistsAsync(_db, companyId, resourceUser)) return _localizer["UserNotCompanyMember"].Value;
         (r.StoreId, r.Name, r.Kind, r.UserId, r.Color, r.IsActive) = (req.StoreId, req.Name.Trim(), req.Kind, req.UserId,
             string.IsNullOrWhiteSpace(req.Color) ? null : req.Color.Trim(), req.IsActive);
         _db.PosResourceHours.RemoveRange(r.Hours);
@@ -430,6 +431,7 @@ public class PosServicesController : ControllerBase
             .ToDictionary(p => p.ItemId, p => p.Price);
         if (lines.Any(l => l.UnitPrice is null && !prices.ContainsKey(l.ItemId))) return _localizer["CustomerOrderPriceMissing"].Value;
 
+        if (r.TechnicianUserId is { } technician && !await CompanyMembers.ExistsAsync(_db, companyId, technician)) return _localizer["UserNotCompanyMember"].Value;
         (t.StoreId, t.CustomerId, t.CustomerName, t.Phone, t.Email) = (store.Id, r.CustomerId, r.CustomerName.Trim(), Blank(r.Phone), Blank(r.Email));
         (t.Device, t.SerialOrPlate, t.Problem, t.Accessories, t.TechnicianUserId, t.Notes) =
             (r.Device.Trim(), Blank(r.SerialOrPlate), r.Problem.Trim(), Blank(r.Accessories), r.TechnicianUserId, Blank(r.Notes));

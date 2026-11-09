@@ -419,6 +419,11 @@ public class PosService
                 .OrderBy(m => m.Name).Select(m => (Guid?)m.LedgerAccountId).FirstOrDefaultAsync() ?? throw Fail("PosGiftCardNotSetUp");
         }
         if (items.Count != itemIds.Count) throw Fail("PosItemNotFound");
+        var staffIds = requested.Where(l => l.StaffUserId != null).Select(l => l.StaffUserId!.Value).Distinct().ToList();
+        foreach (var staffId in staffIds)
+        {
+            if (!await CompanyMembers.ExistsAsync(_db, company.Id, staffId)) throw Fail("UserNotCompanyMember");
+        }
         var taxIds = requested.Select(l => l.TaxDefinitionId ?? (l.ItemId is { } id ? items[id].DefaultTaxDefinitionId : null))
             .Where(t => t != null).Select(t => t!.Value).Distinct().ToList();
         var taxes = await _db.TaxDefinitions.AsNoTracking().Where(t => t.CompanyId == company.Id && taxIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id);

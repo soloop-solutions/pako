@@ -258,4 +258,29 @@ public class AccessAndInputGuardTests : IAsyncLifetime
         var booking = new SaveEventBookingRequest(venue.StoreId, venue.Id, new DateOnly(2026, 12, 1), "Arta", 20, CustomerId: foreign);
         Assert.IsType<BadRequestObjectResult>((await hotel.CreateEvent(company.Id, booking)).Result);
     }
+
+    [Fact]
+    public async Task UserIdsMustBeMembersOfTheCompany_DirectOrThroughItsFirm_AndActive()
+    {
+        var db = await NewDbAsync();
+        var firm = new Firm { Id = Guid.NewGuid(), Name = "Firm" };
+        var company = new Company { Id = Guid.NewGuid(), Name = "Member Co", FirmId = firm.Id };
+        db.Firms.Add(firm);
+        db.Companies.Add(company);
+        var direct = Guid.NewGuid();
+        var viaFirm = Guid.NewGuid();
+        var inactive = Guid.NewGuid();
+        var inactiveMembership = Membership.ForCompany(inactive, company.Id, MembershipRole.ClientStaff);
+        inactiveMembership.IsActive = false;
+        db.Memberships.AddRange(Membership.ForCompany(direct, company.Id, MembershipRole.ClientStaff), Membership.ForFirm(viaFirm, firm.Id, MembershipRole.FirmAccountant), inactiveMembership);
+        await db.SaveChangesAsync();
+
+        Assert.True(await CompanyMembers.ExistsAsync(db, company.Id, direct));
+        Assert.True(await CompanyMembers.ExistsAsync(db, company.Id, viaFirm));
+        Assert.False(await CompanyMembers.ExistsAsync(db, company.Id, inactive));
+        Assert.False(await CompanyMembers.ExistsAsync(db, company.Id, Guid.NewGuid()));
+
+        var vehicles = new VehiclesController(db, new StockService(db, new NullStringLocalizer<ErrorMessages>()), new NullStringLocalizer<ErrorMessages>());
+        Assert.IsType<BadRequestObjectResult>((await vehicles.Create(company.Id, new SaveVehicleRequest("01-123-AB", null, null, DriverUserId: Guid.NewGuid()))).Result);
+    }
 }
