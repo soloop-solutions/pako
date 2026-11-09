@@ -40,12 +40,18 @@ public class InventoryController : ControllerBase
         _reports = new StockReportService(db, access, tax);
     }
 
+    private static readonly AccessModule[] StockPickerAreas = { AccessModule.Inventory, AccessModule.Sales, AccessModule.Purchases, AccessModule.Pos };
+
+    private bool CanReadStockPickers() =>
+        AppModules.IsEnabled(_access.EnabledModules, AccessModule.Inventory) && StockPickerAreas.Any(a => _access.LevelFor(a) >= AccessLevel.Read);
+
     // ---- Warehouses ----
 
     [HttpGet("warehouses", Name = "ListWarehouses")]
     [RequireCompanyAccess]
     public async Task<ActionResult<List<WarehouseResponse>>> Warehouses(Guid companyId)
     {
+        if (!CanReadStockPickers()) return Forbid();
         // Every company has a main warehouse from the first time anyone looks, so opening stock can
         // be entered before anything has moved. Two first looks at once: the unique code keeps one.
         if (!await _db.Warehouses.AnyAsync(w => w.CompanyId == companyId))
@@ -296,6 +302,7 @@ public class InventoryController : ControllerBase
     [RequireCompanyAccess]
     public async Task<ActionResult<List<StockOnHandResponse>>> OnHand(Guid companyId, [FromQuery] Guid[] itemIds, [FromQuery] Guid? warehouseId = null)
     {
+        if (!CanReadStockPickers()) return Forbid();
         if (itemIds.Length == 0) return Ok(new List<StockOnHandResponse>());
         var location = warehouseId is { } w
             ? await _db.StockLocations.AsNoTracking().FirstOrDefaultAsync(l => l.CompanyId == companyId && l.WarehouseId == w && l.Usage == LocationUsage.Internal)

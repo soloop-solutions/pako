@@ -105,6 +105,8 @@ public class ItemsController : ControllerBase
             return BadRequest(_localizer["ItemDefaultAccountsRequired"].Value);
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
+        if (request.DefaultTaxDefinitionId is { } taxId && !await _db.TaxDefinitions.AnyAsync(t => t.Id == taxId && t.CompanyId == companyId))
+            return BadRequest(_localizer["TaxDefinitionNotBelongToCompany"].Value);
         var stockError = await ValidateStockFieldsAsync(companyId, null, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock)
             ?? ValidateUnits(request.Unit, request.PurchaseUnit, request.PurchaseUnitFactor, request.SalesUnit, request.SalesUnitFactor)
             ?? await ValidateTillFieldsAsync(companyId, null, request.Plu, request.MinimumAge, request.DepositItemId, request.WarrantyMonths)
@@ -178,6 +180,8 @@ public class ItemsController : ControllerBase
             return BadRequest(_localizer["ItemDefaultAccountsRequired"].Value);
         var accountError = await ValidateDefaultAccounts(companyId, request.DefaultRevenueAccountId, request.DefaultExpenseAccountId, request.DefaultInventoryAccountId);
         if (accountError is not null) return accountError;
+        if (request.DefaultTaxDefinitionId is { } taxId && !await _db.TaxDefinitions.AnyAsync(t => t.Id == taxId && t.CompanyId == companyId))
+            return BadRequest(_localizer["TaxDefinitionNotBelongToCompany"].Value);
         var stockError = await ValidateStockFieldsAsync(companyId, item, request.Type, request.CategoryId, request.TrackInventory, request.MinimumStock)
             ?? (item.TrackLots != (request.TrackLots && request.TrackInventory) && await _db.StockMoves.AnyAsync(m => m.ItemId == item.Id)
                 ? _localizer["StockLotsLocked"].Value : null)

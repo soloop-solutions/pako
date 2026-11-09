@@ -54,7 +54,7 @@ public class RentalsController : ControllerBase
     }
 
     [HttpPost("leases", Name = "CreateLease")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(approve: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(LeaseResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<LeaseResponse>> CreateLease(Guid companyId, SaveLeaseRequest request)
     {
@@ -68,7 +68,7 @@ public class RentalsController : ControllerBase
 
     // Terms change while a draft; a running lease only takes its notes, deposit dates and meters.
     [HttpPut("leases/{leaseId:guid}", Name = "UpdateLease")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(approve: true, module: AccessModule.Sales)]
     public async Task<ActionResult<LeaseResponse>> UpdateLease(Guid companyId, Guid leaseId, SaveLeaseRequest request)
     {
         var lease = await _db.Leases.Include(l => l.Meters).FirstOrDefaultAsync(l => l.Id == leaseId && l.CompanyId == companyId);
@@ -143,7 +143,7 @@ public class RentalsController : ControllerBase
     }
 
     [HttpPost("leases/{leaseId:guid}/activate", Name = "ActivateLease")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(approve: true, module: AccessModule.Sales)]
     public async Task<ActionResult<LeaseResponse>> Activate(Guid companyId, Guid leaseId)
     {
         var lease = await _db.Leases.Include(l => l.Meters).FirstOrDefaultAsync(l => l.Id == leaseId && l.CompanyId == companyId);
@@ -162,7 +162,7 @@ public class RentalsController : ControllerBase
 
     // The tenant leaves: the last month is charged to the end date by the next run; the unit is free.
     [HttpPost("leases/{leaseId:guid}/end", Name = "EndLease")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(approve: true, module: AccessModule.Sales)]
     public async Task<ActionResult<LeaseResponse>> End(Guid companyId, Guid leaseId, EndLeaseRequest request)
     {
         var lease = await _db.Leases.Include(l => l.Meters).FirstOrDefaultAsync(l => l.Id == leaseId && l.CompanyId == companyId);
@@ -198,7 +198,7 @@ public class RentalsController : ControllerBase
     // month); pending meter readings are re-billed and become the meters' last readings. Ended
     // leases are included for their last month.
     [HttpPost("run", Name = "RunRent")]
-    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
+    [RequireCompanyAccess(approve: true, module: AccessModule.Sales)]
     public async Task<ActionResult<RentRunResponse>> Run(Guid companyId, RentRunRequest request)
     {
         var period = new DateOnly(request.Month.Year, request.Month.Month, 1);

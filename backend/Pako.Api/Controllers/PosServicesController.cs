@@ -284,6 +284,7 @@ public class PosServicesController : ControllerBase
     {
         var membership = await _db.PosMemberships.FirstOrDefaultAsync(m => m.Id == membershipId && m.CompanyId == companyId);
         if (membership is null) return NotFound();
+        if (request.CustomerId is { } customerId && !await _db.Partners.AnyAsync(p => p.Id == customerId && p.CompanyId == companyId)) return BadRequest(_localizer["PosCustomerNotFound"].Value);
         (membership.HolderName, membership.Phone, membership.CustomerId) = (Blank(request.HolderName), Blank(request.Phone), request.CustomerId);
         await _db.SaveChangesAsync();
         return Ok((await MembershipResponsesAsync(new() { membership })).Single());

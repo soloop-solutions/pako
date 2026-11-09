@@ -96,6 +96,13 @@ public class UserAdminService
             return AdminResult<CompanyRole>.Fail(_localizer["RoleNameTaken"].Value);
         }
 
+        var l = request.Levels;
+        var levels = new[] { l.Sales, l.Purchases, l.Partners, l.Accounting, l.Reports, l.Hr, l.Items, l.Payroll, l.Settings, l.Users, l.Inventory, l.Pos };
+        if (levels.Any(level => !Enum.IsDefined(level)) || !Enum.IsDefined(request.PartnerScope))
+        {
+            return AdminResult<CompanyRole>.Fail(_localizer["RoleLevelInvalid"].Value);
+        }
+
         var isNew = role.Id == Guid.Empty;
         if (isNew)
         {
@@ -107,7 +114,6 @@ public class UserAdminService
         role.Name = name;
         role.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         role.PartnerScope = request.PartnerScope;
-        var l = request.Levels;
         role.Set(AccessModule.Sales, l.Sales);
         role.Set(AccessModule.Purchases, l.Purchases);
         role.Set(AccessModule.Partners, l.Partners);

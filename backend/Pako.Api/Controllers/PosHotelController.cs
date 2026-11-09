@@ -47,6 +47,7 @@ public class PosHotelController : ControllerBase
 
     // ---- Rooms ----
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpGet("room-types", Name = "ListPosRoomTypes")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<List<RoomTypeResponse>>> RoomTypes(Guid companyId, [FromQuery] Guid? storeId = null)
@@ -62,6 +63,7 @@ public class PosHotelController : ControllerBase
             t.IsActive, rooms.Where(r => r.RoomTypeId == t.Id).Select(ToResponse).ToList(), rates.GetValueOrDefault(t.RateItemId)?.Name)).ToList());
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("room-types", Name = "CreatePosRoomType")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     [ProducesResponseType(typeof(RoomTypeResponse), StatusCodes.Status201Created)]
@@ -74,6 +76,7 @@ public class PosHotelController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, new RoomTypeResponse(type.Id, type.StoreId, type.Name, type.Capacity, type.RateItemId, null, type.IsActive, new()));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPut("room-types/{typeId:guid}", Name = "UpdatePosRoomType")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     public async Task<IActionResult> UpdateRoomType(Guid companyId, Guid typeId, SaveRoomTypeRequest request)
@@ -94,6 +97,7 @@ public class PosHotelController : ControllerBase
         return null;
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("rooms", Name = "CreatePosRoom")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     [ProducesResponseType(typeof(RoomResponse), StatusCodes.Status201Created)]
@@ -108,6 +112,7 @@ public class PosHotelController : ControllerBase
     }
 
     // Renumber, move to another type, or take a room out of use.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPut("rooms/{roomId:guid}", Name = "UpdatePosRoom")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     public async Task<ActionResult<RoomResponse>> UpdateRoom(Guid companyId, Guid roomId, SaveRoomRequest request)
@@ -122,6 +127,7 @@ public class PosHotelController : ControllerBase
     }
 
     // Housekeeping: clean, dirty, out of service.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("rooms/{roomId:guid}/state", Name = "SetPosRoomState")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<RoomResponse>> RoomState(Guid companyId, Guid roomId, RoomStateRequest request)
@@ -137,6 +143,7 @@ public class PosHotelController : ControllerBase
 
     // ---- Bookings ----
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpGet("hotel/calendar", Name = "GetPosHotelCalendar")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<HotelCalendarResponse>> Calendar(Guid companyId, [FromQuery] Guid storeId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
@@ -155,6 +162,7 @@ public class PosHotelController : ControllerBase
             responses.Where(b => b.RoomId is null).ToList()));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpGet("hotel/bookings/{bookingId:guid}", Name = "GetPosHotelBooking")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<HotelBookingResponse>> Booking(Guid companyId, Guid bookingId)
@@ -163,12 +171,14 @@ public class PosHotelController : ControllerBase
         return booking is null ? NotFound() : Ok((await ToResponsesAsync(new List<HotelBooking> { booking })).Single());
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings", Name = "CreatePosHotelBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     [ProducesResponseType(typeof(HotelBookingResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<HotelBookingResponse>> CreateBooking(Guid companyId, SaveHotelBookingRequest request) =>
         (await SaveBookingAsync(companyId, null, request)).AsCreated();
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPut("hotel/bookings/{bookingId:guid}", Name = "UpdatePosHotelBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public Task<ActionResult<HotelBookingResponse>> UpdateBooking(Guid companyId, Guid bookingId, SaveHotelBookingRequest request) =>
@@ -224,6 +234,7 @@ public class PosHotelController : ControllerBase
         return Ok(response);
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPut("hotel/bookings/{bookingId:guid}/guests", Name = "SetPosHotelGuests")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<HotelBookingResponse>> Guests(Guid companyId, Guid bookingId, SaveHotelGuestsRequest request)
@@ -242,6 +253,7 @@ public class PosHotelController : ControllerBase
     }
 
     // Check-in: a room, the guests registered, and the folio opened.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/check-in", Name = "CheckInPosHotelBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<HotelBookingResponse>> CheckIn(Guid companyId, Guid bookingId)
@@ -266,6 +278,7 @@ public class PosHotelController : ControllerBase
 
     // The night audit: room nights (and tourist tax per guest) onto the folio, through a date
     // (default today; never past the last night).
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/post-nights", Name = "PostPosHotelNights")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<TabResponse>> PostNights(Guid companyId, Guid bookingId, [FromQuery] DateOnly? through = null)
@@ -312,6 +325,7 @@ public class PosHotelController : ControllerBase
     }
 
     // A restaurant or bar tab charged to a checked-in room: its unpaid lines move to the folio.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("tabs/{tabId:guid}/charge-to-room", Name = "ChargePosTabToRoom")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<TabResponse>> ChargeToRoom(Guid companyId, Guid tabId, [FromQuery] Guid bookingId)
@@ -339,6 +353,7 @@ public class PosHotelController : ControllerBase
 
     // City ledger: these folio lines are billed to the company that pays, on a draft invoice the
     // accountant posts; on the folio they count as settled.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/invoice", Name = "InvoicePosHotelBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<Guid>> Invoice(Guid companyId, Guid bookingId, HotelInvoiceRequest request)
@@ -375,6 +390,7 @@ public class PosHotelController : ControllerBase
     }
 
     // Check-out: nights posted to the departure, and nothing left to pay on the folio.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/check-out", Name = "CheckOutPosHotelBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<HotelBookingResponse>> CheckOut(Guid companyId, Guid bookingId)
@@ -395,6 +411,7 @@ public class PosHotelController : ControllerBase
     }
 
     // Before check-out, the remaining nights go on the folio so the till can take the stay.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/prepare-check-out", Name = "PreparePosHotelCheckOut")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<TabResponse>> PrepareCheckOut(Guid companyId, Guid bookingId)
@@ -410,6 +427,7 @@ public class PosHotelController : ControllerBase
         return Ok(await _tabs.ToResponseAsync(tab));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/cancel", Name = "CancelPosHotelBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<HotelBookingResponse>> CancelBooking(Guid companyId, Guid bookingId, [FromQuery] bool noShow = false)
@@ -422,6 +440,7 @@ public class PosHotelController : ControllerBase
         return Ok((await ToResponsesAsync(new List<HotelBooking> { booking })).Single());
     }
 
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpPost("hotel/bookings/{bookingId:guid}/deposit-card", Name = "GetPosHotelDepositCard")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<HotelBookingResponse>> HotelDepositCard(Guid companyId, Guid bookingId)
@@ -434,6 +453,7 @@ public class PosHotelController : ControllerBase
     }
 
     // The police register of guests who stayed in a period.
+    [RequireCompanyFeature(CompanyFeature.Hotel)]
     [HttpGet("hotel/guest-register", Name = "GetPosGuestRegister")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<List<GuestRegisterRow>>> GuestRegister(Guid companyId, [FromQuery] Guid storeId, [FromQuery] DateOnly from, [FromQuery] DateOnly to,
@@ -477,12 +497,14 @@ public class PosHotelController : ControllerBase
 
     // ---- Venues and events ----
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpGet("venues", Name = "ListPosVenues")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<List<VenueResponse>>> Venues(Guid companyId) =>
         Ok(await _db.PosVenues.AsNoTracking().Where(v => v.CompanyId == companyId).OrderBy(v => v.Name)
             .Select(v => new VenueResponse(v.Id, v.StoreId, v.Name, v.Capacity, v.IsActive)).ToListAsync());
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("venues", Name = "CreatePosVenue")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     [ProducesResponseType(typeof(VenueResponse), StatusCodes.Status201Created)]
@@ -496,6 +518,7 @@ public class PosHotelController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, new VenueResponse(venue.Id, venue.StoreId, venue.Name, venue.Capacity, venue.IsActive));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPut("venues/{venueId:guid}", Name = "UpdatePosVenue")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     public async Task<ActionResult<VenueResponse>> UpdateVenue(Guid companyId, Guid venueId, SaveVenueRequest request)
@@ -509,6 +532,7 @@ public class PosHotelController : ControllerBase
         return Ok(new VenueResponse(venue.Id, venue.StoreId, venue.Name, venue.Capacity, venue.IsActive));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpGet("events/{eventId:guid}", Name = "GetPosEventBooking")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<EventBookingResponse>> GetEvent(Guid companyId, Guid eventId)
@@ -517,6 +541,7 @@ public class PosHotelController : ControllerBase
         return booking is null ? NotFound() : Ok((await EventResponsesAsync(new List<EventBooking> { booking })).Single());
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpGet("events", Name = "ListPosEventBookings")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<List<EventBookingResponse>>> Events(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to, [FromQuery] Guid? venueId = null)
@@ -526,12 +551,14 @@ public class PosHotelController : ControllerBase
         return Ok(await EventResponsesAsync(await query.OrderBy(e => e.Date).ToListAsync()));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("events", Name = "CreatePosEventBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     [ProducesResponseType(typeof(EventBookingResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<EventBookingResponse>> CreateEvent(Guid companyId, SaveEventBookingRequest request) =>
         (await SaveEventAsync(companyId, null, request)).AsCreated();
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPut("events/{eventId:guid}", Name = "UpdatePosEventBooking")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public Task<ActionResult<EventBookingResponse>> UpdateEvent(Guid companyId, Guid eventId, SaveEventBookingRequest request) => SaveEventAsync(companyId, eventId, request);
@@ -556,6 +583,7 @@ public class PosHotelController : ControllerBase
             return BadRequest(_localizer["PosVenueTaken"].Value);
         }
         if (r.PackageItemId is { } pkg && !await _db.Items.AnyAsync(i => i.Id == pkg && i.CompanyId == companyId)) return BadRequest(_localizer["PosItemNotFound"].Value);
+        if (r.CustomerId is { } customerId && !await _db.Partners.AnyAsync(p => p.Id == customerId && p.CompanyId == companyId)) return BadRequest(_localizer["PosCustomerNotFound"].Value);
         booking ??= new EventBooking
         {
             Id = Guid.NewGuid(), CompanyId = companyId, State = EventBookingState.Tentative,
@@ -572,6 +600,7 @@ public class PosHotelController : ControllerBase
         return Ok(response);
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("events/{eventId:guid}/state", Name = "SetPosEventBookingState")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<EventBookingResponse>> EventState(Guid companyId, Guid eventId, EventBookingStateRequest request)
@@ -590,6 +619,7 @@ public class PosHotelController : ControllerBase
         return Ok((await EventResponsesAsync(new List<EventBooking> { booking })).Single());
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("events/{eventId:guid}/deposit-card", Name = "GetPosEventDepositCard")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<EventBookingResponse>> EventDepositCard(Guid companyId, Guid eventId)
@@ -603,6 +633,7 @@ public class PosHotelController : ControllerBase
 
     // The final headcount: the bill (a tab) carries the package × guests at the agreed price;
     // extras are added to it like any tab.
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("events/{eventId:guid}/final-guests", Name = "SetPosEventFinalGuests")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<TabResponse>> FinalGuests(Guid companyId, Guid eventId, FinalGuestsRequest request)
@@ -660,6 +691,7 @@ public class PosHotelController : ControllerBase
 
     // ---- Ticketed events ----
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpGet("ticketed-events", Name = "ListPosTicketedEvents")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<List<TicketedEventResponse>>> TicketedEvents(Guid companyId)
@@ -669,6 +701,7 @@ public class PosHotelController : ControllerBase
         return Ok(await TicketedResponsesAsync(events));
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("ticketed-events", Name = "CreatePosTicketedEvent")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     [ProducesResponseType(typeof(TicketedEventResponse), StatusCodes.Status201Created)]
@@ -681,6 +714,7 @@ public class PosHotelController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, (await TicketedResponsesAsync(new List<TicketedEvent> { ev })).Single());
     }
 
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPut("ticketed-events/{eventId:guid}", Name = "UpdatePosTicketedEvent")]
     [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
     public async Task<ActionResult<TicketedEventResponse>> UpdateTicketedEvent(Guid companyId, Guid eventId, SaveTicketedEventRequest request)
@@ -729,6 +763,7 @@ public class PosHotelController : ControllerBase
     }
 
     // The door: a ticket's QR code lets one person in, once.
+    [RequireCompanyFeature(CompanyFeature.Events)]
     [HttpPost("ticketed-events/{eventId:guid}/scan", Name = "ScanPosTicket")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<ScanTicketResponse>> Scan(Guid companyId, Guid eventId, ScanTicketRequest request)

@@ -217,6 +217,11 @@ public class BillsController : ControllerBase
         {
             var item = line.ItemId is { } itemId && itemsById.TryGetValue(itemId, out var foundItem) ? foundItem : null;
 
+            if (line.ItemId is { } unknownItemId && item is null)
+            {
+                return (null, 0m, BadRequest(string.Format(_localizer["ItemNotBelongToCompany"].Value, unknownItemId)));
+            }
+
             if (line.Quantity <= 0)
             {
                 return (null, 0m, BadRequest(_localizer["LineQuantityMustBePositive"].Value));
@@ -246,7 +251,12 @@ public class BillsController : ControllerBase
             {
                 var taxDef = await _db.TaxDefinitions.AsNoTracking()
                     .FirstOrDefaultAsync(t => t.Id == eligibilityTaxId && t.CompanyId == companyId);
-                if (taxDef is not null && !VatEligibilityValidator.IsEligible(isVatRegistered, taxDef))
+                if (taxDef is null)
+                {
+                    return (null, 0m, BadRequest(string.Format(_localizer["TaxDefinitionNotBelongToCompany"].Value, eligibilityTaxId)));
+                }
+
+                if (!VatEligibilityValidator.IsEligible(isVatRegistered, taxDef))
                 {
                     var reasonKey = VatEligibilityValidator.GetIneligibilityReason(isVatRegistered, taxDef);
                     return (null, 0m, BadRequest(_localizer[reasonKey ?? "VatCodeNotEligible_General"].Value));

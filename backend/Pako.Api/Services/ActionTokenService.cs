@@ -8,8 +8,15 @@ public class ActionTokenService
     private readonly ConcurrentDictionary<string, ActionTokenEntry> _tokens = new();
     private readonly TimeSpan _tokenLifetime = TimeSpan.FromMinutes(5);
     private readonly int _maxFailedAttempts = 5;
-    private readonly ConcurrentDictionary<string, int> _failedAttempts = new();
+    private readonly TimeSpan _lockoutDuration = TimeSpan.FromMinutes(15);
+    private readonly ConcurrentDictionary<string, FailedAttempts> _failedAttempts = new();
+    private readonly TimeProvider _clock;
     private long _cleanupCounter;
+
+    public ActionTokenService(TimeProvider? clock = null)
+    {
+        _clock = clock ?? TimeProvider.System;
+    }
 
     public (string Token, DateTime ExpiresAtUtc) GenerateToken(Guid userId, Guid companyId, string action)
     {
@@ -37,14 +44,21 @@ public class ActionTokenService
     public bool IsRateLimited(Guid userId)
     {
         var key = userId.ToString();
-        return _failedAttempts.TryGetValue(key, out var count) && count >= _maxFailedAttempts;
+        if (!_failedAttempts.TryGetValue(key, out var failed)) return false;
+        if (_clock.GetUtcNow().UtcDateTime - failed.LastAtUtc >= _lockoutDuration)
+        {
+            _failedAttempts.TryRemove(key, out _);
+            return false;
+        }
+        return failed.Count >= _maxFailedAttempts;
     }
 
     public void RecordFailedAttempt(Guid userId)
     {
-        var key = userId.ToString();
-        _failedAttempts.AddOrUpdate(key, 1, (_, count) => count + 1);
-        // Auto-reset after 15 minutes (approximate, via cleanup)
+        var now = _clock.GetUtcNow().UtcDateTime;
+        _failedAttempts.AddOrUpdate(userId.ToString(),
+            _ => new FailedAttempts(1, now),
+            (_, failed) => now - failed.LastAtUtc >= _lockoutDuration ? new FailedAttempts(1, now) : new FailedAttempts(failed.Count + 1, now));
     }
 
     public void ResetFailedAttempts(Guid userId)
@@ -63,4 +77,6 @@ public class ActionTokenService
     }
 
     private record ActionTokenEntry(Guid UserId, Guid CompanyId, string Action, DateTime ExpiresAtUtc);
+
+    private record FailedAttempts(int Count, DateTime LastAtUtc);
 }

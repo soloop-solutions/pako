@@ -35,7 +35,7 @@ public class PosReportsController : ControllerBase
     public async Task<ActionResult<PosSalesReportResponse>> Sales(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to,
         [FromQuery] PosReportGroup groupBy = PosReportGroup.Day, [FromQuery] Guid? storeId = null, [FromQuery] Guid? registerId = null)
     {
-        if (to < from || to.DayNumber - from.DayNumber > 400) return BadRequest(_localizer["PosReportPeriodInvalid"].Value);
+        if (from == DateOnly.MinValue || to < from || to.DayNumber - from.DayNumber > 400) return BadRequest(_localizer["PosReportPeriodInvalid"].Value);
         return Ok(await _reports.SalesAsync(companyId, from, to, groupBy, storeId, registerId));
     }
 
@@ -44,7 +44,7 @@ public class PosReportsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Pos)]
     public async Task<ActionResult<UsageVarianceResponse>> UsageVariance(Guid companyId, [FromQuery] DateOnly from, [FromQuery] DateOnly to)
     {
-        if (to < from || to.DayNumber - from.DayNumber > 400) return BadRequest(_localizer["PosReportPeriodInvalid"].Value);
+        if (from == DateOnly.MinValue || to < from || to.DayNumber - from.DayNumber > 400) return BadRequest(_localizer["PosReportPeriodInvalid"].Value);
         var ingredients = await _db.RecipeLines.AsNoTracking().Where(r => _db.Items.Any(i => i.Id == r.ItemId && i.CompanyId == companyId))
             .Select(r => r.IngredientItemId).Distinct().ToListAsync();
         var moves = await _db.StockMoves.AsNoTracking()

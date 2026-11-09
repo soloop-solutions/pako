@@ -164,6 +164,7 @@ public class RealEstateController : ControllerBase
 
     // ---- Reservations ----
 
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpGet("reservations", Name = "ListUnitReservations")]
     [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<List<ReservationResponse>>> Reservations(Guid companyId, [FromQuery] ReservationState? state = null)
@@ -187,6 +188,7 @@ public class RealEstateController : ControllerBase
         await _db.SaveChangesAsync();
     }
 
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpPost("reservations", Name = "CreateUnitReservation")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(ReservationResponse), StatusCodes.Status201Created)]
@@ -209,6 +211,7 @@ public class RealEstateController : ControllerBase
         return StatusCode(StatusCodes.Status201Created, (await ReservationResponsesAsync(new() { reservation }))[0]);
     }
 
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpPost("reservations/{reservationId:guid}/cancel", Name = "CancelUnitReservation")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<ActionResult<ReservationResponse>> CancelReservation(Guid companyId, Guid reservationId)
@@ -235,6 +238,7 @@ public class RealEstateController : ControllerBase
 
     // ---- Sale contracts ----
 
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpGet("contracts", Name = "ListUnitSaleContracts")]
     [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<List<SaleContractResponse>>> Contracts(Guid companyId, [FromQuery] Guid? buildingId = null, [FromQuery] ContractState? state = null)
@@ -245,6 +249,7 @@ public class RealEstateController : ControllerBase
         return Ok(await ContractResponsesAsync(await query.OrderByDescending(c => c.ContractDate).ToListAsync()));
     }
 
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpGet("contracts/{contractId:guid}", Name = "GetUnitSaleContract")]
     [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<SaleContractResponse>> Contract(Guid companyId, Guid contractId)
@@ -256,6 +261,7 @@ public class RealEstateController : ControllerBase
     // The unit is sold (or given in compensation); a reservation of the same buyer converts. The plan
     // must add up to the price: an explicit one, or a down payment plus equal monthly installments
     // (the last takes the rounding).
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpPost("contracts", Name = "CreateUnitSaleContract")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     [ProducesResponseType(typeof(SaleContractResponse), StatusCodes.Status201Created)]
@@ -318,6 +324,7 @@ public class RealEstateController : ControllerBase
     }
 
     // One draft invoice for the chosen installments (each a line on the building's sale item).
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpPost("contracts/{contractId:guid}/invoice", Name = "InvoiceInstallments")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Sales)]
     public async Task<ActionResult<Guid>> InvoiceInstallments(Guid companyId, Guid contractId, InvoiceInstallmentsRequest request)
@@ -345,6 +352,7 @@ public class RealEstateController : ControllerBase
     }
 
     // Only before anything was invoiced; the unit is free again.
+    [RequireCompanyFeature(CompanyFeature.RealEstate)]
     [HttpPost("contracts/{contractId:guid}/cancel", Name = "CancelUnitSaleContract")]
     [RequireCompanyAccess(module: AccessModule.Sales, approve: true)]
     public async Task<ActionResult<SaleContractResponse>> CancelContract(Guid companyId, Guid contractId)

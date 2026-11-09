@@ -113,6 +113,19 @@ public class InvoicesControllerTests : IAsyncLifetime
             DocumentType.Proforma);
 
     [Fact]
+    public async Task Create_AnotherCompanysItemOrTaxCode_IsRefused()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        CreateInvoiceRequest With(Guid? tax, Guid? item) => new(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, tax, null, ItemId: item) });
+
+        Assert.IsType<BadRequestObjectResult>((await controller.Create(companyId, With(Guid.NewGuid(), null))).Result);
+        Assert.IsType<BadRequestObjectResult>((await controller.Create(companyId, With(null, Guid.NewGuid()))).Result);
+    }
+
+    [Fact]
     public async Task Create_ZeroQuantity_Rejected()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
@@ -183,10 +196,11 @@ public class InvoicesControllerTests : IAsyncLifetime
         var (db, companyId, partnerId, _) = await SeedAsync();
         var controller = NewController(db);
 
-        var created = await controller.Create(companyId, new CreateInvoiceRequest(
-            partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
-            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, Guid.NewGuid(), null) }));
+        var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        var line = await db.InvoiceLines.SingleAsync(l => l.InvoiceId == invoice.Id);
+        line.TaxDefinitionId = Guid.NewGuid();
+        await db.SaveChangesAsync();
 
         var result = await controller.Post(companyId, invoice.Id);
 

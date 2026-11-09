@@ -191,6 +191,7 @@ public class MeController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Self)]
     public async Task<ActionResult<AnnualEmployeeStatementResponse>> AnnualStatement(Guid companyId, [FromQuery] int year)
     {
+        if (year is < 1 or > 9999) return BadRequest(_localizer["ReportYearInvalid"].Value);
         if (await MeAsync(companyId) is not { } me) return NotLinked();
         return Ok(await _documents.AnnualStatementAsync(companyId, me.Id, year));
     }
@@ -200,6 +201,7 @@ public class MeController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Self)]
     public async Task<IActionResult> AnnualStatementPdf(Guid companyId, [FromQuery] int year)
     {
+        if (year is < 1 or > 9999) return BadRequest(_localizer["ReportYearInvalid"].Value);
         if (await MeAsync(companyId) is not { } me) return NotLinked();
         var statement = (await _documents.AnnualStatementAsync(companyId, me.Id, year))!;
         var bytes = PayslipPdfRenderer.RenderAnnualStatement(

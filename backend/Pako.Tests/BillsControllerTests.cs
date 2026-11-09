@@ -139,6 +139,19 @@ public class BillsControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Create_AnotherCompanysItemOrTaxCode_IsRefused()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        CreateBillRequest With(Guid? tax, Guid? item) => new(partnerId, "VEND-001", new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateBillLineRequest> { new("Supplies", 1m, 100m, tax, null, ItemId: item) });
+
+        Assert.IsType<BadRequestObjectResult>((await controller.Create(companyId, With(Guid.NewGuid(), null))).Result);
+        Assert.IsType<BadRequestObjectResult>((await controller.Create(companyId, With(null, Guid.NewGuid()))).Result);
+    }
+
+    [Fact]
     public async Task Create_NegativeUnitPrice_Rejected()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();

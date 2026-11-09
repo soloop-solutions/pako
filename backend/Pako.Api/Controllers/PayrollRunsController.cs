@@ -77,6 +77,7 @@ public class PayrollRunsController : ControllerBase
     [ProducesResponseType(typeof(PayrollRunDetailResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PayrollRunDetailResponse>> Create(Guid companyId, CreatePayrollRunRequest request)
     {
+        if (request.PeriodStart == default || request.PeriodEnd == default) return BadRequest(_localizer["PeriodDatesRequired"].Value);
         if (request.PeriodEnd < request.PeriodStart) return BadRequest(_localizer["PeriodEndBeforeStart"].Value);
 
         if (await _db.PayrollRuns.AnyAsync(r => r.CompanyId == companyId &&
@@ -423,6 +424,7 @@ public class PayrollRunsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<ActionResult<AnnualEmployeeStatementResponse>> AnnualStatement(Guid companyId, Guid employeeId, [FromQuery] int year)
     {
+        if (year is < 1 or > 9999) return BadRequest(_localizer["ReportYearInvalid"].Value);
         var statement = await _documents.AnnualStatementAsync(companyId, employeeId, year);
         return statement is null ? NotFound() : Ok(statement);
     }
@@ -432,6 +434,7 @@ public class PayrollRunsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Payroll)]
     public async Task<IActionResult> AnnualStatementPdf(Guid companyId, Guid employeeId, [FromQuery] int year)
     {
+        if (year is < 1 or > 9999) return BadRequest(_localizer["ReportYearInvalid"].Value);
         var statement = await _documents.AnnualStatementAsync(companyId, employeeId, year);
         if (statement is null) return NotFound();
 

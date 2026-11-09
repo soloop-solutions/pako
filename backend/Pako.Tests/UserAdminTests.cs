@@ -103,6 +103,29 @@ public class UserAdminTests : IAsyncLifetime
         Assert.Equal(AccessLevel.None, scoped.Value!.LevelFor(AccessModule.Accounting));
     }
 
+    [Fact]
+    public async Task SaveRole_RefusesALevelOutsideNoneToApprove_AndAnUnknownPartnerScope()
+    {
+        var seed = await SeedAsync();
+        await seed.Admin.EnsureBuiltInRolesAsync(seed.CompanyId);
+        var levels = (await seed.Admin.RolesAsync(seed.CompanyId)).First().Levels;
+
+        var tooHigh = await seed.Admin.SaveRoleAsync(seed.CompanyId, new CompanyRole(),
+            new SaveCompanyRoleRequest("Odd", null, levels with { Sales = (AccessLevel)9 }, PartnerScope.All), seed.AdminUserId);
+        Assert.NotNull(tooHigh.Error);
+        var negative = await seed.Admin.SaveRoleAsync(seed.CompanyId, new CompanyRole(),
+            new SaveCompanyRoleRequest("Odd", null, levels with { Pos = (AccessLevel)(-1) }, PartnerScope.All), seed.AdminUserId);
+        Assert.NotNull(negative.Error);
+        var scope = await seed.Admin.SaveRoleAsync(seed.CompanyId, new CompanyRole(),
+            new SaveCompanyRoleRequest("Odd", null, levels, (PartnerScope)7), seed.AdminUserId);
+        Assert.NotNull(scope.Error);
+        Assert.DoesNotContain(await seed.Admin.RolesAsync(seed.CompanyId), r => r.Name == "Odd");
+
+        var fine = await seed.Admin.SaveRoleAsync(seed.CompanyId, new CompanyRole(),
+            new SaveCompanyRoleRequest("Fine", null, levels with { Sales = AccessLevel.Approve }, PartnerScope.Assigned), seed.AdminUserId);
+        Assert.Null(fine.Error);
+    }
+
     // ---- Levels ----
 
     [Fact]
@@ -310,14 +333,14 @@ public class UserAdminTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task StaffWithoutARole_GetsWhatTheEmployeeRoleGives_ReferenceDataOnly()
+    public async Task StaffWithoutARole_GetsWhatTheEmployeeRoleGives_NoBusinessAreaAndNoReferenceData()
     {
         var seed = await SeedAsync();
         var user = Guid.NewGuid();
         seed.Db.Memberships.Add(Membership.ForCompany(user, seed.CompanyId, MembershipRole.ClientStaff));
         await seed.Db.SaveChangesAsync();
 
-        Assert.Null((await FilterAsync(seed.Db, user, seed.CompanyId, AccessModule.None)).Result);
+        Assert.IsType<ForbidResult>((await FilterAsync(seed.Db, user, seed.CompanyId, AccessModule.None)).Result);
         Assert.IsType<ForbidResult>((await FilterAsync(seed.Db, user, seed.CompanyId, AccessModule.None, write: true)).Result);
         Assert.IsType<ForbidResult>((await FilterAsync(seed.Db, user, seed.CompanyId, AccessModule.Sales)).Result);
         Assert.IsType<ForbidResult>((await FilterAsync(seed.Db, user, seed.CompanyId, AccessModule.Users, adminOnly: true)).Result);
