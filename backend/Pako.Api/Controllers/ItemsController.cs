@@ -76,7 +76,12 @@ public class ItemsController : ControllerBase
             .Take(pageSize)
             .ToListAsync();
 
-        return Ok(new PaginatedResponse<ItemResponse>(items.Select(i => ToResponse(i)).ToList(), total, page, pageSize));
+        var itemIds = items.Select(i => i.Id).ToList();
+        var costs = await _db.ItemCosts.AsNoTracking()
+            .Where(c => itemIds.Contains(c.ItemId))
+            .ToDictionaryAsync(c => c.ItemId, c => c.AverageCost);
+
+        return Ok(new PaginatedResponse<ItemResponse>(items.Select(i => ToResponse(i, averageCost: costs.GetValueOrDefault(i.Id))).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{itemId:guid}")]
@@ -88,7 +93,8 @@ public class ItemsController : ControllerBase
             .FirstOrDefaultAsync(i => i.Id == itemId && i.CompanyId == companyId);
 
         if (item == null) return NotFound();
-        return Ok(ToResponse(item));
+        var cost = await _db.ItemCosts.AsNoTracking().FirstOrDefaultAsync(c => c.ItemId == itemId);
+        return Ok(ToResponse(item, averageCost: cost?.AverageCost));
     }
 
     [HttpPost]
@@ -345,7 +351,7 @@ public class ItemsController : ControllerBase
         return null;
     }
 
-    private static ItemResponse ToResponse(Item i, bool hasStockMoves = false) => new(
+    private static ItemResponse ToResponse(Item i, bool hasStockMoves = false, decimal? averageCost = null) => new(
         i.Id, i.Code, i.Name, i.Description, i.Unit, i.Type,
         i.DefaultTaxDefinitionId, i.DefaultRevenueAccountId, i.DefaultExpenseAccountId, i.DefaultInventoryAccountId,
         i.DefaultUnitPrice,
@@ -354,7 +360,8 @@ public class ItemsController : ControllerBase
         i.PurchaseUnit, i.PurchaseUnitFactor, i.SalesUnit, i.SalesUnitFactor, i.Plu, i.SellByWeight, i.OpenPrice, i.MinimumAge, i.DepositItemId,
         i.TrackSerials, i.WarrantyMonths, i.IsVariantTemplate, i.VariantOfItemId, null, i.IsBookable, i.DurationMinutes, i.BufferMinutes,
         i.PackageServiceItemId, i.PackageSessions, i.PackageValidDays, i.MembershipDays, i.ProductionCenterId,
-        i.AtcCode, i.ActiveIngredient, i.IsPrescriptionOnly, i.IsControlled, i.MaxRetailPrice, i.AgencyPartnerId, i.AgencyCommissionPercent);
+        i.AtcCode, i.ActiveIngredient, i.IsPrescriptionOnly, i.IsControlled, i.MaxRetailPrice, i.AgencyPartnerId, i.AgencyCommissionPercent,
+        averageCost);
 
     // P7: pharmacy and agency fields.
     private static void ApplySpecialistFields(Item item, string? atc, string? ingredient, bool rxOnly, bool controlled, decimal? cap,

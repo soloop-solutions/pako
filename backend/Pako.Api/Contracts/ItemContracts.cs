@@ -150,7 +150,8 @@ public record ItemResponse(
     bool IsControlled = false,
     decimal? MaxRetailPrice = null,
     Guid? AgencyPartnerId = null,
-    decimal? AgencyCommissionPercent = null);
+    decimal? AgencyCommissionPercent = null,
+    decimal? AverageCost = null);
 
 // B7: the one paginated-list shape — ?page=&pageSize=&search=&sort= in, { items, total, page,
 // pageSize } out. Proved here on Items (including the 35,000-row/index-backed verify criterion);

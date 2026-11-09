@@ -394,7 +394,14 @@ export function StockDocumentDetail() {
                     <div key={index} className="grid grid-cols-[minmax(12rem,2fr)_7rem_7rem_minmax(8rem,1fr)_auto] items-end gap-2">
                       <div className="flex flex-col gap-1">
                         {index === 0 && <Label>{t("stock.col.item")}</Label>}
-                        <SearchableSelect value={line.itemId} onChange={(v) => setLine(index, { itemId: v })} disabled={!editable}
+                        <SearchableSelect value={line.itemId} onChange={(v) => {
+                          const patch: Partial<Line> = { itemId: v };
+                          if (hasUnitCost && !line.unitCost) {
+                            const selected = items.find((i) => i.id === v);
+                            if (selected?.averageCost) patch.unitCost = String(selected.averageCost);
+                          }
+                          setLine(index, patch);
+                        }} disabled={!editable}
                           aria-label={t("stock.col.item")} placeholder={t("stock.doc.pickItem")} searchPlaceholder={t("common.search")}
                           noResultsText={t("stock.doc.noTrackedItems")} options={itemOptions} onSearchChange={itemSearch.onSearchChange} />
                       </div>

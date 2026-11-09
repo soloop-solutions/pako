@@ -36,7 +36,7 @@ export function PostingPreview({ companyId, documentKind, documentId, onConfirm,
       setLoading(true);
       setError(null);
       try {
-        const data = documentKind === "invoice"
+        const data = documentKind === "bill"
           ? await apiClient.postPreview(companyId, documentId)
           : await apiClient.postPreview2(companyId, documentId);
         if (!cancelled) setPreview(data);
