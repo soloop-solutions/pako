@@ -566,11 +566,11 @@ def wholesale():
                                 priceListId=wholesale_list["id"] if i % 2 == 0 else None))
     users = {u["email"]: u for u in co.get("/admin/users")}
     rep = users["wholesale.salesrep@pako.test"]["userId"]
-    van = co.warehouse("VAN1", "Furgoni 1 (03-123-KS)", isVan=True, driverUserId=rep)
-    co.warehouse("VAN2", "Furgoni 2 (03-456-KS)", isVan=True, driverUserId=users["wholesale.salesrep2@pako.test"]["userId"])
+    van1 = co.post("/vehicles", {"plate": "03-123-KS", "type": 1, "driverUserId": rep, "createStockWarehouse": True})
+    co.post("/vehicles", {"plate": "03-456-KS", "type": 1, "driverUserId": users["wholesale.salesrep2@pako.test"]["userId"], "createStockWarehouse": True})
+    van = {"id": van1["stockWarehouseId"]}
     transfer = co.post("/stock-documents", {"type": TRANSFER, "date": TODAY.isoformat(), "warehouseId": main, "destinationWarehouseId": van["id"],
                                             "notes": "Ngarkimi i mëngjesit", "lines": [{"itemId": items[n]["id"], "quantity": 40} for n, _ in catalog[:6]]})
-    co.post(f"/stock-documents/{transfer['id']}/post")
     co.post("/distribution/routes", {"name": "Ferizaj — Qendra", "userId": rep, "warehouseId": van["id"], "days": 127,
                                      "stops": [{"partnerId": s["id"], "notes": None} for s in shops[:4]]})
     co.post("/distribution/routes", {"name": "Ferizaj — Fshatrat", "userId": users["wholesale.salesrep2@pako.test"]["userId"], "days": 0b0010101,

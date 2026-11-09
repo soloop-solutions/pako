@@ -36,7 +36,26 @@ def log(message):
     print(message, flush=True)
 
 
+_credentials = {}
+_renewed = {}
+
+
 def call(method, path, token=None, body=None, headers=None):
+    original = token
+    token = _renewed.get(token, token)
+    try:
+        return _send(method, path, token, body, headers)
+    except ApiError as error:
+        if token is None or token not in _credentials or " HTTP 401" not in str(error):
+            raise
+        email, password = _credentials[token]
+        fresh = _send("POST", "/api/auth/login", body={"email": email, "password": password})["token"]
+        _credentials[fresh] = (email, password)
+        _renewed[original] = fresh
+        return _send(method, path, fresh, body, headers)
+
+
+def _send(method, path, token=None, body=None, headers=None):
     request_headers = {"Accept-Language": "en", "Content-Type": "application/json", **(headers or {})}
     if token:
         request_headers["Authorization"] = f"Bearer {token}"
@@ -72,6 +91,8 @@ class User:
                 raise
             call("POST", "/api/auth/register", body={"email": email, "password": password})
             self.token = call("POST", "/api/auth/login", body={"email": email, "password": password})["token"]
+
+        _credentials[self.token] = (email, password)
 
     def companies(self):
         return call("GET", "/api/companies", self.token)

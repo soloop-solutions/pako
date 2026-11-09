@@ -156,7 +156,8 @@ def main():
         transfer = call("POST", f"{c}/stock-documents", token, {
             "type": TRANSFER, "date": bought_on.isoformat(), "warehouseId": main_wh, "destinationWarehouseId": prizren_wh,
             "notes": "Furnizim i dyqanit në Prizren", "lines": [{"itemId": item_id, "quantity": 45} for item_id, *_ in fresh]})
-        call("POST", f"{c}/stock-documents/{transfer['id']}/post", token)
+        if transfer.get("state") != 1:
+            call("POST", f"{c}/stock-documents/{transfer['id']}/post", token)
     log(f"{len(shop_items)} shop items with barcodes ({len(new_items)} new, bought in and split between MAIN and PZ)")
 
     # ---- Stores and registers ----

@@ -225,6 +225,8 @@ def main():
         if main_wh is None:  # created with the first stock movement; the settings name it
             main_wh = call("GET", f"{c}/inventory/settings", token)["defaultWarehouseId"]
         document = call("POST", f"{c}/stock-documents", token, {"warehouseId": main_wh, **body})
+        if document.get("state") == 1:
+            return document
         return call("POST", f"{c}/stock-documents/{document['id']}/post", token)
 
     def cost(price):  # stock is bought at ~60% of its net selling price

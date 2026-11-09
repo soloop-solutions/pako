@@ -341,11 +341,13 @@ def p6_distribution():
     order(viva, [(mouse, 12), (flash, 20)])
     order(eta, [(hdmi, 25)], confirm=False)
 
-    van = warehouse("VAN1", "Furgoni 1 (01-234-KS)", isVan=True, driverUserId=X.user_id)
+    vehicle = post("/vehicles", {"plate": "01-234-KS", "type": 1, "driverUserId": X.user_id, "createStockWarehouse": True})
+    van = {"id": vehicle["stockWarehouseId"]}
     transfer = post("/stock-documents", {"type": TRANSFER, "date": TODAY.isoformat(), "warehouseId": main,
                                          "destinationWarehouseId": van["id"], "notes": "Ngarkim i mëngjesit",
                                          "lines": [{"itemId": flash["id"], "quantity": 30}, {"itemId": hdmi["id"], "quantity": 30}]})
-    post(f"/stock-documents/{transfer['id']}/post")
+    if transfer.get("state") != 1:
+        post(f"/stock-documents/{transfer['id']}/post")
     shops = [viva, eta, partner("Kioska Dardania", fiscal="810200003"), partner("Market Ulpiana", fiscal="810200004")]
     post("/distribution/routes", {"name": "Prishtina — Veri", "userId": X.user_id, "warehouseId": van["id"], "days": 127,
                                   "stops": [{"partnerId": s["id"], "notes": None} for s in shops]})
