@@ -4,8 +4,8 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type QuickItemFormProps = {
   companyId: string;
@@ -46,19 +46,16 @@ export function QuickItemForm({ companyId, onCreated }: QuickItemFormProps) {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-col gap-2">
-        <Label htmlFor="quick-item-name">{intl.formatMessage({ id: "quickItem.name" })}</Label>
+      <FormField label={intl.formatMessage({ id: "quickItem.name" })} htmlFor="quick-item-name" required>
         <Input id="quick-item-name" required value={name} onChange={(e) => setName(e.target.value)} />
-      </div>
+      </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="quick-item-unit">{intl.formatMessage({ id: "quickItem.unit" })}</Label>
+        <FormField label={intl.formatMessage({ id: "quickItem.unit" })} htmlFor="quick-item-unit">
           <Input id="quick-item-unit" value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="pcs" />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="quick-item-price">{intl.formatMessage({ id: "quickItem.defaultPrice" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "quickItem.defaultPrice" })} htmlFor="quick-item-price">
           <Input id="quick-item-price" type="number" step="0.01" min="0" value={defaultUnitPrice} onChange={(e) => setDefaultUnitPrice(e.target.value)} />
-        </div>
+        </FormField>
       </div>
       <Button type="submit" disabled={submitting || name.trim().length === 0}>
         {submitting ? intl.formatMessage({ id: "common.saving" }) : intl.formatMessage({ id: "quickItem.create" })}

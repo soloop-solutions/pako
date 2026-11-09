@@ -5,8 +5,8 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 type PartnerFormProps = {
   companyId: string;
@@ -21,11 +21,23 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
   const [fiscalNumber, setFiscalNumber] = useState("");
   const [isVatRegistered, setIsVatRegistered] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errors, setErrors] = useState<Record<string, string | null>>({});
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setError(null);
+
+    const nextErrors: Record<string, string | null> = {};
+    if (!name.trim()) {
+      nextErrors.name = intl.formatMessage({ id: "validation.required" });
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
+      return;
+    }
+    setErrors({});
+
     setSubmitting(true);
     try {
       const result = await apiClient.partnersPOST(companyId, {
@@ -63,18 +75,37 @@ export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
         </Alert>
       )}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end">
-        <div className="flex flex-1 flex-col gap-2">
-          <Label htmlFor={`${role}-name`}>{intl.formatMessage({ id: "partnerForm.name" })}</Label>
-          <Input id={`${role}-name`} required value={name} onChange={(event) => setName(event.target.value)} />
-        </div>
-        <div className="flex flex-1 flex-col gap-2">
-          <Label htmlFor={`${role}-tax-number`}>{intl.formatMessage({ id: "partnerForm.taxNumber" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "partnerForm.name" })}
+          htmlFor={`${role}-name`}
+          error={errors.name}
+          required
+          className="flex-1"
+        >
+          <Input
+            id={`${role}-name`}
+            value={name}
+            aria-invalid={!!errors.name}
+            onChange={(event) => {
+              setName(event.target.value);
+              if (errors.name) setErrors((prev) => ({ ...prev, name: null }));
+            }}
+          />
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "partnerForm.taxNumber" })}
+          htmlFor={`${role}-tax-number`}
+          className="flex-1"
+        >
           <Input id={`${role}-tax-number`} value={taxNumber} onChange={(event) => setTaxNumber(event.target.value)} />
-        </div>
-        <div className="flex flex-1 flex-col gap-2">
-          <Label htmlFor={`${role}-fiscal-number`}>{intl.formatMessage({ id: "partnerForm.fiscalNumber" })}</Label>
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "partnerForm.fiscalNumber" })}
+          htmlFor={`${role}-fiscal-number`}
+          className="flex-1"
+        >
           <Input id={`${role}-fiscal-number`} value={fiscalNumber} onChange={(event) => setFiscalNumber(event.target.value)} />
-        </div>
+        </FormField>
       </div>
       <div className="flex items-center gap-4">
         <label className="flex items-center gap-2 text-sm">

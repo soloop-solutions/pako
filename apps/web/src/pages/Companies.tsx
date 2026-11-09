@@ -6,8 +6,8 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { CompanyList } from "@/pages/shared/CompanyList";
 import { MembersPanel } from "@/pages/shared/MembersPanel";
@@ -21,6 +21,7 @@ export function Companies() {
   const [firmDialogOpen, setFirmDialogOpen] = useState(false);
   const [newFirmName, setNewFirmName] = useState("");
   const [createFirmError, setCreateFirmError] = useState<string | null>(null);
+  const [firmNameError, setFirmNameError] = useState<string | null>(null);
   const [creatingFirm, setCreatingFirm] = useState(false);
 
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -57,6 +58,11 @@ export function Companies() {
   async function handleCreateFirm(event: FormEvent) {
     event.preventDefault();
     setCreateFirmError(null);
+    if (!newFirmName.trim()) {
+      setFirmNameError(intl.formatMessage({ id: "validation.required" }));
+      return;
+    }
+    setFirmNameError(null);
     setCreatingFirm(true);
     try {
       await apiClient.firms({ name: newFirmName.trim() });
@@ -82,7 +88,7 @@ export function Companies() {
               <CardTitle>{intl.formatMessage({ id: "companies.firmsTitle" })}</CardTitle>
               <CardDescription>{intl.formatMessage({ id: "companies.firmsDescription" })}</CardDescription>
             </div>
-            <Button variant="outline" onClick={() => { setFirmDialogOpen(true); setCreateFirmError(null); setNewFirmName(""); }}>
+            <Button variant="outline" onClick={() => { setFirmDialogOpen(true); setCreateFirmError(null); setFirmNameError(null); setNewFirmName(""); }}>
               {intl.formatMessage({ id: "companies.createFirmButton" })}
             </Button>
           </div>
@@ -118,7 +124,7 @@ export function Companies() {
 
       <FormDialog
         open={firmDialogOpen}
-        onOpenChange={(open) => { if (!open) { setFirmDialogOpen(false); setCreateFirmError(null); } }}
+        onOpenChange={(open) => { if (!open) { setFirmDialogOpen(false); setCreateFirmError(null); setFirmNameError(null); } }}
         title={intl.formatMessage({ id: "companies.createFirmButton" })}
         size="sm"
         dirty={newFirmName.trim().length > 0}
@@ -129,10 +135,20 @@ export function Companies() {
               <AlertDescription>{createFirmError}</AlertDescription>
             </Alert>
           )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="firm-name">{intl.formatMessage({ id: "companies.firmName" })}</Label>
-            <Input id="firm-name" required value={newFirmName} onChange={(event) => setNewFirmName(event.target.value)} />
-          </div>
+          <FormField
+            label={intl.formatMessage({ id: "companies.firmName" })}
+            htmlFor="firm-name"
+            error={firmNameError}
+          >
+            <Input
+              id="firm-name"
+              required
+              value={newFirmName}
+              aria-invalid={!!firmNameError}
+              aria-describedby={firmNameError ? "firm-name-error" : undefined}
+              onChange={(event) => { setNewFirmName(event.target.value); setFirmNameError(null); }}
+            />
+          </FormField>
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={() => { setFirmDialogOpen(false); setCreateFirmError(null); }}>
               {intl.formatMessage({ id: "common.cancel" })}

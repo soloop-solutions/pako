@@ -4,8 +4,8 @@ import type { WithholdingTaxEntryResponse } from "@pako/shared";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 
 export interface WithholdingTaxFormFields {
@@ -66,12 +66,32 @@ export function WithholdingTaxForm({
   const [area, setArea] = useState(amountText(initial?.rentalAreaM2));
   const [monthlyRent, setMonthlyRent] = useState(amountText(initial?.monthlyGrossRent));
   const [country, setCountry] = useState(initial?.country ?? defaultCountry);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
 
   const hasRent = amountValue(rent) > 0;
   const rentDetailsMissing = hasRent && (amountValue(area) <= 0 || amountValue(monthlyRent) <= 0);
 
+  function clearFieldError(field: string) {
+    setFieldErrors((prev) => ({ ...prev, [field]: null }));
+  }
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const errors: Record<string, string | null> = {};
+    if (!personalNumber.trim()) {
+      errors.personalNumber = intl.formatMessage({ id: "validation.required" });
+    }
+    if (!name.trim()) {
+      errors.name = intl.formatMessage({ id: "validation.required" });
+    }
+    if (rentDetailsMissing) {
+      if (amountValue(area) <= 0) errors.area = intl.formatMessage({ id: "withholdingTax.rentDetailsHint" });
+      if (amountValue(monthlyRent) <= 0) errors.monthlyRent = intl.formatMessage({ id: "withholdingTax.rentDetailsHint" });
+    }
+    if (Object.values(errors).some(Boolean)) {
+      setFieldErrors(errors);
+      return;
+    }
     onSubmit({
       personalNumber: personalNumber.trim(),
       name: name.trim(),
@@ -88,10 +108,10 @@ export function WithholdingTaxForm({
     });
   }
 
-  function amountField(id: string, labelId: string, value: string, setValue: (v: string) => void, disabled = false) {
+  function amountField(id: string, labelId: string, value: string, setValue: (v: string) => void, disabled = false, errorKey?: string) {
+    const err = errorKey ? fieldErrors[errorKey] : undefined;
     return (
-      <div className="flex flex-col gap-1">
-        <Label htmlFor={id}>{intl.formatMessage({ id: labelId })}</Label>
+      <FormField label={intl.formatMessage({ id: labelId })} htmlFor={id} error={err}>
         <Input
           id={id}
           type="number"
@@ -99,11 +119,16 @@ export function WithholdingTaxForm({
           min="0"
           className="text-right tabular-nums"
           disabled={disabled}
+          aria-invalid={!!err}
+          aria-describedby={err ? `${id}-error` : undefined}
           value={value}
-          onChange={(e) => setValue(e.target.value)}
+          onChange={(e) => {
+            setValue(e.target.value);
+            if (errorKey) clearFieldError(errorKey);
+          }}
           placeholder="0.00"
         />
-      </div>
+      </FormField>
     );
   }
 
@@ -116,14 +141,43 @@ export function WithholdingTaxForm({
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="wht-personal-number">{intl.formatMessage({ id: "withholdingTax.personalNumber" })}</Label>
-          <Input id="wht-personal-number" required value={personalNumber} onChange={(e) => setPersonalNumber(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1 sm:col-span-2">
-          <Label htmlFor="wht-name">{intl.formatMessage({ id: "withholdingTax.name" })}</Label>
-          <Input id="wht-name" required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
+        <FormField
+          label={intl.formatMessage({ id: "withholdingTax.personalNumber" })}
+          htmlFor="wht-personal-number"
+          error={fieldErrors.personalNumber}
+          required
+        >
+          <Input
+            id="wht-personal-number"
+            required
+            aria-invalid={!!fieldErrors.personalNumber}
+            aria-describedby={fieldErrors.personalNumber ? "wht-personal-number-error" : undefined}
+            value={personalNumber}
+            onChange={(e) => {
+              setPersonalNumber(e.target.value);
+              clearFieldError("personalNumber");
+            }}
+          />
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "withholdingTax.name" })}
+          htmlFor="wht-name"
+          error={fieldErrors.name}
+          required
+          className="sm:col-span-2"
+        >
+          <Input
+            id="wht-name"
+            required
+            aria-invalid={!!fieldErrors.name}
+            aria-describedby={fieldErrors.name ? "wht-name-error" : undefined}
+            value={name}
+            onChange={(e) => {
+              setName(e.target.value);
+              clearFieldError("name");
+            }}
+          />
+        </FormField>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -134,16 +188,12 @@ export function WithholdingTaxForm({
         {amountField("wht-services", "withholdingTax.nonResidentServices", services, setServices)}
         {amountField("wht-non-entrepreneur", "withholdingTax.nonEntrepreneur", nonEntrepreneur, setNonEntrepreneur)}
         {amountField("wht-rent", "withholdingTax.grossRent", rent, setRent)}
-        {amountField("wht-area", "withholdingTax.rentalAreaM2", area, setArea, !hasRent)}
-        {amountField("wht-monthly-rent", "withholdingTax.monthlyGrossRent", monthlyRent, setMonthlyRent, !hasRent)}
+        {amountField("wht-area", "withholdingTax.rentalAreaM2", area, setArea, !hasRent, "area")}
+        {amountField("wht-monthly-rent", "withholdingTax.monthlyGrossRent", monthlyRent, setMonthlyRent, !hasRent, "monthlyRent")}
       </div>
-      {rentDetailsMissing && (
-        <p className="text-xs text-warning-foreground">{intl.formatMessage({ id: "withholdingTax.rentDetailsHint" })}</p>
-      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="wht-country">{intl.formatMessage({ id: "withholdingTax.country" })}</Label>
+        <FormField label={intl.formatMessage({ id: "withholdingTax.country" })} htmlFor="wht-country">
           <Select
             id="wht-country"
             value={country}
@@ -153,7 +203,7 @@ export function WithholdingTaxForm({
               label: c,
             }))}
           />
-        </div>
+        </FormField>
       </div>
 
       <div className="flex items-center gap-2">

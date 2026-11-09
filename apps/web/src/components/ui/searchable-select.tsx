@@ -137,6 +137,8 @@ export interface SearchableSelectProps {
    * too large to load at once: the caller searches the server and passes the results as options.
    */
   onSearchChange?: (query: string) => void;
+  /** Whether the field is in an invalid state */
+  "aria-invalid"?: boolean;
   /** When set, renders a "+" button next to the trigger to create a new entity inline. */
   createAction?: { label: string; onClick: () => void };
 }
@@ -150,6 +152,7 @@ export function SearchableSelect({
   noResultsText = "No results found",
   emptyOptionLabel,
   id,
+  "aria-invalid": ariaInvalid,
   "aria-label": ariaLabel,
   disabled,
   className,
@@ -297,7 +300,7 @@ export function SearchableSelect({
             isSelected ? "opacity-100" : "opacity-0",
           )}
         />
-        <span className="flex-1 truncate">{opt.label}</span>
+        <span className="flex-1 break-words">{opt.label}</span>
         {opt.description && (
           <span className="shrink-0 text-[11px] text-muted-foreground">
             {opt.description}
@@ -351,9 +354,11 @@ export function SearchableSelect({
             "hover:border-ring/60",
             "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
             "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+            ariaInvalid && "border-destructive ring-destructive/20",
             !value && "text-muted-foreground",
             className,
           )}
+          aria-invalid={ariaInvalid || undefined}
           onKeyDown={handleTriggerKeyDown}
         >
           <span className="min-w-0 flex-1 truncate text-left">
@@ -377,7 +382,7 @@ export function SearchableSelect({
           align="start"
           sideOffset={4}
           className={cn(
-            "z-50 w-[var(--radix-popover-trigger-width)] min-w-[180px] max-w-[400px] rounded-md border bg-popover text-popover-foreground shadow-md",
+            "z-50 min-w-[max(var(--radix-popover-trigger-width),180px)] max-w-[min(500px,90vw)] w-max rounded-md border bg-popover text-popover-foreground shadow-md",
             "data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           )}

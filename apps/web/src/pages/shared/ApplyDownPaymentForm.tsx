@@ -5,8 +5,8 @@ import type { ApplyDownPaymentResponse } from "@pako/shared";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export type DownPaymentOption = { id: string; label: string; total: number };
@@ -19,30 +19,37 @@ type ApplyDownPaymentFormProps = {
   onApplied: (response: ApplyDownPaymentResponse) => void;
 };
 
+type FieldErrors = { downPayment?: string; amount?: string };
+
 export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, options, onApplied }: ApplyDownPaymentFormProps) {
   const intl = useIntl();
   const [downPaymentInvoiceId, setDownPaymentInvoiceId] = useState(options[0]?.id ?? "");
   const [amount, setAmount] = useState(() => Math.min(options[0]?.total ?? 0, outstanding).toFixed(2));
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function handleSelectChange(id: string) {
     setDownPaymentInvoiceId(id);
+    setFieldErrors((prev) => ({ ...prev, downPayment: undefined }));
     const option = options.find((candidate) => candidate.id === id);
     setAmount(Math.min(option?.total ?? 0, outstanding).toFixed(2));
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setApiError(null);
 
+    const errors: FieldErrors = {};
     if (!downPaymentInvoiceId) {
-      setError(intl.formatMessage({ id: "applyDownPayment.selectError" }));
-      return;
+      errors.downPayment = intl.formatMessage({ id: "applyDownPayment.selectError" });
     }
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError(intl.formatMessage({ id: "applyDownPayment.amountError" }));
+      errors.amount = intl.formatMessage({ id: "applyDownPayment.amountError" });
+    }
+    if (errors.downPayment || errors.amount) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -54,7 +61,7 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
       });
       onApplied(response);
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "applyDownPayment.error" })));
+      setApiError(getApiErrorMessage(err, intl.formatMessage({ id: "applyDownPayment.error" })));
     } finally {
       setSubmitting(false);
     }
@@ -62,14 +69,17 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {error && (
+      {apiError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-down-payment-select">{intl.formatMessage({ id: "applyDownPayment.downPayment" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "applyDownPayment.downPayment" })}
+          htmlFor="apply-down-payment-select"
+          error={fieldErrors.downPayment}
+        >
           <SearchableSelect
             id="apply-down-payment-select"
             value={downPaymentInvoiceId}
@@ -77,25 +87,33 @@ export function ApplyDownPaymentForm({ companyId, invoiceId, outstanding, option
             placeholder={intl.formatMessage({ id: "applyDownPayment.downPayment" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            aria-invalid={!!fieldErrors.downPayment}
             options={options.map((option) => ({
               value: option.id,
               label: option.label,
               description: `${intl.formatMessage({ id: "applyDownPayment.available" })} ${option.total.toFixed(2)}`,
             }))}
           />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-down-payment-amount">{intl.formatMessage({ id: "applyDownPayment.amount" })}</Label>
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "applyDownPayment.amount" })}
+          htmlFor="apply-down-payment-amount"
+          error={fieldErrors.amount}
+        >
           <Input
             id="apply-down-payment-amount"
             type="number"
             step="0.01"
             min="0"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+            }}
+            aria-invalid={!!fieldErrors.amount}
             required
           />
-        </div>
+        </FormField>
         <div className="flex items-end">
           <Button type="submit" disabled={submitting || options.length === 0}>
             {submitting ? intl.formatMessage({ id: "applyDownPayment.applying" }) : intl.formatMessage({ id: "applyDownPayment.apply" })}

@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -227,7 +228,15 @@ export function InvoiceForm({
         ? prefill.lines
         : [emptyLine(defaultTaxId)],
   );
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+  const clearFieldError = (field: string) =>
+    setFieldErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   const [submitting, setSubmitting] = useState(false);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
@@ -443,32 +452,35 @@ export function InvoiceForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setApiError(null);
+    setFieldErrors({});
 
+    const errors: Record<string, string> = {};
     if (!partnerId) {
-      setError(intl.formatMessage({ id: "invoiceForm.selectCustomerError" }));
-      return;
+      errors.partnerId = intl.formatMessage({ id: "invoiceForm.selectCustomerError" });
     }
     if (requiresOriginalInvoice && !originalInvoiceId) {
-      setError(intl.formatMessage({ id: "invoiceForm.originalInvoiceRequiredError" }));
-      return;
+      errors.originalInvoiceId = intl.formatMessage({ id: "invoiceForm.originalInvoiceRequiredError" });
     }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
-      setError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
+      setApiError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
       return;
     }
 
     if (takePaymentNow) {
       const parsedPaymentAmount = parseFloat(paymentAmount);
       if (!parsedPaymentAmount || parsedPaymentAmount <= 0) {
-        setError(intl.formatMessage({ id: "invoiceForm.paymentAmountError" }));
-        return;
+        errors.paymentAmount = intl.formatMessage({ id: "invoiceForm.paymentAmountError" });
       }
       if (!paymentMethodId) {
-        setError(intl.formatMessage({ id: "invoiceForm.paymentMethodError" }));
-        return;
+        errors.paymentMethodId = intl.formatMessage({ id: "invoiceForm.paymentMethodError" });
       }
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
     }
 
     setSubmitting(true);
@@ -547,7 +559,7 @@ export function InvoiceForm({
       }
     } catch (err) {
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingInvoice ? "invoiceForm.saveError" : "invoiceForm.createError" }));
-      setError(msg);
+      setApiError(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -572,32 +584,31 @@ export function InvoiceForm({
 
   return (
     <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-      {error && (
+      {apiError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
 
       <div className="grid gap-4 sm:grid-cols-6">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="invoice-number">{intl.formatMessage({ id: "invoiceForm.invoiceNumber" })}</Label>
+        <FormField label={intl.formatMessage({ id: "invoiceForm.invoiceNumber" })} htmlFor="invoice-number">
           <Input
             id="invoice-number"
             value={invoiceNumber}
             onChange={(event) => setInvoiceNumber(event.target.value)}
             placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
           />
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label htmlFor="invoice-customer">{intl.formatMessage({ id: "invoiceForm.customer" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "invoiceForm.customer" })} htmlFor="invoice-customer" error={fieldErrors.partnerId} required className="sm:col-span-2">
           <SearchableSelect
             id="invoice-customer"
             value={partnerId}
-            onChange={setPartnerId}
+            onChange={(v) => { setPartnerId(v); clearFieldError("partnerId"); }}
             placeholder={intl.formatMessage({ id: "invoiceForm.selectCustomer" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
             emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.selectCustomer" })}
+            aria-invalid={!!fieldErrors.partnerId}
             options={customers.map((customer) => ({
               value: customer.id,
               label: partnerOptionLabel(customer, intl),
@@ -616,10 +627,9 @@ export function InvoiceForm({
               onClick: () => setNewPartnerOpen(true),
             }}
           />
-        </div>
+        </FormField>
         {fixedDocumentType === undefined && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invoice-document-type">{intl.formatMessage({ id: "invoiceForm.documentType" })}</Label>
+          <FormField label={intl.formatMessage({ id: "invoiceForm.documentType" })} htmlFor="invoice-document-type">
             <Select
               id="invoice-document-type"
               value={String(documentType)}
@@ -632,10 +642,9 @@ export function InvoiceForm({
                 label: intl.formatMessage({ id: option.labelKey }),
               }))}
             />
-          </div>
+          </FormField>
         )}
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="invoice-issue-date">{intl.formatMessage({ id: "invoiceForm.issueDate" })}</Label>
+        <FormField label={intl.formatMessage({ id: "invoiceForm.issueDate" })} htmlFor="invoice-issue-date" required>
           <Input
             id="invoice-issue-date"
             type="date"
@@ -649,9 +658,8 @@ export function InvoiceForm({
             }}
             required
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="invoice-due-date">{intl.formatMessage({ id: "invoiceForm.dueDate" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "invoiceForm.dueDate" })} htmlFor="invoice-due-date" required>
           <Input
             id="invoice-due-date"
             type="date"
@@ -659,13 +667,12 @@ export function InvoiceForm({
             onChange={(event) => setDueDate(event.target.value)}
             required
           />
-        </div>
+        </FormField>
       </div>
 
       {!editingInvoice && (
         <div className="grid gap-4 sm:grid-cols-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invoice-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
+          <FormField label={intl.formatMessage({ id: "invoiceForm.priceMode" })} htmlFor="invoice-price-mode">
             <Select
               id="invoice-price-mode"
               value={String(priceMode)}
@@ -675,9 +682,8 @@ export function InvoiceForm({
                 { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
               ]}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invoice-payment-term-days">{intl.formatMessage({ id: "invoiceForm.paymentTermDays" })}</Label>
+          </FormField>
+          <FormField label={intl.formatMessage({ id: "invoiceForm.paymentTermDays" })} htmlFor="invoice-payment-term-days">
             <Input
               id="invoice-payment-term-days"
               type="number"
@@ -686,9 +692,8 @@ export function InvoiceForm({
               value={paymentTermDays}
               onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invoice-grace-days">{intl.formatMessage({ id: "invoiceForm.graceDays" })}</Label>
+          </FormField>
+          <FormField label={intl.formatMessage({ id: "invoiceForm.graceDays" })} htmlFor="invoice-grace-days">
             <Input
               id="invoice-grace-days"
               type="number"
@@ -697,7 +702,7 @@ export function InvoiceForm({
               value={graceDays}
               onChange={(event) => setGraceDays(event.target.value)}
             />
-          </div>
+          </FormField>
           <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
           <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
         </div>
@@ -710,10 +715,9 @@ export function InvoiceForm({
         </div>
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <Label htmlFor="invoice-internal-notes">{intl.formatMessage({ id: "invoiceForm.internalNotes" })}</Label>
+      <FormField label={intl.formatMessage({ id: "invoiceForm.internalNotes" })} htmlFor="invoice-internal-notes">
         <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-      </div>
+      </FormField>
 
       {creditExposure && creditExposure.creditLimit != null && (() => {
         const isOverLimit = creditExposure.available != null && creditExposure.available < 0;
@@ -758,24 +762,28 @@ export function InvoiceForm({
       })()}
 
       {needsOriginalInvoice && (
-        <div className="flex flex-col gap-1 sm:w-1/3">
-          <Label htmlFor="invoice-original">
-            {intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
-          </Label>
+        <FormField
+          label={intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
+          htmlFor="invoice-original"
+          error={fieldErrors.originalInvoiceId}
+          required={requiresOriginalInvoice}
+          className="sm:w-1/3"
+        >
           <SearchableSelect
             id="invoice-original"
             value={originalInvoiceId}
-            onChange={setOriginalInvoiceId}
+            onChange={(v) => { setOriginalInvoiceId(v); clearFieldError("originalInvoiceId"); }}
             placeholder={intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.selectOriginalInvoice" : "invoiceForm.noOriginalInvoice" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
             emptyOptionLabel={requiresOriginalInvoice ? undefined : intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}
+            aria-invalid={!!fieldErrors.originalInvoiceId}
             options={originalInvoiceCandidates.map((invoice) => ({
               value: invoice.id,
               label: invoice.invoiceNumber ?? invoice.id,
             }))}
           />
-        </div>
+        </FormField>
       )}
 
       <div className={trackedItemIds.length > 0 ? "flex flex-col gap-4" : "flex flex-col gap-1.5"}>
@@ -989,27 +997,27 @@ export function InvoiceForm({
             <DialogTitle>{intl.formatMessage({ id: "invoiceForm.saveAndPay" })}</DialogTitle>
           </DialogHeader>
           <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pay-dialog-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+            <FormField label={intl.formatMessage({ id: "recordPayment.amount" })} htmlFor="pay-dialog-amount" error={fieldErrors.paymentAmount} required>
               <Input
                 id="pay-dialog-amount"
                 type="number"
                 step="0.01"
                 min="0"
                 value={paymentAmount}
-                onChange={(event) => setPaymentAmount(event.target.value)}
+                onChange={(event) => { setPaymentAmount(event.target.value); clearFieldError("paymentAmount"); }}
+                aria-invalid={!!fieldErrors.paymentAmount}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="pay-dialog-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
+            </FormField>
+            <FormField label={intl.formatMessage({ id: "recordPayment.cashBankAccount" })} htmlFor="pay-dialog-method" error={fieldErrors.paymentMethodId} required>
               <PaymentMethodSelect
                 id="pay-dialog-method"
                 paymentMethods={paymentMethods}
                 value={paymentMethodId}
-                onChange={setPaymentMethodId}
+                onChange={(v) => { setPaymentMethodId(v); clearFieldError("paymentMethodId"); }}
                 emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
+                aria-invalid={!!fieldErrors.paymentMethodId}
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               disabled={submitting || !paymentMethodId || !(parseFloat(paymentAmount) > 0)}

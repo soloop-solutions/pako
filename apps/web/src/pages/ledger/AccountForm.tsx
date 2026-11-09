@@ -5,6 +5,7 @@ import type { AccountGroupResponse, AccountResponse } from "@pako/shared";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -95,7 +96,7 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
   const [citDeductibility, setCitDeductibility] = useState<number>(initial?.citDeductibility ?? CitDeductibility.Na);
   const [citLimitRule, setCitLimitRule] = useState(initial?.citLimitRule ?? "");
   const [profiles, setProfiles] = useState<number>(initial?.profiles ?? CompanyProfile.Core);
-  const [codeError, setCodeError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
 
   useEffect(() => {
     if (!group && groupOptions.length > 0) setGroup(defaultGroup ?? groupOptions[0]);
@@ -125,9 +126,11 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const err = validateCode(code);
-    setCodeError(err);
-    if (err) return;
+    const errors: Record<string, string | null> = {};
+    errors.code = validateCode(code);
+    errors.name = name.trim() ? null : intl.formatMessage({ id: "chartOfAccounts.form.nameRequired" });
+    setFieldErrors(errors);
+    if (Object.values(errors).some(Boolean)) return;
 
     const accountClass = group ? accountClassFromCode(group.codePrefixStart) : null;
     const accountGroup = group ? accountGroupFromCode(group.codePrefixStart) : null;
@@ -165,8 +168,10 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <Label>{intl.formatMessage({ id: "chartOfAccounts.form.group" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "chartOfAccounts.form.group" })}
+          hint={intl.formatMessage({ id: "chartOfAccounts.form.groupHint" })}
+        >
           {mode === "create" ? (
             <Select
               value={group?.id ?? ""}
@@ -179,38 +184,54 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
           ) : (
             <Input readOnly disabled value={group ? accountGroupLabel(group, groupsById, intl) : ""} />
           )}
-          <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "chartOfAccounts.form.groupHint" })}</p>
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="account-code">{intl.formatMessage({ id: "common.code" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "common.code" })}
+          htmlFor="account-code"
+          error={fieldErrors.code}
+          hint={mode === "edit" ? intl.formatMessage({ id: "chartOfAccounts.form.codeImmutable" }) : undefined}
+        >
           <Input
             id="account-code"
             value={code}
             disabled={mode === "edit"}
             required
+            aria-invalid={!!fieldErrors.code}
             placeholder={group ? group.codePrefixStart : undefined}
             onChange={(e) => {
               setCode(e.target.value);
-              setCodeError(null);
+              setFieldErrors((prev) => ({ ...prev, code: null }));
             }}
           />
-          {mode === "edit" && <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "chartOfAccounts.form.codeImmutable" })}</p>}
-          {codeError && <p className="text-xs text-destructive">{codeError}</p>}
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="account-name">{intl.formatMessage({ id: "chartOfAccounts.form.name" })}</Label>
-          <Input id="account-name" required value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
+        <FormField
+          label={intl.formatMessage({ id: "chartOfAccounts.form.name" })}
+          htmlFor="account-name"
+          required
+          error={fieldErrors.name}
+        >
+          <Input
+            id="account-name"
+            required
+            value={name}
+            aria-invalid={!!fieldErrors.name}
+            onChange={(e) => {
+              setName(e.target.value);
+              setFieldErrors((prev) => ({ ...prev, name: null }));
+            }}
+          />
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="account-name-sq">{intl.formatMessage({ id: "chartOfAccounts.form.nameSq" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "chartOfAccounts.form.nameSq" })}
+          htmlFor="account-name-sq"
+        >
           <Input id="account-name-sq" value={nameSq} onChange={(e) => setNameSq(e.target.value)} />
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label>{intl.formatMessage({ id: "chartOfAccounts.form.normalBalance" })}</Label>
+        <FormField label={intl.formatMessage({ id: "chartOfAccounts.form.normalBalance" })}>
           <Select
             value={String(normalBalance)}
             onValueChange={(v) => setNormalBalance(Number(v))}
@@ -219,10 +240,9 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
               label: intl.formatMessage({ id: o.labelKey }),
             }))}
           />
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label>{intl.formatMessage({ id: "chartOfAccounts.subledger" })}</Label>
+        <FormField label={intl.formatMessage({ id: "chartOfAccounts.subledger" })}>
           <Select
             value={String(subledger)}
             onValueChange={(v) => setSubledger(Number(v))}
@@ -231,20 +251,21 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
               label: intl.formatMessage({ id: o.labelKey }),
             }))}
           />
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="account-vat">{intl.formatMessage({ id: "chartOfAccounts.vatCode" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "chartOfAccounts.vatCode" })}
+          htmlFor="account-vat"
+        >
           <Input
             id="account-vat"
             value={defaultVatCode}
             onChange={(e) => setDefaultVatCode(e.target.value)}
             placeholder={intl.formatMessage({ id: "chartOfAccounts.form.vatCodePlaceholder" })}
           />
-        </div>
+        </FormField>
 
-        <div className="flex flex-col gap-1">
-          <Label>{intl.formatMessage({ id: "chartOfAccounts.citTreatment" })}</Label>
+        <FormField label={intl.formatMessage({ id: "chartOfAccounts.citTreatment" })}>
           <Select
             value={String(citDeductibility)}
             onValueChange={(v) => setCitDeductibility(Number(v))}
@@ -253,18 +274,21 @@ export function AccountForm({ mode, groupOptions, groupsById, initial, defaultGr
               label: intl.formatMessage({ id: o.labelKey }),
             }))}
           />
-        </div>
+        </FormField>
 
         {citDeductibility === CitDeductibility.Limit && (
-          <div className="flex flex-col gap-1 sm:col-span-2">
-            <Label htmlFor="account-cit-rule">{intl.formatMessage({ id: "chartOfAccounts.form.citLimitRule" })}</Label>
+          <FormField
+            label={intl.formatMessage({ id: "chartOfAccounts.form.citLimitRule" })}
+            htmlFor="account-cit-rule"
+            className="sm:col-span-2"
+          >
             <Input
               id="account-cit-rule"
               value={citLimitRule}
               onChange={(e) => setCitLimitRule(e.target.value)}
               placeholder={intl.formatMessage({ id: "chartOfAccounts.form.citLimitRulePlaceholder" })}
             />
-          </div>
+          </FormField>
         )}
       </div>
 

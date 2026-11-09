@@ -6,8 +6,11 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 6;
 
 function Shell({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
@@ -23,10 +26,22 @@ export function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailError, setEmailError] = useState<string | null>(null);
+
+  function validateEmail(value: string): string | null {
+    if (!value.trim()) return intl.formatMessage({ id: "validation.required" });
+    if (!EMAIL_RE.test(value.trim())) return intl.formatMessage({ id: "validation.invalidEmail" });
+    return null;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const err = validateEmail(email);
+    if (err) {
+      setEmailError(err);
+      return;
+    }
     try {
       await apiClient.forgotPassword({ email: email.trim() });
       setSent(true);
@@ -48,10 +63,22 @@ export function ForgotPassword() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="forgot-email">{intl.formatMessage({ id: "common.email" })}</Label>
-            <Input id="forgot-email" type="email" required autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
+          <FormField
+            label={intl.formatMessage({ id: "common.email" })}
+            htmlFor="forgot-email"
+            error={emailError}
+          >
+            <Input
+              id="forgot-email"
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              aria-invalid={!!emailError}
+              aria-describedby={emailError ? "forgot-email-error" : undefined}
+              onChange={(e) => { setEmail(e.target.value); setEmailError(null); }}
+            />
+          </FormField>
           <Button type="submit">{intl.formatMessage({ id: "auth.sendResetLink" })}</Button>
         </form>
       )}
@@ -73,14 +100,29 @@ export function ResetPassword() {
   const [confirm, setConfirm] = useState("");
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+
+  function validatePassword(value: string): string | null {
+    if (!value) return intl.formatMessage({ id: "validation.required" });
+    if (value.length < MIN_PASSWORD_LENGTH) return intl.formatMessage({ id: "validation.passwordTooShort" });
+    return null;
+  }
+
+  function validateConfirm(pw: string, cf: string): string | null {
+    if (!cf) return intl.formatMessage({ id: "validation.required" });
+    if (pw !== cf) return intl.formatMessage({ id: "validation.passwordMismatch" });
+    return null;
+  }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password !== confirm) {
-      setError(intl.formatMessage({ id: "auth.passwordsDiffer" }));
-      return;
-    }
+    const pwErr = validatePassword(password);
+    const cfErr = validateConfirm(password, confirm);
+    setPasswordError(pwErr);
+    setConfirmError(cfErr);
+    if (pwErr || cfErr) return;
     try {
       await apiClient.resetPassword({ email, token, newPassword: password });
       setDone(true);
@@ -107,15 +149,39 @@ export function ResetPassword() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="reset-password">{intl.formatMessage({ id: "auth.newPassword" })}</Label>
-            <Input id="reset-password" type="password" required autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="reset-confirm">{intl.formatMessage({ id: "auth.confirmPassword" })}</Label>
-            <Input id="reset-confirm" type="password" required autoComplete="new-password" value={confirm} onChange={(e) => setConfirm(e.target.value)} />
-            <span className="text-xs text-muted-foreground">{intl.formatMessage({ id: "auth.passwordRules" })}</span>
-          </div>
+          <FormField
+            label={intl.formatMessage({ id: "auth.newPassword" })}
+            htmlFor="reset-password"
+            error={passwordError}
+          >
+            <Input
+              id="reset-password"
+              type="password"
+              required
+              autoComplete="new-password"
+              value={password}
+              aria-invalid={!!passwordError}
+              aria-describedby={passwordError ? "reset-password-error" : undefined}
+              onChange={(e) => { setPassword(e.target.value); setPasswordError(null); }}
+            />
+          </FormField>
+          <FormField
+            label={intl.formatMessage({ id: "auth.confirmPassword" })}
+            htmlFor="reset-confirm"
+            error={confirmError}
+            hint={intl.formatMessage({ id: "auth.passwordRules" })}
+          >
+            <Input
+              id="reset-confirm"
+              type="password"
+              required
+              autoComplete="new-password"
+              value={confirm}
+              aria-invalid={!!confirmError}
+              aria-describedby={confirmError ? "reset-confirm-error" : undefined}
+              onChange={(e) => { setConfirm(e.target.value); setConfirmError(null); }}
+            />
+          </FormField>
           <Button type="submit" disabled={!token || !email}>
             {intl.formatMessage({ id: "auth.setPassword" })}
           </Button>

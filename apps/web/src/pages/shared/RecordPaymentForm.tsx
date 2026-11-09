@@ -6,8 +6,8 @@ import { toast } from "sonner";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
 type RecordPaymentFormProps = {
@@ -32,26 +32,31 @@ export function RecordPaymentForm({
   const intl = useIntl();
   const [amount, setAmount] = useState(() => outstanding.toFixed(2));
   const [paymentMethodId, setPaymentMethodId] = useState(paymentMethods[0]?.id ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+  const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setFieldErrors({});
+    setApiError(null);
 
+    const errors: Record<string, string | null> = {};
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError(intl.formatMessage({ id: "recordPayment.amountError" }));
-      return;
+      errors.amount = intl.formatMessage({ id: "recordPayment.amountError" });
     }
     if (!paymentMethodId) {
-      setError(intl.formatMessage({ id: "recordPayment.accountError" }));
-      return;
+      errors.paymentMethodId = intl.formatMessage({ id: "recordPayment.accountError" });
     }
 
     const paymentMethod = paymentMethods.find((m) => m.id === paymentMethodId);
-    if (!paymentMethod) {
-      setError(intl.formatMessage({ id: "recordPayment.accountError" }));
+    if (paymentMethodId && !paymentMethod) {
+      errors.paymentMethodId = intl.formatMessage({ id: "recordPayment.accountError" });
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -59,7 +64,7 @@ export function RecordPaymentForm({
     try {
       const body = {
         amount: parsedAmount,
-        cashOrBankAccountId: paymentMethod.ledgerAccountId,
+        cashOrBankAccountId: paymentMethod!.ledgerAccountId,
         date: new Date().toISOString().slice(0, 10),
       };
 
@@ -73,7 +78,7 @@ export function RecordPaymentForm({
       onRecorded();
     } catch (err) {
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: "recordPayment.error" }));
-      setError(msg);
+      setApiError(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -82,28 +87,47 @@ export function RecordPaymentForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {error && (
+      {apiError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "recordPayment.amount" })}
+          htmlFor="payment-amount"
+          error={fieldErrors.amount}
+        >
           <Input
             id="payment-amount"
             type="number"
             step="0.01"
             min="0"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setFieldErrors((prev) => ({ ...prev, amount: null }));
+            }}
+            aria-invalid={!!fieldErrors.amount}
             required
           />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="payment-account">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
-          <PaymentMethodSelect id="payment-account" paymentMethods={paymentMethods} value={paymentMethodId} onChange={setPaymentMethodId} />
-        </div>
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "recordPayment.cashBankAccount" })}
+          htmlFor="payment-account"
+          error={fieldErrors.paymentMethodId}
+        >
+          <PaymentMethodSelect
+            id="payment-account"
+            paymentMethods={paymentMethods}
+            value={paymentMethodId}
+            onChange={(v) => {
+              setPaymentMethodId(v);
+              setFieldErrors((prev) => ({ ...prev, paymentMethodId: null }));
+            }}
+            aria-invalid={!!fieldErrors.paymentMethodId}
+          />
+        </FormField>
         <div className="flex items-end">
           <Button type="submit" disabled={submitting || paymentMethods.length === 0} variant={isRefund ? "destructive" : "default"}>
             {submitting

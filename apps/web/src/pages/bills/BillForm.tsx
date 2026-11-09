@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -203,7 +204,9 @@ export function BillForm({
         }))
       : [emptyLine(defaultTaxId)],
   );
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
+  const clearFieldError = (field: string) => setFieldErrors(prev => { if (!prev[field]) return prev; const next = { ...prev }; delete next[field]; return next; });
   const [submitting, setSubmitting] = useState(false);
   const [newPartnerOpen, setNewPartnerOpen] = useState(false);
   const [newItemOpen, setNewItemOpen] = useState(false);
@@ -300,32 +303,33 @@ export function BillForm({
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setApiError(null);
+    setFieldErrors({});
 
+    const errors: Record<string, string> = {};
     if (!partnerId) {
-      setError(intl.formatMessage({ id: "billForm.selectVendorError" }));
-      return;
+      errors.partnerId = intl.formatMessage({ id: "billForm.selectVendorError" });
     }
     if (requiresOriginalBill && !originalBillId) {
-      setError(intl.formatMessage({ id: "billForm.originalBillRequiredError" }));
-      return;
+      errors.originalBillId = intl.formatMessage({ id: "billForm.originalBillRequiredError" });
     }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
-      setError(intl.formatMessage({ id: "billForm.atLeastOneLine" }));
+      setApiError(intl.formatMessage({ id: "billForm.atLeastOneLine" }));
       return;
     }
-
     if (takePaymentNow) {
       const parsedPaymentAmount = parseFloat(paymentAmount);
       if (!parsedPaymentAmount || parsedPaymentAmount <= 0) {
-        setError(intl.formatMessage({ id: "invoiceForm.paymentAmountError" }));
-        return;
+        errors.paymentAmount = intl.formatMessage({ id: "invoiceForm.paymentAmountError" });
       }
       if (!paymentMethodId) {
-        setError(intl.formatMessage({ id: "invoiceForm.paymentMethodError" }));
-        return;
+        errors.paymentMethodId = intl.formatMessage({ id: "invoiceForm.paymentMethodError" });
       }
+    }
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
     }
 
     setSubmitting(true);
@@ -399,7 +403,7 @@ export function BillForm({
       }
     } catch (err) {
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingBill ? "billForm.saveError" : "billForm.createError" }));
-      setError(msg);
+      setApiError(msg);
       toast.error(msg);
     } finally {
       setSubmitting(false);
@@ -408,19 +412,18 @@ export function BillForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {error && (
+      {apiError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
 
       <div className="grid gap-4 sm:grid-cols-5">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-vendor">{intl.formatMessage({ id: "billForm.vendor" })}</Label>
+        <FormField label={intl.formatMessage({ id: "billForm.vendor" })} htmlFor="bill-vendor" error={fieldErrors.partnerId}>
           <SearchableSelect
             id="bill-vendor"
             value={partnerId}
-            onChange={setPartnerId}
+            onChange={(v) => { setPartnerId(v); clearFieldError("partnerId"); }}
             placeholder={intl.formatMessage({ id: "billForm.selectVendor" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
@@ -442,11 +445,11 @@ export function BillForm({
               label: intl.formatMessage({ id: "bills.addVendor" }),
               onClick: () => setNewPartnerOpen(true),
             }}
+            aria-invalid={!!fieldErrors.partnerId}
           />
-        </div>
+        </FormField>
         {fixedDocumentType === undefined && (
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="bill-document-type">{intl.formatMessage({ id: "billForm.documentType" })}</Label>
+          <FormField label={intl.formatMessage({ id: "billForm.documentType" })} htmlFor="bill-document-type">
             <Select
               id="bill-document-type"
               value={String(documentType)}
@@ -459,18 +462,16 @@ export function BillForm({
                 label: intl.formatMessage({ id: option.labelKey }),
               }))}
             />
-          </div>
+          </FormField>
         )}
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-vendor-reference">{intl.formatMessage({ id: "billForm.vendorInvoiceNumber" })}</Label>
+        <FormField label={intl.formatMessage({ id: "billForm.vendorInvoiceNumber" })} htmlFor="bill-vendor-reference">
           <Input
             id="bill-vendor-reference"
             value={vendorReference}
             onChange={(event) => setVendorReference(event.target.value)}
           />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-issue-date">{intl.formatMessage({ id: "billForm.issueDate" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "billForm.issueDate" })} htmlFor="bill-issue-date">
           <Input
             id="bill-issue-date"
             type="date"
@@ -478,25 +479,22 @@ export function BillForm({
             onChange={(event) => setIssueDate(event.target.value)}
             required
           />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="bill-due-date">{intl.formatMessage({ id: "billForm.dueDate" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "billForm.dueDate" })} htmlFor="bill-due-date">
           <Input id="bill-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
-        </div>
+        </FormField>
         <WarehouseField id="bill-warehouse" value={warehouseId} onChange={setWarehouseId} />
         <BillProjectField id="bill-project" value={projectId} onChange={setProjectId} />
       </div>
 
       {editingBill && (
-        <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="bill-internal-notes">{intl.formatMessage({ id: "billForm.internalNotes" })}</Label>
+        <FormField label={intl.formatMessage({ id: "billForm.internalNotes" })} htmlFor="bill-internal-notes" className="sm:w-1/2">
           <Input id="bill-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-        </div>
+        </FormField>
       )}
 
       {!editingBill && (
-        <div className="flex flex-col gap-2 sm:w-1/4">
-          <Label htmlFor="bill-price-mode">{intl.formatMessage({ id: "invoiceForm.priceMode" })}</Label>
+        <FormField label={intl.formatMessage({ id: "invoiceForm.priceMode" })} htmlFor="bill-price-mode" className="sm:w-1/4">
           <Select
             id="bill-price-mode"
             value={String(priceMode)}
@@ -506,18 +504,20 @@ export function BillForm({
               { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
             ]}
           />
-        </div>
+        </FormField>
       )}
 
       {needsOriginalBill && (
-        <div className="flex flex-col gap-2 sm:w-1/2">
-          <Label htmlFor="bill-original">
-            {intl.formatMessage({ id: requiresOriginalBill ? "billForm.originalBillRequired" : "billForm.originalBill" })}
-          </Label>
+        <FormField
+          label={intl.formatMessage({ id: requiresOriginalBill ? "billForm.originalBillRequired" : "billForm.originalBill" })}
+          htmlFor="bill-original"
+          error={fieldErrors.originalBillId}
+          className="sm:w-1/2"
+        >
           <SearchableSelect
             id="bill-original"
             value={originalBillId}
-            onChange={setOriginalBillId}
+            onChange={(v) => { setOriginalBillId(v); clearFieldError("originalBillId"); }}
             placeholder={intl.formatMessage({ id: requiresOriginalBill ? "billForm.selectOriginalBill" : "billForm.noOriginalBill" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
@@ -526,8 +526,9 @@ export function BillForm({
               value: bill.id,
               label: bill.vendorReference ?? bill.id,
             }))}
+            aria-invalid={!!fieldErrors.originalBillId}
           />
-        </div>
+        </FormField>
       )}
 
       <div className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}>
@@ -711,27 +712,27 @@ export function BillForm({
           </label>
           {takePaymentNow && (
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="bill-payment-amount">{intl.formatMessage({ id: "recordPayment.amount" })}</Label>
+              <FormField label={intl.formatMessage({ id: "recordPayment.amount" })} htmlFor="bill-payment-amount" error={fieldErrors.paymentAmount}>
                 <Input
                   id="bill-payment-amount"
                   type="number"
                   step="0.01"
                   min="0"
                   value={paymentAmount}
-                  onChange={(event) => setPaymentAmount(event.target.value)}
+                  onChange={(event) => { setPaymentAmount(event.target.value); clearFieldError("paymentAmount"); }}
+                  aria-invalid={!!fieldErrors.paymentAmount}
                 />
-              </div>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="bill-payment-method">{intl.formatMessage({ id: "recordPayment.cashBankAccount" })}</Label>
+              </FormField>
+              <FormField label={intl.formatMessage({ id: "recordPayment.cashBankAccount" })} htmlFor="bill-payment-method" error={fieldErrors.paymentMethodId}>
                 <PaymentMethodSelect
                   id="bill-payment-method"
                   paymentMethods={cashPaymentMethods}
                   value={paymentMethodId}
-                  onChange={setPaymentMethodId}
+                  onChange={(v) => { setPaymentMethodId(v); clearFieldError("paymentMethodId"); }}
                   emptyOptionLabelKey="invoiceForm.selectPaymentMethod"
+                  aria-invalid={!!fieldErrors.paymentMethodId}
                 />
-              </div>
+              </FormField>
             </div>
           )}
         </div>

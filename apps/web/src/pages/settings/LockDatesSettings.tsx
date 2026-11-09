@@ -8,8 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useAuth } from "@/context/AuthContext";
@@ -132,8 +132,13 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
   const [exceptionUntil, setExceptionUntil] = useState("");
   const [granting, setGranting] = useState(false);
   const [grantError, setGrantError] = useState<string | null>(null);
+  const [grantFieldErrors, setGrantFieldErrors] = useState<Record<string, string | null>>({});
   const [revokingId, setRevokingId] = useState<string | null>(null);
   const [revokeError, setRevokeError] = useState<string | null>(null);
+
+  function clearGrantFieldError(field: string) {
+    setGrantFieldErrors((prev) => ({ ...prev, [field]: null }));
+  }
 
   useEffect(() => {
     if (!exceptionMemberId && members.length > 0) setExceptionMemberId(members[0].userId);
@@ -143,7 +148,15 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
   async function handleGrantException(event: FormEvent) {
     event.preventDefault();
     const member = members.find((m: MemberResponse) => m.userId === exceptionMemberId);
-    if (!member || !exceptionLockDate || !exceptionUntil) return;
+    const errors: Record<string, string | null> = {};
+    if (!exceptionLockDate) errors.lockDate = intl.formatMessage({ id: "validation.required" });
+    if (!exceptionReason.trim()) errors.reason = intl.formatMessage({ id: "validation.required" });
+    if (!exceptionUntil) errors.until = intl.formatMessage({ id: "validation.required" });
+    if (Object.values(errors).some(Boolean)) {
+      setGrantFieldErrors(errors);
+      return;
+    }
+    if (!member) return;
     setGranting(true);
     setGrantError(null);
     try {
@@ -198,16 +211,19 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
             )}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               {SOFT_LOCK_DATE_KEYS.map((key) => (
-                <div key={key} className="flex flex-col gap-1">
-                  <Label htmlFor={`lock-date-${key}`}>{lockDateLabel(key, intl)}</Label>
+                <FormField
+                  key={key}
+                  label={lockDateLabel(key, intl)}
+                  htmlFor={`lock-date-${key}`}
+                  hint={lockDateExplanation(key, intl)}
+                >
                   <Input
                     id={`lock-date-${key}`}
                     type="date"
                     value={softDates[key]}
                     onChange={(event) => setSoftDates((prev) => ({ ...prev, [key]: event.target.value }))}
                   />
-                  <p className="text-xs text-muted-foreground">{lockDateExplanation(key, intl)}</p>
-                </div>
+                </FormField>
               ))}
             </div>
             <div>
@@ -254,15 +270,18 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
             </div>
           ) : (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-              <div className="flex flex-1 flex-col gap-1">
-                <Label htmlFor="hard-lock-date">{lockDateLabel(HARD_LOCK_DATE_KEY, intl)}</Label>
+              <FormField
+                label={lockDateLabel(HARD_LOCK_DATE_KEY, intl)}
+                htmlFor="hard-lock-date"
+                className="flex-1"
+              >
                 <Input
                   id="hard-lock-date"
                   type="date"
                   value={hardLockDraft}
                   onChange={(event) => setHardLockDraft(event.target.value)}
                 />
-              </div>
+              </FormField>
               <Button
                 type="button"
                 variant="destructive"
@@ -359,8 +378,10 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
                   </Alert>
                 )}
                 <div className="flex flex-wrap items-end gap-3">
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor="exception-member">{intl.formatMessage({ id: "lockDates.exceptions.member" })}</Label>
+                  <FormField
+                    label={intl.formatMessage({ id: "lockDates.exceptions.member" })}
+                    htmlFor="exception-member"
+                  >
                     <Select
                       id="exception-member"
                       className="w-56"
@@ -371,9 +392,11 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
                         label: member.email,
                       }))}
                     />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor="exception-field">{intl.formatMessage({ id: "lockDates.exceptions.lock" })}</Label>
+                  </FormField>
+                  <FormField
+                    label={intl.formatMessage({ id: "lockDates.exceptions.lock" })}
+                    htmlFor="exception-field"
+                  >
                     <Select
                       id="exception-field"
                       className="w-40"
@@ -384,36 +407,64 @@ export function LockDatesSettings({ companyId }: LockDatesSettingsProps) {
                         label: lockDateLabel(key, intl),
                       }))}
                     />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor="exception-lock-date">{intl.formatMessage({ id: "lockDates.exceptions.effectiveDate" })}</Label>
+                  </FormField>
+                  <FormField
+                    label={intl.formatMessage({ id: "lockDates.exceptions.effectiveDate" })}
+                    htmlFor="exception-lock-date"
+                    error={grantFieldErrors.lockDate}
+                    required
+                  >
                     <Input
                       id="exception-lock-date"
                       type="date"
                       required
+                      aria-invalid={!!grantFieldErrors.lockDate}
+                      aria-describedby={grantFieldErrors.lockDate ? "exception-lock-date-error" : undefined}
                       value={exceptionLockDate}
-                      onChange={(event) => setExceptionLockDate(event.target.value)}
+                      onChange={(event) => {
+                        setExceptionLockDate(event.target.value);
+                        clearGrantFieldError("lockDate");
+                      }}
                     />
-                  </div>
-                  <div className="flex flex-1 flex-col gap-1">
-                    <Label htmlFor="exception-reason">{intl.formatMessage({ id: "lockDates.exceptions.reason" })}</Label>
+                  </FormField>
+                  <FormField
+                    label={intl.formatMessage({ id: "lockDates.exceptions.reason" })}
+                    htmlFor="exception-reason"
+                    error={grantFieldErrors.reason}
+                    required
+                    className="flex-1"
+                  >
                     <Input
                       id="exception-reason"
                       required
+                      aria-invalid={!!grantFieldErrors.reason}
+                      aria-describedby={grantFieldErrors.reason ? "exception-reason-error" : undefined}
                       value={exceptionReason}
-                      onChange={(event) => setExceptionReason(event.target.value)}
+                      onChange={(event) => {
+                        setExceptionReason(event.target.value);
+                        clearGrantFieldError("reason");
+                      }}
                     />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label htmlFor="exception-until">{intl.formatMessage({ id: "lockDates.exceptions.until" })}</Label>
+                  </FormField>
+                  <FormField
+                    label={intl.formatMessage({ id: "lockDates.exceptions.until" })}
+                    htmlFor="exception-until"
+                    error={grantFieldErrors.until}
+                    required
+                  >
                     <Input
                       id="exception-until"
                       type="date"
                       required
+                      aria-invalid={!!grantFieldErrors.until}
+                      aria-describedby={grantFieldErrors.until ? "exception-until-error" : undefined}
                       value={exceptionUntil}
-                      onChange={(event) => setExceptionUntil(event.target.value)}
+                      onChange={(event) => {
+                        setExceptionUntil(event.target.value);
+                        clearGrantFieldError("until");
+                      }}
                     />
-                  </div>
+                  </FormField>
                   <Button type="submit" disabled={granting}>
                     {granting
                       ? intl.formatMessage({ id: "common.saving" })

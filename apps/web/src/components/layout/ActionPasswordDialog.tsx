@@ -6,8 +6,8 @@ import { useIntl } from "react-intl";
 import { apiClient } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 interface ActionPasswordDialogProps {
   companyName: string;
@@ -30,14 +30,21 @@ export function ActionPasswordDialog({
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (!password.trim() || verifying) return;
+    if (verifying) return;
+    if (!password.trim()) {
+      setFieldError(intl.formatMessage({ id: "actionPassword.passwordRequired" }));
+      inputRef.current?.focus();
+      return;
+    }
 
     setError(null);
+    setFieldError(null);
     setVerifying(true);
     try {
       const response = await apiClient.actionTokens({ password, action, companyId });
@@ -100,8 +107,13 @@ export function ActionPasswordDialog({
             </Alert>
           )}
 
-          <div className="mb-4 flex flex-col gap-2">
-            <Label htmlFor="action-password">{intl.formatMessage({ id: "actionPassword.passwordLabel" })}</Label>
+          <FormField
+            label={intl.formatMessage({ id: "actionPassword.passwordLabel" })}
+            htmlFor="action-password"
+            error={fieldError}
+            required
+            className="mb-4"
+          >
             <div className="relative">
               <Input
                 ref={inputRef}
@@ -111,9 +123,14 @@ export function ActionPasswordDialog({
                 autoFocus
                 required
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  if (fieldError) setFieldError(null);
+                }}
                 className="pr-10"
                 disabled={verifying}
+                aria-invalid={!!fieldError}
+                aria-describedby={fieldError ? "action-password-error" : undefined}
               />
               <button
                 type="button"
@@ -124,7 +141,7 @@ export function ActionPasswordDialog({
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-          </div>
+          </FormField>
 
           <div className="flex justify-end gap-2">
             <Button type="button" variant="outline" onClick={onCancel} disabled={verifying}>

@@ -29,6 +29,7 @@ export function EmployeePicker({
   withoutLogin = false,
   disabled,
   className,
+  "aria-invalid": ariaInvalid,
   "aria-label": ariaLabel,
 }: {
   companyId: string;
@@ -45,6 +46,7 @@ export function EmployeePicker({
   disabled?: boolean;
   className?: string;
   "aria-label"?: string;
+  "aria-invalid"?: boolean;
 }) {
   const intl = useIntl();
   const listboxId = useId();
@@ -144,6 +146,7 @@ export function EmployeePicker({
         <Input
           id={id}
           role="combobox"
+          aria-invalid={ariaInvalid || undefined}
           aria-label={ariaLabel}
           aria-expanded={open}
           aria-controls={listboxId}

@@ -8,8 +8,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { formatDate } from "@/pages/leave/leaveShared";
 import { Select } from "@/components/ui/select";
@@ -40,6 +40,7 @@ export function MyProfile() {
   const [bankName, setBankName] = useState("");
   const [byEmail, setByEmail] = useState(false);
   const [language, setLanguage] = useState("sq");
+  const [ibanError, setIbanError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
 
@@ -74,8 +75,21 @@ export function MyProfile() {
     },
   });
 
+  const validateIban = (v: string) =>
+    /^[A-Z]{2}\d{2}[\dA-Z]{4,}$/.test(v.replace(/\s/g, "").toUpperCase())
+      ? null
+      : intl.formatMessage({ id: "validation.invalidIban" });
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const trimmedIban = iban.replace(/\s+/g, "");
+    if (trimmedIban) {
+      const err = validateIban(trimmedIban);
+      if (err) {
+        setIbanError(err);
+        return;
+      }
+    }
     setSaved(false);
     saveMutation.mutate();
   }
@@ -143,22 +157,28 @@ export function MyProfile() {
             )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="me-phone">{intl.formatMessage({ id: "me.profile.phone" })}</Label>
+              <FormField label={intl.formatMessage({ id: "me.profile.phone" })} htmlFor="me-phone">
                 <Input id="me-phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="me-address">{intl.formatMessage({ id: "me.profile.address" })}</Label>
+              </FormField>
+              <FormField label={intl.formatMessage({ id: "me.profile.address" })} htmlFor="me-address">
                 <Input id="me-address" value={address} onChange={(e) => setAddress(e.target.value)} />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="me-iban">IBAN</Label>
-                <Input id="me-iban" value={iban} onChange={(e) => setIban(e.target.value)} className="font-mono" />
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="me-bank">{intl.formatMessage({ id: "me.profile.bankName" })}</Label>
+              </FormField>
+              <FormField label="IBAN" htmlFor="me-iban" error={ibanError}>
+                <Input
+                  id="me-iban"
+                  value={iban}
+                  onChange={(e) => {
+                    setIban(e.target.value);
+                    if (ibanError) setIbanError(null);
+                  }}
+                  className="font-mono"
+                  aria-invalid={!!ibanError}
+                  aria-describedby={ibanError ? "me-iban-error" : undefined}
+                />
+              </FormField>
+              <FormField label={intl.formatMessage({ id: "me.profile.bankName" })} htmlFor="me-bank">
                 <Input id="me-bank" value={bankName} onChange={(e) => setBankName(e.target.value)} />
-              </div>
+              </FormField>
             </div>
             <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "me.profile.bankHint" })}</p>
 

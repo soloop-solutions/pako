@@ -6,8 +6,8 @@ import type { CostCenterResponse, DepartmentPermissions, DepartmentResponse, Sav
 import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
@@ -133,12 +133,20 @@ export function DepartmentForm({
   const [partnerScope] = useState<number>(initial?.partnerScope ?? PartnerScope.All);
   const [permissions] = useState<DepartmentPermissions>({ ...EMPTY_PERMISSIONS, ...initial?.permissions });
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
 
   // A department can't be its own parent; the API also refuses deeper cycles.
   const parentOptions = departments.filter((d) => d.id !== initial?.id);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
+    const errors: Record<string, string | null> = {};
+    const requiredMsg = intl.formatMessage({ id: "validation.required" });
+    if (!name.trim()) errors.name = requiredMsg;
+    if (Object.values(errors).some(Boolean)) {
+      setFieldErrors(errors);
+      return;
+    }
     onSubmit({
       code: code.trim(),
       name: name.trim(),
@@ -163,16 +171,23 @@ export function DepartmentForm({
       )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="department-code">{intl.formatMessage({ id: "common.code" })}</Label>
+        <FormField label={intl.formatMessage({ id: "common.code" })} htmlFor="department-code">
           <Input id="department-code" required disabled={readOnly} value={code} onChange={(e) => setCode(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="department-name">{intl.formatMessage({ id: "common.name" })}</Label>
-          <Input id="department-name" required disabled={readOnly} value={name} onChange={(e) => setName(e.target.value)} />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="department-parent">{intl.formatMessage({ id: "hr.department.parent" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "common.name" })} htmlFor="department-name" required error={fieldErrors.name}>
+          <Input
+            id="department-name"
+            required
+            disabled={readOnly}
+            value={name}
+            aria-invalid={!!fieldErrors.name}
+            onChange={(e) => {
+              setName(e.target.value);
+              if (fieldErrors.name) setFieldErrors((prev) => ({ ...prev, name: null }));
+            }}
+          />
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "hr.department.parent" })} htmlFor="department-parent">
           <Select
             id="department-parent"
             disabled={readOnly}
@@ -184,9 +199,8 @@ export function DepartmentForm({
               label: `${d.code} — ${d.name}`,
             }))}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="department-manager">{intl.formatMessage({ id: "hr.department.manager" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "hr.department.manager" })} htmlFor="department-manager">
           <EmployeePicker
             id="department-manager"
             companyId={companyId}
@@ -196,9 +210,8 @@ export function DepartmentForm({
             emptyLabel={intl.formatMessage({ id: "common.notSet" })}
             onChange={(id) => setManagerEmployeeId(id)}
           />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label htmlFor="department-cost-center">{intl.formatMessage({ id: "hr.department.costCenter" })}</Label>
+        </FormField>
+        <FormField label={intl.formatMessage({ id: "hr.department.costCenter" })} htmlFor="department-cost-center">
           <Select
             id="department-cost-center"
             disabled={readOnly}
@@ -210,7 +223,7 @@ export function DepartmentForm({
               ...costCenters.map((c) => ({ value: c.id, label: `${c.code} — ${c.name}` })),
             ]}
           />
-        </div>
+        </FormField>
       </div>
 
       <label className="flex items-center gap-2 text-sm">

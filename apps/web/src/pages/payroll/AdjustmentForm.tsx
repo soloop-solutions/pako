@@ -5,8 +5,8 @@ import type { PayrollAdjustmentResponse, SavePayrollAdjustmentRequest } from "@p
 import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import {
   defaultRateMultiplier,
@@ -42,16 +42,20 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
   const [amount, setAmount] = useState(initial && !isHourBasedKind(initial.kind) ? toInput(initial.amount) : "");
   const [hours, setHours] = useState(toInput(initial?.hours));
   const [multiplier, setMultiplier] = useState(toInput(initial?.rateMultiplier));
-  const [localError, setLocalError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
 
   const hourBased = isHourBasedKind(kind);
   const idPrefix = initial ? `adjustment-${initial.id}` : "adjustment-new";
 
+  function clearFieldError(field: string) {
+    setFieldErrors((prev) => (prev[field] ? { ...prev, [field]: null } : prev));
+  }
+
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setLocalError(null);
+    setFieldErrors({});
     if (!employeeId) {
-      setLocalError(intl.formatMessage({ id: "payroll.adjustment.employeeRequired" }));
+      setFieldErrors({ employeeId: intl.formatMessage({ id: "payroll.adjustment.employeeRequired" }) });
       return;
     }
     const parsedHours = hours.trim() === "" ? undefined : Number(hours);
@@ -60,15 +64,15 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
 
     if (hourBased) {
       if (parsedHours === undefined || !Number.isFinite(parsedHours) || parsedHours <= 0) {
-        setLocalError(intl.formatMessage({ id: "payroll.adjustment.hoursRequired" }));
+        setFieldErrors({ hours: intl.formatMessage({ id: "payroll.adjustment.hoursRequired" }) });
         return;
       }
       if (parsedMultiplier !== undefined && (!Number.isFinite(parsedMultiplier) || parsedMultiplier <= 0)) {
-        setLocalError(intl.formatMessage({ id: "payroll.adjustment.multiplierInvalid" }));
+        setFieldErrors({ multiplier: intl.formatMessage({ id: "payroll.adjustment.multiplierInvalid" }) });
         return;
       }
     } else if (parsedAmount === undefined || !Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setLocalError(intl.formatMessage({ id: "payroll.adjustment.amountRequired" }));
+      setFieldErrors({ amount: intl.formatMessage({ id: "payroll.adjustment.amountRequired" }) });
       return;
     }
 
@@ -83,7 +87,7 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
     });
   }
 
-  const shownError = localError ?? error ?? null;
+  const shownError = error ?? null;
   const defaultMultiplier = defaultRateMultiplier(kind);
 
   return (
@@ -94,18 +98,25 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
         </Alert>
       )}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
-        <div className="flex flex-col gap-1.5 lg:col-span-2">
-          <Label htmlFor={`${idPrefix}-employee`}>{intl.formatMessage({ id: "payroll.adjustment.employee" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "payroll.adjustment.employee" })}
+          htmlFor={`${idPrefix}-employee`}
+          error={fieldErrors.employeeId}
+          className="lg:col-span-2"
+        >
           <EmployeePicker
             id={`${idPrefix}-employee`}
             companyId={companyId}
             value={employeeId}
             selectedName={initial && employeeId === initial.employeeId ? initial.employeeName : undefined}
-            onChange={(id) => setEmployeeId(id)}
+            onChange={(id) => { setEmployeeId(id); clearFieldError("employeeId"); }}
+            aria-invalid={!!fieldErrors.employeeId}
           />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`${idPrefix}-kind`}>{intl.formatMessage({ id: "payroll.adjustment.kind" })}</Label>
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "payroll.adjustment.kind" })}
+          htmlFor={`${idPrefix}-kind`}
+        >
           <Select
             id={`${idPrefix}-kind`}
             value={String(kind)}
@@ -115,11 +126,14 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
               label: payrollAdjustmentKindLabel(value, intl),
             }))}
           />
-        </div>
+        </FormField>
         {hourBased ? (
           <>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${idPrefix}-hours`}>{intl.formatMessage({ id: "payroll.adjustment.hours" })}</Label>
+            <FormField
+              label={intl.formatMessage({ id: "payroll.adjustment.hours" })}
+              htmlFor={`${idPrefix}-hours`}
+              error={fieldErrors.hours}
+            >
               <Input
                 id={`${idPrefix}-hours`}
                 type="number"
@@ -127,11 +141,15 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
                 min="0"
                 className="text-right tabular-nums"
                 value={hours}
-                onChange={(event) => setHours(event.target.value)}
+                onChange={(event) => { setHours(event.target.value); clearFieldError("hours"); }}
+                aria-invalid={!!fieldErrors.hours || undefined}
               />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor={`${idPrefix}-multiplier`}>{intl.formatMessage({ id: "payroll.adjustment.multiplier" })}</Label>
+            </FormField>
+            <FormField
+              label={intl.formatMessage({ id: "payroll.adjustment.multiplier" })}
+              htmlFor={`${idPrefix}-multiplier`}
+              error={fieldErrors.multiplier}
+            >
               <Input
                 id={`${idPrefix}-multiplier`}
                 type="number"
@@ -140,13 +158,18 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
                 className="text-right tabular-nums"
                 placeholder={defaultMultiplier !== undefined ? String(defaultMultiplier) : undefined}
                 value={multiplier}
-                onChange={(event) => setMultiplier(event.target.value)}
+                onChange={(event) => { setMultiplier(event.target.value); clearFieldError("multiplier"); }}
+                aria-invalid={!!fieldErrors.multiplier || undefined}
               />
-            </div>
+            </FormField>
           </>
         ) : (
-          <div className="flex flex-col gap-1.5 lg:col-span-2">
-            <Label htmlFor={`${idPrefix}-amount`}>{intl.formatMessage({ id: "payroll.adjustment.amount" })}</Label>
+          <FormField
+            label={intl.formatMessage({ id: "payroll.adjustment.amount" })}
+            htmlFor={`${idPrefix}-amount`}
+            error={fieldErrors.amount}
+            className="lg:col-span-2"
+          >
             <Input
               id={`${idPrefix}-amount`}
               type="number"
@@ -154,14 +177,18 @@ export function AdjustmentForm({ companyId, period, initial, submitting = false,
               min="0"
               className="text-right tabular-nums"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
+              onChange={(event) => { setAmount(event.target.value); clearFieldError("amount"); }}
+              aria-invalid={!!fieldErrors.amount || undefined}
             />
-          </div>
+          </FormField>
         )}
-        <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-6">
-          <Label htmlFor={`${idPrefix}-description`}>{intl.formatMessage({ id: "payroll.adjustment.description" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "payroll.adjustment.description" })}
+          htmlFor={`${idPrefix}-description`}
+          className="sm:col-span-2 lg:col-span-6"
+        >
           <Input id={`${idPrefix}-description`} value={description} onChange={(event) => setDescription(event.target.value)} />
-        </div>
+        </FormField>
       </div>
       {hourBased && (
         <p className="text-xs text-muted-foreground">

@@ -5,11 +5,11 @@ import { Upload, X, Plus, Trash2, Star } from "lucide-react";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
 import { LEGAL_FORM_OPTIONS, type CompanyProfileValues } from "@/lib/company-profile";
 import type { CompanyBankAccountResponse } from "@pako/shared";
 import { toast } from "sonner";
@@ -80,11 +80,7 @@ export function CompanyProfileFields({
     const value = values[name] as string;
     const error = extra?.validate && value ? extra.validate(value) : null;
     return (
-      <div className={cn("flex flex-col gap-1", extra?.className)}>
-        <Label htmlFor={id(name)}>
-          {t(labelId)}
-          {extra?.required ? " *" : ""}
-        </Label>
+      <FormField label={t(labelId)} htmlFor={id(name)} error={error} required={extra?.required} className={extra?.className}>
         <Input
           id={id(name)}
           type={extra?.type}
@@ -94,21 +90,19 @@ export function CompanyProfileFields({
           aria-invalid={!!error || undefined}
           onChange={(e) => onChange({ [name]: e.target.value })}
         />
-        {error && <p className="text-[11px] text-destructive">{error}</p>}
-      </div>
+      </FormField>
     );
   };
 
   const area = (name: keyof CompanyProfileValues, labelId: string, placeholderId?: string, className?: string) => (
-    <div className={cn("flex flex-col gap-1", className)}>
-      <Label htmlFor={id(name)}>{t(labelId)}</Label>
+    <FormField label={t(labelId)} htmlFor={id(name)} className={className}>
       <Textarea
         id={id(name)}
         value={values[name] as string}
         onChange={(e) => onChange({ [name]: e.target.value })}
         placeholder={placeholderId ? t(placeholderId) : undefined}
       />
-    </div>
+    </FormField>
   );
 
   // A plain function, not a component: a component defined here would remount its inputs on
@@ -138,8 +132,7 @@ export function CompanyProfileFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {text("name", "companyProfile.name", { required: true })}
           {text("tradingName", "companyProfile.tradingName", { placeholder: t("companyProfile.tradingName.hint") })}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={id("legalForm")}>{t("companyProfile.legalForm")}</Label>
+          <FormField label={t("companyProfile.legalForm")} htmlFor={id("legalForm")}>
             <Select
               id={id("legalForm")}
               value={String(values.legalForm ?? "")}
@@ -147,7 +140,7 @@ export function CompanyProfileFields({
               placeholder={t("companyProfile.legalForm.placeholder")}
               options={LEGAL_FORM_OPTIONS.map((o) => ({ value: String(o.value), label: t(o.labelKey) }))}
             />
-          </div>
+          </FormField>
           {text("businessActivity", "companyProfile.businessActivity")}
           {area("description", "companyProfile.description", undefined, "sm:col-span-2")}
         </div>
@@ -185,8 +178,7 @@ export function CompanyProfileFields({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {text("businessNumber", "companyProfile.businessNumber", { validate: validateBusinessNumber })}
           {text("fiscalNumber", "companyProfile.fiscalNumber", { validate: validateFiscalNumber })}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={id("vatRegistered")}>{t("companyProfile.vatRegistered")}</Label>
+          <FormField label={t("companyProfile.vatRegistered")} htmlFor={id("vatRegistered")}>
             {onVatRegisteredChange ? (
               <Select
                 id={id("vatRegistered")}
@@ -200,13 +192,12 @@ export function CompanyProfileFields({
             ) : (
               <Input id={id("vatRegistered")} readOnly disabled value={t(vatRegistered ? "companyProfile.vatRegistered.yes" : "companyProfile.vatRegistered.no")} />
             )}
-          </div>
+          </FormField>
           {vatRegistered && text("vatNumber", "companyProfile.vatNumber")}
           {vatRegistered && text("vatRegistrationDate", "companyProfile.vatRegistrationDate", { type: "date" })}
-          <div className="flex flex-col gap-1">
-            <Label htmlFor={id("currency")}>{t("companyProfile.currency")}</Label>
+          <FormField label={t("companyProfile.currency")} htmlFor={id("currency")}>
             <Input id={id("currency")} readOnly disabled value={currency} />
-          </div>
+          </FormField>
         </div>
       ))}
 
@@ -424,22 +415,18 @@ function PendingBankAccountsSection({ accounts, onChange }: { accounts: PendingB
       {adding ? (
         <div className="rounded border p-3">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.bankName")} *</Label>
-              <Input value={newBank.bankName} onChange={(e) => setNewBank((b) => ({ ...b, bankName: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.accountHolder")}</Label>
-              <Input value={newBank.accountHolder} onChange={(e) => setNewBank((b) => ({ ...b, accountHolder: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.iban")}</Label>
-              <Input value={newBank.iban} onChange={(e) => setNewBank((b) => ({ ...b, iban: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.swiftBic")}</Label>
-              <Input value={newBank.swiftBic} onChange={(e) => setNewBank((b) => ({ ...b, swiftBic: e.target.value }))} />
-            </div>
+            <FormField label={t("companyProfile.bankName")} htmlFor="pending-bank-name" required>
+              <Input id="pending-bank-name" value={newBank.bankName} onChange={(e) => setNewBank((b) => ({ ...b, bankName: e.target.value }))} />
+            </FormField>
+            <FormField label={t("companyProfile.accountHolder")} htmlFor="pending-bank-holder">
+              <Input id="pending-bank-holder" value={newBank.accountHolder} onChange={(e) => setNewBank((b) => ({ ...b, accountHolder: e.target.value }))} />
+            </FormField>
+            <FormField label={t("companyProfile.iban")} htmlFor="pending-bank-iban">
+              <Input id="pending-bank-iban" value={newBank.iban} onChange={(e) => setNewBank((b) => ({ ...b, iban: e.target.value }))} />
+            </FormField>
+            <FormField label={t("companyProfile.swiftBic")} htmlFor="pending-bank-swift">
+              <Input id="pending-bank-swift" value={newBank.swiftBic} onChange={(e) => setNewBank((b) => ({ ...b, swiftBic: e.target.value }))} />
+            </FormField>
           </div>
           <div className="mt-3 flex gap-2">
             <Button type="button" size="sm" onClick={add} disabled={!newBank.bankName.trim()}>
@@ -561,22 +548,18 @@ function BankAccountsSection({ companyId, readOnly = false }: { companyId: strin
       {!readOnly && (adding ? (
         <div className="rounded border p-3">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.bankName")} *</Label>
-              <Input value={newBank.bankName} onChange={(e) => setNewBank((b) => ({ ...b, bankName: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.accountHolder")}</Label>
-              <Input value={newBank.accountHolder} onChange={(e) => setNewBank((b) => ({ ...b, accountHolder: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.iban")}</Label>
-              <Input value={newBank.iban} onChange={(e) => setNewBank((b) => ({ ...b, iban: e.target.value }))} />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label>{t("companyProfile.swiftBic")}</Label>
-              <Input value={newBank.swiftBic} onChange={(e) => setNewBank((b) => ({ ...b, swiftBic: e.target.value }))} />
-            </div>
+            <FormField label={t("companyProfile.bankName")} htmlFor="bank-name" required>
+              <Input id="bank-name" value={newBank.bankName} onChange={(e) => setNewBank((b) => ({ ...b, bankName: e.target.value }))} />
+            </FormField>
+            <FormField label={t("companyProfile.accountHolder")} htmlFor="bank-holder">
+              <Input id="bank-holder" value={newBank.accountHolder} onChange={(e) => setNewBank((b) => ({ ...b, accountHolder: e.target.value }))} />
+            </FormField>
+            <FormField label={t("companyProfile.iban")} htmlFor="bank-iban">
+              <Input id="bank-iban" value={newBank.iban} onChange={(e) => setNewBank((b) => ({ ...b, iban: e.target.value }))} />
+            </FormField>
+            <FormField label={t("companyProfile.swiftBic")} htmlFor="bank-swift">
+              <Input id="bank-swift" value={newBank.swiftBic} onChange={(e) => setNewBank((b) => ({ ...b, swiftBic: e.target.value }))} />
+            </FormField>
           </div>
           <div className="mt-3 flex gap-2">
             <Button type="button" size="sm" onClick={() => void addAccount()} disabled={!newBank.bankName.trim()}>

@@ -10,11 +10,12 @@ type PaymentMethodSelectProps = {
   value: string;
   onChange: (value: string) => void;
   emptyOptionLabelKey?: string;
+  "aria-invalid"?: boolean;
 };
 
 // C4: the picker every payment-taking form uses — grouped "Cash"/"Bank" by PaymentMethodKind
 // instead of asking the user to pick a raw ledger account.
-export function PaymentMethodSelect({ id, paymentMethods, value, onChange, emptyOptionLabelKey }: PaymentMethodSelectProps) {
+export function PaymentMethodSelect({ id, paymentMethods, value, onChange, emptyOptionLabelKey, "aria-invalid": ariaInvalid }: PaymentMethodSelectProps) {
   const intl = useIntl();
   const cashMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Cash);
   const bankMethods = paymentMethods.filter((m) => m.kind === PaymentMethodKind.Bank);
@@ -38,6 +39,7 @@ export function PaymentMethodSelect({ id, paymentMethods, value, onChange, empty
       id={id}
       value={value}
       onChange={onChange}
+      aria-invalid={ariaInvalid}
       placeholder={
         emptyOptionLabelKey
           ? intl.formatMessage({ id: emptyOptionLabelKey })

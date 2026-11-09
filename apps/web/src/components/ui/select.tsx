@@ -48,6 +48,8 @@ export interface SelectProps {
   "aria-label"?: string;
   /** Disabled state */
   disabled?: boolean;
+  /** Whether the field is in an invalid state */
+  "aria-invalid"?: boolean;
   /** Additional trigger class names */
   className?: string;
   /** Custom render for the selected value display */
@@ -72,6 +74,7 @@ export function Select({
   searchPlaceholder = "Search...",
   noResultsText = "No results",
   id,
+  "aria-invalid": ariaInvalid,
   "aria-label": ariaLabel,
   disabled,
   className,
@@ -187,6 +190,7 @@ export function Select({
           role="combobox"
           aria-expanded={open}
           aria-haspopup="listbox"
+          aria-invalid={ariaInvalid || undefined}
           aria-label={ariaLabel}
           id={id}
           disabled={disabled}
@@ -195,6 +199,7 @@ export function Select({
             "hover:border-ring/60",
             "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]",
             "disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50",
+            ariaInvalid && "border-destructive ring-destructive/20",
             !value && "text-muted-foreground",
             className,
           )}

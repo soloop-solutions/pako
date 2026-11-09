@@ -10,8 +10,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useConfirm } from "@/components/ui/confirm-context";
 
@@ -182,25 +182,18 @@ export function StatutoryParametersSettings({ firmId }: StatutoryParametersSetti
           </Alert>
         )}
         <form className="grid gap-3 sm:grid-cols-5 sm:items-end" onSubmit={handleSubmit} aria-label={intl.formatMessage({ id: "statutory.addTitle" })}>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="statutory-key">{intl.formatMessage({ id: "statutory.column.key" })}</Label>
-            <Select id="statutory-key" value={key} onValueChange={(v) => setKey(v)} options={[...STATUTORY_KEYS.map((k) => ({ value: k, label: keyLabel(k) }))]} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="statutory-from">{intl.formatMessage({ id: "statutory.column.effectiveFrom" })}</Label>
-            <Input id="statutory-from" type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="statutory-value">
-              {intl.formatMessage({ id: "statutory.column.value" })}
-              {isRateKey(key) ? " (%)" : ""}
-            </Label>
-            <Input id="statutory-value" inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="statutory-source">{intl.formatMessage({ id: "statutory.column.source" })}</Label>
+          <FormField label={intl.formatMessage({ id: "statutory.column.key" })} htmlFor="statutory-key" required>
+            <Select id="statutory-key" value={key} onValueChange={(v) => { setKey(v); setError(null); }} options={[...STATUTORY_KEYS.map((k) => ({ value: k, label: keyLabel(k) }))]} />
+          </FormField>
+          <FormField label={intl.formatMessage({ id: "statutory.column.effectiveFrom" })} htmlFor="statutory-from" required>
+            <Input id="statutory-from" type="date" required value={effectiveFrom} onChange={(e) => { setEffectiveFrom(e.target.value); setError(null); }} aria-invalid={!!error && !effectiveFrom || undefined} />
+          </FormField>
+          <FormField label={`${intl.formatMessage({ id: "statutory.column.value" })}${isRateKey(key) ? " (%)" : ""}`} htmlFor="statutory-value" required>
+            <Input id="statutory-value" inputMode="decimal" required value={value} onChange={(e) => { setValue(e.target.value); setError(null); }} aria-invalid={!!error && !value.trim() || undefined} />
+          </FormField>
+          <FormField label={intl.formatMessage({ id: "statutory.column.source" })} htmlFor="statutory-source">
             <Input id="statutory-source" value={source} onChange={(e) => setSource(e.target.value)} />
-          </div>
+          </FormField>
           <Button type="submit" disabled={createMutation.isPending}>
             {intl.formatMessage({ id: "statutory.add" })}
           </Button>

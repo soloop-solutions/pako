@@ -5,8 +5,8 @@ import type { ApplyCreditNoteResponse } from "@pako/shared";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 
 export type CreditNoteOption = { id: string; label: string; total: number };
@@ -20,6 +20,8 @@ type ApplyCreditNoteFormProps = {
   onApplied: (response: ApplyCreditNoteResponse) => void;
 };
 
+type FieldErrors = { creditNote?: string; amount?: string };
+
 export function ApplyCreditNoteForm({
   companyId,
   documentKind,
@@ -31,26 +33,31 @@ export function ApplyCreditNoteForm({
   const intl = useIntl();
   const [creditNoteId, setCreditNoteId] = useState(options[0]?.id ?? "");
   const [amount, setAmount] = useState(() => Math.min(options[0]?.total ?? 0, outstanding).toFixed(2));
-  const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [apiError, setApiError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   function handleSelectChange(id: string) {
     setCreditNoteId(id);
+    setFieldErrors((prev) => ({ ...prev, creditNote: undefined }));
     const option = options.find((candidate) => candidate.id === id);
     setAmount(Math.min(option?.total ?? 0, outstanding).toFixed(2));
   }
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setApiError(null);
 
+    const errors: FieldErrors = {};
     if (!creditNoteId) {
-      setError(intl.formatMessage({ id: "applyCreditNote.selectError" }));
-      return;
+      errors.creditNote = intl.formatMessage({ id: "applyCreditNote.selectError" });
     }
     const parsedAmount = parseFloat(amount);
     if (!parsedAmount || parsedAmount <= 0) {
-      setError(intl.formatMessage({ id: "applyCreditNote.amountError" }));
+      errors.amount = intl.formatMessage({ id: "applyCreditNote.amountError" });
+    }
+    if (errors.creditNote || errors.amount) {
+      setFieldErrors(errors);
       return;
     }
 
@@ -63,7 +70,7 @@ export function ApplyCreditNoteForm({
           : await apiClient.applyCreditNote(companyId, documentId, body);
       onApplied(response);
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "applyCreditNote.error" })));
+      setApiError(getApiErrorMessage(err, intl.formatMessage({ id: "applyCreditNote.error" })));
     } finally {
       setSubmitting(false);
     }
@@ -71,14 +78,17 @@ export function ApplyCreditNoteForm({
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {error && (
+      {apiError && (
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
       <div className="grid gap-4 sm:grid-cols-3">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-credit-note-select">{intl.formatMessage({ id: "applyCreditNote.creditNote" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "applyCreditNote.creditNote" })}
+          htmlFor="apply-credit-note-select"
+          error={fieldErrors.creditNote}
+        >
           <SearchableSelect
             id="apply-credit-note-select"
             value={creditNoteId}
@@ -86,25 +96,33 @@ export function ApplyCreditNoteForm({
             placeholder={intl.formatMessage({ id: "applyCreditNote.creditNote" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
+            aria-invalid={!!fieldErrors.creditNote}
             options={options.map((option) => ({
               value: option.id,
               label: option.label,
               description: `${intl.formatMessage({ id: "applyCreditNote.available" })} ${option.total.toFixed(2)}`,
             }))}
           />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="apply-credit-note-amount">{intl.formatMessage({ id: "applyCreditNote.amount" })}</Label>
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "applyCreditNote.amount" })}
+          htmlFor="apply-credit-note-amount"
+          error={fieldErrors.amount}
+        >
           <Input
             id="apply-credit-note-amount"
             type="number"
             step="0.01"
             min="0"
             value={amount}
-            onChange={(event) => setAmount(event.target.value)}
+            onChange={(event) => {
+              setAmount(event.target.value);
+              setFieldErrors((prev) => ({ ...prev, amount: undefined }));
+            }}
+            aria-invalid={!!fieldErrors.amount}
             required
           />
-        </div>
+        </FormField>
         <div className="flex items-end">
           <Button type="submit" disabled={submitting || options.length === 0}>
             {submitting ? intl.formatMessage({ id: "applyCreditNote.applying" }) : intl.formatMessage({ id: "applyCreditNote.apply" })}

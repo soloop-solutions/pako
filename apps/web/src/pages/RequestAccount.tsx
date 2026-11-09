@@ -7,8 +7,8 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
 // docs/PLATFORM_ADMIN.md: there is no self-registration. People send their details here; the PAKO
@@ -18,15 +18,30 @@ export function RequestAccount() {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const [form, setForm] = useState({ fullName: "", email: "", phone: "", firmName: "", businessNumber: "", city: "", requestedCompanies: "1", message: "" });
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
-  const set = (key: keyof typeof form) => (value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const set = (key: keyof typeof form) => (value: string) => {
+    setForm((f) => ({ ...f, [key]: value }));
+    setFieldErrors((prev) => ({ ...prev, [key]: null }));
+  };
 
   async function submit(event: FormEvent) {
     event.preventDefault();
+    setFieldErrors({});
+    setApiError(null);
+
+    const errors: Record<string, string | null> = {};
+    if (!form.fullName.trim()) errors.fullName = t("validation.required");
+    if (!form.email.trim()) errors.email = t("validation.required");
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) errors.email = t("validation.invalidEmail");
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
     setSending(true);
-    setError(null);
     try {
       const blank = (v: string) => v.trim() || undefined;
       await apiClient.requestAccount({
@@ -41,27 +56,24 @@ export function RequestAccount() {
       });
       setSent(true);
     } catch (err) {
-      setError(getApiErrorMessage(err, t("requestAccount.error")));
+      setApiError(getApiErrorMessage(err, t("requestAccount.error")));
     } finally {
       setSending(false);
     }
   }
 
   const field = (key: keyof typeof form, labelId: string, extra?: { type?: string; required?: boolean; autoComplete?: string }) => (
-    <div className="flex flex-col gap-1.5">
-      <Label htmlFor={`ra-${key}`}>
-        {t(labelId)}
-        {extra?.required ? " *" : ""}
-      </Label>
+    <FormField label={t(labelId)} htmlFor={`ra-${key}`} error={fieldErrors[key]} required={extra?.required}>
       <Input
         id={`ra-${key}`}
         type={extra?.type}
         required={extra?.required}
         autoComplete={extra?.autoComplete}
+        aria-invalid={!!fieldErrors[key]}
         value={form[key]}
         onChange={(e) => set(key)(e.target.value)}
       />
-    </div>
+    </FormField>
   );
 
   return (
@@ -77,9 +89,9 @@ export function RequestAccount() {
             </div>
           ) : (
             <form className="flex flex-col gap-4" onSubmit={submit}>
-              {error && (
+              {apiError && (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>{apiError}</AlertDescription>
                 </Alert>
               )}
               <div className="grid gap-4 sm:grid-cols-2">
@@ -89,8 +101,7 @@ export function RequestAccount() {
                 {field("city", "requestAccount.city")}
                 {field("firmName", "requestAccount.firmName", { autoComplete: "organization" })}
                 {field("businessNumber", "requestAccount.businessNumber")}
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="ra-requestedCompanies">{t("requestAccount.requestedCompanies")}</Label>
+                <FormField label={t("requestAccount.requestedCompanies")} htmlFor="ra-requestedCompanies">
                   <Input
                     id="ra-requestedCompanies"
                     type="number"
@@ -99,12 +110,11 @@ export function RequestAccount() {
                     value={form.requestedCompanies}
                     onChange={(e) => set("requestedCompanies")(e.target.value)}
                   />
-                </div>
+                </FormField>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ra-message">{t("requestAccount.message")}</Label>
+              <FormField label={t("requestAccount.message")} htmlFor="ra-message">
                 <Textarea id="ra-message" value={form.message} onChange={(e) => set("message")(e.target.value)} placeholder={t("requestAccount.messageHint")} />
-              </div>
+              </FormField>
               <Button type="submit" disabled={sending}>
                 {sending ? t("auth.pleaseWait") : t("requestAccount.send")}
               </Button>

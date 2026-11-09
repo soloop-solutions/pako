@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -91,7 +92,8 @@ export function SalesOrderDetail() {
   const [routeVisitId, setRouteVisitId] = useState(params.get("visit") ?? "");
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [dirty, setDirty] = useState(isNew);
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const [override, setOverride] = useState<{ message: string; reason: string; error?: string } | null>(null);
 
   const lookup = useItemLookup(lines.map((l) => l.itemId));
@@ -155,7 +157,7 @@ export function SalesOrderDetail() {
 
   function touch() {
     setDirty(true);
-    setError(null);
+    setApiError(null);
   }
 
   function changeLine(index: number, patch: Partial<Line>, reprice: boolean) {
@@ -182,6 +184,7 @@ export function SalesOrderDetail() {
   function changePartner(next: string) {
     touch();
     setPartnerId(next);
+    if (next) setFieldErrors((prev) => ({ ...prev, customer: null }));
     resolve(lines.map((line, index) => ({ index, line })), next);
   }
 
@@ -213,13 +216,13 @@ export function SalesOrderDetail() {
     await queryClient.invalidateQueries({ queryKey: ["salesOrders", activeCompanyId] });
     await queryClient.invalidateQueries({ queryKey: ["creditStatus", activeCompanyId] });
   };
-  const fail = (fallback: string) => (err: unknown) => setError(getApiErrorMessage(err, t(fallback)));
+  const fail = (fallback: string) => (err: unknown) => setApiError(getApiErrorMessage(err, t(fallback)));
   // Actions on a draft or quote save the latest edits first.
   const saveFirst = async () => (editable && dirty && !isNew
     ? apiClient.updateSalesOrder(activeCompanyId as string, id as string, request())
     : undefined);
   const done = async (saved: SalesOrderResponse) => {
-    setError(null);
+    setApiError(null);
     setDirty(false);
     await refresh(saved);
   };
@@ -265,7 +268,7 @@ export function SalesOrderDetail() {
       // Refused (credit limit, overdue invoices, an expired quote): Sales: Approve may confirm it
       // anyway with a reason; anyone else sees why.
       if (err instanceof ApiException && err.status === 400 && canApprove("sales")) setOverride({ message, reason: "" });
-      else setError(message);
+      else setApiError(message);
     },
   });
   const close = useMutation({
@@ -295,6 +298,10 @@ export function SalesOrderDetail() {
 
   function submit(e: FormEvent) {
     e.preventDefault();
+    if (!partnerId) {
+      setFieldErrors((prev) => ({ ...prev, customer: t("validation.required") }));
+      return;
+    }
     save.mutate();
   }
 
@@ -363,34 +370,31 @@ export function SalesOrderDetail() {
         <CardContent>
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_17rem]">
             <form className="flex min-w-0 flex-col gap-5" onSubmit={submit}>
-              {error && (
+              {apiError && (
                 <Alert variant="destructive">
-                  <AlertDescription>{error}</AlertDescription>
+                  <AlertDescription>{apiError}</AlertDescription>
                 </Alert>
               )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <div className="flex flex-col gap-1 sm:col-span-2">
-                  <Label htmlFor="so-customer">{t("so.col.customer")}</Label>
+                <FormField label={t("so.col.customer")} htmlFor="so-customer" required error={fieldErrors.customer} className="sm:col-span-2">
                   <SearchableSelect id="so-customer" value={partnerId} onChange={changePartner} disabled={!editable}
+                    aria-invalid={!!fieldErrors.customer}
                     placeholder={t("so.pickCustomer")} searchPlaceholder={t("common.search")} noResultsText={t("common.noResults")}
                     options={customers.map((c) => ({ value: c.id, label: c.name, description: c.taxNumber ?? undefined }))} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="so-date">{t("so.col.date")}</Label>
+                </FormField>
+                <FormField label={t("so.col.date")} htmlFor="so-date">
                   <Input id="so-date" type="date" value={date} disabled={!editable} onChange={(e) => {
                     touch();
                     setDate(e.target.value);
                     resolve(lines.map((line, index) => ({ index, line })), partnerId, e.target.value);
                   }} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="so-valid">{t("so.validUntil")}</Label>
+                </FormField>
+                <FormField label={t("so.validUntil")} htmlFor="so-valid">
                   <Input id="so-valid" type="date" value={validUntil} disabled={!editable} onChange={(e) => { touch(); setValidUntil(e.target.value); }} />
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="so-delivery">{t("so.col.deliveryDate")}</Label>
+                </FormField>
+                <FormField label={t("so.col.deliveryDate")} htmlFor="so-delivery">
                   <Input id="so-delivery" type="date" value={deliveryDate} disabled={!editable} onChange={(e) => { touch(); setDeliveryDate(e.target.value); }} />
-                </div>
+                </FormField>
                 {editable && (
                   <WarehouseField id="so-warehouse" value={warehouseId} onChange={(v) => {
                     touch();
@@ -398,14 +402,12 @@ export function SalesOrderDetail() {
                     resolve(lines.map((line, index) => ({ index, line })), partnerId, date, v);
                   }} />
                 )}
-                <div className="flex flex-col gap-1">
-                  <Label htmlFor="so-ref">{t("so.customerReference")}</Label>
+                <FormField label={t("so.customerReference")} htmlFor="so-ref">
                   <Input id="so-ref" value={customerReference} disabled={!editable} onChange={(e) => { touch(); setCustomerReference(e.target.value); }} />
-                </div>
-                <div className="flex flex-col gap-1 sm:col-span-2">
-                  <Label htmlFor="so-address">{t("so.deliveryAddress")}</Label>
+                </FormField>
+                <FormField label={t("so.deliveryAddress")} htmlFor="so-address" className="sm:col-span-2">
                   <Input id="so-address" value={deliveryAddress} disabled={!editable} onChange={(e) => { touch(); setDeliveryAddress(e.target.value); }} />
-                </div>
+                </FormField>
               </div>
 
               <section className="flex flex-col gap-2">
@@ -498,10 +500,9 @@ export function SalesOrderDetail() {
                 )}
               </section>
 
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="so-notes">{t("stock.doc.notes")}</Label>
+              <FormField label={t("stock.doc.notes")} htmlFor="so-notes">
                 <Textarea id="so-notes" value={notes} disabled={!editable} onChange={(e) => { touch(); setNotes(e.target.value); }} />
-              </div>
+              </FormField>
 
               {order && order.documents.length > 0 && (
                 <section className="flex flex-col gap-1">
@@ -573,12 +574,11 @@ export function SalesOrderDetail() {
               <AlertDescription>{override.message}</AlertDescription>
             </Alert>
             <p className="text-sm text-muted-foreground">{t("so.override.hint")}</p>
-            <div className="flex flex-col gap-1">
-              <Label htmlFor="so-override-reason">{t("so.override.reason")}</Label>
+            <FormField label={t("so.override.reason")} htmlFor="so-override-reason" required error={override.error}>
               <Textarea id="so-override-reason" required maxLength={500} value={override.reason}
-                onChange={(e) => setOverride({ ...override, reason: e.target.value })} />
-            </div>
-            {override.error && <p className="text-sm text-destructive">{override.error}</p>}
+                aria-invalid={!!override.error || undefined}
+                onChange={(e) => setOverride({ ...override, reason: e.target.value, error: undefined })} />
+            </FormField>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setOverride(null)}>{t("common.cancel")}</Button>
               <Button type="submit" disabled={confirm.isPending || !override.reason.trim()}>{t("so.override.confirm")}</Button>

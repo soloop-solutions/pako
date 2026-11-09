@@ -4,8 +4,8 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 // F7: manual override on a posted invoice — the backend endpoint (POST
 // .../invoices/{id}/override-number) only accepts this on a Posted invoice and only when the
@@ -21,14 +21,16 @@ type OverrideNumberFormProps = {
 export function OverrideNumberForm({ companyId, invoiceId, currentNumber, onOverridden }: OverrideNumberFormProps) {
   const intl = useIntl();
   const [newNumber, setNewNumber] = useState(currentNumber ?? "");
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    setError(null);
+    setApiError(null);
+    setFieldError(null);
     if (!newNumber.trim()) {
-      setError(intl.formatMessage({ id: "overrideNumber.requiredError" }));
+      setFieldError(intl.formatMessage({ id: "overrideNumber.requiredError" }));
       return;
     }
     setSubmitting(true);
@@ -36,7 +38,7 @@ export function OverrideNumberForm({ companyId, invoiceId, currentNumber, onOver
       await apiClient.overrideNumber(companyId, invoiceId, { newNumber: newNumber.trim() });
       onOverridden(newNumber.trim());
     } catch (err) {
-      setError(getApiErrorMessage(err, intl.formatMessage({ id: "overrideNumber.error" })));
+      setApiError(getApiErrorMessage(err, intl.formatMessage({ id: "overrideNumber.error" })));
     } finally {
       setSubmitting(false);
     }
@@ -44,15 +46,30 @@ export function OverrideNumberForm({ companyId, invoiceId, currentNumber, onOver
 
   return (
     <form className="flex flex-col gap-3 sm:flex-row sm:items-end" onSubmit={handleSubmit}>
-      {error && (
+      {apiError && (
         <Alert variant="destructive" className="sm:basis-full">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
-      <div className="flex flex-1 flex-col gap-2">
-        <Label htmlFor="override-number-input">{intl.formatMessage({ id: "overrideNumber.newNumber" })}</Label>
-        <Input id="override-number-input" value={newNumber} onChange={(event) => setNewNumber(event.target.value)} required />
-      </div>
+      <FormField
+        label={intl.formatMessage({ id: "overrideNumber.newNumber" })}
+        htmlFor="override-number-input"
+        error={fieldError}
+        required
+        className="flex-1"
+      >
+        <Input
+          id="override-number-input"
+          value={newNumber}
+          onChange={(event) => {
+            setNewNumber(event.target.value);
+            setFieldError(null);
+          }}
+          aria-invalid={!!fieldError}
+          aria-describedby={fieldError ? "override-number-input-error" : undefined}
+          required
+        />
+      </FormField>
       <Button type="submit" disabled={submitting}>
         {submitting ? intl.formatMessage({ id: "overrideNumber.saving" }) : intl.formatMessage({ id: "overrideNumber.save" })}
       </Button>

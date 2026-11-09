@@ -4,8 +4,8 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 
 // A5 (v2 release): the entire editable surface of a Posted invoice/bill — due date and internal
 // notes, nothing else. Deliberately not reusing InvoiceForm/BillForm's big line-editor grid,
@@ -60,14 +60,19 @@ export function EditPostedFieldsForm({
         </Alert>
       )}
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="edit-posted-due-date">{intl.formatMessage({ id: "editPostedFields.dueDate" })}</Label>
+        <FormField
+          label={intl.formatMessage({ id: "editPostedFields.dueDate" })}
+          htmlFor="edit-posted-due-date"
+          required
+        >
           <Input id="edit-posted-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
-        </div>
-        <div className="flex flex-col gap-2">
-          <Label htmlFor="edit-posted-notes">{intl.formatMessage({ id: "editPostedFields.internalNotes" })}</Label>
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "editPostedFields.internalNotes" })}
+          htmlFor="edit-posted-notes"
+        >
           <Input id="edit-posted-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-        </div>
+        </FormField>
       </div>
       <Button type="submit" className="w-fit" disabled={submitting}>
         {submitting ? intl.formatMessage({ id: "editPostedFields.saving" }) : intl.formatMessage({ id: "editPostedFields.save" })}
