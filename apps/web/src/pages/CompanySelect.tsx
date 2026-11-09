@@ -58,10 +58,13 @@ export function CompanySelect() {
   const [limitOpen, setLimitOpen] = useState(false);
   const account = useAccount();
   // docs/PLATFORM_ADMIN.md: each accountant may create as many companies as the administrator allows.
-  // A limit of 0 means "not a company creator" (e.g. an employee who only gets invited) — don't
-  // show it as "limit reached" since they can still access companies they're members of.
+  // companyLimit === 0  → not a company creator (e.g. an employee who only gets invited).
+  //                       Hide the "New company" button entirely — they cannot create companies.
+  // companyLimit === undefined → unlimited creator. Show the button, no usage text.
+  // companyLimit > 0   → capped creator. Show the button with usage text; disable at limit.
   const rawLimit = account.data?.companyLimit;
-  const limit = rawLimit === 0 ? undefined : rawLimit;
+  const canCreate = rawLimit !== 0;
+  const limit = rawLimit != null && rawLimit > 0 ? rawLimit : undefined;
   const created = account.data?.companiesCreated ?? 0;
   const atLimit = limit != null && created >= limit;
 
@@ -168,17 +171,19 @@ export function CompanySelect() {
             <h1 className="text-2xl font-semibold">{t("lobby.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t("lobby.subtitle")}</p>
           </div>
-          <div className="flex flex-col items-end gap-1">
-            <Button onClick={() => (atLimit ? setLimitOpen(true) : setCreating(true))} disabled={account.isPending}>
-              <Plus className="size-4" />
-              {t("lobby.newCompany")}
-            </Button>
-            {limit != null && (
-              <span className={cn("text-xs", atLimit ? "text-destructive" : "text-muted-foreground")}>
-                {t(atLimit ? "lobby.limitReached" : "lobby.limitUsage", { used: String(created), limit: String(limit) })}
-              </span>
-            )}
-          </div>
+          {canCreate && (
+            <div className="flex flex-col items-end gap-1">
+              <Button onClick={() => (atLimit ? setLimitOpen(true) : setCreating(true))} disabled={account.isPending}>
+                <Plus className="size-4" />
+                {t("lobby.newCompany")}
+              </Button>
+              {limit != null && (
+                <span className={cn("text-xs", atLimit ? "text-destructive" : "text-muted-foreground")}>
+                  {t(atLimit ? "lobby.limitReached" : "lobby.limitUsage", { used: String(created), limit: String(limit) })}
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         {replacedBy && (
@@ -203,11 +208,15 @@ export function CompanySelect() {
           ) : (
             <div className="rounded-lg border bg-card p-10 text-center">
               <Building2 className="mx-auto mb-3 size-10 text-muted-foreground" />
-              <p className="mb-4 text-sm text-muted-foreground">{t("lobby.noCompanies")}</p>
-              <Button onClick={() => setCreating(true)}>
-                <Plus className="size-4" />
-                {t("lobby.createFirst")}
-              </Button>
+              <p className="mb-4 text-sm text-muted-foreground">
+                {canCreate ? t("lobby.noCompanies") : t("lobby.noCompaniesEmployee")}
+              </p>
+              {canCreate && (
+                <Button onClick={() => setCreating(true)}>
+                  <Plus className="size-4" />
+                  {t("lobby.createFirst")}
+                </Button>
+              )}
             </div>
           )
         ) : (

@@ -43,7 +43,9 @@ export function useMyAccess(): MyAccess {
     if (module === "users" && !access) return AccessLevel.None;
     if (!access) return AccessLevel.Approve;
     const value = access.modules?.[module];
-    return typeof value === "number" ? value : AccessLevel.Approve;
+    // Staff users get None for any module not in the response (fail-closed); non-staff (admins,
+    // accountants) keep Approve so the pre-HR "everything visible" contract is unchanged.
+    return typeof value === "number" ? value : (access.isStaff ? AccessLevel.None : AccessLevel.Approve);
   }
 
   return {

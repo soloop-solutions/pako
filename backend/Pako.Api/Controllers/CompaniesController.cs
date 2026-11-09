@@ -10,6 +10,7 @@ using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
 using Pako.Localization.Xk;
+using System.Text.RegularExpressions;
 using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
@@ -270,6 +271,23 @@ public class CompaniesController : ControllerBase
         }
 
         if (request.TradingName is not null) company.TradingName = request.TradingName == "" ? null : request.TradingName;
+
+        // Validate structured fields (non-empty values only — blank clears the field)
+        if (request.BusinessNumber is { Length: > 0 } bn && !Regex.IsMatch(bn, @"^\d+$"))
+            return BadRequest(_localizer["CompanyBusinessNumberInvalid"].Value);
+        if (request.FiscalNumber is { Length: > 0 } fn && !Regex.IsMatch(fn, @"^\d+$"))
+            return BadRequest(_localizer["CompanyFiscalNumberInvalid"].Value);
+        if (request.PostalCode is { Length: > 0 } pc && !Regex.IsMatch(pc, @"^\d{5}$"))
+            return BadRequest(_localizer["CompanyPostalCodeInvalid"].Value);
+        if (request.Email is { Length: > 0 } email && !Regex.IsMatch(email, @"^[^\s@]+@[^\s@]+\.[^\s@]+$"))
+            return BadRequest(_localizer["CompanyEmailInvalid"].Value);
+        if (request.Phone is { Length: > 0 } phone && !Regex.IsMatch(phone.Replace(" ", ""), @"^\+?\d[\d\-()]{4,}$"))
+            return BadRequest(_localizer["CompanyPhoneInvalid"].Value);
+        if (request.Website is { Length: > 0 } url && !Regex.IsMatch(url, @"^https?://.+\..+"))
+            return BadRequest(_localizer["CompanyWebsiteInvalid"].Value);
+        if (request.Iban is { Length: > 0 } iban && !Regex.IsMatch(iban.Replace(" ", "").ToUpperInvariant(), @"^[A-Z]{2}\d{2}[\dA-Z]{4,}$"))
+            return BadRequest(_localizer["CompanyIbanInvalid"].Value);
+
         if (request.BusinessNumber is not null) company.BusinessNumber = request.BusinessNumber == "" ? null : request.BusinessNumber;
         if (request.FiscalNumber is not null) company.FiscalNumber = request.FiscalNumber == "" ? null : request.FiscalNumber;
         if (request.VatNumber is not null) company.VatNumber = request.VatNumber == "" ? null : request.VatNumber;

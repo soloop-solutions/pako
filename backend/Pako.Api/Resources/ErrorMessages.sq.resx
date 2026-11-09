@@ -1713,4 +1713,25 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="WarehouseVanUseVehicles" xml:space="preserve">
     <value>Një magazinë nuk mund të shënohet si furgon dhe nuk mund të ketë shofer. Krijoni një automjet te Automjetet dhe lidheni këtë magazinë me të.</value>
   </data>
+  <data name="CompanyEmailInvalid" xml:space="preserve">
+    <value>Adresa e emailit nuk është e vlefshme.</value>
+  </data>
+  <data name="CompanyPhoneInvalid" xml:space="preserve">
+    <value>Numri i telefonit nuk është i vlefshëm (priten shifra, + opsionale në fillim, të paktën 6 karaktere).</value>
+  </data>
+  <data name="CompanyPostalCodeInvalid" xml:space="preserve">
+    <value>Kodi postar duhet të jetë saktësisht 5 shifra.</value>
+  </data>
+  <data name="CompanyBusinessNumberInvalid" xml:space="preserve">
+    <value>Numri i biznesit duhet të përmbajë vetëm shifra.</value>
+  </data>
+  <data name="CompanyFiscalNumberInvalid" xml:space="preserve">
+    <value>Numri fiskal duhet të përmbajë vetëm shifra.</value>
+  </data>
+  <data name="CompanyWebsiteInvalid" xml:space="preserve">
+    <value>Faqja e internetit duhet të fillojë me http:// ose https://.</value>
+  </data>
+  <data name="CompanyIbanInvalid" xml:space="preserve">
+    <value>IBAN-i nuk është i vlefshëm.</value>
+  </data>
 </root>

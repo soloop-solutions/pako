@@ -1245,6 +1245,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<decimal?>("CreditLimit")
                         .HasColumnType("numeric(18,2)");
 

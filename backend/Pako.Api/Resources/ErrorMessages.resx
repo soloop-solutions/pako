@@ -1713,4 +1713,25 @@ Estimate: {estimate} €.</value></data>
   <data name="WarehouseVanUseVehicles" xml:space="preserve">
     <value>A warehouse cannot be marked as a van or have a driver. Create a vehicle under Vehicles and link this warehouse to it.</value>
   </data>
+  <data name="CompanyEmailInvalid" xml:space="preserve">
+    <value>The email address is not valid.</value>
+  </data>
+  <data name="CompanyPhoneInvalid" xml:space="preserve">
+    <value>The phone number is not valid (expected digits, optional leading +, at least 6 characters).</value>
+  </data>
+  <data name="CompanyPostalCodeInvalid" xml:space="preserve">
+    <value>The postal code must be exactly 5 digits.</value>
+  </data>
+  <data name="CompanyBusinessNumberInvalid" xml:space="preserve">
+    <value>The business number must contain only digits.</value>
+  </data>
+  <data name="CompanyFiscalNumberInvalid" xml:space="preserve">
+    <value>The fiscal number must contain only digits.</value>
+  </data>
+  <data name="CompanyWebsiteInvalid" xml:space="preserve">
+    <value>The website must start with http:// or https://.</value>
+  </data>
+  <data name="CompanyIbanInvalid" xml:space="preserve">
+    <value>The IBAN is not valid.</value>
+  </data>
 </root>

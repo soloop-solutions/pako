@@ -1,8 +1,9 @@
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 
+import { Lock } from "lucide-react";
+
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
@@ -30,9 +31,13 @@ export function Settings() {
           <CardDescription>{intl.formatMessage({ id: "settings.accountDescription" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex max-w-sm flex-col gap-2">
-            <Label htmlFor="settings-email">{intl.formatMessage({ id: "common.email" })}</Label>
-            <Input id="settings-email" value={auth?.email ?? ""} readOnly disabled />
+          <div className="flex max-w-sm flex-col gap-1.5">
+            <Label>{intl.formatMessage({ id: "common.email" })}</Label>
+            <div className="flex h-7 items-center gap-2 rounded-md border border-input bg-muted px-2.5 text-[12.5px] text-muted-foreground">
+              <Lock className="size-3 shrink-0" />
+              <span className="truncate">{auth?.email ?? ""}</span>
+            </div>
+            <span className="text-xs text-muted-foreground">{intl.formatMessage({ id: "settings.emailReadOnly" })}</span>
           </div>
         </CardContent>
       </Card>

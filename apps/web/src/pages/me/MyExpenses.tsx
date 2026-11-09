@@ -192,6 +192,8 @@ export function MyExpenses() {
     const errors: Record<string, string> = {};
     if (!title.trim()) {
       errors.title = intl.formatMessage({ id: "expenses.error.titleRequired" });
+    } else if (title.trim().length > 200) {
+      errors.title = intl.formatMessage({ id: "expenses.error.titleTooLong" });
     }
     for (const line of lines) {
       if (!line.date) {
@@ -308,6 +310,7 @@ export function MyExpenses() {
                 <Input
                   id="claim-title"
                   disabled={!editable}
+                  maxLength={200}
                   value={title}
                   onChange={(e) => {
                     setTitle(e.target.value);
@@ -440,7 +443,7 @@ export function MyExpenses() {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="sticky bottom-0 z-10 -mx-6 border-t bg-card px-6 py-3 flex flex-wrap items-center gap-2">
                 {editable && (
                   <>
                     <Button type="button" size="sm" variant="outline" onClick={() => setLines((prev) => [...prev, emptyLine()])}>

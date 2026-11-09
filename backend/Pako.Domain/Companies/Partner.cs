@@ -51,6 +51,9 @@ public class Partner
     // days past due (null = never block). Sales: Approve overrides with a reason.
     public int? OverdueBlockDays { get; set; }
 
+    // TASK-023: track creation time so lists can default to newest-first.
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
     public string? Email { get; set; }
     public string? Phone { get; set; }
     public string? ContactPerson { get; set; }

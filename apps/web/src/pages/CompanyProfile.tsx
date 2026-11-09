@@ -105,6 +105,7 @@ export function CompanyProfile() {
           void refresh();
           setDirty(false);
         }}
+        readOnly={!canEdit}
       />
 
       {/* Sticky save bar */}

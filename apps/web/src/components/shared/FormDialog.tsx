@@ -28,6 +28,12 @@ interface FormDialogProps {
   size?: FormDialogSize;
   /** Whether the form has unsaved changes. When true, closing shows a confirmation. */
   dirty?: boolean;
+  /**
+   * Sticky footer content (typically action buttons).
+   * When provided the dialog body scrolls independently and the footer
+   * stays pinned at the bottom, always visible even on tall forms.
+   */
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -38,6 +44,7 @@ export function FormDialog({
   description,
   size = "md",
   dirty = false,
+  footer,
   children,
 }: FormDialogProps) {
   const intl = useIntl();
@@ -71,7 +78,7 @@ export function FormDialog({
     <>
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
-          className={`overflow-y-auto scrollbar-brand ${size === "full" ? "max-h-[calc(100vh-2rem)]" : "max-h-[90vh]"} ${sizeClasses[size]}`}
+          className={`${footer ? "flex flex-col overflow-hidden" : "overflow-y-auto scrollbar-brand"} ${size === "full" ? "max-h-[calc(100vh-2rem)]" : "max-h-[90vh]"} ${sizeClasses[size]}`}
           onPointerDownOutside={(e) => {
             // Prevent closing when clicking inside portalled popovers (SearchableSelect,
             // date pickers) or portalled overlays (InvoicePreviewDialog).
@@ -85,7 +92,18 @@ export function FormDialog({
             <DialogTitle>{title}</DialogTitle>
             {description && <DialogDescription>{description}</DialogDescription>}
           </DialogHeader>
-          {children}
+          {footer ? (
+            <>
+              <div className="min-h-0 flex-1 overflow-y-auto scrollbar-brand -mx-6 px-6">
+                {children}
+              </div>
+              <div className="flex-shrink-0 border-t bg-background pt-4 -mx-6 px-6 -mb-6 pb-6">
+                {footer}
+              </div>
+            </>
+          ) : (
+            children
+          )}
         </DialogContent>
       </Dialog>
 

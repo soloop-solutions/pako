@@ -74,10 +74,13 @@ public class PartnersController : ControllerBase
 
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
+        // TASK-023: default to newest-first; user can switch to alphabetical via column header.
+        var defaultDescending = sort is null;
         query = (sortField?.ToLowerInvariant() switch
         {
+            "name" => descending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name),
             "taxnumber" => descending ? query.OrderByDescending(p => p.TaxNumber) : query.OrderBy(p => p.TaxNumber),
-            _ => descending ? query.OrderByDescending(p => p.Name) : query.OrderBy(p => p.Name)
+            _ => defaultDescending ? query.OrderByDescending(p => p.CreatedAt) : query.OrderBy(p => p.CreatedAt)
         }).ThenBy(p => p.Id);
 
         var total = await query.CountAsync();

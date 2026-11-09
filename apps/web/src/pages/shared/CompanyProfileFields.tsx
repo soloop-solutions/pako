@@ -37,6 +37,7 @@ export function CompanyProfileFields({
   onPendingStampChange,
   pendingBankAccounts,
   onPendingBankAccountsChange,
+  readOnly = false,
 }: {
   values: CompanyProfileValues;
   onChange: (patch: Partial<CompanyProfileValues>) => void;
@@ -59,6 +60,8 @@ export function CompanyProfileFields({
   /** Local bank account entries before the company exists. */
   pendingBankAccounts?: PendingBankAccount[];
   onPendingBankAccountsChange?: (accounts: PendingBankAccount[]) => void;
+  /** When true, all fields are display-only and upload/delete actions are hidden. */
+  readOnly?: boolean;
 }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
@@ -159,12 +162,14 @@ export function CompanyProfileFields({
                 imageUrl={logoUrl}
                 onUpload={(file) => apiClient.logoPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
                 onDelete={() => apiClient.logoDELETE(companyId).then(() => onBrandingChange?.())}
+                readOnly={readOnly}
               />
               <ImageUpload
                 label={t("companyProfile.stamp")}
                 imageUrl={stampUrl}
                 onUpload={(file) => apiClient.stampPOST(companyId, { data: file, fileName: file.name }).then(() => onBrandingChange?.())}
                 onDelete={() => apiClient.stampDELETE(companyId).then(() => onBrandingChange?.())}
+                readOnly={readOnly}
               />
             </>
           ) : (
@@ -219,7 +224,7 @@ export function CompanyProfileFields({
       ))}
 
       {companyId && section("companyProfile.banking", "companyProfile.banking.description", (
-        <BankAccountsSection companyId={companyId} />
+        <BankAccountsSection companyId={companyId} readOnly={readOnly} />
       ))}
 
       {!companyId && pendingBankAccounts && onPendingBankAccountsChange && section("companyProfile.banking", "companyProfile.banking.description", (
@@ -250,11 +255,13 @@ function ImageUpload({
   imageUrl,
   onUpload,
   onDelete,
+  readOnly = false,
 }: {
   label: string;
   imageUrl?: string | null;
   onUpload: (file: File) => Promise<unknown>;
   onDelete: () => Promise<unknown>;
+  readOnly?: boolean;
 }) {
   const intl = useIntl();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -291,13 +298,19 @@ function ImageUpload({
       {fullUrl ? (
         <div className="relative inline-block w-fit">
           <img src={fullUrl} alt={label} className="h-24 max-w-48 rounded border object-contain" />
-          <button
-            type="button"
-            onClick={() => void handleDelete()}
-            className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/80"
-          >
-            <X className="h-3 w-3" />
-          </button>
+          {!readOnly && (
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              className="absolute -right-2 -top-2 rounded-full bg-destructive p-1 text-destructive-foreground hover:bg-destructive/80"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ) : readOnly ? (
+        <div className="flex h-24 w-48 items-center justify-center rounded border text-muted-foreground text-xs">
+          {intl.formatMessage({ id: "companyProfile.noImage" })}
         </div>
       ) : (
         <button
@@ -310,16 +323,18 @@ function ImageUpload({
           {uploading ? intl.formatMessage({ id: "common.uploading" }) : intl.formatMessage({ id: "companyProfile.uploadImage" })}
         </button>
       )}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/png,image/jpeg,image/svg+xml,image/webp"
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
-          if (file) void handleFile(file);
-        }}
-      />
+      {!readOnly && (
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/svg+xml,image/webp"
+          className="hidden"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) void handleFile(file);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -445,7 +460,7 @@ function PendingBankAccountsSection({ accounts, onChange }: { accounts: PendingB
   );
 }
 
-function BankAccountsSection({ companyId }: { companyId: string }) {
+function BankAccountsSection({ companyId, readOnly = false }: { companyId: string; readOnly?: boolean }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const [accounts, setAccounts] = useState<CompanyBankAccountResponse[]>([]);
@@ -524,24 +539,26 @@ function BankAccountsSection({ companyId }: { companyId: string }) {
             {acc.iban && <div className="font-mono text-xs">{acc.iban}</div>}
             {acc.swiftBic && <div className="text-muted-foreground text-xs">{acc.swiftBic}</div>}
           </div>
-          <div className="flex gap-1">
-            {acc.isDefault ? (
-              <span className="flex h-7 w-7 items-center justify-center">
-                <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-              </span>
-            ) : (
-              <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => void setDefault(acc.id)} title={t("companyProfile.setDefault")}>
-                <Star className="h-3.5 w-3.5" />
+          {!readOnly && (
+            <div className="flex gap-1">
+              {acc.isDefault ? (
+                <span className="flex h-7 w-7 items-center justify-center">
+                  <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                </span>
+              ) : (
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={() => void setDefault(acc.id)} title={t("companyProfile.setDefault")}>
+                  <Star className="h-3.5 w-3.5" />
+                </Button>
+              )}
+              <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => void deleteAccount(acc.id)} title={t("common.delete")}>
+                <Trash2 className="h-3.5 w-3.5" />
               </Button>
-            )}
-            <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => void deleteAccount(acc.id)} title={t("common.delete")}>
-              <Trash2 className="h-3.5 w-3.5" />
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       ))}
 
-      {adding ? (
+      {!readOnly && (adding ? (
         <div className="rounded border p-3">
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div className="flex flex-col gap-1">
@@ -575,7 +592,7 @@ function BankAccountsSection({ companyId }: { companyId: string }) {
           <Plus className="mr-1 h-4 w-4" />
           {t("companyProfile.addBankAccount")}
         </Button>
-      )}
+      ))}
     </div>
   );
 }

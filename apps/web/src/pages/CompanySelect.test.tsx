@@ -183,6 +183,28 @@ describe("Company lobby", () => {
     (company as { loaded?: boolean }).loaded = true;
   });
 
+  it("hides the New company button for employees (companyLimit 0) but still shows their companies", async () => {
+    account = { userId: "u1", email: "me@co.test", isPlatformAdmin: false, companyLimit: 0, companiesCreated: 0 };
+    renderAt("/select-company");
+    // They can still see and open companies they are members of.
+    expect(screen.getByText("Pako Demo Sh.p.k.")).toBeInTheDocument();
+    // But the New company button is not rendered at all.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "New company" })).not.toBeInTheDocument());
+    // And no limit usage text is shown.
+    expect(screen.queryByText(/company limit/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/0 of 0/)).not.toBeInTheDocument();
+  });
+
+  it("shows the invite message (not the create button) for employees with no companies", async () => {
+    account = { userId: "u1", email: "me@co.test", isPlatformAdmin: false, companyLimit: 0, companiesCreated: 0 };
+    company.companies = [] as CompanyResponse[];
+    renderAt("/select-company");
+    await waitFor(() => expect(screen.getByText(/Ask an administrator to invite you/)).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Create your first company" })).not.toBeInTheDocument();
+    // Restore for other tests.
+    company.companies = companies;
+  });
+
   // Business types: the type is chosen in the dialog and sent with the new company.
   it("creates a company with the chosen business type", async () => {
     renderAt("/select-company");

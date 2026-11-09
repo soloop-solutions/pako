@@ -200,7 +200,7 @@ export function Sidebar() {
       ) : (
         <>
           <div className="flex flex-col pb-1">
-            {[...topNavItems, ...layoutTopItems].map((item) => (
+            {[...topNavItems, ...layoutTopItems].filter((item) => isAllowed(item.path)).map((item) => (
               <SidebarLink key={item.path} item={item} label={label(item)} active={isActive(item.path)} />
             ))}
           </div>
