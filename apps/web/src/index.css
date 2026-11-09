@@ -24,18 +24,18 @@
   --card-foreground: oklch(0.205 0.008 75);
   --popover: oklch(0.995 0.003 85);
   --popover-foreground: oklch(0.205 0.008 75);
-  --primary: oklch(0.44 0.055 212);
-  --primary-foreground: oklch(0.985 0.004 212);
+  --primary: oklch(0.48 0.14 245);
+  --primary-foreground: oklch(0.985 0.004 245);
   --secondary: oklch(0.935 0.008 82);
   --secondary-foreground: oklch(0.355 0.010 75);
   --muted: oklch(0.955 0.006 84);
   --muted-foreground: oklch(0.47 0.010 75);
-  --accent: oklch(0.945 0.020 212);
-  --accent-foreground: oklch(0.30 0.040 212);
+  --accent: oklch(0.945 0.025 245);
+  --accent-foreground: oklch(0.30 0.050 245);
   --destructive: oklch(0.545 0.155 27);
   --border: oklch(0.885 0.007 80);
   --input: oklch(0.78 0.010 80);
-  --ring: oklch(0.52 0.075 212);
+  --ring: oklch(0.52 0.12 245);
 
   /* Document state. Each pair also carries a border, because 1a's pills are
      filled AND bordered, and each state owns a non-colour cue in markup:
@@ -61,14 +61,14 @@
 
   /* Register + grid. shadcn has no names for these and every list in PAKO needs them. */
   --zebra: oklch(0.968 0.006 85);
-  --row-hover: oklch(0.955 0.012 212);
-  --row-selected: oklch(0.945 0.020 212);
-  --row-selected-border: oklch(0.88 0.020 212);
+  --row-hover: oklch(0.955 0.015 245);
+  --row-selected: oklch(0.945 0.025 245);
+  --row-selected-border: oklch(0.88 0.025 245);
   --grid-rule: oklch(0.915 0.006 80);
   --grid-header: oklch(0.935 0.008 82);
   --grid-header-foreground: oklch(0.355 0.010 75);
   --grid-header-border: oklch(0.80 0.008 78);
-  --cell-active: oklch(0.44 0.055 212);
+  --cell-active: oklch(0.48 0.14 245);
   --totals: oklch(0.955 0.020 85);
   --totals-foreground: oklch(0.225 0.012 75);
   /* Charts (dashboard). Categorical slots in fixed order, validated against the card surface
@@ -100,18 +100,18 @@
   --card-foreground: oklch(0.945 0.004 85);
   --popover: oklch(0.265 0.006 80);
   --popover-foreground: oklch(0.945 0.004 85);
-  --primary: oklch(0.70 0.095 212);
-  --primary-foreground: oklch(0.18 0.025 212);
+  --primary: oklch(0.68 0.15 245);
+  --primary-foreground: oklch(0.18 0.030 245);
   --secondary: oklch(0.285 0.007 80);
   --secondary-foreground: oklch(0.925 0.004 85);
   --muted: oklch(0.285 0.006 80);
   --muted-foreground: oklch(0.72 0.008 82);
-  --accent: oklch(0.295 0.035 212);
-  --accent-foreground: oklch(0.945 0.010 212);
+  --accent: oklch(0.295 0.045 245);
+  --accent-foreground: oklch(0.945 0.015 245);
   --destructive: oklch(0.665 0.165 25);
   --border: oklch(0.365 0.006 80);
   --input: oklch(0.41 0.006 80);
-  --ring: oklch(0.70 0.095 212);
+  --ring: oklch(0.68 0.15 245);
 
   --success: oklch(0.31 0.045 150);
   --success-foreground: oklch(0.845 0.090 150);
@@ -130,14 +130,14 @@
   --credit: oklch(0.265 0.014 80);
 
   --zebra: oklch(0.245 0.006 80);
-  --row-hover: oklch(0.285 0.020 212);
-  --row-selected: oklch(0.305 0.035 212);
-  --row-selected-border: oklch(0.385 0.035 212);
+  --row-hover: oklch(0.285 0.025 245);
+  --row-selected: oklch(0.305 0.045 245);
+  --row-selected-border: oklch(0.385 0.045 245);
   --grid-rule: oklch(0.355 0.006 80);
   --grid-header: oklch(0.275 0.008 80);
   --grid-header-foreground: oklch(0.82 0.008 82);
   --grid-header-border: oklch(0.42 0.007 80);
-  --cell-active: oklch(0.70 0.095 212);
+  --cell-active: oklch(0.68 0.15 245);
   --totals: oklch(0.275 0.014 85);
   --totals-foreground: oklch(0.955 0.004 85);
   --chart-1: #3987e5;
@@ -286,15 +286,15 @@
 }
 
 :root {
-  --auth-panel: oklch(0.32 0.052 212);
-  --auth-panel-deep: oklch(0.25 0.045 218);
-  --auth-panel-foreground: oklch(0.975 0.006 212);
-  --auth-panel-muted: oklch(0.83 0.025 212);
+  --auth-panel: oklch(0.32 0.09 245);
+  --auth-panel-deep: oklch(0.22 0.08 250);
+  --auth-panel-foreground: oklch(0.975 0.006 245);
+  --auth-panel-muted: oklch(0.82 0.03 245);
 }
 
 .dark {
-  --auth-panel: oklch(0.27 0.045 212);
-  --auth-panel-deep: oklch(0.21 0.035 218);
+  --auth-panel: oklch(0.25 0.07 245);
+  --auth-panel-deep: oklch(0.19 0.06 250);
 }
 
 @layer components {

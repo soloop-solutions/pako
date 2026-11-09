@@ -18,6 +18,7 @@ import {
   type CategoryPrefs,
   type SidebarPrefs,
 } from "@/lib/sidebar-prefs";
+import { BrandMark } from "@/components/auth/AuthLayout";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 
@@ -169,8 +170,9 @@ export function Sidebar() {
     : null;
 
   return (
-    <aside className="flex w-[236px] shrink-0 flex-col overflow-y-auto scrollbar-brand border-r bg-card">
-      <div className="flex h-12 shrink-0 items-center border-b px-4">
+    <aside className="flex w-[280px] shrink-0 flex-col overflow-y-auto scrollbar-brand border-r bg-card lg:w-[236px]">
+      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
+        <BrandMark className="size-6 text-primary" />
         <span className="text-base font-semibold">PAKO</span>
       </div>
 

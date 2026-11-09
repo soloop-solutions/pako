@@ -1446,6 +1446,7 @@ export const en: Record<string, string> = {
   "shell.tabs.new": "Open a destination",
 
   // Task 8 — app shell: sidebar
+  "sidebar.openMenu": "Open menu",
   "sidebar.filterPlaceholder": "Filter menu",
   "sidebar.noResults": "No matches.",
   "sidebar.category.favourites": "Favourites",
@@ -3147,6 +3148,7 @@ export const sq: Record<string, string> = {
   "shell.tabs.new": "Hap një destinacion",
 
   // Task 8 — app shell: sidebar
+  "sidebar.openMenu": "Hap menynë",
   "sidebar.filterPlaceholder": "Filtro menynë",
   "sidebar.noResults": "Nuk ka përputhje.",
   "sidebar.category.favourites": "Të preferuarat",
