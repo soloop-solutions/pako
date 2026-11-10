@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PAKO Palette Proposals</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Public Sans", system-ui, -apple-system, sans-serif; background: #f5f5f3; color: #1a1a18; line-height: 1.5; }
+  .container { max-width: 1400px; margin: 0 auto; padding: 32px 24px 64px; }
+  h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; }
+  .subtitle { font-size: 15px; color: #666; margin-bottom: 40px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(400px, 1fr)); gap: 32px; margin-bottom: 48px; }
+  .palette-card { background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 8px 24px rgba(0,0,0,0.04); }
+  .palette-header { padding: 24px 28px 20px; border-bottom: 1px solid #e8e8e4; }
+  .palette-header h2 { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+  .palette-header .tag { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; padding: 3px 10px; border-radius: 4px; margin-bottom: 10px; }
+  .palette-header p { font-size: 13px; color: #666; line-height: 1.55; }
+  .palette-body { padding: 20px 28px 28px; }
+  .section-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #999; margin-bottom: 8px; margin-top: 16px; }
+  .section-label:first-child { margin-top: 0; }
+  .swatch-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 4px; }
+  .swatch { width: 56px; height: 56px; border-radius: 8px; border: 1px solid rgba(0,0,0,0.08); position: relative; transition: transform 0.15s; }
+  .swatch:hover { transform: scale(1.12); z-index: 2; }
+  .swatch-label { font-size: 9px; color: #888; text-align: center; margin-top: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 56px; }
+  .swatch-wrap { display: flex; flex-direction: column; align-items: center; }
+  .preview-strip { display: flex; border-radius: 8px; overflow: hidden; height: 48px; margin-top: 16px; border: 1px solid rgba(0,0,0,0.08); }
+  .preview-strip > div { flex: 1; }
+  .mode-toggle { display: flex; gap: 0; margin-bottom: 16px; margin-top: 8px; }
+  .mode-btn { padding: 6px 16px; font-size: 12px; font-weight: 600; border: 1px solid #ddd; background: #fff; cursor: pointer; transition: all 0.15s; }
+  .mode-btn:first-child { border-radius: 6px 0 0 6px; }
+  .mode-btn:last-child { border-radius: 0 6px 6px 0; }
+  .mode-btn.active { background: #1a1a18; color: #fff; border-color: #1a1a18; }
+  .app-preview { border-radius: 10px; overflow: hidden; border: 1px solid rgba(0,0,0,0.1); height: 320px; display: flex; margin-top: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+  .app-sidebar { width: 180px; display: flex; flex-direction: column; border-right: 1px solid var(--p-border); }
+  .app-sidebar-head { height: 40px; display: flex; align-items: center; padding: 0 14px; gap: 8px; border-bottom: 1px solid var(--p-border); }
+  .app-sidebar-brand { width: 22px; height: 22px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+  .app-sidebar-brand svg { width: 14px; height: 14px; }
+  .app-sidebar-wordmark { font-size: 13px; font-weight: 700; }
+  .app-sidebar-nav { padding: 8px 0; flex: 1; }
+  .app-nav-item { height: 24px; display: flex; align-items: center; padding: 0 18px; font-size: 11px; margin: 1px 0; }
+  .app-nav-active { font-weight: 600; border-left: 2px solid var(--p-primary); }
+  .app-nav-cat { font-size: 9px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; padding: 6px 14px 3px; }
+  .app-main { flex: 1; display: flex; flex-direction: column; }
+  .app-header { height: 40px; display: flex; align-items: center; padding: 0 20px; border-bottom: 1px solid var(--p-border); font-size: 12px; }
+  .app-content { flex: 1; padding: 20px; overflow: hidden; }
+  .app-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .app-table th { text-align: left; padding: 6px 10px; font-weight: 600; font-size: 10px; border-bottom: 1px solid var(--p-border); }
+  .app-table td { padding: 5px 10px; border-bottom: 1px solid var(--p-grid-rule); }
+  .app-table tr:hover td { background: var(--p-row-hover); }
+  .app-badge { display: inline-block; padding: 1px 7px; border-radius: 3px; font-size: 9px; font-weight: 600; }
+  .app-btn { display: inline-block; padding: 4px 14px; border-radius: 5px; font-size: 11px; font-weight: 600; border: none; }
+  .comparison { margin-top: 48px; }
+  .comparison h2 { font-size: 20px; font-weight: 700; margin-bottom: 16px; }
+  .comparison table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 10px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+  .comparison th, .comparison td { padding: 10px 16px; text-align: left; border-bottom: 1px solid #eee; }
+  .comparison th { background: #f8f8f6; font-weight: 600; font-size: 12px; }
+  .comparison tr:last-child td { border-bottom: none; }
+  .rec { background: #f0fdf4; }
+  @media (max-width: 860px) { .grid { grid-template-columns: 1fr; } .app-preview { height: 280px; } .app-sidebar { width: 140px; } }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>PAKO Color Palette Proposals</h1>
+  <p class="subtitle">3 palettes for team review. Toggle light/dark, check the mini app preview, compare below.</p>
+
+  <div class="grid" id="palettes"></div>
+
+  <div class="comparison">
+    <h2>Comparison</h2>
+    <table>
+      <thead>
+        <tr><th>Property</th><th>Current (Blue)</th><th>1. Teal Trust</th><th>2. Indigo Authority</th><th>3. Evergreen Ledger</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Primary hue</td><td>245 (blue)</td><td>195 (teal)</td><td>280 (indigo)</td><td>160 (green)</td></tr>
+        <tr><td>Neutral temperature</td><td>Warm (80)</td><td>Warm (72-75)</td><td>Cool (280-285)</td><td>Warm (86-90)</td></tr>
+        <tr><td>Personality</td><td>Generic SaaS</td><td>Modern finance</td><td>Premium fintech</td><td>Traditional accounting</td></tr>
+        <tr><td>Kosovo competitors</td><td>Same as all</td><td>Unique</td><td>Unique</td><td>Familiar but better</td></tr>
+        <tr><td>Dark mode strength</td><td>Good</td><td>Good</td><td>Excellent</td><td>Good</td></tr>
+        <tr><td>Risk</td><td>Blends in</td><td>None</td><td>May feel "too tech"</td><td>Green fatigue</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const palettes = [
+  {
+    name: "Teal Trust",
+    tag: "Corporate Finance",
+    tagColor: "#0d9488",
+    desc: "Teal sits between blue (trust) and green (money) -- the sweet spot for finance. No Kosovo competitor uses it. Warm sand neutrals keep it approachable for 8-hour workdays.",
+    light: {
+      background: "#f3f1ed", foreground: "#1c1a16", card: "#fbfaf8", primary: "#0e7e8a",
+      primaryFg: "#f5fcfc", secondary: "#eeece7", secondaryFg: "#4a4840", muted: "#f0eeea",
+      mutedFg: "#6b6960", accent: "#e4f3f4", accentFg: "#1a5055", destructive: "#c93b30",
+      destructiveFg: "#fff", border: "#dddbd5", input: "#c4c1ba", ring: "#0e8e96",
+      success: "#d9f0e0", successFg: "#2a6e3d", successBorder: "#a0d4ad",
+      warning: "#faf0d0", warningFg: "#7a5a1a", warningBorder: "#dcc87a",
+      info: "#dce9f7", infoFg: "#2a5580", infoBorder: "#a0c0e0",
+      rowHover: "#e8f4f5", gridRule: "#e6e4de", gridHeader: "#edebe6", gridHeaderFg: "#4a4840",
+      rowSelected: "#d5eff1",
+    },
+    dark: {
+      background: "#1a1916", foreground: "#f0eeea", card: "#242320", primary: "#3cbcc8",
+      primaryFg: "#0e2e30", secondary: "#2a2926", secondaryFg: "#e8e6e2", muted: "#2a2926",
+      mutedFg: "#aaa89f", accent: "#1e3a3c", accentFg: "#d0f0f2", destructive: "#e65a4f",
+      destructiveFg: "#fff", border: "#3e3d38", input: "#4a4944", ring: "#3cbcc8",
+      success: "#1a3a24", successFg: "#8fd4a0", successBorder: "#2d5a3a",
+      warning: "#302a15", warningFg: "#e0c060", warningBorder: "#50451e",
+      info: "#152035", infoFg: "#8ab5e0", infoBorder: "#2a4060",
+      rowHover: "#1e3436", gridRule: "#383630", gridHeader: "#282724", gridHeaderFg: "#c8c6c0",
+      rowSelected: "#1a3c3e",
+    }
+  },
+  {
+    name: "Indigo Authority",
+    tag: "Premium Fintech",
+    tagColor: "#6336cf",
+    desc: "Deep indigo signals premium software -- Stripe/Linear territory. Cool-toned neutrals create a 'glass and steel' feeling. Dark mode is where this palette truly shines.",
+    light: {
+      background: "#f2f1f6", foreground: "#18152a", card: "#faf9fc", primary: "#5a30c8",
+      primaryFg: "#f8f6ff", secondary: "#eae8f0", secondaryFg: "#3a3650", muted: "#f0eef5",
+      mutedFg: "#605c75", accent: "#e8e4f6", accentFg: "#2e2060", destructive: "#c93b30",
+      destructiveFg: "#fff", border: "#dedce6", input: "#c5c2d0", ring: "#6a3ee0",
+      success: "#d9f0e0", successFg: "#2a6e3d", successBorder: "#a0d4ad",
+      warning: "#faf0d0", warningFg: "#7a5a1a", warningBorder: "#dcc87a",
+      info: "#dde6f8", infoFg: "#2a5585", infoBorder: "#a0bfe0",
+      rowHover: "#e6e2f4", gridRule: "#e4e2ea", gridHeader: "#eceaf2", gridHeaderFg: "#3a3650",
+      rowSelected: "#ddd8f2",
+    },
+    dark: {
+      background: "#141222", foreground: "#f0eef5", card: "#1c1a2e", primary: "#9b7aef",
+      primaryFg: "#12102a", secondary: "#222036", secondaryFg: "#e8e6f0", muted: "#222036",
+      mutedFg: "#a09cb5", accent: "#26204a", accentFg: "#d8d0f8", destructive: "#e65a4f",
+      destructiveFg: "#fff", border: "#35325a", input: "#403d68", ring: "#9b7aef",
+      success: "#142a1e", successFg: "#80d098", successBorder: "#255038",
+      warning: "#2a2412", warningFg: "#d8b850", warningBorder: "#4a3d1a",
+      info: "#141e38", infoFg: "#80b0e0", infoBorder: "#253a5a",
+      rowHover: "#1e1a3c", gridRule: "#302e50", gridHeader: "#1a1830", gridHeaderFg: "#c0bed0",
+      rowSelected: "#26204a",
+    }
+  },
+  {
+    name: "Evergreen Ledger",
+    tag: "Accounting Heritage",
+    tagColor: "#1a7a4a",
+    desc: "Green = money in every culture. Hue 160 is true accounting green -- not mint, not lime. Paired with warm stone neutrals, it's timeless and dignified. The safest choice.",
+    light: {
+      background: "#f3f2ee", foreground: "#1a1c18", card: "#fbfbf8", primary: "#1a7a4a",
+      primaryFg: "#f2fbf5", secondary: "#edece7", secondaryFg: "#484a42", muted: "#f0efeb",
+      mutedFg: "#6a6c62", accent: "#e2f2e8", accentFg: "#16503a", destructive: "#c93b30",
+      destructiveFg: "#fff", border: "#dcdbd5", input: "#c2c1ba", ring: "#1e8855",
+      success: "#d6f0da", successFg: "#2a6a34", successBorder: "#9ed0a4",
+      warning: "#faf0c8", warningFg: "#7a5818", warningBorder: "#dcc572",
+      info: "#dce8f6", infoFg: "#2a5580", infoBorder: "#a0bee0",
+      rowHover: "#e4f0e8", gridRule: "#e4e3dd", gridHeader: "#ecebe6", gridHeaderFg: "#484a42",
+      rowSelected: "#d4edd8",
+    },
+    dark: {
+      background: "#191a17", foreground: "#f0f0ec", card: "#232420", primary: "#48c080",
+      primaryFg: "#0e2a1a", secondary: "#292a26", secondaryFg: "#e8e8e4", muted: "#292a26",
+      mutedFg: "#a8a8a0", accent: "#1a3828", accentFg: "#c8f0d8", destructive: "#e65a4f",
+      destructiveFg: "#fff", border: "#3c3d38", input: "#484944", ring: "#48c080",
+      success: "#1a3422", successFg: "#88d09a", successBorder: "#2a5432",
+      warning: "#2e2815", warningFg: "#d8b850", warningBorder: "#4a3d1a",
+      info: "#152035", infoFg: "#80b0d8", infoBorder: "#2a3e58",
+      rowHover: "#1c3024", gridRule: "#363730", gridHeader: "#262722", gridHeaderFg: "#c6c6c0",
+      rowSelected: "#1a3826",
+    }
+  }
+];
+
+function renderSwatch(color, label) {
+  return `<div class="swatch-wrap"><div class="swatch" style="background:${color}" title="${label}: ${color}"></div><div class="swatch-label">${label}</div></div>`;
+}
+
+function renderAppPreview(p, mode) {
+  const c = p[mode];
+  return `
+  <div class="app-preview" style="
+    --p-bg:${c.background}; --p-fg:${c.foreground}; --p-card:${c.card};
+    --p-primary:${c.primary}; --p-primaryFg:${c.primaryFg};
+    --p-secondary:${c.secondary}; --p-secondaryFg:${c.secondaryFg};
+    --p-muted:${c.muted}; --p-mutedFg:${c.mutedFg};
+    --p-accent:${c.accent}; --p-accentFg:${c.accentFg};
+    --p-border:${c.border}; --p-destructive:${c.destructive};
+    --p-success:${c.success}; --p-successFg:${c.successFg}; --p-successBorder:${c.successBorder};
+    --p-warning:${c.warning}; --p-warningFg:${c.warningFg}; --p-warningBorder:${c.warningBorder};
+    --p-rowHover:${c.rowHover}; --p-gridRule:${c.gridRule};
+    --p-gridHeader:${c.gridHeader}; --p-gridHeaderFg:${c.gridHeaderFg};
+    --p-rowSelected:${c.rowSelected};
+    background:${c.background}; color:${c.foreground};
+  ">
+    <div class="app-sidebar" style="background:${c.card};">
+      <div class="app-sidebar-head">
+        <div class="app-sidebar-brand" style="background:${c.primary}20;">
+          <svg viewBox="0 0 24 24" fill="none"><path d="M7 17V7h5.5a3.5 3.5 0 1 1 0 7H9" stroke="${c.primary}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <span class="app-sidebar-wordmark">PAKO</span>
+      </div>
+      <div class="app-sidebar-nav">
+        <div class="app-nav-item app-nav-active" style="background:${c.rowSelected}; color:${c.accentFg}; border-color:${c.primary};">Dashboard</div>
+        <div class="app-nav-item">Partners</div>
+        <div class="app-nav-cat" style="color:${c.mutedFg};">SALES</div>
+        <div class="app-nav-item">Invoices</div>
+        <div class="app-nav-item">Sales Returns</div>
+        <div class="app-nav-cat" style="color:${c.mutedFg};">PURCHASES</div>
+        <div class="app-nav-item">Bills</div>
+        <div class="app-nav-item">Purchase Orders</div>
+        <div class="app-nav-cat" style="color:${c.mutedFg};">LEDGER</div>
+        <div class="app-nav-item">Chart of Accounts</div>
+        <div class="app-nav-item">Journal Entries</div>
+      </div>
+    </div>
+    <div class="app-main">
+      <div class="app-header" style="background:${c.card}; border-color:${c.border};">
+        <span style="color:${c.mutedFg};">Kosovo Accounting Platform</span>
+        <span style="margin-left:12px; background:${c.primary}18; color:${c.primary}; padding:2px 10px; border-radius:5px; font-size:11px; font-weight:600;">Soloop SHPK</span>
+        <span style="flex:1;"></span>
+        <span class="app-btn" style="background:${c.primary}; color:${c.primaryFg};">+ New Invoice</span>
+      </div>
+      <div class="app-content" style="background:${c.background};">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+          <span style="font-size:16px; font-weight:700;">Invoices</span>
+          <div style="display:flex; gap:6px;">
+            <span class="app-btn" style="background:${c.secondary}; color:${c.secondaryFg}; border:1px solid ${c.border}; font-size:10px;">Export</span>
+          </div>
+        </div>
+        <table class="app-table" style="border-color:${c.border};">
+          <thead><tr style="background:${c.gridHeader}; color:${c.gridHeaderFg};">
+            <th>Number</th><th>Partner</th><th>Date</th><th>Amount</th><th>Status</th>
+          </tr></thead>
+          <tbody>
+            <tr><td>INV-0042</td><td>Artisan Coffee SH.P.K.</td><td>08.11.2026</td><td style="font-variant-numeric:tabular-nums; text-align:right;">1,240.00</td>
+              <td><span class="app-badge" style="background:${c.success}; color:${c.successFg}; border:1px solid ${c.successBorder};">Posted</span></td></tr>
+            <tr><td>INV-0041</td><td>ProTech Solutions</td><td>05.11.2026</td><td style="font-variant-numeric:tabular-nums; text-align:right;">3,850.00</td>
+              <td><span class="app-badge" style="background:${c.warning}; color:${c.warningFg}; border:1px solid ${c.warningBorder}; border-left:3px solid ${c.warningFg};">Overdue</span></td></tr>
+            <tr><td>INV-0040</td><td>Kosova Digital</td><td>02.11.2026</td><td style="font-variant-numeric:tabular-nums; text-align:right;">680.50</td>
+              <td><span class="app-badge" style="background:${c.success}; color:${c.successFg}; border:1px solid ${c.successBorder};">Posted</span></td></tr>
+            <tr><td>INV-0039</td><td>Besa Construction</td><td>28.10.2026</td><td style="font-variant-numeric:tabular-nums; text-align:right;">12,400.00</td>
+              <td><span class="app-badge" style="background:transparent; color:${c.mutedFg}; border:1px dashed ${c.border}; font-style:italic;">Draft</span></td></tr>
+            <tr><td>INV-0038</td><td>Prishtina Motors</td><td>25.10.2026</td><td style="font-variant-numeric:tabular-nums; text-align:right;">5,920.00</td>
+              <td><span class="app-badge" style="background:${c.success}; color:${c.successFg}; border:1px solid ${c.successBorder};">Posted</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`;
+}
+
+const container = document.getElementById("palettes");
+const modes = {};
+
+palettes.forEach((p, i) => {
+  modes[i] = "light";
+  const id = `palette-${i}`;
+  const card = document.createElement("div");
+  card.className = "palette-card";
+  card.id = id;
+  container.appendChild(card);
+
+  function render() {
+    const mode = modes[i];
+    const c = p[mode];
+    card.innerHTML = `
+      <div class="palette-header">
+        <span class="tag" style="background:${p.tagColor}18; color:${p.tagColor};">${p.tag}</span>
+        <h2>${i + 1}. ${p.name}</h2>
+        <p>${p.desc}</p>
+      </div>
+      <div class="palette-body">
+        <div class="mode-toggle">
+          <button class="mode-btn ${mode === 'light' ? 'active' : ''}" data-mode="light">Light</button>
+          <button class="mode-btn ${mode === 'dark' ? 'active' : ''}" data-mode="dark">Dark</button>
+        </div>
+
+        <div class="section-label">Core</div>
+        <div class="swatch-row">
+          ${renderSwatch(c.primary, "Primary")}
+          ${renderSwatch(c.primaryFg, "Primary fg")}
+          ${renderSwatch(c.background, "Background")}
+          ${renderSwatch(c.foreground, "Foreground")}
+          ${renderSwatch(c.card, "Card")}
+          ${renderSwatch(c.border, "Border")}
+        </div>
+
+        <div class="section-label">UI</div>
+        <div class="swatch-row">
+          ${renderSwatch(c.secondary, "Secondary")}
+          ${renderSwatch(c.secondaryFg, "Sec. fg")}
+          ${renderSwatch(c.muted, "Muted")}
+          ${renderSwatch(c.mutedFg, "Muted fg")}
+          ${renderSwatch(c.accent, "Accent")}
+          ${renderSwatch(c.accentFg, "Accent fg")}
+        </div>
+
+        <div class="section-label">Semantic</div>
+        <div class="swatch-row">
+          ${renderSwatch(c.destructive, "Destructive")}
+          ${renderSwatch(c.success, "Success")}
+          ${renderSwatch(c.successFg, "Success fg")}
+          ${renderSwatch(c.warning, "Warning")}
+          ${renderSwatch(c.warningFg, "Warning fg")}
+          ${renderSwatch(c.info, "Info")}
+        </div>
+
+        <div class="section-label">Grid</div>
+        <div class="swatch-row">
+          ${renderSwatch(c.gridHeader, "Header")}
+          ${renderSwatch(c.gridHeaderFg, "Header fg")}
+          ${renderSwatch(c.gridRule, "Rule")}
+          ${renderSwatch(c.rowHover, "Hover")}
+          ${renderSwatch(c.rowSelected, "Selected")}
+        </div>
+
+        <div class="section-label">App Preview</div>
+        ${renderAppPreview(p, mode)}
+      </div>
+    `;
+
+    card.querySelectorAll(".mode-btn").forEach(btn => {
+      btn.addEventListener("click", () => { modes[i] = btn.dataset.mode; render(); });
+    });
+  }
+
+  render();
+});
+</script>
+</body>
+</html>
