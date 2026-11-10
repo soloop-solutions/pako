@@ -18,74 +18,75 @@
   /* 6px. shadcn derives sm 2 / md 4 / lg 6 / xl 10 from this — controls land on md. */
   --radius: 0.375rem;
 
-  --background: oklch(0.962 0.006 85);
-  --foreground: oklch(0.205 0.008 75);
-  --card: oklch(0.988 0.004 85);
-  --card-foreground: oklch(0.205 0.008 75);
-  --popover: oklch(0.995 0.003 85);
-  --popover-foreground: oklch(0.205 0.008 75);
-  --primary: oklch(0.48 0.14 245);
-  --primary-foreground: oklch(0.985 0.004 245);
-  --secondary: oklch(0.935 0.008 82);
-  --secondary-foreground: oklch(0.355 0.010 75);
-  --muted: oklch(0.955 0.006 84);
-  --muted-foreground: oklch(0.47 0.010 75);
-  --accent: oklch(0.945 0.025 245);
-  --accent-foreground: oklch(0.30 0.050 245);
+  --background: oklch(0.965 0.005 75);
+  --foreground: oklch(0.195 0.010 70);
+  --card: oklch(0.990 0.003 75);
+  --card-foreground: oklch(0.195 0.010 70);
+  --popover: oklch(0.995 0.002 75);
+  --popover-foreground: oklch(0.195 0.010 70);
+  --primary: oklch(0.46 0.10 195);
+  --primary-foreground: oklch(0.985 0.006 195);
+  --secondary: oklch(0.938 0.006 75);
+  --secondary-foreground: oklch(0.345 0.010 70);
+  --muted: oklch(0.955 0.005 75);
+  --muted-foreground: oklch(0.465 0.008 70);
+  --accent: oklch(0.945 0.020 195);
+  --accent-foreground: oklch(0.285 0.045 195);
   --destructive: oklch(0.545 0.155 27);
-  --border: oklch(0.885 0.007 80);
-  --input: oklch(0.78 0.010 80);
-  --ring: oklch(0.52 0.12 245);
+  --destructive-foreground: oklch(0.985 0.010 27);
+  --border: oklch(0.890 0.006 72);
+  --input: oklch(0.785 0.008 72);
+  --ring: oklch(0.50 0.09 195);
 
   /* Document state. Each pair also carries a border, because 1a's pills are
      filled AND bordered, and each state owns a non-colour cue in markup:
      success = fill + border · warning = 3px left bar · info = 2px bottom rule
      draft   = dashed + italic · neutral = strikethrough                      */
-  --success: oklch(0.915 0.040 150);
-  --success-foreground: oklch(0.385 0.075 150);
-  --success-border: oklch(0.80 0.055 150);
+  --success: oklch(0.920 0.038 155);
+  --success-foreground: oklch(0.375 0.070 155);
+  --success-border: oklch(0.805 0.052 155);
   --warning: oklch(0.945 0.050 80);
-  --warning-foreground: oklch(0.43 0.090 60);
-  --warning-border: oklch(0.86 0.065 78);
-  --info: oklch(0.895 0.035 235);
-  --info-foreground: oklch(0.40 0.070 242);
-  --info-border: oklch(0.80 0.048 235);
-  --neutral-state: oklch(0.930 0.004 85);
-  --neutral-state-foreground: oklch(0.42 0.006 85);
-  --neutral-state-border: oklch(0.87 0.005 85);
+  --warning-foreground: oklch(0.430 0.090 60);
+  --warning-border: oklch(0.860 0.065 78);
+  --info: oklch(0.900 0.030 220);
+  --info-foreground: oklch(0.395 0.065 225);
+  --info-border: oklch(0.805 0.042 220);
+  --neutral-state: oklch(0.930 0.004 75);
+  --neutral-state-foreground: oklch(0.42 0.006 75);
+  --neutral-state-border: oklch(0.87 0.005 75);
 
   /* Column tints. Deliberately near-achromatic: they must read as "this column
      is a debit column", never as "this number is wrong". */
-  --debit: oklch(0.975 0.008 240);
-  --credit: oklch(0.975 0.010 80);
+  --debit: oklch(0.975 0.008 220);
+  --credit: oklch(0.975 0.010 75);
 
   /* Register + grid. shadcn has no names for these and every list in PAKO needs them. */
-  --zebra: oklch(0.968 0.006 85);
-  --row-hover: oklch(0.955 0.015 245);
-  --row-selected: oklch(0.945 0.025 245);
-  --row-selected-border: oklch(0.88 0.025 245);
-  --grid-rule: oklch(0.915 0.006 80);
-  --grid-header: oklch(0.935 0.008 82);
-  --grid-header-foreground: oklch(0.355 0.010 75);
-  --grid-header-border: oklch(0.80 0.008 78);
-  --cell-active: oklch(0.48 0.14 245);
-  --totals: oklch(0.955 0.020 85);
-  --totals-foreground: oklch(0.225 0.012 75);
+  --zebra: oklch(0.968 0.005 75);
+  --row-hover: oklch(0.955 0.015 195);
+  --row-selected: oklch(0.945 0.025 195);
+  --row-selected-border: oklch(0.88 0.025 195);
+  --grid-rule: oklch(0.915 0.005 72);
+  --grid-header: oklch(0.938 0.006 74);
+  --grid-header-foreground: oklch(0.345 0.010 70);
+  --grid-header-border: oklch(0.80 0.007 72);
+  --cell-active: oklch(0.46 0.10 195);
+  --totals: oklch(0.955 0.018 75);
+  --totals-foreground: oklch(0.220 0.012 70);
   /* Charts (dashboard). Categorical slots in fixed order, validated against the card surface
      with the dataviz validator: slot 1 = the selected period, slot 2 = the comparison period.
      Aging uses one-hue ordinal steps (not due → 90+ days). Chart chrome stays recessive. */
-  --chart-1: #2a78d6;
+  --chart-1: #0e8e96;
   --chart-2: #eb6834;
   --chart-3: #1baf7a;
   --chart-4: #eda100;
   --chart-5: #e87ba4;
-  --chart-6: #008300;
+  --chart-6: #2a78d6;
   --chart-other: #898781;
-  --chart-ord-1: #86b6ef;
-  --chart-ord-2: #5598e7;
-  --chart-ord-3: #2a78d6;
-  --chart-ord-4: #1c5cab;
-  --chart-ord-5: #104281;
+  --chart-ord-1: #7ecdd4;
+  --chart-ord-2: #4db8c2;
+  --chart-ord-3: #0e8e96;
+  --chart-ord-4: #0a6e76;
+  --chart-ord-5: #064e56;
   --chart-grid: #e1e0d9;
   --chart-axis: #c3c2b7;
   --chart-muted: #898781;
@@ -94,64 +95,65 @@
 }
 
 .dark {
-  --background: oklch(0.205 0.006 80);
-  --foreground: oklch(0.945 0.004 85);
-  --card: oklch(0.245 0.006 80);
-  --card-foreground: oklch(0.945 0.004 85);
-  --popover: oklch(0.265 0.006 80);
-  --popover-foreground: oklch(0.945 0.004 85);
-  --primary: oklch(0.68 0.15 245);
-  --primary-foreground: oklch(0.18 0.030 245);
-  --secondary: oklch(0.285 0.007 80);
-  --secondary-foreground: oklch(0.925 0.004 85);
-  --muted: oklch(0.285 0.006 80);
-  --muted-foreground: oklch(0.72 0.008 82);
-  --accent: oklch(0.295 0.045 245);
-  --accent-foreground: oklch(0.945 0.015 245);
+  --background: oklch(0.200 0.006 72);
+  --foreground: oklch(0.948 0.004 75);
+  --card: oklch(0.240 0.006 72);
+  --card-foreground: oklch(0.948 0.004 75);
+  --popover: oklch(0.260 0.006 72);
+  --popover-foreground: oklch(0.948 0.004 75);
+  --primary: oklch(0.68 0.10 195);
+  --primary-foreground: oklch(0.175 0.030 195);
+  --secondary: oklch(0.280 0.006 72);
+  --secondary-foreground: oklch(0.928 0.004 75);
+  --muted: oklch(0.280 0.005 72);
+  --muted-foreground: oklch(0.725 0.006 75);
+  --accent: oklch(0.290 0.035 195);
+  --accent-foreground: oklch(0.948 0.012 195);
   --destructive: oklch(0.665 0.165 25);
-  --border: oklch(0.365 0.006 80);
-  --input: oklch(0.41 0.006 80);
-  --ring: oklch(0.68 0.15 245);
+  --destructive-foreground: oklch(0.985 0.010 25);
+  --border: oklch(0.360 0.005 72);
+  --input: oklch(0.405 0.005 72);
+  --ring: oklch(0.68 0.10 195);
 
-  --success: oklch(0.31 0.045 150);
-  --success-foreground: oklch(0.845 0.090 150);
-  --success-border: oklch(0.42 0.060 150);
+  --success: oklch(0.31 0.045 155);
+  --success-foreground: oklch(0.845 0.090 155);
+  --success-border: oklch(0.42 0.060 155);
   --warning: oklch(0.335 0.055 70);
   --warning-foreground: oklch(0.875 0.100 82);
   --warning-border: oklch(0.44 0.070 72);
-  --info: oklch(0.30 0.045 235);
-  --info-foreground: oklch(0.835 0.075 235);
-  --info-border: oklch(0.41 0.060 235);
-  --neutral-state: oklch(0.30 0.005 85);
-  --neutral-state-foreground: oklch(0.755 0.006 85);
-  --neutral-state-border: oklch(0.40 0.005 85);
+  --info: oklch(0.30 0.045 220);
+  --info-foreground: oklch(0.835 0.075 220);
+  --info-border: oklch(0.41 0.060 220);
+  --neutral-state: oklch(0.30 0.005 75);
+  --neutral-state-foreground: oklch(0.755 0.006 75);
+  --neutral-state-border: oklch(0.40 0.005 75);
 
-  --debit: oklch(0.265 0.012 240);
-  --credit: oklch(0.265 0.014 80);
+  --debit: oklch(0.265 0.012 220);
+  --credit: oklch(0.265 0.014 75);
 
-  --zebra: oklch(0.245 0.006 80);
-  --row-hover: oklch(0.285 0.025 245);
-  --row-selected: oklch(0.305 0.045 245);
-  --row-selected-border: oklch(0.385 0.045 245);
-  --grid-rule: oklch(0.355 0.006 80);
-  --grid-header: oklch(0.275 0.008 80);
-  --grid-header-foreground: oklch(0.82 0.008 82);
-  --grid-header-border: oklch(0.42 0.007 80);
-  --cell-active: oklch(0.68 0.15 245);
-  --totals: oklch(0.275 0.014 85);
-  --totals-foreground: oklch(0.955 0.004 85);
-  --chart-1: #3987e5;
+  --zebra: oklch(0.240 0.006 72);
+  --row-hover: oklch(0.285 0.025 195);
+  --row-selected: oklch(0.305 0.045 195);
+  --row-selected-border: oklch(0.385 0.045 195);
+  --grid-rule: oklch(0.355 0.005 72);
+  --grid-header: oklch(0.275 0.006 72);
+  --grid-header-foreground: oklch(0.82 0.006 75);
+  --grid-header-border: oklch(0.42 0.005 72);
+  --cell-active: oklch(0.68 0.10 195);
+  --totals: oklch(0.275 0.012 75);
+  --totals-foreground: oklch(0.955 0.004 75);
+  --chart-1: #1aabb5;
   --chart-2: #d95926;
   --chart-3: #199e70;
   --chart-4: #c98500;
   --chart-5: #d55181;
-  --chart-6: #008300;
+  --chart-6: #3987e5;
   --chart-other: #898781;
-  --chart-ord-1: #184f95;
-  --chart-ord-2: #256abf;
-  --chart-ord-3: #3987e5;
-  --chart-ord-4: #6da7ec;
-  --chart-ord-5: #9ec5f4;
+  --chart-ord-1: #064e56;
+  --chart-ord-2: #0a7a84;
+  --chart-ord-3: #1aabb5;
+  --chart-ord-4: #5ccad2;
+  --chart-ord-5: #9ee0e6;
   --chart-grid: #2c2c2a;
   --chart-axis: #383835;
   --chart-muted: #898781;
@@ -175,6 +177,7 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -286,15 +289,15 @@
 }
 
 :root {
-  --auth-panel: oklch(0.32 0.09 245);
-  --auth-panel-deep: oklch(0.22 0.08 250);
-  --auth-panel-foreground: oklch(0.975 0.006 245);
-  --auth-panel-muted: oklch(0.82 0.03 245);
+  --auth-panel: oklch(0.32 0.07 195);
+  --auth-panel-deep: oklch(0.22 0.06 200);
+  --auth-panel-foreground: oklch(0.975 0.006 195);
+  --auth-panel-muted: oklch(0.82 0.03 195);
 }
 
 .dark {
-  --auth-panel: oklch(0.25 0.07 245);
-  --auth-panel-deep: oklch(0.19 0.06 250);
+  --auth-panel: oklch(0.25 0.06 195);
+  --auth-panel-deep: oklch(0.19 0.05 200);
 }
 
 @layer components {
