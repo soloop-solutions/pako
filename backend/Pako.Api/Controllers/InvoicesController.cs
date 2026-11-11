@@ -61,7 +61,8 @@ public class InvoicesController : ControllerBase
             .OrderByDescending(i => i.IssueDate)
             .ToListAsync();
 
-        return Ok(invoices.Select(ToResponse).ToList());
+        var partnerNames = await PartnerNamesAsync(companyId, invoices.Select(i => i.PartnerId));
+        return Ok(invoices.Select(i => ToResponse(i, partnerNames)).ToList());
     }
 
     [HttpGet("paged")]
@@ -121,7 +122,8 @@ public class InvoicesController : ControllerBase
         var total = await query.CountAsync();
         var invoices = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
-        return Ok(new PaginatedResponse<InvoiceResponse>(invoices.Select(ToResponse).ToList(), total, page, pageSize));
+        var partnerNames = await PartnerNamesAsync(companyId, invoices.Select(i => i.PartnerId));
+        return Ok(new PaginatedResponse<InvoiceResponse>(invoices.Select(i => ToResponse(i, partnerNames)).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{id:guid}")]
@@ -1796,9 +1798,19 @@ public class InvoicesController : ControllerBase
         return Ok(new CreditExposureResponse(partner.CreditLimit, outstanding, available));
     }
 
-    private static InvoiceResponse ToResponse(Invoice i) => new(
+    private async Task<Dictionary<Guid, string>> PartnerNamesAsync(Guid companyId, IEnumerable<Guid> partnerIds)
+    {
+        var ids = partnerIds.Distinct().ToList();
+        if (ids.Count == 0) return new();
+        return await _db.Partners.AsNoTracking()
+            .Where(p => p.CompanyId == companyId && ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name);
+    }
+
+    private static InvoiceResponse ToResponse(Invoice i, Dictionary<Guid, string>? partnerNames = null) => new(
         i.Id,
         i.PartnerId,
+        partnerNames?.GetValueOrDefault(i.PartnerId),
         i.InvoiceNumber,
         i.IssueDate,
         i.DueDate,

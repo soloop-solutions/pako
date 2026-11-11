@@ -76,6 +76,7 @@ public record BillLineResponse(
 public record BillResponse(
     Guid Id,
     Guid PartnerId,
+    string? PartnerName,
     string? VendorReference,
     DateOnly IssueDate,
     DateOnly DueDate,

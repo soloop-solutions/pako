@@ -83,6 +83,7 @@ public record InvoiceLineResponse(
 public record InvoiceResponse(
     Guid Id,
     Guid PartnerId,
+    string? PartnerName,
     string? InvoiceNumber,
     DateOnly IssueDate,
     DateOnly DueDate,

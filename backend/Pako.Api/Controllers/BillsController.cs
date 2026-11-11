@@ -52,7 +52,8 @@ public class BillsController : ControllerBase
             .OrderByDescending(b => b.IssueDate)
             .ToListAsync();
 
-        return Ok(bills.Select(ToResponse).ToList());
+        var partnerNames = await PartnerNamesAsync(companyId, bills.Select(b => b.PartnerId));
+        return Ok(bills.Select(b => ToResponse(b, partnerNames)).ToList());
     }
 
     [HttpGet("paged")]
@@ -112,7 +113,8 @@ public class BillsController : ControllerBase
         var total = await query.CountAsync();
         var bills = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
-        return Ok(new PaginatedResponse<BillResponse>(bills.Select(ToResponse).ToList(), total, page, pageSize));
+        var partnerNames = await PartnerNamesAsync(companyId, bills.Select(b => b.PartnerId));
+        return Ok(new PaginatedResponse<BillResponse>(bills.Select(b => ToResponse(b, partnerNames)).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{id:guid}")]
@@ -1340,9 +1342,19 @@ public class BillsController : ControllerBase
         }).Where(l => l.Open > 0).ToList();
     }
 
-    private static BillResponse ToResponse(Bill b) => new(
+    private async Task<Dictionary<Guid, string>> PartnerNamesAsync(Guid companyId, IEnumerable<Guid> partnerIds)
+    {
+        var ids = partnerIds.Distinct().ToList();
+        if (ids.Count == 0) return new();
+        return await _db.Partners.AsNoTracking()
+            .Where(p => p.CompanyId == companyId && ids.Contains(p.Id))
+            .ToDictionaryAsync(p => p.Id, p => p.Name);
+    }
+
+    private static BillResponse ToResponse(Bill b, Dictionary<Guid, string>? partnerNames = null) => new(
         b.Id,
         b.PartnerId,
+        partnerNames?.GetValueOrDefault(b.PartnerId),
         b.VendorReference,
         b.IssueDate,
         b.DueDate,

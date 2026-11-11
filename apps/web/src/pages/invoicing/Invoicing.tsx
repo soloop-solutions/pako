@@ -171,7 +171,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
       {
         id: "customer",
         header: intl.formatMessage({ id: "common.customer" }),
-        accessorFn: (row) => partnerName(row.partnerId),
+        accessorFn: (row) => row.partnerName ?? partnerName(row.partnerId),
       },
       {
         accessorKey: "issueDate",

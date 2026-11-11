@@ -118,7 +118,7 @@ export function Bills() {
       {
         id: "vendor",
         header: intl.formatMessage({ id: "common.vendor" }),
-        accessorFn: (row) => partnerName(row.partnerId),
+        accessorFn: (row) => row.partnerName ?? partnerName(row.partnerId),
       },
       {
         accessorKey: "issueDate",
