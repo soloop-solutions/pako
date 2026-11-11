@@ -594,6 +594,25 @@ public class BillsController : ControllerBase
         return Ok(await ComputeBalanceAsync(companyId, id, bill.JournalEntryId, bill.DocumentType, bill.PartnerId));
     }
 
+    [HttpPost("balances")]
+    [RequireCompanyAccess(module: AccessModule.Purchases)]
+    public async Task<ActionResult<Dictionary<Guid, DocumentBalanceResponse>>> Balances(Guid companyId, [FromBody] List<Guid> billIds)
+    {
+        if (billIds is not { Count: > 0 }) return Ok(new Dictionary<Guid, DocumentBalanceResponse>());
+        var ids = billIds.Distinct().Take(200).ToList();
+
+        var bills = await _db.Bills.AsNoTracking().VisibleTo(_access)
+            .Where(b => b.CompanyId == companyId && ids.Contains(b.Id))
+            .Select(b => new { b.Id, b.JournalEntryId, b.DocumentType, b.PartnerId })
+            .ToListAsync();
+
+        var result = new Dictionary<Guid, DocumentBalanceResponse>();
+        foreach (var bill in bills)
+            result[bill.Id] = await ComputeBalanceAsync(companyId, bill.Id, bill.JournalEntryId, bill.DocumentType, bill.PartnerId);
+
+        return Ok(result);
+    }
+
     // Atomic replacement for the client's old draft-journal-entry -> post -> reconcile 3-call
     // sequence — see InvoicesController.RecordPayment's comment; this is the AP mirror (Debit
     // AP / Credit Cash-or-Bank instead of Debit Cash-or-Bank / Credit AR).

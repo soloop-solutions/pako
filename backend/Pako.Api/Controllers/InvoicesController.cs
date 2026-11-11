@@ -740,6 +740,25 @@ public class InvoicesController : ControllerBase
         return Ok(await ComputeBalanceAsync(companyId, id, invoice.JournalEntryId, invoice.DocumentType, invoice.PartnerId));
     }
 
+    [HttpPost("balances")]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
+    public async Task<ActionResult<Dictionary<Guid, DocumentBalanceResponse>>> Balances(Guid companyId, [FromBody] List<Guid> invoiceIds)
+    {
+        if (invoiceIds is not { Count: > 0 }) return Ok(new Dictionary<Guid, DocumentBalanceResponse>());
+        var ids = invoiceIds.Distinct().Take(200).ToList();
+
+        var invoices = await _db.Invoices.AsNoTracking().VisibleTo(_access)
+            .Where(i => i.CompanyId == companyId && ids.Contains(i.Id))
+            .Select(i => new { i.Id, i.JournalEntryId, i.DocumentType, i.PartnerId })
+            .ToListAsync();
+
+        var result = new Dictionary<Guid, DocumentBalanceResponse>();
+        foreach (var inv in invoices)
+            result[inv.Id] = await ComputeBalanceAsync(companyId, inv.Id, inv.JournalEntryId, inv.DocumentType, inv.PartnerId);
+
+        return Ok(result);
+    }
+
     // Atomic replacement for the client's old draft-journal-entry -> post -> reconcile 3-call
     // sequence: builds the settlement entry, posts it, and reconciles it against this invoice in
     // one transaction (Postgres only — see SupportsRowLocking), so a mid-sequence failure (e.g. an

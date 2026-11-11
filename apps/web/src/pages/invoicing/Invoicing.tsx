@@ -13,7 +13,7 @@ import type {
 } from "@pako/shared";
 
 import { fetchAllItems } from "@/api/fetchAllItems";
-import { apiClient, getApiErrorMessage } from "@/api/client";
+import { apiClient, API_BASE_URL, authorizedFetch, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,9 +126,16 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     const missing = displayedInvoices.filter((invoice) => invoice.state === "Posted" && !(invoice.id in balances));
     if (missing.length === 0) return;
     let cancelled = false;
-    void Promise.all(missing.map(async (invoice) => [invoice.id, await apiClient.balance2(companyId, invoice.id)] as const)).then((entries) => {
-      if (!cancelled) setBalances((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
-    });
+    void (async () => {
+      const resp = await authorizedFetch(`${API_BASE_URL}/api/companies/${companyId}/invoices/balances`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(missing.map((i) => i.id)),
+      });
+      if (!resp.ok || cancelled) return;
+      const data = (await resp.json()) as Record<string, DocumentBalanceResponse>;
+      setBalances((prev) => ({ ...prev, ...data }));
+    })();
     return () => {
       cancelled = true;
     };
