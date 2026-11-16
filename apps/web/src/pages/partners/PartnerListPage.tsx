@@ -19,6 +19,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { FormDialog } from "@/components/shared/FormDialog";
+import { EntityHistory } from "@/components/shared/EntityHistory";
 import { useCompany } from "@/context/CompanyContext";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
@@ -415,6 +416,7 @@ export function PartnerListPage({
             onDirtyChange={setDirty}
           />
         )}
+        {editingPartner && <div className="mt-4"><EntityHistory entityType="Partner" entityId={editingPartner.id} /></div>}
       </FormDialog>
 
       <DataGrid
