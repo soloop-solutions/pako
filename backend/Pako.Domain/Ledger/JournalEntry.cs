@@ -30,14 +30,9 @@ public class JournalEntry
     [Pako.Domain.Shared.AuditIgnore]
     public long? SecureSequenceNumber { get; set; }
 
-    // R28 (BLOCK, columns-only this stage): "every posting stores user id, timestamp, source
-    // document id and IP". PostedAtUtc above already covers timestamp. Set by the controller
-    // (an HTTP-layer concern, not something this pure domain method should know about) on the
-    // 4 primary posting actions — JournalEntriesController.Post, InvoicesController.Post,
-    // BillsController.Post, PayrollRunsController.Post — not yet on the RecordPayment/
-    // ApplyCreditNote/ApplyDownPayment secondary settlement entries, a documented gap.
-    // PostedFromIp stays unpopulated in this stage, per the brief's own explicit allowance
-    // ("even if the IP capture comes later").
+    // R28: user id, timestamp, source document id and IP of posting. PostedFromIp is stamped by the
+    // audit capture on the first posting save when the request carries an IP; PostedByUserId is set
+    // by the controllers of the 4 primary posting actions, not yet by the secondary settlement entries.
     public Guid? PostedByUserId { get; set; }
     public string? PostedFromIp { get; set; }
     public Guid? SourceDocumentId { get; set; }

@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Domain.Shared;
@@ -394,4 +396,79 @@ public class AuditTrailTests : IAsyncLifetime
 
         Assert.True((await AuditChainVerifier.VerifyAsync(db, company.Id)).Valid);
     }
+
+    private sealed class FailingTransactionInterceptor : DbTransactionInterceptor
+    {
+        public int FailuresLeft { get; set; } = 1;
+
+        public override ValueTask<InterceptionResult<DbTransaction>> TransactionStartingAsync(
+            DbConnection connection, TransactionStartingEventData eventData, InterceptionResult<DbTransaction> result,
+            CancellationToken cancellationToken = default)
+        {
+            if (FailuresLeft-- > 0)
+            {
+                throw new InvalidOperationException("transaction start failed");
+            }
+
+            return base.TransactionStartingAsync(connection, eventData, result, cancellationToken);
+        }
+    }
+
+    [Fact]
+    public async Task Save_WhenTransactionStartFails_RetryWritesOneAuditRow()
+    {
+        var db = await NewDb();
+        var interceptor = new FailingTransactionInterceptor();
+        var options = new DbContextOptionsBuilder<PakoDbContext>()
+            .UseNpgsql(db.Database.GetConnectionString()!)
+            .AddInterceptors(interceptor)
+            .Options;
+        await using var failing = new PakoDbContext(options);
+        var company = NewCompany();
+        failing.Companies.Add(company);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => failing.SaveChangesAsync());
+        Assert.Empty(failing.ChangeTracker.Entries<AuditEntry>());
+
+        await failing.SaveChangesAsync();
+
+        Assert.Equal(1, await db.AuditEntries.AsNoTracking().CountAsync(a => a.CompanyId == company.Id));
+    }
+
+    [Fact]
+    public async Task Save_OfLineWithUntrackedParent_StillAuditsParentUpdate()
+    {
+        var db = await NewDb();
+        var company = NewCompany();
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = company.Id, JournalId = Guid.NewGuid(), Date = new DateOnly(2026, 8, 26)
+        };
+        db.Companies.Add(company);
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        await using var other = PostgresTestDatabase.CreateAdditionalContext(db);
+        other.Set<JournalEntryLine>().Add(
+            new JournalEntryLine { Id = Guid.NewGuid(), JournalEntryId = entry.Id, AccountId = Guid.NewGuid(), Debit = 5m });
+        await other.SaveChangesAsync();
+
+        var row = await db.AuditEntries.AsNoTracking()
+            .SingleAsync(a => a.EntityType == "JournalEntry" && a.Action == "Updated");
+        Assert.Equal(company.Id, row.CompanyId);
+        Assert.Equal(entry.Id.ToString(), row.EntityId);
+        Assert.Contains(Fields(row), f => f.Field == "Lines" && f.New == "added 1");
+    }
+
+    [Theory]
+    [InlineData("PersonalNumber", true)]
+    [InlineData("Pin", true)]
+    [InlineData("PIN", true)]
+    [InlineData("CardPin", true)]
+    [InlineData("Shipping", false)]
+    [InlineData("MappingCode", false)]
+    [InlineData("Salary", false)]
+    [InlineData("Iban", false)]
+    public void Redaction_CoversPinAndPersonalIds_ButNotSalaryOrIban(string field, bool sensitive) =>
+        Assert.Equal(sensitive, AuditRedaction.IsSensitive(field));
 }

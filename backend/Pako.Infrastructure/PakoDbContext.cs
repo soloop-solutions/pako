@@ -218,11 +218,12 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
             return base.SaveChanges(acceptAllChangesOnSuccess);
         }
 
-        using var transaction = Database.IsNpgsql() && Database.CurrentTransaction is null
-            ? Database.BeginTransaction()
-            : null;
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
         try
         {
+            transaction = Database.IsNpgsql() && Database.CurrentTransaction is null
+                ? Database.BeginTransaction()
+                : null;
             foreach (var companyId in pending.Select(e => e.CompanyId).Distinct().Order())
             {
                 if (Database.IsNpgsql())
@@ -247,6 +248,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
             DiscardCapturedAudit(captured);
             throw;
         }
+        finally
+        {
+            transaction?.Dispose();
+        }
     }
 
     public override async Task<int> SaveChangesAsync(
@@ -260,11 +265,12 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
             return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
         }
 
-        await using var transaction = Database.IsNpgsql() && Database.CurrentTransaction is null
-            ? await Database.BeginTransactionAsync(cancellationToken)
-            : null;
+        Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction? transaction = null;
         try
         {
+            transaction = Database.IsNpgsql() && Database.CurrentTransaction is null
+                ? await Database.BeginTransactionAsync(cancellationToken)
+                : null;
             foreach (var companyId in pending.Select(e => e.CompanyId).Distinct().Order())
             {
                 if (Database.IsNpgsql())
@@ -293,6 +299,13 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         {
             DiscardCapturedAudit(captured);
             throw;
+        }
+        finally
+        {
+            if (transaction is not null)
+            {
+                await transaction.DisposeAsync();
+            }
         }
     }
 

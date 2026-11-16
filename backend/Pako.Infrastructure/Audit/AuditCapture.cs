@@ -3,7 +3,9 @@ using System.Globalization;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage;
 using Pako.Domain.Companies;
 using Pako.Domain.Ledger;
 using Pako.Domain.Shared;
@@ -114,6 +116,7 @@ internal static class AuditCapture
             order.Add(record);
         }
 
+        Dictionary<(Type, string), EntityEntry>? trackedParents = null;
         foreach (var ((parentType, parentId), tally) in children)
         {
             var summary = LinesSummary(tally);
@@ -127,15 +130,28 @@ internal static class AuditCapture
                 continue;
             }
 
-            var parent = tracker.Entries().FirstOrDefault(e =>
-                e.Metadata.ClrType == parentType && KeyOf(e) == parentId);
-            if (parent is null || parent.State is EntityState.Added or EntityState.Deleted ||
-                ResolveCompanyId(parent) is not { } companyId)
+            Dictionary<(Type, string), EntityEntry> index = trackedParents ??= IndexParents(tracker, children.Keys.Select(k => k.Parent).ToHashSet());
+            if (index.TryGetValue((parentType, parentId), out var parent))
+            {
+                if (parent.State is EntityState.Added or EntityState.Deleted ||
+                    ResolveCompanyId(parent) is not { } trackedCompanyId)
+                {
+                    continue;
+                }
+
+                var trackedRecord = new Pending(trackedCompanyId, parentType.Name, parentId, "Updated", SourceOf(parent));
+                trackedRecord.Changes.Add(new AuditFieldChange("Lines", null, summary));
+                records[(parentType.Name, parentId)] = trackedRecord;
+                order.Add(trackedRecord);
+                continue;
+            }
+
+            if (LookupCompanyId(db, parentType, parentId) is not { } companyId)
             {
                 continue;
             }
 
-            var record = new Pending(companyId, parentType.Name, parentId, "Updated", SourceOf(parent));
+            var record = new Pending(companyId, parentType.Name, parentId, "Updated", null);
             record.Changes.Add(new AuditFieldChange("Lines", null, summary));
             records[(parentType.Name, parentId)] = record;
             order.Add(record);
@@ -161,6 +177,62 @@ internal static class AuditCapture
         }
 
         return added;
+    }
+
+    private static Dictionary<(Type, string), EntityEntry> IndexParents(ChangeTracker tracker, HashSet<Type> parentTypes)
+    {
+        var index = new Dictionary<(Type, string), EntityEntry>();
+        foreach (var entry in tracker.Entries())
+        {
+            var type = entry.Metadata.ClrType;
+            if (parentTypes.Contains(type))
+            {
+                index[(type, KeyOf(entry))] = entry;
+            }
+        }
+
+        return index;
+    }
+
+    private static Guid? LookupCompanyId(PakoDbContext db, Type parentType, string parentId)
+    {
+        var entityType = db.Model.FindEntityType(parentType);
+        var table = entityType?.GetTableName();
+        var key = entityType?.FindPrimaryKey()?.Properties[0].GetColumnName();
+        if (table is null || key is null || !db.Database.IsRelational() ||
+            entityType!.FindProperty("CompanyId") is null || !Guid.TryParse(parentId, out var id))
+        {
+            return null;
+        }
+
+        var schema = entityType.GetSchema();
+        var qualified = schema is null ? $"\"{table}\"" : $"\"{schema}\".\"{table}\"";
+        var sql = $"select \"CompanyId\" from {qualified} where \"{key}\" = @p0";
+        var connection = db.Database.GetDbConnection();
+        var opened = connection.State != System.Data.ConnectionState.Open;
+        if (opened)
+        {
+            connection.Open();
+        }
+
+        try
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = sql;
+            command.Transaction = db.Database.CurrentTransaction?.GetDbTransaction();
+            var parameter = command.CreateParameter();
+            parameter.ParameterName = "p0";
+            parameter.Value = id;
+            command.Parameters.Add(parameter);
+            return command.ExecuteScalar() is Guid g && g != Guid.Empty ? g : null;
+        }
+        finally
+        {
+            if (opened)
+            {
+                connection.Close();
+            }
+        }
     }
 
     private static string LinesSummary(ChildTally t) =>
