@@ -24,6 +24,7 @@ export interface PostgresOptions {
   probe?: (port: number) => Promise<boolean>
   sleep?: (ms: number) => Promise<void>
   readyTimeoutMs?: number
+  database?: string
 }
 
 const realFs: PgFs = {
@@ -127,19 +128,52 @@ export class PostgresProcess {
     }
   }
 
-  private async removeStalePidFile(): Promise<void> {
+  private sameDir(a: string, b: string): boolean {
+    const norm = (v: string) => v.trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
+    return norm(a) === norm(b)
+  }
+
+  private async runTool(name: string, args: string[], env?: Record<string, string>): Promise<void> {
+    const child = this.spawn(this.bin(name), args, env ? { env } : undefined)
+    const code = await waitForExit(child)
+    if (code !== 0) throw new Error(`${name} exited with code ${code}`)
+  }
+
+  private async recoverPidFile(): Promise<void> {
     const pidFile = this.path.join(this.opts.dataDir, 'postmaster.pid')
     if (!(await this.fs.exists(pidFile))) return
-    const firstLine = (await this.fs.readFile(pidFile)).split(/\r?\n/)[0] ?? ''
-    const pid = Number.parseInt(firstLine, 10)
-    if (Number.isFinite(pid) && this.isProcessAlive(pid)) {
-      throw new Error(`Postgres is already running (pid ${pid}); refusing to remove its pid file`)
+    const lines = (await this.fs.readFile(pidFile)).split(/\r?\n/)
+    const pid = Number.parseInt(lines[0] ?? '', 10)
+    const alive = Number.isFinite(pid) && this.isProcessAlive(pid)
+    if (alive && this.sameDir(lines[1] ?? '', this.opts.dataDir)) {
+      await this.runTool('pg_ctl', ['stop', '-D', this.opts.dataDir, '-m', 'fast', '-w'])
+      return
     }
     await this.fs.rm(pidFile)
   }
 
+  private async ensureDatabase(): Promise<void> {
+    const { port, password, dataDir } = this.opts
+    const db = this.opts.database ?? 'pako'
+    const sqlFile = this.path.join(this.path.dirname(dataDir), 'pg-create-db.sql')
+    const sql =
+      `SELECT 'CREATE DATABASE "${db}" ENCODING ''UTF8'' TEMPLATE template0'\n` +
+      `WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = '${db}')\n` +
+      `\\gexec\n`
+    await this.fs.writeFile(sqlFile, sql)
+    try {
+      await this.runTool(
+        'psql',
+        ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-f', sqlFile],
+        { PGPASSWORD: password },
+      )
+    } finally {
+      await this.fs.rm(sqlFile)
+    }
+  }
+
   async start(): Promise<void> {
-    await this.removeStalePidFile()
+    await this.recoverPidFile()
     const { dataDir, port } = this.opts
     const child = this.spawn(this.bin('postgres'), [
       '-D',
@@ -160,6 +194,7 @@ export class PostgresProcess {
     })
     child.on('error', () => {})
     await this.waitReady()
+    await this.ensureDatabase()
   }
 
   private async waitReady(): Promise<void> {
