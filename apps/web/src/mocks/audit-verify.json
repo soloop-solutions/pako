@@ -1,0 +1,8 @@
+{
+  "valid": true,
+  "checkedCount": 42,
+  "unchainedCount": 0,
+  "firstBrokenSequence": null,
+  "firstBrokenId": null,
+  "reason": null
+}

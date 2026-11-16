@@ -1741,4 +1741,21 @@ Estimate: {estimate} €.</value></data>
   <!-- Items -->
   <data name="ItemInUse" xml:space="preserve"><value>This item cannot be deleted because it has been used on documents. Deactivate it instead.</value></data>
   <data name="ItemNotFound" xml:space="preserve"><value>Item not found.</value></data>
+
+  <!-- Audit trail -->
+  <data name="Export_Sheet_Audit" xml:space="preserve"><value>Audit trail</value></data>
+  <data name="Export_Audit_Sequence" xml:space="preserve"><value>No.</value></data>
+  <data name="Export_Audit_OccurredAt" xml:space="preserve"><value>Time (UTC)</value></data>
+  <data name="Export_Audit_User" xml:space="preserve"><value>User</value></data>
+  <data name="Export_Audit_Action" xml:space="preserve"><value>Action</value></data>
+  <data name="Export_Audit_EntityType" xml:space="preserve"><value>Record type</value></data>
+  <data name="Export_Audit_EntityId" xml:space="preserve"><value>Record ID</value></data>
+  <data name="Export_Audit_Changes" xml:space="preserve"><value>Changes</value></data>
+  <data name="Export_Audit_IpAddress" xml:space="preserve"><value>IP address</value></data>
+  <data name="Export_Audit_RequestId" xml:space="preserve"><value>Request ID</value></data>
+  <data name="Export_Audit_Action_Created" xml:space="preserve"><value>Created</value></data>
+  <data name="Export_Audit_Action_Updated" xml:space="preserve"><value>Updated</value></data>
+  <data name="Export_Audit_Action_Deleted" xml:space="preserve"><value>Deleted</value></data>
+  <data name="Export_Audit_Action_Post" xml:space="preserve"><value>Posted</value></data>
+  <data name="AuditExportTooLarge" xml:space="preserve"><value>The audit trail export is limited to {0} rows. Narrow the filters and try again.</value></data>
 </root>
