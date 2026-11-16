@@ -4,6 +4,7 @@ using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Pako.Api.Contracts;
@@ -47,7 +48,18 @@ public sealed class DesktopSetupTests : IAsyncLifetime
         await _db.DisposeAsync();
     }
 
-    private WebApplicationFactory<Program> Build(bool enabled) =>
+    private sealed class FailRecoveryRecordSave : SaveChangesInterceptor
+    {
+        public override ValueTask<InterceptionResult<int>> SavingChangesAsync(
+            DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default)
+        {
+            if (eventData.Context!.ChangeTracker.Entries<AdminRecoveryRecord>().Any(e => e.State == EntityState.Added))
+                throw new InvalidOperationException("simulated recovery record failure");
+            return base.SavingChangesAsync(eventData, result, cancellationToken);
+        }
+    }
+
+    private WebApplicationFactory<Program> Build(bool enabled, bool failRecoveryRecord = false) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Production");
@@ -59,6 +71,7 @@ public sealed class DesktopSetupTests : IAsyncLifetime
             {
                 s.RemoveAll<TimeProvider>();
                 s.AddSingleton<TimeProvider>(_clock);
+                if (failRecoveryRecord) s.ConfigureDbContext<PakoDbContext>(o => o.AddInterceptors(new FailRecoveryRecordSave()));
             });
         });
 
@@ -131,6 +144,33 @@ public sealed class DesktopSetupTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.OK, (await Login(NewPassword)).StatusCode);
         Assert.NotEqual(HttpStatusCode.OK, (await Login(Password)).StatusCode);
         Assert.Equal(1, await _db.Set<AdminRecoveryRecord>().CountAsync());
+    }
+
+    [Fact]
+    public async Task Recover_RevokesRefreshTokensIssuedBefore()
+    {
+        var code = await Setup();
+        var login = await Login(Password);
+        var refresh = (await login.Content.ReadFromJsonAsync<AuthResponse>())!.RefreshToken!;
+
+        Assert.Equal(HttpStatusCode.NoContent, (await Recover(code)).StatusCode);
+
+        var rotated = await _client.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(refresh));
+        Assert.Equal(HttpStatusCode.Unauthorized, rotated.StatusCode);
+    }
+
+    [Fact]
+    public async Task Setup_IsAtomic_WhenRecoveryRecordSaveFails()
+    {
+        using var failing = Build(true, failRecoveryRecord: true);
+        using var failingClient = Client(failing);
+
+        var response = await failingClient.PostAsJsonAsync("/api/desktop/setup", new DesktopSetupRequest(Email, Password, "Owner"));
+
+        Assert.False(response.IsSuccessStatusCode);
+        Assert.Equal(0, await _db.Users.CountAsync());
+        Assert.True((await _client.GetFromJsonAsync<DesktopSetupStatusResponse>("/api/desktop/setup"))!.NeedsSetup);
+        Assert.False(string.IsNullOrEmpty(await Setup()));
     }
 
     [Fact]

@@ -20,6 +20,7 @@ public class DesktopSetupController(
     PakoDbContext db,
     UserManager<AppUser> users,
     PlatformBootstrap bootstrap,
+    RefreshTokenService refreshTokens,
     RecoveryThrottle throttle,
     TimeProvider clock,
     IStringLocalizer<ErrorMessages> localizer) : ControllerBase
@@ -34,6 +35,7 @@ public class DesktopSetupController(
         if (await db.Users.AnyAsync(ct)) return Conflict();
 
         var email = (request.Email ?? string.Empty).Trim();
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var created = await bootstrap.CreateAdministratorAsync(email, request.Password ?? string.Empty, request.FullName?.Trim() ?? string.Empty);
         if (!created.Succeeded)
             return BadRequest(string.Join(" ", created.Errors.Select(e => e.Description)));
@@ -48,6 +50,7 @@ public class DesktopSetupController(
             CreatedAt = clock.GetUtcNow(),
         });
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         return Ok(new DesktopSetupResponse(code));
     }
 
@@ -79,6 +82,7 @@ public class DesktopSetupController(
 
         match.UsedAt = clock.GetUtcNow();
         await db.SaveChangesAsync(ct);
+        await refreshTokens.RevokeAllForUserAsync(user.Id);
         await users.SetLockoutEndDateAsync(user, null);
         await users.ResetAccessFailedCountAsync(user);
         throttle.Reset(email);
