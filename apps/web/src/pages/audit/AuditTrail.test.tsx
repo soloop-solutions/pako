@@ -121,6 +121,20 @@ describe("AuditTrail", () => {
     expect(auditDetailMock).toHaveBeenCalledWith(companyId, auditDetail.entry.id);
   });
 
+  it("links the source document when its kind is known", async () => {
+    const sourceId = "6f1c2f6e-0000-4000-8000-000000000001";
+    auditDetailMock.mockResolvedValueOnce({
+      ...auditDetail,
+      entry: { ...auditDetail.entry, sourceDocumentId: sourceId, sourceKind: "Invoice" },
+    });
+    renderWith(<AuditTrail />);
+    await screen.findAllByText(/Alice Berisha/);
+    fireEvent.click(screen.getAllByRole("button", { name: "View details" })[0]);
+    const dialog = await screen.findByRole("dialog");
+    const link = await within(dialog).findByRole("link", { name: /^Open Invoice/ });
+    expect(link).toHaveAttribute("href", `/invoicing/${sourceId}`);
+  });
+
   it("reports an intact chain", async () => {
     auditVerify.mockResolvedValue(auditVerifyValid);
     renderWith(<AuditTrail />);

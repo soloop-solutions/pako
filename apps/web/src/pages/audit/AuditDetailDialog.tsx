@@ -3,6 +3,7 @@ import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { entityPath } from "@/lib/entityLinks";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -33,6 +34,7 @@ export function AuditDetailDialog({ companyId, entryId, onClose }: AuditDetailDi
   const entry = detail?.entry;
   const none = intl.formatMessage({ id: "audit.detail.none" });
   const recordPath = entry ? auditEntityPath(entry.entityType, entry.entityId) : null;
+  const sourcePath = entry ? entityPath({ kind: entry.sourceKind, id: entry.sourceDocumentId }) : null;
 
   return (
     <Dialog open={!!entryId} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -77,7 +79,13 @@ export function AuditDetailDialog({ companyId, entryId, onClose }: AuditDetailDi
                 <span className="break-all font-mono text-xs">{entry.requestId ?? none}</span>
               </Meta>
               <Meta label={intl.formatMessage({ id: "audit.detail.sourceDocument" })}>
-                <span className="break-all font-mono text-xs">{entry.sourceDocumentId ?? none}</span>
+                {sourcePath ? (
+                  <Link className="text-primary underline-offset-2 hover:underline" to={sourcePath}>
+                    {intl.formatMessage({ id: "audit.detail.openSource" }, { kind: auditEntityTypeLabel(intl, entry.sourceKind ?? "") })}
+                  </Link>
+                ) : (
+                  <span className="break-all font-mono text-xs">{entry.sourceDocumentId ?? none}</span>
+                )}
               </Meta>
             </dl>
 
