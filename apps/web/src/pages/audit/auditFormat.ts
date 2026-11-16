@@ -77,7 +77,7 @@ export function humanizeField(name: string): string {
   return spaced.charAt(0).toUpperCase() + spaced.slice(1).toLowerCase().replace(/\b(id|vat|nui|ip|iban|cit)\b/g, (m) => m.toUpperCase());
 }
 
-const MONEY_FIELD = /(amount|total|price|balance|debit|credit|cost|limit|fee|salary|wage|gross|net|discount)$/i;
+const MONEY_FIELD = /(amount|total|price|balance|debit|credit|cost|creditlimit|fee|salary|wage|gross|net)$/i;
 const NUMBER = /^-?\d+(\.\d+)?$/;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const ISO_DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;

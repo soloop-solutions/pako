@@ -19,9 +19,11 @@ export function useIsCompanyAdmin(companyId: string | null | undefined): { isAdm
     queryFn: () => apiClient.membersAll(companyId as string),
     enabled: !!companyId,
   });
-  const membership = (query.data ?? []).find((m) => userId !== undefined && m.userId === userId);
+  const isAdmin = (query.data ?? []).some(
+    (m) => userId !== undefined && m.userId === userId && isCompanyAdminRole(m.role),
+  );
   return {
-    isAdmin: membership ? isCompanyAdminRole(membership.role) : false,
+    isAdmin,
     isLoading: !!companyId && query.isPending,
   };
 }
