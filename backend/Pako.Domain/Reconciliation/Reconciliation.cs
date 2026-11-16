@@ -1,5 +1,6 @@
 namespace Pako.Domain.Reconciliation;
 
+[Pako.Domain.Shared.Audited]
 public class Reconciliation
 {
     public Guid Id { get; set; }

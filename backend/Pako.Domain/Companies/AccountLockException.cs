@@ -13,6 +13,7 @@ public enum LockDateField
 // B4: a per-user, reasoned, expiring override of one soft lock. Never deleted (R26-style — see
 // CLAUDE.md's repo-wide "no deletion" convention): revoking sets RevokedAt rather than removing
 // the row, so the grant/revoke history stays auditable.
+[Pako.Domain.Shared.Audited]
 public class AccountLockException
 {
     public Guid Id { get; set; }

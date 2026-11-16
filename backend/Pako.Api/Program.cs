@@ -83,6 +83,8 @@ builder.Services.AddSingleton(new JwtOptions
     RefreshTokenDays = refreshDays,
     RefreshReuseGraceSeconds = refreshGraceSeconds
 });
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<Pako.Infrastructure.Audit.IAuditContext, Pako.Api.Services.HttpAuditContext>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<RefreshTokenService>();
 builder.Services.AddScoped<Pako.Api.Services.NumberSeriesService>();

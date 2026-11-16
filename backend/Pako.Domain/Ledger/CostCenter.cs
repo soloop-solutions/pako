@@ -6,6 +6,7 @@ namespace Pako.Domain.Ledger;
 // (JournalEntryLine.CostCenterId). Company-scoped, same multi-tenant pattern as
 // Account/Journal/TaxDefinition. Not seeded in Stage 1 (schema only) — the 12 standard
 // cost centers land in Stage 2 alongside the chart.
+[Pako.Domain.Shared.Audited]
 public class CostCenter
 {
     public Guid Id { get; set; }

@@ -4,6 +4,7 @@ namespace Pako.Domain.Inventory;
 // internal "Stock" location; every company also has one virtual location per counterpart
 // (supplier, customer, opening, adjustment, scrap) so that every quantity change is a move from
 // one location to another — double entry for quantities, the way Odoo models it.
+[Pako.Domain.Shared.Audited]
 public class Warehouse
 {
     public Guid Id { get; set; }

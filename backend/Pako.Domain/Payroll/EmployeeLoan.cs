@@ -17,6 +17,7 @@ public enum EmployeeLoanState
 // G10: money the company paid an employee that payroll recovers in installments. Issuing posts
 // Dr employee receivables (111100) / Cr cash or bank; each payroll run then deducts
 // min(installment, outstanding) after tax as a LoanRepayment adjustment, which credits 111100.
+[Pako.Domain.Shared.Audited]
 public class EmployeeLoan
 {
     public Guid Id { get; set; }

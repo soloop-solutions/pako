@@ -37,6 +37,7 @@ import {
   Clock,
   ScrollText,
   ShieldCheck,
+  History as HistoryIcon,
   Boxes,
   ArrowLeftRight,
   Warehouse as WarehouseIcon,
@@ -96,6 +97,7 @@ const ExpenseClaims = lazy(() => import("@/pages/hr/ExpenseClaims").then(m => ({
 const FirmPayroll = lazy(() => import("@/pages/hr/FirmPayroll").then(m => ({ default: m.FirmPayroll })));
 const Timesheets = lazy(() => import("@/pages/hr/Timesheets").then(m => ({ default: m.Timesheets })));
 const PartnerStatement = lazy(() => import("@/pages/partners/PartnerStatement").then(m => ({ default: m.PartnerStatement })));
+const AuditTrail = lazy(() => import("@/pages/audit/AuditTrail").then(m => ({ default: m.AuditTrail })));
 const UsersAndRoles = lazy(() => import("@/pages/admin/UsersAndRoles").then(m => ({ default: m.UsersAndRoles })));
 const MyPayslips = lazy(() => import("@/pages/me/MyPayslips").then(m => ({ default: m.MyPayslips })));
 const MyProfile = lazy(() => import("@/pages/me/MyProfile").then(m => ({ default: m.MyProfile })));
@@ -666,6 +668,13 @@ export const navCategories: NavCategory[] = [
         icon: ShieldCheck,
         descriptionKey: "nav.usersAndRoles.description",
         Element: UsersAndRoles,
+      },
+      {
+        titleKey: "nav.auditTrail",
+        path: "/audit-trail",
+        icon: HistoryIcon,
+        descriptionKey: "nav.auditTrail.description",
+        Element: AuditTrail,
       },
     ],
   },

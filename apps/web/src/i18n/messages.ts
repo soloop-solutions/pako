@@ -1,6 +1,7 @@
 import { hrEn, hrSq } from "@/i18n/messages.hr";
 import { meEn, meSq } from "@/i18n/messages.me";
 import { adminEn, adminSq } from "@/i18n/messages.admin";
+import { auditEn, auditSq } from "@/i18n/messages.audit";
 import { dashboardEn, dashboardSq } from "@/i18n/messages.dashboard";
 import { lobbyEn, lobbySq } from "@/i18n/messages.lobby";
 import { platformEn, platformSq } from "@/i18n/messages.platform";
@@ -3446,6 +3447,9 @@ Object.assign(sq, verticalsSq);
 // Business types and vertical packs (keys "company.businessType*", "company.pack*", "company.featureOff.*").
 Object.assign(en, companyTypesEn);
 Object.assign(sq, companyTypesSq);
+
+Object.assign(en, auditEn);
+Object.assign(sq, auditSq);
 
 Object.assign(en, uiEn);
 Object.assign(sq, uiSq);

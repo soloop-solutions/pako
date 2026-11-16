@@ -40,6 +40,7 @@ public enum TaxAtkBook
     None
 }
 
+[Pako.Domain.Shared.Audited]
 public class TaxDefinition
 {
     public Guid Id { get; set; }

@@ -1,5 +1,6 @@
 namespace Pako.Domain.Payroll;
 
+[Pako.Domain.Shared.Audited]
 public class Employee
 {
     public Guid Id { get; set; }

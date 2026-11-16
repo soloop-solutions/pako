@@ -16,6 +16,7 @@ public enum SalesOrderState
     Cancelled,
 }
 
+[Pako.Domain.Shared.Audited]
 public class SalesOrder
 {
     public Guid Id { get; set; }

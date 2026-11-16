@@ -8076,8 +8076,26 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<string>("EntryHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("IpAddress")
+                        .HasColumnType("text");
+
                     b.Property<DateTime>("OccurredAtUtc")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("PrevHash")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RequestId")
+                        .HasColumnType("text");
+
+                    b.Property<long?>("SequenceNumber")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid?>("SourceDocumentId")
+                        .HasColumnType("uuid");
 
                     b.Property<string>("UserId")
                         .HasColumnType("text");
@@ -8085,6 +8103,10 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId", "OccurredAtUtc");
+
+                    b.HasIndex("CompanyId", "SequenceNumber")
+                        .IsUnique()
+                        .HasFilter("\"SequenceNumber\" IS NOT NULL");
 
                     b.HasIndex("CompanyId", "EntityType", "EntityId");
 

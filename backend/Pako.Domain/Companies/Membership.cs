@@ -4,6 +4,7 @@ namespace Pako.Domain.Companies;
 // FirmId) or access to a single Company directly. Exactly one of FirmId/CompanyId is set, and
 // the Role must match that scope — enforced here and, defense-in-depth, by a Postgres CHECK
 // constraint added in the AddFirmsAndMemberships migration.
+[Pako.Domain.Shared.Audited]
 public class Membership
 {
     private static readonly MembershipRole[] FirmRoles = { MembershipRole.FirmAdmin, MembershipRole.FirmAccountant };

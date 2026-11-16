@@ -1,17 +1,21 @@
 namespace Pako.Domain.Shared;
 
-/// <summary>
-/// Item 36: immutable audit log entry. Recorded by the SaveChanges interceptor for
-/// accounting-sensitive entities (invoices, bills, journal entries, accounts, partners).
-/// </summary>
 public class AuditEntry
 {
     public Guid Id { get; set; }
     public Guid CompanyId { get; set; }
     public string EntityType { get; set; } = string.Empty;
     public string EntityId { get; set; } = string.Empty;
-    public string Action { get; set; } = string.Empty; // Created, Updated
+    public string Action { get; set; } = string.Empty;
     public string? UserId { get; set; }
     public DateTime OccurredAtUtc { get; set; } = DateTime.UtcNow;
-    public string? Changes { get; set; } // JSON: [{field, oldValue, newValue}]
+    public string? Changes { get; set; }
+
+    public string? IpAddress { get; set; }
+    public string? RequestId { get; set; }
+    public Guid? SourceDocumentId { get; set; }
+
+    public long? SequenceNumber { get; set; }
+    public string? PrevHash { get; set; }
+    public string? EntryHash { get; set; }
 }

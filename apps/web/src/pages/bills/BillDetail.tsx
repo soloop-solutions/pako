@@ -27,6 +27,7 @@ import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant } fr
 import { computeLine } from "@/lib/tax-enums";
 import { cn } from "@/lib/utils";
 import { ActivityTimeline } from "@/components/shared/ActivityTimeline";
+import { EntityHistory } from "@/components/shared/EntityHistory";
 import { RelatedDocuments } from "@/components/shared/RelatedDocuments";
 import { PrintButton } from "@/components/shared/PrintButton";
 import { PostingPreview } from "@/components/shared/PostingPreview";
@@ -449,6 +450,8 @@ export function BillDetail() {
           </CardContent>
         </Card>
       )}
+
+      <EntityHistory entityType="Bill" entityId={bill.id} />
 
       {showPostPreview && (
         <PostingPreview

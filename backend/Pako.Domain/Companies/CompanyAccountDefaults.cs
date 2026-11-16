@@ -12,6 +12,7 @@ namespace Pako.Domain.Companies;
 // nullable, populated only when a company has the Payroll profile enabled; PayrollRunsController
 // rejects posting with a clear message when they're null instead of a company that never
 // activated payroll silently having no salary/PIT/pension/net-pay accounts to post to.
+[Pako.Domain.Shared.Audited]
 public class CompanyAccountDefaults
 {
     public Guid Id { get; set; }

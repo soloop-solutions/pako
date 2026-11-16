@@ -56,6 +56,8 @@ public class CompanyLocksController : ControllerBase
                 break;
         }
 
+        AuditController.Stage(_db, companyId, "Company", companyId.ToString(), "LockDateSet",
+            CurrentUserId.ToString(), $"{request.LockDateField}={request.LockDate:yyyy-MM-dd}");
         await _db.SaveChangesAsync();
         return Ok(ToResponse(company));
     }
@@ -83,6 +85,8 @@ public class CompanyLocksController : ControllerBase
         }
 
         company.HardLockDate = request.LockDate;
+        AuditController.Stage(_db, companyId, "Company", companyId.ToString(), "HardLockSet",
+            CurrentUserId.ToString(), $"HardLockDate={request.LockDate:yyyy-MM-dd}");
         await _db.SaveChangesAsync();
         return Ok(ToResponse(company));
     }
@@ -128,6 +132,8 @@ public class CompanyLocksController : ControllerBase
         };
 
         _db.AccountLockExceptions.Add(exception);
+        AuditController.Stage(_db, companyId, "AccountLockException", exception.Id.ToString(), "LockExceptionGranted",
+            CurrentUserId.ToString(), $"{request.LockDateField}={request.LockDate:yyyy-MM-dd}; user={request.UserId}; until={request.EndsAt:O}");
         await _db.SaveChangesAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(exception, DateTime.UtcNow));
@@ -147,6 +153,8 @@ public class CompanyLocksController : ControllerBase
 
         exception.RevokedAt = DateTime.UtcNow;
         exception.RevokedByUserId = CurrentUserId;
+        AuditController.Stage(_db, companyId, "AccountLockException", exception.Id.ToString(), "LockExceptionRevoked",
+            CurrentUserId.ToString());
         await _db.SaveChangesAsync();
 
         return Ok(ToResponse(exception, DateTime.UtcNow));

@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
+import { EntityHistory } from "@/components/shared/EntityHistory";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
@@ -673,6 +674,7 @@ export function Items() {
         {editingItem && shownTab === "variants" && <ItemVariantsPanel itemId={editingItem.id} />}
         {editingItem && shownTab === "recipe" && <ItemRecipePanel itemId={editingItem.id} />}
         {editingItem && shownTab === "parts" && <ItemPartsPanel itemId={editingItem.id} />}
+        {editingItem && shownTab === "details" && <div className="mt-4"><EntityHistory entityType="Item" entityId={editingItem.id} /></div>}
       </FormDialog>
 
       <DataGrid

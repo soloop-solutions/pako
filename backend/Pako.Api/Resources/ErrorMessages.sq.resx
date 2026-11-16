@@ -1741,4 +1741,21 @@ Vlerësimi: {estimate} €.</value></data>
   <!-- Items -->
   <data name="ItemInUse" xml:space="preserve"><value>Ky artikull nuk mund të fshihet sepse është përdorur në dokumente. Çaktivizoni atë në vend.</value></data>
   <data name="ItemNotFound" xml:space="preserve"><value>Artikulli nuk u gjet.</value></data>
+
+  <!-- Audit trail -->
+  <data name="Export_Sheet_Audit" xml:space="preserve"><value>Gjurma e auditimit</value></data>
+  <data name="Export_Audit_Sequence" xml:space="preserve"><value>Nr.</value></data>
+  <data name="Export_Audit_OccurredAt" xml:space="preserve"><value>Koha (UTC)</value></data>
+  <data name="Export_Audit_User" xml:space="preserve"><value>Përdoruesi</value></data>
+  <data name="Export_Audit_Action" xml:space="preserve"><value>Veprimi</value></data>
+  <data name="Export_Audit_EntityType" xml:space="preserve"><value>Lloji i regjistrit</value></data>
+  <data name="Export_Audit_EntityId" xml:space="preserve"><value>ID e regjistrit</value></data>
+  <data name="Export_Audit_Changes" xml:space="preserve"><value>Ndryshimet</value></data>
+  <data name="Export_Audit_IpAddress" xml:space="preserve"><value>Adresa IP</value></data>
+  <data name="Export_Audit_RequestId" xml:space="preserve"><value>ID e kërkesës</value></data>
+  <data name="Export_Audit_Action_Created" xml:space="preserve"><value>Krijuar</value></data>
+  <data name="Export_Audit_Action_Updated" xml:space="preserve"><value>Përditësuar</value></data>
+  <data name="Export_Audit_Action_Deleted" xml:space="preserve"><value>Fshirë</value></data>
+  <data name="Export_Audit_Action_Post" xml:space="preserve"><value>Postuar</value></data>
+  <data name="AuditExportTooLarge" xml:space="preserve"><value>Eksporti i gjurmës së auditimit kufizohet në {0} rreshta. Ngushtoni filtrat dhe provoni përsëri.</value></data>
 </root>

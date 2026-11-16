@@ -1,0 +1,8 @@
+{
+  "valid": false,
+  "checkedCount": 17,
+  "unchainedCount": 0,
+  "firstBrokenSequence": 18,
+  "firstBrokenId": "7a1f0c52-1111-4b2b-9c2b-000000000009",
+  "reason": "EntryHashMismatch"
+}

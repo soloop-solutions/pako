@@ -23,6 +23,7 @@ public enum DocumentType
     PurchaseReturn
 }
 
+[Pako.Domain.Shared.Audited]
 public class Bill
 {
     public Guid Id { get; set; }

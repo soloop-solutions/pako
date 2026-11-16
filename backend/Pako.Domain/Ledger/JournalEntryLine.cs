@@ -1,5 +1,6 @@
 namespace Pako.Domain.Ledger;
 
+[Pako.Domain.Shared.AuditedChild(typeof(JournalEntry), nameof(JournalEntryId))]
 public class JournalEntryLine
 {
     public Guid Id { get; set; }
@@ -12,7 +13,9 @@ public class JournalEntryLine
     public Guid? TaxId { get; set; }
     public Guid? ProjectId { get; set; }
     public Guid? EmployeeId { get; set; }
+    [Pako.Domain.Shared.AuditIgnore]
     public bool ReconciledFlag { get; set; }
+    [Pako.Domain.Shared.AuditIgnore]
     public Guid? ReconciliationId { get; set; }
 
     // B14: analytic account id -> percentage of this line attributed to it, across whatever

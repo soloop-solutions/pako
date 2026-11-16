@@ -28,6 +28,7 @@ public enum LegalFormType
     Other = 99
 }
 
+[Pako.Domain.Shared.Audited]
 public class Company
 {
     public Guid Id { get; set; }
@@ -46,9 +47,13 @@ public class Company
     public DateOnly? SaleLockDate { get; set; }
     public DateOnly? PurchaseLockDate { get; set; }
     public DateOnly? HardLockDate { get; set; }
+    [Pako.Domain.Shared.AuditIgnore]
     public int NextInvoiceNumber { get; set; } = 1;
+    [Pako.Domain.Shared.AuditIgnore]
     public int NextCreditNoteNumber { get; set; } = 1;
+    [Pako.Domain.Shared.AuditIgnore]
     public int NextDebitNoteNumber { get; set; } = 1;
+    [Pako.Domain.Shared.AuditIgnore]
     public int NextDownPaymentNumber { get; set; } = 1;
 
     // Track A (v2 release, docs/V2_PARALLEL_TRACKS.md) — SalesReturn/Proforma need their own
@@ -57,7 +62,9 @@ public class Company
     // per explicit authorization rather than silently editing another track's file. No
     // PurchaseReturn counter exists because Bill has never had PAKO-minted numbering at all
     // (VendorReference is free text the vendor supplies) — nothing to add there.
+    [Pako.Domain.Shared.AuditIgnore]
     public int NextSalesReturnNumber { get; set; } = 1;
+    [Pako.Domain.Shared.AuditIgnore]
     public int NextProformaNumber { get; set; } = 1;
 
     // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 1, R01 / 50_Profiles).

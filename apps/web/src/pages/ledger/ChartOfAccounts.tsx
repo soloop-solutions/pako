@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
+import { EntityHistory } from "@/components/shared/EntityHistory";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { useCompany } from "@/context/CompanyContext";
@@ -416,6 +417,7 @@ export function ChartOfAccounts() {
             onDirtyChange={setDirty}
           />
         )}
+        {editingAccount && <div className="mt-4"><EntityHistory entityType="Account" entityId={editingAccount.id} /></div>}
       </FormDialog>
 
       {viewMode === "tree" ? (

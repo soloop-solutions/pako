@@ -1,5 +1,6 @@
 namespace Pako.Domain.Invoicing;
 
+[Pako.Domain.Shared.AuditedChild(typeof(Invoice), nameof(InvoiceId))]
 public class InvoiceLine
 {
     public Guid Id { get; set; }

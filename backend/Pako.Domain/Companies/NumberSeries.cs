@@ -14,6 +14,7 @@ namespace Pako.Domain.Companies;
 // NumberSeriesController.UpdatePattern, and so NumberSeriesService still has a row to take a
 // FOR UPDATE lock on for the same per-series serialization the old counter design relied on —
 // nothing about the row's own content needs to change for that lock to do its job.
+[Pako.Domain.Shared.Audited]
 public class NumberSeries
 {
     public Guid Id { get; set; }

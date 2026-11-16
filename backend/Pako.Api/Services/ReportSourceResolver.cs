@@ -23,6 +23,21 @@ public class ReportSourceResolver(PakoDbContext db)
             .ToListAsync();
 
         var sourceIds = entries.Where(e => e.SourceDocumentId != null).Select(e => e.SourceDocumentId!.Value).Distinct().ToList();
+        var kinds = await ResolveKindsAsync(companyId, sourceIds);
+
+        foreach (var e in entries)
+        {
+            result[e.Id] = e.SourceDocumentId is { } sid && kinds.TryGetValue(sid, out var kind)
+                ? new ReportSource(kind, sid)
+                : new ReportSource(ReportSourceKinds.JournalEntry, e.Id);
+        }
+
+        return result;
+    }
+
+    public async Task<Dictionary<Guid, string>> ResolveKindsAsync(Guid companyId, IEnumerable<Guid> documentIds)
+    {
+        var sourceIds = documentIds.Distinct().ToList();
         var kinds = new Dictionary<Guid, string>();
         if (sourceIds.Count > 0)
         {
@@ -55,13 +70,6 @@ public class ReportSourceResolver(PakoDbContext db)
             }
         }
 
-        foreach (var e in entries)
-        {
-            result[e.Id] = e.SourceDocumentId is { } sid && kinds.TryGetValue(sid, out var kind)
-                ? new ReportSource(kind, sid)
-                : new ReportSource(ReportSourceKinds.JournalEntry, e.Id);
-        }
-
-        return result;
+        return kinds;
     }
 }

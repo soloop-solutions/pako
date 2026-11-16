@@ -5,6 +5,7 @@ namespace Pako.Domain.Ledger;
 // Two levels: a Class-level row (ParentGroupId null, e.g. "1" 100000-199999) and a Group-level row
 // nested under it (e.g. "10" 100000-109999). Both prefixes are stored as full-width account-code
 // strings so membership is a plain ordinal string comparison, not prefix-length arithmetic.
+[Pako.Domain.Shared.Audited]
 public class AccountGroup
 {
     public Guid Id { get; set; }

@@ -37,6 +37,7 @@ import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/Apply
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
 import { PostingPreview } from "@/components/shared/PostingPreview";
 import { ActivityTimeline } from "@/components/shared/ActivityTimeline";
+import { EntityHistory } from "@/components/shared/EntityHistory";
 import { RelatedDocuments } from "@/components/shared/RelatedDocuments";
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
@@ -546,6 +547,8 @@ export function InvoiceDetail() {
           </CardContent>
         </Card>
       )}
+
+      <EntityHistory entityType="Invoice" entityId={invoice.id} />
 
       {showPostPreview && (
         <PostingPreview

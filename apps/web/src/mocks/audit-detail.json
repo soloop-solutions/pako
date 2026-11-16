@@ -1,0 +1,32 @@
+{
+  "entry": {
+    "id": "7a1f0c52-1111-4b2b-9c2b-000000000001",
+    "entityType": "Partner",
+    "entityId": "4c3d2e1f-2222-4b2b-9c2b-000000000010",
+    "action": "Updated",
+    "userId": "9b8a7c6d-3333-4b2b-9c2b-000000000020",
+    "occurredAtUtc": "2026-11-16T09:42:11.318204Z",
+    "changes": "[{\"field\": \"Name\", \"oldValue\": \"Acme\", \"newValue\": \"Acme Sh.p.k.\"}, {\"field\": \"TaxNumber\", \"oldValue\": null, \"newValue\": \"811234567\"}]",
+    "userName": "Alice Berisha",
+    "userEmail": "alice@acme.test",
+    "ipAddress": "203.0.113.7",
+    "requestId": "0HNG4F2K9QLTA:00000003",
+    "sourceDocumentId": null,
+    "sequenceNumber": 42,
+    "entryHash": "b3f1a2c4d5e60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9",
+    "sourceKind": null
+  },
+  "fields": [
+    {
+      "field": "Name",
+      "oldValue": "Acme",
+      "newValue": "Acme Sh.p.k."
+    },
+    {
+      "field": "TaxNumber",
+      "oldValue": null,
+      "newValue": "811234567"
+    }
+  ],
+  "prevHash": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90"
+}

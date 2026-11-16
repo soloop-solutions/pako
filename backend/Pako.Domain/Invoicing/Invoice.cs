@@ -34,6 +34,7 @@ public enum PriceMode
     NetExclusive
 }
 
+[Pako.Domain.Shared.Audited]
 public class Invoice
 {
     public Guid Id { get; set; }

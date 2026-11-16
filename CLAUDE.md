@@ -74,6 +74,7 @@ pnpm --filter web build
 - `Company.AccountingLockDate` / `TaxLockDate` — enforced on invoices, bills, journal entries and
   payroll. **No endpoint sets them**; `CompaniesController` has one write method.
 - `Account` carries ~20 fields; `AccountResponse` returns 7.
+- **Audit trail**: `PakoDbContext.SaveChanges` writes hash-chained `audit_entries` rows for `[Audited]` entities in the same transaction (opt-in attribute, admin-only `api/companies/{id}/audit` list/paged/detail/verify/export). `AuditController.Stage` is for semantic events only. Reference: `docs/AUDIT_TRAIL.md`.
 - **Report suite** under `api/companies/{companyId}/reports` (most with an Excel `/export`): general
   ledger, monthly P&L, comparative balance sheet, cash flow, equity statement, expense book, VAT
   declaration in the ATK form (boxes 1-72, from the same rows as the ATK sales/purchase books),

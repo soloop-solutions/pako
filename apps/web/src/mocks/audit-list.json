@@ -1,0 +1,53 @@
+[
+  {
+    "id": "7a1f0c52-1111-4b2b-9c2b-000000000001",
+    "entityType": "Partner",
+    "entityId": "4c3d2e1f-2222-4b2b-9c2b-000000000010",
+    "action": "Updated",
+    "userId": "9b8a7c6d-3333-4b2b-9c2b-000000000020",
+    "occurredAtUtc": "2026-11-16T09:42:11.318204Z",
+    "changes": "[{\"field\": \"Name\", \"oldValue\": \"Acme\", \"newValue\": \"Acme Sh.p.k.\"}, {\"field\": \"TaxNumber\", \"oldValue\": null, \"newValue\": \"811234567\"}]",
+    "userName": "Alice Berisha",
+    "userEmail": "alice@acme.test",
+    "ipAddress": "203.0.113.7",
+    "requestId": "0HNG4F2K9QLTA:00000003",
+    "sourceDocumentId": null,
+    "sequenceNumber": 42,
+    "entryHash": "b3f1a2c4d5e60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f9",
+    "sourceKind": null
+  },
+  {
+    "id": "7a1f0c52-1111-4b2b-9c2b-000000000002",
+    "entityType": "JournalEntry",
+    "entityId": "5d4e3f2a-4444-4b2b-9c2b-000000000030",
+    "action": "Created",
+    "userId": "9b8a7c6d-3333-4b2b-9c2b-000000000020",
+    "occurredAtUtc": "2026-11-16T09:40:02.101733Z",
+    "changes": "[{\"field\": \"State\", \"oldValue\": null, \"newValue\": \"Posted\"}, {\"field\": \"Date\", \"oldValue\": null, \"newValue\": \"2026-11-15\"}]",
+    "userName": "Alice Berisha",
+    "userEmail": "alice@acme.test",
+    "ipAddress": "203.0.113.7",
+    "requestId": "0HNG4F2K9QLTA:00000002",
+    "sourceDocumentId": "6e5f4a3b-5555-4b2b-9c2b-000000000040",
+    "sequenceNumber": 41,
+    "entryHash": "a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "sourceKind": "Invoice"
+  },
+  {
+    "id": "7a1f0c52-1111-4b2b-9c2b-000000000003",
+    "entityType": "Company",
+    "entityId": "5b2e6f1a-2222-4b2b-9c2b-000000000001",
+    "action": "LockDateSet",
+    "userId": null,
+    "occurredAtUtc": "2026-11-15T17:05:44.000000Z",
+    "changes": "AccountingLockDate=2026-10-31",
+    "userName": null,
+    "userEmail": null,
+    "ipAddress": null,
+    "requestId": null,
+    "sourceDocumentId": null,
+    "sequenceNumber": 40,
+    "entryHash": "c0ffee00d5e60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90",
+    "sourceKind": null
+  }
+]
