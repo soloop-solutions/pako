@@ -25,6 +25,10 @@ builder.Services.AddPakoInfrastructure(builder.Configuration);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
 
+var desktop = builder.Configuration.GetSection(Pako.Api.Desktop.DesktopOptions.Section).Get<Pako.Api.Desktop.DesktopOptions>()
+    ?? new Pako.Api.Desktop.DesktopOptions();
+builder.Services.AddSingleton(desktop);
+
 const string CorsPolicy = "CorsPolicy";
 builder.Services.AddCors(options =>
 {
@@ -206,10 +210,20 @@ app.UseRequestLocalization(new RequestLocalizationOptions
     SupportedUICultures = supportedCultures
 });
 
-app.UseHttpsRedirection();
+if (desktop.Enabled)
+{
+    app.UseMiddleware<Pako.Api.Desktop.LaunchSecretMiddleware>();
+}
+else
+{
+    app.UseHttpsRedirection();
+}
 app.UseStaticFiles();
 
-app.UseCors(CorsPolicy);
+if (!desktop.Enabled)
+{
+    app.UseCors(CorsPolicy);
+}
 
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -218,4 +232,16 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<Pako.Api.Hubs.PosHub>("/hubs/pos");
 
+if (desktop.Enabled)
+{
+    app.MapGet("/healthz", async (PakoDbContext db) =>
+    {
+        var applied = await db.Database.GetAppliedMigrationsAsync();
+        return Results.Ok(new { status = "ok", schemaVersion = applied.LastOrDefault() ?? string.Empty });
+    });
+    app.MapFallbackToFile("{*path:regex(^(?!api/|hubs/).*$)}", "index.html");
+}
+
 app.Run();
+
+public partial class Program;
