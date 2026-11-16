@@ -79,6 +79,12 @@ user name or email).
 | `GET /verify` | `AuditVerifyResponse`: `valid`, `checkedCount`, `unchainedCount`, first broken sequence, id and reason (`SequenceGap`, `PrevHashMismatch`, `EntryHashMismatch`) |
 | `GET /export` | Excel, language-aware via `ExportLabels`, 400 JSON when the range is inverted or over 20 000 rows |
 
+`AuditEntryResponse.SourceKind` (`string?`, trailing) names the kind of `SourceDocumentId`: `Invoice`, `SalesReturn`,
+`Bill`, `PurchaseReturn`, `PayrollRun` or `StockDocument` (`ReportSourceKinds`). `SourceDocumentId` is the
+journal entry's source document (invoice, bill, ...), not the journal entry id, so it is resolved directly,
+company-scoped, with one query per document table per page (`ReportSourceResolver.ResolveKindsAsync`). It is
+null when there is no source or the id matches no document in the company.
+
 Fixtures: `apps/web/src/mocks/audit-*.json`.
 
 ## Retention

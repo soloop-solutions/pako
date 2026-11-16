@@ -5,7 +5,7 @@ public record AuditEntryResponse(
     string? UserId, DateTime OccurredAtUtc, string? Changes,
     string? UserName = null, string? UserEmail = null,
     string? IpAddress = null, string? RequestId = null, Guid? SourceDocumentId = null,
-    long? SequenceNumber = null, string? EntryHash = null);
+    long? SequenceNumber = null, string? EntryHash = null, string? SourceKind = null);
 
 public record AuditFieldChangeResponse(string Field, string? OldValue, string? NewValue);
 

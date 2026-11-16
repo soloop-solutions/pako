@@ -62,7 +62,7 @@ public class AuditEndpointTests : IAsyncLifetime
     public async Task DisposeAsync() => await _db.DisposeAsync();
 
     private AuditController Controller() =>
-        new(_db, new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+        new(_db, new NullStringLocalizer<ErrorMessages>(), new ExportLabels(new NullStringLocalizer<ErrorMessages>()), new ReportSourceResolver(_db));
 
     private static T Value<T>(ActionResult<T> result) => (T)((ObjectResult)result.Result!).Value!;
 
@@ -185,6 +185,56 @@ public class AuditEndpointTests : IAsyncLifetime
         var result = await Controller().Export(_company.Id, from: today, to: today.AddDays(-1));
 
         Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task SourceKind_ResolvesEachDocumentKind_AndIsCompanyScoped()
+    {
+        var jan = new DateOnly(2026, 1, 15);
+        var partner = new Partner { Id = Guid.NewGuid(), CompanyId = _company.Id, Name = "P" };
+        var foreignPartner = new Partner { Id = Guid.NewGuid(), CompanyId = _other.Id, Name = "FP" };
+        var invoice = new Pako.Domain.Invoicing.Invoice { Id = Guid.NewGuid(), CompanyId = _company.Id, PartnerId = partner.Id, IssueDate = jan, DueDate = jan, DocumentType = Pako.Domain.Invoicing.DocumentType.Invoice };
+        var salesReturn = new Pako.Domain.Invoicing.Invoice { Id = Guid.NewGuid(), CompanyId = _company.Id, PartnerId = partner.Id, IssueDate = jan, DueDate = jan, DocumentType = Pako.Domain.Invoicing.DocumentType.SalesReturn };
+        var bill = new Pako.Domain.Bills.Bill { Id = Guid.NewGuid(), CompanyId = _company.Id, PartnerId = partner.Id, VendorReference = "B", IssueDate = jan, DueDate = jan, DocumentType = Pako.Domain.Bills.DocumentType.Bill };
+        var purchaseReturn = new Pako.Domain.Bills.Bill { Id = Guid.NewGuid(), CompanyId = _company.Id, PartnerId = partner.Id, VendorReference = "R", IssueDate = jan, DueDate = jan, DocumentType = Pako.Domain.Bills.DocumentType.PurchaseReturn };
+        var payroll = new Pako.Domain.Payroll.PayrollRun { Id = Guid.NewGuid(), CompanyId = _company.Id, PeriodStart = jan, PeriodEnd = jan };
+        var warehouse = new Pako.Domain.Inventory.Warehouse { Id = Guid.NewGuid(), CompanyId = _company.Id, Code = "W1", Name = "Main" };
+        var foreignInvoice = new Pako.Domain.Invoicing.Invoice { Id = Guid.NewGuid(), CompanyId = _other.Id, PartnerId = foreignPartner.Id, IssueDate = jan, DueDate = jan, DocumentType = Pako.Domain.Invoicing.DocumentType.Invoice };
+        _db.AddRange(partner, foreignPartner, invoice, salesReturn, bill, purchaseReturn, payroll, warehouse, foreignInvoice);
+        await _db.SaveChangesAsync();
+        var stock = new Pako.Domain.Inventory.StockDocument { Id = Guid.NewGuid(), CompanyId = _company.Id, WarehouseId = warehouse.Id, Date = jan };
+        _db.StockDocuments.Add(stock);
+        await _db.SaveChangesAsync();
+
+        var sources = new[] { invoice.Id, salesReturn.Id, bill.Id, purchaseReturn.Id, payroll.Id, stock.Id, foreignInvoice.Id, Guid.NewGuid() };
+        foreach (var source in sources)
+        {
+            _db.AuditEntries.Add(new AuditEntry
+            {
+                Id = Guid.NewGuid(), CompanyId = _company.Id, EntityType = "JournalEntry", EntityId = Guid.NewGuid().ToString(),
+                Action = "Created", OccurredAtUtc = DateTime.UtcNow, SourceDocumentId = source
+            });
+        }
+
+        await _db.SaveChangesAsync();
+
+        var rows = Value(await Controller().List(_company.Id, "JournalEntry", null));
+        string? KindOf(Guid id) => rows.Single(r => r.SourceDocumentId == id).SourceKind;
+        Assert.Equal("Invoice", KindOf(invoice.Id));
+        Assert.Equal("SalesReturn", KindOf(salesReturn.Id));
+        Assert.Equal("Bill", KindOf(bill.Id));
+        Assert.Equal("PurchaseReturn", KindOf(purchaseReturn.Id));
+        Assert.Equal("PayrollRun", KindOf(payroll.Id));
+        Assert.Equal("StockDocument", KindOf(stock.Id));
+        Assert.Null(KindOf(foreignInvoice.Id));
+        Assert.Null(KindOf(sources[^1]));
+
+        var detail = Value(await Controller().Get(_company.Id, rows.First(r => r.SourceDocumentId == bill.Id).Id));
+        Assert.Equal("Bill", detail.Entry.SourceKind);
+
+        var paged = Value(await Controller().ListPaged(_company.Id, entityType: "JournalEntry"));
+        Assert.Equal("Invoice", paged.Items.Single(r => r.SourceDocumentId == invoice.Id).SourceKind);
+        Assert.All(Value(await Controller().List(_company.Id, "Partner", null)), r => Assert.Null(r.SourceKind));
     }
 
     [Fact]

@@ -24,9 +24,11 @@ public class AuditController : ControllerBase
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly ExportLabels _labels;
+    private readonly ReportSourceResolver _sources;
 
-    public AuditController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, ExportLabels labels)
+    public AuditController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, ExportLabels labels, ReportSourceResolver sources)
     {
+        _sources = sources;
         _db = db;
         _localizer = localizer;
         _labels = labels;
@@ -217,6 +219,9 @@ public class AuditController : ControllerBase
 
     private async Task<List<AuditEntryResponse>> ToResponsesAsync(List<AuditEntry> rows)
     {
+        var companyId = rows.Count > 0 ? rows[0].CompanyId : Guid.Empty;
+        var kinds = await _sources.ResolveKindsAsync(companyId, rows.Where(r => r.SourceDocumentId != null).Select(r => r.SourceDocumentId!.Value));
+
         var userIds = rows.Select(r => r.UserId).Where(u => Guid.TryParse(u, out _))
             .Select(u => Guid.Parse(u!)).Distinct().ToList();
         var users = userIds.Count == 0
@@ -231,7 +236,8 @@ public class AuditController : ControllerBase
                 ? found : (null, null);
             return new AuditEntryResponse(
                 a.Id, a.EntityType, a.EntityId, a.Action, a.UserId, a.OccurredAtUtc, a.Changes,
-                user.Name, user.Email, a.IpAddress, a.RequestId, a.SourceDocumentId, a.SequenceNumber, a.EntryHash);
+                user.Name, user.Email, a.IpAddress, a.RequestId, a.SourceDocumentId, a.SequenceNumber, a.EntryHash,
+                a.SourceDocumentId is { } sid && kinds.TryGetValue(sid, out var kind) ? kind : null);
         }).ToList();
     }
 

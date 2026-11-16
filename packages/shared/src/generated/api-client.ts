@@ -28306,6 +28306,7 @@ export interface AuditEntryResponse {
     sourceDocumentId?: string | undefined;
     sequenceNumber?: number | undefined;
     entryHash?: string | undefined;
+    sourceKind?: string | undefined;
 
     [key: string]: any;
 }
