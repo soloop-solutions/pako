@@ -57,6 +57,24 @@ public class LicenseVerifierTests
     }
 
     [Fact]
+    public void Verify_RejectsOversizedKey()
+    {
+        var keys = new LicenseTestKeys();
+
+        Assert.Null(LicenseVerifier.Verify(new string('A', 4097), keys.PublicKey));
+    }
+
+    [Fact]
+    public void Verify_RejectsTruncatedSignature()
+    {
+        var keys = new LicenseTestKeys();
+        var key = keys.Issue(new LicensePayload("AAAA-BBBB-CCCC-DDDD", "Acme", Issued, null));
+        var parts = key.Split('.');
+
+        Assert.Null(LicenseVerifier.Verify(parts[0] + "." + parts[1][..(parts[1].Length / 2)], keys.PublicKey));
+    }
+
+    [Fact]
     public void Verify_RejectsSignedNonJson()
     {
         var keys = new LicenseTestKeys();

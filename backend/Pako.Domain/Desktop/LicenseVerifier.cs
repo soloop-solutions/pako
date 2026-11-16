@@ -8,11 +8,13 @@ public sealed record LicensePayload(string MachineCode, string Customer, DateTim
 
 public static class LicenseVerifier
 {
+    public const int MaxKeyLength = 4096;
+
     public static LicensePayload? Verify(string licenseKey, ReadOnlySpan<byte> publicKey)
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(licenseKey) || publicKey.Length != 32) return null;
+            if (string.IsNullOrWhiteSpace(licenseKey) || publicKey.Length != 32 || licenseKey.Length > MaxKeyLength) return null;
             var parts = licenseKey.Trim().Split('.');
             if (parts.Length != 2) return null;
             var payload = Decode(parts[0]);

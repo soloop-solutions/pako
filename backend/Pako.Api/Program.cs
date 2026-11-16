@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.DataProtection;
 using System.Globalization;
 using System.Text;
@@ -16,7 +17,22 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
-builder.Services.AddControllers(options => options.Filters.Add<Pako.Api.Authorization.ActiveUserFilter>());
+var desktop = builder.Configuration.GetSection(Pako.Api.Desktop.DesktopOptions.Section).Get<Pako.Api.Desktop.DesktopOptions>()
+    ?? new Pako.Api.Desktop.DesktopOptions();
+builder.Services.AddSingleton(desktop);
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<Pako.Api.Authorization.ActiveUserFilter>();
+        if (desktop.Enabled) options.Filters.Add<Pako.Api.Desktop.LicenseEnforcementFilter>();
+    })
+    .ConfigureApplicationPartManager(m => m.FeatureProviders.Add(new Pako.Api.Controllers.DesktopControllerFeatureProvider(desktop.Enabled)));
+if (desktop.Enabled)
+{
+    builder.Services.TryAddSingleton(TimeProvider.System);
+    builder.Services.AddSingleton<Pako.Api.Desktop.IMachineIdProvider, Pako.Api.Desktop.WindowsMachineIdProvider>();
+    builder.Services.AddSingleton(new Pako.Api.Desktop.LicensePublicKeyHolder(Pako.Domain.Desktop.LicensePublicKey.Value.ToArray()));
+    builder.Services.AddScoped<Pako.Api.Desktop.DesktopLicenseService>();
+}
 builder.Services.Configure<Pako.Api.Auth.PlatformOptions>(builder.Configuration.GetSection(Pako.Api.Auth.PlatformOptions.Section));
 builder.Services.AddAuthRateLimit(builder.Configuration.GetValue("Platform:AuthRequestsPerMinute", 30));
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -24,10 +40,6 @@ builder.Services.AddOpenApi(options => options.AddDocumentTransformer<Pako.Api.S
 builder.Services.AddPakoInfrastructure(builder.Configuration);
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddProblemDetails();
-
-var desktop = builder.Configuration.GetSection(Pako.Api.Desktop.DesktopOptions.Section).Get<Pako.Api.Desktop.DesktopOptions>()
-    ?? new Pako.Api.Desktop.DesktopOptions();
-builder.Services.AddSingleton(desktop);
 
 const string CorsPolicy = "CorsPolicy";
 builder.Services.AddCors(options =>

@@ -1758,4 +1758,6 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="Export_Audit_Action_Deleted" xml:space="preserve"><value>Fshirë</value></data>
   <data name="Export_Audit_Action_Post" xml:space="preserve"><value>Postuar</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>Eksporti i gjurmës së auditimit kufizohet në {0} rreshta. Ngushtoni filtrat dhe provoni përsëri.</value></data>
+  <data name="LicenseKeyInvalid" xml:space="preserve"><value>Çelësi i licencës nuk është i vlefshëm për këtë kompjuter.</value></data>
+  <data name="LicenseReadOnly" xml:space="preserve"><value>Periudha provuese ka përfunduar. PAKO është vetëm për lexim derisa të aktivizohet një çelës licence.</value></data>
 </root>
