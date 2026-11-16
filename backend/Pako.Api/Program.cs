@@ -32,6 +32,7 @@ if (desktop.Enabled)
     builder.Services.AddSingleton<Pako.Api.Desktop.IMachineIdProvider, Pako.Api.Desktop.WindowsMachineIdProvider>();
     builder.Services.AddSingleton(new Pako.Api.Desktop.LicensePublicKeyHolder(Pako.Domain.Desktop.LicensePublicKey.Value.ToArray()));
     builder.Services.AddScoped<Pako.Api.Desktop.DesktopLicenseService>();
+    builder.Services.AddSingleton<Pako.Api.Desktop.RecoveryThrottle>();
 }
 builder.Services.Configure<Pako.Api.Auth.PlatformOptions>(builder.Configuration.GetSection(Pako.Api.Auth.PlatformOptions.Section));
 builder.Services.AddAuthRateLimit(builder.Configuration.GetValue("Platform:AuthRequestsPerMinute", 30));

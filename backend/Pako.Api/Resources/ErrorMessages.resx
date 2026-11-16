@@ -1760,4 +1760,5 @@ Estimate: {estimate} €.</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>The audit trail export is limited to {0} rows. Narrow the filters and try again.</value></data>
   <data name="LicenseKeyInvalid" xml:space="preserve"><value>The license key is not valid for this computer.</value></data>
   <data name="LicenseReadOnly" xml:space="preserve"><value>The trial has ended. PAKO is read-only until a license key is activated.</value></data>
+  <data name="RecoveryCodeInvalid" xml:space="preserve"><value>The email or recovery code is not valid, or recovery is temporarily locked. Try again later.</value></data>
 </root>

@@ -1760,4 +1760,5 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>Eksporti i gjurmës së auditimit kufizohet në {0} rreshta. Ngushtoni filtrat dhe provoni përsëri.</value></data>
   <data name="LicenseKeyInvalid" xml:space="preserve"><value>Çelësi i licencës nuk është i vlefshëm për këtë kompjuter.</value></data>
   <data name="LicenseReadOnly" xml:space="preserve"><value>Periudha provuese ka përfunduar. PAKO është vetëm për lexim derisa të aktivizohet një çelës licence.</value></data>
+  <data name="RecoveryCodeInvalid" xml:space="preserve"><value>Emaili ose kodi i rikthimit nuk është i vlefshëm, ose rikthimi është i bllokuar përkohësisht. Provoni përsëri më vonë.</value></data>
 </root>
