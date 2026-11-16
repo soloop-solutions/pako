@@ -191,6 +191,8 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Pako.Domain.Inventory.PriceChangeLine> PriceChangeLines => Set<Pako.Domain.Inventory.PriceChangeLine>();
     public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<Pako.Domain.Desktop.DesktopLicenseRecord> DesktopLicenseRecords => Set<Pako.Domain.Desktop.DesktopLicenseRecord>();
+    public DbSet<Pako.Infrastructure.Desktop.AdminRecoveryRecord> AdminRecoveryRecords => Set<Pako.Infrastructure.Desktop.AdminRecoveryRecord>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

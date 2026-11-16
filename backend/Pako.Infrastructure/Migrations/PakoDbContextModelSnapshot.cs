@@ -1442,6 +1442,27 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("user_invitations", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Desktop.DesktopLicenseRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTimeOffset>("LastSeenAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("LicenseKey")
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
+
+                    b.Property<DateTimeOffset>("TrialStartedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("desktop_license_records", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Hr.Department", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8312,6 +8333,35 @@ namespace Pako.Infrastructure.Migrations
                     b.HasIndex("CompanyId", "Year");
 
                     b.ToTable("withholding_tax_entries", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Infrastructure.Desktop.AdminRecoveryRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTimeOffset?>("UsedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("UserId")
+                        .IsRequired()
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("admin_recovery_records", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Infrastructure.Identity.AppUser", b =>
