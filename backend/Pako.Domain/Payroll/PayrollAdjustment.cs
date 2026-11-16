@@ -22,6 +22,7 @@ public enum PayrollAdjustmentKind
     Reimbursement
 }
 
+[Pako.Domain.Shared.Audited]
 public class PayrollAdjustment
 {
     public Guid Id { get; set; }

@@ -1,5 +1,6 @@
 namespace Pako.Domain.Bills;
 
+[Pako.Domain.Shared.AuditedChild(typeof(Bill), nameof(BillId))]
 public class BillLine
 {
     public Guid Id { get; set; }

@@ -1,5 +1,6 @@
 namespace Pako.Domain.Companies;
 
+[Pako.Domain.Shared.Audited]
 public class CompanyBankAccount
 {
     public Guid Id { get; set; }

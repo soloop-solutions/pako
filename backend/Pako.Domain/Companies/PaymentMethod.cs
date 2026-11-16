@@ -16,6 +16,7 @@ public enum PaymentMethodKind
 
 // S0.3 (Sprint 0 registers, additive/inert). LedgerAccountId carries no DB FK, same
 // no-DB-FK/index-only convention as InvoiceLine.RevenueAccountId/BillLine.ExpenseAccountId.
+[Pako.Domain.Shared.Audited]
 public class PaymentMethod
 {
     public Guid Id { get; set; }

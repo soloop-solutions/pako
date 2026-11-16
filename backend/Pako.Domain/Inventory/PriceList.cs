@@ -4,6 +4,7 @@ namespace Pako.Domain.Inventory;
 // (WarehouseId null) and, for shops that price differently, one list per warehouse. Prices are
 // VAT-inclusive (what the shelf shows) and dated, so a price is always "the latest one valid on
 // the day". A price list never touches the ledger: stock is carried at cost.
+[Pako.Domain.Shared.Audited]
 public class PriceList
 {
     public Guid Id { get; set; }

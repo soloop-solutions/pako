@@ -47,7 +47,7 @@ internal static class PostgresTestDatabase
         }
     }
 
-    public static async Task<PakoDbContext> CreateAsync()
+    public static async Task<PakoDbContext> CreateAsync(Pako.Infrastructure.Audit.IAuditContext? auditContext = null)
     {
         var schema = $"test_{Guid.NewGuid():N}";
 
@@ -68,7 +68,7 @@ internal static class PostgresTestDatabase
         var connectionString = new NpgsqlConnectionStringBuilder(AdminConnectionString) { SearchPath = schema, Pooling = false }.ConnectionString;
         var options = new DbContextOptionsBuilder<PakoDbContext>().UseNpgsql(connectionString).Options;
 
-        var db = new PakoDbContext(options);
+        var db = new PakoDbContext(options, auditContext);
         await db.Database.MigrateAsync();
         return db;
     }
@@ -78,10 +78,10 @@ internal static class PostgresTestDatabase
     // concurrent operations, and CreateAsync() always mints a brand-new empty schema, which is
     // the opposite of what's needed here. Same connection string as an existing context (same
     // search_path, same Pooling=false), just no migration — the schema is already there.
-    public static PakoDbContext CreateAdditionalContext(PakoDbContext existing)
+    public static PakoDbContext CreateAdditionalContext(PakoDbContext existing, Pako.Infrastructure.Audit.IAuditContext? auditContext = null)
     {
         var connectionString = existing.Database.GetConnectionString()!;
         var options = new DbContextOptionsBuilder<PakoDbContext>().UseNpgsql(connectionString).Options;
-        return new PakoDbContext(options);
+        return new PakoDbContext(options, auditContext);
     }
 }

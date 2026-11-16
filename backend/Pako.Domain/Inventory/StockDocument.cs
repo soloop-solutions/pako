@@ -49,6 +49,7 @@ public enum WriteOffReason
     Other
 }
 
+[Pako.Domain.Shared.Audited]
 public class StockDocument
 {
     public Guid Id { get; set; }
@@ -78,6 +79,7 @@ public class StockDocument
     public bool IsPosted => State == StockDocumentState.Posted;
 }
 
+[Pako.Domain.Shared.AuditedChild(typeof(StockDocument), nameof(StockDocumentId))]
 public class StockDocumentLine
 {
     public Guid Id { get; set; }

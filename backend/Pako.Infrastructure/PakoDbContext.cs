@@ -11,14 +11,18 @@ using Pako.Domain.Payroll;
 using Pako.Domain.Reconciliation;
 using Pako.Domain.Shared;
 using Pako.Domain.Tax;
+using Pako.Infrastructure.Audit;
 using Pako.Infrastructure.Identity;
 
 namespace Pako.Infrastructure;
 
 public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 {
-    public PakoDbContext(DbContextOptions<PakoDbContext> options) : base(options)
+    private readonly IAuditContext? _auditContext;
+
+    public PakoDbContext(DbContextOptions<PakoDbContext> options, IAuditContext? auditContext = null) : base(options)
     {
+        _auditContext = auditContext;
     }
 
     public DbSet<Company> Companies => Set<Company>();
@@ -198,20 +202,143 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
             entity.ToTable("audit_entries");
             entity.HasIndex(e => new { e.CompanyId, e.EntityType, e.EntityId });
             entity.HasIndex(e => new { e.CompanyId, e.OccurredAtUtc });
+            entity.HasIndex(e => new { e.CompanyId, e.SequenceNumber })
+                .IsUnique()
+                .HasFilter("\"SequenceNumber\" IS NOT NULL");
         });
     }
 
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         ValidateImmutability();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        var captured = AuditCapture.Capture(this, _auditContext);
+        var pending = PendingAuditEntries();
+        if (pending.Count == 0)
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+
+        using var transaction = Database.IsNpgsql() && Database.CurrentTransaction is null
+            ? Database.BeginTransaction()
+            : null;
+        try
+        {
+            foreach (var companyId in pending.Select(e => e.CompanyId).Distinct().Order())
+            {
+                if (Database.IsNpgsql())
+                {
+                    Database.ExecuteSql($"select pg_advisory_xact_lock(hashtextextended({AdvisoryKey(companyId)}, 0))");
+                }
+
+                var last = AuditEntries.AsNoTracking()
+                    .Where(a => a.CompanyId == companyId && a.SequenceNumber != null)
+                    .OrderByDescending(a => a.SequenceNumber)
+                    .Select(a => new { a.SequenceNumber, a.EntryHash })
+                    .FirstOrDefault();
+                Chain(pending.Where(e => e.CompanyId == companyId), last?.SequenceNumber, last?.EntryHash);
+            }
+
+            var saved = base.SaveChanges(acceptAllChangesOnSuccess);
+            transaction?.Commit();
+            return saved;
+        }
+        catch
+        {
+            DiscardCapturedAudit(captured);
+            throw;
+        }
     }
 
     public override async Task<int> SaveChangesAsync(
         bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         await ValidateImmutabilityAsync(cancellationToken);
-        return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        var captured = AuditCapture.Capture(this, _auditContext);
+        var pending = PendingAuditEntries();
+        if (pending.Count == 0)
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+
+        await using var transaction = Database.IsNpgsql() && Database.CurrentTransaction is null
+            ? await Database.BeginTransactionAsync(cancellationToken)
+            : null;
+        try
+        {
+            foreach (var companyId in pending.Select(e => e.CompanyId).Distinct().Order())
+            {
+                if (Database.IsNpgsql())
+                {
+                    await Database.ExecuteSqlAsync(
+                        $"select pg_advisory_xact_lock(hashtextextended({AdvisoryKey(companyId)}, 0))", cancellationToken);
+                }
+
+                var last = await AuditEntries.AsNoTracking()
+                    .Where(a => a.CompanyId == companyId && a.SequenceNumber != null)
+                    .OrderByDescending(a => a.SequenceNumber)
+                    .Select(a => new { a.SequenceNumber, a.EntryHash })
+                    .FirstOrDefaultAsync(cancellationToken);
+                Chain(pending.Where(e => e.CompanyId == companyId), last?.SequenceNumber, last?.EntryHash);
+            }
+
+            var saved = await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+            if (transaction is not null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            return saved;
+        }
+        catch
+        {
+            DiscardCapturedAudit(captured);
+            throw;
+        }
+    }
+
+    private List<AuditEntry> PendingAuditEntries() =>
+        ChangeTracker.Entries<AuditEntry>().Where(e => e.State == EntityState.Added).Select(e => e.Entity).ToList();
+
+    private static string AdvisoryKey(Guid companyId) => "audit:" + companyId;
+
+    private void Chain(IEnumerable<AuditEntry> entries, long? lastSequence, string? lastHash)
+    {
+        var sequence = lastSequence ?? 0;
+        var previous = lastHash ?? AuditHashChain.GenesisHash;
+        foreach (var entry in entries)
+        {
+            entry.OccurredAtUtc = AuditHashChain.TruncateToMicroseconds(entry.OccurredAtUtc);
+            entry.UserId ??= _auditContext?.UserId;
+            entry.IpAddress ??= _auditContext?.IpAddress;
+            entry.RequestId ??= _auditContext?.RequestId;
+            entry.SourceDocumentId ??= _auditContext?.SourceDocumentId;
+            entry.SequenceNumber = ++sequence;
+            entry.PrevHash = previous;
+            entry.EntryHash = AuditHashChain.ComputeEntryHash(previous, entry);
+            previous = entry.EntryHash;
+        }
+    }
+
+    private void DiscardCapturedAudit(List<AuditEntry> captured)
+    {
+        foreach (var entry in captured)
+        {
+            if (Entry(entry).State == EntityState.Added)
+            {
+                Entry(entry).State = EntityState.Detached;
+            }
+        }
+    }
+
+    private void ValidateAuditImmutability()
+    {
+        foreach (var entry in ChangeTracker.Entries<AuditEntry>())
+        {
+            if (entry.State is EntityState.Modified or EntityState.Deleted)
+            {
+                throw new AuditEntryImmutableException(entry.Entity.Id);
+            }
+        }
     }
 
     // ReconciledFlag/ReconciliationId are reconciliation bookkeeping, set on a JournalEntryLine
@@ -275,6 +402,8 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
     private void ValidateImmutability()
     {
+        ValidateAuditImmutability();
+
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
         {
             if (entry.State == EntityState.Deleted ||
@@ -401,6 +530,8 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
 
     private async Task ValidateImmutabilityAsync(CancellationToken cancellationToken)
     {
+        ValidateAuditImmutability();
+
         foreach (var entry in ChangeTracker.Entries<JournalEntry>())
         {
             if (entry.State == EntityState.Deleted ||

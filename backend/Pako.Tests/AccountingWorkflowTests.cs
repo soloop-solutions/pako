@@ -567,7 +567,8 @@ public class AccountingWorkflowTests : IAsyncLifetime
 
         // Audit entry should exist in the same DB after the posting transaction
         var audit = await db.AuditEntries.AsNoTracking()
-            .Where(a => a.CompanyId == companyId && a.EntityType == "Invoice" && a.EntityId == invoice.Id.ToString())
+            .Where(a => a.CompanyId == companyId && a.EntityType == "Invoice" && a.EntityId == invoice.Id.ToString()
+                && a.Action == "Post")
             .FirstOrDefaultAsync();
         Assert.NotNull(audit);
         Assert.Equal("Post", audit!.Action);

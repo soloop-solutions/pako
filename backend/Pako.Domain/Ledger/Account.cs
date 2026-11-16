@@ -102,6 +102,7 @@ public enum CashFlowCategory
     Financing
 }
 
+[Pako.Domain.Shared.Audited]
 public class Account
 {
     public Guid Id { get; set; }

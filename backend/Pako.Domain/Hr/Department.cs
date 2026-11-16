@@ -1,5 +1,6 @@
 namespace Pako.Domain.Hr;
 
+[Pako.Domain.Shared.Audited]
 public class Department
 {
     public Guid Id { get; set; }

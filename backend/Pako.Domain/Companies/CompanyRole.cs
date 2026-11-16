@@ -5,6 +5,7 @@ namespace Pako.Domain.Companies;
 // docs/USER_ACCESS_PLAN.md: a named set of permissions a company admin gives to users (one role per
 // user) — QuickBooks Online Advanced "custom roles" / Odoo app groups. One level per area plus a
 // partner scope (Odoo "own documents" / QuickBooks "limited to customers").
+[Pako.Domain.Shared.Audited]
 public class CompanyRole
 {
     public Guid Id { get; set; }

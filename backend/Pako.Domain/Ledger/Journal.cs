@@ -13,6 +13,7 @@ public enum JournalType
 // SequenceNextNumber/SequencePadding are the numbering config only; Kosovo VAT Law
 // Article 45/56 requires the resulting sequence to be gapless and strictly monotonic
 // per journal — not enforced yet, Phase 2 per docs/ROADMAP.md.
+[Pako.Domain.Shared.Audited]
 public class Journal
 {
     public Guid Id { get; set; }
@@ -23,6 +24,7 @@ public class Journal
     public Guid? DefaultDebitAccountId { get; set; }
     public Guid? DefaultCreditAccountId { get; set; }
     public string SequencePrefix { get; set; } = string.Empty;
+    [Pako.Domain.Shared.AuditIgnore]
     public int SequenceNextNumber { get; set; } = 1;
     public int SequencePadding { get; set; } = 4;
 }

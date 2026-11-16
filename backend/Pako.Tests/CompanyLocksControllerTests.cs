@@ -53,6 +53,22 @@ public class CompanyLocksControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetSoftLock_StagesLockDateSetEventAlongsideTheFieldDiff()
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var actor = Guid.NewGuid();
+
+        await NewController(db, actor).SetSoftLock(companyId,
+            new SetSoftLockRequest(LockDateField.AccountingLockDate, new DateOnly(2026, 6, 30)));
+
+        var rows = await db.AuditEntries.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.EntityType == "Company").ToListAsync();
+        Assert.Contains(rows, a => a.Action == "LockDateSet" && a.UserId == actor.ToString()
+            && a.Changes == "AccountingLockDate=2026-06-30");
+        Assert.Contains(rows, a => a.Action == "Updated" && a.Changes!.Contains("AccountingLockDate"));
+    }
+
+    [Fact]
     public async Task SetSoftLock_SetsAccountingLockDate()
     {
         var (db, companyId) = await SeedCompanyAsync();

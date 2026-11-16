@@ -9,6 +9,7 @@ public enum JournalEntryState
     Cancelled
 }
 
+[Pako.Domain.Shared.Audited]
 public class JournalEntry
 {
     public Guid Id { get; set; }
@@ -22,8 +23,11 @@ public class JournalEntry
     public string? SequenceNumber { get; set; }
     public DateTime? PostedAtUtc { get; set; }
 
+    [Pako.Domain.Shared.AuditIgnore]
     public string? EntryHash { get; set; }
+    [Pako.Domain.Shared.AuditIgnore]
     public string? PrevHash { get; set; }
+    [Pako.Domain.Shared.AuditIgnore]
     public long? SecureSequenceNumber { get; set; }
 
     // R28 (BLOCK, columns-only this stage): "every posting stores user id, timestamp, source

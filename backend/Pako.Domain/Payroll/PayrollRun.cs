@@ -35,6 +35,7 @@ public record PayrollPostingAccounts(
     // employee's partner). Required for every slip that carries a reimbursement.
     IReadOnlyDictionary<Guid, (Guid AccountId, Guid PartnerId)>? ReimbursementPayables = null);
 
+[Pako.Domain.Shared.Audited]
 public class PayrollRun
 {
     public Guid Id { get; set; }

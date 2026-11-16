@@ -10,6 +10,7 @@ public enum EmploymentType
 // Dated salary history. The contract in force on a payroll period's end date supplies the base
 // salary; with no contract, Employee.MonthlyGrossSalary is used (every employee created before
 // contracts existed).
+[Pako.Domain.Shared.Audited]
 public class EmployeeContract
 {
     public Guid Id { get; set; }

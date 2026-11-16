@@ -1,5 +1,6 @@
 namespace Pako.Domain.Ledger;
 
+[Pako.Domain.Shared.Audited]
 public class Project
 {
     public Guid Id { get; set; }

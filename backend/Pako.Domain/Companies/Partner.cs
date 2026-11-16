@@ -1,5 +1,6 @@
 namespace Pako.Domain.Companies;
 
+[Pako.Domain.Shared.Audited]
 public class Partner
 {
     public Guid Id { get; set; }
