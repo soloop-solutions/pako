@@ -23,6 +23,7 @@ export interface PostgresOptions {
   isProcessAlive?: (pid: number) => boolean
   probe?: (port: number) => Promise<boolean>
   sleep?: (ms: number) => Promise<void>
+  now?: () => number
   readyTimeoutMs?: number
   database?: string
 }
@@ -84,6 +85,7 @@ export class PostgresProcess {
   private readonly probe: (port: number) => Promise<boolean>
   private readonly sleep: (ms: number) => Promise<void>
   private readonly readyTimeoutMs: number
+  private readonly now: () => number
   private child: ChildLike | undefined
   private exitCallbacks: ((code: number | null) => void)[] = []
 
@@ -94,6 +96,7 @@ export class PostgresProcess {
     this.isProcessAlive = opts.isProcessAlive ?? realIsProcessAlive
     this.probe = opts.probe ?? realProbe
     this.sleep = opts.sleep ?? realSleep
+    this.now = opts.now ?? Date.now
     this.readyTimeoutMs = opts.readyTimeoutMs ?? 30000
   }
 
@@ -133,6 +136,11 @@ export class PostgresProcess {
     return norm(a) === norm(b)
   }
 
+  private async runCode(name: string, args: string[], env?: Record<string, string>): Promise<number | null> {
+    const child = this.spawn(this.bin(name), args, env ? { env } : undefined)
+    return waitForExit(child)
+  }
+
   private async runTool(name: string, args: string[], env?: Record<string, string>): Promise<void> {
     const child = this.spawn(this.bin(name), args, env ? { env } : undefined)
     const code = await waitForExit(child)
@@ -145,7 +153,11 @@ export class PostgresProcess {
     const lines = (await this.fs.readFile(pidFile)).split(/\r?\n/)
     const pid = Number.parseInt(lines[0] ?? '', 10)
     const alive = Number.isFinite(pid) && this.isProcessAlive(pid)
-    if (alive && this.sameDir(lines[1] ?? '', this.opts.dataDir)) {
+    const ours =
+      alive &&
+      (this.sameDir(lines[1] ?? '', this.opts.dataDir) ||
+        (await this.runCode('pg_ctl', ['status', '-D', this.opts.dataDir])) === 0)
+    if (ours) {
       await this.runTool('pg_ctl', ['stop', '-D', this.opts.dataDir, '-m', 'fast', '-w'])
       return
     }
@@ -162,11 +174,28 @@ export class PostgresProcess {
       `\\gexec\n`
     await this.fs.writeFile(sqlFile, sql)
     try {
-      await this.runTool(
-        'psql',
-        ['-h', '127.0.0.1', '-p', String(port), '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-f', sqlFile],
-        { PGPASSWORD: password },
-      )
+      const args = [
+        '-h',
+        '127.0.0.1',
+        '-p',
+        String(port),
+        '-U',
+        'postgres',
+        '-d',
+        'postgres',
+        '-v',
+        'ON_ERROR_STOP=1',
+        '-f',
+        sqlFile,
+      ]
+      const deadline = this.now() + this.readyTimeoutMs
+      for (;;) {
+        if ((await this.runCode('psql', args, { PGPASSWORD: password })) === 0) return
+        if (this.now() >= deadline) {
+          throw new Error('Postgres did not accept connections in time to create the database')
+        }
+        await this.sleep(250)
+      }
     } finally {
       await this.fs.rm(sqlFile)
     }

@@ -28,14 +28,17 @@ interface Call {
   env?: Record<string, string>
 }
 
-function fakeSpawn(calls: Call[]) {
+type CodeFor = (cmd: string, args: string[], index: number) => number
+
+function fakeSpawn(calls: Call[], codeFor: CodeFor = () => 0) {
   return (cmd: string, args: string[], o?: { env?: Record<string, string> }): ChildLike => {
+    const index = calls.length
     calls.push({ cmd, args, env: o?.env })
     const long = cmd.endsWith('postgres')
     return {
       pid: 42,
       on(event, cb) {
-        if (event === 'exit' && !long) queueMicrotask(() => (cb as (c: number) => void)(0))
+        if (event === 'exit' && !long) queueMicrotask(() => (cb as (c: number) => void)(codeFor(cmd, args, index)))
       },
       kill() {},
     }
@@ -44,7 +47,13 @@ function fakeSpawn(calls: Call[]) {
 
 const names = (calls: Call[]) => calls.map((c) => c.cmd.split('/').pop())
 
-function make(files: Record<string, string>, calls: Call[], alive: (pid: number) => boolean) {
+function make(
+  files: Record<string, string>,
+  calls: Call[],
+  alive: (pid: number) => boolean,
+  codeFor?: CodeFor,
+  clock?: { now: () => number; sleep: (ms: number) => Promise<void> },
+) {
   const fs = fakeFs(files)
   const pg = new PostgresProcess({
     binDir: '/b',
@@ -54,7 +63,8 @@ function make(files: Record<string, string>, calls: Call[], alive: (pid: number)
     fs,
     isProcessAlive: alive,
     probe: async () => true,
-    spawn: fakeSpawn(calls),
+    spawn: fakeSpawn(calls, codeFor),
+    ...clock,
   })
   return { fs, pg }
 }
@@ -88,10 +98,15 @@ describe('postgres', () => {
 
   it('Postgres_PidReusedByUnrelatedProcess_IsTreatedAsStale', async () => {
     const calls: Call[] = []
-    const { fs, pg } = make({ '/d/pg/postmaster.pid': '4242\n/other/dir\n' }, calls, (pid) => pid === 4242)
+    const { fs, pg } = make(
+      { '/d/pg/postmaster.pid': '4242\n/other/dir\n' },
+      calls,
+      (pid) => pid === 4242,
+      (_c, args) => (args[0] === 'status' ? 3 : 0),
+    )
     await pg.start()
     expect(fs.removed).toContain('/d/pg/postmaster.pid')
-    expect(names(calls)).not.toContain('pg_ctl')
+    expect(calls.some((c) => c.args[0] === 'stop')).toBe(false)
     expect(names(calls)).toContain('postgres')
   })
 
@@ -122,5 +137,60 @@ describe('postgres', () => {
 
     await pg.start()
     expect(calls.filter((c) => c.cmd.endsWith('psql'))).toHaveLength(2)
+  })
+
+  it('Postgres_RetriesDatabaseCreate_WhileStartingUp_ThenSucceeds', async () => {
+    const calls: Call[] = []
+    let psqlRuns = 0
+    let t = 0
+    const { pg } = make(
+      {},
+      calls,
+      () => false,
+      (cmd) => (cmd.endsWith('psql') && ++psqlRuns < 3 ? 2 : 0),
+      { now: () => t, sleep: async (ms) => void (t += ms) },
+    )
+    await pg.start()
+    expect(calls.filter((c) => c.cmd.endsWith('psql'))).toHaveLength(3)
+  })
+
+  it('Postgres_DatabaseCreate_KeepsFailing_RejectsAfterWindow', async () => {
+    const calls: Call[] = []
+    let t = 0
+    const { pg } = make(
+      {},
+      calls,
+      () => false,
+      (cmd) => (cmd.endsWith('psql') ? 2 : 0),
+      { now: () => t, sleep: async (ms) => void (t += ms) },
+    )
+    await expect(pg.start()).rejects.toThrow(/accept connections|sessions/i)
+    expect(calls.filter((c) => c.cmd.endsWith('psql')).length).toBeGreaterThan(1)
+  })
+
+  it('Postgres_DirMismatch_StatusZero_StopsAndKeepsPidFile', async () => {
+    const calls: Call[] = []
+    const { fs, pg } = make(
+      { '/d/pg/postmaster.pid': '4242\n/private/d/pg\n' },
+      calls,
+      (pid) => pid === 4242,
+    )
+    await pg.start()
+    expect(calls[0]!.args.slice(0, 3)).toEqual(['status', '-D', '/d/pg'])
+    expect(calls[1]!.args).toEqual(['stop', '-D', '/d/pg', '-m', 'fast', '-w'])
+    expect(fs.removed).not.toContain('/d/pg/postmaster.pid')
+  })
+
+  it('Postgres_DirMismatch_StatusNonZero_TreatedAsStale', async () => {
+    const calls: Call[] = []
+    const { fs, pg } = make(
+      { '/d/pg/postmaster.pid': '4242\n/other/dir\n' },
+      calls,
+      (pid) => pid === 4242,
+      (_c, args) => (args[0] === 'status' ? 3 : 0),
+    )
+    await pg.start()
+    expect(fs.removed).toContain('/d/pg/postmaster.pid')
+    expect(calls.some((c) => c.args[0] === 'stop')).toBe(false)
   })
 })
