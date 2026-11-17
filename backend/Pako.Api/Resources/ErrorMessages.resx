@@ -1272,6 +1272,12 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="PosCertificateInvalid" xml:space="preserve">
     <value>That isn't a valid ATK certificate (PEM, ECDSA P-256).</value>
   </data>
+  <data name="PosNuiMissing" xml:space="preserve">
+    <value>The company has no fiscal number (NUI). Set it in company settings first.</value>
+  </data>
+  <data name="PosFiscalizationNumberMissing" xml:space="preserve">
+    <value>This register has no fiscalization number. Enter the number from ATK's EDI form.</value>
+  </data>
   <data name="PosTenderDuplicate" xml:space="preserve"><value>The same payment method is counted twice. Enter each method once.</value></data>
   <data name="PosTaxNotForSales" xml:space="preserve"><value>The VAT code "{0}" can't go on a coupon: use an active sales VAT code.</value></data>
   <data name="PosDiscountTooLarge" xml:space="preserve"><value>The discount on "{0}" is larger than the line. Lower the discount.</value></data>

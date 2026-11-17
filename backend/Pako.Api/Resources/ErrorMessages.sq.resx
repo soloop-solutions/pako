@@ -1272,6 +1272,12 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="PosCertificateInvalid" xml:space="preserve">
     <value>Ajo nuk është certifikatë e vlefshme e ATK (PEM, ECDSA P-256).</value>
   </data>
+  <data name="PosNuiMissing" xml:space="preserve">
+    <value>Kompania nuk ka numër fiskal (NUI). Vendoseni në cilësimet e kompanisë së pari.</value>
+  </data>
+  <data name="PosFiscalizationNumberMissing" xml:space="preserve">
+    <value>Kjo arkë nuk ka numër fiskalizimi. Shkruani numrin nga formulari EDI i ATK-së.</value>
+  </data>
   <data name="PosTenderDuplicate" xml:space="preserve"><value>E njëjta mënyrë pagese është numëruar dy herë. Shkruajeni secilën mënyrë një herë.</value></data>
   <data name="PosTaxNotForSales" xml:space="preserve"><value>Kodi i TVSH-së "{0}" nuk mund të vihet në kupon: përdorni një kod aktiv të TVSH-së për shitje.</value></data>
   <data name="PosDiscountTooLarge" xml:space="preserve"><value>Zbritja te "{0}" është më e madhe se rreshti. Ulni zbritjen.</value></data>

@@ -111,6 +111,14 @@ builder.Services.AddScoped<Pako.Api.Services.StockService>();
 builder.Services.AddScoped<Pako.Api.Services.StockDocumentService>();
 builder.Services.AddScoped<Pako.Api.Services.PriceListService>();
 builder.Services.AddScoped<Pako.Api.Services.PosService>();
+// ATK SEF fiscalization client (AI 01/2026).
+builder.Services.AddHttpClient<Pako.Fiscal.Xk.AtkFiscalClient>(client =>
+{
+    var url = builder.Configuration["ATK_BASE_URL"] ?? "https://fiskalizimi-test.atk-ks.org";
+    if (!url.EndsWith('/')) url += "/";
+    client.BaseAddress = new Uri(url);
+    client.Timeout = TimeSpan.FromSeconds(10);
+});
 builder.Services.AddScoped<Pako.Api.Services.PosReportService>();
 builder.Services.AddScoped<Pako.Api.Services.TabService>();
 builder.Services.AddScoped<Pako.Api.Services.PosOperatorService>();

@@ -69,6 +69,9 @@ public class PosRegister
     public string? CertificatePem { get; set; }
     public string? CertificateThumbprint { get; set; }
     public DateTime? CertificateNotAfter { get; set; }
+    // The private key for this register, stored server-side for cloud-hosted tills.
+    // In a hardware-till setup this would stay on the machine; here the server signs on its behalf.
+    public string? EncryptedPrivateKeyPem { get; set; }
     // The cash account this till's drawer posts to (a Cash sub-type account).
     public Guid CashAccountId { get; set; }
     public bool IsActive { get; set; } = true;

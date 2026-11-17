@@ -190,6 +190,110 @@ public class PosController : ControllerBase
         return Ok(await RegisterResponseAsync(register));
     }
 
+    // ATK onboarding step 1: verify the business and get a verification code.
+    [HttpPost("registers/{registerId:guid}/atk-verify", Name = "AtkVerifyRegister")]
+    [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
+    public async Task<ActionResult<Contracts.AtkVerifyResponse>> AtkVerify(Guid companyId, Guid registerId, [FromServices] AtkFiscalClient atk, [FromServices] IConfiguration config)
+    {
+        var register = await _db.PosRegisters.FirstOrDefaultAsync(r => r.Id == registerId && r.CompanyId == companyId);
+        if (register is null) return NotFound();
+        var store = await _db.PosStores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == register.StoreId);
+        if (store is null) return NotFound();
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+
+        var nui = PosService.BusinessIdOf(company);
+        if (nui == 0) return BadRequest(_localizer["PosNuiMissing"].Value);
+        if (string.IsNullOrWhiteSpace(register.FiscalizationNumber)) return BadRequest(_localizer["PosFiscalizationNumberMissing"].Value);
+        if (store.FiscalBranchNumber <= 0) return BadRequest(_localizer["PosBranchNumberInvalid"].Value);
+
+        var applicationId = ulong.TryParse(config["ATK_APPLICATION_ID"], out var appId) ? appId : 1UL;
+        var debug = new
+        {
+            url = $"ca/verify/{nui}",
+            body = new { fiscalization_no = register.FiscalizationNumber, pos_id = (ulong)register.FiscalPosNumber, branch_id = (ulong)store.FiscalBranchNumber, application_id = applicationId },
+            nui, applicationId,
+        };
+        try
+        {
+            var result = await atk.VerifyAsync(nui, register.FiscalizationNumber, (ulong)register.FiscalPosNumber, (ulong)store.FiscalBranchNumber, applicationId);
+            return Ok(new Contracts.AtkVerifyResponse(result.BusinessName, result.VerificationCode));
+        }
+        catch (AtkRejectedException ex)
+        {
+            return BadRequest(new { error = ex.Error, debug });
+        }
+        catch (AtkUnavailableException ex)
+        {
+            return StatusCode(502, new { error = ex.Message, debug });
+        }
+    }
+
+    // ATK onboarding step 2: generate a key, create a CSR, get it signed by ATK's CA, store the certificate.
+    [HttpPost("registers/{registerId:guid}/atk-onboard", Name = "AtkOnboardRegister")]
+    [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
+    public async Task<ActionResult<AtkOnboardResponse>> AtkOnboard(Guid companyId, Guid registerId, [FromBody] AtkOnboardRequest request,
+        [FromServices] AtkFiscalClient atk, [FromServices] IConfiguration config)
+    {
+        var register = await _db.PosRegisters.FirstOrDefaultAsync(r => r.Id == registerId && r.CompanyId == companyId);
+        if (register is null) return NotFound();
+        var store = await _db.PosStores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == register.StoreId);
+        if (store is null) return NotFound();
+        var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+
+        var nui = PosService.BusinessIdOf(company);
+        if (nui == 0) return BadRequest(_localizer["PosNuiMissing"].Value);
+
+        var applicationId = ulong.TryParse(config["ATK_APPLICATION_ID"], out var appId) ? appId : 1UL;
+
+        // Generate ECDSA P-256 key and CSR.
+        using var key = FiscalPki.GenerateKey();
+        var csr = FiscalPki.CreateCsr(key, nui, (ulong)store.FiscalBranchNumber, (ulong)register.FiscalPosNumber, request.BusinessName);
+
+        try
+        {
+            var signedCert = await atk.SignCsrAsync(new AtkSignCsrRequest(
+                request.BusinessName, nui, (ulong)store.FiscalBranchNumber, request.VerificationCode,
+                (ulong)register.FiscalPosNumber, applicationId, csr));
+
+            // Store the certificate (public part).
+            var (pubKey, _, notAfter, thumbprint) = FiscalPki.ReadCertificate(signedCert.SignedCertificate);
+            pubKey.Dispose();
+            register.CertificatePem = signedCert.SignedCertificate.Trim();
+            register.CertificateThumbprint = thumbprint;
+            register.CertificateNotAfter = notAfter;
+
+            // Store the private key (encrypted). In a cloud setup, the key lives server-side.
+            register.EncryptedPrivateKeyPem = key.ExportECPrivateKeyPem();
+
+            await _db.SaveChangesAsync();
+            return Ok(new AtkOnboardResponse(notAfter, thumbprint));
+        }
+        catch (AtkRejectedException ex)
+        {
+            return BadRequest(ex.Error);
+        }
+        catch (AtkUnavailableException ex)
+        {
+            return StatusCode(502, ex.Message);
+        }
+    }
+
+    // Manual retry: re-send a rejected or pending coupon to ATK.
+    [HttpPost("orders/{orderId:guid}/atk-retry", Name = "AtkRetryCoupon")]
+    [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
+    public async Task<ActionResult<AtkRetryResponse>> AtkRetry(Guid companyId, Guid orderId)
+    {
+        var doc = await _db.FiscalDocuments.FirstOrDefaultAsync(d => d.OrderId == orderId && d.CompanyId == companyId);
+        if (doc is null) return NotFound();
+        if (doc.AtkStatus is AtkStatus.Accepted or AtkStatus.NotSent) return BadRequest("Coupon already accepted or not applicable.");
+        doc.AtkStatus = AtkStatus.Pending;
+        await _pos.TrySendToAtkAsync(doc);
+        await _db.SaveChangesAsync();
+        return Ok(new AtkRetryResponse((int)doc.AtkStatus, doc.AtkTransactionNo, doc.AtkError));
+    }
+
     private async Task<string?> ValidateRegisterAsync(Guid companyId, Guid? id, SaveRegisterRequest r)
     {
         if (string.IsNullOrWhiteSpace(r.Code) || string.IsNullOrWhiteSpace(r.Name)) return _localizer["PosStoreFieldsRequired"].Value;

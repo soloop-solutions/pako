@@ -468,6 +468,15 @@ export const posEn: Record<string, string> = {
   "till.exchange.drop": "Drop the exchange credit",
   "till.pay.offer": "Card {number}: {amount}",
   "till.pay.offer.use": "Use",
+  // ATK onboarding
+  "atk.onboarding.title": "ATK Fiscalization",
+  "atk.onboarding.verify": "Connect to ATK",
+  "atk.onboarding.businessConfirmed": "ATK confirmed: {name}",
+  "atk.onboarding.generateCertificate": "Generate certificate",
+  "atk.onboarding.done": "ATK certificate installed (expires {date})",
+  "atk.verifyError": "ATK verification failed",
+  "atk.onboardError": "ATK onboarding failed",
+  "atk.retry": "Retry ATK",
 };
 
 export const posSq: Record<string, string> = {
@@ -935,6 +944,15 @@ export const posSq: Record<string, string> = {
   "till.exchange.drop": "Hiq kreditin e ndërrimit",
   "till.pay.offer": "Kartela {number}: {amount}",
   "till.pay.offer.use": "Përdor",
+  // ATK onboarding
+  "atk.onboarding.title": "Fiskalizimi ATK",
+  "atk.onboarding.verify": "Lidhu me ATK",
+  "atk.onboarding.businessConfirmed": "ATK konfirmoi: {name}",
+  "atk.onboarding.generateCertificate": "Gjenero certifikatën",
+  "atk.onboarding.done": "Certifikata e ATK-së e instaluar (skadon {date})",
+  "atk.verifyError": "Verifikimi me ATK dështoi",
+  "atk.onboardError": "Regjistrimi me ATK dështoi",
+  "atk.retry": "Riprovo ATK",
 };
 
 // P3 restaurant till (floor plan, tabs, waiters, kitchen display): its own file, keys "rest.*".
