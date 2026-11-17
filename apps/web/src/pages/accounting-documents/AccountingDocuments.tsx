@@ -2,6 +2,7 @@ import { Calendar, FileText } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
+import { Select } from "@/components/ui/select";
 import { monthName } from "@/pages/accounting-documents/month-names";
 
 const MONTHS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
@@ -21,10 +22,6 @@ export function AccountingDocuments() {
 
   const currentYear = new Date().getFullYear();
   const selectedYear = Number(searchParams.get("year")) || currentYear;
-
-  function handleYearChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    setSearchParams({ year: e.target.value });
-  }
 
   function handleMonthClick(month: number) {
     void navigate(`/accounting-documents/${selectedYear}/${month}`);
@@ -53,17 +50,12 @@ export function AccountingDocuments() {
         <span className="text-sm font-medium">
           {intl.formatMessage({ id: "accountingDocuments.year" })}:
         </span>
-        <select
-          value={selectedYear}
-          onChange={handleYearChange}
-          className="h-9 rounded-md border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]"
-        >
-          {yearOptions().map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+        <Select
+          value={String(selectedYear)}
+          onValueChange={(v) => setSearchParams({ year: v })}
+          options={yearOptions().map((y) => ({ value: String(y), label: String(y) }))}
+          className="w-28"
+        />
       </div>
 
       {/* Month grid */}
