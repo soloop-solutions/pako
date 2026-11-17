@@ -1758,4 +1758,13 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="Export_Audit_Action_Deleted" xml:space="preserve"><value>Fshirë</value></data>
   <data name="Export_Audit_Action_Post" xml:space="preserve"><value>Postuar</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>Eksporti i gjurmës së auditimit kufizohet në {0} rreshta. Ngushtoni filtrat dhe provoni përsëri.</value></data>
+
+  <!-- Dokumentet kontabël -->
+  <data name="AccountingDocumentNotFound" xml:space="preserve"><value>Dokumenti kontabël nuk u gjet.</value></data>
+  <data name="AccountingDocumentFileRequired" xml:space="preserve"><value>Një skedar është i nevojshëm.</value></data>
+  <data name="AccountingDocumentEmptyFile" xml:space="preserve"><value>Skedari i ngarkuar është bosh.</value></data>
+  <data name="AccountingDocumentTooLarge" xml:space="preserve"><value>Skedari tejkalon madhësinë maksimale prej 20 MB.</value></data>
+  <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Lloji i dokumentit duhet të jetë "Buy" ose "Sell".</value></data>
+  <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Muaji duhet të jetë ndërmjet 1 dhe 12.</value></data>
+  <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Viti duhet të jetë ndërmjet 2000 dhe 2100.</value></data>
 </root>

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Pako.Domain.Attachments;
 using Pako.Domain.Bills;
+using Pako.Domain.Documents;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
 using Pako.Domain.Invoicing;
@@ -56,6 +57,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<PayrollRun> PayrollRuns => Set<PayrollRun>();
     public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
+    public DbSet<AccountingDocument> AccountingDocuments => Set<AccountingDocument>();
     public DbSet<WithholdingTaxEntry> WithholdingTaxEntries => Set<WithholdingTaxEntry>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<EmployeePartnerAssignment> EmployeePartnerAssignments => Set<EmployeePartnerAssignment>();

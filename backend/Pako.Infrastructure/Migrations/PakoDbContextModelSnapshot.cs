@@ -1442,6 +1442,61 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("user_invitations", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Documents.AccountingDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("DocumentType")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("UploadedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Year", "Month", "DocumentType");
+
+                    b.ToTable("accounting_documents", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Hr.Department", b =>
                 {
                     b.Property<Guid>("Id")
