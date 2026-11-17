@@ -90,6 +90,205 @@ export class PakoApiClient {
     }
 
     /**
+     * @param year (optional) 
+     * @param month (optional) 
+     * @param documentType (optional) 
+     * @return OK
+     */
+    accountingDocumentsGET(companyId: string, year: number | undefined, month: number | undefined, documentType: string | undefined): Promise<AccountingDocumentListResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounting-documents?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        if (month === null)
+            throw new globalThis.Error("The parameter 'month' cannot be null.");
+        else if (month !== undefined)
+            url_ += "month=" + encodeURIComponent("" + month) + "&";
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            url_ += "documentType=" + encodeURIComponent("" + documentType) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAccountingDocumentsGET(_response);
+        });
+    }
+
+    protected processAccountingDocumentsGET(response: Response): Promise<AccountingDocumentListResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountingDocumentListResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountingDocumentListResponse>(null as any);
+    }
+
+    /**
+     * @param documentType (optional) 
+     * @param year (optional) 
+     * @param month (optional) 
+     * @param name (optional) 
+     * @param file (optional) 
+     * @return Created
+     */
+    upload(companyId: string, documentType: string | undefined, year: number | undefined, month: number | undefined, name: string | undefined, file: FileParameter | undefined): Promise<AccountingDocumentResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounting-documents/upload";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (documentType === null || documentType === undefined)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else
+            content_.append("DocumentType", documentType.toString());
+        if (year === null || year === undefined)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else
+            content_.append("Year", year.toString());
+        if (month === null || month === undefined)
+            throw new globalThis.Error("The parameter 'month' cannot be null.");
+        else
+            content_.append("Month", month.toString());
+        if (name === null || name === undefined)
+            throw new globalThis.Error("The parameter 'name' cannot be null.");
+        else
+            content_.append("Name", name.toString());
+        if (file === null || file === undefined)
+            throw new globalThis.Error("The parameter 'file' cannot be null.");
+        else
+            content_.append("File", file.data, file.fileName ? file.fileName : "File");
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpload(_response);
+        });
+    }
+
+    protected processUpload(response: Response): Promise<AccountingDocumentResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AccountingDocumentResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AccountingDocumentResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    download(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounting-documents/{id}/download";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDownload(_response);
+        });
+    }
+
+    protected processDownload(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    accountingDocumentsDELETE(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/accounting-documents/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAccountingDocumentsDELETE(_response);
+        });
+    }
+
+    protected processAccountingDocumentsDELETE(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
      * @return OK
      */
     accountsAll(companyId: string): Promise<AccountResponse[]> {
@@ -368,7 +567,7 @@ export class PakoApiClient {
     /**
      * @return OK
      */
-    download(companyId: string, id: string): Promise<void> {
+    download2(companyId: string, id: string): Promise<void> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/attachments/{id}/download";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -385,11 +584,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processDownload(_response);
+            return this.processDownload2(_response);
         });
     }
 
-    protected processDownload(response: Response): Promise<void> {
+    protected processDownload2(response: Response): Promise<void> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -15619,6 +15818,136 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    atkVerifyRegister(companyId: string, registerId: string): Promise<AtkVerifyResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/registers/{registerId}/atk-verify";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (registerId === undefined || registerId === null)
+            throw new globalThis.Error("The parameter 'registerId' must be defined.");
+        url_ = url_.replace("{registerId}", encodeURIComponent("" + registerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAtkVerifyRegister(_response);
+        });
+    }
+
+    protected processAtkVerifyRegister(response: Response): Promise<AtkVerifyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AtkVerifyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AtkVerifyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    atkOnboardRegister(companyId: string, registerId: string, body: AtkOnboardRequest): Promise<AtkOnboardResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/registers/{registerId}/atk-onboard";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (registerId === undefined || registerId === null)
+            throw new globalThis.Error("The parameter 'registerId' must be defined.");
+        url_ = url_.replace("{registerId}", encodeURIComponent("" + registerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAtkOnboardRegister(_response);
+        });
+    }
+
+    protected processAtkOnboardRegister(response: Response): Promise<AtkOnboardResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AtkOnboardResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AtkOnboardResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    atkRetryCoupon(companyId: string, orderId: string): Promise<AtkRetryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/orders/{orderId}/atk-retry";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (orderId === undefined || orderId === null)
+            throw new globalThis.Error("The parameter 'orderId' must be defined.");
+        url_ = url_.replace("{orderId}", encodeURIComponent("" + orderId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processAtkRetryCoupon(_response);
+        });
+    }
+
+    protected processAtkRetryCoupon(response: Response): Promise<AtkRetryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AtkRetryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AtkRetryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     getPosBootstrap(companyId: string, registerId: string): Promise<PosBootstrapResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/pos/registers/{registerId}/bootstrap";
         if (companyId === undefined || companyId === null)
@@ -28318,6 +28647,28 @@ export interface AccountGroupResponse {
     [key: string]: any;
 }
 
+export interface AccountingDocumentListResponse {
+    items: AccountingDocumentResponse[];
+    total: number;
+
+    [key: string]: any;
+}
+
+export interface AccountingDocumentResponse {
+    id: string;
+    name: string;
+    fileName: string;
+    contentType: string;
+    sizeBytes: number;
+    documentType: string;
+    year: number;
+    month: number;
+    uploadedByUserId: string;
+    createdAt: string;
+
+    [key: string]: any;
+}
+
 export interface AccountLockExceptionResponse {
     id: string;
     userId: string;
@@ -28574,6 +28925,35 @@ export interface ApproveAccountRequestResponse {
 export interface ApproveTimesheetMonthRequest {
     month: string;
     employeeId: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface AtkOnboardRequest {
+    verificationCode: string;
+    businessName: string;
+
+    [key: string]: any;
+}
+
+export interface AtkOnboardResponse {
+    certificateExpiry: string;
+    thumbprint: string;
+
+    [key: string]: any;
+}
+
+export interface AtkRetryResponse {
+    atkStatus: number;
+    atkTransactionNo: number | undefined;
+    atkError: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface AtkVerifyResponse {
+    businessName: string;
+    verificationCode: string;
 
     [key: string]: any;
 }

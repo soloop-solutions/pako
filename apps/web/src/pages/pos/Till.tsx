@@ -223,7 +223,7 @@ export function Till() {
   return (
     <TillShell>
       <TillHeader boot={boot} onExit={() => navigate("/pos")} />
-      {boot.register.fiscalMode === FiscalMode.Sef || boot.register.fiscalMode === FiscalMode.Pef ? (
+      {boot.register.fiscalMode === FiscalMode.Pef ? (
         <div className="p-6">
           <Alert>
             <AlertDescription>{t("till.needsStation")}</AlertDescription>

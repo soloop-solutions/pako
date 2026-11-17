@@ -1,8 +1,8 @@
 import { useMemo, useRef, useState } from "react";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PosOrderSummaryResponse, SessionSummaryResponse } from "@pako/shared";
-import { ChefHat, MonitorSmartphone, Printer } from "lucide-react";
+import { ChefHat, MonitorSmartphone, Printer, Repeat } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
@@ -263,6 +263,7 @@ function OrderDialog({ orderId, onClose }: { orderId: string; onClose: () => voi
         <p className="text-muted-foreground">{t("common.loading")}</p>
       )}
       {o?.fiscal?.atkError && <p className="mt-2 text-sm text-destructive">{o.fiscal.atkError}</p>}
+      <AtkRetryButton orderId={orderId} atkStatus={o?.fiscal?.atkStatus} />
       <div className="mt-3 flex justify-end gap-2">
         <Button variant="outline" disabled={!o} onClick={() => printCoupon(ref.current)}>
           <Printer className="size-4" /> {t("till.print")}
@@ -270,5 +271,23 @@ function OrderDialog({ orderId, onClose }: { orderId: string; onClose: () => voi
         <Button onClick={onClose}>{t("common.close")}</Button>
       </div>
     </FormDialog>
+  );
+}
+
+function AtkRetryButton({ orderId, atkStatus }: { orderId: string; atkStatus?: number | null }) {
+  const intl = useIntl();
+  const t = (id: string) => intl.formatMessage({ id });
+  const { activeCompanyId } = useCompany();
+  const queryClient = useQueryClient();
+  const retry = useMutation({
+    mutationFn: () => apiClient.atkRetryCoupon(activeCompanyId as string, orderId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["posOrder", activeCompanyId, orderId] }),
+  });
+  // Show retry for Pending (1) and Rejected (3)
+  if (atkStatus !== AtkStatus.Pending && atkStatus !== AtkStatus.Rejected) return null;
+  return (
+    <Button size="sm" variant="outline" className="mt-2" disabled={retry.isPending} onClick={() => retry.mutate()}>
+      <Repeat className="size-4" /> {retry.isPending ? t("common.loading") : t("atk.retry")}
+    </Button>
   );
 }

@@ -28,12 +28,16 @@ public class PosService
     private readonly PakoDbContext _db;
     private readonly StockService _stock;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly AtkFiscalClient _atk;
+    private readonly ulong _atkApplicationId;
 
-    public PosService(PakoDbContext db, StockService stock, IStringLocalizer<ErrorMessages> localizer)
+    public PosService(PakoDbContext db, StockService stock, IStringLocalizer<ErrorMessages> localizer, AtkFiscalClient atk, IConfiguration config)
     {
         _db = db;
         _stock = stock;
         _localizer = localizer;
+        _atk = atk;
+        _atkApplicationId = ulong.TryParse(config["ATK_APPLICATION_ID"], out var id) ? id : 1UL;
     }
 
     // Kosovo's clock (CET/CEST): the business day and the coupon's daily number follow it, not UTC.
@@ -1101,8 +1105,32 @@ public class PosService
         }
 
         if (register.FiscalMode != FiscalMode.Sef) throw Fail("PosFiscalModeUnsupported");
-        if (fiscal is null) throw Fail("PosFiscalRequired");
         if (register.CertificatePem is null) throw Fail("PosRegisterNotOnboarded");
+
+        // Server-side signing: the web till doesn't sign locally — the server signs using the
+        // register's stored private key (cloud-hosted flow, Art. 34 "one certificate per SEF installation").
+        if (fiscal is null)
+        {
+            if (string.IsNullOrEmpty(register.EncryptedPrivateKeyPem)) throw Fail("PosFiscalRequired");
+            var couponId = await NextCouponIdAsync(company.Id, store.FiscalBranchNumber, register.FiscalPosNumber);
+            var request = CouponRequest(order, register, store, businessId, (ulong)couponId, RandomVerificationNo(), order.OrderedAt,
+                originalDoc?.CouponId, type, methods, null, _atkApplicationId);
+            var built = CouponBuilder.Build(request);
+            using var key = ECDsa.Create();
+            key.ImportFromPem(register.EncryptedPrivateKeyPem);
+            using var signer = new CouponSigner(key);
+            var signed = signer.SignPosCoupon(built.Pos);
+            var serverDoc = new FiscalDocument
+            {
+                Id = Guid.NewGuid(), CompanyId = company.Id, RegisterId = register.Id, OrderId = order.Id, Type = (FiscalDocumentType)type,
+                CouponId = couponId, DailyNumber = await DailyNumberAsync(register.Id, order.OrderedAt), ReferenceCouponId = originalDoc?.CouponId,
+                VerificationNo = request.VerificationNo, IssuedAt = order.OrderedAt, PosCouponDetails = signed.Details, Signature = signed.Signature,
+                QrCode = signer.QrCode(built.Citizen), AtkStatus = AtkStatus.Pending,
+                SendBy = order.OrderedAt + OfflineDeadline,
+            };
+            await TrySendToAtkAsync(serverDoc);
+            return serverDoc;
+        }
         if (original is not null && originalDoc is null) throw Fail("PosOriginalOrderNotFound");
 
         // The till signed the coupon; check the signature with the certificate ATK issued for it, and
@@ -1132,7 +1160,7 @@ public class PosService
         }
 
         var accepted = fiscal.SentToAtk && fiscal.AtkTransactionNo is > 0;
-        return new FiscalDocument
+        var doc = new FiscalDocument
         {
             Id = Guid.NewGuid(), CompanyId = company.Id, RegisterId = register.Id, OrderId = order.Id, Type = (FiscalDocumentType)type,
             CouponId = fiscal.CouponId, DailyNumber = fiscal.DailyNumber, ReferenceCouponId = originalDoc?.CouponId,
@@ -1143,6 +1171,40 @@ public class PosService
             SentAt = accepted ? DateTime.UtcNow : null,
             SendBy = accepted ? null : issuedAt + OfflineDeadline,
         };
+
+        // If the till didn't already send it, try sending to ATK now.
+        if (!accepted)
+        {
+            await TrySendToAtkAsync(doc);
+        }
+        return doc;
+    }
+
+    // Attempts to send a pending fiscal document to ATK. Updates the document's status in place.
+    // Safe to call from both the sale flow and the background retry job.
+    public async Task TrySendToAtkAsync(FiscalDocument doc)
+    {
+        if (doc.AtkStatus != AtkStatus.Pending) return;
+        doc.Attempts++;
+        try
+        {
+            var response = await _atk.SendPosCouponAsync(new SignedPosCoupon(doc.PosCouponDetails, doc.Signature));
+            doc.AtkStatus = AtkStatus.Accepted;
+            doc.AtkTransactionNo = response.TransactionId;
+            doc.SentAt = DateTime.UtcNow;
+            doc.AtkError = null;
+        }
+        catch (AtkUnavailableException ex)
+        {
+            // ATK is down — stay Pending, the background job will retry within the 48h deadline.
+            doc.AtkError = ex.Message;
+            doc.SendBy ??= doc.IssuedAt + OfflineDeadline;
+        }
+        catch (AtkRejectedException ex)
+        {
+            doc.AtkStatus = AtkStatus.Rejected;
+            doc.AtkError = ex.Error;
+        }
     }
 
     public static ulong BusinessIdOf(Company company)
