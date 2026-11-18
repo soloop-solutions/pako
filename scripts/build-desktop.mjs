@@ -35,7 +35,7 @@ export function licenseKeyGuard({ source, env }) {
   if (key.some((b, i) => b !== DEV_LICENSE_PUBLIC_KEY[i])) return null
   const message =
     'build-desktop: LicensePublicKey.cs still holds the development license public key. Keys from the dev pair ' +
-    'would unlock every installer. Run tools/pako-license keygen and paste the production key (docs/DESKTOP.md, Release gates).'
+    'would unlock every installer. Run tools/pako-license keygen and paste the production key.'
   if (env.PAKO_ALLOW_DEV_LICENSE_KEY !== '1') throw new Error(`${message} For an internal test build only, set PAKO_ALLOW_DEV_LICENSE_KEY=1.`)
   return (
     '\n' +
@@ -111,7 +111,7 @@ export function planSteps({
   if (!crtDir) {
     throw new Error(
       'build-desktop: the bundled PostgreSQL needs the Visual C++ runtime (vcruntime140.dll, vcruntime140_1.dll, msvcp140.dll). ' +
-        'Set PAKO_VCRUNTIME_DIR to the folder holding them, or run from a Visual Studio developer prompt (VCToolsRedistDir). See docs/DESKTOP.md.',
+        'Set PAKO_VCRUNTIME_DIR to the folder holding them, or run from a Visual Studio developer prompt (VCToolsRedistDir).',
     )
   }
   const signing = signingEnv(env)
