@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ApiProcess } from './api'
+import { ApiProcess, buildApiEnv } from './api'
 import type { ChildLike } from './types'
 
 function make(fetchImpl: (url: string) => Promise<{ status: number }>, now: () => number) {
@@ -53,5 +53,34 @@ describe('api', () => {
     expect(calls[0]!.cmd).toBe('C:\\Program Files\\Pako\\api\\Pako.Api.exe')
     expect(calls[0]!.args).toEqual([])
     expect(calls[0]!.env?.Desktop__Enabled).toBe('true')
+  })
+
+  it('Api_Start_RunsFromTheExeFolder_SoWwwrootIsFound', async () => {
+    const calls: { cwd?: string }[] = []
+    const api = new ApiProcess({
+      exePath: '/opt/PAKO/resources/api/Pako.Api',
+      port: 6001,
+      env: {},
+      spawn: (_cmd, _args, o) => {
+        calls.push({ cwd: o?.cwd })
+        return { pid: 1, on() {}, kill() {} }
+      },
+    })
+    await api.start()
+    expect(calls[0]!.cwd).toBe('/opt/PAKO/resources/api')
+  })
+
+  it('Api_Env_PassesTheDataDirectory', () => {
+    const env = buildApiEnv({
+      port: 6001,
+      pgPort: 6002,
+      pgPassword: 'pw',
+      jwtKey: 'k',
+      launchSecret: 's',
+      dataDir: 'C:\\Users\\Çelik Ëndrra\\AppData\\Roaming\\PAKO',
+    })
+    expect(env.Desktop__DataDirectory).toBe('C:\\Users\\Çelik Ëndrra\\AppData\\Roaming\\PAKO')
+    expect(env.Desktop__Enabled).toBe('true')
+    expect(env.ASPNETCORE_ENVIRONMENT).toBe('Production')
   })
 })

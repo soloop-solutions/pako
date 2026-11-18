@@ -1,3 +1,4 @@
+import nodePath from 'node:path'
 import type { ChildLike, SpawnFn } from './types'
 import { defaultSpawn } from './spawn'
 
@@ -17,6 +18,7 @@ export interface ApiEnvInput {
   pgPassword: string
   jwtKey: string
   launchSecret: string
+  dataDir: string
 }
 
 export function buildApiEnv(input: ApiEnvInput): Record<string, string> {
@@ -25,6 +27,7 @@ export function buildApiEnv(input: ApiEnvInput): Record<string, string> {
     ConnectionStrings__Default: `Host=127.0.0.1;Port=${input.pgPort};Database=pako;Username=postgres;Password=${input.pgPassword}`,
     Jwt__Key: input.jwtKey,
     Desktop__LaunchSecret: input.launchSecret,
+    Desktop__DataDirectory: input.dataDir,
     ASPNETCORE_URLS: `http://127.0.0.1:${input.port}`,
     ASPNETCORE_ENVIRONMENT: 'Production',
     Email__Mode: 'Log',
@@ -55,7 +58,7 @@ export class ApiProcess {
   }
 
   async start(): Promise<void> {
-    const child = this.spawn(this.opts.exePath, [], { env: this.opts.env })
+    const child = this.spawn(this.opts.exePath, [], { env: this.opts.env, cwd: nodePath.dirname(this.opts.exePath) })
     this.child = child
     child.on('exit', (code) => {
       if (this.child === child) this.child = undefined

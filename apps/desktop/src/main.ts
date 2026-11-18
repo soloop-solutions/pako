@@ -502,6 +502,7 @@ async function start(): Promise<void> {
       pgPassword: config.pgPassword,
       jwtKey: config.jwtKey,
       launchSecret,
+      dataDir: paths.dataDir,
     }),
     spawn,
   })
