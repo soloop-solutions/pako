@@ -9,12 +9,22 @@ export interface SchedulerDeps {
   closeBoundMs?: number
   abortAll?(): void
   idle?(): Promise<void>
+  catchUpDelayMs?: number
+  isRestoring?(): boolean
+}
+
+export interface BackupFailure {
+  at: string
+  error: string
 }
 
 export interface Scheduler {
   stop(): void
   onClose(): Promise<boolean>
+  status(): { lastFailure: BackupFailure | null }
 }
+
+export const CATCH_UP_DELAY_MS = 60000
 
 export const CLOSE_BACKUP_BOUND_MS = 10000
 
@@ -32,8 +42,22 @@ export function startScheduler(deps: SchedulerDeps): Scheduler {
   const closeBoundMs = deps.closeBoundMs ?? CLOSE_BACKUP_BOUND_MS
   const controller = new AbortController()
   let handle: unknown
+  let catchUpHandle: unknown
   let stopped = false
   let running: Promise<boolean> | undefined
+  let lastFailure: BackupFailure | null = null
+
+  const runAutomatic = (label: string): Promise<void> =>
+    runIfDue().then(
+      (ran) => {
+        if (ran) lastFailure = null
+      },
+      (err) => {
+        const error = err instanceof Error ? err.message : String(err)
+        lastFailure = { at: deps.now().toISOString(), error }
+        deps.log(`${label} backup failed: ${error}`)
+      },
+    )
 
   const runIfDue = (): Promise<boolean> => {
     if (running) return running
@@ -53,19 +77,36 @@ export function startScheduler(deps: SchedulerDeps): Scheduler {
     if (stopped) return
     handle = deps.setTimer(() => {
       handle = undefined
-      void runIfDue()
-        .catch((err) => deps.log(`scheduled backup failed: ${err instanceof Error ? err.message : String(err)}`))
-        .finally(schedule)
+      void runAutomatic('scheduled').finally(schedule)
     }, msUntilNext(deps.now(), hour))
   }
 
+  const scheduleCatchUp = (delayMs: number) => {
+    if (stopped) return
+    catchUpHandle = deps.setTimer(() => {
+      catchUpHandle = undefined
+      if (stopped) return
+      if (deps.isRestoring?.()) {
+        scheduleCatchUp(delayMs)
+        return
+      }
+      void runAutomatic('catch-up')
+    }, delayMs)
+  }
+
   schedule()
+  if (deps.catchUpDelayMs !== undefined) scheduleCatchUp(deps.catchUpDelayMs)
 
   return {
     stop() {
       stopped = true
       if (handle !== undefined) deps.clearTimer(handle)
+      if (catchUpHandle !== undefined) deps.clearTimer(catchUpHandle)
       handle = undefined
+      catchUpHandle = undefined
+    },
+    status() {
+      return { lastFailure }
     },
     async onClose() {
       const bound = deps.setTimer(() => {

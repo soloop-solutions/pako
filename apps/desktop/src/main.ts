@@ -34,7 +34,7 @@ import {
 import { resolvePaths, type DesktopPaths } from './paths'
 import { chooseApiPort, getFreePort, isPortFree } from './ports'
 import { PostgresProcess } from './postgres'
-import { startScheduler, type Scheduler } from './scheduler'
+import { CATCH_UP_DELAY_MS, startScheduler, type Scheduler } from './scheduler'
 import { BackupQueue } from './backupQueue'
 import { BusyGate, SHUTDOWN_TIMEOUT_MS, ShutdownController, stopAfterCloseBackup } from './shutdown'
 import { setupSingleInstance } from './singleInstance'
@@ -413,6 +413,7 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
       dir: config.backupDir,
       retentionDays: config.retentionDays,
       lastBackupAt: (await newestBackupAt(config.backupDir))?.toISOString() ?? null,
+      lastAutoBackupFailure: scheduler?.status().lastFailure ?? null,
     })),
   )
   ipcMain.handle(
@@ -433,6 +434,8 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
     abortAll: () => backupQueue.abortBackups(),
     idle: () => backupQueue.idle(),
     log: (message) => console.error(`[backup] ${message}`),
+    catchUpDelayMs: CATCH_UP_DELAY_MS,
+    isRestoring: () => restoreGate.busy,
   })
 }
 

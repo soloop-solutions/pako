@@ -19,6 +19,11 @@ export interface DesktopBridge {
   listBackups(): Promise<BackupInfo[]>
   restoreFromFile(): Promise<RestoreResult>
   chooseBackupDir(): Promise<string | null>
-  getBackupSettings(): Promise<{ dir: string; retentionDays: number; lastBackupAt: string | null }>
+  getBackupSettings(): Promise<{
+    dir: string
+    retentionDays: number
+    lastBackupAt: string | null
+    lastAutoBackupFailure?: { at: string; error: string } | null
+  }>
   openLogFolder(): Promise<void>
 }
