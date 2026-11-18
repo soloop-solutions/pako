@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { getDesktopBridge } from "@/lib/desktopBridge";
+import { RecoveryCodeDisplay } from "@/pages/desktop/RecoveryCodeDisplay";
 
 export function RecoverAdminPage() {
   const intl = useIntl();
@@ -18,6 +19,7 @@ export function RecoverAdminPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [newCode, setNewCode] = useState<string | null>(null);
 
   if (!getDesktopBridge()) return <Navigate to="/login" replace />;
 
@@ -26,13 +28,27 @@ export function RecoverAdminPage() {
     setError(null);
     setSubmitting(true);
     try {
-      await apiClient.recoverDesktopAdmin({ email: email.trim(), recoveryCode: code.trim(), newPassword: password });
-      navigate("/login", { replace: true, state: { notice: "desktop.recover.success" } });
+      const response = await apiClient.recoverDesktopAdmin({ email: email.trim(), recoveryCode: code.trim(), newPassword: password });
+      setNewCode(response.recoveryCode);
     } catch {
       setError(intl.formatMessage({ id: "desktop.recover.error" }));
     } finally {
       setSubmitting(false);
     }
+  }
+
+  if (newCode) {
+    return (
+      <AuthLayout
+        title={intl.formatMessage({ id: "desktop.recover.newCodeTitle" })}
+        description={intl.formatMessage({ id: "desktop.recover.newCodeWarning" })}
+      >
+        <RecoveryCodeDisplay
+          code={newCode}
+          onContinue={() => navigate("/login", { replace: true, state: { notice: "desktop.recover.success" } })}
+        />
+      </AuthLayout>
+    );
   }
 
   return (

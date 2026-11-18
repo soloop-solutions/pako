@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { Navigate, useNavigate } from "react-router-dom";
@@ -7,11 +7,9 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { AuthLayout } from "@/components/auth/AuthLayout";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { printElement } from "@/lib/print";
-import { CopyButton } from "@/pages/desktop/CopyButton";
+import { RecoveryCodeDisplay } from "@/pages/desktop/RecoveryCodeDisplay";
 import { DESKTOP_SETUP_KEY, useDesktopSetup } from "@/pages/desktop/useDesktopSetup";
 
 export function FirstRunPage() {
@@ -26,8 +24,6 @@ export function FirstRunPage() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [recoveryCode, setRecoveryCode] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-  const codeRef = useRef<HTMLDivElement>(null);
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
@@ -62,26 +58,7 @@ export function FirstRunPage() {
         title={intl.formatMessage({ id: "desktop.firstRun.codeTitle" })}
         description={intl.formatMessage({ id: "desktop.firstRun.codeWarning" })}
       >
-        <div className="flex flex-col gap-4">
-          <div ref={codeRef}>
-            <p className="rounded-md border border-warning-border bg-warning px-3 py-4 text-center font-mono text-lg font-semibold tracking-wider text-warning-foreground select-all">
-              {recoveryCode}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" onClick={() => codeRef.current && printElement(codeRef.current)}>
-              {intl.formatMessage({ id: "common.print" })}
-            </Button>
-            <CopyButton value={recoveryCode} />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={saved} onChange={(e) => setSaved(e.target.checked)} />
-            {intl.formatMessage({ id: "desktop.firstRun.saved" })}
-          </label>
-          <Button type="button" disabled={!saved} onClick={handleContinue}>
-            {intl.formatMessage({ id: "desktop.firstRun.continue" })}
-          </Button>
-        </div>
+        <RecoveryCodeDisplay code={recoveryCode} onContinue={handleContinue} />
       </AuthLayout>
     );
   }

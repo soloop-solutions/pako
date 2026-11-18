@@ -1785,6 +1785,15 @@ export const en: Record<string, string> = {
   "desktop.accessLink.submit": "Continue",
   "desktop.accessLink.invalid": "This is not an invitation or password reset link. Copy the whole link your administrator gave you and paste it again.",
   "admin.users.desktopLinkHint": "Give this link to your colleague. On the PAKO login screen they choose \"I have an invitation or reset link\" and paste it.",
+  "desktop.recover.newCodeTitle": "Your new recovery code",
+  "desktop.recover.newCodeWarning": "The password is changed and the old recovery code no longer works. Save this new code now: it is shown only once.",
+  "desktop.recoveryCode.title": "Recovery code",
+  "desktop.recoveryCode.description": "The recovery code resets the administrator password if it is forgotten. Generate a new one if the old code is lost or someone else may have seen it. Every earlier code stops working.",
+  "desktop.recoveryCode.generate": "Generate a new recovery code",
+  "desktop.recoveryCode.currentPassword": "Current password",
+  "desktop.recoveryCode.submit": "Generate",
+  "desktop.recoveryCode.shownOnce": "This is your new recovery code. It is shown only once, and every earlier code no longer works. Print it or write it down and keep it somewhere safe.",
+  "desktop.recoveryCode.error": "A new recovery code could not be generated. Check the password and try again.",
 };
 
 export const sq: Record<string, string> = {
@@ -3554,6 +3563,15 @@ export const sq: Record<string, string> = {
   "desktop.accessLink.submit": "Vazhdo",
   "desktop.accessLink.invalid": "Kjo nuk është lidhje ftese ose rivendosjeje fjalëkalimi. Kopjoni të gjithë lidhjen që ju dha administratori dhe ngjiteni përsëri.",
   "admin.users.desktopLinkHint": "Jepjani këtë lidhje kolegut. Në ekranin e hyrjes së PAKO ai zgjedh \"Kam një lidhje ftese ose rivendosjeje\" dhe e ngjit.",
+  "desktop.recover.newCodeTitle": "Kodi juaj i ri i rikuperimit",
+  "desktop.recover.newCodeWarning": "Fjalëkalimi u ndryshua dhe kodi i vjetër i rikuperimit nuk vlen më. Ruajeni tani këtë kod të ri: shfaqet vetëm një herë.",
+  "desktop.recoveryCode.title": "Kodi i rikuperimit",
+  "desktop.recoveryCode.description": "Kodi i rikuperimit rivendos fjalëkalimin e administratorit nëse harrohet. Krijoni një të ri nëse kodi i vjetër ka humbur ose mund ta ketë parë dikush tjetër. Të gjithë kodet e mëparshëm pushojnë së vlejturi.",
+  "desktop.recoveryCode.generate": "Krijo një kod të ri rikuperimi",
+  "desktop.recoveryCode.currentPassword": "Fjalëkalimi aktual",
+  "desktop.recoveryCode.submit": "Krijo",
+  "desktop.recoveryCode.shownOnce": "Ky është kodi juaj i ri i rikuperimit. Shfaqet vetëm një herë dhe asnjë kod i mëparshëm nuk vlen më. Printojeni ose shkruajeni dhe mbajeni në vend të sigurt.",
+  "desktop.recoveryCode.error": "Nuk u krijua dot një kod i ri rikuperimi. Kontrolloni fjalëkalimin dhe provoni përsëri.",
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.

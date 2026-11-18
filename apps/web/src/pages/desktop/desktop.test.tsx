@@ -12,6 +12,7 @@ import { DesktopLicensePanel } from "@/pages/settings/DesktopLicensePanel";
 import licenseFixture from "@/mocks/desktop-license.json";
 import setupFixture from "@/mocks/desktop-setup.json";
 import setupStatusFixture from "@/mocks/desktop-setup-status.json";
+import recoverFixture from "@/mocks/desktop-recover.json";
 
 const api = vi.hoisted(() => ({
   getDesktopSetup: vi.fn(),
@@ -112,7 +113,7 @@ describe("FirstRunPage", () => {
 
 describe("RecoverAdminPage", () => {
   it("Recover_SubmitsCodeAndNewPassword", async () => {
-    api.recoverDesktopAdmin.mockResolvedValue(undefined);
+    api.recoverDesktopAdmin.mockResolvedValue(recoverFixture);
     wrap(
       <Routes>
         <Route path="/recover-admin" element={<RecoverAdminPage />} />
@@ -131,7 +132,17 @@ describe("RecoverAdminPage", () => {
         newPassword: "Fresh456!",
       }),
     );
+    expect(await screen.findByText(recoverFixture.recoveryCode)).toBeInTheDocument();
+    expect(screen.getByText(/old recovery code no longer works/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Print" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+    const next = screen.getByRole("button", { name: "Continue" });
+    expect(next).toBeDisabled();
+    expect(screen.queryByText("login screen")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("checkbox", { name: /I saved/ }));
+    fireEvent.click(next);
     expect(await screen.findByText("login screen")).toBeInTheDocument();
+    expect(JSON.stringify({ ...localStorage, ...sessionStorage })).not.toContain(recoverFixture.recoveryCode);
   });
 
   it("Recover_ShowsGenericErrorOn400", async () => {
