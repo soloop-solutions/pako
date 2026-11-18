@@ -14,6 +14,7 @@ interface BackupSettings {
   dir: string;
   retentionDays: number;
   lastBackupAt: string | null;
+  lastAutoBackupFailure?: { at: string; error: string } | null;
 }
 
 type Notice = { tone: "ok" | "error"; text: string };
@@ -104,6 +105,10 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
         : null
     : null;
 
+  const failure = settings?.lastAutoBackupFailure ?? null;
+  const showFailure =
+    failure !== null && (last === null || new Date(failure.at).getTime() > new Date(last).getTime());
+
   return (
     <Card>
       <CardHeader>
@@ -119,6 +124,11 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
         {warning && (
           <p role="alert" className="rounded-md border border-warning-border bg-warning px-3 py-2 text-sm font-medium text-warning-foreground">
             {intl.formatMessage({ id: warning })}
+          </p>
+        )}
+        {showFailure && failure && (
+          <p role="alert" className="rounded-md border border-destructive px-3 py-2 text-sm text-destructive">
+            {intl.formatMessage({ id: "desktop.settings.autoBackupFailed" }, { date: fmt(failure.at), error: failure.error })}
           </p>
         )}
         {notice && (

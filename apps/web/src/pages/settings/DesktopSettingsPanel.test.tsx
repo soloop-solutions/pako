@@ -98,4 +98,29 @@ describe("DesktopSettingsPanel", () => {
     expect(await screen.findByText(/Backup saved/)).toBeInTheDocument();
     expect(bridge.backupNow).toHaveBeenCalled();
   });
+
+  it("DesktopSettings_ShowsAFailedAutomaticBackup_NewerThanTheLastBackup", async () => {
+    setBridge();
+    bridge.getBackupSettings.mockResolvedValue({
+      dir: "/b",
+      retentionDays: 30,
+      lastBackupAt: "2026-11-17T08:00:00Z",
+      lastAutoBackupFailure: { at: "2026-11-18T09:01:00Z", error: "disk full" },
+    });
+    renderPanel();
+    expect(await screen.findByText(/last automatic backup failed/i)).toHaveTextContent("disk full");
+  });
+
+  it("DesktopSettings_HidesAnOldFailure_OnceABackupSucceeded", async () => {
+    setBridge();
+    bridge.getBackupSettings.mockResolvedValue({
+      dir: "/b",
+      retentionDays: 30,
+      lastBackupAt: "2026-11-18T10:00:00Z",
+      lastAutoBackupFailure: { at: "2026-11-18T09:01:00Z", error: "disk full" },
+    });
+    renderPanel();
+    await screen.findByText("/b");
+    expect(screen.queryByText(/last automatic backup failed/i)).not.toBeInTheDocument();
+  });
 });
