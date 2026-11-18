@@ -139,7 +139,51 @@ public sealed class DesktopModeTests : IAsyncLifetime
         withCookie.Headers.Add("Cookie", $"{LaunchSecretMiddleware.CookieName}={Secret}");
 
         Assert.Equal(HttpStatusCode.Forbidden, (await Client(_desktop).SendAsync(withoutCookie)).StatusCode);
-        Assert.NotEqual(HttpStatusCode.Forbidden, (await Client(_desktop).SendAsync(withCookie)).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Client(_desktop).SendAsync(withCookie)).StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/API/companies")]
+    [InlineData("/Api/Companies")]
+    [InlineData("/%61pi/companies")]
+    [InlineData("/api/export.xlsx")]
+    public async Task Guard_CaseAndEncodingVariants_Return403WithoutCookie(string path)
+    {
+        Assert.Equal(HttpStatusCode.Forbidden, (await Client(_desktop).SendAsync(Get(path, false))).StatusCode);
+    }
+
+    [Fact]
+    public async Task Guard_CaseVariantHub_Returns403WithoutCookie()
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, "/Hubs/pos/negotiate?negotiateVersion=1");
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await Client(_desktop).SendAsync(request)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Guard_ApiFileLikePath_Returns404WithCookie_NotIndexHtml()
+    {
+        var response = await Client(_desktop).SendAsync(Get("/api/export.xlsx", true));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.DoesNotContain("pako-spa", await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("/api%2Fcompanies", false)]
+    [InlineData("/api%2Fcompanies", true)]
+    [InlineData("//api/companies", false)]
+    [InlineData("/%2Fapi/companies", false)]
+    public async Task Guard_EncodedSlashOrDoubleSlash_NeverReachesTheController(string path, bool withCookie)
+    {
+        var response = await Client(_desktop).SendAsync(Get(path, withCookie));
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.NotEqual(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.NotEqual("application/json", response.Content.Headers.ContentType?.MediaType);
+        Assert.True(
+            response.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.NotFound || body.Contains("pako-spa"),
+            $"{path} returned {(int)response.StatusCode}: {body}");
     }
 
     [Fact]

@@ -192,9 +192,22 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
     [Fact]
     public async Task Desktop_SpaAssets_DoNotGetTheUploadSandbox()
     {
-        var served = await Client(_desktop).GetAsync("/healthz");
+        var webRoot = Path.Combine(_dataDir, "webroot");
+        Directory.CreateDirectory(Path.Combine(webRoot, "assets"));
+        await File.WriteAllTextAsync(Path.Combine(webRoot, "index.html"), "<html>pako-spa</html>");
+        await File.WriteAllTextAsync(Path.Combine(webRoot, "assets", "app.js"), "console.log('pako-js');");
+        using var withSpa = _desktop.WithWebHostBuilder(b => b.UseWebRoot(webRoot));
+        var client = Client(withSpa, withCookie: false);
 
-        Assert.False(served.Headers.Contains("Content-Security-Policy"));
+        var index = await client.GetAsync("/index.html");
+        var script = await client.GetAsync("/assets/app.js");
+
+        Assert.Equal(HttpStatusCode.OK, index.StatusCode);
+        Assert.Contains("pako-spa", await index.Content.ReadAsStringAsync());
+        Assert.False(index.Headers.Contains("Content-Security-Policy"));
+        Assert.Equal(HttpStatusCode.OK, script.StatusCode);
+        Assert.Equal("console.log('pako-js');", await script.Content.ReadAsStringAsync());
+        Assert.False(script.Headers.Contains("Content-Security-Policy"));
     }
 
     [Theory]
