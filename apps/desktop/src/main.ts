@@ -20,7 +20,7 @@ import {
   type PgConnection,
   type VerifyResult,
 } from './backup'
-import { loadOrCreateConfig, saveBackupDir, type DesktopConfig } from './config'
+import { loadOrCreateConfig, saveApiPort, saveBackupDir, type DesktopConfig } from './config'
 import { handleRestoreRequest, isTrustedSender } from './ipcGuard'
 import { IPC } from './ipcChannels'
 import {
@@ -31,7 +31,7 @@ import {
   isExternalHttps,
 } from './navPolicy'
 import { resolvePaths, type DesktopPaths } from './paths'
-import { getFreePort } from './ports'
+import { chooseApiPort, getFreePort, isPortFree } from './ports'
 import { PostgresProcess } from './postgres'
 import { startScheduler, type Scheduler } from './scheduler'
 import { BackupQueue } from './backupQueue'
@@ -484,7 +484,14 @@ async function start(): Promise<void> {
 
   const { apiExe, pgBin } = resolveBinaries()
   const spawn = createLoggedSpawn(paths.logDir)
-  const [pgPort, apiPort] = [await getFreePort(), await getFreePort()]
+  const apiPort = await chooseApiPort({
+    saved: config.apiPort,
+    isFree: isPortFree,
+    getFree: getFreePort,
+    persist: (port) => saveApiPort(paths, port),
+  })
+  let pgPort = await getFreePort()
+  while (pgPort === apiPort) pgPort = await getFreePort()
 
   const pg = new PostgresProcess({
     binDir: pgBin,

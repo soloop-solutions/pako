@@ -7,6 +7,7 @@ export interface DesktopConfig {
   pgPassword: string
   backupDir: string
   retentionDays: number
+  apiPort?: number
 }
 
 export interface SafeStorageLike {
@@ -34,6 +35,7 @@ interface StoredConfig {
   pgPassword: string
   backupDir: string
   retentionDays: number
+  apiPort?: number
 }
 
 const realFs: ConfigFs = {
@@ -58,6 +60,10 @@ export function validRetentionDays(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1
 }
 
+export function validPort(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1024 && value <= 65535
+}
+
 const defaultRandomHex = (bytes: number) => randomBytes(bytes).toString('hex')
 
 export async function loadOrCreateConfig(
@@ -79,13 +85,15 @@ export async function loadOrCreateConfig(
     if (stored.encrypted && !useEncryption) {
       throw new Error('Config is encrypted but secure storage is unavailable')
     }
-    return {
+    const config: DesktopConfig = {
       jwtKey: open(stored.jwtKey, stored.encrypted),
       pgPassword: open(stored.pgPassword, stored.encrypted),
       backupDir:
         typeof stored.backupDir === 'string' && stored.backupDir.length > 0 ? stored.backupDir : paths.backupsDefault,
       retentionDays: validRetentionDays(stored.retentionDays) ? stored.retentionDays : DEFAULT_RETENTION_DAYS,
     }
+    if (validPort(stored.apiPort)) config.apiPort = stored.apiPort
+    return config
   }
 
   const created: DesktopConfig = {
@@ -106,11 +114,19 @@ export async function loadOrCreateConfig(
   return created
 }
 
-export async function saveBackupDir(paths: DesktopPaths, backupDir: string): Promise<void> {
+export function saveBackupDir(paths: DesktopPaths, backupDir: string): Promise<void> {
+  return updateStored(paths, { backupDir })
+}
+
+export function saveApiPort(paths: DesktopPaths, apiPort: number): Promise<void> {
+  return updateStored(paths, { apiPort })
+}
+
+async function updateStored(paths: DesktopPaths, patch: Partial<StoredConfig>): Promise<void> {
   const stored = JSON.parse(await nodeFs.readFile(paths.configFile, 'utf8')) as StoredConfig
   const tmp = `${paths.configFile}.${randomBytes(6).toString('hex')}.tmp`
   try {
-    await nodeFs.writeFile(tmp, JSON.stringify({ ...stored, backupDir }, null, 2), { encoding: 'utf8', mode: 0o600 })
+    await nodeFs.writeFile(tmp, JSON.stringify({ ...stored, ...patch }, null, 2), { encoding: 'utf8', mode: 0o600 })
     await nodeFs.rename(tmp, paths.configFile)
   } finally {
     await nodeFs.rm(tmp, { force: true })

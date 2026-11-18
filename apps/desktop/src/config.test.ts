@@ -2,7 +2,7 @@ import { promises as nodeFs } from 'node:fs'
 import os from 'node:os'
 import nodePath from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { loadOrCreateConfig, saveBackupDir, type ConfigFs, type SafeStorageLike } from './config'
+import { loadOrCreateConfig, saveApiPort, saveBackupDir, type ConfigFs, type SafeStorageLike } from './config'
 import { resolvePaths } from './paths'
 
 function memFs(): ConfigFs & { files: Map<string, string> } {
@@ -89,5 +89,45 @@ describe('config', () => {
     const config = await loadOrCreateConfig(paths, { fs })
     expect(config.retentionDays).toBe(7)
     expect(config.backupDir).toBe(paths.backupsDefault)
+  })
+
+  it('Config_OldFileWithoutApiPort_Loads', async () => {
+    const fs = memFs()
+    const paths = resolvePaths('/data/app')
+    fs.files.set(paths.configFile, JSON.stringify({ encrypted: false, jwtKey: 'j', pgPassword: 'p', backupDir: '/b', retentionDays: 7 }))
+    const config = await loadOrCreateConfig(paths, { fs })
+    expect(config.apiPort).toBeUndefined()
+    expect(config).toMatchObject({ jwtKey: 'j', pgPassword: 'p', backupDir: '/b', retentionDays: 7 })
+  })
+
+  it.each([
+    ['string', '5123'],
+    ['zero', 0],
+    ['too high', 70000],
+    ['privileged', 80],
+    ['fractional', 5000.5],
+  ])('Config_InvalidApiPort_%s_IsIgnored', async (_label, value) => {
+    const fs = memFs()
+    const paths = resolvePaths('/data/app')
+    fs.files.set(paths.configFile, JSON.stringify({ encrypted: false, jwtKey: 'j', pgPassword: 'p', apiPort: value }))
+    expect((await loadOrCreateConfig(paths, { fs })).apiPort).toBeUndefined()
+  })
+
+  it('Config_SaveApiPort_KeepsOtherFields_AndWritesAtomically', async () => {
+    const root = await nodeFs.mkdtemp(nodePath.join(os.tmpdir(), 'pako-config-'))
+    try {
+      const paths = resolvePaths(root)
+      const first = await loadOrCreateConfig(paths, { safeStorage: reversing })
+      await saveBackupDir(paths, nodePath.join(root, 'b'))
+      await saveApiPort(paths, 51234)
+      const again = await loadOrCreateConfig(paths, { safeStorage: reversing })
+      expect(again).toEqual({ ...first, backupDir: nodePath.join(root, 'b'), apiPort: 51234 })
+      expect((await nodeFs.readdir(root)).sort()).toEqual(['config.json'])
+      const raw = JSON.parse(await nodeFs.readFile(paths.configFile, 'utf8')) as Record<string, unknown>
+      expect(raw.encrypted).toBe(true)
+      expect(raw.jwtKey).not.toBe(first.jwtKey)
+    } finally {
+      await nodeFs.rm(root, { recursive: true, force: true })
+    }
   })
 })
