@@ -7,7 +7,7 @@ export function parseAccessLink(input: string): string | null {
 
   let url: URL;
   try {
-    url = new URL(value, "http://link.invalid");
+    url = new URL(value, "http://127.0.0.1");
   } catch {
     return null;
   }
