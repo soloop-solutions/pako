@@ -7,6 +7,8 @@ export interface SchedulerDeps {
   log(message: string): void
   hour?: number
   closeBoundMs?: number
+  abortAll?(): void
+  idle?(): Promise<void>
 }
 
 export interface Scheduler {
@@ -66,7 +68,10 @@ export function startScheduler(deps: SchedulerDeps): Scheduler {
       handle = undefined
     },
     async onClose() {
-      const bound = deps.setTimer(() => controller.abort(), closeBoundMs)
+      const bound = deps.setTimer(() => {
+        controller.abort()
+        deps.abortAll?.()
+      }, closeBoundMs)
       try {
         if (running) {
           await running.catch((err) => {
@@ -75,6 +80,7 @@ export function startScheduler(deps: SchedulerDeps): Scheduler {
         }
         return await runIfDue()
       } finally {
+        if (deps.idle) await deps.idle()
         deps.clearTimer(bound)
       }
     },

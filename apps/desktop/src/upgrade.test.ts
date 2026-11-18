@@ -126,10 +126,25 @@ describe('upgrade', () => {
     await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: async () => b1 })
 
     expect(await prepareUpgrade({ dataDir, appVersion: '1.0.0', hasDatabase: true, backup })).toEqual({ upgraded: false })
+    expect(await fs.readdir(dataDir)).toContain('pending-upgrade.json')
+    await markVersion(dataDir, '1.0.0')
     const later = await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup })
 
     expect(log).toEqual(['backup'])
     expect(later.safetyBackup).toEqual(info)
+  })
+
+  it('Upgrade_OldVersionReinstalledAndFailing_KeepsOfferingTheFirstBackup', async () => {
+    await markVersion(dataDir, '1.0.0')
+    const b1 = { ...info, file: path.join(dataDir, 'b1.pako-backup') }
+    await fs.writeFile(b1.file, 'x')
+    await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: async () => b1 })
+
+    expect(await prepareUpgrade({ dataDir, appVersion: '1.0.0', hasDatabase: true, backup })).toEqual({ upgraded: false })
+    const again = await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup })
+
+    expect(log).toEqual([])
+    expect(again).toEqual({ upgraded: true, safetyBackup: b1 })
   })
 
   it('MarkVersion_ClearsPendingUpgrade', async () => {

@@ -77,10 +77,7 @@ export async function prepareUpgrade(opts: {
   backup: () => Promise<BackupInfo>
 }): Promise<UpgradeState> {
   const installed = await readInstalledVersion(opts.dataDir)
-  if (installed === opts.appVersion) {
-    await fs.rm(pendingFile(opts.dataDir), { force: true })
-    return { upgraded: false }
-  }
+  if (installed === opts.appVersion) return { upgraded: false }
   if (installed === null && !opts.hasDatabase) return { upgraded: false }
   const fromVersion = installed ?? ''
   const pending = await readPending(opts.dataDir)

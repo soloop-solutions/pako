@@ -58,7 +58,7 @@ export function validRetentionDays(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1
 }
 
-const defaultRandomHex =(bytes: number) => randomBytes(bytes).toString('hex')
+const defaultRandomHex = (bytes: number) => randomBytes(bytes).toString('hex')
 
 export async function loadOrCreateConfig(
   paths: DesktopPaths,

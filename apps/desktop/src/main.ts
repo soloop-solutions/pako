@@ -34,6 +34,7 @@ import { resolvePaths, type DesktopPaths } from './paths'
 import { getFreePort } from './ports'
 import { PostgresProcess } from './postgres'
 import { startScheduler, type Scheduler } from './scheduler'
+import { BackupQueue } from './backupQueue'
 import { BusyGate, SHUTDOWN_TIMEOUT_MS, ShutdownController, stopAfterCloseBackup } from './shutdown'
 import { setupSingleInstance } from './singleInstance'
 import { createLoggedSpawn } from './spawn'
@@ -59,13 +60,7 @@ interface BackupContext {
 
 const NOT_VERIFIED: VerifyResult = { ok: false, failures: [] }
 
-let operations: Promise<unknown> = Promise.resolve()
-
-function exclusive<T>(fn: () => Promise<T>): Promise<T> {
-  const run = operations.then(fn, fn)
-  operations = run.catch(() => undefined)
-  return run
-}
+const backupQueue = new BackupQueue()
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
@@ -260,8 +255,8 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
   const schemaVersion = () =>
     fetchSchemaVersion(apiUrl).catch(() => readSchemaVersion({ ...ctx.tools, workDir: ctx.workDir }))
 
-  const runBackup = (signal?: AbortSignal): Promise<BackupInfo> =>
-    exclusive(async () => {
+  const runBackup = (callerSignal?: AbortSignal): Promise<BackupInfo> =>
+    backupQueue.backup(async (signal) => {
       await sweepStaleTemp(config.backupDir, new Date())
       const info = await createBackup({
         ...ctx.tools,
@@ -275,7 +270,7 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
         console.error(`[backup] retention failed: ${errorText(err)}`),
       )
       return info
-    })
+    }, callerSignal)
 
   const apiControl = {
     stopApi: () => supervisor!.stopApi(),
@@ -302,7 +297,7 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
   }
 
   const runRestore = (file: string): Promise<RestoreResult> =>
-    restoreGate.run(() => exclusive(async () => {
+    restoreGate.run(() => backupQueue.exclusive(async () => {
       const restored = await restoreBackup({
         ...ctx.tools,
         file,
@@ -429,6 +424,8 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
     backup: async (signal) => {
       await runBackup(signal)
     },
+    abortAll: () => backupQueue.abortBackups(),
+    idle: () => backupQueue.idle(),
     log: (message) => console.error(`[backup] ${message}`),
   })
 }
