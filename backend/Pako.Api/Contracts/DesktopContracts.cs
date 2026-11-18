@@ -12,3 +12,7 @@ public record DesktopSetupRequest(string Email, string Password, string FullName
 public record DesktopSetupResponse(string RecoveryCode);
 
 public record RecoverAdminRequest(string Email, string RecoveryCode, string NewPassword);
+
+public record DesktopAuditFailure(Guid CompanyId, string Reason);
+
+public record DesktopAuditVerifyResponse(bool Ok, IReadOnlyList<DesktopAuditFailure> Failures);

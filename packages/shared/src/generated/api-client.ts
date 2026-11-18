@@ -4715,6 +4715,42 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    desktopAuditVerify(): Promise<DesktopAuditVerifyResponse> {
+        let url_ = this.baseUrl + "/api/desktop/audit-verify";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDesktopAuditVerify(_response);
+        });
+    }
+
+    protected processDesktopAuditVerify(response: Response): Promise<DesktopAuditVerifyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DesktopAuditVerifyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DesktopAuditVerifyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     getDesktopLicense(): Promise<DesktopLicenseResponse> {
         let url_ = this.baseUrl + "/api/desktop/license";
         url_ = url_.replace(/[?&]$/, "");
@@ -29654,6 +29690,20 @@ export interface DepartmentResponse {
     partnerScope: number;
     isActive: boolean;
     employeeCount: number;
+
+    [key: string]: any;
+}
+
+export interface DesktopAuditFailure {
+    companyId: string;
+    reason: string;
+
+    [key: string]: any;
+}
+
+export interface DesktopAuditVerifyResponse {
+    ok: boolean;
+    failures: DesktopAuditFailure[];
 
     [key: string]: any;
 }
