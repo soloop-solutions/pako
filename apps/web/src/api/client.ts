@@ -109,13 +109,17 @@ export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Pro
 
 export const apiClient = new PakoApiClient(API_BASE_URL, { fetch: authorizedFetch });
 
+export function isLicenseReadOnlyError(err: unknown): boolean {
+  return err instanceof ApiException && err.status === 403 && !!err.response?.includes("LicenseReadOnly");
+}
+
 export function getApiErrorMessage(err: unknown, fallback?: string): string {
   const msgs = currentLocale() === "sq" ? sq : en;
   const fb = fallback ?? msgs["errors.somethingWentWrong"];
   if (err instanceof ApiException) {
     // Map common HTTP status codes to user-friendly messages
     if (err.status === 403) {
-      if (err.response?.includes("LicenseReadOnly")) return msgs["desktop.license.readOnlyError"];
+      if (isLicenseReadOnlyError(err)) return msgs["desktop.license.readOnlyError"];
       return msgs["errors.noPermission"];
     }
     if (err.status === 404) return msgs["errors.notFound"];

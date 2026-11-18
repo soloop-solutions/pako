@@ -1,7 +1,8 @@
 import { lazy, Suspense, type ComponentType } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
+import { createAppQueryClient } from "@/api/queryClient";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RequireCompany } from "@/components/RequireCompany";
@@ -54,14 +55,7 @@ function InstanceRoute({ Component }: { Component: ComponentType }) {
   return <Component key={id} />;
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = createAppQueryClient();
 
 export function App() {
   return (
