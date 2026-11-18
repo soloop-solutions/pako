@@ -8,7 +8,9 @@
     "lint": "turbo run lint",
     "test": "turbo run test",
     "typecheck": "turbo run typecheck",
-    "generate:api-client": "turbo run generate:api-client"
+    "generate:api-client": "turbo run generate:api-client",
+    "build:desktop": "node scripts/build-desktop.mjs",
+    "test:desktop-scripts": "node --test scripts/fetch-postgres.test.mjs scripts/build-desktop.test.mjs tools/pako-license/lib.test.mjs"
   },
   "devDependencies": {
     "turbo": "^2.1.0"

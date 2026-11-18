@@ -1,0 +1,36 @@
+appId: PAKO
+productName: PAKO
+copyright: Soloop
+directories:
+  output: dist
+  buildResources: build
+files:
+  - package.json
+  - dist/main.mjs
+  - dist/preload.cjs
+  - dist/splash.html
+extraResources:
+  - from: resources/api
+    to: api
+  - from: resources/pg
+    to: pg
+asar: true
+npmRebuild: false
+forceCodeSigning: false
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+nsis:
+  oneClick: false
+  perMachine: false
+  allowElevation: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: PAKO
+  uninstallDisplayName: PAKO
+  deleteAppDataOnUninstall: false
+  artifactName: PAKO-Setup-${version}.${ext}
+  include: build/installer.nsh

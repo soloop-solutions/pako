@@ -1,5 +1,8 @@
 {
   "name": "@pako/desktop",
+  "productName": "PAKO",
+  "description": "PAKO desktop",
+  "author": "Soloop",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -16,6 +19,7 @@
     "@types/yauzl": "^3.4.0",
     "@types/yazl": "^3.3.1",
     "electron": "^45.3.4",
+    "electron-builder": "26.18.0",
     "esbuild": "^0.28.2",
     "typescript": "~5.9.3",
     "vitest": "^4.1.11"
