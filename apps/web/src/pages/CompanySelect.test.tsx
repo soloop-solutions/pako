@@ -129,6 +129,19 @@ describe("Company lobby", () => {
     await waitFor(() => expect(company.setActiveCompanyId).toHaveBeenCalledWith("new"));
   });
 
+  it("keeps the create buttons in the dialog's pinned footer, outside the scrolling form", async () => {
+    renderAt("/select-company");
+    await waitFor(() => expect(screen.getByRole("button", { name: "New company" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "New company" }));
+    const dialog = await screen.findByRole("dialog");
+    const submit = within(dialog).getByRole("button", { name: "Create and open" });
+    const form = dialog.querySelector("form");
+    expect(form).not.toBeNull();
+    expect(form?.contains(submit)).toBe(false);
+    expect(submit.getAttribute("form")).toBe(form?.id);
+    expect(form?.id).not.toBe("");
+  });
+
   it("allows only one company at a time: opening another asks first, since it closes the one open elsewhere", async () => {
     company.companiesOpenElsewhere.mockResolvedValue([{ companyId: "c1", unsaved: true }]);
     renderAt("/select-company");
