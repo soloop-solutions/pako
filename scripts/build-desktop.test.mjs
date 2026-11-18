@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { test } from 'node:test'
-import { VC_RUNTIME_DLLS, buildPaths, dotnetPublishArgs, planSteps, pnpmCommand, runSteps, signingEnv, vcRuntimeDir, webBuildEnv } from './build-desktop.mjs'
+import { VC_RUNTIME_DLLS, buildPaths, cscLinkIsPath, dotnetPublishArgs, planSteps, pnpmCommand, runSteps, signingEnv, vcRuntimeDir, webBuildEnv } from './build-desktop.mjs'
 
 const root = path.join(path.sep, 'repo with space')
 const paths = buildPaths(root)
@@ -116,4 +116,18 @@ test('Build_VcRuntime_ComesFromEnvironment_OrFailsBeforeAnyWork', async () => {
     /PAKO_VCRUNTIME_DIR/,
   )
   assert.deepEqual(r.calls, [])
+})
+
+test('Build_CscLink_OnlyAPathIsCheckedOnDisk', async () => {
+  assert.equal(cscLinkIsPath('C:\\certs\\pako.pfx'), true)
+  assert.equal(cscLinkIsPath('/certs/pako.p12'), true)
+  assert.equal(cscLinkIsPath('./pako.pfx'), true)
+  assert.equal(cscLinkIsPath('https://vault.example/pako.pfx'), false)
+  assert.equal(cscLinkIsPath('MIIKcQIBAzCCCjcGCSqGSIb3DQEHAaCCCigEggokMIIKIDCCBNcGCSqGSIb3DQEHBqCCBMgw/+abc=='), false)
+
+  const r = recorder()
+  const base64Env = { ...env, WIN_CSC_LINK: 'MIIKcQIBAzCCCjcGCSqGSIb3DQEHAa/+==', WIN_CSC_KEY_PASSWORD: 'pw' }
+  await planSteps({ paths, env: base64Env, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} }).at(-1).run()
+  assert.equal(r.calls.some((c) => c.startsWith('require')), false)
+  assert.equal(r.calls.length, 1)
 })

@@ -44,6 +44,11 @@ export function electronBuilderArgs() {
   return ['exec', 'electron-builder', '--win', 'nsis', '--x64', '--publish', 'never', '--config', 'electron-builder.yml']
 }
 
+export function cscLinkIsPath(value) {
+  if (/^https?:/i.test(value)) return false
+  return /\.(pfx|p12)$/i.test(value) || /^([A-Za-z]:[\\/]|[\\/]|\.{1,2}[\\/]|~)/.test(value)
+}
+
 export function signingEnv(env) {
   const link = env.WIN_CSC_LINK
   if (!link) {
@@ -114,7 +119,7 @@ export function planSteps({ paths, env, run, fetchPg = fetchPostgres, files = de
       name: 'electron-builder (NSIS installer)',
       run: async () => {
         if (signing.warning) log(signing.warning)
-        else await files.requireFile(signing.env.WIN_CSC_LINK)
+        else if (cscLinkIsPath(signing.env.WIN_CSC_LINK)) await files.requireFile(signing.env.WIN_CSC_LINK)
         await runPnpm(electronBuilderArgs(), { cwd: paths.desktopDir, env: signing.env })
       },
     },
