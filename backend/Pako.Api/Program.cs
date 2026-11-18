@@ -20,6 +20,8 @@ builder.Services.AddLocalization(options => options.ResourcesPath = "Resources")
 var desktop = builder.Configuration.GetSection(Pako.Api.Desktop.DesktopOptions.Section).Get<Pako.Api.Desktop.DesktopOptions>()
     ?? new Pako.Api.Desktop.DesktopOptions();
 builder.Services.AddSingleton(desktop);
+var uploads = Pako.Api.Services.UploadStorage.From(desktop);
+builder.Services.AddSingleton(uploads);
 builder.Services.AddControllers(options =>
     {
         options.Filters.Add<Pako.Api.Authorization.ActiveUserFilter>();
@@ -228,6 +230,15 @@ if (desktop.Enabled)
     app.UseMiddleware<Pako.Api.Desktop.LaunchSecretMiddleware>();
     app.UseDefaultFiles();
     app.UseStaticFiles();
+    if (!string.IsNullOrWhiteSpace(desktop.DataDirectory))
+    {
+        Directory.CreateDirectory(uploads.Root);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploads.Root),
+            RequestPath = Pako.Api.Services.UploadStorage.RequestPath
+        });
+    }
     app.UseRouting();
 }
 else

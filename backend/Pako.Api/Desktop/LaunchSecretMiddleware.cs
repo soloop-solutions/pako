@@ -19,7 +19,8 @@ public sealed class LaunchSecretMiddleware(RequestDelegate next, DesktopOptions 
     }
 
     private static bool IsGuarded(PathString path) =>
-        path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs");
+        path.StartsWithSegments("/api") || path.StartsWithSegments("/hubs")
+        || path.StartsWithSegments(Pako.Api.Services.UploadStorage.RequestPath);
 
     private bool HasValidCookie(HttpContext context)
     {

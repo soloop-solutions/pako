@@ -22,11 +22,13 @@ public class CompaniesController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly UploadStorage _uploads;
 
-    public CompaniesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    public CompaniesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, UploadStorage? uploads = null)
     {
         _db = db;
         _localizer = localizer;
+        _uploads = uploads ?? UploadStorage.From(new Pako.Api.Desktop.DesktopOptions());
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -547,10 +549,13 @@ public class CompaniesController : ControllerBase
         if (!allowedTypes.Contains(file.ContentType))
             return BadRequest(_localizer["InvalidImageType"].Value);
 
-        var uploadsDir = Path.Combine("wwwroot", "uploads", "companies", companyId.ToString());
+        var ext = Path.GetExtension(file.FileName);
+        if (!UploadStorage.IsSafeExtension(ext))
+            return BadRequest(_localizer["InvalidImageType"].Value);
+
+        var uploadsDir = _uploads.CompanyDirectory(companyId);
         Directory.CreateDirectory(uploadsDir);
 
-        var ext = Path.GetExtension(file.FileName);
         var fileName = $"{kind}{ext}";
         var filePath = Path.Combine(uploadsDir, fileName);
 
@@ -578,7 +583,7 @@ public class CompaniesController : ControllerBase
         if (kind == "logo") company.LogoUrl = null;
         else company.StampUrl = null;
 
-        var uploadsDir = Path.Combine("wwwroot", "uploads", "companies", companyId.ToString());
+        var uploadsDir = _uploads.CompanyDirectory(companyId);
         if (Directory.Exists(uploadsDir))
         {
             foreach (var old in Directory.GetFiles(uploadsDir, $"{kind}.*"))
