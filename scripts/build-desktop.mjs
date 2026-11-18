@@ -31,7 +31,7 @@ export function dotnetPublishArgs(paths) {
 }
 
 export function webBuildEnv(env) {
-  return { ...env, VITE_API_BASE_URL: '' }
+  return { ...env, VITE_API_BASE_URL: '/' }
 }
 
 export function pnpmCommand(env, execPath = process.execPath) {
@@ -89,7 +89,7 @@ export function planSteps({ paths, env, run, fetchPg = fetchPostgres, files = de
       },
     },
     {
-      name: 'build web (VITE_API_BASE_URL="")',
+      name: 'build web (VITE_API_BASE_URL=/, same origin)',
       run: () => runPnpm(['--filter', 'web', 'exec', 'vite', 'build'], { cwd: paths.root, env: webBuildEnv(env) }),
     },
     {

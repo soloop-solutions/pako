@@ -134,7 +134,7 @@ export default async function globalSetup() {
   try {
     execFileSync("pnpm", ["exec", "vite", "build", "--outDir", dist, "--emptyOutDir"], {
       cwd: webRoot,
-      env: { ...process.env, VITE_API_BASE_URL: "" },
+      env: { ...process.env, VITE_API_BASE_URL: "/" },
       stdio: "inherit",
     });
 

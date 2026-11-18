@@ -12,7 +12,7 @@ function recorder({ failOn } = {}) {
     calls.push(entry)
     if (failOn && entry.includes(failOn)) throw new Error(`boom at ${failOn}`)
   }
-  const run = async (command, args, opts) => record(`run ${command} ${args.join(' ')} @${path.relative(root, opts.cwd) || '.'}${opts.env.VITE_API_BASE_URL === '' ? ' VITE_API_BASE_URL=""' : ''}`)
+  const run = async (command, args, opts) => record(`run ${command} ${args.join(' ')} @${path.relative(root, opts.cwd) || '.'}${opts.env.VITE_API_BASE_URL === '/' ? ' VITE_API_BASE_URL=/' : ''}`)
   const files = {
     remove: async (p) => record(`remove ${path.relative(root, p)}`),
     copyDir: async (from, to) => record(`copy ${path.relative(root, from)} -> ${path.relative(root, to)}`),
@@ -34,7 +34,7 @@ test('Build_RunsStepsInOrder', async () => {
     `remove ${api}`,
     `run dotnet publish ${paths.apiProject} -r win-x64 --self-contained -c Release -o ${paths.apiOut} @.`,
     `require ${path.join(api, 'Pako.Api.exe')}`,
-    `run ${process.execPath} /pnpm/bin/pnpm.cjs --filter web exec vite build @. VITE_API_BASE_URL=""`,
+    `run ${process.execPath} /pnpm/bin/pnpm.cjs --filter web exec vite build @. VITE_API_BASE_URL=/`,
     `require ${path.join('apps', 'web', 'dist', 'index.html')}`,
     `remove ${path.join(api, 'wwwroot')}`,
     `copy ${path.join('apps', 'web', 'dist')} -> ${path.join(api, 'wwwroot')}`,
@@ -51,7 +51,7 @@ test('Build_FailsFast_NamingTheStep', async () => {
   const r = recorder({ failOn: '--filter web exec vite build' })
   await assert.rejects(
     runSteps(planSteps({ paths, env, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} }), () => {}),
-    /step "build web \(VITE_API_BASE_URL=""\)" failed: boom/,
+    /step "build web \(VITE_API_BASE_URL=\/, same origin\)" failed: boom/,
   )
   assert.equal(r.calls.some((c) => c.startsWith('copy') || c.startsWith('fetch-postgres') || c.includes('electron-builder')), false)
 })
@@ -68,9 +68,10 @@ test('Build_PublishArgs_AreSelfContainedWinX64Release', () => {
   ])
 })
 
-test('Build_WebEnv_SetsEmptyApiBaseUrl_WithoutMutatingInput', () => {
+test('Build_WebEnv_SetsTheSameOriginSentinel_WithoutMutatingInput', () => {
   const input = { VITE_API_BASE_URL: 'http://127.0.0.1:5248', X: '1' }
-  assert.deepEqual(webBuildEnv(input), { VITE_API_BASE_URL: '', X: '1' })
+  assert.deepEqual(webBuildEnv(input), { VITE_API_BASE_URL: '/', X: '1' })
+  assert.notEqual(webBuildEnv(input).VITE_API_BASE_URL, '')
   assert.equal(input.VITE_API_BASE_URL, 'http://127.0.0.1:5248')
 })
 

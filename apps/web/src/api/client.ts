@@ -4,7 +4,7 @@ import { en, sq } from "@/i18n/messages";
 import { getStoredAuth, setStoredAuth } from "@/lib/auth-storage";
 import { POS_OPERATOR_HEADER, posOperatorTokenFor } from "@/lib/pos-operator";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248").replace(/\/+$/, "");
 const LANGUAGE_STORAGE_KEY = "pako.language";
 
 export function publicApiBase(): string {
