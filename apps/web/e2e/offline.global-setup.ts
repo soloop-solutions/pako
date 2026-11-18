@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomBytes } from "node:crypto";
 
-import { distAllowedHosts, listFiles, scanExternalUrls } from "../src/test/externalUrls";
+import { assertScanCoverage, distPolicy, listFiles, scanExternalUrls } from "../src/test/externalUrls";
 
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const repoRoot = path.resolve(webRoot, "../..");
@@ -138,7 +138,9 @@ export default async function globalSetup() {
       stdio: "inherit",
     });
 
-    const offenders = scanExternalUrls(listFiles({ roots: [dist] }), dist, distAllowedHosts);
+    const distFiles = listFiles({ roots: [dist] });
+    assertScanCoverage(distFiles, dist);
+    const offenders = scanExternalUrls(distFiles, dist, distPolicy);
     if (offenders.length > 0) throw new Error(`External URLs in built dist:\n${offenders.join("\n")}`);
 
     mkdirSync(webroot, { recursive: true });

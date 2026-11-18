@@ -1,9 +1,10 @@
 import { expect, test } from "@playwright/test";
 
+import { findForeignUrls } from "../src/test/sameOrigin";
+
 const origin = process.env.PAKO_OFFLINE_ORIGIN ?? "";
 const secret = process.env.PAKO_OFFLINE_SECRET ?? "";
 
-const isLoopbackOrLocal = (url: string) => url.startsWith("data:") || url.startsWith("blob:") || new URL(url).origin === origin;
 
 test("offline desktop walkthrough", async ({ browser }) => {
   if (!origin || !secret) throw new Error("PAKO_OFFLINE_ORIGIN is not set; run this spec with: pnpm --filter web e2e:offline");
@@ -29,7 +30,7 @@ test("offline desktop walkthrough", async ({ browser }) => {
   const blocked: string[] = [];
   await context.route("**/*", (route) => {
     const url = route.request().url();
-    if (isLoopbackOrLocal(url)) return route.continue();
+    if (findForeignUrls([url], origin).length === 0) return route.continue();
     blocked.push(url);
     return route.abort("internetdisconnected");
   });
@@ -114,6 +115,6 @@ test("offline desktop walkthrough", async ({ browser }) => {
 
   expect(allRequests.length).toBeGreaterThan(20);
   expect(blocked).toEqual([]);
-  expect(allRequests.filter((url) => !isLoopbackOrLocal(url))).toEqual([]);
-  expect(sockets.filter((url) => new URL(url).origin.replace(/^ws/, "http") !== origin)).toEqual([]);
+  expect(findForeignUrls(allRequests, origin)).toEqual([]);
+  expect(findForeignUrls(sockets, origin)).toEqual([]);
 });

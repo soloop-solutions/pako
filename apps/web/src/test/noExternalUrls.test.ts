@@ -1,7 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { listFiles, scanExternalUrls, sourceAllowedHosts } from "./externalUrls";
+import { listFiles, scanExternalUrls, sourcePolicy } from "./externalUrls";
 
 const webRoot = path.resolve(__dirname, "../..");
 const sharedSrc = path.resolve(webRoot, "../../packages/shared/src");
@@ -15,7 +15,7 @@ describe("offline audit", () => {
     ];
     expect(files.length).toBeGreaterThan(50);
 
-    const offenders = scanExternalUrls(files, webRoot, sourceAllowedHosts);
+    const offenders = scanExternalUrls(files, webRoot, sourcePolicy);
     expect(offenders, `External URLs found:\n${offenders.join("\n")}`).toEqual([]);
   });
 });
