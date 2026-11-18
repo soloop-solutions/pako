@@ -226,12 +226,15 @@ app.UseRequestLocalization(new RequestLocalizationOptions
 if (desktop.Enabled)
 {
     app.UseMiddleware<Pako.Api.Desktop.LaunchSecretMiddleware>();
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+    app.UseRouting();
 }
 else
 {
     app.UseHttpsRedirection();
+    app.UseStaticFiles();
 }
-app.UseStaticFiles();
 
 if (!desktop.Enabled)
 {
@@ -252,7 +255,7 @@ if (desktop.Enabled)
         var applied = await db.Database.GetAppliedMigrationsAsync();
         return Results.Ok(new { status = "ok", schemaVersion = applied.LastOrDefault() ?? string.Empty });
     });
-    app.MapFallbackToFile("{*path:regex(^(?!api/|hubs/).*$)}", "index.html");
+    app.MapFallbackToFile("{*path:regex(^(?!api(/|$)|hubs(/|$))(?!.*[.][^/]*$).*$)}", "index.html");
 }
 
 app.Run();

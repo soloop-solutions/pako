@@ -29,6 +29,10 @@ public sealed class DesktopModeTests : IAsyncLifetime
         _webRoot = Path.Combine(Path.GetTempPath(), "pako-desktop-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(_webRoot);
         await File.WriteAllTextAsync(Path.Combine(_webRoot, "index.html"), "<html>pako-spa</html>");
+        Directory.CreateDirectory(Path.Combine(_webRoot, "assets"));
+        await File.WriteAllTextAsync(Path.Combine(_webRoot, "assets", "app.js"), "console.log('pako-js');");
+        await File.WriteAllTextAsync(Path.Combine(_webRoot, "assets", "app.css"), "body{color:red}");
+        await File.WriteAllTextAsync(Path.Combine(_webRoot, "favicon.svg"), "<svg xmlns=\"http://www.w3.org/2000/svg\"/>");
 
         _desktop = Build(enabled: true);
         _hosted = Build(enabled: false);
@@ -139,6 +143,66 @@ public sealed class DesktopModeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Root_ServesIndexHtml()
+    {
+        var response = await Client(_desktop).SendAsync(Get("/", false));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith("text/html", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("pako-spa", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Assets_AreServedAsRealFiles_NotIndexHtml()
+    {
+        var client = Client(_desktop);
+
+        var js = await client.SendAsync(Get("/assets/app.js", false));
+        Assert.Equal(HttpStatusCode.OK, js.StatusCode);
+        Assert.Contains("javascript", js.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("console.log('pako-js');", await js.Content.ReadAsStringAsync());
+
+        var css = await client.SendAsync(Get("/assets/app.css", false));
+        Assert.Equal(HttpStatusCode.OK, css.StatusCode);
+        Assert.Equal("text/css", css.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("body{color:red}", await css.Content.ReadAsStringAsync());
+
+        var svg = await client.SendAsync(Get("/favicon.svg", false));
+        Assert.Equal(HttpStatusCode.OK, svg.StatusCode);
+        Assert.Equal("image/svg+xml", svg.Content.Headers.ContentType?.MediaType);
+    }
+
+    [Fact]
+    public async Task ClientRoute_ServesIndexHtml()
+    {
+        var response = await Client(_desktop).SendAsync(Get("/some/client/route", false));
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.StartsWith("text/html", response.Content.Headers.ContentType?.MediaType);
+        Assert.Contains("pako-spa", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task MissingAsset_Returns404_NotIndexHtml()
+    {
+        var response = await Client(_desktop).SendAsync(Get("/assets/missing.js", false));
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("/api")]
+    [InlineData("/api/unknown")]
+    [InlineData("/hubs/unknown")]
+    public async Task UnknownApiAndHubPaths_Return404WithCookie_And403Without(string path)
+    {
+        var client = Client(_desktop);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(Get(path, true))).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.SendAsync(Get(path, false))).StatusCode);
+    }
+
+    [Fact]
     public async Task Disabled_LeavesHostedBehaviourUnchanged()
     {
         var client = Client(_hosted);
@@ -146,5 +210,7 @@ public sealed class DesktopModeTests : IAsyncLifetime
         Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(Get("/healthz", false))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.SendAsync(Get("/api/companies", false))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(Get("/invoices/123", false))).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await client.SendAsync(Get("/", false))).StatusCode);
+        Assert.Equal("console.log('pako-js');", await client.GetStringAsync("/assets/app.js"));
     }
 }
