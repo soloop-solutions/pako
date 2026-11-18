@@ -8,6 +8,7 @@ import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { FirstRunPage } from "@/pages/desktop/FirstRunPage";
 import { LicenseBanner } from "@/pages/desktop/LicenseBanner";
 import { RecoverAdminPage } from "@/pages/desktop/RecoverAdminPage";
+import { DesktopLicensePanel } from "@/pages/settings/DesktopLicensePanel";
 import licenseFixture from "@/mocks/desktop-license.json";
 import setupFixture from "@/mocks/desktop-setup.json";
 import setupStatusFixture from "@/mocks/desktop-setup-status.json";
@@ -170,6 +171,77 @@ describe("LicenseBanner", () => {
     api.getDesktopLicense.mockResolvedValue(licenseFixture);
     wrap(<LicenseBanner />);
     expect(await screen.findByText(/9 days left/)).toBeInTheDocument();
+  });
+
+  it("LicenseBanner_Trial_ShowsMachineCodeWithCopy", async () => {
+    api.getDesktopLicense.mockResolvedValue(licenseFixture);
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    wrap(<LicenseBanner />);
+    expect(await screen.findByText(licenseFixture.machineCode)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+    expect(writeText).toHaveBeenCalledWith(licenseFixture.machineCode);
+  });
+
+  it("LicenseBanner_Licensed_NoExpiry_IsHidden", async () => {
+    api.getDesktopLicense.mockResolvedValue({ ...licenseFixture, status: "Licensed", customer: "Firma Sh.p.k.", expiresAt: undefined });
+    const { container } = wrap(<LicenseBanner />);
+    await waitFor(() => expect(api.getDesktopLicense).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.querySelector("[data-testid=license-banner]")).toBeNull();
+  });
+
+  it("LicenseBanner_Licensed_ExpiringLaterThan30Days_IsHidden", async () => {
+    const expiresAt = new Date(Date.now() + 45 * 86400000).toISOString();
+    api.getDesktopLicense.mockResolvedValue({ ...licenseFixture, status: "Licensed", customer: "Firma Sh.p.k.", expiresAt });
+    const { container } = wrap(<LicenseBanner />);
+    await waitFor(() => expect(api.getDesktopLicense).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(container.querySelector("[data-testid=license-banner]")).toBeNull();
+  });
+
+  it("LicenseBanner_Licensed_ExpiringWithin30Days_WarnsWithMachineCode", async () => {
+    const expiresAt = new Date(Date.now() + 10 * 86400000 - 60000).toISOString();
+    api.getDesktopLicense.mockResolvedValue({ ...licenseFixture, status: "Licensed", customer: "Firma Sh.p.k.", expiresAt });
+    wrap(<LicenseBanner />);
+    expect(await screen.findByText(/Your license expires on .* \(10 days left\)/)).toBeInTheDocument();
+    expect(screen.getByText(licenseFixture.machineCode)).toBeInTheDocument();
+    expect(screen.getByLabelText("License key")).toBeInTheDocument();
+  });
+});
+
+describe("DesktopLicensePanel", () => {
+  it("LicensePanel_Licensed_ShowsCustomerExpiryAndMachineCode", async () => {
+    api.getDesktopLicense.mockResolvedValue({
+      ...licenseFixture,
+      status: "Licensed",
+      customer: "Firma Sh.p.k.",
+      expiresAt: "2027-12-31T23:59:59Z",
+    });
+    wrap(<DesktopLicensePanel />);
+    expect(await screen.findByText("Firma Sh.p.k.")).toBeInTheDocument();
+    expect(screen.getByText(/2027/)).toBeInTheDocument();
+    expect(screen.getByText(licenseFixture.machineCode)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy" })).toBeInTheDocument();
+  });
+
+  it("LicensePanel_Licensed_NoExpiry", async () => {
+    api.getDesktopLicense.mockResolvedValue({ ...licenseFixture, status: "Licensed", customer: "Firma Sh.p.k.", expiresAt: undefined });
+    wrap(<DesktopLicensePanel />);
+    expect(await screen.findByText("No expiry")).toBeInTheDocument();
+  });
+
+  it("LicensePanel_HiddenDuringTrial_AndInBrowser", async () => {
+    api.getDesktopLicense.mockResolvedValue(licenseFixture);
+    const trial = wrap(<DesktopLicensePanel />);
+    await waitFor(() => expect(api.getDesktopLicense).toHaveBeenCalled());
+    await new Promise((r) => setTimeout(r, 0));
+    expect(trial.container).toBeEmptyDOMElement();
+    trial.unmount();
+
+    delete (window as unknown as { pakoDesktop?: unknown }).pakoDesktop;
+    const hosted = wrap(<DesktopLicensePanel />);
+    expect(hosted.container).toBeEmptyDOMElement();
   });
 
   it("LicenseBanner_ActivatesKey", async () => {

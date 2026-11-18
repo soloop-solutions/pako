@@ -1,27 +1,27 @@
 import { useState, type FormEvent } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getDesktopBridge } from "@/lib/desktopBridge";
 import { CopyButton } from "@/pages/desktop/CopyButton";
-
-const LICENSE_KEY = ["desktop", "license"] as const;
+import { daysUntil, EXPIRY_WARNING_DAYS, LICENSE_KEY, useDesktopLicense } from "@/pages/desktop/useDesktopLicense";
 
 export function LicenseBanner() {
   const intl = useIntl();
   const queryClient = useQueryClient();
-  const enabled = getDesktopBridge() !== null;
-  const { data } = useQuery({ queryKey: LICENSE_KEY, queryFn: () => apiClient.getDesktopLicense(), enabled, retry: false });
+  const { data } = useDesktopLicense();
   const [licenseKey, setLicenseKey] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  if (!enabled || !data || data.status === "Licensed") return null;
+  if (!data) return null;
   const readOnly = data.status === "ReadOnly";
+  const licensed = data.status === "Licensed";
+  const expiryDays = licensed ? daysUntil(data.expiresAt) : null;
+  if (licensed && (expiryDays === null || expiryDays > EXPIRY_WARNING_DAYS)) return null;
 
   async function activate(event: FormEvent) {
     event.preventDefault();
@@ -43,17 +43,20 @@ export function LicenseBanner() {
     <div className="shrink-0 border-b border-warning-border bg-warning px-4 py-2 text-sm text-warning-foreground lg:px-6" data-testid="license-banner">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <p className="font-medium">
-          {readOnly
-            ? intl.formatMessage({ id: "desktop.license.readOnly" })
-            : intl.formatMessage({ id: data.trialDaysLeft === 1 ? "desktop.license.trialOne" : "desktop.license.trial" }, { days: data.trialDaysLeft })}
+          {licensed
+            ? intl.formatMessage(
+                { id: "desktop.license.expiresSoon" },
+                { date: intl.formatDate(data.expiresAt!, { dateStyle: "medium", timeZone: "UTC" }), days: Math.max(0, expiryDays!) },
+              )
+            : readOnly
+              ? intl.formatMessage({ id: "desktop.license.readOnly" })
+              : intl.formatMessage({ id: data.trialDaysLeft === 1 ? "desktop.license.trialOne" : "desktop.license.trial" }, { days: data.trialDaysLeft })}
         </p>
-        {readOnly && (
-          <div className="flex items-center gap-2">
-            <span>{intl.formatMessage({ id: "desktop.license.machineCode" })}:</span>
-            <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-xs select-all">{data.machineCode}</code>
-            <CopyButton value={data.machineCode} />
-          </div>
-        )}
+        <div className="flex items-center gap-2">
+          <span>{intl.formatMessage({ id: "desktop.license.machineCode" })}:</span>
+          <code className="rounded bg-background/60 px-1.5 py-0.5 font-mono text-xs select-all">{data.machineCode}</code>
+          <CopyButton value={data.machineCode} />
+        </div>
         <form className="ml-auto flex items-center gap-2" onSubmit={activate}>
           <Label htmlFor="license-key" className="sr-only">
             {intl.formatMessage({ id: "desktop.license.keyLabel" })}

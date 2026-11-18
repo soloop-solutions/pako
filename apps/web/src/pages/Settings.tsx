@@ -9,6 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { BusinessTypeSettings } from "@/pages/settings/BusinessTypeSettings";
+import { DesktopLicensePanel } from "@/pages/settings/DesktopLicensePanel";
 import { DesktopSettingsPanel } from "@/pages/settings/DesktopSettingsPanel";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
@@ -74,6 +75,8 @@ export function Settings() {
       </Card>
 
       <DesktopSettingsPanel />
+
+      <DesktopLicensePanel />
 
       {/* Business types: the company's type and the packs it uses. */}
       {activeCompany && hasSettingsAccess && <BusinessTypeSettings companyId={activeCompany.id} />}
