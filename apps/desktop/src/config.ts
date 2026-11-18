@@ -52,7 +52,13 @@ const realFs: ConfigFs = {
   },
 }
 
-const defaultRandomHex = (bytes: number) => randomBytes(bytes).toString('hex')
+export const DEFAULT_RETENTION_DAYS = 30
+
+export function validRetentionDays(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1
+}
+
+const defaultRandomHex =(bytes: number) => randomBytes(bytes).toString('hex')
 
 export async function loadOrCreateConfig(
   paths: DesktopPaths,
@@ -76,8 +82,9 @@ export async function loadOrCreateConfig(
     return {
       jwtKey: open(stored.jwtKey, stored.encrypted),
       pgPassword: open(stored.pgPassword, stored.encrypted),
-      backupDir: stored.backupDir,
-      retentionDays: stored.retentionDays,
+      backupDir:
+        typeof stored.backupDir === 'string' && stored.backupDir.length > 0 ? stored.backupDir : paths.backupsDefault,
+      retentionDays: validRetentionDays(stored.retentionDays) ? stored.retentionDays : DEFAULT_RETENTION_DAYS,
     }
   }
 
@@ -85,7 +92,7 @@ export async function loadOrCreateConfig(
     jwtKey: randomHex(48),
     pgPassword: randomHex(24),
     backupDir: paths.backupsDefault,
-    retentionDays: 30,
+    retentionDays: DEFAULT_RETENTION_DAYS,
   }
   const stored: StoredConfig = {
     encrypted: useEncryption,

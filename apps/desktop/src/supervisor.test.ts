@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { Supervisor, type ManagedChild } from './supervisor'
+import { StartError, Supervisor, type ManagedChild } from './supervisor'
 
 type FakeChild = ManagedChild & { crash(code: number): void; starts: number }
 
@@ -99,6 +99,29 @@ describe('supervisor', () => {
     await tick()
     expect(events).toEqual([])
     expect(api.starts).toBe(1)
+  })
+
+  it('Supervisor_StartAll_TagsTheFailingStage', async () => {
+    const log: string[] = []
+    const pg = fakeChild('pg', log)
+    pg.start = async () => {
+      throw new Error('Postgres did not become ready in time')
+    }
+    await expect(new Supervisor({ pg, api: apiChild(log) }).startAll()).rejects.toMatchObject({ stage: 'pg' })
+
+    const api = apiChild(log)
+    api.start = async () => {
+      throw new Error('spawn ENOENT')
+    }
+    await expect(new Supervisor({ pg: fakeChild('pg', log), api }).startAll()).rejects.toMatchObject({ stage: 'api-start' })
+
+    const sick = apiChild(log)
+    sick.waitHealthy = async () => {
+      throw new Error('API did not become healthy in time')
+    }
+    const err = await new Supervisor({ pg: fakeChild('pg', log), api: sick }).startAll().catch((e) => e)
+    expect(err).toBeInstanceOf(StartError)
+    expect(err).toMatchObject({ stage: 'api-health', message: 'API did not become healthy in time' })
   })
 
   it('Supervisor_StopApi_ForMaintenance_DoesNotRestartOrReport', async () => {

@@ -16,6 +16,26 @@ export interface ChildExitedEvent {
 
 const HEALTH_TIMEOUT_MS = 60000
 
+export type StartStage = 'pg' | 'api-start' | 'api-health'
+
+export class StartError extends Error {
+  constructor(
+    readonly stage: StartStage,
+    message: string,
+  ) {
+    super(message)
+    this.name = 'StartError'
+  }
+
+  static async tag(stage: StartStage, fn: () => Promise<void>): Promise<void> {
+    try {
+      await fn()
+    } catch (err) {
+      throw new StartError(stage, err instanceof Error ? err.message : String(err))
+    }
+  }
+}
+
 export class Supervisor {
   private stopping = false
   private apiPaused = false
@@ -33,9 +53,9 @@ export class Supervisor {
 
   async startAll(): Promise<{ apiUrl: string }> {
     this.stopping = false
-    await this.deps.pg.start()
-    await this.deps.api.start()
-    await this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS)
+    await StartError.tag('pg', () => this.deps.pg.start())
+    await StartError.tag('api-start', () => this.deps.api.start())
+    await StartError.tag('api-health', () => this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS))
     return { apiUrl: this.deps.api.url }
   }
 

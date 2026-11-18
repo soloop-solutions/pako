@@ -113,4 +113,54 @@ describe('scheduler', () => {
     expect(logged.join()).toMatch(/disk full/)
     expect(h.timers).toHaveLength(1)
   })
+
+  const hanging = (signals: AbortSignal[]) => (signal?: AbortSignal) =>
+    new Promise<void>((_resolve, reject) => {
+      signals.push(signal!)
+      signal!.addEventListener('abort', () => reject(new Error('backup aborted')))
+    })
+
+  it('Scheduler_OnClose_AbandonsTheBackupAtItsBound', async () => {
+    const h = harness(new Date(2026, 10, 18, 9, 0, 0))
+    const signals: AbortSignal[] = []
+    h.deps.backup = hanging(signals)
+    h.deps.closeBoundMs = 10000
+    const s = startScheduler(h.deps)
+    s.stop()
+
+    const closing = s.onClose().then(() => null, (e: Error) => e)
+    await new Promise((r) => setTimeout(r, 0))
+    expect(h.timers.map((t) => t.at - new Date(2026, 10, 18, 9, 0, 0).getTime())).toEqual([10000])
+    expect(signals[0]!.aborted).toBe(false)
+
+    await h.fire()
+
+    expect((await closing)?.message).toBe('backup aborted')
+    expect(signals[0]!.aborted).toBe(true)
+  })
+
+  it('Scheduler_OnClose_AbortsARunningNightlyBackupAtTheBound', async () => {
+    const h = harness(new Date(2026, 10, 18, 1, 59, 0))
+    const signals: AbortSignal[] = []
+    h.deps.backup = hanging(signals)
+    const s = startScheduler(h.deps)
+    h.timers.shift()!.fn()
+    s.stop()
+
+    const closing = s.onClose().then(() => null, (e: Error) => e)
+    await new Promise((r) => setTimeout(r, 0))
+    await h.fire()
+
+    expect((await closing)?.message).toBe('backup aborted')
+    expect(signals).toHaveLength(1)
+    expect(signals[0]!.aborted).toBe(true)
+  })
+
+  it('Scheduler_OnClose_ClearsItsBoundTimer_WhenBackupFinishesInTime', async () => {
+    const h = harness(new Date(2026, 10, 18, 9, 0, 0))
+    const s = startScheduler(h.deps)
+    s.stop()
+    expect(await s.onClose()).toBe(true)
+    expect(h.timers).toHaveLength(0)
+  })
 })

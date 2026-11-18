@@ -3,6 +3,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BackupInfo } from '@pako/shared'
+import { StartError } from './supervisor'
 import { decideAfterStartFailure, markVersion, prepareUpgrade, readInstalledVersion } from './upgrade'
 
 const info: BackupInfo = {
@@ -76,6 +77,71 @@ describe('upgrade', () => {
     expect(result.upgraded).toBe(true)
   })
 
+  it('Upgrade_SecondLaunchAfterFailedFirst_ReusesTheFirstBackup', async () => {
+    await markVersion(dataDir, '1.0.0')
+    const b1 = { ...info, file: path.join(dataDir, 'b1.pako-backup') }
+    await fs.writeFile(b1.file, 'x')
+    let n = 0
+    const counting = async () => {
+      n++
+      return n === 1 ? b1 : { ...info, file: path.join(dataDir, 'b2.pako-backup') }
+    }
+
+    const first = await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: counting })
+    const second = await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: counting })
+
+    expect(n).toBe(1)
+    expect(first.safetyBackup).toEqual(b1)
+    expect(second).toEqual({ upgraded: true, safetyBackup: b1 })
+    const pending = JSON.parse(await fs.readFile(path.join(dataDir, 'pending-upgrade.json'), 'utf8'))
+    expect(pending).toMatchObject({ fromVersion: '1.0.0', toVersion: '1.1.0', backupFile: b1.file })
+  })
+
+  it('Upgrade_PendingForADifferentTarget_TakesANewBackup', async () => {
+    await markVersion(dataDir, '1.0.0')
+    const old = { ...info, file: path.join(dataDir, 'old.pako-backup') }
+    await fs.writeFile(old.file, 'x')
+    await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: async () => old })
+
+    const result = await prepareUpgrade({ dataDir, appVersion: '1.2.0', hasDatabase: true, backup })
+
+    expect(log).toEqual(['backup'])
+    expect(result.safetyBackup).toEqual(info)
+  })
+
+  it('Upgrade_PendingBackupFileMissing_TakesANewBackup', async () => {
+    await markVersion(dataDir, '1.0.0')
+    await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: async () => ({ ...info, file: path.join(dataDir, 'gone.pako-backup') }) })
+
+    const result = await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup })
+
+    expect(log).toEqual(['backup'])
+    expect(result.safetyBackup).toEqual(info)
+  })
+
+  it('Upgrade_PendingIsDiscarded_WhenTheOldVersionRunsAgain', async () => {
+    await markVersion(dataDir, '1.0.0')
+    const b1 = { ...info, file: path.join(dataDir, 'b1.pako-backup') }
+    await fs.writeFile(b1.file, 'x')
+    await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup: async () => b1 })
+
+    expect(await prepareUpgrade({ dataDir, appVersion: '1.0.0', hasDatabase: true, backup })).toEqual({ upgraded: false })
+    const later = await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup })
+
+    expect(log).toEqual(['backup'])
+    expect(later.safetyBackup).toEqual(info)
+  })
+
+  it('MarkVersion_ClearsPendingUpgrade', async () => {
+    await markVersion(dataDir, '1.0.0')
+    await prepareUpgrade({ dataDir, appVersion: '1.1.0', hasDatabase: true, backup })
+    expect(await fs.readdir(dataDir)).toContain('pending-upgrade.json')
+
+    await markVersion(dataDir, '1.1.0')
+
+    expect(await fs.readdir(dataDir)).toEqual(['version.json'])
+  })
+
   it('MarkVersion_LeavesNoTempFiles', async () => {
     await markVersion(dataDir, '1.1.0')
     expect(await fs.readdir(dataDir)).toEqual(['version.json'])
@@ -83,10 +149,20 @@ describe('upgrade', () => {
 })
 
 describe('decideAfterStartFailure', () => {
+  const health = new StartError('api-health', 'API did not become healthy in time')
+
   it('offers the pre-upgrade backup only after an upgrade that took one', () => {
-    expect(decideAfterStartFailure({ upgraded: true, safetyBackup: info })).toEqual({ action: 'offer-restore', backup: info })
-    expect(decideAfterStartFailure({ upgraded: false })).toEqual({ action: 'fatal' })
-    expect(decideAfterStartFailure({ upgraded: true })).toEqual({ action: 'fatal' })
-    expect(decideAfterStartFailure(undefined)).toEqual({ action: 'fatal' })
+    expect(decideAfterStartFailure({ upgraded: true, safetyBackup: info }, health)).toEqual({ action: 'offer-restore', backup: info })
+    expect(decideAfterStartFailure({ upgraded: false }, health)).toEqual({ action: 'fatal' })
+    expect(decideAfterStartFailure({ upgraded: true }, health)).toEqual({ action: 'fatal' })
+    expect(decideAfterStartFailure(undefined, health)).toEqual({ action: 'fatal' })
+  })
+
+  it('Upgrade_PostgresStartFailure_DoesNotOfferRestore', () => {
+    const state = { upgraded: true, safetyBackup: info }
+    expect(decideAfterStartFailure(state, new StartError('pg', 'Postgres did not become ready in time'))).toEqual({ action: 'fatal' })
+    expect(decideAfterStartFailure(state, new StartError('api-start', 'spawn ENOENT'))).toEqual({ action: 'fatal' })
+    expect(decideAfterStartFailure(state, new Error('other'))).toEqual({ action: 'fatal' })
+    expect(decideAfterStartFailure(state, 'string')).toEqual({ action: 'fatal' })
   })
 })

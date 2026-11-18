@@ -3,7 +3,18 @@ import { existsSync, promises as fs } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
-import { applyRetention, createBackup, listBackups, newestBackupAt, readSchemaVersion, restoreBackup } from './backup'
+import {
+  applyRetention,
+  createBackup,
+  dropPreviousDatabase,
+  listBackups,
+  newestBackupAt,
+  putBackPrevious,
+  readSchemaVersion,
+  restoreBackup,
+  settleVerify,
+  sweepStaleTemp,
+} from './backup'
 import { canRestore, readManifest } from './manifest'
 import { getFreePort } from './ports'
 import { PostgresProcess } from './postgres'
@@ -146,6 +157,85 @@ describe.skipIf(!hasPg)('backup and restore against real Postgres', () => {
     const result = await restore(info.file, { verifyChain: async () => broken })
     expect(result).toEqual({ ok: true, verify: broken })
     expect(databases()).toBe(`${db},${db}_previous`)
+  }, 60000)
+
+  const brokenChain = { ok: false, failures: [{ companyId: 'c1', reason: 'EntryHashMismatch' }] }
+
+  it('Restore_BrokenChain_PutBack_RestoresPreviousData_AndRestartsApi', async () => {
+    const info = await backup()
+    sql(db, "UPDATE ledger SET memo = 'current' WHERE id = 1")
+    const result = await restore(info.file, { verifyChain: async () => brokenChain })
+    calls = []
+
+    const settled = await settleVerify(result, {
+      confirmKeep: async (count) => {
+        calls.push(`ask:${count}`)
+        return false
+      },
+      keep: () => dropPreviousDatabase({ pgBinDir: pgBin, connection: connection() }),
+      putBack: () =>
+        putBackPrevious({
+          pgBinDir: pgBin,
+          connection: connection(),
+          stopApi: async () => void calls.push('stopApi'),
+          startApi: async () => void calls.push(`startApi:${rows()}`),
+        }),
+    })
+
+    expect(settled.ok).toBe(false)
+    expect(rows()).toBe('1:current,2:Ëndrra sh.p.k.')
+    expect(calls).toEqual(['ask:1', 'stopApi', 'startApi:1:current,2:Ëndrra sh.p.k.'])
+    expect(databases()).toBe(db)
+  }, 60000)
+
+  it('Restore_BrokenChain_Keep_DropsPreviousOnlyAfterTheChoice', async () => {
+    const info = await backup()
+    sql(db, "UPDATE ledger SET memo = 'current' WHERE id = 1")
+    const result = await restore(info.file, { verifyChain: async () => brokenChain })
+
+    const settled = await settleVerify(result, {
+      confirmKeep: async () => {
+        expect(databases()).toBe(`${db},${db}_previous`)
+        return true
+      },
+      keep: () => dropPreviousDatabase({ pgBinDir: pgBin, connection: connection() }),
+      putBack: async () => {
+        throw new Error('not expected')
+      },
+    })
+
+    expect(settled).toEqual({ ok: true, verify: brokenChain })
+    expect(rows()).toBe('1:Fatura Çelik,2:Ëndrra sh.p.k.')
+    expect(databases()).toBe(db)
+  }, 60000)
+
+  it('Backup_Aborted_KillsPgDump_AndLeavesNoTempFiles', async () => {
+    const controller = new AbortController()
+    const exits: (number | null)[] = []
+    const spawn: SpawnFn = (command, args, options) => {
+      const child = defaultSpawn(command, args, options)
+      if (path.basename(command).startsWith('pg_dump')) {
+        child.on('exit', (code) => exits.push(code))
+        queueMicrotask(() => controller.abort())
+      }
+      return child
+    }
+
+    await expect(
+      createBackup({
+        pgBinDir: pgBin,
+        connection: connection(),
+        destDir: dir,
+        appVersion: '1.0.0',
+        schemaVersion: APP_SCHEMA,
+        now,
+        spawn,
+        signal: controller.signal,
+      }),
+    ).rejects.toThrow(/abort/i)
+
+    expect(exits).toEqual([null])
+    expect(await fs.readdir(dir)).toEqual([])
   }, 60000)
 
   it('Backup_IsAtomic_PartialFileNeverReplacesGoodOne', async () => {
@@ -302,6 +392,65 @@ describe.skipIf(!hasPg)('backup and restore against real Postgres', () => {
   })
 })
 
+describe('settleVerify', () => {
+  const okResult = { ok: true as const, verify: { ok: true, failures: [] } }
+  const broken = {
+    ok: true as const,
+    verify: { ok: false, failures: [{ companyId: 'a', reason: 'SequenceGap' }, { companyId: 'b', reason: 'EntryHashMismatch' }] },
+  }
+  function deps(keep: boolean) {
+    const log: string[] = []
+    return {
+      log,
+      d: {
+        confirmKeep: async (n: number) => {
+          log.push(`ask:${n}`)
+          return keep
+        },
+        keep: async () => void log.push('drop-previous'),
+        putBack: async () => void log.push('put-back'),
+      },
+    }
+  }
+
+  it('VerifyOk_NoDialog', async () => {
+    const { d, log } = deps(true)
+    expect(await settleVerify(okResult, d)).toBe(okResult)
+    expect(log).toEqual([])
+  })
+
+  it('RestoreFailed_NoDialog', async () => {
+    const { d, log } = deps(true)
+    const failed = { ok: false as const, error: 'x' }
+    expect(await settleVerify(failed, d)).toBe(failed)
+    expect(log).toEqual([])
+  })
+
+  it('VerifyFailed_Keep_DropsPreviousAfterTheChoice', async () => {
+    const { d, log } = deps(true)
+    expect(await settleVerify(broken, d)).toBe(broken)
+    expect(log).toEqual(['ask:2', 'drop-previous'])
+  })
+
+  it('VerifyFailed_PutBack_SwapsBack', async () => {
+    const { d, log } = deps(false)
+    const result = await settleVerify(broken, d)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/previous data was put back/)
+    expect(log).toEqual(['ask:2', 'put-back'])
+  })
+
+  it('VerifyFailed_PutBackFails_ReportsIt', async () => {
+    const { d } = deps(false)
+    d.putBack = async () => {
+      throw new Error('rename failed')
+    }
+    const result = await settleVerify(broken, d)
+    expect(result.ok).toBe(false)
+    if (!result.ok) expect(result.error).toMatch(/rename failed/)
+  })
+})
+
 describe('canRestore', () => {
   it('refuses a newer schema and accepts equal or older ones', () => {
     const m = (schemaVersion: string) => ({ appVersion: '2.0.0', schemaVersion, createdAt: now.toISOString() })
@@ -363,12 +512,58 @@ describe('retention', () => {
   it('Retention_UsesModifiedTime_ForRenamedBackups', async () => {
     await touch('pako-20261117-020000.pako-backup')
     await touch('my copy.pako-backup')
+    await touch('pako-20260101-020000 (1).pako-backup')
     const old = new Date(at.getTime() - 90 * day)
     await fs.utimes(path.join(rdir, 'my copy.pako-backup'), old, old)
+    await fs.utimes(path.join(rdir, 'pako-20260101-020000 (1).pako-backup'), old, old)
 
     const deleted = await applyRetention(rdir, 30, at)
 
-    expect(deleted.map((f) => path.basename(f))).toEqual(['my copy.pako-backup'])
+    expect(deleted).toEqual([])
+    expect((await fs.readdir(rdir)).sort()).toEqual([
+      'my copy.pako-backup',
+      'pako-20260101-020000 (1).pako-backup',
+      'pako-20261117-020000.pako-backup',
+    ])
+  })
+
+  it('Retention_NewestIsChosenAmongOwnBackupsOnly', async () => {
+    await touch('pako-20260101-020000.pako-backup')
+    await touch('pako-20260201-020000.pako-backup')
+    await touch('my copy.pako-backup')
+
+    const deleted = await applyRetention(rdir, 30, at)
+
+    expect(deleted.map((f) => path.basename(f))).toEqual(['pako-20260101-020000.pako-backup'])
+  })
+
+  it.each([Number.NaN, 0, -3, 1.5, Number.POSITIVE_INFINITY])('Retention_InvalidDays_%s_DeletesNothing', async (days) => {
+    await touch('pako-20250101-020000.pako-backup')
+    await touch('pako-20250201-020000.pako-backup')
+    await touch('pako-20250301-020000.pako-backup')
+
+    expect(await applyRetention(rdir, days, at)).toEqual([])
+    expect(await fs.readdir(rdir)).toHaveLength(3)
+  })
+
+  it('SweepStaleTemp_RemovesOldTempFiles_KeepsFreshOnesAndBackups', async () => {
+    await touch('.pako-tmp-old.dump')
+    await touch('.pako-tmp-old.zip')
+    await touch('.pako-tmp-fresh.dump')
+    await touch('pako-20250101-020000.pako-backup')
+    await touch('.pako-other')
+    const old = new Date(at.getTime() - 7 * 60 * 60 * 1000)
+    const fresh = new Date(at.getTime() - 10 * 60 * 1000)
+    for (const name of ['.pako-tmp-old.dump', '.pako-tmp-old.zip', 'pako-20250101-020000.pako-backup', '.pako-other']) {
+      await fs.utimes(path.join(rdir, name), old, old)
+    }
+    await fs.utimes(path.join(rdir, '.pako-tmp-fresh.dump'), fresh, fresh)
+
+    const removed = await sweepStaleTemp(rdir, at)
+
+    expect(removed.map((f) => path.basename(f)).sort()).toEqual(['.pako-tmp-old.dump', '.pako-tmp-old.zip'])
+    expect((await fs.readdir(rdir)).sort()).toEqual(['.pako-other', '.pako-tmp-fresh.dump', 'pako-20250101-020000.pako-backup'])
+    expect(await sweepStaleTemp(path.join(rdir, 'missing'), at)).toEqual([])
   })
 
   it('NewestBackupAt_IsNull_WhenDirectoryMissing', async () => {

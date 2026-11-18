@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ShutdownController } from './shutdown'
+import { BusyGate, ShutdownController, stopAfterCloseBackup } from './shutdown'
 
 const flush = () => new Promise((r) => setTimeout(r, 0))
 
@@ -83,5 +83,65 @@ describe('shutdown', () => {
     const e = { preventDefault: vi.fn() }
     controller.onBeforeQuit(e)
     expect(e.preventDefault).not.toHaveBeenCalled()
+  })
+})
+
+describe('shutdown with a running restore', () => {
+  it('Shutdown_CloseDuringRestore_WaitsForTheRestoreBeforeStopping', async () => {
+    const gate = new BusyGate()
+    let finishRestore = () => {}
+    const restoring = gate.run(() => new Promise<void>((r) => (finishRestore = r)))
+    const log: string[] = []
+    let delays = 0
+    const controller = new ShutdownController({
+      stopAll: async () => void log.push('stop'),
+      showFatal: async () => {},
+      quit: () => void log.push('quit'),
+      delay: () => {
+        delays++
+        return new Promise<void>(() => {})
+      },
+      log: () => {},
+      waitIdle: () => gate.idle(),
+    })
+    expect(gate.busy).toBe(true)
+
+    controller.onBeforeQuit({ preventDefault: () => {} })
+    await flush()
+    expect(log).toEqual([])
+    expect(delays).toBe(0)
+
+    finishRestore()
+    await restoring
+    await flush()
+    await flush()
+    expect(log).toEqual(['stop', 'quit'])
+    expect(delays).toBe(1)
+    expect(gate.busy).toBe(false)
+  })
+
+  it('BusyGate_IdleResolvesImmediately_WhenNothingRuns_AndAfterFailures', async () => {
+    const gate = new BusyGate()
+    await gate.idle()
+    await expect(
+      gate.run(async () => {
+        throw new Error('restore failed')
+      }),
+    ).rejects.toThrow('restore failed')
+    expect(gate.busy).toBe(false)
+    await gate.idle()
+  })
+
+  it('Shutdown_CloseBackupFailure_StillStopsChildren', async () => {
+    const log: string[] = []
+    await stopAfterCloseBackup({
+      closeBackup: async () => {
+        log.push('backup')
+        throw new Error('abandoned')
+      },
+      stopAll: async () => void log.push('stopAll'),
+      log: (m) => void log.push(`log:${m}`),
+    })
+    expect(log).toEqual(['backup', 'log:close backup failed: abandoned', 'stopAll'])
   })
 })

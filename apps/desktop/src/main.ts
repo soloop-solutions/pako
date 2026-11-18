@@ -9,10 +9,14 @@ import { ApiProcess, buildApiEnv } from './api'
 import {
   applyRetention,
   createBackup,
+  dropPreviousDatabase,
   listBackups,
   newestBackupAt,
+  putBackPrevious,
   readSchemaVersion,
   restoreBackup,
+  settleVerify,
+  sweepStaleTemp,
   type PgConnection,
   type VerifyResult,
 } from './backup'
@@ -30,7 +34,7 @@ import { resolvePaths, type DesktopPaths } from './paths'
 import { getFreePort } from './ports'
 import { PostgresProcess } from './postgres'
 import { startScheduler, type Scheduler } from './scheduler'
-import { SHUTDOWN_TIMEOUT_MS, ShutdownController } from './shutdown'
+import { BusyGate, SHUTDOWN_TIMEOUT_MS, ShutdownController, stopAfterCloseBackup } from './shutdown'
 import { setupSingleInstance } from './singleInstance'
 import { createLoggedSpawn } from './spawn'
 import { Supervisor } from './supervisor'
@@ -158,6 +162,17 @@ async function createMainWindow(apiUrl: string, launchSecret: string): Promise<B
     splashWindow = undefined
     win.show()
   })
+  win.on('close', (event) => {
+    if (!restoreGate.busy) return
+    event.preventDefault()
+    void dialog.showMessageBox(win, {
+      type: 'info',
+      title: 'PAKO',
+      message: 'A restore is in progress',
+      detail: 'PAKO can be closed when the restore has finished.',
+      buttons: ['OK'],
+    })
+  })
   win.on('closed', () => {
     mainWindow = undefined
   })
@@ -178,18 +193,26 @@ async function showFatal(message: string): Promise<void> {
   if (response === 0 && logDir) await shell.openPath(logDir)
 }
 
+const restoreGate = new BusyGate()
+
 const shutdown = new ShutdownController({
-  stopAll: async () => {
-    if (scheduler) {
-      scheduler.stop()
-      await scheduler.onClose().catch((err) => console.error(`[backup] close backup failed: ${errorText(err)}`))
-    }
-    if (supervisor) await supervisor.stopAll()
-  },
+  stopAll: () =>
+    stopAfterCloseBackup({
+      closeBackup: async () => {
+        if (!scheduler) return
+        scheduler.stop()
+        await scheduler.onClose()
+      },
+      stopAll: async () => {
+        if (supervisor) await supervisor.stopAll()
+      },
+      log: (message) => console.error(`[backup] ${message}`),
+    }),
   showFatal,
   quit: () => app.quit(),
   delay: () => delay(SHUTDOWN_TIMEOUT_MS),
   log: (message) => console.error(`[shutdown] ${message}`),
+  waitIdle: () => restoreGate.idle(),
 })
 
 async function withPostgres<T>(pg: PostgresProcess, fn: () => Promise<T>): Promise<T> {
@@ -237,14 +260,16 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
   const schemaVersion = () =>
     fetchSchemaVersion(apiUrl).catch(() => readSchemaVersion({ ...ctx.tools, workDir: ctx.workDir }))
 
-  const runBackup = (): Promise<BackupInfo> =>
+  const runBackup = (signal?: AbortSignal): Promise<BackupInfo> =>
     exclusive(async () => {
+      await sweepStaleTemp(config.backupDir, new Date())
       const info = await createBackup({
         ...ctx.tools,
         destDir: config.backupDir,
         appVersion: ctx.appVersion,
         schemaVersion: await schemaVersion(),
         now: new Date(),
+        signal,
       })
       await applyRetention(config.backupDir, config.retentionDays, new Date()).catch((err) =>
         console.error(`[backup] retention failed: ${errorText(err)}`),
@@ -252,9 +277,33 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
       return info
     })
 
+  const apiControl = {
+    stopApi: () => supervisor!.stopApi(),
+    startApi: () => supervisor!.startApi(),
+  }
+
+  const confirmKeep = async (failedCompanies: number): Promise<boolean> => {
+    const options: Electron.MessageBoxOptions = {
+      type: 'warning',
+      title: 'PAKO',
+      message: `The restored data's audit chain is broken for ${failedCompanies} ${failedCompanies === 1 ? 'company' : 'companies'}`,
+      detail:
+        'The audit trail in this backup does not verify, so its records may have been changed outside PAKO. ' +
+        'You can keep the restored data, or put back the data you had before the restore.',
+      buttons: ['Keep the restored data', 'Put back the previous data'],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    }
+    const { response } = mainWindow
+      ? await dialog.showMessageBox(mainWindow, options)
+      : await dialog.showMessageBox(options)
+    return response === 0
+  }
+
   const runRestore = (file: string): Promise<RestoreResult> =>
-    exclusive(async () => {
-      const result = await restoreBackup({
+    restoreGate.run(() => exclusive(async () => {
+      const restored = await restoreBackup({
         ...ctx.tools,
         file,
         backupDir: config.backupDir,
@@ -262,9 +311,13 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
         appVersion: ctx.appVersion,
         schemaVersion: await schemaVersion(),
         now: new Date(),
-        stopApi: () => supervisor!.stopApi(),
-        startApi: () => supervisor!.startApi(),
+        ...apiControl,
         verifyChain: () => fetchAuditVerify(apiUrl, launchSecret),
+      })
+      const result = await settleVerify(restored, {
+        confirmKeep,
+        keep: () => dropPreviousDatabase(ctx.tools),
+        putBack: () => putBackPrevious({ ...ctx.tools, ...apiControl }),
       })
       const apiUp = await fetchSchemaVersion(apiUrl).then(
         () => true,
@@ -272,7 +325,7 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
       )
       if (!result.ok && !apiUp) void shutdown.fail(result.error)
       return result
-    })
+    }))
 
   ipcMain.on(IPC.version, (event) => {
     event.returnValue = trusted(event) ? app.getVersion() : ''
@@ -373,8 +426,8 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
     setTimer: (fn, ms) => setTimeout(fn, ms),
     clearTimer: (handle) => clearTimeout(handle as NodeJS.Timeout),
     lastBackupAt: () => newestBackupAt(config.backupDir),
-    backup: async () => {
-      await runBackup()
+    backup: async (signal) => {
+      await runBackup(signal)
     },
     log: (message) => console.error(`[backup] ${message}`),
   })
@@ -464,6 +517,9 @@ async function start(): Promise<void> {
   }
 
   splashWindow = createSplash()
+  for (const dir of new Set([config.backupDir, paths.backupsDefault, ctx.workDir])) {
+    await sweepStaleTemp(dir, new Date()).catch(() => [])
+  }
   const hasDatabase = await pathExists(nodePath.join(paths.pgData, 'PG_VERSION'))
   await pg.initIfNeeded()
   const installedVersion = await readInstalledVersion(paths.dataDir)
@@ -498,7 +554,7 @@ async function start(): Promise<void> {
   try {
     ;({ apiUrl } = await supervisor.startAll())
   } catch (err) {
-    const decision = decideAfterStartFailure(upgrade)
+    const decision = decideAfterStartFailure(upgrade, err)
     if (decision.action === 'offer-restore') {
       await offerUpgradeRollback(ctx, pg, decision.backup)
       return

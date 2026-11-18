@@ -14,6 +14,7 @@ import {
   readManifest,
   type BackupManifest,
 } from './manifest'
+import { validRetentionDays } from './config'
 import { defaultSpawn } from './spawn'
 import type { SpawnFn } from './types'
 
@@ -32,17 +33,26 @@ interface ToolContext {
   pgBinDir: string
   connection: PgConnection
   spawn?: SpawnFn
+  signal?: AbortSignal
 }
 
 const IDENTIFIER = /^[a-z_][a-z0-9_]{0,40}$/
 const TEMP_PREFIX = '.pako-tmp-'
+const STALE_TEMP_MS = 6 * 60 * 60 * 1000
 
 function ident(name: string): string {
   if (!IDENTIFIER.test(name)) throw new Error(`Unsafe database name: ${name}`)
   return `"${name}"`
 }
 
+const abortedError = () => new Error('Backup aborted')
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (signal?.aborted) throw abortedError()
+}
+
 function runTool(ctx: ToolContext, tool: string, args: string[]): Promise<void> {
+  throwIfAborted(ctx.signal)
   const spawn = ctx.spawn ?? defaultSpawn
   const { port, password } = ctx.connection
   const child = spawn(
@@ -51,8 +61,23 @@ function runTool(ctx: ToolContext, tool: string, args: string[]): Promise<void> 
     { env: { PGPASSWORD: password, PGCLIENTENCODING: 'UTF8' } },
   )
   return new Promise((resolve, reject) => {
-    child.on('error', reject)
-    child.on('exit', (code) => (code === 0 ? resolve() : reject(new Error(`${tool} exited with code ${code}`))))
+    const signal = ctx.signal
+    let aborted = false
+    const onAbort = () => {
+      aborted = true
+      child.kill('SIGKILL')
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+    child.on('error', (err) => {
+      signal?.removeEventListener('abort', onAbort)
+      reject(err)
+    })
+    child.on('exit', (code) => {
+      signal?.removeEventListener('abort', onAbort)
+      if (aborted) reject(abortedError())
+      else if (code === 0) resolve()
+      else reject(new Error(`${tool} exited with code ${code}`))
+    })
   })
 }
 
@@ -87,19 +112,34 @@ async function exists(p: string): Promise<boolean> {
   }
 }
 
-async function writeZip(zipPath: string, dumpPath: string, manifest: BackupManifest): Promise<void> {
+async function writeZip(
+  zipPath: string,
+  dumpPath: string,
+  manifest: BackupManifest,
+  signal: AbortSignal | undefined,
+): Promise<void> {
+  throwIfAborted(signal)
   const zip = new yazl.ZipFile()
   zip.addFile(dumpPath, DUMP_ENTRY, { compress: false })
   zip.addBuffer(Buffer.from(JSON.stringify(manifest, null, 2), 'utf8'), MANIFEST_ENTRY)
   const out = createWriteStream(zipPath, { flags: 'wx' })
+  const onAbort = () => {
+    zip.outputStream.unpipe(out)
+    out.destroy(abortedError())
+  }
   const done = new Promise<void>((resolve, reject) => {
-    out.on('close', () => resolve())
+    out.on('close', () => (signal?.aborted ? reject(abortedError()) : resolve()))
     out.on('error', reject)
     zip.outputStream.on('error', reject)
   })
+  signal?.addEventListener('abort', onAbort, { once: true })
   zip.outputStream.pipe(out)
   zip.end()
-  await done
+  try {
+    await done
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
+  }
   const handle = await fs.open(zipPath, 'r+')
   try {
     await handle.sync()
@@ -147,8 +187,9 @@ export async function createBackup(opts: CreateBackupOptions): Promise<BackupInf
   let renamed = false
   try {
     await runTool(opts, 'pg_dump', ['-d', opts.connection.database, '-Fc', '-f', dumpTmp])
-    await writeZip(zipTmp, dumpTmp, manifest)
+    await writeZip(zipTmp, dumpTmp, manifest, opts.signal)
     await readManifest(zipTmp)
+    throwIfAborted(opts.signal)
     const target = await uniqueTarget(opts.destDir, opts.now)
     await fs.rename(zipTmp, target)
     renamed = true
@@ -194,7 +235,9 @@ export async function newestBackupAt(dir: string): Promise<Date | null> {
 }
 
 export async function applyRetention(dir: string, days: number, now: Date): Promise<string[]> {
-  const [, ...older] = await backupFiles(dir)
+  if (!validRetentionDays(days)) return []
+  const own = (await backupFiles(dir)).filter(({ file }) => parseBackupTime(path.basename(file)) !== null)
+  const [, ...older] = own
   const cutoff = now.getTime() - days * 24 * 60 * 60 * 1000
   const deleted: string[] = []
   for (const { file, time } of older) {
@@ -203,6 +246,27 @@ export async function applyRetention(dir: string, days: number, now: Date): Prom
     deleted.push(file)
   }
   return deleted
+}
+
+export async function sweepStaleTemp(dir: string, now: Date, maxAgeMs = STALE_TEMP_MS): Promise<string[]> {
+  let names: string[]
+  try {
+    names = await fs.readdir(dir)
+  } catch {
+    return []
+  }
+  const removed: string[] = []
+  for (const name of names) {
+    if (!name.startsWith(TEMP_PREFIX)) continue
+    const file = path.join(dir, name)
+    try {
+      const stat = await fs.lstat(file)
+      if (!stat.isFile() || now.getTime() - stat.mtime.getTime() < maxAgeMs) continue
+      await fs.rm(file)
+      removed.push(file)
+    } catch {}
+  }
+  return removed
 }
 
 export async function listBackups(dir: string): Promise<BackupInfo[]> {
@@ -322,7 +386,7 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreResult
       await opts.startApi()
       verify = await opts.verifyChain()
     } catch (err) {
-      return rollback(opts, live, previous, failed, safety, message(err))
+      return rollback(opts, safety, message(err))
     }
 
     if (verify.ok) await dropDatabase(opts, previous).catch(() => {})
@@ -332,25 +396,61 @@ export async function restoreBackup(opts: RestoreOptions): Promise<RestoreResult
   }
 }
 
-async function rollback(
-  opts: RestoreOptions,
-  live: string,
-  previous: string,
-  failed: string,
-  safety: BackupInfo,
-  reason: string,
-): Promise<RestoreResult> {
+interface ApiControl {
+  stopApi(): Promise<void>
+  startApi(): Promise<void>
+}
+
+async function swapBackToPrevious(ctx: ToolContext & Pick<ApiControl, 'stopApi'>): Promise<void> {
+  const live = ctx.connection.database
+  const failed = `${live}_failed`
+  await ctx.stopApi().catch(() => {})
+  await dropDatabase(ctx, failed)
+  await swap(ctx, live, failed, `${live}_previous`)
+  await dropDatabase(ctx, failed).catch(() => {})
+}
+
+export async function putBackPrevious(ctx: ToolContext & ApiControl): Promise<void> {
+  await swapBackToPrevious(ctx)
+  await ctx.startApi()
+}
+
+export async function dropPreviousDatabase(ctx: ToolContext): Promise<void> {
+  await dropDatabase(ctx, `${ctx.connection.database}_previous`)
+}
+
+export interface SettleDeps {
+  confirmKeep(failedCompanies: number): Promise<boolean>
+  keep(): Promise<void>
+  putBack(): Promise<void>
+}
+
+export async function settleVerify(result: RestoreResult, deps: SettleDeps): Promise<RestoreResult> {
+  if (!result.ok || result.verify.ok) return result
+  if (await deps.confirmKeep(result.verify.failures.length)) {
+    await deps.keep().catch(() => {})
+    return result
+  }
   try {
-    await opts.stopApi().catch(() => {})
-    await dropDatabase(opts, failed)
-    await swap(opts, live, failed, previous)
+    await deps.putBack()
+  } catch (err) {
+    return {
+      ok: false,
+      error: `The previous data could not be put back automatically: ${message(err)}. The restored data is still in use.`,
+    }
+  }
+  return { ok: false, error: 'The restore was undone and the previous data was put back.' }
+}
+
+async function rollback(opts: RestoreOptions, safety: BackupInfo, reason: string): Promise<RestoreResult> {
+  try {
+    await swapBackToPrevious(opts)
   } catch (err) {
     return {
       ok: false,
       error: `The restore failed (${reason}) and the previous data could not be put back automatically (${message(err)}). Your data is safe in the safety backup ${safety.file}.`,
     }
   }
-  await dropDatabase(opts, failed).catch(() => {})
   try {
     await opts.startApi()
   } catch (err) {

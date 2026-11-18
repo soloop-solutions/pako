@@ -63,4 +63,31 @@ describe('config', () => {
       await nodeFs.rm(root, { recursive: true, force: true })
     }
   })
+
+  it.each([
+    ['missing', undefined],
+    ['non-numeric', 'thirty'],
+    ['NaN', null],
+    ['zero', 0],
+    ['negative', -5],
+    ['fractional', 2.5],
+  ])('Config_InvalidRetentionDays_%s_FallsBackTo30', async (_label, value) => {
+    const fs = memFs()
+    const paths = resolvePaths('/data/app')
+    const stored: Record<string, unknown> = { encrypted: false, jwtKey: 'j', pgPassword: 'p', backupDir: '/b' }
+    if (value !== undefined) stored.retentionDays = value
+    fs.files.set(paths.configFile, JSON.stringify(stored))
+    const config = await loadOrCreateConfig(paths, { fs })
+    expect(config.retentionDays).toBe(30)
+    expect(config.backupDir).toBe('/b')
+  })
+
+  it('Config_ValidRetentionDays_AndMissingBackupDir', async () => {
+    const fs = memFs()
+    const paths = resolvePaths('/data/app')
+    fs.files.set(paths.configFile, JSON.stringify({ encrypted: false, jwtKey: 'j', pgPassword: 'p', retentionDays: 7 }))
+    const config = await loadOrCreateConfig(paths, { fs })
+    expect(config.retentionDays).toBe(7)
+    expect(config.backupDir).toBe(paths.backupsDefault)
+  })
 })
