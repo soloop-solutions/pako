@@ -83,14 +83,16 @@ describe('postgres', () => {
     const { fs, pg } = make({ '/d/pg/postmaster.pid': '4242\n/d/pg\n' }, calls, (pid) => pid === 4242)
     await pg.start()
     expect(fs.removed).not.toContain('/d/pg/postmaster.pid')
-    expect(names(calls).slice(0, 2)).toEqual(['pg_ctl', 'postgres'])
+    expect(calls.slice(0, 2).map((c) => c.args[0])).toEqual(['status', 'stop'])
+    expect(names(calls)[2]).toBe('postgres')
   })
 
   it('Postgres_LiveOrphanOfOurs_IsStopped_ThenStartProceeds', async () => {
     const calls: Call[] = []
     const { pg } = make({ '/d/pg/postmaster.pid': '4242\n/D/pg/\n' }, calls, (pid) => pid === 4242)
     await pg.start()
-    const stop = calls[0]!
+    expect(calls[0]!.args.slice(0, 3)).toEqual(['status', '-D', '/d/pg'])
+    const stop = calls[1]!
     expect(stop.cmd.endsWith('pg_ctl')).toBe(true)
     expect(stop.args).toEqual(['stop', '-D', '/d/pg', '-m', 'fast', '-w'])
     expect(names(calls)).toContain('postgres')
@@ -242,5 +244,52 @@ describe('postgres', () => {
     })
     await expect(pg.start()).rejects.toThrow(/ready in time/)
     expect(kills).toEqual([42])
+  })
+
+  it('Postgres_SameDirPidFile_LivePidButStatusNotRunning_IsStale_AndStartProceeds', async () => {
+    const calls: Call[] = []
+    const { fs, pg } = make(
+      { '/d/pg/postmaster.pid': '4242\n/d/pg\n' },
+      calls,
+      (pid) => pid === 4242,
+      (_c, args) => (args[0] === 'status' ? 3 : 0),
+    )
+    await pg.start()
+    expect(calls[0]!.args.slice(0, 3)).toEqual(['status', '-D', '/d/pg'])
+    expect(calls.some((c) => c.args[0] === 'stop')).toBe(false)
+    expect(fs.removed).toContain('/d/pg/postmaster.pid')
+    expect(names(calls)).toContain('postgres')
+  })
+
+  it('Postgres_StopFails_ButStatusNowNotRunning_RemovesPidFile_AndStartProceeds', async () => {
+    const calls: Call[] = []
+    let statusRuns = 0
+    const { fs, pg } = make(
+      { '/d/pg/postmaster.pid': '4242\n/d/pg\n' },
+      calls,
+      (pid) => pid === 4242,
+      (_c, args) => {
+        if (args[0] === 'status') return ++statusRuns === 1 ? 0 : 3
+        if (args[0] === 'stop') return 1
+        return 0
+      },
+    )
+    await pg.start()
+    expect(calls.slice(0, 3).map((c) => c.args[0])).toEqual(['status', 'stop', 'status'])
+    expect(fs.removed).toContain('/d/pg/postmaster.pid')
+    expect(names(calls)).toContain('postgres')
+  })
+
+  it('Postgres_StopFails_AndStatusStillRunning_Surfaces', async () => {
+    const calls: Call[] = []
+    const { fs, pg } = make(
+      { '/d/pg/postmaster.pid': '4242\n/d/pg\n' },
+      calls,
+      (pid) => pid === 4242,
+      (_c, args) => (args[0] === 'stop' ? 1 : 0),
+    )
+    await expect(pg.start()).rejects.toThrow(/pg_ctl exited with code 1/)
+    expect(fs.removed).not.toContain('/d/pg/postmaster.pid')
+    expect(names(calls)).not.toContain('postgres')
   })
 })

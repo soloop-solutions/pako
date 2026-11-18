@@ -132,11 +132,6 @@ export class PostgresProcess {
     }
   }
 
-  private sameDir(a: string, b: string): boolean {
-    const norm = (v: string) => v.trim().replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase()
-    return norm(a) === norm(b)
-  }
-
   private async runCode(name: string, args: string[], env?: Record<string, string>): Promise<number | null> {
     const child = this.spawn(this.bin(name), args, env ? { env } : undefined)
     return waitForExit(child)
@@ -153,14 +148,14 @@ export class PostgresProcess {
     if (!(await this.fs.exists(pidFile))) return
     const lines = (await this.fs.readFile(pidFile)).split(/\r?\n/)
     const pid = Number.parseInt(lines[0] ?? '', 10)
-    const alive = Number.isFinite(pid) && this.isProcessAlive(pid)
-    const ours =
-      alive &&
-      (this.sameDir(lines[1] ?? '', this.opts.dataDir) ||
-        (await this.runCode('pg_ctl', ['status', '-D', this.opts.dataDir])) === 0)
-    if (ours) {
-      await this.runTool('pg_ctl', ['stop', '-D', this.opts.dataDir, '-m', 'fast', '-w'])
-      return
+    const running = async () => (await this.runCode('pg_ctl', ['status', '-D', this.opts.dataDir])) === 0
+    if (Number.isFinite(pid) && this.isProcessAlive(pid) && (await running())) {
+      try {
+        await this.runTool('pg_ctl', ['stop', '-D', this.opts.dataDir, '-m', 'fast', '-w'])
+        return
+      } catch (err) {
+        if (await running()) throw err
+      }
     }
     await this.fs.rm(pidFile)
   }
