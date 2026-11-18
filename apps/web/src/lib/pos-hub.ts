@@ -9,6 +9,10 @@ import { getStoredAuth } from "@/lib/auth-storage";
 // ordinary endpoints. Browsers can't set headers on a WebSocket, so the JWT goes as access_token.
 export type PosHubEvent = "tickets" | "tabs";
 
+export function posHubUrl(): string {
+  return `${API_BASE_URL}/hubs/pos`;
+}
+
 export function usePosHub(companyId: string | undefined, storeId: string | undefined, handlers: Partial<Record<PosHubEvent, () => void>>) {
   // The latest handlers, so a re-render doesn't reconnect.
   const latest = useRef(handlers);
@@ -19,7 +23,7 @@ export function usePosHub(companyId: string | undefined, storeId: string | undef
   useEffect(() => {
     if (!companyId || !storeId) return;
     const connection = new HubConnectionBuilder()
-      .withUrl(`${API_BASE_URL}/hubs/pos`, { accessTokenFactory: () => getStoredAuth()?.token ?? "" })
+      .withUrl(posHubUrl(), { accessTokenFactory: () => getStoredAuth()?.token ?? "" })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)
       .build();

@@ -6,7 +6,7 @@ import { Copy, Plus, RefreshCw, ShoppingBag, Truck } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
-import { API_BASE_URL, apiClient, getApiErrorMessage } from "@/api/client";
+import { apiClient, getApiErrorMessage, publicApiBase } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
@@ -552,7 +552,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel: SalesChannelRes
       setError(getApiErrorMessage(err, t("pos.saveError")));
     },
   });
-  const base = `${API_BASE_URL.replace(/\/$/, "")}/api/public/channel/${channel?.token ?? "{token}"}`;
+  const base = `${publicApiBase()}/api/public/channel/${channel?.token ?? "{token}"}`;
   return (
     <FormDialog open onOpenChange={(o) => !o && !save.isPending && onClose()} title={channel ? channel.name : t("spec.channel.new")} size="md">
       <form

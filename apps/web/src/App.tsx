@@ -14,6 +14,9 @@ import { ComingSoon } from "@/pages/ComingSoon";
 import { CompanySelect } from "@/pages/CompanySelect";
 import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
+import { DesktopSetupGuard } from "@/pages/desktop/DesktopSetupGuard";
+import { FirstRunPage } from "@/pages/desktop/FirstRunPage";
+import { RecoverAdminPage } from "@/pages/desktop/RecoverAdminPage";
 import { RequestAccount } from "@/pages/RequestAccount";
 
 // Lazy-loaded page components for code splitting.
@@ -65,8 +68,11 @@ export function App() {
       <AuthProvider>
         <CompanyProvider>
           <BrowserRouter>
+            <DesktopSetupGuard>
             <Suspense fallback={<div className="flex-1" />}>
               <Routes>
+                <Route path="/first-run" element={<FirstRunPage />} />
+                <Route path="/recover-admin" element={<RecoverAdminPage />} />
                 <Route path="/login" element={<Login />} />
                 {/* No self-registration (docs/PLATFORM_ADMIN.md): people request an account. */}
                 <Route path="/register" element={<Navigate to="/request-account" replace />} />
@@ -124,6 +130,7 @@ export function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
+            </DesktopSetupGuard>
           </BrowserRouter>
         </CompanyProvider>
       </AuthProvider>
