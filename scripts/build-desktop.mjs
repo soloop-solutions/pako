@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { existsSync, promises as fs } from 'node:fs'
+import { existsSync, promises as fs, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { fetchPostgres } from './fetch-postgres.mjs'
@@ -15,7 +15,35 @@ export function buildPaths(root = repoRoot) {
     webDist: path.join(root, 'apps', 'web', 'dist'),
     pgOut: path.join(desktopDir, 'resources', 'pg'),
     desktopDir,
+    licenseKeyFile: path.join(root, 'backend', 'Pako.Domain', 'Desktop', 'LicensePublicKey.cs'),
   }
+}
+
+export const DEV_LICENSE_PUBLIC_KEY = [
+  0xd7, 0x76, 0x0c, 0x04, 0x32, 0x7c, 0x14, 0xde, 0xcb, 0xc5, 0xdb, 0xd3, 0x94, 0x31, 0x1e, 0xa4,
+  0x22, 0xb3, 0xb7, 0x57, 0x3c, 0x34, 0xc9, 0x8f, 0xa3, 0x35, 0x75, 0x0b, 0x84, 0xd5, 0x2d, 0xdd,
+]
+
+export function parseLicensePublicKey(source) {
+  const body = /new\s+byte\[\]\s*\{([^}]*)\}/.exec(source)?.[1] ?? ''
+  return [...body.matchAll(/0x([0-9a-fA-F]{1,2})/g)].map((m) => Number.parseInt(m[1], 16))
+}
+
+export function licenseKeyGuard({ source, env }) {
+  const key = parseLicensePublicKey(source)
+  if (key.length !== 32) throw new Error(`LicensePublicKey.cs must hold a 32 bytes Ed25519 public key, found ${key.length} bytes.`)
+  if (key.some((b, i) => b !== DEV_LICENSE_PUBLIC_KEY[i])) return null
+  const message =
+    'build-desktop: LicensePublicKey.cs still holds the development license public key. Keys from the dev pair ' +
+    'would unlock every installer. Run tools/pako-license keygen and paste the production key (docs/DESKTOP.md, Release gates).'
+  if (env.PAKO_ALLOW_DEV_LICENSE_KEY !== '1') throw new Error(`${message} For an internal test build only, set PAKO_ALLOW_DEV_LICENSE_KEY=1.`)
+  return (
+    '\n' +
+    '************************************************************************\n' +
+    '*  WARNING: building with the development license public key           *\n' +
+    '*  (PAKO_ALLOW_DEV_LICENSE_KEY=1). Never ship this installer.          *\n' +
+    '************************************************************************\n'
+  )
 }
 
 export const VC_RUNTIME_DLLS = ['vcruntime140.dll', 'vcruntime140_1.dll', 'msvcp140.dll']
@@ -68,7 +96,17 @@ export function signingEnv(env) {
   return { env: { ...env }, warning: null }
 }
 
-export function planSteps({ paths, env, run, fetchPg = fetchPostgres, files = defaultFiles, log = console.log }) {
+export function planSteps({
+  paths,
+  env,
+  run,
+  fetchPg = fetchPostgres,
+  files = defaultFiles,
+  log = console.log,
+  readLicenseKey = (file) => readFileSync(file, 'utf8'),
+}) {
+  const licenseWarning = licenseKeyGuard({ source: readLicenseKey(paths.licenseKeyFile), env })
+  if (licenseWarning) log(licenseWarning)
   const crtDir = vcRuntimeDir(env)
   if (!crtDir) {
     throw new Error(

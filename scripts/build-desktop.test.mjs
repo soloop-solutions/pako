@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict'
 import path from 'node:path'
 import { test } from 'node:test'
-import { VC_RUNTIME_DLLS, buildPaths, cscLinkIsPath, dotnetPublishArgs, planSteps, pnpmCommand, runSteps, signingEnv, vcRuntimeDir, webBuildEnv } from './build-desktop.mjs'
+import { readFileSync } from 'node:fs'
+import { DEV_LICENSE_PUBLIC_KEY, VC_RUNTIME_DLLS, buildPaths, cscLinkIsPath, dotnetPublishArgs, licenseKeyGuard, parseLicensePublicKey, planSteps, pnpmCommand, runSteps, signingEnv, vcRuntimeDir, webBuildEnv } from './build-desktop.mjs'
 
 const root = path.join(path.sep, 'repo with space')
 const paths = buildPaths(root)
@@ -25,9 +26,17 @@ function recorder({ failOn } = {}) {
 
 const env = { PATH: '/bin', npm_execpath: '/pnpm/bin/pnpm.cjs', PAKO_VCRUNTIME_DIR: '/crt' }
 
+function keySource(bytes) {
+  const hex = bytes.map((b) => `0x${b.toString(16).padStart(2, '0')}`).join(', ')
+  return `namespace Pako.Domain.Desktop;\n\npublic static class LicensePublicKey\n{\n    public static ReadOnlySpan<byte> Value => new byte[]\n    {\n        ${hex}\n    };\n}\n`
+}
+
+const productionKey = DEV_LICENSE_PUBLIC_KEY.map((b, i) => (b + 17 * (i + 1)) % 256)
+const readLicenseKey = () => keySource(productionKey)
+
 test('Build_RunsStepsInOrder', async () => {
   const r = recorder()
-  await runSteps(planSteps({ paths, env, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} }), () => {})
+  await runSteps(planSteps({ paths, env, run: r.run, files: r.files, fetchPg: r.fetchPg, readLicenseKey, log: () => {} }), () => {})
 
   const api = path.join('apps', 'desktop', 'resources', 'api')
   assert.deepEqual(r.calls, [
@@ -50,7 +59,7 @@ test('Build_RunsStepsInOrder', async () => {
 test('Build_FailsFast_NamingTheStep', async () => {
   const r = recorder({ failOn: '--filter web exec vite build' })
   await assert.rejects(
-    runSteps(planSteps({ paths, env, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} }), () => {}),
+    runSteps(planSteps({ paths, env, run: r.run, files: r.files, fetchPg: r.fetchPg, readLicenseKey, log: () => {} }), () => {}),
     /step "build web \(VITE_API_BASE_URL=\/, same origin\)" failed: boom/,
   )
   assert.equal(r.calls.some((c) => c.startsWith('copy') || c.startsWith('fetch-postgres') || c.includes('electron-builder')), false)
@@ -90,7 +99,7 @@ test('Build_Signing_SkipsWithLoudWarning_WhenNoCertificate', () => {
 test('Build_SignedBuild_RequiresTheCertificateFile', async () => {
   const r = recorder()
   const signedEnv = { ...env, WIN_CSC_LINK: '/certs/pako.pfx', WIN_CSC_KEY_PASSWORD: 'pw' }
-  const steps = planSteps({ paths, env: signedEnv, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} })
+  const steps = planSteps({ paths, env: signedEnv, run: r.run, files: r.files, fetchPg: r.fetchPg, readLicenseKey, log: () => {} })
   await steps.at(-1).run()
   assert.deepEqual(r.calls.slice(0, 1), [`require ${path.relative(root, '/certs/pako.pfx')}`])
 })
@@ -113,7 +122,7 @@ test('Build_VcRuntime_ComesFromEnvironment_OrFailsBeforeAnyWork', async () => {
   const r = recorder()
   const { PAKO_VCRUNTIME_DIR, ...noRuntime } = env
   assert.throws(
-    () => planSteps({ paths, env: noRuntime, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} }),
+    () => planSteps({ paths, env: noRuntime, run: r.run, files: r.files, fetchPg: r.fetchPg, readLicenseKey, log: () => {} }),
     /PAKO_VCRUNTIME_DIR/,
   )
   assert.deepEqual(r.calls, [])
@@ -128,7 +137,45 @@ test('Build_CscLink_OnlyAPathIsCheckedOnDisk', async () => {
 
   const r = recorder()
   const base64Env = { ...env, WIN_CSC_LINK: 'MIIKcQIBAzCCCjcGCSqGSIb3DQEHAa/+==', WIN_CSC_KEY_PASSWORD: 'pw' }
-  await planSteps({ paths, env: base64Env, run: r.run, files: r.files, fetchPg: r.fetchPg, log: () => {} }).at(-1).run()
+  await planSteps({ paths, env: base64Env, run: r.run, files: r.files, fetchPg: r.fetchPg, readLicenseKey, log: () => {} }).at(-1).run()
   assert.equal(r.calls.some((c) => c.startsWith('require')), false)
   assert.equal(r.calls.length, 1)
+})
+
+test('Build_LicenseKey_ParsesTheCommittedKeyFile', () => {
+  const committed = readFileSync(new URL('../backend/Pako.Domain/Desktop/LicensePublicKey.cs', import.meta.url), 'utf8')
+  assert.equal(parseLicensePublicKey(committed).length, 32)
+  assert.deepEqual(parseLicensePublicKey(keySource(productionKey)), productionKey)
+})
+
+test('Build_LicenseKey_RefusesTheDevelopmentKey_BeforeAnyWork', () => {
+  const r = recorder()
+  assert.throws(
+    () => planSteps({ paths, env, run: r.run, files: r.files, fetchPg: r.fetchPg, readLicenseKey: () => keySource(DEV_LICENSE_PUBLIC_KEY), log: () => {} }),
+    /development license public key.*PAKO_ALLOW_DEV_LICENSE_KEY=1/s,
+  )
+  assert.deepEqual(r.calls, [])
+})
+
+test('Build_LicenseKey_DevelopmentKeyAllowedWithOverride_WarnsLoudly', () => {
+  const logs = []
+  const r = recorder()
+  const steps = planSteps({
+    paths,
+    env: { ...env, PAKO_ALLOW_DEV_LICENSE_KEY: '1' },
+    run: r.run,
+    files: r.files,
+    fetchPg: r.fetchPg,
+    readLicenseKey: () => keySource(DEV_LICENSE_PUBLIC_KEY),
+    log: (m) => logs.push(m),
+  })
+  assert.ok(steps.length > 0)
+  assert.match(logs.join('\n'), /WARNING.*development license public key/s)
+  assert.throws(() => licenseKeyGuard({ source: keySource(DEV_LICENSE_PUBLIC_KEY), env: { PAKO_ALLOW_DEV_LICENSE_KEY: 'yes' } }), /development/)
+})
+
+test('Build_LicenseKey_ProductionKeyPasses_MalformedFileFails', () => {
+  assert.equal(licenseKeyGuard({ source: keySource(productionKey), env: {} }), null)
+  assert.throws(() => licenseKeyGuard({ source: 'public static class LicensePublicKey {}', env: {} }), /32 bytes/)
+  assert.throws(() => licenseKeyGuard({ source: keySource(productionKey.slice(0, 31)), env: {} }), /32 bytes/)
 })
