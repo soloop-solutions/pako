@@ -204,6 +204,18 @@ await Pako.Api.Services.DemoDatabaseSync.RunAsync(app.Configuration, app.Environ
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PakoDbContext>();
+    if (desktop.Enabled)
+    {
+        var unknown = await Pako.Api.Desktop.SchemaGuard.UnknownAppliedMigrationsAsync(db.Database);
+        if (unknown.Count > 0)
+        {
+            var message = Pako.Api.Desktop.SchemaGuard.NewerSchemaMessage(unknown);
+            app.Logger.LogCritical("{Message}", message);
+            Console.Error.WriteLine(message);
+            Environment.ExitCode = Pako.Api.Desktop.SchemaGuard.NewerSchemaExitCode;
+            return;
+        }
+    }
     db.Database.Migrate();
     // The first administrator, once per database (docs/PLATFORM_ADMIN.md "First run").
     await scope.ServiceProvider.GetRequiredService<PlatformBootstrap>().RunAsync();
