@@ -88,6 +88,7 @@ export function Partners() {
         paymentTermDays: fields.paymentTermDays ?? undefined,
         creditLimit: fields.creditLimit ?? undefined,
         priceListId: fields.priceListId ?? undefined,
+        priceTier: fields.priceTier,
         overdueBlockDays: fields.overdueBlockDays ?? undefined,
       });
     },
@@ -113,6 +114,7 @@ export function Partners() {
         paymentTermDays: vars.fields.paymentTermDays ?? undefined,
         creditLimit: vars.fields.creditLimit ?? undefined,
         priceListId: vars.fields.priceListId ?? undefined,
+        priceTier: vars.fields.priceTier,
         overdueBlockDays: vars.fields.overdueBlockDays ?? undefined,
       }),
     onSuccess: async () => {

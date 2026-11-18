@@ -27,6 +27,8 @@ export interface ItemFormFields {
   unit: string;
   type: number;
   defaultUnitPrice?: number;
+  /** Price for wholesale-tier customers; defaultUnitPrice is the retail price. */
+  wholesalePrice?: number;
   defaultTaxDefinitionId?: string;
   defaultRevenueAccountId?: string;
   defaultExpenseAccountId?: string;
@@ -153,6 +155,7 @@ export function ItemForm({
     onDirtyChange?.(isDirty);
   }, [name, unit, onDirtyChange]);
   const [price, setPrice] = useState(initial?.defaultUnitPrice != null ? String(initial.defaultUnitPrice) : "");
+  const [wholesalePrice, setWholesalePrice] = useState(initial?.wholesalePrice != null ? String(initial.wholesalePrice) : "");
   const [type, setType] = useState<number>(initial?.type ?? ItemType.Goods);
   const [taxId, setTaxId] = useState(initial?.defaultTaxDefinitionId ?? "");
   const [revenueAccountId, setRevenueAccountId] = useState(initial?.defaultRevenueAccountId ?? "");
@@ -292,6 +295,7 @@ export function ItemForm({
       unit: unit.trim(),
       type,
       defaultUnitPrice: price ? parseFloat(price) : undefined,
+      wholesalePrice: wholesalePrice ? parseFloat(wholesalePrice) : undefined,
       defaultTaxDefinitionId: taxId || undefined,
       defaultRevenueAccountId: revenueAccountId || undefined,
       defaultExpenseAccountId: expenseAccountId || undefined,
@@ -419,8 +423,16 @@ export function ItemForm({
       <fieldset className={`flex flex-col gap-3 rounded-md border p-3${showSection("pricing") ? "" : " hidden"}`}>
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.section.pricing" })}</legend>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <FormField label={intl.formatMessage({ id: "items.defaultPrice" })} htmlFor="item-price">
-          <Input id="item-price" type="number" step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
+        <FormField label={intl.formatMessage({ id: "items.retailPrice" })} htmlFor="item-price">
+          <Input id="item-price" type="number" step="0.01" min="0" value={price} onChange={(e) => setPrice(e.target.value)} placeholder="0.00" />
+        </FormField>
+
+        <FormField
+          label={intl.formatMessage({ id: "items.wholesalePrice" })}
+          htmlFor="item-wholesale-price"
+          hint={intl.formatMessage({ id: "items.wholesalePriceHint" })}
+        >
+          <Input id="item-wholesale-price" type="number" step="0.01" min="0" value={wholesalePrice} onChange={(e) => setWholesalePrice(e.target.value)} placeholder="0.00" />
         </FormField>
 
         <FormField label={intl.formatMessage({ id: "items.form.vatCode" })} htmlFor="item-tax">

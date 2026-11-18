@@ -1760,4 +1760,9 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>Eksporti i gjurmës së auditimit kufizohet në {0} rreshta. Ngushtoni filtrat dhe provoni përsëri.</value></data>
   <data name="JournalLineAccountInactive" xml:space="preserve"><value>Llogaria {0} është e çaktivizuar dhe nuk mund të përdoret në një urdhëresë të re.</value></data>
   <data name="Export_Tb_Group" xml:space="preserve"><value>Grupi</value></data>
+  <data name="ItemWholesalePriceInvalid" xml:space="preserve"><value>Çmimi me shumicë duhet të jetë nga 0 deri në 1.000.000.000.</value></data>
+  <data name="DiscountRuleNameRequired" xml:space="preserve"><value>Shkruani një emër për rregullin e zbritjes (deri në 128 karaktere).</value></data>
+  <data name="DiscountRulePercentInvalid" xml:space="preserve"><value>Zbritja duhet të jetë më shumë se 0% dhe jo më shumë se 100%.</value></data>
+  <data name="DiscountRuleTargetRequired" xml:space="preserve"><value>Zgjidhni një blerës, një kategori artikujsh ose një artikull për rregullin e zbritjes.</value></data>
+  <data name="DiscountRuleTargetNotFound" xml:space="preserve"><value>Blerësi, kategoria ose artikulli i këtij rregulli të zbritjes nuk u gjet në këtë kompani.</value></data>
 </root>

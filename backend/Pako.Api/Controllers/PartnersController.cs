@@ -127,6 +127,7 @@ public class PartnersController : ControllerBase
             PaymentTermDays = request.PaymentTermDays,
             CreditLimit = request.CreditLimit,
             PriceListId = request.PriceListId,
+            PriceTier = request.PriceTier ?? PriceTier.Retail,
             OverdueBlockDays = request.OverdueBlockDays,
             Email = Clean(request.Email),
             Phone = Clean(request.Phone),
@@ -187,6 +188,7 @@ public class PartnersController : ControllerBase
         partner.PaymentTermDays = request.PaymentTermDays;
         partner.CreditLimit = request.CreditLimit;
         partner.PriceListId = request.PriceListId;
+        partner.PriceTier = request.PriceTier ?? PriceTier.Retail;
         partner.OverdueBlockDays = request.OverdueBlockDays;
         partner.Email = Clean(request.Email);
         partner.Phone = Clean(request.Phone);
@@ -298,7 +300,7 @@ public class PartnersController : ControllerBase
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,
         p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays,
-        p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country);
+        p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country, p.PriceTier);
 
     // J15: the partner's account statement. Readable by anyone who can see the partner — including
     // partner-restricted staff for their assigned partners, who get 404 for any other partner.

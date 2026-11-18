@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { AccountType } from "@/lib/ledger-enums";
 import { usePriceLists } from "@/hooks/useDistribution";
+import { Select } from "@/components/ui/select";
 import { CreditStatusPanel } from "@/pages/sales/CreditStatusPanel";
 
 export type PartnerEntityType = "company" | "person";
@@ -28,6 +29,8 @@ export interface PartnerRegisterFormFields {
   // docs/POS_PLAN.md P6: the customer's own price list (customer lists only) and how many days an
   // invoice may be overdue before new orders are blocked (null = never).
   priceListId: string | null;
+  /** 0 = retail, 1 = wholesale item prices (when no price list sets one). */
+  priceTier: number;
   overdueBlockDays: number | null;
   email: string | null;
   phone: string | null;
@@ -82,6 +85,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const [paymentTermDays, setPaymentTermDays] = useState(initial?.paymentTermDays != null ? String(initial.paymentTermDays) : "");
   const [creditLimit, setCreditLimit] = useState(initial?.creditLimit != null ? String(initial.creditLimit) : "");
   const [priceListId, setPriceListId] = useState(initial?.priceListId ?? "");
+  const [priceTier, setPriceTier] = useState(String(initial?.priceTier ?? 0));
   const [overdueBlockDays, setOverdueBlockDays] = useState(initial?.overdueBlockDays != null ? String(initial.overdueBlockDays) : "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
@@ -98,7 +102,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
     onDirtyChange?.(true);
   // only on field changes, not initial render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, overdueBlockDays, entityType, email, phone, contactPerson, streetAddress, city, postalCode, country]);
+  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, priceTier, overdueBlockDays, entityType, email, phone, contactPerson, streetAddress, city, postalCode, country]);
 
   const receivableAccounts = accounts.filter((a) => a.accountType === AccountType.Receivable);
   // Bug fix: also include CurrentLiability accounts that have a Partner subledger (value 1),
@@ -111,7 +115,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const hasContactData = hasAny(initial?.contactPerson, initial?.email, initial?.phone);
   const hasAddressData = hasAny(initial?.streetAddress, initial?.city, initial?.postalCode, initial?.country);
   const hasAccountingData = hasAny(initial?.isVatRegistered, initial?.receivableAccountId, initial?.payableAccountId, initial?.paymentTermDays, initial?.creditLimit);
-  const hasDistributionData = hasAny(initial?.priceListId, initial?.overdueBlockDays);
+  const hasDistributionData = hasAny(initial?.priceListId, initial?.overdueBlockDays, initial?.priceTier || undefined);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
@@ -127,6 +131,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       paymentTermDays: paymentTermDays ? parseInt(paymentTermDays, 10) : null,
       creditLimit: creditLimit ? parseFloat(creditLimit) : null,
       priceListId: isCustomer ? priceListId || null : null,
+      priceTier: isCustomer ? parseInt(priceTier, 10) : 0,
       overdueBlockDays: isCustomer && overdueBlockDays !== "" ? parseInt(overdueBlockDays, 10) : null,
       email: email.trim() || null,
       phone: phone.trim() || null,
@@ -350,6 +355,19 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
                 ]}
               />
               <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "dist.partner.priceListHint" })}</p>
+            </div>
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="partner-price-tier">{intl.formatMessage({ id: "partners.form.priceTier" })}</Label>
+              <Select
+                id="partner-price-tier"
+                value={priceTier}
+                onValueChange={(v) => setPriceTier(v || "0")}
+                options={[
+                  { value: "0", label: intl.formatMessage({ id: "partners.priceTier.retail" }) },
+                  { value: "1", label: intl.formatMessage({ id: "partners.priceTier.wholesale" }) },
+                ]}
+              />
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.priceTierHint" })}</p>
             </div>
             <div className="flex flex-col gap-1">
               <Label htmlFor="partner-overdue-block">{intl.formatMessage({ id: "dist.partner.overdueBlockDays" })}</Label>

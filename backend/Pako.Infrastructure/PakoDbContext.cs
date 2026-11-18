@@ -176,6 +176,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Pako.Domain.Pos.Ticket> PosTickets => Set<Pako.Domain.Pos.Ticket>();
     public DbSet<Pako.Domain.Bills.PurchaseOrder> PurchaseOrders => Set<Pako.Domain.Bills.PurchaseOrder>();
     public DbSet<Pako.Domain.Invoicing.SalesOrder> SalesOrders => Set<Pako.Domain.Invoicing.SalesOrder>();
+    public DbSet<Pako.Domain.Invoicing.DiscountRule> DiscountRules => Set<Pako.Domain.Invoicing.DiscountRule>();
     public DbSet<Pako.Domain.Invoicing.SalesOrderLine> SalesOrderLines => Set<Pako.Domain.Invoicing.SalesOrderLine>();
     public DbSet<Pako.Domain.Inventory.SalesRoute> SalesRoutes => Set<Pako.Domain.Inventory.SalesRoute>();
     public DbSet<Pako.Domain.Inventory.SalesRouteStop> SalesRouteStops => Set<Pako.Domain.Inventory.SalesRouteStop>();

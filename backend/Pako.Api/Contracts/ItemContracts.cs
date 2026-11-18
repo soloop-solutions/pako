@@ -48,7 +48,9 @@ public record CreateItemRequest(
     decimal? MaxRetailPrice = null,
     // P7 agency items: the principal it is sold for, and the commission kept (percent).
     Guid? AgencyPartnerId = null,
-    decimal? AgencyCommissionPercent = null);
+    decimal? AgencyCommissionPercent = null,
+    // Client feedback 2026-11: wholesale sale price (DefaultUnitPrice is the retail one).
+    decimal? WholesalePrice = null);
 
 public record UpdateItemRequest(
     string Name,
@@ -95,7 +97,9 @@ public record UpdateItemRequest(
     decimal? MaxRetailPrice = null,
     // P7 agency items: the principal it is sold for, and the commission kept (percent).
     Guid? AgencyPartnerId = null,
-    decimal? AgencyCommissionPercent = null);
+    decimal? AgencyCommissionPercent = null,
+    // Client feedback 2026-11: wholesale sale price (DefaultUnitPrice is the retail one).
+    decimal? WholesalePrice = null);
 
 public record AddBarcodeRequest(string Barcode);
 
@@ -153,7 +157,8 @@ public record ItemResponse(
     decimal? AgencyCommissionPercent = null,
     decimal? AverageCost = null,
     bool IsActive = true,
-    bool IsInUse = false);
+    bool IsInUse = false,
+    decimal? WholesalePrice = null);
 
 // B7: the one paginated-list shape — ?page=&pageSize=&search=&sort= in, { items, total, page,
 // pageSize } out. Proved here on Items (including the 35,000-row/index-backed verify criterion);

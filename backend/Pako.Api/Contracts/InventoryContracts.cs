@@ -161,8 +161,11 @@ public record PriceTierResponse(decimal MinQuantity, decimal Price, DateOnly Val
 // The price an invoice line should start from: Source = "warehouse", "company" or "item".
 // Price is per base unit; Units gives the same price per the item's sales and purchase units, so a
 // line that switches unit takes the server's figure (no multiplying in the browser).
+// Source "item-wholesale": the item's wholesale price for a customer on the wholesale tier.
+// DiscountPercent/DiscountRuleId: the period discount rule that applies to this customer, item and
+// date (client feedback 2026-11), the line's starting rabat; null when none applies.
 public record ResolvedPriceResponse(Guid ItemId, decimal Price, string Source, Guid? PriceListId, List<ResolvedUnitPriceResponse>? Units = null,
-    decimal? TierMinQuantity = null);
+    decimal? TierMinQuantity = null, decimal? DiscountPercent = null, Guid? DiscountRuleId = null);
 public record ResolvedUnitPriceResponse(string UnitName, decimal Factor, decimal Price);
 
 // MinQuantity > 0: a volume tier (docs/POS_PLAN.md P6).

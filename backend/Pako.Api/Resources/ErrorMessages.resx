@@ -1760,4 +1760,9 @@ Estimate: {estimate} €.</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>The audit trail export is limited to {0} rows. Narrow the filters and try again.</value></data>
   <data name="JournalLineAccountInactive" xml:space="preserve"><value>Account {0} is deactivated and cannot be used on a new journal entry.</value></data>
   <data name="Export_Tb_Group" xml:space="preserve"><value>Group</value></data>
+  <data name="ItemWholesalePriceInvalid" xml:space="preserve"><value>The wholesale price must be between 0 and 1,000,000,000.</value></data>
+  <data name="DiscountRuleNameRequired" xml:space="preserve"><value>Enter a name for the discount rule (up to 128 characters).</value></data>
+  <data name="DiscountRulePercentInvalid" xml:space="preserve"><value>The discount must be more than 0% and at most 100%.</value></data>
+  <data name="DiscountRuleTargetRequired" xml:space="preserve"><value>Choose a customer, an item category or an item for the discount rule.</value></data>
+  <data name="DiscountRuleTargetNotFound" xml:space="preserve"><value>The customer, category or item of this discount rule was not found in this company.</value></data>
 </root>

@@ -1,3 +1,5 @@
+using Pako.Domain.Companies;
+
 namespace Pako.Api.Contracts;
 
 public record CreatePartnerRequest(
@@ -20,7 +22,9 @@ public record CreatePartnerRequest(
     string? StreetAddress = null,
     string? City = null,
     string? PostalCode = null,
-    string? Country = null);
+    string? Country = null,
+    // Client feedback 2026-11: retail or wholesale item prices (null on a request = Retail).
+    PriceTier? PriceTier = null);
 
 public record UpdatePartnerRequest(
     string Name,
@@ -42,7 +46,9 @@ public record UpdatePartnerRequest(
     string? StreetAddress = null,
     string? City = null,
     string? PostalCode = null,
-    string? Country = null);
+    string? Country = null,
+    // Client feedback 2026-11: retail or wholesale item prices (null on a request = Retail).
+    PriceTier? PriceTier = null);
 
 public record PartnerResponse(
     Guid Id,
@@ -64,7 +70,9 @@ public record PartnerResponse(
     string? StreetAddress = null,
     string? City = null,
     string? PostalCode = null,
-    string? Country = null);
+    string? Country = null,
+    // Client feedback 2026-11: retail or wholesale item prices (null on a request = Retail).
+    PriceTier? PriceTier = null);
 
 public record CreditExposureResponse(
     decimal? CreditLimit,

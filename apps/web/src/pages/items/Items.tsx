@@ -182,6 +182,7 @@ export function Items() {
         unit: fields.unit,
         type: fields.type,
         defaultUnitPrice: fields.defaultUnitPrice,
+        wholesalePrice: fields.wholesalePrice,
         defaultTaxDefinitionId: fields.defaultTaxDefinitionId,
         defaultRevenueAccountId: fields.defaultRevenueAccountId,
         defaultExpenseAccountId: fields.defaultExpenseAccountId,
@@ -239,6 +240,7 @@ export function Items() {
         unit: vars.fields.unit,
         type: vars.fields.type,
         defaultUnitPrice: vars.fields.defaultUnitPrice,
+        wholesalePrice: vars.fields.wholesalePrice,
         defaultTaxDefinitionId: vars.fields.defaultTaxDefinitionId,
         defaultRevenueAccountId: vars.fields.defaultRevenueAccountId,
         defaultExpenseAccountId: vars.fields.defaultExpenseAccountId,
@@ -420,7 +422,17 @@ export function Items() {
       },
       {
         accessorKey: "defaultUnitPrice",
-        header: intl.formatMessage({ id: "items.defaultPrice" }),
+        header: intl.formatMessage({ id: "items.retailPrice" }),
+        meta: { numeric: true },
+        cell: ({ getValue }) => {
+          const value = getValue();
+          return typeof value === "number" ? `${value.toFixed(2)} €` : "—";
+        },
+      },
+      {
+        id: "wholesalePrice",
+        accessorFn: (item) => item.wholesalePrice ?? null,
+        header: intl.formatMessage({ id: "items.wholesalePrice" }),
         meta: { numeric: true },
         cell: ({ getValue }) => {
           const value = getValue();

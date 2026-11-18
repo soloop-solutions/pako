@@ -48,6 +48,10 @@ public class Partner
     // and the company's.
     public Guid? PriceListId { get; set; }
 
+    // Which item price a customer gets when no price list sets one: retail (DefaultUnitPrice) or
+    // wholesale (Item.WholesalePrice).
+    public PriceTier PriceTier { get; set; } = PriceTier.Retail;
+
     // docs/POS_PLAN.md P6: refuse new orders and deliveries while an invoice is more than this many
     // days past due (null = never block). Sales: Approve overrides with a reason.
     public int? OverdueBlockDays { get; set; }

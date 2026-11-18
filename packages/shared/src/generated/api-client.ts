@@ -4680,6 +4680,178 @@ export class PakoApiClient {
     }
 
     /**
+     * @param activeOn (optional) 
+     * @return OK
+     */
+    listDiscountRules(companyId: string, activeOn: string | undefined): Promise<DiscountRuleResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (activeOn === null)
+            throw new globalThis.Error("The parameter 'activeOn' cannot be null.");
+        else if (activeOn !== undefined)
+            url_ += "activeOn=" + encodeURIComponent("" + activeOn) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListDiscountRules(_response);
+        });
+    }
+
+    protected processListDiscountRules(response: Response): Promise<DiscountRuleResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DiscountRuleResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    createDiscountRule(companyId: string, body: SaveDiscountRuleRequest): Promise<DiscountRuleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateDiscountRule(_response);
+        });
+    }
+
+    protected processCreateDiscountRule(response: Response): Promise<DiscountRuleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DiscountRuleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateDiscountRule(companyId: string, id: string, body: SaveDiscountRuleRequest): Promise<DiscountRuleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateDiscountRule(_response);
+        });
+    }
+
+    protected processUpdateDiscountRule(response: Response): Promise<DiscountRuleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DiscountRuleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    deleteDiscountRule(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeleteDiscountRule(_response);
+        });
+    }
+
+    protected processDeleteDiscountRule(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
      * @return OK
      */
     listSalesRoutes(companyId: string): Promise<SalesRouteResponse[]> {
@@ -29111,6 +29283,7 @@ export interface CreateItemRequest {
     maxRetailPrice?: number | undefined;
     agencyPartnerId?: string | undefined;
     agencyCommissionPercent?: number | undefined;
+    wholesalePrice?: number | undefined;
 
     [key: string]: any;
 }
@@ -29186,6 +29359,7 @@ export interface CreatePartnerRequest {
     city?: string | undefined;
     postalCode?: string | undefined;
     country?: string | undefined;
+    priceTier?: number | undefined;
 
     [key: string]: any;
 }
@@ -29446,6 +29620,24 @@ export interface DepartmentResponse {
     partnerScope: number;
     isActive: boolean;
     employeeCount: number;
+
+    [key: string]: any;
+}
+
+export interface DiscountRuleResponse {
+    id: string;
+    name: string;
+    percent: number;
+    validFrom: string;
+    validTo: string;
+    partnerId: string | undefined;
+    partnerName: string | undefined;
+    itemCategoryId: string | undefined;
+    itemCategoryName: string | undefined;
+    itemId: string | undefined;
+    itemName: string | undefined;
+    priority: number;
+    isActive: boolean;
 
     [key: string]: any;
 }
@@ -30335,6 +30527,7 @@ export interface ItemResponse {
     averageCost?: number | undefined;
     isActive?: boolean;
     isInUse?: boolean;
+    wholesalePrice?: number | undefined;
 
     [key: string]: any;
 }
@@ -31190,6 +31383,7 @@ export interface PartnerResponse {
     city?: string | undefined;
     postalCode?: string | undefined;
     country?: string | undefined;
+    priceTier?: number | undefined;
 
     [key: string]: any;
 }
@@ -32607,6 +32801,8 @@ export interface ResolvedPriceResponse {
     priceListId: string | undefined;
     units?: ResolvedUnitPriceResponse[] | undefined;
     tierMinQuantity?: number | undefined;
+    discountPercent?: number | undefined;
+    discountRuleId?: string | undefined;
 
     [key: string]: any;
 }
@@ -33047,6 +33243,20 @@ export interface SaveDepartmentRequest {
     costCenterId: string | undefined;
     permissions: DepartmentPermissions;
     partnerScope: number;
+    isActive?: boolean;
+
+    [key: string]: any;
+}
+
+export interface SaveDiscountRuleRequest {
+    name: string;
+    percent: number;
+    validFrom: string;
+    validTo: string;
+    partnerId?: string | undefined;
+    itemCategoryId?: string | undefined;
+    itemId?: string | undefined;
+    priority?: number;
     isActive?: boolean;
 
     [key: string]: any;
@@ -34440,6 +34650,7 @@ export interface TrialBalanceTotals {
     debit: number;
     credit: number;
     closing: number;
+    balance?: number | undefined;
 
     [key: string]: any;
 }
@@ -34619,6 +34830,7 @@ export interface UpdateItemRequest {
     maxRetailPrice?: number | undefined;
     agencyPartnerId?: string | undefined;
     agencyCommissionPercent?: number | undefined;
+    wholesalePrice?: number | undefined;
 
     [key: string]: any;
 }
@@ -34666,6 +34878,7 @@ export interface UpdatePartnerRequest {
     city?: string | undefined;
     postalCode?: string | undefined;
     country?: string | undefined;
+    priceTier?: number | undefined;
 
     [key: string]: any;
 }
@@ -34850,7 +35063,6 @@ export interface VendorBalanceLine {
     debit: number;
     credit: number;
     closing: number;
-    balance?: number | undefined;
 
     [key: string]: any;
 }

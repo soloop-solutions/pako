@@ -32,6 +32,10 @@ public class Item
     // posture as ItemType itself.
     public Guid? DefaultInventoryAccountId { get; set; }
     public decimal? DefaultUnitPrice { get; set; }
+
+    // Client feedback 2026-11: a second sale price for wholesale customers (Partner.PriceTier =
+    // Wholesale), VAT-inclusive like DefaultUnitPrice (the retail price). Price lists still win over it.
+    public decimal? WholesalePrice { get; set; }
     public bool IsActive { get; set; } = true;
 
     // docs/INVENTORY_PLAN.md: the category supplies the accounts when the item doesn't (D9); a

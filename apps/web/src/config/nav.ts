@@ -89,6 +89,7 @@ const CommissionPlans = lazy(() => import("@/pages/payroll/CommissionPlans").the
 const EmployeeLoans = lazy(() => import("@/pages/payroll/EmployeeLoans").then(m => ({ default: m.EmployeeLoans })));
 const Employees = lazy(() => import("@/pages/hr/Employees").then(m => ({ default: m.Employees })));
 const Departments = lazy(() => import("@/pages/hr/Departments").then(m => ({ default: m.Departments })));
+const DiscountRules = lazy(() => import("@/pages/sales/DiscountRules").then(m => ({ default: m.DiscountRules })));
 const CostCenters = lazy(() => import("@/pages/ledger/CostCenters").then(m => ({ default: m.CostCenters })));
 const Leave = lazy(() => import("@/pages/leave/Leave").then(m => ({ default: m.Leave })));
 const MyLeave = lazy(() => import("@/pages/me/MyLeave").then(m => ({ default: m.MyLeave })));
@@ -397,6 +398,7 @@ export const navCategories: NavCategory[] = [
       // docs/POS_PLAN.md P6 distribution: quotes and sales orders, routes, the salesperson's day,
       // visits, and the van's morning load and evening settlement (vans are warehouses: Inventory).
       { titleKey: "nav.salesOrders", path: "/sales-orders", icon: ClipboardPen, descriptionKey: "nav.salesOrders.description", Element: SalesOrders, gridId: "sales-orders" },
+      { titleKey: "nav.discountRules", path: "/discount-rules", icon: BadgePercent, descriptionKey: "nav.discountRules.description", Element: DiscountRules, gridId: "discountRules" },
       { titleKey: "nav.myRouteDay", path: "/distribution/my-day", feature: "distribution", icon: MapPinned, descriptionKey: "nav.myRouteDay.description", Element: MyRouteDay },
       { titleKey: "nav.salesRoutes", path: "/distribution/routes", feature: "distribution", icon: RouteIcon, descriptionKey: "nav.salesRoutes.description", Element: SalesRoutes, gridId: "sales-routes" },
       { titleKey: "nav.routeVisits", path: "/distribution/visits", feature: "distribution", icon: Footprints, descriptionKey: "nav.routeVisits.description", Element: RouteVisits, gridId: "route-visits" },

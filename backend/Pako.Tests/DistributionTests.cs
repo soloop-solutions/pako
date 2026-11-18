@@ -264,6 +264,76 @@ public class DistributionTests : IAsyncLifetime
         Assert.IsType<OkObjectResult>((await Orders(c).Confirm(c.Id, next.Id, new ConfirmSalesOrderRequest("Agreed a payment plan"))).Result);
     }
 
+    // Client feedback 2026-11: a wholesale-tier customer gets the item's wholesale price ahead of the
+    // retail (company) list, but behind its own customer list; others keep the retail price.
+    [Fact]
+    public async Task WholesaleTier_TakesItemWholesalePrice_AfterOwnListBeforeRetailLists()
+    {
+        var c = await SeedAsync();
+        var laptop = await c.Db.Items.SingleAsync(i => i.Id == c.Laptop);
+        laptop.DefaultUnitPrice = 300m;
+        laptop.WholesalePrice = 260m;
+        var customer = await c.Db.Partners.SingleAsync(p => p.Id == c.Customer);
+        customer.PriceTier = PriceTier.Wholesale;
+        await c.Db.SaveChangesAsync();
+
+        async Task<ResolvedPriceResponse> Resolve(Guid? partner) =>
+            Assert.Single((List<ResolvedPriceResponse>)Assert.IsType<OkObjectResult>((await Prices(c).Resolve(c.Id, new List<Guid> { c.Laptop }, null, Today,
+                partner, null)).Result).Value!);
+        Assert.Equal(("item", 300m), ((await Resolve(null)).Source, (await Resolve(null)).Price));
+        Assert.Equal(("item-wholesale", 260m), ((await Resolve(c.Customer)).Source, (await Resolve(c.Customer)).Price));
+
+        var retail = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Retail", null, true, false))).Result).Value!;
+        var draft = (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateChange(c.Id,
+            new SavePriceChangeRequest(retail.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 280m) }))).Result).Value!;
+        Assert.IsType<OkObjectResult>((await Prices(c).PostChange(c.Id, draft.Id)).Result);
+        Assert.Equal(("company", 280m), ((await Resolve(null)).Source, (await Resolve(null)).Price));
+        Assert.Equal(("item-wholesale", 260m), ((await Resolve(c.Customer)).Source, (await Resolve(c.Customer)).Price));
+
+        var own = (PriceListResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateList(c.Id, new SavePriceListRequest("Market", null, true, true))).Result).Value!;
+        var ownDraft = (PriceChangeResponse)Assert.IsAssignableFrom<ObjectResult>((await Prices(c).CreateChange(c.Id,
+            new SavePriceChangeRequest(own.Id, D1, new List<PriceChangeLineRequest> { new(c.Laptop, 250m) }))).Result).Value!;
+        Assert.IsType<OkObjectResult>((await Prices(c).PostChange(c.Id, ownDraft.Id)).Result);
+        customer.PriceListId = own.Id;
+        await c.Db.SaveChangesAsync();
+        Assert.Equal(("customer", 250m), ((await Resolve(c.Customer)).Source, (await Resolve(c.Customer)).Price));
+    }
+
+    // Client feedback 2026-11: a period discount for a customer on an item category reaches the
+    // resolved price as the line's starting rabat, only inside the period and only for that customer.
+    [Fact]
+    public async Task DiscountRule_ForCustomerAndCategory_ResolvesWithThePrice()
+    {
+        var c = await SeedAsync();
+        var category = new ItemCategory { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Electronics" };
+        c.Db.ItemCategories.Add(category);
+        var laptop = await c.Db.Items.SingleAsync(i => i.Id == c.Laptop);
+        laptop.CategoryId = category.Id;
+        laptop.DefaultUnitPrice = 300m;
+        await c.Db.SaveChangesAsync();
+        var rules = As(new DiscountRulesController(c.Db, L), c.UserId);
+
+        Assert.IsType<BadRequestObjectResult>((await rules.Create(c.Id, new SaveDiscountRuleRequest("No target", 5m, Today, Today))).Result);
+        Assert.IsType<BadRequestObjectResult>((await rules.Create(c.Id, new SaveDiscountRuleRequest("Too much", 120m, Today, Today, c.Customer))).Result);
+        Assert.IsType<BadRequestObjectResult>((await rules.Create(c.Id, new SaveDiscountRuleRequest("Vendor", 5m, Today, Today, c.Vendor))).Result);
+        var created = (DiscountRuleResponse)Assert.IsAssignableFrom<ObjectResult>((await rules.Create(c.Id,
+            new SaveDiscountRuleRequest("Market electronics", 7.5m, Today.AddDays(-1), Today.AddDays(1), c.Customer, category.Id))).Result).Value!;
+        Assert.Equal(("Market", "Electronics"), (created.PartnerName, created.ItemCategoryName));
+
+        async Task<ResolvedPriceResponse> Resolve(Guid? partner, DateOnly date) =>
+            Assert.Single((List<ResolvedPriceResponse>)Assert.IsType<OkObjectResult>((await Prices(c).Resolve(c.Id, new List<Guid> { c.Laptop }, null, date,
+                partner, null)).Result).Value!);
+        var hit = await Resolve(c.Customer, Today);
+        Assert.Equal((300m, (decimal?)7.5m, (Guid?)created.Id), (hit.Price, hit.DiscountPercent, hit.DiscountRuleId));
+        Assert.Null((await Resolve(null, Today)).DiscountPercent);
+        Assert.Null((await Resolve(c.Customer, Today.AddDays(2))).DiscountPercent);
+
+        var listed = (List<DiscountRuleResponse>)Assert.IsType<OkObjectResult>((await rules.List(c.Id, Today.AddDays(2))).Result).Value!;
+        Assert.Empty(listed);
+        Assert.IsType<NoContentResult>(await rules.Delete(c.Id, created.Id));
+        Assert.Null((await Resolve(c.Customer, Today)).DiscountPercent);
+    }
+
     // A customer's own list comes before the shop and company lists, and a volume tier the quantity
     // reaches beats the list's ordinary price. Several customer lists can exist next to the one
     // company list.

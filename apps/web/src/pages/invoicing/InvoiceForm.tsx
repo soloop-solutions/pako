@@ -1,6 +1,6 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse, CreditExposureResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { AccountResponse, CreditExposureResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, ResolvedPriceResponse, TaxDefinitionResponse } from "@pako/shared";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -46,6 +46,10 @@ type Line = {
   // every save so the order's invoiced quantities stay right.
   salesOrderLineId?: string;
   deliveryLineId?: string;
+  // Set once the user types a price or discount on the line: a later customer or date change
+  // then leaves that value alone instead of re-pricing it.
+  priceEdited?: boolean;
+  discountEdited?: boolean;
   // Display only: the order / delivery note the line came from.
   linkLabel?: string;
 };
@@ -390,6 +394,8 @@ export function InvoiceForm({
       ? {
           ...applyItemDefaults(line, item, partnerDrivenTaxId),
           unitName: undefined,
+          priceEdited: false,
+          discountEdited: false,
           salesOrderLineId: line.itemId === itemId ? line.salesOrderLineId : undefined,
           deliveryLineId: line.itemId === itemId ? line.deliveryLineId : undefined,
         }
@@ -397,19 +403,62 @@ export function InvoiceForm({
     // §12 P4: with price lists, the line starts from the shop's (or company's) price on the issue
     // date instead of the item's own price. Returns keep the original invoice's prices. List prices
     // are VAT-inclusive, so they only fill a gross-priced invoice; on a net one the item's own
-    // price stays rather than a gross figure being taken as net.
-    if (item && !isSalesReturn && priceMode === PriceMode.GrossInclusive) {
+    // price stays rather than a gross figure being taken as net. The resolve result also carries
+    // the period discount rule (rabat) for this customer and item, which fills the line's discount.
+    if (item && !isSalesReturn) {
       // docs/POS_PLAN.md P6: the customer's own price list and volume tiers count too.
       const quantity = parseFloat(lines[index]?.quantity ?? "") || 1;
       void apiClient.resolvePrices(companyId, [item.id], warehouseId || undefined, issueDate, partnerId || undefined, [quantity]).then((prices) => {
         const resolved = prices.find((p) => p.itemId === item.id);
-        if (!resolved || resolved.source === "item") return;
-        setLines((prev) => prev.map((line, i) => (i === index && line.itemId === item.id ? { ...line, unitPrice: String(resolved.price) } : line)));
+        if (!resolved) return;
+        setLines((prev) => prev.map((line, i) => (i === index && line.itemId === item.id ? applyResolved(line, resolved) : line)));
       }).catch(() => {
         // The item's own price stays; nothing to report.
       });
     }
   }
+
+  // A resolved price fills the line unless the user typed one: list prices only on a gross-priced
+  // invoice (they are VAT-inclusive), the item's own retail/wholesale price on either. The rabat of
+  // the matching discount rule (or none) fills the discount unless the user typed one.
+  function applyResolved(line: Line, resolved: ResolvedPriceResponse): Line {
+    const itemPrice = resolved.source === "item" || resolved.source === "item-wholesale";
+    const priceUsable = priceMode === PriceMode.GrossInclusive || itemPrice;
+    const price = line.unitName ? resolved.units?.find((u) => u.unitName === line.unitName)?.price : resolved.price;
+    return {
+      ...line,
+      unitPrice: !line.priceEdited && priceUsable && price != null ? String(price) : line.unitPrice,
+      discountPercent: line.discountEdited ? line.discountPercent : String(resolved.discountPercent ?? 0),
+    };
+  }
+
+  // A different customer or issue date can change the list price, the wholesale tier and the
+  // discount rule: re-resolve every item line that the user has not priced by hand. Lines billing a
+  // sales order keep the order's prices; returns keep the original invoice's.
+  const repriceKey = `${partnerId}|${issueDate}`;
+  const lastRepriceKey = useRef(repriceKey);
+  useEffect(() => {
+    if (lastRepriceKey.current === repriceKey) return;
+    lastRepriceKey.current = repriceKey;
+    if (isSalesReturn || !partnerId) return;
+    const targets = lines
+      .map((line, index) => ({ line, index }))
+      .filter(({ line }) => line.itemId && !line.salesOrderLineId && !(line.priceEdited && line.discountEdited));
+    if (targets.length === 0) return;
+    const ids = targets.map(({ line }) => line.itemId);
+    const quantities = targets.map(({ line }) => baseQuantity(items.find((i) => i.id === line.itemId), line.unitName, parseFloat(line.quantity) || 1));
+    void apiClient.resolvePrices(companyId, ids, warehouseId || undefined, issueDate, partnerId, quantities).then((prices) => {
+      setLines((prev) => prev.map((line, i) => {
+        const target = targets.find((t) => t.index === i);
+        if (!target || line.itemId !== target.line.itemId) return line;
+        const resolved = prices.find((p) => p.itemId === line.itemId);
+        return resolved ? applyResolved(line, resolved) : line;
+      }));
+    }).catch(() => {
+      // Prices stay as they are; nothing to report.
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to customer/date changes
+  }, [repriceKey]);
 
   // §12 P7: the price follows the line's unit. The server gives the price per sales/purchase unit
   // next to the base-unit one, so nothing is multiplied here. List prices are VAT-inclusive: on a
@@ -424,7 +473,7 @@ export function InvoiceForm({
     void apiClient.resolvePrices(companyId, [itemId], warehouseId || undefined, issueDate, partnerId || undefined, [quantity]).then((prices) => {
       const resolved = prices.find((p) => p.itemId === itemId);
       if (!resolved) return;
-      const usable = priceMode === PriceMode.GrossInclusive || resolved.source === "item";
+      const usable = priceMode === PriceMode.GrossInclusive || resolved.source === "item" || resolved.source === "item-wholesale";
       const price = unitName ? resolved.units?.find((u) => u.unitName === unitName)?.price : resolved.price;
       setLines((prev) => prev.map((l, i) => (i === index && l.itemId === itemId && l.unitName === unitName
         ? { ...l, unitPrice: usable && price != null ? String(price) : "" }
@@ -795,6 +844,7 @@ export function InvoiceForm({
             <div className="flex flex-col gap-0.5">
               {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
               <SearchableSelect
+                aria-label={intl.formatMessage({ id: "invoiceForm.item" })}
                 value={line.itemId}
                 onChange={(val) => selectLineItem(index, val)}
                 placeholder={intl.formatMessage({ id: "invoiceForm.noItem" })}
@@ -886,8 +936,9 @@ export function InvoiceForm({
                 type="number"
                 step="0.01"
                 min="0"
+                aria-label={intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat" })}
                 value={line.unitPrice}
-                onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
+                onChange={(event) => updateLine(index, { unitPrice: event.target.value, priceEdited: true })}
               />
               {overridden.price && (
                 <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
@@ -902,8 +953,9 @@ export function InvoiceForm({
                 step="0.01"
                 min="0"
                 max="100"
+                aria-label={intl.formatMessage({ id: "invoiceForm.discountPercent" })}
                 value={line.discountPercent}
-                onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
+                onChange={(event) => updateLine(index, { discountPercent: event.target.value, discountEdited: true })}
               />
             </div>
             <div className="flex flex-col gap-0.5">

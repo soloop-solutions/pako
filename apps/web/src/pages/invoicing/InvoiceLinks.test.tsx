@@ -134,6 +134,44 @@ describe("Invoice from a sales order (P6)", () => {
   });
 });
 
+describe("Period discount rules on a new invoice", () => {
+  it("fills the line discount from the customer's rule, re-prices on a customer change, and keeps a typed discount", async () => {
+    const OTHER = { ...CUSTOMER, id: "p2", name: "Viva Fresh" };
+    api.resolvePrices.mockImplementation((_c: string, itemIds: string[], _w: unknown, _d: unknown, partnerId: string | undefined) =>
+      Promise.resolve(itemIds.map((itemId) => ({
+        itemId, price: partnerId === "p1" ? 0.4 : 0.5, source: partnerId === "p1" ? "item-wholesale" : "item", priceListId: undefined,
+        discountPercent: partnerId === "p1" ? 7.5 : undefined, discountRuleId: partnerId === "p1" ? "rule1" : undefined,
+      }))));
+    renderAt("/invoicing", (
+      <InvoiceForm companyId="c1" customers={[CUSTOMER as never, OTHER as never]} taxes={[]} paymentMethods={[]} isVatRegistered={false}
+        items={[WATER as never]} onCreated={() => {}} />
+    ));
+
+    fireEvent.click(screen.getByRole("combobox", { name: /^Customer/ }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Market Arbeni/ }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Item" }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Ujë 0.5L/ }));
+
+    const discount = () => screen.getByRole("spinbutton", { name: "Discount %" });
+    const price = () => screen.getByRole("spinbutton", { name: "Price (incl. VAT)" });
+    await waitFor(() => expect(discount()).toHaveValue(7.5));
+    expect(price()).toHaveValue(0.4);
+
+    // A customer without a rule or wholesale tier: retail price, no discount.
+    fireEvent.click(screen.getByRole("combobox", { name: /^Customer/ }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Viva Fresh/ }));
+    await waitFor(() => expect(discount()).toHaveValue(0));
+    expect(price()).toHaveValue(0.5);
+
+    // A typed discount survives the next customer change; the price still follows the customer.
+    fireEvent.change(discount(), { target: { value: "3" } });
+    fireEvent.click(screen.getByRole("combobox", { name: /^Customer/ }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Market Arbeni/ }));
+    await waitFor(() => expect(price()).toHaveValue(0.4));
+    expect(discount()).toHaveValue(3);
+  });
+});
+
 describe("Editing a draft invoice (P6)", () => {
   it("keeps the order and delivery links of a line whose quantity changed", async () => {
     const draft: InvoiceResponse = {

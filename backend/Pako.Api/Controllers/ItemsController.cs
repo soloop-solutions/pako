@@ -124,7 +124,8 @@ public class ItemsController : ControllerBase
             ?? await ValidateTillFieldsAsync(companyId, null, request.Plu, request.MinimumAge, request.DepositItemId, request.WarrantyMonths)
             ?? await ValidateServiceFieldsAsync(companyId, null, request.IsBookable, request.DurationMinutes, request.PackageServiceItemId,
                 request.PackageSessions, request.MembershipDays)
-            ?? await ValidateSpecialistFieldsAsync(companyId, request.AtcCode, request.MaxRetailPrice, request.AgencyPartnerId, request.AgencyCommissionPercent);
+            ?? await ValidateSpecialistFieldsAsync(companyId, request.AtcCode, request.MaxRetailPrice, request.AgencyPartnerId, request.AgencyCommissionPercent)
+            ?? (request.WholesalePrice is < 0 or > 1_000_000_000m ? _localizer["ItemWholesalePriceInvalid"].Value : null);
         if (stockError is not null) return BadRequest(stockError);
 
         // B6: auto-assign the next ordinal code from the Item number series.
@@ -146,6 +147,7 @@ public class ItemsController : ControllerBase
             DefaultExpenseAccountId = request.DefaultExpenseAccountId,
             DefaultInventoryAccountId = request.DefaultInventoryAccountId,
             DefaultUnitPrice = request.DefaultUnitPrice,
+            WholesalePrice = request.WholesalePrice,
             CategoryId = request.CategoryId,
             TrackInventory = request.TrackInventory && request.Type == ItemType.Goods,
             MinimumStock = request.MinimumStock,
@@ -199,7 +201,8 @@ public class ItemsController : ControllerBase
             ?? await ValidateTillFieldsAsync(companyId, item.Id, request.Plu, request.MinimumAge, request.DepositItemId, request.WarrantyMonths)
             ?? await ValidateServiceFieldsAsync(companyId, item.Id, request.IsBookable, request.DurationMinutes, request.PackageServiceItemId,
                 request.PackageSessions, request.MembershipDays)
-            ?? await ValidateSpecialistFieldsAsync(companyId, request.AtcCode, request.MaxRetailPrice, request.AgencyPartnerId, request.AgencyCommissionPercent);
+            ?? await ValidateSpecialistFieldsAsync(companyId, request.AtcCode, request.MaxRetailPrice, request.AgencyPartnerId, request.AgencyCommissionPercent)
+            ?? (request.WholesalePrice is < 0 or > 1_000_000_000m ? _localizer["ItemWholesalePriceInvalid"].Value : null);
         if (stockError is not null) return BadRequest(stockError);
         // Moving the stock account of an item that carries stock would split its value over two
         // accounts.
@@ -227,6 +230,7 @@ public class ItemsController : ControllerBase
         item.DefaultExpenseAccountId = request.DefaultExpenseAccountId;
         item.DefaultInventoryAccountId = request.DefaultInventoryAccountId;
         item.DefaultUnitPrice = request.DefaultUnitPrice;
+        item.WholesalePrice = request.WholesalePrice;
         item.CategoryId = request.CategoryId;
         item.TrackInventory = request.TrackInventory && request.Type == ItemType.Goods;
         item.MinimumStock = request.MinimumStock;
@@ -413,7 +417,7 @@ public class ItemsController : ControllerBase
         i.TrackSerials, i.WarrantyMonths, i.IsVariantTemplate, i.VariantOfItemId, null, i.IsBookable, i.DurationMinutes, i.BufferMinutes,
         i.PackageServiceItemId, i.PackageSessions, i.PackageValidDays, i.MembershipDays, i.ProductionCenterId,
         i.AtcCode, i.ActiveIngredient, i.IsPrescriptionOnly, i.IsControlled, i.MaxRetailPrice, i.AgencyPartnerId, i.AgencyCommissionPercent,
-        averageCost, i.IsActive, isInUse);
+        averageCost, i.IsActive, isInUse, i.WholesalePrice);
 
     // P7: pharmacy and agency fields.
     private static void ApplySpecialistFields(Item item, string? atc, string? ingredient, bool rxOnly, bool controlled, decimal? cap,

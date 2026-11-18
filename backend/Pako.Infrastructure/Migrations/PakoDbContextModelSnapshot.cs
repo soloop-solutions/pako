@@ -1055,6 +1055,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<int?>("WarrantyMonths")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("WholesalePrice")
+                        .HasColumnType("numeric(18,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AgencyPartnerId");
@@ -1318,6 +1321,9 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<Guid?>("PriceListId")
                         .HasColumnType("uuid");
+
+                    b.Property<int>("PriceTier")
+                        .HasColumnType("integer");
 
                     b.Property<Guid?>("ReceivableAccountId")
                         .HasColumnType("uuid");
@@ -2974,6 +2980,60 @@ namespace Pako.Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("warehouses", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Invoicing.DiscountRule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ItemCategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ItemId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Percent")
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<int>("Priority")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly>("ValidFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("ValidTo")
+                        .HasColumnType("date");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ItemCategoryId");
+
+                    b.HasIndex("ItemId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("CompanyId", "ValidFrom", "ValidTo");
+
+                    b.ToTable("discount_rules", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Invoicing.DocumentEditAudit", b =>
@@ -9179,6 +9239,30 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Invoicing.DiscountRule", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Inventory.ItemCategory", null)
+                        .WithMany()
+                        .HasForeignKey("ItemCategoryId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Pako.Domain.Companies.Item", null)
+                        .WithMany()
+                        .HasForeignKey("ItemId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Pako.Domain.Invoicing.Invoice", b =>

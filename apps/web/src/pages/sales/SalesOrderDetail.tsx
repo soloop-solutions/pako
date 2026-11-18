@@ -43,6 +43,8 @@ interface Line {
   taxDefinitionId: string;
   // Typed by hand: a later price lookup leaves it alone.
   manualPrice?: boolean;
+  // Discount typed by hand: the period discount rule no longer fills it.
+  manualDiscount?: boolean;
   // Where the looked-up price came from (customer, warehouse, company list or the item) and the
   // volume tier that applied.
   priceSource?: string;
@@ -121,7 +123,7 @@ export function SalesOrderDetail() {
     setRouteVisitId(order.routeVisitId ?? "");
     setLines(order.lines.map((l) => ({
       itemId: l.itemId ?? "", description: l.description, quantity: String(l.quantity), unitName: l.unitName ?? undefined,
-      unitPrice: String(l.unitPrice), discountPercent: String(l.discountPercent), taxDefinitionId: l.taxDefinitionId ?? "", manualPrice: true,
+      unitPrice: String(l.unitPrice), discountPercent: String(l.discountPercent), taxDefinitionId: l.taxDefinitionId ?? "", manualPrice: true, manualDiscount: true,
     })));
     setDirty(false);
   }, [order]);
@@ -132,7 +134,7 @@ export function SalesOrderDetail() {
   // Prices come from the server's price lists (the customer's list first, volume tiers by the
   // quantity in base units), per the line's unit. Lines whose price was typed by hand keep it.
   function resolve(targets: { index: number; line: Line }[], customerId: string, onDate = date, inWarehouse = warehouseId) {
-    const wanted = targets.filter((x) => x.line.itemId && !x.line.manualPrice);
+    const wanted = targets.filter((x) => x.line.itemId && !(x.line.manualPrice && x.line.manualDiscount));
     if (wanted.length === 0 || !activeCompanyId) return;
     const quantities = wanted.map((x) => baseQuantity(lookup.find(x.line.itemId), x.line.unitName, parse(x.line.quantity) || 0));
     void apiClient.resolvePrices(activeCompanyId, wanted.map((x) => x.line.itemId), inWarehouse || undefined, onDate, customerId || undefined, quantities)
@@ -142,12 +144,15 @@ export function SalesOrderDetail() {
           if (pos < 0) return l;
           const asked = wanted[pos].line;
           // The line changed while the price was on its way: a newer lookup will answer.
-          if (l.itemId !== asked.itemId || l.unitName !== asked.unitName || l.quantity !== asked.quantity || l.manualPrice) return l;
+          if (l.itemId !== asked.itemId || l.unitName !== asked.unitName || l.quantity !== asked.quantity) return l;
           const resolved = prices[pos]?.itemId === asked.itemId ? prices[pos] : prices.find((p) => p.itemId === asked.itemId);
           if (!resolved) return l;
+          // The period discount rule (rabat) for this customer, item and date, unless typed by hand.
+          const withDiscount = l.manualDiscount ? l : { ...l, discountPercent: String(resolved.discountPercent ?? 0) };
+          if (l.manualPrice) return withDiscount;
           const price = asked.unitName ? resolved.units?.find((u) => u.unitName === asked.unitName)?.price : resolved.price;
-          if (price == null) return l;
-          return { ...l, unitPrice: String(price), priceSource: resolved.source, tierMinQuantity: resolved.tierMinQuantity ?? undefined };
+          if (price == null) return withDiscount;
+          return { ...withDiscount, unitPrice: String(price), priceSource: resolved.source, tierMinQuantity: resolved.tierMinQuantity ?? undefined };
         }));
       })
       .catch(() => {
@@ -175,6 +180,7 @@ export function SalesOrderDetail() {
       unitName: item?.salesUnit ?? undefined,
       unitPrice: "",
       manualPrice: false,
+      manualDiscount: false,
       priceSource: undefined,
       tierMinQuantity: undefined,
       taxDefinitionId: item?.defaultTaxDefinitionId ?? lines[index].taxDefinitionId,
@@ -461,7 +467,7 @@ export function SalesOrderDetail() {
                           <div className="flex flex-col gap-1">
                             {index === 0 && <Label>{t("so.col.discount")}</Label>}
                             <Input inputMode="decimal" className="text-right tnum" value={line.discountPercent} disabled={!editable}
-                              aria-label={t("so.col.discount")} onChange={(e) => changeLine(index, { discountPercent: e.target.value }, false)} />
+                              aria-label={t("so.col.discount")} onChange={(e) => changeLine(index, { discountPercent: e.target.value, manualDiscount: true }, false)} />
                           </div>
                           <div className="flex flex-col gap-1">
                             {index === 0 && <Label>{t("so.col.vat")}</Label>}

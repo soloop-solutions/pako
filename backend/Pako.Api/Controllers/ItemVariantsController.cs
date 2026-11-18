@@ -162,7 +162,7 @@ public class ItemVariantsController : ControllerBase
                 Id = Guid.NewGuid(), CompanyId = companyId, Code = code, Name = $"{template.Name} {string.Join(" / ", combo.Select(c => c.Value))}",
                 Description = template.Description, Unit = template.Unit, Type = template.Type, DefaultTaxDefinitionId = template.DefaultTaxDefinitionId,
                 DefaultRevenueAccountId = template.DefaultRevenueAccountId, DefaultExpenseAccountId = template.DefaultExpenseAccountId,
-                DefaultInventoryAccountId = template.DefaultInventoryAccountId, DefaultUnitPrice = template.DefaultUnitPrice, CategoryId = template.CategoryId,
+                DefaultInventoryAccountId = template.DefaultInventoryAccountId, DefaultUnitPrice = template.DefaultUnitPrice, WholesalePrice = template.WholesalePrice, CategoryId = template.CategoryId,
                 TrackInventory = template.TrackInventory, MinimumStock = template.MinimumStock, TrackLots = template.TrackLots,
                 PurchaseUnit = template.PurchaseUnit, PurchaseUnitFactor = template.PurchaseUnitFactor, SalesUnit = template.SalesUnit,
                 SalesUnitFactor = template.SalesUnitFactor, MinimumAge = template.MinimumAge, TrackSerials = template.TrackSerials,

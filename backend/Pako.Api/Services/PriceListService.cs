@@ -45,16 +45,20 @@ public class PriceListService
             .OrderBy(p => p.MinQuantity).ToList());
     }
 
-    // A price is resolved customer first (the partner's own list), then the shop (the store's or
-    // warehouse's list), then the company list, then the item's default price. On a list, a volume
-    // tier the quantity (base units) reaches beats the ordinary price.
+    // A price is resolved customer first (the partner's own list), then — for a wholesale-tier
+    // customer — the item's wholesale price, then the shop (the store's or warehouse's list), then the
+    // company list, then the item's default price. On a list, a volume tier the quantity (base units)
+    // reaches beats the ordinary price. Each result also carries the period discount rule that applies.
     public async Task<List<ResolvedPriceResponse>> ResolveAsync(Guid companyId, Guid? warehouseId, DateOnly date, IReadOnlyCollection<Guid> itemIds,
         Guid? preferredListId = null, Guid? partnerId = null, IReadOnlyDictionary<Guid, decimal>? quantities = null)
     {
         var lists = await _db.PriceLists.AsNoTracking().Where(p => p.CompanyId == companyId && p.IsActive).ToListAsync();
-        var customerListId = partnerId is { } pid
-            ? await _db.Partners.AsNoTracking().Where(p => p.Id == pid && p.CompanyId == companyId).Select(p => p.PriceListId).FirstOrDefaultAsync()
+        var partner = partnerId is { } pid
+            ? await _db.Partners.AsNoTracking().Where(p => p.Id == pid && p.CompanyId == companyId)
+                .Select(p => new { p.PriceListId, p.PriceTier }).FirstOrDefaultAsync()
             : null;
+        var customerListId = partner?.PriceListId;
+        var wholesale = partner?.PriceTier == Pako.Domain.Companies.PriceTier.Wholesale;
         var customer = customerListId is { } cl ? lists.FirstOrDefault(p => p.Id == cl && p.IsCustomerList) : null;
         // A POS store may name its own list; otherwise the warehouse's list.
         var shop = (preferredListId is { } preferred ? lists.FirstOrDefault(p => p.Id == preferred) : null)
@@ -72,6 +76,11 @@ public class PriceListService
                 quantities is null ? new() : await TiersOnAsync(list.Id, date, itemIds)));
         }
         var items = await _db.Items.AsNoTracking().Where(i => i.CompanyId == companyId && itemIds.Contains(i.Id)).ToDictionaryAsync(i => i.Id);
+        // Period discount rules valid on the date (client feedback 2026-11); matched per item below.
+        var discountRules = await _db.DiscountRules.AsNoTracking()
+            .Where(r => r.CompanyId == companyId && r.IsActive && r.ValidFrom <= date && date <= r.ValidTo
+                && (r.PartnerId == null || r.PartnerId == partnerId))
+            .ToListAsync();
 
         var result = new List<ResolvedPriceResponse>();
         foreach (var id in itemIds.Distinct())
@@ -81,16 +90,34 @@ public class PriceListService
             var found = false;
             foreach (var (list, source, basePrices, tiers) in prices)
             {
+                // A wholesale customer's item wholesale price ranks right after the customer's own
+                // list: the shop and company lists are retail prices.
+                if (wholesale && source != "customer" && item?.WholesalePrice is { } wp)
+                {
+                    result.Add(WithDiscount(new(id, wp, "item-wholesale", null, UnitPrices(item, wp)), item));
+                    found = true;
+                    break;
+                }
                 var tier = tiers.TryGetValue(id, out var t) ? t.LastOrDefault(x => x.MinQuantity <= quantity) : null;
                 var price = tier ?? basePrices.GetValueOrDefault(id);
                 if (price is null) continue;
-                result.Add(new(id, price.Price, source, list.Id, UnitPrices(item, price.Price), tier?.MinQuantity));
+                result.Add(WithDiscount(new(id, price.Price, source, list.Id, UnitPrices(item, price.Price), tier?.MinQuantity), item));
                 found = true;
                 break;
             }
-            if (!found && item?.DefaultUnitPrice is { } d) result.Add(new(id, d, "item", null, UnitPrices(item, d)));
+            if (found) continue;
+            // Nothing above: the wholesale price for a wholesale customer, otherwise the item's default (retail) price.
+            if (wholesale && item?.WholesalePrice is { } wholesalePrice)
+                result.Add(WithDiscount(new(id, wholesalePrice, "item-wholesale", null, UnitPrices(item, wholesalePrice)), item));
+            else if (item?.DefaultUnitPrice is { } d) result.Add(WithDiscount(new(id, d, "item", null, UnitPrices(item, d)), item));
         }
         return result;
+
+        ResolvedPriceResponse WithDiscount(ResolvedPriceResponse resolved, Pako.Domain.Companies.Item? item)
+        {
+            var rule = Pako.Domain.Invoicing.DiscountRuleMatcher.Match(discountRules, date, partnerId, resolved.ItemId, item?.CategoryId);
+            return rule is null ? resolved : resolved with { DiscountPercent = rule.Percent, DiscountRuleId = rule.Id };
+        }
     }
 
     // The base-unit price in the item's other units (a box of 12 costs 12 pieces).

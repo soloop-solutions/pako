@@ -97,7 +97,7 @@ describe("Sales order form (P6)", () => {
     api.createSalesOrder.mockResolvedValue({ ...ORDER, id: "so9" });
     renderAt("/sales-orders/new", <SalesOrderDetail />);
 
-    fireEvent.click(await screen.findByRole("combobox", { name: "Customer" }));
+    fireEvent.click(await screen.findByRole("combobox", { name: /^Customer/ }));
     fireEvent.mouseDown(await screen.findByRole("option", { name: /Market Arbeni/ }));
     fireEvent.click(screen.getByRole("combobox", { name: "Item" }));
     fireEvent.mouseDown(await screen.findByRole("option", { name: /Ujë 0.5L/ }));
@@ -128,10 +128,37 @@ describe("Sales order form (P6)", () => {
     fireEvent.mouseDown(await screen.findByRole("option", { name: /Ujë 0.5L/ }));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Price incl. VAT" })).toHaveValue("3"));
 
-    fireEvent.click(screen.getByRole("combobox", { name: "Customer" }));
+    fireEvent.click(screen.getByRole("combobox", { name: /^Customer/ }));
     fireEvent.mouseDown(await screen.findByRole("option", { name: /Viva Fresh/ }));
     await waitFor(() => expect(api.resolvePrices).toHaveBeenLastCalledWith("c1", ["i1"], undefined, isoToday(), "p2", [6]));
     await waitFor(() => expect(screen.getByRole("textbox", { name: "Price incl. VAT" })).toHaveValue("2.7"));
+  });
+
+  it("starts the line discount from the customer's period discount rule, and keeps a typed one", async () => {
+    api.resolvePrices.mockImplementation((_c: string, itemIds: string[], _w: unknown, _d: unknown, partnerId: string | undefined) =>
+      Promise.resolve(itemIds.map((itemId) => ({
+        itemId, price: 0.5, source: "item", priceListId: undefined, units: [{ unitName: "pako", factor: 6, price: 3 }],
+        discountPercent: partnerId === "p1" ? 7.5 : undefined, discountRuleId: partnerId === "p1" ? "rule1" : undefined,
+      }))));
+    renderAt("/sales-orders/new", <SalesOrderDetail />);
+    fireEvent.click(await screen.findByRole("combobox", { name: /^Customer/ }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Market Arbeni/ }));
+    fireEvent.click(screen.getByRole("combobox", { name: "Item" }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Ujë 0.5L/ }));
+
+    const discount = () => screen.getByRole("textbox", { name: "Disc. %" });
+    await waitFor(() => expect(discount()).toHaveValue("7.5"));
+
+    // Another customer without a rule takes the discount back to 0.
+    fireEvent.click(screen.getByRole("combobox", { name: /^Customer/ }));
+    fireEvent.mouseDown(await screen.findByRole("option", { name: /Viva Fresh/ }));
+    await waitFor(() => expect(discount()).toHaveValue("0"));
+
+    // A typed discount stays through the next lookup.
+    fireEvent.change(discount(), { target: { value: "3" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Quantity" }), { target: { value: "2" } });
+    await waitFor(() => expect(api.resolvePrices).toHaveBeenLastCalledWith("c1", ["i1"], undefined, isoToday(), "p2", [12]));
+    expect(discount()).toHaveValue("3");
   });
 
   it("offers an approver the override when confirming is refused, and resends with the reason", async () => {
