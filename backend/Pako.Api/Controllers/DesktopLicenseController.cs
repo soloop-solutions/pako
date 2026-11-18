@@ -38,7 +38,7 @@ public sealed class DesktopControllerFeatureProvider(bool enabled)
         Microsoft.AspNetCore.Mvc.Controllers.ControllerFeature feature)
     {
         if (enabled) return;
-        var hidden = feature.Controllers.Where(t => t.AsType() == typeof(DesktopLicenseController) || t.AsType() == typeof(DesktopSetupController) || t.AsType() == typeof(DesktopAuditController)).ToList();
+        var hidden = feature.Controllers.Where(t => t.AsType() == typeof(DesktopLicenseController) || t.AsType() == typeof(DesktopSetupController) || t.AsType() == typeof(DesktopAuditController) || t.AsType() == typeof(DesktopRecoveryCodeController)).ToList();
         foreach (var t in hidden) feature.Controllers.Remove(t);
     }
 }

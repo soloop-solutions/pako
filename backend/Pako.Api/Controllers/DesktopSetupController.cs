@@ -55,17 +55,18 @@ public class DesktopSetupController(
     }
 
     [HttpPost("recover", Name = "RecoverDesktopAdmin")]
-    public async Task<IActionResult> Recover(RecoverAdminRequest request, CancellationToken ct)
+    public async Task<ActionResult<RecoverAdminResponse>> Recover(RecoverAdminRequest request, CancellationToken ct)
     {
         var email = (request.Email ?? string.Empty).Trim();
         if (throttle.IsLocked(email)) return BadRequest(localizer["RecoveryCodeInvalid"].Value);
 
         var user = await users.FindByEmailAsync(email);
+        List<AdminRecoveryRecord> records = [];
         AdminRecoveryRecord? match = null;
         if (user is not null)
         {
             var userId = user.Id.ToString();
-            var records = await db.Set<AdminRecoveryRecord>().Where(r => r.UserId == userId && r.UsedAt == null).ToListAsync(ct);
+            records = await db.Set<AdminRecoveryRecord>().Where(r => r.UserId == userId && r.UsedAt == null).ToListAsync(ct);
             match = records.FirstOrDefault(r => RecoveryCode.Verify(request.RecoveryCode ?? string.Empty, r.CodeHash));
         }
 
@@ -75,17 +76,36 @@ public class DesktopSetupController(
             return BadRequest(localizer["RecoveryCodeInvalid"].Value);
         }
 
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
         var token = await users.GeneratePasswordResetTokenAsync(user);
         var reset = await users.ResetPasswordAsync(user, token, request.NewPassword ?? string.Empty);
         if (!reset.Succeeded)
             return BadRequest(string.Join(" ", reset.Errors.Select(e => e.Description)));
 
-        match.UsedAt = clock.GetUtcNow();
+        var code = RecoveryCodeIssuer.Replace(db, user.Id, records, clock.GetUtcNow());
         await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
         await refreshTokens.RevokeAllForUserAsync(user.Id);
         await users.SetLockoutEndDateAsync(user, null);
         await users.ResetAccessFailedCountAsync(user);
         throttle.Reset(email);
-        return NoContent();
+        return Ok(new RecoverAdminResponse(code));
+    }
+}
+
+public static class RecoveryCodeIssuer
+{
+    public static string Replace(PakoDbContext db, Guid userId, IEnumerable<AdminRecoveryRecord> unused, DateTimeOffset now)
+    {
+        foreach (var record in unused) record.UsedAt = now;
+        var code = RecoveryCode.Generate();
+        db.Set<AdminRecoveryRecord>().Add(new AdminRecoveryRecord
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId.ToString(),
+            CodeHash = RecoveryCode.Hash(code),
+            CreatedAt = now,
+        });
+        return code;
     }
 }

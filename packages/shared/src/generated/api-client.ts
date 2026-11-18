@@ -4827,6 +4827,46 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    regenerateDesktopRecoveryCode(body: RegenerateRecoveryCodeRequest): Promise<RecoverAdminResponse> {
+        let url_ = this.baseUrl + "/api/desktop/recovery-code/regenerate";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRegenerateDesktopRecoveryCode(_response);
+        });
+    }
+
+    protected processRegenerateDesktopRecoveryCode(response: Response): Promise<RecoverAdminResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as RecoverAdminResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<RecoverAdminResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     getDesktopSetup(): Promise<DesktopSetupStatusResponse> {
         let url_ = this.baseUrl + "/api/desktop/setup";
         url_ = url_.replace(/[?&]$/, "");
@@ -4903,7 +4943,7 @@ export class PakoApiClient {
     /**
      * @return OK
      */
-    recoverDesktopAdmin(body: RecoverAdminRequest): Promise<void> {
+    recoverDesktopAdmin(body: RecoverAdminRequest): Promise<RecoverAdminResponse> {
         let url_ = this.baseUrl + "/api/desktop/recover";
         url_ = url_.replace(/[?&]$/, "");
 
@@ -4914,6 +4954,7 @@ export class PakoApiClient {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
+                "Accept": "application/json"
             }
         };
 
@@ -4922,19 +4963,21 @@ export class PakoApiClient {
         });
     }
 
-    protected processRecoverDesktopAdmin(response: Response): Promise<void> {
+    protected processRecoverDesktopAdmin(response: Response): Promise<RecoverAdminResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
             return response.text().then((_responseText) => {
-            return;
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as RecoverAdminResponse;
+            return result200;
             });
         } else if (status !== 200 && status !== 204) {
             return response.text().then((_responseText) => {
             return throwException("An unexpected server error occurred.", status, _responseText, _headers);
             });
         }
-        return Promise.resolve<void>(null as any);
+        return Promise.resolve<RecoverAdminResponse>(null as any);
     }
 
     /**
@@ -32695,8 +32738,20 @@ export interface RecoverAdminRequest {
     [key: string]: any;
 }
 
+export interface RecoverAdminResponse {
+    recoveryCode: string;
+
+    [key: string]: any;
+}
+
 export interface RefreshRequest {
     refreshToken: string;
+
+    [key: string]: any;
+}
+
+export interface RegenerateRecoveryCodeRequest {
+    currentPassword: string;
 
     [key: string]: any;
 }
