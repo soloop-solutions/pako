@@ -1,3 +1,7 @@
+!macro customInstallMode
+  StrCpy $isForceCurrentInstall "1"
+!macroend
+
 !macro customUnInstall
   ${ifNot} ${isUpdated}
     ${IfNot} ${Silent}
