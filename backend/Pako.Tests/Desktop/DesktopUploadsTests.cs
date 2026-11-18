@@ -21,7 +21,7 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
     private const string Secret = "s3cret";
     private const string Email = "owner@x.test";
     private const string Password = "Passw0rd!123";
-    private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3, 4];
+    private static readonly byte[] Png = TestImages.Png;
 
     private PakoDbContext _db = null!;
     private string _dataDir = null!;
@@ -77,10 +77,10 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
         return (client, company.Id);
     }
 
-    private static Task<HttpResponseMessage> UploadLogo(HttpClient client, Guid companyId, string fileName, string contentType = "image/png")
+    private static Task<HttpResponseMessage> UploadLogo(HttpClient client, Guid companyId, string fileName, string contentType = "image/png", byte[]? bytes = null)
     {
         var content = new MultipartFormDataContent();
-        var file = new ByteArrayContent(Png);
+        var file = new ByteArrayContent(bytes ?? Png);
         file.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         content.Add(file, "file", fileName);
         return client.PostAsync($"/api/companies/{companyId}/logo", content);
@@ -153,7 +153,7 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
     {
         var (client, companyId) = await SignedInWithCompany();
 
-        var response = await UploadLogo(client, companyId, "x.html", contentType);
+        var response = await UploadLogo(client, companyId, "x.html", contentType, TestImages.ValidFor(contentType));
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var companyDir = Path.Combine(_dataDir, "uploads", "companies", companyId.ToString());
@@ -219,7 +219,7 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
         var companyId = await HostedCompany();
         var controller = HostedController(root);
 
-        var result = await controller.UploadLogo(companyId, FormFile(fileName, contentType));
+        var result = await controller.UploadLogo(companyId, FormFile(fileName, contentType, TestImages.ValidFor(contentType)));
 
         var company = Assert.IsType<CompanyResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
         Assert.Equal($"/uploads/companies/{companyId}/{stored}", company.LogoUrl);
@@ -255,8 +255,11 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
     private CompaniesController HostedController(string root) =>
         new(_db, new NullStringLocalizer<ErrorMessages>(), new UploadStorage(root));
 
-    private static FormFile FormFile(string fileName, string contentType) =>
-        new(new MemoryStream(Png), 0, Png.Length, "file", fileName) { Headers = new HeaderDictionary(), ContentType = contentType };
+    private static FormFile FormFile(string fileName, string contentType, byte[]? bytes = null)
+    {
+        var data = bytes ?? Png;
+        return new(new MemoryStream(data), 0, data.Length, "file", fileName) { Headers = new HeaderDictionary(), ContentType = contentType };
+    }
 
     [Fact]
     public async Task Hosted_DoesNotServeFromDataDirectory()
@@ -286,5 +289,121 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
         var storage = UploadStorage.From(new DesktopOptions { Enabled = true, DataDirectory = _dataDir });
 
         Assert.Equal(Path.Combine(Path.GetFullPath(_dataDir), "uploads"), storage.Root);
+    }
+
+    [Theory]
+    [InlineData("png-with-html")]
+    [InlineData("png-truncated")]
+    [InlineData("png-garbage")]
+    [InlineData("jpeg-truncated")]
+    [InlineData("webp-truncated")]
+    [InlineData("png-labelled-jpeg")]
+    [InlineData("jpeg-labelled-png")]
+    [InlineData("svg-labelled-png")]
+    [InlineData("svg-script")]
+    [InlineData("svg-onload")]
+    [InlineData("svg-doctype-entity")]
+    [InlineData("svg-foreign-object")]
+    [InlineData("svg-javascript-href")]
+    [InlineData("svg-not-svg-root")]
+    [InlineData("svg-not-xml")]
+    [InlineData("svg-html-labelled-svg")]
+    public async Task Desktop_Upload_RejectsBytesThatAreNotASafeImage(string name)
+    {
+        var (contentType, bytes) = TestImages.Bad(name);
+        var (client, companyId) = await SignedInWithCompany();
+
+        var reference = await UploadLogo(client, companyId, "x", "text/html");
+
+        var response = await UploadLogo(client, companyId, "logo", contentType, bytes);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(await reference.Content.ReadAsStringAsync(), await response.Content.ReadAsStringAsync());
+        var companyDir = Path.Combine(_dataDir, "uploads", "companies", companyId.ToString());
+        Assert.True(!Directory.Exists(companyDir) || Directory.GetFileSystemEntries(companyDir).Length == 0);
+    }
+
+    [Theory]
+    [InlineData("png-with-html")]
+    [InlineData("png-truncated")]
+    [InlineData("png-garbage")]
+    [InlineData("png-labelled-jpeg")]
+    [InlineData("svg-script")]
+    [InlineData("svg-onload")]
+    [InlineData("svg-doctype-entity")]
+    [InlineData("svg-foreign-object")]
+    [InlineData("svg-javascript-href")]
+    public async Task Hosted_Upload_RejectsBytesThatAreNotASafeImage(string name)
+    {
+        var (contentType, bytes) = TestImages.Bad(name);
+        var root = Path.Combine(_dataDir, "hosted-root");
+        var companyId = await HostedCompany();
+
+        var reference = await HostedController(root).UploadLogo(companyId, FormFile("x", "text/html"));
+
+        var result = await HostedController(root).UploadLogo(companyId, FormFile("logo", contentType, bytes));
+
+        var bad = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Equal(Assert.IsType<BadRequestObjectResult>(reference.Result).Value, bad.Value);
+        Assert.False(Directory.Exists(Path.Combine(root, "companies", companyId.ToString())));
+    }
+
+    [Theory]
+    [InlineData("image/png", "logo.png")]
+    [InlineData("image/jpeg", "logo.jpg")]
+    [InlineData("image/webp", "logo.webp")]
+    [InlineData("image/svg+xml", "logo.svg")]
+    public async Task Hosted_Upload_AcceptsEachValidImage(string contentType, string stored)
+    {
+        var root = Path.Combine(_dataDir, "hosted-root");
+        var companyId = await HostedCompany();
+
+        var result = await HostedController(root).UploadLogo(companyId, FormFile("x", contentType, TestImages.ValidFor(contentType)));
+
+        Assert.IsType<OkObjectResult>(result.Result);
+        var onDisk = Path.Combine(root, "companies", companyId.ToString(), stored);
+        Assert.Equal(TestImages.ValidFor(contentType), await File.ReadAllBytesAsync(onDisk));
+    }
+
+    private async Task<string> HostedWebRoot()
+    {
+        var webRoot = Path.Combine(_dataDir, "hosted-webroot");
+        Directory.CreateDirectory(Path.Combine(webRoot, "uploads", "companies", "x"));
+        Directory.CreateDirectory(Path.Combine(webRoot, "assets"));
+        await File.WriteAllBytesAsync(Path.Combine(webRoot, "uploads", "companies", "x", "logo.png"), Png);
+        await File.WriteAllTextAsync(Path.Combine(webRoot, "uploads", "companies", "x", "logo.svg"), TestImages.CleanSvg);
+        await File.WriteAllTextAsync(Path.Combine(webRoot, "assets", "app.js"), "console.log('hosted-js');");
+        return webRoot;
+    }
+
+    [Theory]
+    [InlineData("/uploads/companies/x/logo.png", "image/png")]
+    [InlineData("/uploads/companies/x/logo.svg", "image/svg+xml")]
+    public async Task Hosted_ServedUpload_HasNosniffAndSandboxCsp_AndIsStillServed(string path, string mediaType)
+    {
+        using var hosted = _hosted.WithWebHostBuilder(b => b.UseWebRoot(HostedWebRoot().GetAwaiter().GetResult()));
+        var client = Client(hosted, withCookie: false);
+
+        var served = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        Assert.Equal(mediaType, served.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("nosniff", Assert.Single(served.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("sandbox", Assert.Single(served.Headers.GetValues("Content-Security-Policy")));
+        if (mediaType == "image/png") Assert.Equal(Png, await served.Content.ReadAsByteArrayAsync());
+    }
+
+    [Fact]
+    public async Task Hosted_OtherStaticAssets_DoNotGetTheUploadSandbox()
+    {
+        using var hosted = _hosted.WithWebHostBuilder(b => b.UseWebRoot(HostedWebRoot().GetAwaiter().GetResult()));
+        var client = Client(hosted, withCookie: false);
+
+        var script = await client.GetAsync("/assets/app.js");
+
+        Assert.Equal(HttpStatusCode.OK, script.StatusCode);
+        Assert.Equal("console.log('hosted-js');", await script.Content.ReadAsStringAsync());
+        Assert.False(script.Headers.Contains("Content-Security-Policy"));
+        Assert.False(script.Headers.Contains("X-Content-Type-Options"));
     }
 }

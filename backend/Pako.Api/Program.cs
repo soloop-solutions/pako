@@ -249,11 +249,7 @@ if (desktop.Enabled)
         {
             FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploads.Root),
             RequestPath = Pako.Api.Services.UploadStorage.RequestPath,
-            OnPrepareResponse = context =>
-            {
-                context.Context.Response.Headers.XContentTypeOptions = "nosniff";
-                context.Context.Response.Headers.ContentSecurityPolicy = "sandbox";
-            }
+            OnPrepareResponse = Pako.Api.Services.UploadStorage.ApplySandboxHeaders,
         });
     }
     app.UseRouting();
@@ -261,6 +257,14 @@ if (desktop.Enabled)
 else
 {
     app.UseHttpsRedirection();
+    var hostedUploads = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "uploads");
+    Directory.CreateDirectory(hostedUploads);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(hostedUploads),
+        RequestPath = Pako.Api.Services.UploadStorage.RequestPath,
+        OnPrepareResponse = Pako.Api.Services.UploadStorage.ApplySandboxHeaders,
+    });
     app.UseStaticFiles();
 }
 

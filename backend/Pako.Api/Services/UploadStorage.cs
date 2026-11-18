@@ -23,6 +23,12 @@ public sealed class UploadStorage(string root)
 
     public string CompanyDirectory(Guid companyId) => Path.Combine(Root, "companies", companyId.ToString());
 
+    public static void ApplySandboxHeaders(Microsoft.AspNetCore.StaticFiles.StaticFileResponseContext context)
+    {
+        context.Context.Response.Headers.XContentTypeOptions = "nosniff";
+        context.Context.Response.Headers.ContentSecurityPolicy = "sandbox";
+    }
+
     public static string? ImageExtension(string? contentType) =>
         contentType is not null && ImageExtensions.TryGetValue(contentType, out var ext) ? ext : null;
 }

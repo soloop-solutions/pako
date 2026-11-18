@@ -549,6 +549,11 @@ public class CompaniesController : ControllerBase
         if (ext is null)
             return BadRequest(_localizer["InvalidImageType"].Value);
 
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer);
+        if (!UploadImageValidator.IsValid(file.ContentType, buffer.GetBuffer().AsSpan(0, (int)buffer.Length)))
+            return BadRequest(_localizer["InvalidImageType"].Value);
+
         var uploadsDir = _uploads.CompanyDirectory(companyId);
         Directory.CreateDirectory(uploadsDir);
 
@@ -559,8 +564,11 @@ public class CompaniesController : ControllerBase
         foreach (var old in Directory.GetFiles(uploadsDir, $"{kind}.*"))
             System.IO.File.Delete(old);
 
-        await using var stream = new FileStream(filePath, FileMode.Create);
-        await file.CopyToAsync(stream);
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            buffer.Position = 0;
+            await buffer.CopyToAsync(stream);
+        }
 
         var url = $"/uploads/companies/{companyId}/{fileName}";
         if (kind == "logo") company.LogoUrl = url;
