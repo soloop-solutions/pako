@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiProcess } from './api'
-import { StartError, Supervisor, type ManagedChild } from './supervisor'
+import { NEWER_SCHEMA_EXIT_CODE, StartError, Supervisor, type ManagedChild } from './supervisor'
 import type { ChildLike } from './types'
 import { decideAfterStartFailure } from './upgrade'
 
@@ -188,6 +188,40 @@ describe('supervisor', () => {
       action: 'offer-restore',
       backup,
     })
+  })
+
+  it('Supervisor_ApiExitsWithTheNewerSchemaCode_RejectsApiNewerSchema', async () => {
+    const log: string[] = []
+    const api = new ApiProcess({
+      exePath: '/opt/api/Pako.Api',
+      port: 6001,
+      env: {},
+      spawn: (): ChildLike => ({
+        pid: 1,
+        on(event, cb) {
+          if (event === 'exit') queueMicrotask(() => (cb as (code: number | null) => void)(NEWER_SCHEMA_EXIT_CODE))
+        },
+        kill() {},
+      }),
+      fetch: async () => {
+        throw new Error('refused')
+      },
+      now: () => 0,
+      sleep: () => new Promise((r) => setTimeout(r, 1)),
+    })
+    const s = new Supervisor({ pg: fakeChild('pg', log), api })
+    const events: unknown[] = []
+    s.on('child-exited', (e) => events.push(e))
+
+    const err = await s.startAll().catch((e) => e)
+    await tick()
+
+    expect(NEWER_SCHEMA_EXIT_CODE).toBe(78)
+    expect(err).toBeInstanceOf(StartError)
+    expect(err).toMatchObject({ stage: 'api-newer-schema' })
+    expect(events).toEqual([])
+    const backup = { file: '/b/pre.pako-backup', createdAt: '', appVersion: '1', schemaVersion: '1', sizeBytes: 1 }
+    expect(decideAfterStartFailure({ upgraded: true, safetyBackup: backup }, err)).toEqual({ action: 'newer-schema' })
   })
 
   it('Supervisor_PgExitsDuringStartAll_IsNotRestarted', async () => {

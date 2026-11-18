@@ -16,3 +16,13 @@ export interface PathModule {
   join(...parts: string[]): string
   dirname(p: string): string
 }
+
+export class ChildExitError extends Error {
+  constructor(
+    message: string,
+    readonly code: number | null,
+  ) {
+    super(message)
+    this.name = 'ChildExitError'
+  }
+}

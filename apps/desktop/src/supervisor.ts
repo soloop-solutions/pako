@@ -1,3 +1,5 @@
+import { ChildExitError } from './types'
+
 export interface ManagedChild {
   start(): Promise<void>
   stop(): Promise<void>
@@ -16,7 +18,9 @@ export interface ChildExitedEvent {
 
 const HEALTH_TIMEOUT_MS = 60000
 
-export type StartStage = 'pg' | 'api-start' | 'api-health'
+export const NEWER_SCHEMA_EXIT_CODE = 78
+
+export type StartStage = 'pg' | 'api-start' | 'api-health' | 'api-newer-schema'
 
 export class StartError extends Error {
   constructor(
@@ -57,7 +61,12 @@ export class Supervisor {
     this.started = false
     await StartError.tag('pg', () => this.deps.pg.start())
     await StartError.tag('api-start', () => this.deps.api.start())
-    await StartError.tag('api-health', () => this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS))
+    try {
+      await this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS)
+    } catch (err) {
+      const newer = err instanceof ChildExitError && err.code === NEWER_SCHEMA_EXIT_CODE
+      throw new StartError(newer ? 'api-newer-schema' : 'api-health', err instanceof Error ? err.message : String(err))
+    }
     this.started = true
     return { apiUrl: this.deps.api.url }
   }

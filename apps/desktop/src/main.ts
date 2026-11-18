@@ -41,7 +41,7 @@ import { setupSingleInstance } from './singleInstance'
 import { createLoggedSpawn } from './spawn'
 import { Supervisor } from './supervisor'
 import type { SpawnFn } from './types'
-import { decideAfterStartFailure, markVersion, prepareUpgrade, readInstalledVersion } from './upgrade'
+import { decideAfterStartFailure, markVersion, NEWER_SCHEMA_DIALOG, prepareUpgrade, readInstalledVersion } from './upgrade'
 
 const here = nodePath.dirname(fileURLToPath(import.meta.url))
 
@@ -484,6 +484,24 @@ async function offerUpgradeRollback(ctx: BackupContext, pg: PostgresProcess, bac
   app.quit()
 }
 
+async function refuseNewerSchema(): Promise<void> {
+  splashWindow?.close()
+  splashWindow = undefined
+  if (supervisor) await supervisor.stopAll().catch(() => {})
+  const { response } = await dialog.showMessageBox({
+    type: 'error',
+    title: 'PAKO',
+    message: NEWER_SCHEMA_DIALOG.message,
+    detail: NEWER_SCHEMA_DIALOG.detail,
+    buttons: [...NEWER_SCHEMA_DIALOG.buttons],
+    defaultId: 1,
+    cancelId: 1,
+  })
+  if (response === 0 && logDir) await shell.openPath(logDir)
+  shutdown.markStarted()
+  app.quit()
+}
+
 async function start(): Promise<void> {
   const paths = resolvePaths(devOverride('PAKO_DESKTOP_DATA_DIR') ?? app.getPath('userData'))
   logDir = paths.logDir
@@ -571,6 +589,10 @@ async function start(): Promise<void> {
     const decision = decideAfterStartFailure(upgrade, err)
     if (decision.action === 'offer-restore') {
       await offerUpgradeRollback(ctx, pg, decision.backup)
+      return
+    }
+    if (decision.action === 'newer-schema') {
+      await refuseNewerSchema()
       return
     }
     throw err

@@ -1,5 +1,5 @@
 import nodePath from 'node:path'
-import type { ChildLike, SpawnFn } from './types'
+import { ChildExitError, type ChildLike, type SpawnFn } from './types'
 import { defaultSpawn } from './spawn'
 
 export interface ApiOptions {
@@ -75,7 +75,7 @@ export class ApiProcess {
   async waitHealthy(timeoutMs: number): Promise<void> {
     const deadline = this.now() + timeoutMs
     for (;;) {
-      if (!this.child) throw new Error(`API exited with code ${this.lastExitCode} before it became healthy`)
+      if (!this.child) throw new ChildExitError(`API exited with code ${this.lastExitCode} before it became healthy`, this.lastExitCode)
       try {
         const res = await this.fetchFn(`${this.url}/healthz`)
         if (res.status === 200) return

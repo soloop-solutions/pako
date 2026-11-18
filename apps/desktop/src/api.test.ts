@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ApiProcess, buildApiEnv } from './api'
+import { ChildExitError } from './types'
 import type { ChildLike } from './types'
 
 function make(fetchImpl: (url: string) => Promise<{ status: number }>, now: () => number) {
@@ -90,6 +91,30 @@ describe('api', () => {
     const env = buildApiEnv({ port: 6001, pgPort: 6002, pgPassword: 'pw', jwtKey: 'k', launchSecret: 's', dataDir: '/d' })
     expect(env.Email__AppBaseUrl).toBe('http://127.0.0.1:6001')
     expect(env.Email__AppBaseUrl).toBe(env.ASPNETCORE_URLS)
+  })
+
+  it('Api_WaitHealthy_RejectsWithTheExitCode_WhenTheChildExits', async () => {
+    const api = new ApiProcess({
+      exePath: '/opt/api/Pako.Api',
+      port: 6001,
+      env: {},
+      spawn: (): ChildLike => ({
+        pid: 1,
+        on(event, cb) {
+          if (event === 'exit') queueMicrotask(() => (cb as (code: number | null) => void)(78))
+        },
+        kill() {},
+      }),
+      fetch: async () => {
+        throw new Error('refused')
+      },
+      now: () => 0,
+      sleep: () => new Promise((r) => setTimeout(r, 1)),
+    })
+    await api.start()
+    const err = await api.waitHealthy(5000).catch((e) => e)
+    expect(err).toBeInstanceOf(ChildExitError)
+    expect(err).toMatchObject({ code: 78, message: 'API exited with code 78 before it became healthy' })
   })
 
   it('Api_WaitHealthy_RejectsPromptly_WhenTheChildExits', async () => {

@@ -100,9 +100,19 @@ export async function markVersion(dataDir: string, appVersion: string): Promise<
   await fs.rm(pendingFile(dataDir), { force: true })
 }
 
-export type StartFailureDecision = { action: 'offer-restore'; backup: BackupInfo } | { action: 'fatal' }
+export type StartFailureDecision =
+  | { action: 'offer-restore'; backup: BackupInfo }
+  | { action: 'newer-schema' }
+  | { action: 'fatal' }
+
+export const NEWER_SCHEMA_DIALOG = {
+  message: 'This data was created by a newer version of PAKO.',
+  detail: 'Install the current version, or restore an older backup.',
+  buttons: ['Open log folder', 'Close'],
+} as const
 
 export function decideAfterStartFailure(state: UpgradeState | undefined, error: unknown): StartFailureDecision {
+  if (error instanceof StartError && error.stage === 'api-newer-schema') return { action: 'newer-schema' }
   const migrationStage = error instanceof StartError && error.stage === 'api-health'
   if (migrationStage && state?.upgraded && state.safetyBackup) return { action: 'offer-restore', backup: state.safetyBackup }
   return { action: 'fatal' }

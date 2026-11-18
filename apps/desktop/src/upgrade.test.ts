@@ -4,7 +4,7 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import type { BackupInfo } from '@pako/shared'
 import { StartError } from './supervisor'
-import { decideAfterStartFailure, markVersion, prepareUpgrade, readInstalledVersion } from './upgrade'
+import { decideAfterStartFailure, markVersion, NEWER_SCHEMA_DIALOG, prepareUpgrade, readInstalledVersion } from './upgrade'
 
 const info: BackupInfo = {
   file: '/b/pako-20261118-090000.pako-backup',
@@ -180,4 +180,19 @@ describe('decideAfterStartFailure', () => {
     expect(decideAfterStartFailure(state, new Error('other'))).toEqual({ action: 'fatal' })
     expect(decideAfterStartFailure(state, 'string')).toEqual({ action: 'fatal' })
   })
+
+  it('Upgrade_NewerSchema_NeverOffersTheRollbackRestore', () => {
+    const newer = new StartError('api-newer-schema', 'API exited with code 78 before it became healthy')
+    expect(decideAfterStartFailure({ upgraded: true, safetyBackup: info }, newer)).toEqual({ action: 'newer-schema' })
+    expect(decideAfterStartFailure({ upgraded: false }, newer)).toEqual({ action: 'newer-schema' })
+    expect(decideAfterStartFailure(undefined, newer)).toEqual({ action: 'newer-schema' })
+  })
+
+  it('Upgrade_NewerSchemaDialog_SaysWhatHappenedAndWhatToDo', () => {
+    expect(NEWER_SCHEMA_DIALOG.message).toBe('This data was created by a newer version of PAKO.')
+    expect(NEWER_SCHEMA_DIALOG.detail).toBe('Install the current version, or restore an older backup.')
+    expect(NEWER_SCHEMA_DIALOG.buttons).toEqual(['Open log folder', 'Close'])
+    expect(NEWER_SCHEMA_DIALOG.buttons.join(' ')).not.toMatch(/restore/i)
+  })
 })
+
