@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { Upload, X, Plus, Trash2, Star } from "lucide-react";
 
-import { apiClient, getApiErrorMessage } from "@/api/client";
+import { apiClient, getApiErrorMessage, uploadUrl } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
@@ -258,8 +258,7 @@ function ImageUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
-  const baseUrl = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:5248";
-  const fullUrl = imageUrl ? `${baseUrl}${imageUrl}` : null;
+  const fullUrl = imageUrl ? uploadUrl(imageUrl) : null;
 
   async function handleFile(file: File) {
     setUploading(true);

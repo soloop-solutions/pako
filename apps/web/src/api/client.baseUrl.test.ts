@@ -40,4 +40,9 @@ describe("empty VITE_API_BASE_URL (desktop build)", () => {
     const { publicApiBase } = await import("./client");
     expect(publicApiBase()).toBe(window.location.origin);
   });
+
+  it("builds company image urls without a host", async () => {
+    const { uploadUrl } = await import("./client");
+    expect(uploadUrl("/uploads/companies/c1/logo.png")).toBe("/uploads/companies/c1/logo.png");
+  });
 });

@@ -11,6 +11,10 @@ export function publicApiBase(): string {
   return (API_BASE_URL || window.location.origin).replace(/\/$/, "");
 }
 
+export function uploadUrl(path: string): string {
+  return `${import.meta.env.VITE_API_URL ?? API_BASE_URL}${path}`;
+}
+
 function currentLocale(): string {
   try {
     const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
