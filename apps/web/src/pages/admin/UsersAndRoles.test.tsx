@@ -84,6 +84,29 @@ describe("Users tab", () => {
     expect(await screen.findByDisplayValue("https://app.test/accept-invite?token=abc")).toBeInTheDocument();
   });
 
+  it("on desktop shows a copy button with a failure state and the paste-on-login hint", async () => {
+    (window as unknown as { pakoDesktop?: unknown }).pakoDesktop = {
+      isDesktop: true, version: "1", backupNow: vi.fn(), listBackups: vi.fn(), restoreFromFile: vi.fn(),
+      chooseBackupDir: vi.fn(), getBackupSettings: vi.fn(), openLogFolder: vi.fn(),
+    };
+    const writeText = vi.fn(() => Promise.reject(new Error("denied")));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    try {
+      renderAt(<UsersTab companyId={companyId} canManage />);
+      fireEvent.click(await screen.findByRole("button", { name: "Invite user" }));
+      fireEvent.change(await screen.findByLabelText("Email"), { target: { value: "new@co.test" } });
+      await chooseOption(screen.getByLabelText("Role"), "Shitje");
+      fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+      expect(await screen.findByDisplayValue("https://app.test/accept-invite?token=abc")).toBeInTheDocument();
+      expect(screen.getByText(/I have an invitation or reset link/)).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Copy" }));
+      expect(writeText).toHaveBeenCalledWith("https://app.test/accept-invite?token=abc");
+      expect(await screen.findByRole("alert")).toHaveTextContent("Copy failed");
+    } finally {
+      delete (window as unknown as { pakoDesktop?: unknown }).pakoDesktop;
+    }
+  });
+
   it("is read-only without user management rights", async () => {
     renderAt(<UsersTab companyId={companyId} canManage={false} />);
     expect(await screen.findByText("Cleo Clerk")).toBeInTheDocument();

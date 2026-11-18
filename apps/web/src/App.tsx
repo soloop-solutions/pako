@@ -17,6 +17,7 @@ import { Login } from "@/pages/Login";
 import { DesktopSetupGuard } from "@/pages/desktop/DesktopSetupGuard";
 import { FirstRunPage } from "@/pages/desktop/FirstRunPage";
 import { RecoverAdminPage } from "@/pages/desktop/RecoverAdminPage";
+import { AccessLinkPage } from "@/pages/desktop/AccessLinkPage";
 import { RequestAccount } from "@/pages/RequestAccount";
 
 // Lazy-loaded page components for code splitting.
@@ -73,6 +74,7 @@ export function App() {
               <Routes>
                 <Route path="/first-run" element={<FirstRunPage />} />
                 <Route path="/recover-admin" element={<RecoverAdminPage />} />
+                <Route path="/use-link" element={<AccessLinkPage />} />
                 <Route path="/login" element={<Login />} />
                 {/* No self-registration (docs/PLATFORM_ADMIN.md): people request an account. */}
                 <Route path="/register" element={<Navigate to="/request-account" replace />} />

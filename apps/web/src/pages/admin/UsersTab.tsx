@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useConfirm } from "@/components/ui/confirm-context";
+import { getDesktopBridge } from "@/lib/desktopBridge";
+import { CopyButton } from "@/pages/desktop/CopyButton";
 
 const statusVariant: Record<string, "success" | "cancelled" | "warning" | "outline"> = {
   Active: "success",
@@ -239,6 +241,7 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
 
   const users = usersQuery.data ?? [];
   const selectedRole = roles.find((r) => r.id === form.roleId);
+  const desktop = getDesktopBridge() !== null;
 
   return (
     <div className="flex flex-col gap-3">
@@ -266,13 +269,18 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
             {link.url && (
             <span className="flex items-center gap-2">
               <Input readOnly value={link.url} aria-label={intl.formatMessage({ id: "admin.users.link" })} className="font-mono text-xs" />
+              {desktop ? (
+                <CopyButton value={link.url} />
+              ) : (
               <Button size="sm" variant="outline" onClick={() => void navigator.clipboard?.writeText(link.url)}>
                 <Copy className="size-4" />
                 {intl.formatMessage({ id: "admin.users.copyLink" })}
               </Button>
+              )}
             </span>
             )}
             {link.url && <span className="text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.users.linkHint" })}</span>}
+            {link.url && desktop && <span className="text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.users.desktopLinkHint" })}</span>}
           </AlertDescription>
         </Alert>
       )}

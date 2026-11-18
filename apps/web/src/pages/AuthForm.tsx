@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { getDesktopBridge } from "@/lib/desktopBridge";
 import { RecoverLink } from "@/pages/desktop/RecoverLink";
+import { AccessLinkEntry } from "@/pages/desktop/AccessLinkEntry";
 
 type AuthFormProps = {
   mode: "login" | "register";
@@ -131,6 +132,7 @@ export function AuthForm({ mode }: AuthFormProps) {
               </Link>
             )}
             {isLogin && getDesktopBridge() && <RecoverLink />}
+            {isLogin && getDesktopBridge() && <AccessLinkEntry />}
             <Button type="submit" disabled={submitting}>
               {submitting
                 ? intl.formatMessage({ id: "auth.pleaseWait" })

@@ -1778,6 +1778,13 @@ export const en: Record<string, string> = {
   "desktop.submitToAtk": "Submit to ATK",
   "desktop.atkNotAvailable": "Submitting to ATK SEF is not available in the desktop app yet. Submit this invoice through the ATK portal.",
   "desktop.settings.loadError": "Could not read the backup settings.",
+  "desktop.accessLink.entry": "I have an invitation or reset link",
+  "desktop.accessLink.title": "Use an invitation or reset link",
+  "desktop.accessLink.description": "Paste the link your administrator gave you (or just the invitation code). PAKO opens the right page.",
+  "desktop.accessLink.label": "Invitation or reset link",
+  "desktop.accessLink.submit": "Continue",
+  "desktop.accessLink.invalid": "This is not an invitation or password reset link. Copy the whole link your administrator gave you and paste it again.",
+  "admin.users.desktopLinkHint": "Give this link to your colleague. On the PAKO login screen they choose \"I have an invitation or reset link\" and paste it.",
 };
 
 export const sq: Record<string, string> = {
@@ -3540,6 +3547,13 @@ export const sq: Record<string, string> = {
   "desktop.submitToAtk": "Dërgo te ATK",
   "desktop.atkNotAvailable": "Dërgimi te ATK SEF nuk është ende i disponueshëm në aplikacionin desktop. Dërgojeni këtë faturë përmes portalit të ATK-së.",
   "desktop.settings.loadError": "Cilësimet e kopjeve rezervë nuk u lexuan.",
+  "desktop.accessLink.entry": "Kam një lidhje ftese ose rivendosjeje",
+  "desktop.accessLink.title": "Përdorni një lidhje ftese ose rivendosjeje",
+  "desktop.accessLink.description": "Ngjitni lidhjen që ju dha administratori (ose vetëm kodin e ftesës). PAKO hap faqen e duhur.",
+  "desktop.accessLink.label": "Lidhja e ftesës ose e rivendosjes",
+  "desktop.accessLink.submit": "Vazhdo",
+  "desktop.accessLink.invalid": "Kjo nuk është lidhje ftese ose rivendosjeje fjalëkalimi. Kopjoni të gjithë lidhjen që ju dha administratori dhe ngjiteni përsëri.",
+  "admin.users.desktopLinkHint": "Jepjani këtë lidhje kolegut. Në ekranin e hyrjes së PAKO ai zgjedh \"Kam një lidhje ftese ose rivendosjeje\" dhe e ngjit.",
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
