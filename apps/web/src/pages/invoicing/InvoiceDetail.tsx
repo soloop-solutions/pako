@@ -44,6 +44,7 @@ import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { SubmitToAtkButton } from "@/components/SubmitToAtkButton";
 
 export function InvoiceDetail() {
   const intl = useIntl();
@@ -415,7 +416,8 @@ export function InvoiceDetail() {
             <CardDescription>{intl.formatMessage({ id: "invoiceDetail.actionsDescription" })}</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <SubmitToAtkButton />
               <Button variant="outline" size="sm" asChild>
                 <Link to="/sales-returns">{intl.formatMessage({ id: "invoiceDetail.createReturn" })}</Link>
               </Button>

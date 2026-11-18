@@ -1769,6 +1769,8 @@ export const en: Record<string, string> = {
   "desktop.settings.noBackupWarning": "No backup has been made yet. Back up now.",
   "desktop.settings.list": "Existing backups",
   "desktop.settings.listEmpty": "No backups in this folder.",
+  "desktop.submitToAtk": "Submit to ATK",
+  "desktop.atkNotAvailable": "Submitting to ATK SEF is not available in the desktop app yet. Submit this invoice through the ATK portal.",
   "desktop.settings.loadError": "Could not read the backup settings.",
 };
 
@@ -3523,6 +3525,8 @@ export const sq: Record<string, string> = {
   "desktop.settings.noBackupWarning": "Ende nuk është bërë asnjë kopje rezervë. Bëni kopje tani.",
   "desktop.settings.list": "Kopjet ekzistuese",
   "desktop.settings.listEmpty": "Nuk ka kopje rezervë në këtë dosje.",
+  "desktop.submitToAtk": "Dërgo te ATK",
+  "desktop.atkNotAvailable": "Dërgimi te ATK SEF nuk është ende i disponueshëm në aplikacionin desktop. Dërgojeni këtë faturë përmes portalit të ATK-së.",
   "desktop.settings.loadError": "Cilësimet e kopjeve rezervë nuk u lexuan.",
 };
 
