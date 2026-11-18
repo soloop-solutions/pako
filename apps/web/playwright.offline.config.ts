@@ -15,7 +15,10 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
-        launchOptions: process.env.PAKO_E2E_CHROMIUM ? { executablePath: process.env.PAKO_E2E_CHROMIUM } : {},
+        launchOptions: {
+          args: ["--host-resolver-rules=MAP * ~NOTFOUND, EXCLUDE 127.0.0.1"],
+          ...(process.env.PAKO_E2E_CHROMIUM ? { executablePath: process.env.PAKO_E2E_CHROMIUM } : {}),
+        },
       },
     },
   ],
