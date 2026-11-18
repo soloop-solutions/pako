@@ -1,13 +1,18 @@
 using System.Net;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Pako.Api.Contracts;
+using Pako.Api.Controllers;
 using Pako.Api.Desktop;
 using Pako.Api.Services;
 using Pako.Infrastructure;
+using Pako.Api;
 
 namespace Pako.Tests.Desktop;
 
@@ -72,11 +77,11 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
         return (client, company.Id);
     }
 
-    private static Task<HttpResponseMessage> UploadLogo(HttpClient client, Guid companyId, string fileName)
+    private static Task<HttpResponseMessage> UploadLogo(HttpClient client, Guid companyId, string fileName, string contentType = "image/png")
     {
         var content = new MultipartFormDataContent();
         var file = new ByteArrayContent(Png);
-        file.Headers.ContentType = new MediaTypeHeaderValue("image/png");
+        file.Headers.ContentType = MediaTypeHeaderValue.Parse(contentType);
         content.Add(file, "file", fileName);
         return client.PostAsync($"/api/companies/{companyId}/logo", content);
     }
@@ -115,21 +120,130 @@ public sealed class DesktopUploadsTests : IAsyncLifetime
     }
 
     [Theory]
+    [InlineData("x.html")]
+    [InlineData("x.js")]
+    [InlineData("x.svg")]
     [InlineData("logo.png:evil")]
     [InlineData("a.png\\..\\..\\..\\evil")]
     [InlineData("a.p/../../g")]
     [InlineData("logo.png ")]
-    public async Task Upload_RejectsUnsafeFileName(string fileName)
+    public async Task Desktop_Upload_StoresContentTypeExtension_NeverTheClientName(string fileName)
     {
         var (client, companyId) = await SignedInWithCompany();
 
         var response = await UploadLogo(client, companyId, fileName);
 
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var company = (await response.Content.ReadFromJsonAsync<CompanyResponse>())!;
+        Assert.Equal($"/uploads/companies/{companyId}/logo.png", company.LogoUrl);
+        var companyDir = Path.Combine(_dataDir, "uploads", "companies", companyId.ToString());
+        Assert.Equal(new[] { "logo.png" }, Directory.GetFileSystemEntries(companyDir).Select(Path.GetFileName).ToArray());
+        Assert.Equal(new[] { "uploads" }, Directory.GetFileSystemEntries(_dataDir).Select(Path.GetFileName).ToArray());
+        var served = await client.GetAsync(company.LogoUrl);
+        Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        Assert.Equal("image/png", served.Content.Headers.ContentType?.MediaType);
+        Assert.Equal(Png, await served.Content.ReadAsByteArrayAsync());
+    }
+
+    [Theory]
+    [InlineData("image/jpeg", "logo.jpg")]
+    [InlineData("image/webp", "logo.webp")]
+    [InlineData("image/svg+xml", "logo.svg")]
+    public async Task Desktop_Upload_MapsEachAllowedContentType(string contentType, string stored)
+    {
+        var (client, companyId) = await SignedInWithCompany();
+
+        var response = await UploadLogo(client, companyId, "x.html", contentType);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        var companyDir = Path.Combine(_dataDir, "uploads", "companies", companyId.ToString());
+        Assert.Equal(new[] { stored }, Directory.GetFileSystemEntries(companyDir).Select(Path.GetFileName).ToArray());
+    }
+
+    [Theory]
+    [InlineData("text/html")]
+    [InlineData("application/javascript")]
+    [InlineData("IMAGE/PNG")]
+    public async Task Desktop_Upload_DisallowedContentType_IsRejected_NothingWritten(string contentType)
+    {
+        var (client, companyId) = await SignedInWithCompany();
+
+        var response = await UploadLogo(client, companyId, "x.html", contentType);
+
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         var companyDir = Path.Combine(_dataDir, "uploads", "companies", companyId.ToString());
         Assert.True(!Directory.Exists(companyDir) || Directory.GetFileSystemEntries(companyDir).Length == 0);
-        Assert.Equal(new[] { "uploads" }, Directory.GetFileSystemEntries(_dataDir).Select(Path.GetFileName).ToArray());
     }
+
+    [Fact]
+    public async Task Desktop_ServedUpload_HasNosniffAndSandboxCsp()
+    {
+        var (client, companyId) = await SignedInWithCompany();
+        var company = (await (await UploadLogo(client, companyId, "brand.png")).Content.ReadFromJsonAsync<CompanyResponse>())!;
+
+        var served = await client.GetAsync(company.LogoUrl);
+
+        Assert.Equal(HttpStatusCode.OK, served.StatusCode);
+        Assert.Equal("image/png", served.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("nosniff", Assert.Single(served.Headers.GetValues("X-Content-Type-Options")));
+        Assert.Equal("sandbox", Assert.Single(served.Headers.GetValues("Content-Security-Policy")));
+    }
+
+    [Fact]
+    public async Task Desktop_SpaAssets_DoNotGetTheUploadSandbox()
+    {
+        var served = await Client(_desktop).GetAsync("/healthz");
+
+        Assert.False(served.Headers.Contains("Content-Security-Policy"));
+    }
+
+    [Theory]
+    [InlineData("image/png", "x.html", "logo.png")]
+    [InlineData("image/jpeg", "photo.jpeg", "logo.jpg")]
+    public async Task Hosted_Upload_StoresContentTypeExtension(string contentType, string fileName, string stored)
+    {
+        var root = Path.Combine(_dataDir, "hosted-root");
+        var companyId = await HostedCompany();
+        var controller = HostedController(root);
+
+        var result = await controller.UploadLogo(companyId, FormFile(fileName, contentType));
+
+        var company = Assert.IsType<CompanyResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal($"/uploads/companies/{companyId}/{stored}", company.LogoUrl);
+        Assert.Equal(new[] { stored }, Directory.GetFileSystemEntries(Path.Combine(root, "companies", companyId.ToString())).Select(Path.GetFileName).ToArray());
+    }
+
+    [Fact]
+    public async Task Hosted_Upload_DisallowedContentType_IsRejected_NothingWritten()
+    {
+        var root = Path.Combine(_dataDir, "hosted-root");
+        var companyId = await HostedCompany();
+
+        var result = await HostedController(root).UploadLogo(companyId, FormFile("x.html", "text/html"));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.False(Directory.Exists(Path.Combine(root, "companies", companyId.ToString())));
+    }
+
+    private async Task<Guid> HostedCompany()
+    {
+        var controller = HostedController(Path.Combine(_dataDir, "hosted-root"));
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext
+            {
+                User = new ClaimsPrincipal(new ClaimsIdentity(new[] { new Claim(ClaimTypes.NameIdentifier, Guid.NewGuid().ToString()) }, "TestAuth"))
+            }
+        };
+        var created = await controller.Create(new CreateCompanyRequest("Hosted Co"));
+        return ((CompanyResponse)Assert.IsAssignableFrom<ObjectResult>(created.Result).Value!).Id;
+    }
+
+    private CompaniesController HostedController(string root) =>
+        new(_db, new NullStringLocalizer<ErrorMessages>(), new UploadStorage(root));
+
+    private static FormFile FormFile(string fileName, string contentType) =>
+        new(new MemoryStream(Png), 0, Png.Length, "file", fileName) { Headers = new HeaderDictionary(), ContentType = contentType };
 
     [Fact]
     public async Task Hosted_DoesNotServeFromDataDirectory()

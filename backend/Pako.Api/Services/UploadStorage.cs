@@ -1,11 +1,18 @@
-using System.Text.RegularExpressions;
 using Pako.Api.Desktop;
 
 namespace Pako.Api.Services;
 
-public sealed partial class UploadStorage(string root)
+public sealed class UploadStorage(string root)
 {
     public const string RequestPath = "/uploads";
+
+    private static readonly Dictionary<string, string> ImageExtensions = new(StringComparer.Ordinal)
+    {
+        ["image/png"] = ".png",
+        ["image/jpeg"] = ".jpg",
+        ["image/svg+xml"] = ".svg",
+        ["image/webp"] = ".webp",
+    };
 
     public string Root { get; } = root;
 
@@ -16,8 +23,6 @@ public sealed partial class UploadStorage(string root)
 
     public string CompanyDirectory(Guid companyId) => Path.Combine(Root, "companies", companyId.ToString());
 
-    public static bool IsSafeExtension(string extension) => SafeExtension().IsMatch(extension);
-
-    [GeneratedRegex("^\\.[A-Za-z0-9]{1,10}\\z")]
-    private static partial Regex SafeExtension();
+    public static string? ImageExtension(string? contentType) =>
+        contentType is not null && ImageExtensions.TryGetValue(contentType, out var ext) ? ext : null;
 }

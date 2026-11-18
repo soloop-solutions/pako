@@ -236,7 +236,12 @@ if (desktop.Enabled)
         app.UseStaticFiles(new StaticFileOptions
         {
             FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploads.Root),
-            RequestPath = Pako.Api.Services.UploadStorage.RequestPath
+            RequestPath = Pako.Api.Services.UploadStorage.RequestPath,
+            OnPrepareResponse = context =>
+            {
+                context.Context.Response.Headers.XContentTypeOptions = "nosniff";
+                context.Context.Response.Headers.ContentSecurityPolicy = "sandbox";
+            }
         });
     }
     app.UseRouting();

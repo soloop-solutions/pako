@@ -545,12 +545,8 @@ public class CompaniesController : ControllerBase
         if (file.Length > 2 * 1024 * 1024) // 2 MB limit
             return BadRequest(_localizer["FileTooLarge"].Value);
 
-        var allowedTypes = new[] { "image/png", "image/jpeg", "image/svg+xml", "image/webp" };
-        if (!allowedTypes.Contains(file.ContentType))
-            return BadRequest(_localizer["InvalidImageType"].Value);
-
-        var ext = Path.GetExtension(file.FileName);
-        if (!UploadStorage.IsSafeExtension(ext))
+        var ext = UploadStorage.ImageExtension(file.ContentType);
+        if (ext is null)
             return BadRequest(_localizer["InvalidImageType"].Value);
 
         var uploadsDir = _uploads.CompanyDirectory(companyId);
