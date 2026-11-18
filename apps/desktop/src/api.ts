@@ -40,6 +40,7 @@ export class ApiProcess {
   private readonly now: () => number
   private readonly sleep: (ms: number) => Promise<void>
   private child: ChildLike | undefined
+  private lastExitCode: number | null = null
   private exitCallbacks: ((code: number | null) => void)[] = []
 
   constructor(private readonly opts: ApiOptions) {
@@ -61,7 +62,10 @@ export class ApiProcess {
     const child = this.spawn(this.opts.exePath, [], { env: this.opts.env, cwd: nodePath.dirname(this.opts.exePath) })
     this.child = child
     child.on('exit', (code) => {
-      if (this.child === child) this.child = undefined
+      if (this.child === child) {
+        this.child = undefined
+        this.lastExitCode = code
+      }
       for (const cb of this.exitCallbacks) cb(code)
     })
     child.on('error', () => {})
@@ -70,11 +74,15 @@ export class ApiProcess {
   async waitHealthy(timeoutMs: number): Promise<void> {
     const deadline = this.now() + timeoutMs
     for (;;) {
+      if (!this.child) throw new Error(`API exited with code ${this.lastExitCode} before it became healthy`)
       try {
         const res = await this.fetchFn(`${this.url}/healthz`)
         if (res.status === 200) return
       } catch {}
-      if (this.now() >= deadline) throw new Error('API did not become healthy in time')
+      if (this.now() >= deadline) {
+        this.child?.kill('SIGKILL')
+        throw new Error('API did not become healthy in time')
+      }
       await this.sleep(250)
     }
   }

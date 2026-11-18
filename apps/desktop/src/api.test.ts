@@ -31,6 +31,7 @@ describe('api', () => {
       },
       () => 0,
     )
+    await api.start()
     await api.waitHealthy(1000)
     expect(n).toBe(3)
     expect(urls[0]).toBe('http://127.0.0.1:6001/healthz')
@@ -44,6 +45,7 @@ describe('api', () => {
       },
       () => (t += 400),
     )
+    await api.start()
     await expect(api.waitHealthy(1000)).rejects.toThrow(/healthy/i)
   })
 
@@ -82,5 +84,49 @@ describe('api', () => {
     expect(env.Desktop__DataDirectory).toBe('C:\\Users\\Çelik Ëndrra\\AppData\\Roaming\\PAKO')
     expect(env.Desktop__Enabled).toBe('true')
     expect(env.ASPNETCORE_ENVIRONMENT).toBe('Production')
+  })
+
+  it('Api_WaitHealthy_RejectsPromptly_WhenTheChildExits', async () => {
+    let exit: ((code: number | null) => void) | undefined
+    let fetches = 0
+    const api = new ApiProcess({
+      exePath: '/opt/api/Pako.Api',
+      port: 6001,
+      env: {},
+      spawn: (): ChildLike => ({
+        pid: 1,
+        on(event, cb) {
+          if (event === 'exit') exit = cb as (code: number | null) => void
+        },
+        kill() {},
+      }),
+      fetch: async () => {
+        fetches++
+        throw new Error('refused')
+      },
+      now: () => 0,
+      sleep: () => new Promise((r) => setTimeout(r, 1)),
+    })
+    await api.start()
+    exit!(3)
+    await expect(api.waitHealthy(60000)).rejects.toThrow(/exited with code 3/)
+    expect(fetches).toBeLessThanOrEqual(1)
+  })
+
+  it('Api_WaitHealthy_KillsTheChild_OnTimeout', async () => {
+    const kills: (string | undefined)[] = []
+    let t = 0
+    const api = new ApiProcess({
+      exePath: '/opt/api/Pako.Api',
+      port: 6001,
+      env: {},
+      spawn: () => ({ pid: 1, on() {}, kill: (signal?: string) => void kills.push(signal) }),
+      fetch: async () => ({ status: 503 }),
+      now: () => (t += 400),
+      sleep: async () => {},
+    })
+    await api.start()
+    await expect(api.waitHealthy(1000)).rejects.toThrow(/healthy/i)
+    expect(kills).toHaveLength(1)
   })
 })

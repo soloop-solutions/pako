@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest'
+import { ApiProcess } from './api'
 import { StartError, Supervisor, type ManagedChild } from './supervisor'
+import type { ChildLike } from './types'
+import { decideAfterStartFailure } from './upgrade'
 
 type FakeChild = ManagedChild & { crash(code: number): void; starts: number }
 
@@ -144,5 +147,63 @@ describe('supervisor', () => {
     api.crash(1)
     await tick()
     expect(api.starts).toBe(3)
+  })
+
+  it('Supervisor_ApiExitsDuringStartAll_RejectsApiHealth_WithoutRestartOrEvent', async () => {
+    const log: string[] = []
+    let spawns = 0
+    const api = new ApiProcess({
+      exePath: '/opt/api/Pako.Api',
+      port: 6001,
+      env: {},
+      spawn: (): ChildLike => {
+        spawns++
+        return {
+          pid: 1,
+          on(event, cb) {
+            if (event === 'exit') queueMicrotask(() => (cb as (code: number | null) => void)(1))
+          },
+          kill() {},
+        }
+      },
+      fetch: async () => {
+        throw new Error('refused')
+      },
+      now: () => 0,
+      sleep: () => new Promise((r) => setTimeout(r, 1)),
+    })
+    const s = new Supervisor({ pg: fakeChild('pg', log), api })
+    const events: unknown[] = []
+    s.on('child-exited', (e) => events.push(e))
+
+    const err = await s.startAll().catch((e) => e)
+    await tick()
+
+    expect(err).toBeInstanceOf(StartError)
+    expect(err).toMatchObject({ stage: 'api-health' })
+    expect(spawns).toBe(1)
+    expect(events).toEqual([])
+    const backup = { file: '/b/pre.pako-backup', createdAt: '', appVersion: '1', schemaVersion: '1', sizeBytes: 1 }
+    expect(decideAfterStartFailure({ upgraded: true, safetyBackup: backup }, err)).toEqual({
+      action: 'offer-restore',
+      backup,
+    })
+  })
+
+  it('Supervisor_PgExitsDuringStartAll_IsNotRestarted', async () => {
+    const log: string[] = []
+    const pg = fakeChild('pg', log)
+    pg.start = async () => {
+      pg.starts++
+      pg.crash(1)
+      throw new Error('Postgres exited with code 1 before it became ready')
+    }
+    const s = new Supervisor({ pg, api: apiChild(log) })
+    const events: unknown[] = []
+    s.on('child-exited', (e) => events.push(e))
+    await expect(s.startAll()).rejects.toMatchObject({ stage: 'pg' })
+    await tick()
+    expect(pg.starts).toBe(1)
+    expect(events).toEqual([])
   })
 })

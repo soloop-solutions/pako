@@ -193,4 +193,54 @@ describe('postgres', () => {
     expect(fs.removed).toContain('/d/pg/postmaster.pid')
     expect(calls.some((c) => c.args[0] === 'stop')).toBe(false)
   })
+
+  it('Postgres_WaitReady_RejectsFast_WhenTheServerExits', async () => {
+    const calls: Call[] = []
+    let probes = 0
+    const pg = new PostgresProcess({
+      binDir: '/b',
+      dataDir: '/d/pg',
+      port: 5555,
+      password: 'pw',
+      fs: fakeFs({}),
+      isProcessAlive: () => false,
+      probe: async () => {
+        probes++
+        return false
+      },
+      readyTimeoutMs: 600000,
+      sleep: () => new Promise((r) => setTimeout(r, 1)),
+      spawn: (cmd, args) => {
+        calls.push({ cmd, args })
+        return {
+          pid: 42,
+          on(event, cb) {
+            if (event === 'exit') queueMicrotask(() => (cb as (c: number) => void)(1))
+          },
+          kill() {},
+        }
+      },
+    })
+    await expect(pg.start()).rejects.toThrow(/exited with code 1/)
+    expect(probes).toBeLessThan(5)
+    expect(names(calls)).not.toContain('psql')
+  })
+
+  it('Postgres_WaitReady_KillsTheServer_OnTimeout', async () => {
+    const kills: number[] = []
+    const pg = new PostgresProcess({
+      binDir: '/b',
+      dataDir: '/d/pg',
+      port: 5555,
+      password: 'pw',
+      fs: fakeFs({}),
+      isProcessAlive: () => false,
+      probe: async () => false,
+      readyTimeoutMs: 1000,
+      sleep: async () => {},
+      spawn: () => ({ pid: 42, on() {}, kill: () => void kills.push(42) }),
+    })
+    await expect(pg.start()).rejects.toThrow(/ready in time/)
+    expect(kills).toEqual([42])
+  })
 })

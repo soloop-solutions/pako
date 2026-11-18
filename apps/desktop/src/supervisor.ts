@@ -38,6 +38,7 @@ export class StartError extends Error {
 
 export class Supervisor {
   private stopping = false
+  private started = false
   private apiPaused = false
   private restarts = { pg: 0, api: 0 }
   private listeners: ((e: ChildExitedEvent) => void)[] = []
@@ -53,9 +54,11 @@ export class Supervisor {
 
   async startAll(): Promise<{ apiUrl: string }> {
     this.stopping = false
+    this.started = false
     await StartError.tag('pg', () => this.deps.pg.start())
     await StartError.tag('api-start', () => this.deps.api.start())
     await StartError.tag('api-health', () => this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS))
+    this.started = true
     return { apiUrl: this.deps.api.url }
   }
 
@@ -93,7 +96,7 @@ export class Supervisor {
   }
 
   private async handleExit(name: 'pg' | 'api', code: number | null): Promise<void> {
-    if (this.stopping || (name === 'api' && this.apiPaused)) return
+    if (!this.started || this.stopping || (name === 'api' && this.apiPaused)) return
     if (this.restarts[name] >= 1) {
       this.emit({ name, code })
       return

@@ -87,6 +87,7 @@ export class PostgresProcess {
   private readonly readyTimeoutMs: number
   private readonly now: () => number
   private child: ChildLike | undefined
+  private lastExitCode: number | null = null
   private exitCallbacks: ((code: number | null) => void)[] = []
 
   constructor(private readonly opts: PostgresOptions) {
@@ -190,6 +191,7 @@ export class PostgresProcess {
       ]
       const deadline = this.now() + this.readyTimeoutMs
       for (;;) {
+        this.assertRunning()
         if ((await this.runCode('psql', args, { PGPASSWORD: password })) === 0) return
         if (this.now() >= deadline) {
           throw new Error('Postgres did not accept connections in time to create the database')
@@ -218,7 +220,10 @@ export class PostgresProcess {
     ])
     this.child = child
     child.on('exit', (code) => {
-      if (this.child === child) this.child = undefined
+      if (this.child === child) {
+        this.child = undefined
+        this.lastExitCode = code
+      }
       for (const cb of this.exitCallbacks) cb(code)
     })
     child.on('error', () => {})
@@ -226,12 +231,19 @@ export class PostgresProcess {
     await this.ensureDatabase()
   }
 
+  private assertRunning(): void {
+    if (!this.child) throw new Error(`Postgres exited with code ${this.lastExitCode} before it became ready`)
+  }
+
   private async waitReady(): Promise<void> {
     const attempts = Math.max(1, Math.ceil(this.readyTimeoutMs / 250))
     for (let i = 0; i < attempts; i++) {
+      this.assertRunning()
       if (await this.probe(this.opts.port)) return
       await this.sleep(250)
     }
+    this.assertRunning()
+    this.child?.kill()
     throw new Error('Postgres did not become ready in time')
   }
 
