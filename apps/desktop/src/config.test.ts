@@ -1,5 +1,8 @@
+import { promises as nodeFs } from 'node:fs'
+import os from 'node:os'
+import nodePath from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { loadOrCreateConfig, type ConfigFs, type SafeStorageLike } from './config'
+import { loadOrCreateConfig, saveBackupDir, type ConfigFs, type SafeStorageLike } from './config'
 import { resolvePaths } from './paths'
 
 function memFs(): ConfigFs & { files: Map<string, string> } {
@@ -44,5 +47,20 @@ describe('config', () => {
     const first = await loadOrCreateConfig(paths, { fs, safeStorage: none })
     const second = await loadOrCreateConfig(paths, { fs, safeStorage: none })
     expect(second).toEqual(first)
+  })
+
+  it('Config_SaveBackupDir_KeepsSecretsAndWritesAtomically', async () => {
+    const root = await nodeFs.mkdtemp(nodePath.join(os.tmpdir(), 'pako-config-'))
+    try {
+      const paths = resolvePaths(root)
+      const first = await loadOrCreateConfig(paths, { safeStorage: reversing })
+      const dest = nodePath.join(root, 'Kopje \u00cbndrra')
+      await saveBackupDir(paths, dest)
+      const again = await loadOrCreateConfig(paths, { safeStorage: reversing })
+      expect(again).toEqual({ ...first, backupDir: dest })
+      expect((await nodeFs.readdir(root)).sort()).toEqual(['config.json'])
+    } finally {
+      await nodeFs.rm(root, { recursive: true, force: true })
+    }
   })
 })

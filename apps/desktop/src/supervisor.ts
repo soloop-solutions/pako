@@ -18,6 +18,7 @@ const HEALTH_TIMEOUT_MS = 60000
 
 export class Supervisor {
   private stopping = false
+  private apiPaused = false
   private restarts = { pg: 0, api: 0 }
   private listeners: ((e: ChildExitedEvent) => void)[] = []
 
@@ -36,6 +37,18 @@ export class Supervisor {
     await this.deps.api.start()
     await this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS)
     return { apiUrl: this.deps.api.url }
+  }
+
+  async stopApi(): Promise<void> {
+    this.apiPaused = true
+    await this.deps.api.stop()
+  }
+
+  async startApi(): Promise<void> {
+    this.apiPaused = true
+    await this.deps.api.start()
+    await this.deps.api.waitHealthy(HEALTH_TIMEOUT_MS)
+    this.apiPaused = false
   }
 
   async stopAll(): Promise<void> {
@@ -60,7 +73,7 @@ export class Supervisor {
   }
 
   private async handleExit(name: 'pg' | 'api', code: number | null): Promise<void> {
-    if (this.stopping) return
+    if (this.stopping || (name === 'api' && this.apiPaused)) return
     if (this.restarts[name] >= 1) {
       this.emit({ name, code })
       return

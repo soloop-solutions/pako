@@ -100,4 +100,26 @@ describe('supervisor', () => {
     expect(events).toEqual([])
     expect(api.starts).toBe(1)
   })
+
+  it('Supervisor_StopApi_ForMaintenance_DoesNotRestartOrReport', async () => {
+    const log: string[] = []
+    const api = apiChild(log)
+    const s = new Supervisor({ pg: fakeChild('pg', log), api })
+    const events: unknown[] = []
+    s.on('child-exited', (e) => events.push(e))
+    await s.startAll()
+    log.length = 0
+
+    await s.stopApi()
+    api.crash(0)
+    await tick()
+    expect(log).toEqual(['stop:api'])
+    expect(events).toEqual([])
+
+    await s.startApi()
+    expect(log).toEqual(['stop:api', 'start:api', 'healthy:api'])
+    api.crash(1)
+    await tick()
+    expect(api.starts).toBe(3)
+  })
 })

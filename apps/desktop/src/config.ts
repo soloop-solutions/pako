@@ -98,3 +98,14 @@ export async function loadOrCreateConfig(
   await fs.writeFile(paths.configFile, JSON.stringify(stored, null, 2))
   return created
 }
+
+export async function saveBackupDir(paths: DesktopPaths, backupDir: string): Promise<void> {
+  const stored = JSON.parse(await nodeFs.readFile(paths.configFile, 'utf8')) as StoredConfig
+  const tmp = `${paths.configFile}.${randomBytes(6).toString('hex')}.tmp`
+  try {
+    await nodeFs.writeFile(tmp, JSON.stringify({ ...stored, backupDir }, null, 2), { encoding: 'utf8', mode: 0o600 })
+    await nodeFs.rename(tmp, paths.configFile)
+  } finally {
+    await nodeFs.rm(tmp, { force: true })
+  }
+}
