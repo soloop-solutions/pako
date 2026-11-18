@@ -156,6 +156,16 @@ describe("LicenseBanner", () => {
     expect(writeText).toHaveBeenCalledWith(licenseFixture.machineCode);
   });
 
+  it("CopyButton_ShowsAVisibleFailure_WhenTheClipboardRejects", async () => {
+    api.getDesktopLicense.mockResolvedValue({ ...licenseFixture, status: "ReadOnly", trialDaysLeft: 0 });
+    const writeText = vi.fn().mockRejectedValue(new DOMException("denied", "NotAllowedError"));
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    wrap(<LicenseBanner />);
+    fireEvent.click(await screen.findByRole("button", { name: "Copy" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Copy failed. Select the text and copy it manually.");
+    expect(screen.queryByRole("button", { name: "Copied" })).not.toBeInTheDocument();
+  });
+
   it("LicenseBanner_ShowsTrialDaysLeft", async () => {
     api.getDesktopLicense.mockResolvedValue(licenseFixture);
     wrap(<LicenseBanner />);

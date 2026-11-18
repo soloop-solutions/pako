@@ -30,6 +30,10 @@ export function isAllowedRequest(url: string, apiOrigin: string): boolean {
   }
 }
 
+export function isAllowedPermission(permission: string, requestingUrl: string | undefined, apiOrigin: string): boolean {
+  return permission === 'clipboard-sanitized-write' && isAllowedNavigation(requestingUrl ?? '', apiOrigin)
+}
+
 export function isExternalHttps(url: string): boolean {
   try {
     return new URL(url).protocol === 'https:'

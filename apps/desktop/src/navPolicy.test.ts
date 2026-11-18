@@ -3,6 +3,7 @@ import {
   buildLaunchCookie,
   isAllowedNavigation,
   isAllowedRequest,
+  isAllowedPermission,
   isExternalHttps,
 } from './navPolicy'
 
@@ -59,5 +60,20 @@ describe('navPolicy', () => {
       httpOnly: true,
       sameSite: 'strict',
     })
+  })
+})
+
+describe('isAllowedPermission', () => {
+  it('allows only sanitized clipboard writes, and only for the API origin', () => {
+    expect(isAllowedPermission('clipboard-sanitized-write', 'http://127.0.0.1:5050/desktop/setup', origin)).toBe(true)
+    expect(isAllowedPermission('clipboard-sanitized-write', 'http://127.0.0.1:5050', origin)).toBe(true)
+    expect(isAllowedPermission('clipboard-sanitized-write', 'http://127.0.0.1:5051/', origin)).toBe(false)
+    expect(isAllowedPermission('clipboard-sanitized-write', 'https://evil.example/', origin)).toBe(false)
+    expect(isAllowedPermission('clipboard-sanitized-write', 'file:///app/splash.html', origin)).toBe(false)
+    expect(isAllowedPermission('clipboard-sanitized-write', undefined, origin)).toBe(false)
+    expect(isAllowedPermission('clipboard-sanitized-write', '', origin)).toBe(false)
+    for (const p of ['clipboard-read', 'notifications', 'media', 'geolocation', 'openExternal', 'fullscreen', 'unknown']) {
+      expect(isAllowedPermission(p, 'http://127.0.0.1:5050/', origin)).toBe(false)
+    }
   })
 })

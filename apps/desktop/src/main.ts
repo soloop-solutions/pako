@@ -27,6 +27,7 @@ import {
   LAUNCH_COOKIE_NAME,
   buildLaunchCookie,
   isAllowedNavigation,
+  isAllowedPermission,
   isAllowedRequest,
   isExternalHttps,
 } from './navPolicy'
@@ -132,7 +133,12 @@ function lockNavigation(win: BrowserWindow, apiOrigin: string): void {
 async function createMainWindow(apiUrl: string, launchSecret: string): Promise<BrowserWindow> {
   const apiOrigin = new URL(apiUrl).origin
   const ses = session.defaultSession
-  ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+  ses.setPermissionRequestHandler((_wc, permission, callback, details) =>
+    callback(isAllowedPermission(permission, details.requestingUrl, apiOrigin)),
+  )
+  ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) =>
+    isAllowedPermission(permission, requestingOrigin, apiOrigin),
+  )
   ses.setSpellCheckerEnabled(false)
   ses.webRequest.onBeforeRequest((details, callback) => {
     callback({ cancel: !isAllowedRequest(details.url, apiOrigin) })
