@@ -31,6 +31,7 @@ export function buildApiEnv(input: ApiEnvInput): Record<string, string> {
     ASPNETCORE_URLS: `http://127.0.0.1:${input.port}`,
     ASPNETCORE_ENVIRONMENT: 'Production',
     Email__Mode: 'Log',
+    Email__AppBaseUrl: `http://127.0.0.1:${input.port}`,
   }
 }
 

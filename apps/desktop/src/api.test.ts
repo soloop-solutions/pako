@@ -86,6 +86,12 @@ describe('api', () => {
     expect(env.ASPNETCORE_ENVIRONMENT).toBe('Production')
   })
 
+  it('Api_Env_PointsInvitationAndResetLinksAtTheWindowOrigin', () => {
+    const env = buildApiEnv({ port: 6001, pgPort: 6002, pgPassword: 'pw', jwtKey: 'k', launchSecret: 's', dataDir: '/d' })
+    expect(env.Email__AppBaseUrl).toBe('http://127.0.0.1:6001')
+    expect(env.Email__AppBaseUrl).toBe(env.ASPNETCORE_URLS)
+  })
+
   it('Api_WaitHealthy_RejectsPromptly_WhenTheChildExits', async () => {
     let exit: ((code: number | null) => void) | undefined
     let fetches = 0

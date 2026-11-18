@@ -59,7 +59,7 @@ public sealed class DesktopSetupTests : IAsyncLifetime
         }
     }
 
-    private WebApplicationFactory<Program> Build(bool enabled, bool failRecoveryRecord = false) =>
+    private WebApplicationFactory<Program> Build(bool enabled, bool failRecoveryRecord = false, string? appBaseUrl = null) =>
         new WebApplicationFactory<Program>().WithWebHostBuilder(b =>
         {
             b.UseEnvironment("Production");
@@ -67,6 +67,7 @@ public sealed class DesktopSetupTests : IAsyncLifetime
             b.UseSetting("Jwt:Key", new string('k', 48));
             b.UseSetting("Desktop:Enabled", enabled ? "true" : "false");
             b.UseSetting("Desktop:LaunchSecret", Secret);
+            if (appBaseUrl is not null) b.UseSetting("Email:AppBaseUrl", appBaseUrl);
             b.ConfigureServices(s =>
             {
                 s.RemoveAll<TimeProvider>();
@@ -260,6 +261,20 @@ public sealed class DesktopSetupTests : IAsyncLifetime
             (await client.PostAsJsonAsync("/api/desktop/setup", new DesktopSetupRequest(Email, Password, "Owner"))).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await client.PostAsJsonAsync("/api/desktop/recover", new RecoverAdminRequest(Email, "x", NewPassword))).StatusCode);
+    }
+
+    [Fact]
+    public async Task ResetLink_UsesTheWindowOrigin_PassedByTheDesktopShell()
+    {
+        using var desktop = Build(true, appBaseUrl: "http://127.0.0.1:6123");
+        using var client = Client(desktop);
+        (await client.PostAsJsonAsync("/api/desktop/setup", new DesktopSetupRequest(Email, Password, "Owner"))).EnsureSuccessStatusCode();
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequest(Email))).StatusCode);
+
+        var payload = await _db.Notifications.AsNoTracking().Select(n => n.PayloadJson).SingleAsync();
+        var link = System.Text.Json.JsonDocument.Parse(payload).RootElement.GetProperty("link").GetString()!;
+        Assert.StartsWith("http://127.0.0.1:6123/reset-password?email=", link);
     }
 
     [Fact]
