@@ -31,7 +31,7 @@ describe("apiClient Accept-Language", () => {
   }
 
   it("sends en by default", async () => {
-    await apiClient.trialBalance("c1", undefined, undefined);
+    await apiClient.trialBalance("c1", undefined, undefined, undefined);
     expect(sentLanguage()).toBe("en");
   });
 
@@ -44,7 +44,7 @@ describe("apiClient Accept-Language", () => {
     await act(async () => {
       screen.getByText("switch").click();
     });
-    await apiClient.trialBalance("c1", undefined, undefined);
+    await apiClient.trialBalance("c1", undefined, undefined, undefined);
     expect(sentLanguage()).toBe("sq");
   });
 });

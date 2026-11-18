@@ -131,6 +131,29 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         Assert.Contains("not postable", badRequest.Value!.ToString());
     }
 
+    // R26: a deactivated account keeps its history but takes no new manual postings.
+    [Fact]
+    public async Task Create_LineOnDeactivatedAccount_Rejected_R26()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var inactive = await db.Accounts.SingleAsync(a => a.Id == accountAId);
+        inactive.IsActive = false;
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var request = new CreateJournalEntryRequest(journalId, new DateOnly(2026, 8, 26), null, new List<CreateJournalEntryLineRequest>
+        {
+            new(accountAId, null, 100m, 0m, null),
+            new(accountBId, null, 0m, 100m, null)
+        });
+
+        var result = await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId));
+
+        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.Contains("1000", badRequest.Value!.ToString());
+        Assert.Empty(db.JournalEntries.Where(e => e.CompanyId == companyId));
+    }
+
     // 60_Posting_Rules R04 (BLOCK) — control accounts reject manual postings.
     [Fact]
     public async Task Create_LineOnControlAccount_Rejected()

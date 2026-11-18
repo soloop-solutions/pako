@@ -24,9 +24,21 @@ export interface InvoiceLineData {
   discountPercent: number;
   /** Already-resolved tax definition, if any */
   tax?: { id: string; name: string; rate: number; code?: string; isReverseCharge?: boolean };
-  /** Net, tax, gross — caller should compute these using computeLine() */
+  /** Net, tax, gross — from the API for a saved invoice; computeLine() only for an unsaved preview */
   net: number;
   taxAmount: number;
+  gross: number;
+  /** Entered amount before the line discount and the discount itself (document price basis) */
+  amountBeforeDiscount?: number;
+  discountAmount?: number;
+}
+
+/** Server-computed document totals (InvoiceResponse.totals); absent for an unsaved preview. */
+export interface InvoiceTotalsData {
+  amountBeforeDiscount: number;
+  discountAmount: number;
+  net: number;
+  tax: number;
   gross: number;
 }
 
@@ -79,6 +91,10 @@ export interface InvoiceDocumentData {
 
   /** Currency */
   currency: string;
+
+  /** Totals and VAT breakdown from the API (saved invoices). When absent, the preview sums its lines. */
+  totals?: InvoiceTotalsData;
+  taxBreakdown?: { taxDefinitionId: string; net: number; tax: number }[];
 }
 
 // Document type to i18n key mapping
@@ -108,32 +124,42 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
   const isDraft = data.state === "Draft" || data.state === "Preview";
   const titleKey = DOCUMENT_TYPE_TITLE_KEYS[data.documentType] ?? "invoiceDoc.title.invoice";
 
-  // Compute totals
-  const subtotal = data.lines.reduce((sum, line) => sum + line.net, 0);
-  const totalDiscount = data.lines.reduce((sum, line) => {
-    const beforeDiscount = line.quantity * line.unitPrice;
-    const afterDiscount = beforeDiscount * (1 - line.discountPercent / 100);
-    return sum + (beforeDiscount - afterDiscount);
-  }, 0);
-  const totalTax = data.lines.reduce((sum, line) => sum + line.taxAmount, 0);
-  const grandTotal = data.lines.reduce((sum, line) => sum + line.gross, 0);
+  // Totals: a saved invoice carries them from the API (InvoiceResponse.totals); only an unsaved
+  // preview, which has no server figures yet, sums its own preview lines.
+  const lineBeforeDiscount = (line: InvoiceLineData) => line.amountBeforeDiscount ?? line.quantity * line.unitPrice;
+  const lineDiscount = (line: InvoiceLineData) =>
+    line.discountAmount ?? (line.quantity * line.unitPrice * line.discountPercent) / 100;
+  const totals: InvoiceTotalsData = data.totals ?? {
+    amountBeforeDiscount: data.lines.reduce((sum, line) => sum + lineBeforeDiscount(line), 0),
+    discountAmount: data.lines.reduce((sum, line) => sum + lineDiscount(line), 0),
+    net: data.lines.reduce((sum, line) => sum + line.net, 0),
+    tax: data.lines.reduce((sum, line) => sum + line.taxAmount, 0),
+    gross: data.lines.reduce((sum, line) => sum + line.gross, 0),
+  };
+  const hasDiscount = data.lines.some((line) => line.discountPercent > 0);
+  const subtotal = totals.net;
+  const totalTax = totals.tax;
+  const grandTotal = totals.gross;
 
-  // Group VAT by rate for breakdown
+  // VAT by tax code: from the API when present, otherwise grouped from the preview lines.
+  const taxById = new Map<string, NonNullable<InvoiceLineData["tax"]>>();
+  for (const line of data.lines) if (line.tax) taxById.set(line.tax.id, line.tax);
   const vatBreakdown = new Map<string, { label: string; rate: number; taxable: number; vat: number }>();
-  for (const line of data.lines) {
-    if (!line.tax) continue;
-    const key = line.tax.id;
-    const existing = vatBreakdown.get(key);
-    if (existing) {
-      existing.taxable += line.net;
-      existing.vat += line.taxAmount;
-    } else {
-      vatBreakdown.set(key, {
-        label: line.tax.name,
-        rate: line.tax.rate,
-        taxable: line.net,
-        vat: line.taxAmount,
-      });
+  if (data.taxBreakdown) {
+    for (const entry of data.taxBreakdown) {
+      const tax = taxById.get(entry.taxDefinitionId);
+      vatBreakdown.set(entry.taxDefinitionId, { label: tax?.name ?? "", rate: tax?.rate ?? 0, taxable: entry.net, vat: entry.tax });
+    }
+  } else {
+    for (const line of data.lines) {
+      if (!line.tax) continue;
+      const existing = vatBreakdown.get(line.tax.id);
+      if (existing) {
+        existing.taxable += line.net;
+        existing.vat += line.taxAmount;
+      } else {
+        vatBreakdown.set(line.tax.id, { label: line.tax.name, rate: line.tax.rate, taxable: line.net, vat: line.taxAmount });
+      }
     }
   }
 
@@ -232,7 +258,7 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
             <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px]">{intl.formatMessage({ id: "invoiceDoc.col.description" })}</th>
             <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.qty" })}</th>
             <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-24">{intl.formatMessage({ id: "invoiceDoc.col.unitPrice" })}</th>
-            {totalDiscount > 0.005 && (
+            {hasDiscount && (
               <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.discount" })}</th>
             )}
             <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.vat" })}</th>
@@ -247,8 +273,17 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
               <td className="py-2 text-gray-800">{line.description || "—"}</td>
               <td className="py-2 text-right tabular-nums">{line.quantity}</td>
               <td className="py-2 text-right tabular-nums">{line.unitPrice.toFixed(2)}</td>
-              {totalDiscount > 0.005 && (
-                <td className="py-2 text-right tabular-nums">{line.discountPercent > 0 ? `${line.discountPercent}%` : "—"}</td>
+              {hasDiscount && (
+                <td className="py-2 text-right tabular-nums">
+                  {line.discountPercent > 0 ? (
+                    <>
+                      {line.discountPercent}%
+                      <span className="block text-[11px] text-gray-500 print:text-[9px]">-{lineDiscount(line).toFixed(2)}</span>
+                    </>
+                  ) : (
+                    "—"
+                  )}
+                </td>
               )}
               <td className="py-2 text-right tabular-nums text-gray-500">
                 {line.tax ? `${(line.tax.rate * 100).toFixed(0)}%` : "0%"}
@@ -263,16 +298,23 @@ export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
       {/* TOTALS */}
       <div className="flex justify-end mb-8">
         <div className="w-72">
-          <div className="flex justify-between py-1 text-gray-600">
+          {/* Rabat first, on the entered price basis: before discount − discount = amount charged. */}
+          {hasDiscount && (
+            <>
+              <div className="flex justify-between py-1 text-gray-600">
+                <span>{intl.formatMessage({ id: "invoiceDoc.amountBeforeDiscount" })}</span>
+                <span className="tabular-nums">{formatMoney(totals.amountBeforeDiscount, data.currency)}</span>
+              </div>
+              <div className="flex justify-between py-1 text-gray-600">
+                <span>{intl.formatMessage({ id: "invoiceDoc.totalDiscount" })}</span>
+                <span className="tabular-nums">-{formatMoney(totals.discountAmount, data.currency)}</span>
+              </div>
+            </>
+          )}
+          <div className={`flex justify-between py-1 text-gray-600${hasDiscount ? " border-t border-gray-200 mt-1 pt-1" : ""}`}>
             <span>{intl.formatMessage({ id: "invoiceDoc.subtotal" })}</span>
             <span className="tabular-nums">{formatMoney(subtotal, data.currency)}</span>
           </div>
-          {totalDiscount > 0.005 && (
-            <div className="flex justify-between py-1 text-gray-600">
-              <span>{intl.formatMessage({ id: "invoiceDoc.totalDiscount" })}</span>
-              <span className="tabular-nums">-{formatMoney(totalDiscount, data.currency)}</span>
-            </div>
-          )}
           {/* VAT breakdown */}
           {Array.from(vatBreakdown.values()).map((entry) => (
             <div key={entry.label} className="flex justify-between py-1 text-gray-600">

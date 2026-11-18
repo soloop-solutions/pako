@@ -7,9 +7,8 @@ import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
 
 // Same technique src/pages/partners/Partners.test.tsx already established: the real backend isn't
-// running inside vitest, so apiClient's network methods are mocked directly rather than via msw —
-// but the cost-center picker's own mock (src/mocks/costCentersHandlers.ts) genuinely round-trips
-// through the real msw/node server wired up in src/test/setup.ts, same as ChartOfAccounts.test.tsx.
+// running inside vitest, so apiClient's network methods (cost centers included) are mocked directly
+// rather than via msw.
 const partnersAll = vi.fn();
 const projectsAll = vi.fn();
 const listEmployees = vi.fn();
@@ -17,6 +16,13 @@ const journalEntriesCreate = vi.fn();
 const post3 = vi.fn();
 const actionTokens = vi.fn();
 const preview = vi.fn(() => Promise.resolve({ number: "JE-0001" }));
+const listCostCenters = vi.fn(() =>
+  Promise.resolve([
+    { id: "cc-admin", code: "CC-ADM", name: "Administratë", nameEn: "Administration" },
+    { id: "cc-sales", code: "CC-SHT", name: "Shitje", nameEn: "Sales" },
+    { id: "cc-ops", code: "CC-OPR", name: "Operacione", nameEn: "Operations" },
+  ]),
+);
 
 vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
@@ -31,6 +37,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       post3: (...args: unknown[]) => post3(...args),
       actionTokens: (...args: unknown[]) => actionTokens(...args),
       preview: (...args: unknown[]) => preview(...(args as [])),
+      listCostCenters: (...args: unknown[]) => listCostCenters(...(args as [])),
     },
   };
 });

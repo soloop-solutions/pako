@@ -1758,4 +1758,6 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="Export_Audit_Action_Deleted" xml:space="preserve"><value>Fshirë</value></data>
   <data name="Export_Audit_Action_Post" xml:space="preserve"><value>Postuar</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>Eksporti i gjurmës së auditimit kufizohet në {0} rreshta. Ngushtoni filtrat dhe provoni përsëri.</value></data>
+  <data name="JournalLineAccountInactive" xml:space="preserve"><value>Llogaria {0} është e çaktivizuar dhe nuk mund të përdoret në një urdhëresë të re.</value></data>
+  <data name="Export_Tb_Group" xml:space="preserve"><value>Grupi</value></data>
 </root>

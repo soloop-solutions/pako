@@ -1758,4 +1758,6 @@ Estimate: {estimate} €.</value></data>
   <data name="Export_Audit_Action_Deleted" xml:space="preserve"><value>Deleted</value></data>
   <data name="Export_Audit_Action_Post" xml:space="preserve"><value>Posted</value></data>
   <data name="AuditExportTooLarge" xml:space="preserve"><value>The audit trail export is limited to {0} rows. Narrow the filters and try again.</value></data>
+  <data name="JournalLineAccountInactive" xml:space="preserve"><value>Account {0} is deactivated and cannot be used on a new journal entry.</value></data>
+  <data name="Export_Tb_Group" xml:space="preserve"><value>Group</value></data>
 </root>

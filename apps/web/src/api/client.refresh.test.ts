@@ -38,7 +38,7 @@ describe("authorizedFetch refresh", () => {
       return auth === "Bearer new" ? json([]) : new Response(null, { status: 401 });
     });
 
-    await apiClient.trialBalance("c1", undefined, undefined);
+    await apiClient.trialBalance("c1", undefined, undefined, undefined);
 
     expect(getStoredAuth()).toMatchObject({ token: "new", refreshToken: "r2" });
     expect(expired).not.toHaveBeenCalled();
@@ -51,9 +51,9 @@ describe("authorizedFetch refresh", () => {
     });
 
     await Promise.all([
-      apiClient.trialBalance("c1", undefined, undefined),
-      apiClient.trialBalance("c2", undefined, undefined),
-      apiClient.trialBalance("c3", undefined, undefined),
+      apiClient.trialBalance("c1", undefined, undefined, undefined),
+      apiClient.trialBalance("c2", undefined, undefined, undefined),
+      apiClient.trialBalance("c3", undefined, undefined, undefined),
     ]);
 
     const refreshCalls = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/api/auth/refresh"));
@@ -63,7 +63,7 @@ describe("authorizedFetch refresh", () => {
   it("signs the user out only when the refresh itself is refused", async () => {
     route((url) => (url.endsWith("/api/auth/refresh") ? new Response(null, { status: 401 }) : new Response(null, { status: 401 })));
 
-    await expect(apiClient.trialBalance("c1", undefined, undefined)).rejects.toBeDefined();
+    await expect(apiClient.trialBalance("c1", undefined, undefined, undefined)).rejects.toBeDefined();
 
     expect(expired).toHaveBeenCalled();
   });
@@ -74,7 +74,7 @@ describe("authorizedFetch refresh", () => {
       return new Response(null, { status: 401 });
     });
 
-    await expect(apiClient.trialBalance("c1", undefined, undefined)).rejects.toBeDefined();
+    await expect(apiClient.trialBalance("c1", undefined, undefined, undefined)).rejects.toBeDefined();
 
     expect(expired).not.toHaveBeenCalled();
     expect(getStoredAuth()?.refreshToken).toBe("r1");

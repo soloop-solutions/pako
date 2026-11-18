@@ -95,8 +95,8 @@ public class ExportLocalizationTests : IAsyncLifetime
             new[] { "Direction", "Tax Code", "Rate", "Amount" }, new[] { "Drejtimi", "Kodi i tatimit", "Shkalla", "Shuma" });
         yield return new("TrialBalance", s => Ledger(s.Db).TrialBalanceExport(s.CompanyId, From, To), 1,
             "Trial Balance", "Gjendja e llogarive",
-            new[] { "Account Code", "Account Name", "Opening", "Debit", "Credit", "Closing" },
-            new[] { "Shifra", "Emërtimi", "Gjendja fillestare", "Debi", "Kredi", "Gjendja përfundimtare" });
+            new[] { "Account Code", "Account Name", "Group", "Opening", "Debit", "Credit", "Balance", "Closing" },
+            new[] { "Shifra", "Emërtimi", "Grupi", "Gjendja fillestare", "Debi", "Kredi", "Bilanci", "Gjendja përfundimtare" });
         yield return new("MonthlyPnl", s => Statements(s.Db).MonthlyProfitAndLossExport(s.CompanyId, 2026), 1,
             "Monthly P&L", "Fitimi dhe humbja mujore",
             new[] { "Section", "Account Code", "Account Name" }.Concat(Months).Append("Total").ToArray(),

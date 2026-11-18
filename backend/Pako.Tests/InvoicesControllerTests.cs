@@ -112,6 +112,26 @@ public class InvoicesControllerTests : IAsyncLifetime
             new List<CreateInvoiceLineRequest> { new("Consulting (proforma)", quantity, unitPrice, null, null) },
             DocumentType.Proforma);
 
+    // The single-invoice GET carries server-computed line amounts so the printed invoice shows the
+    // rabat without computing money in the browser.
+    [Fact]
+    public async Task Get_ReturnsLineAmountsWithDiscount()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+        var request = new CreateInvoiceRequest(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Goods", 4m, 25m, null, null, DiscountPercent: 10m) });
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId, request)).Result).Value);
+
+        var fetched = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>((await controller.Get(companyId, created.Id)).Result).Value);
+
+        var line = Assert.Single(fetched.Lines);
+        Assert.Equal((100m, 10m, 90m, 0m, 90m), (line.AmountBeforeDiscount, line.DiscountAmount, line.NetAmount, line.TaxAmount, line.GrossAmount));
+        Assert.Null(created.Lines.Single().GrossAmount);
+        Assert.Equal(new InvoiceAmountTotals(100m, 10m, 90m, 0m, 90m), fetched.Totals);
+        Assert.Empty(fetched.TaxBreakdown!);
+    }
+
     [Fact]
     public async Task Create_ZeroQuantity_Rejected()
     {

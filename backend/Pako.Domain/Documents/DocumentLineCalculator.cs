@@ -6,6 +6,20 @@ namespace Pako.Domain.Documents;
 
 public record DocumentLineResult(decimal Gross, decimal NetAmount, IReadOnlyList<JournalEntryLine> Lines);
 
+// What a printed line shows: the entered amount before and after the line discount (both on the
+// document's own price basis, VAT-inclusive under GrossInclusive), then net, VAT and total exactly as
+// posting computes them.
+public record DocumentLineAmounts(decimal AmountBeforeDiscount, decimal DiscountAmount, decimal NetAmount, decimal TaxAmount, decimal GrossAmount)
+{
+    public static DocumentLineAmounts Sum(IEnumerable<DocumentLineAmounts> lines)
+    {
+        var all = lines.ToList();
+        return new DocumentLineAmounts(
+            all.Sum(l => l.AmountBeforeDiscount), all.Sum(l => l.DiscountAmount), all.Sum(l => l.NetAmount),
+            all.Sum(l => l.TaxAmount), all.Sum(l => l.GrossAmount));
+    }
+}
+
 // S0.2: the gross -> discount -> VAT -> net block was duplicated inside Invoice.Post()'s and
 // Bill.Post()'s `foreach (var line in Lines)` loops. Extracted here, shared by both, zero EF
 // dependency — same "static function over already-loaded primitives" shape as
@@ -19,6 +33,29 @@ public record DocumentLineResult(decimal Gross, decimal NetAmount, IReadOnlyList
 // to get the actual side for this posting.
 public static class DocumentLineCalculator
 {
+    public static DocumentLineAmounts Amounts(
+        decimal quantity,
+        decimal unitPrice,
+        decimal discountPercent,
+        TaxDefinition? taxDefinition,
+        ITaxComputationService taxComputationService,
+        PriceMode priceMode = PriceMode.GrossInclusive)
+    {
+        var beforeDiscount = Math.Round(quantity * unitPrice, 2, MidpointRounding.AwayFromZero);
+        // Same rounding as Calculate below, so the printed line always agrees with the posted entry.
+        var enteredAmount = Math.Round(quantity * unitPrice * (1 - discountPercent / 100m), 2, MidpointRounding.AwayFromZero);
+        var discount = beforeDiscount - enteredAmount;
+        if (taxDefinition is null)
+        {
+            return new DocumentLineAmounts(beforeDiscount, discount, enteredAmount, 0m, enteredAmount);
+        }
+
+        var computation = priceMode == PriceMode.NetExclusive
+            ? taxComputationService.Compute(enteredAmount, taxDefinition)
+            : taxComputationService.ComputeFromGross(enteredAmount, taxDefinition);
+        return new DocumentLineAmounts(beforeDiscount, discount, computation.NetAmount, computation.TaxAmount, computation.TotalAmount);
+    }
+
     public static DocumentLineResult Calculate(
         decimal quantity,
         decimal unitPrice,

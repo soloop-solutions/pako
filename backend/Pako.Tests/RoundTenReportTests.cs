@@ -183,7 +183,8 @@ public class RoundTenReportTests : IAsyncLifetime
             new[] { "1000", "Gjithsejt Assets", "4000", "Gjithsejt Revenue group", "5000", "Gjithsejt Klasa 5", "6000", "Gjithsejt Klasa 6", "Gjithsejt" },
             Labelled(sq));
 
-        decimal[] Amounts(IXLRow r) => Enumerable.Range(3, 4).Select(c => r.Cell(c).GetValue<decimal>()).ToArray();
+        // Opening, Debit, Credit, Closing (column 3 is Group, 7 the period Balance).
+        decimal[] Amounts(IXLRow r) => new[] { 4, 5, 6, 8 }.Select(c => r.Cell(c).GetValue<decimal>()).ToArray();
         var rows = en.RowsUsed().ToDictionary(r => r.Cell(1).GetString(), r => r);
         Assert.Equal(new[] { 200m, 1000m, 550m, 650m }, Amounts(rows["Total Assets"]));
         Assert.Equal(new[] { -200m, 0m, 1000m, -1200m }, Amounts(rows["Total Revenue group"]));
@@ -199,7 +200,7 @@ public class RoundTenReportTests : IAsyncLifetime
 
         var totals = Assert.IsType<TrialBalanceTotals>(Assert.IsType<OkObjectResult>((await Ledger(s.Db).TrialBalanceTotalsAction(s.Company.Id, From, To)).Result).Value);
 
-        Assert.Equal(new TrialBalanceTotals(0m, 1550m, 1550m, 0m), totals);
+        Assert.Equal(new TrialBalanceTotals(0m, 1550m, 1550m, 0m, 0m), totals);
         Assert.IsType<BadRequestObjectResult>((await Ledger(s.Db).TrialBalanceTotalsAction(s.Company.Id, To, From)).Result);
     }
 

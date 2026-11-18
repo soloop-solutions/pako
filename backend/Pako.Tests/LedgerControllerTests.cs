@@ -96,8 +96,8 @@ public class LedgerControllerTests
         var sheet = workbook.Worksheet(1);
         Assert.Equal("Account Code", sheet.Cell(1, 1).GetString());
         Assert.Equal("1000", sheet.Cell(2, 1).GetString());
-        Assert.Equal("Opening", sheet.Cell(1, 3).GetString());
-        Assert.Equal(100m, sheet.Cell(2, 4).GetValue<decimal>());
+        Assert.Equal("Opening", sheet.Cell(1, 4).GetString());
+        Assert.Equal(100m, sheet.Cell(2, 5).GetValue<decimal>());
     }
 
     private static async Task<(PakoDbContext Db, Guid CompanyId, LedgerController Controller)> SeedPeriodAsync(bool withEntries = true)
@@ -199,15 +199,55 @@ public class LedgerControllerTests
         var file = Assert.IsType<FileContentResult>(await controller.TrialBalanceExport(companyId, new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 28)));
         using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
         var sheet = workbook.Worksheet(1);
-        Assert.Equal(new[] { "Account Code", "Account Name", "Opening", "Debit", "Credit", "Closing" }, Enumerable.Range(1, 6).Select(c => sheet.Cell(1, c).GetString()));
+        Assert.Equal(new[] { "Account Code", "Account Name", "Group", "Opening", "Debit", "Credit", "Balance", "Closing" }, Enumerable.Range(1, 8).Select(c => sheet.Cell(1, c).GetString()));
+        var cash = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "100100");
+        Assert.Equal("Cash and equivalents", cash.Cell(3).GetString());
+        Assert.Equal(50m, cash.Cell(7).GetValue<decimal>());
         var total = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Total");
-        Assert.Equal(0m, total.Cell(3).GetValue<decimal>());
-        Assert.Equal(50m, total.Cell(4).GetValue<decimal>());
+        Assert.Equal(0m, total.Cell(4).GetValue<decimal>());
         Assert.Equal(50m, total.Cell(5).GetValue<decimal>());
-        Assert.Equal(0m, total.Cell(6).GetValue<decimal>());
+        Assert.Equal(50m, total.Cell(6).GetValue<decimal>());
+        Assert.Equal(0m, total.Cell(8).GetValue<decimal>());
         var cashGroup = sheet.RowsUsed().Single(r => r.Cell(1).GetString() == "Total Cash and equivalents");
-        Assert.Equal(100m, cashGroup.Cell(3).GetValue<decimal>());
-        Assert.Equal(50m, cashGroup.Cell(4).GetValue<decimal>());
-        Assert.Equal(150m, cashGroup.Cell(6).GetValue<decimal>());
+        Assert.Equal(100m, cashGroup.Cell(4).GetValue<decimal>());
+        Assert.Equal(50m, cashGroup.Cell(5).GetValue<decimal>());
+        Assert.Equal(150m, cashGroup.Cell(8).GetValue<decimal>());
+    }
+
+    [Fact]
+    public async Task TrialBalance_IncludeZero_ListsActivePostableAccountsWithoutPostings()
+    {
+        var (db, companyId, controller) = await SeedPeriodAsync();
+        await using var _ = db;
+        db.Accounts.AddRange(
+            new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "101100", Name = "Petty cash", AccountType = AccountType.Cash, Class = 1 },
+            new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "101200", Name = "Old till", AccountType = AccountType.Cash, Class = 1, IsActive = false },
+            new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "100000", Name = "Cash header", AccountType = AccountType.Cash, Class = 1, IsPostable = false });
+        await db.SaveChangesAsync();
+
+        var withoutZero = Assert.IsType<List<TrialBalanceLine>>(Assert.IsType<OkObjectResult>((await controller.TrialBalance(companyId)).Result).Value);
+        var withZero = Assert.IsType<List<TrialBalanceLine>>(Assert.IsType<OkObjectResult>((await controller.TrialBalance(companyId, includeZero: true)).Result).Value);
+
+        Assert.DoesNotContain(withoutZero, l => l.AccountCode == "101100");
+        var petty = withZero.Single(l => l.AccountCode == "101100");
+        Assert.Equal((0m, 0m, 0m, 0m), (petty.Opening, petty.Debit, petty.Credit, petty.Closing));
+        Assert.Equal("Cash and equivalents", petty.GroupName);
+        Assert.DoesNotContain(withZero, l => l.AccountCode is "101200" or "100000");
+        Assert.Equal(157m, withZero.Single(l => l.AccountCode == "100100").Closing);
+    }
+
+    // Nested groups: the account takes its deepest group, whatever order the database returns them in.
+    [Fact]
+    public async Task TrialBalance_GroupName_IsTheDeepestMatchingGroup()
+    {
+        var (db, companyId, controller) = await SeedPeriodAsync();
+        await using var _ = db;
+        var parent = await db.AccountGroups.SingleAsync(g => g.CompanyId == companyId && g.Name == "Cash and equivalents");
+        db.AccountGroups.Add(new AccountGroup { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Cash on hand", CodePrefixStart = "100100", CodePrefixEnd = "100199", ParentGroupId = parent.Id });
+        await db.SaveChangesAsync();
+
+        var lines = Assert.IsType<List<TrialBalanceLine>>(Assert.IsType<OkObjectResult>((await controller.TrialBalance(companyId)).Result).Value);
+
+        Assert.Equal("Cash on hand", lines.Single(l => l.AccountCode == "100100").GroupName);
     }
 }

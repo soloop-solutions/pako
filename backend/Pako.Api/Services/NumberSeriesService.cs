@@ -66,7 +66,20 @@ public class NumberSeriesService
     /// </summary>
     public async Task<string> PreviewNextAsync(Guid companyId, string documentType, int year)
     {
-        var date = new DateOnly(year, DateTime.UtcNow.Month, DateTime.UtcNow.Day);
+        // Today's month/day in the requested year; 29 February falls back to the 28th in a
+        // non-leap year instead of throwing.
+        var today = DateTime.UtcNow;
+        var day = Math.Min(today.Day, DateTime.DaysInMonth(year, today.Month));
+        return await PreviewNextAsync(companyId, documentType, new DateOnly(year, today.Month, day));
+    }
+
+    /// <summary>
+    /// Date-aware preview: the same number <see cref="ReserveNextAsync(Guid, string, DateOnly)"/>
+    /// would return for a document on <paramref name="date"/>, without the lock.
+    /// </summary>
+    public async Task<string> PreviewNextAsync(Guid companyId, string documentType, DateOnly date)
+    {
+        var year = date.Year;
         var series = await _db.NumberSeriesSet.AsNoTracking()
             .FirstOrDefaultAsync(s => s.CompanyId == companyId && s.DocumentType == documentType && s.Year == year);
 

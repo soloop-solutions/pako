@@ -195,6 +195,11 @@ public class JournalEntriesController : ControllerBase
         foreach (var line in request.Lines)
         {
             var account = accountsById[line.AccountId];
+            // R26: accounts are deactivated, never deleted; a deactivated account takes no new postings.
+            if (!account.IsActive)
+            {
+                return BadRequest(string.Format(_localizer["JournalLineAccountInactive"].Value, account.Code));
+            }
             try
             {
                 PostingRuleValidator.ValidateManualLineAccountEligibility(account.Code, account.IsPostable, account.IsControl);

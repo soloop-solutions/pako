@@ -117,7 +117,20 @@ export function buildDocumentDataFromResponse(opts: {
     internalNotes?: string;
     paymentTermDays?: number;
     originalInvoiceId?: string;
-    lines: { description: string; quantity: number; unitPrice: number; discountPercent: number; taxDefinitionId?: string }[];
+    lines: {
+      description: string;
+      quantity: number;
+      unitPrice: number;
+      discountPercent: number;
+      taxDefinitionId?: string;
+      amountBeforeDiscount?: number;
+      discountAmount?: number;
+      netAmount?: number;
+      taxAmount?: number;
+      grossAmount?: number;
+    }[];
+    totals?: { amountBeforeDiscount: number; discountAmount: number; netAmount: number; taxAmount: number; grossAmount: number };
+    taxBreakdown?: { taxDefinitionId: string; netAmount: number; taxAmount: number }[];
   };
   company: CompanyDocumentInfo;
   customer: { name: string; taxNumber?: string; fiscalNumber?: string; isVatRegistered?: boolean } | undefined;
@@ -126,10 +139,16 @@ export function buildDocumentDataFromResponse(opts: {
   currency?: string;
 }): InvoiceDocumentData {
   const resolvedLines: InvoiceLineData[] = opts.invoice.lines.map((l) => {
-    const enteredAmount = l.quantity * l.unitPrice * (1 - l.discountPercent / 100);
     const taxDef = l.taxDefinitionId ? opts.taxes.find((t) => t.id === l.taxDefinitionId) : undefined;
-    const computed = computeLine(enteredAmount, taxDef as TaxDefinitionResponse | undefined, opts.invoice.priceMode);
+    // The single-invoice GET returns the line amounts computed by the posting calculator; only an
+    // older/list response without them falls back to the preview computation.
+    const hasServerAmounts = l.netAmount != null && l.taxAmount != null && l.grossAmount != null;
+    const computed = hasServerAmounts
+      ? { net: l.netAmount as number, tax: l.taxAmount as number, gross: l.grossAmount as number }
+      : computeLine(l.quantity * l.unitPrice * (1 - l.discountPercent / 100), taxDef as TaxDefinitionResponse | undefined, opts.invoice.priceMode);
     return {
+      amountBeforeDiscount: l.amountBeforeDiscount ?? undefined,
+      discountAmount: l.discountAmount ?? undefined,
       description: l.description,
       quantity: l.quantity,
       unitPrice: l.unitPrice,
@@ -155,5 +174,15 @@ export function buildDocumentDataFromResponse(opts: {
     lines: resolvedLines,
     originalDocumentNumber: opts.originalDocumentNumber,
     currency: opts.currency ?? "EUR",
+    totals: opts.invoice.totals
+      ? {
+          amountBeforeDiscount: opts.invoice.totals.amountBeforeDiscount,
+          discountAmount: opts.invoice.totals.discountAmount,
+          net: opts.invoice.totals.netAmount,
+          tax: opts.invoice.totals.taxAmount,
+          gross: opts.invoice.totals.grossAmount,
+        }
+      : undefined,
+    taxBreakdown: opts.invoice.taxBreakdown?.map((t) => ({ taxDefinitionId: t.taxDefinitionId, net: t.netAmount, tax: t.taxAmount })),
   };
 }

@@ -136,4 +136,39 @@ public class DocumentLineCalculatorTests
         Assert.Equal(100m, result.NetAmount);
         Assert.Equal(118m, result.Gross);
     }
+
+    // Printed invoice line: 2 × 59.00 gross-inclusive at 18% with 10% rabat.
+    [Fact]
+    public void Amounts_GrossInclusiveWithDiscount_MatchesPosting()
+    {
+        var tax = Standard18();
+        var amounts = DocumentLineCalculator.Amounts(2m, 59m, 10m, tax, TaxService, PriceMode.GrossInclusive);
+        var posted = DocumentLineCalculator.Calculate(2m, 59m, 10m, NetAccountId, "x", tax, false, true, TaxService,
+            ReverseChargeInputVatAccountId, ReverseChargeOutputVatAccountId, PriceMode.GrossInclusive);
+
+        Assert.Equal(118m, amounts.AmountBeforeDiscount);
+        Assert.Equal(11.80m, amounts.DiscountAmount);
+        Assert.Equal(106.20m, amounts.GrossAmount);
+        Assert.Equal(posted.Gross, amounts.GrossAmount);
+        Assert.Equal(posted.NetAmount, amounts.NetAmount);
+        Assert.Equal(amounts.GrossAmount, amounts.NetAmount + amounts.TaxAmount);
+    }
+
+    [Fact]
+    public void Amounts_NetExclusiveWithDiscount_AddsVatOnTheDiscountedNet()
+    {
+        var amounts = DocumentLineCalculator.Amounts(1m, 100m, 25m, Standard18(), TaxService, PriceMode.NetExclusive);
+
+        Assert.Equal((100m, 25m, 75m, 13.50m, 88.50m),
+            (amounts.AmountBeforeDiscount, amounts.DiscountAmount, amounts.NetAmount, amounts.TaxAmount, amounts.GrossAmount));
+    }
+
+    [Fact]
+    public void Amounts_NoTax_NetEqualsGross()
+    {
+        var amounts = DocumentLineCalculator.Amounts(3m, 10m, 0m, null, TaxService);
+
+        Assert.Equal((30m, 0m, 30m, 0m, 30m),
+            (amounts.AmountBeforeDiscount, amounts.DiscountAmount, amounts.NetAmount, amounts.TaxAmount, amounts.GrossAmount));
+    }
 }

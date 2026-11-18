@@ -10091,9 +10091,10 @@ export class PakoApiClient {
     /**
      * @param from (optional) 
      * @param to (optional) 
+     * @param includeZero (optional) 
      * @return OK
      */
-    trialBalance(companyId: string, from: string | undefined, to: string | undefined): Promise<TrialBalanceLine[]> {
+    trialBalance(companyId: string, from: string | undefined, to: string | undefined, includeZero: boolean | undefined): Promise<TrialBalanceLine[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -10106,6 +10107,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'to' cannot be null.");
         else if (to !== undefined)
             url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (includeZero === null)
+            throw new globalThis.Error("The parameter 'includeZero' cannot be null.");
+        else if (includeZero !== undefined)
+            url_ += "includeZero=" + encodeURIComponent("" + includeZero) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -10140,9 +10145,10 @@ export class PakoApiClient {
     /**
      * @param from (optional) 
      * @param to (optional) 
+     * @param includeZero (optional) 
      * @return OK
      */
-    trialBalanceExport(companyId: string, from: string | undefined, to: string | undefined): Promise<FileResponse> {
+    trialBalanceExport(companyId: string, from: string | undefined, to: string | undefined, includeZero: boolean | undefined): Promise<FileResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance/export?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -10155,6 +10161,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'to' cannot be null.");
         else if (to !== undefined)
             url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (includeZero === null)
+            throw new globalThis.Error("The parameter 'includeZero' cannot be null.");
+        else if (includeZero !== undefined)
+            url_ += "includeZero=" + encodeURIComponent("" + includeZero) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -10194,9 +10204,10 @@ export class PakoApiClient {
     /**
      * @param from (optional) 
      * @param to (optional) 
+     * @param includeZero (optional) 
      * @return OK
      */
-    trialBalanceTotals(companyId: string, from: string | undefined, to: string | undefined): Promise<TrialBalanceTotals> {
+    trialBalanceTotals(companyId: string, from: string | undefined, to: string | undefined, includeZero: boolean | undefined): Promise<TrialBalanceTotals> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/ledger/trial-balance/totals?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -10209,6 +10220,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'to' cannot be null.");
         else if (to !== undefined)
             url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (includeZero === null)
+            throw new globalThis.Error("The parameter 'includeZero' cannot be null.");
+        else if (includeZero !== undefined)
+            url_ += "includeZero=" + encodeURIComponent("" + includeZero) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -11703,9 +11718,10 @@ export class PakoApiClient {
 
     /**
      * @param documentType (optional) 
+     * @param date (optional) 
      * @return OK
      */
-    preview(companyId: string, documentType: string | undefined): Promise<NumberPreviewResponse> {
+    preview(companyId: string, documentType: string | undefined, date: string | undefined): Promise<NumberPreviewResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/number-series/preview?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -11714,6 +11730,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'documentType' cannot be null.");
         else if (documentType !== undefined)
             url_ += "documentType=" + encodeURIComponent("" + documentType) + "&";
+        if (date === null)
+            throw new globalThis.Error("The parameter 'date' cannot be null.");
+        else if (date !== undefined)
+            url_ += "date=" + encodeURIComponent("" + date) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -30120,6 +30140,16 @@ export interface InviteUserRequest {
     [key: string]: any;
 }
 
+export interface InvoiceAmountTotals {
+    amountBeforeDiscount: number;
+    discountAmount: number;
+    netAmount: number;
+    taxAmount: number;
+    grossAmount: number;
+
+    [key: string]: any;
+}
+
 export interface InvoiceInstallmentsRequest {
     installmentIds: string[];
     issueDate?: string | undefined;
@@ -30141,6 +30171,11 @@ export interface InvoiceLineResponse {
     lotNumber?: string | undefined;
     salesOrderLineId?: string | undefined;
     deliveryLineId?: string | undefined;
+    amountBeforeDiscount?: number | undefined;
+    discountAmount?: number | undefined;
+    netAmount?: number | undefined;
+    taxAmount?: number | undefined;
+    grossAmount?: number | undefined;
 
     [key: string]: any;
 }
@@ -30163,6 +30198,16 @@ export interface InvoiceResponse {
     graceDays: number | undefined;
     warehouseId?: string | undefined;
     projectId?: string | undefined;
+    totals?: InvoiceAmountTotals | undefined;
+    taxBreakdown?: InvoiceTaxBreakdownLine[] | undefined;
+
+    [key: string]: any;
+}
+
+export interface InvoiceTaxBreakdownLine {
+    taxDefinitionId: string;
+    netAmount: number;
+    taxAmount: number;
 
     [key: string]: any;
 }
@@ -34805,6 +34850,7 @@ export interface VendorBalanceLine {
     debit: number;
     credit: number;
     closing: number;
+    balance?: number | undefined;
 
     [key: string]: any;
 }

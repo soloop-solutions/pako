@@ -27,7 +27,6 @@ export function JournalEntryDialog({ entry, accounts, journals, onClose }: Journ
         if (!open) onClose();
       }}
       title={entry ? intl.formatMessage({ id: "journalEntries.viewTitle" }, { reference }) : ""}
-      description={entry?.remarks}
       size="lg"
     >
       {entry && (
@@ -54,6 +53,10 @@ export function JournalEntryDialog({ entry, accounts, journals, onClose }: Journ
               <dd>
                 <Badge variant={documentStateBadgeVariant(entry.state)}>{stateKey in intl.messages ? intl.formatMessage({ id: stateKey }) : entry.state}</Badge>
               </dd>
+            </div>
+            <div className="col-span-2 sm:col-span-4">
+              <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalGrid.remarks" })}</dt>
+              <dd className="whitespace-pre-wrap">{entry.remarks ?? "-"}</dd>
             </div>
           </dl>
           {entry.lines.length === 0 ? (

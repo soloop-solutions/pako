@@ -311,7 +311,7 @@ export function InvoiceForm({
     }
     let cancelled = false;
     apiClient
-      .preview(companyId, documentTypeName)
+      .preview(companyId, documentTypeName, undefined)
       .then((result) => {
         if (!cancelled) setInvoiceNumber(result.number);
       })

@@ -8,6 +8,7 @@ using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Domain.Documents;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
 using Pako.Domain.Reconciliation;
@@ -139,7 +140,19 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        return Ok(ToResponse(invoice));
+        // The printed invoice shows per-line discount, net, VAT and total: computed here with the
+        // posting calculator so the print never does its own money math.
+        var taxIds = invoice.Lines.Where(l => l.TaxDefinitionId != null).Select(l => l.TaxDefinitionId!.Value).Distinct().ToList();
+        var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
+            .Include(t => t.RepartitionLines)
+            .Where(t => t.CompanyId == companyId && taxIds.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id);
+        DocumentLineAmounts LineAmounts(InvoiceLine line) => DocumentLineCalculator.Amounts(
+            line.Quantity, line.UnitPrice, line.DiscountPercent,
+            line.TaxDefinitionId is { } taxId ? taxDefinitionsById.GetValueOrDefault(taxId) : null,
+            _taxComputationService, invoice.PriceMode);
+
+        return Ok(ToResponse(invoice, lineAmounts: LineAmounts));
     }
 
     // A4 (v2 release): there is deliberately no DELETE route on this controller — a posted
@@ -1826,23 +1839,47 @@ public class InvoicesController : ControllerBase
             .ToDictionaryAsync(p => p.Id, p => p.Name);
     }
 
-    private static InvoiceResponse ToResponse(Invoice i, Dictionary<Guid, string>? partnerNames = null) => new(
-        i.Id,
-        i.PartnerId,
-        partnerNames?.GetValueOrDefault(i.PartnerId),
-        i.InvoiceNumber,
-        i.IssueDate,
-        i.DueDate,
-        i.State.ToString(),
-        i.DocumentType,
-        i.OriginalInvoiceId,
-        i.JournalEntryId,
-        i.Lines.Select(l => new InvoiceLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber,
-            l.SalesOrderLineId, l.DeliveryLineId)).ToList(),
-        i.InternalNotes,
-        i.PriceMode,
-        i.PaymentTermDays,
-        i.GraceDays,
-        i.WarehouseId,
-        i.ProjectId);
+    private static InvoiceLineResponse LineResponse(InvoiceLine l, DocumentLineAmounts? amounts) => new(
+        l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber,
+        l.SalesOrderLineId, l.DeliveryLineId,
+        amounts?.AmountBeforeDiscount, amounts?.DiscountAmount, amounts?.NetAmount, amounts?.TaxAmount, amounts?.GrossAmount);
+
+    private static InvoiceResponse ToResponse(
+        Invoice i, Dictionary<Guid, string>? partnerNames = null, Func<InvoiceLine, DocumentLineAmounts>? lineAmounts = null)
+    {
+        var amounts = lineAmounts is null ? null : i.Lines.ToDictionary(l => l.Id, lineAmounts);
+        InvoiceAmountTotals? totals = null;
+        List<InvoiceTaxBreakdownLine>? breakdown = null;
+        if (amounts is not null)
+        {
+            var sum = DocumentLineAmounts.Sum(amounts.Values);
+            totals = new InvoiceAmountTotals(sum.AmountBeforeDiscount, sum.DiscountAmount, sum.NetAmount, sum.TaxAmount, sum.GrossAmount);
+            breakdown = i.Lines
+                .Where(l => l.TaxDefinitionId != null)
+                .GroupBy(l => l.TaxDefinitionId!.Value)
+                .Select(g => new InvoiceTaxBreakdownLine(g.Key, g.Sum(l => amounts[l.Id].NetAmount), g.Sum(l => amounts[l.Id].TaxAmount)))
+                .ToList();
+        }
+
+        return new InvoiceResponse(
+            i.Id,
+            i.PartnerId,
+            partnerNames?.GetValueOrDefault(i.PartnerId),
+            i.InvoiceNumber,
+            i.IssueDate,
+            i.DueDate,
+            i.State.ToString(),
+            i.DocumentType,
+            i.OriginalInvoiceId,
+            i.JournalEntryId,
+            i.Lines.Select(l => LineResponse(l, amounts?.GetValueOrDefault(l.Id))).ToList(),
+            i.InternalNotes,
+            i.PriceMode,
+            i.PaymentTermDays,
+            i.GraceDays,
+            i.WarehouseId,
+            i.ProjectId,
+            totals,
+            breakdown);
+    }
 }

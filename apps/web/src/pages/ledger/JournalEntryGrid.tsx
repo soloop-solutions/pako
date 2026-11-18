@@ -1,12 +1,11 @@
 import * as RadixPopover from "@radix-ui/react-popover";
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useIntl } from "react-intl";
-import type { AccountResponse, EmployeeDetailResponse, JournalResponse, PartnerResponse, ProjectResponse } from "@pako/shared";
+import type { AccountResponse, CostCenterResponse, EmployeeDetailResponse, JournalResponse, PartnerResponse, ProjectResponse } from "@pako/shared";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useNumberPreview } from "@/hooks/useNumberPreview";
-import { fetchCostCenters, type CostCenterOption } from "@/api/cost-centers-client";
 import { ActionPasswordDialog } from "@/components/layout/ActionPasswordDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,8 +17,6 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { cn } from "@/lib/utils";
-import { setCostCentersMockActive } from "@/mocks/costCentersMockFlag";
-import { ensureAccountsMockWorkerStarted } from "@/mocks/mockInit";
 import { autoBalanceLastLine, computeTotals, toCents } from "@/pages/ledger/journal-grid/balance";
 import { isMultiCellBlock, parseClipboardBlock } from "@/pages/ledger/journal-grid/clipboard";
 import { DistributionEditor } from "@/pages/ledger/journal-grid/DistributionEditor";
@@ -59,7 +56,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   const [submitting, setSubmitting] = useState(false);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
   const { activeCompany } = useCompany();
-  const nextNumber = useNumberPreview(companyId, "JournalEntry");
+  const [savedCount, setSavedCount] = useState(0);
+  const nextNumber = useNumberPreview(companyId, "JournalEntry", { date, refreshKey: savedCount });
 
   const idCounter = useRef(0);
   function nextId(): string {
@@ -92,23 +90,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [projects, setProjects] = useState<ProjectResponse[]>([]);
   const [employees, setEmployees] = useState<EmployeeDetailResponse[]>([]);
-  const [costCenters, setCostCenters] = useState<CostCenterOption[]>([]);
-
-  // F9's cost-center picker is entirely mocked (see src/mocks/costCentersMockFlag.ts) — this
-  // screen owns the mock's activation lifecycle the same synchronous mount/unmount way F2/F3/F5/F6
-  // do (see accountsMockFlag.ts's header for the race this closes).
-  const [mockReady, setMockReady] = useState(false);
-  useEffect(() => {
-    setCostCentersMockActive(true);
-    let cancelled = false;
-    void ensureAccountsMockWorkerStarted().then(() => {
-      if (!cancelled) setMockReady(true);
-    });
-    return () => {
-      cancelled = true;
-      setCostCentersMockActive(false);
-    };
-  }, []);
+  const [costCenters, setCostCenters] = useState<CostCenterResponse[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,22 +135,30 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   }, [companyId]);
 
   useEffect(() => {
-    if (!mockReady) return;
     let cancelled = false;
-    fetchCostCenters(companyId)
+    apiClient
+      .listCostCenters(companyId)
       .then((result) => {
         if (!cancelled) setCostCenters(result);
       })
       .catch(() => {
-        // Same reasoning as partners above — this can also legitimately 404/refuse mid-flight if
-        // the screen unmounts and the cost-center mock deactivates before the request resolves.
+        // Same reasoning as partners above: an optional line field never blocks the grid.
       });
     return () => {
       cancelled = true;
     };
-  }, [companyId, mockReady]);
+  }, [companyId]);
 
-  const accountOptions = useMemo<PickerOption[]>(() => accounts.map((a) => ({ id: a.id, code: a.code, name: a.name })), [accounts]);
+  // Only accounts a manual line may use: the same rule the API applies on save
+  // (PostingRuleValidator.ValidateManualLineAccountEligibility, R02/R04) plus active accounts,
+  // so the picker never offers an account that is refused after the user clicks Save.
+  const accountOptions = useMemo<PickerOption[]>(
+    () =>
+      accounts
+        .filter((a) => a.isActive !== false && a.isPostable !== false && !a.isControl)
+        .map((a) => ({ id: a.id, code: a.code, name: a.name })),
+    [accounts],
+  );
   const partnerOptions = useMemo<PickerOption[]>(() => partners.map((p) => ({ id: p.id, name: p.name })), [partners]);
   const projectOptions = useMemo<PickerOption[]>(() => projects.map((p) => ({ id: p.id, code: p.code, name: p.name })), [projects]);
   const employeeOptions = useMemo<PickerOption[]>(() => employees.map((e) => ({ id: e.id, name: e.name })), [employees]);
@@ -418,6 +408,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           };
         }),
       });
+      // The number was reserved on create: move the preview on to the next one.
+      setSavedCount((count) => count + 1);
 
       if (!canApprove("accounting")) {
         toast.success(intl.formatMessage({ id: "journalGrid.savedAsDraft" }));

@@ -76,13 +76,16 @@ public class NumberSeriesController : ControllerBase
     [HttpGet("preview")]
     [RequireCompanyAccess]
     public async Task<ActionResult<NumberPreviewResponse>> Preview(
-        Guid companyId, [FromQuery] string documentType)
+        Guid companyId, [FromQuery] string documentType, [FromQuery] DateOnly? date = null)
     {
         if (string.IsNullOrWhiteSpace(documentType))
             return BadRequest("documentType query parameter is required.");
 
-        var year = DateTime.UtcNow.Year;
-        var number = await _numberSeries.PreviewNextAsync(companyId, documentType, year);
+        // With a document date the preview matches what create will reserve for that date
+        // (year-scoped and day-scoped patterns); without one it previews for today.
+        var number = date is { } documentDate
+            ? await _numberSeries.PreviewNextAsync(companyId, documentType, documentDate)
+            : await _numberSeries.PreviewNextAsync(companyId, documentType, DateTime.UtcNow.Year);
 
         return Ok(new NumberPreviewResponse(number, true));
     }

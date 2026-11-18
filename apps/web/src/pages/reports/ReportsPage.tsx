@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { AccountBalancesPanel } from "@/pages/ledger/AccountBalancesPanel";
 
 import { BalanceSheetTab } from "./BalanceSheetTab";
 import { CashFlowTab } from "./CashFlowTab";
@@ -48,6 +49,7 @@ type Tab =
   | "sales-book"
   | "purchase-book"
   | "general-ledger"
+  | "account-balances"
   | "monthly-pnl"
   | "cash-flow"
   | "equity"
@@ -75,6 +77,7 @@ export function Reports() {
     ...(isVatRegistered ? [{ key: "sales-book" as const, labelKey: "reports.salesBook" }] : []),
     ...(isVatRegistered ? [{ key: "purchase-book" as const, labelKey: "reports.purchaseBook" }] : []),
     { key: "general-ledger", labelKey: "reports.generalLedger" },
+    { key: "account-balances", labelKey: "reports.accountBalances" },
     { key: "monthly-pnl", labelKey: "reports.monthlyPnl" },
     { key: "cash-flow", labelKey: "reports.cashFlow" },
     { key: "equity", labelKey: "reports.equityStatement" },
@@ -164,6 +167,7 @@ export function Reports() {
       {tab === "general-ledger" && (
         <GeneralLedgerTab report={generalLedgerReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
       )}
+      {tab === "account-balances" && <AccountBalancesPanel companyId={activeCompany.id} />}
       {tab === "monthly-pnl" && (
         <MonthlyPnlTab report={monthlyPnlReport} companyName={activeCompany.name} accountingLockDate={accountingLockDate} />
       )}

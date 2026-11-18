@@ -120,6 +120,23 @@ public class NumberSeriesControllerTests : IAsyncLifetime
         Assert.Equal(firstResponse.Number, secondResponse.Number);
     }
 
+    // A back-dated document previews against its own year: the year-scoped Invoice pattern
+    // ({seq:D2}/{yyyy}) must show the document year, not the current one.
+    [Fact]
+    public async Task Preview_WithDate_UsesTheDocumentYear()
+    {
+        var db = await NewContextAsync();
+        var companyId = Guid.NewGuid();
+        db.Companies.Add(new Company { Id = companyId, Name = "Test Co" });
+        await db.SaveChangesAsync();
+        var controller = NewController(db);
+
+        var result = await controller.Preview(companyId, "Invoice", new DateOnly(2024, 3, 15));
+
+        var response = Assert.IsType<NumberPreviewResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.EndsWith("2024", response.Number);
+    }
+
     // B5: a hand-entered number is accepted if free.
     [Fact]
     public async Task OverrideNumber_ToFreeNumber_Succeeds()

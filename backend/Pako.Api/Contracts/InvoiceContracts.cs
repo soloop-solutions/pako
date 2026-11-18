@@ -78,7 +78,14 @@ public record InvoiceLineResponse(
     decimal UnitFactor = 1m,
     string? LotNumber = null,
     Guid? SalesOrderLineId = null,
-    Guid? DeliveryLineId = null);
+    Guid? DeliveryLineId = null,
+    // Server-computed line amounts for the printed document (DocumentLineCalculator.Amounts). Set on
+    // the single-invoice GET; null in lists.
+    decimal? AmountBeforeDiscount = null,
+    decimal? DiscountAmount = null,
+    decimal? NetAmount = null,
+    decimal? TaxAmount = null,
+    decimal? GrossAmount = null);
 
 public record InvoiceResponse(
     Guid Id,
@@ -97,4 +104,12 @@ public record InvoiceResponse(
     int? PaymentTermDays,
     int? GraceDays,
     Guid? WarehouseId = null,
-    Guid? ProjectId = null);
+    Guid? ProjectId = null,
+    // Document totals and the VAT breakdown per tax code for the printed invoice, from the same
+    // server-computed line amounts. Set on the single-invoice GET; null in lists.
+    InvoiceAmountTotals? Totals = null,
+    List<InvoiceTaxBreakdownLine>? TaxBreakdown = null);
+
+public record InvoiceAmountTotals(decimal AmountBeforeDiscount, decimal DiscountAmount, decimal NetAmount, decimal TaxAmount, decimal GrossAmount);
+
+public record InvoiceTaxBreakdownLine(Guid TaxDefinitionId, decimal NetAmount, decimal TaxAmount);
