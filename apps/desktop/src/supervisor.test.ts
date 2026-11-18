@@ -44,6 +44,19 @@ describe('supervisor', () => {
     expect(r.apiUrl).toBe('http://127.0.0.1:6000')
   })
 
+  it('Supervisor_StopsPostgresEvenWhenApiStopThrows', async () => {
+    const log: string[] = []
+    const api = apiChild(log)
+    api.stop = async () => {
+      throw new Error('api stop failed')
+    }
+    const s = new Supervisor({ pg: fakeChild('pg', log), api })
+    await s.startAll()
+    log.length = 0
+    await expect(s.stopAll()).rejects.toThrow('api stop failed')
+    expect(log).toEqual(['stop:pg'])
+  })
+
   it('Supervisor_StopsApiBeforePostgres', async () => {
     const log: string[] = []
     const s = new Supervisor({ pg: fakeChild('pg', log), api: apiChild(log) })

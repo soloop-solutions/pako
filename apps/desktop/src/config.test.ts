@@ -29,7 +29,8 @@ describe('config', () => {
     const second = await loadOrCreateConfig(paths, { fs, safeStorage: reversing })
     expect(second).toEqual(first)
     expect(first.jwtKey.length).toBeGreaterThanOrEqual(64)
-    expect(first.launchSecret).toMatch(/^[0-9a-f]+$/)
+    expect('launchSecret' in first).toBe(false)
+    expect(fs.files.get(paths.configFile)!).not.toContain('launchSecret')
     expect(first.retentionDays).toBeGreaterThan(0)
     const raw = fs.files.get(paths.configFile)!
     expect(raw).not.toContain(first.jwtKey)

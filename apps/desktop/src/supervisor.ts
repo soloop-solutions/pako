@@ -40,8 +40,23 @@ export class Supervisor {
 
   async stopAll(): Promise<void> {
     this.stopping = true
-    await this.deps.api.stop()
-    await this.deps.pg.stop()
+    let first: unknown
+    let failed = false
+    try {
+      await this.deps.api.stop()
+    } catch (err) {
+      failed = true
+      first = err
+    }
+    try {
+      await this.deps.pg.stop()
+    } catch (err) {
+      if (!failed) {
+        failed = true
+        first = err
+      }
+    }
+    if (failed) throw first
   }
 
   private async handleExit(name: 'pg' | 'api', code: number | null): Promise<void> {

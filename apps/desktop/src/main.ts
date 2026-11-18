@@ -1,13 +1,20 @@
-import { app, BrowserWindow, dialog, ipcMain, safeStorage, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell } from 'electron'
+import { randomBytes } from 'node:crypto'
 import nodePath from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { ApiProcess, buildApiEnv } from './api'
 import { loadOrCreateConfig } from './config'
 import { IPC } from './ipcChannels'
-import { buildLaunchCookie, isAllowedNavigation, isExternalHttps } from './navPolicy'
+import {
+  buildLaunchCookie,
+  isAllowedNavigation,
+  isAllowedRequest,
+  isExternalHttps,
+} from './navPolicy'
 import { resolvePaths } from './paths'
 import { getFreePort } from './ports'
 import { PostgresProcess } from './postgres'
+import { SHUTDOWN_TIMEOUT_MS, ShutdownController } from './shutdown'
 import { setupSingleInstance } from './singleInstance'
 import { createLoggedSpawn } from './spawn'
 import { Supervisor } from './supervisor'
@@ -18,8 +25,6 @@ let mainWindow: BrowserWindow | undefined
 let splashWindow: BrowserWindow | undefined
 let supervisor: Supervisor | undefined
 let logDir = ''
-let quitting = false
-let stopped = false
 
 function focusWindow(): void {
   const win = mainWindow ?? splashWindow
@@ -28,11 +33,15 @@ function focusWindow(): void {
   win.focus()
 }
 
+function devOverride(name: string): string | undefined {
+  return app.isPackaged ? undefined : process.env[name]
+}
+
 function resolveBinaries(): { apiExe: string; pgBin: string } {
   const exe = process.platform === 'win32' ? 'Pako.Api.exe' : 'Pako.Api'
   return {
-    apiExe: process.env.PAKO_DESKTOP_API_EXE ?? nodePath.join(process.resourcesPath, 'api', exe),
-    pgBin: process.env.PAKO_DESKTOP_PG_BIN ?? nodePath.join(process.resourcesPath, 'pg', 'bin'),
+    apiExe: devOverride('PAKO_DESKTOP_API_EXE') ?? nodePath.join(process.resourcesPath, 'api', exe),
+    pgBin: devOverride('PAKO_DESKTOP_PG_BIN') ?? nodePath.join(process.resourcesPath, 'pg', 'bin'),
   }
 }
 
@@ -56,6 +65,12 @@ function lockNavigation(win: BrowserWindow, apiOrigin: string): void {
     event.preventDefault()
     if (isExternalHttps(url)) void shell.openExternal(url)
   })
+  win.webContents.on('will-redirect', (event, url) => {
+    if (!isAllowedNavigation(url, apiOrigin)) event.preventDefault()
+  })
+  win.webContents.on('will-frame-navigate', (event) => {
+    if (!isAllowedNavigation(event.url, apiOrigin)) event.preventDefault()
+  })
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (isExternalHttps(url)) void shell.openExternal(url)
     return { action: 'deny' }
@@ -66,6 +81,10 @@ async function createMainWindow(apiUrl: string, launchSecret: string): Promise<B
   const apiOrigin = new URL(apiUrl).origin
   const ses = session.defaultSession
   ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+  ses.setSpellCheckerEnabled(false)
+  ses.webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: !isAllowedRequest(details.url, apiOrigin) })
+  })
   await ses.cookies.set(buildLaunchCookie(apiOrigin, launchSecret))
 
   const win = new BrowserWindow({
@@ -77,6 +96,7 @@ async function createMainWindow(apiUrl: string, launchSecret: string): Promise<B
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      devTools: !app.isPackaged,
     },
   })
   lockNavigation(win, apiOrigin)
@@ -92,7 +112,7 @@ async function createMainWindow(apiUrl: string, launchSecret: string): Promise<B
   return win
 }
 
-async function fatalError(message: string): Promise<void> {
+async function showFatal(message: string): Promise<void> {
   const { response } = await dialog.showMessageBox({
     type: 'error',
     title: 'PAKO',
@@ -105,11 +125,18 @@ async function fatalError(message: string): Promise<void> {
   if (response === 0 && logDir) await shell.openPath(logDir)
 }
 
-async function stopChildren(): Promise<void> {
-  if (stopped || !supervisor) return
-  stopped = true
-  await supervisor.stopAll()
-}
+const shutdown = new ShutdownController({
+  stopAll: async () => {
+    if (supervisor) await supervisor.stopAll()
+  },
+  showFatal,
+  quit: () => app.quit(),
+  delay: () =>
+    new Promise<void>((resolve) => {
+      setTimeout(resolve, SHUTDOWN_TIMEOUT_MS).unref()
+    }),
+  log: (message) => console.error(`[shutdown] ${message}`),
+})
 
 function registerIpc(backupDir: string, retentionDays: number): void {
   ipcMain.on(IPC.version, (event) => {
@@ -130,9 +157,10 @@ function registerIpc(backupDir: string, retentionDays: number): void {
 }
 
 async function start(): Promise<void> {
-  const paths = resolvePaths(process.env.PAKO_DESKTOP_DATA_DIR ?? app.getPath('userData'))
+  const paths = resolvePaths(devOverride('PAKO_DESKTOP_DATA_DIR') ?? app.getPath('userData'))
   logDir = paths.logDir
   const config = await loadOrCreateConfig(paths, { safeStorage })
+  const launchSecret = randomBytes(32).toString('hex')
   registerIpc(config.backupDir, config.retentionDays)
 
   const { apiExe, pgBin } = resolveBinaries()
@@ -154,45 +182,34 @@ async function start(): Promise<void> {
       pgPort,
       pgPassword: config.pgPassword,
       jwtKey: config.jwtKey,
-      launchSecret: config.launchSecret,
+      launchSecret,
     }),
     spawn,
   })
   supervisor = new Supervisor({ pg, api })
   supervisor.on('child-exited', (e) => {
-    if (quitting) return
-    void fatalError(`The ${e.name === 'pg' ? 'database' : 'API'} process stopped unexpectedly.`).then(
-      () => app.quit(),
-    )
+    void shutdown.fail(`The ${e.name === 'pg' ? 'database' : 'API'} process stopped unexpectedly.`)
   })
 
   splashWindow = createSplash()
   await pg.initIfNeeded()
   const { apiUrl } = await supervisor.startAll()
-  mainWindow = await createMainWindow(apiUrl, config.launchSecret)
+  mainWindow = await createMainWindow(apiUrl, launchSecret)
+  shutdown.markStarted()
 }
 
 if (setupSingleInstance(app, focusWindow)) {
-  app.on('window-all-closed', () => app.quit())
-
-  app.on('before-quit', (event) => {
-    quitting = true
-    if (stopped || !supervisor) return
-    event.preventDefault()
-    void stopChildren()
-      .catch(() => {})
-      .finally(() => app.quit())
-  })
+  app.on('window-all-closed', () => shutdown.onWindowAllClosed())
+  app.on('before-quit', (event) => shutdown.onBeforeQuit(event))
 
   void app.whenReady().then(async () => {
+    if (app.isPackaged) Menu.setApplicationMenu(null)
     try {
       await start()
     } catch (err) {
+      await shutdown.fail(err instanceof Error ? err.message : String(err))
       splashWindow?.close()
       splashWindow = undefined
-      await stopChildren().catch(() => {})
-      await fatalError(err instanceof Error ? err.message : String(err))
-      app.quit()
     }
   })
 }

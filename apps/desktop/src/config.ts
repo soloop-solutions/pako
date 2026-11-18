@@ -5,7 +5,6 @@ import type { DesktopPaths } from './paths'
 export interface DesktopConfig {
   jwtKey: string
   pgPassword: string
-  launchSecret: string
   backupDir: string
   retentionDays: number
 }
@@ -33,7 +32,6 @@ interface StoredConfig {
   encrypted: boolean
   jwtKey: string
   pgPassword: string
-  launchSecret: string
   backupDir: string
   retentionDays: number
 }
@@ -78,7 +76,6 @@ export async function loadOrCreateConfig(
     return {
       jwtKey: open(stored.jwtKey, stored.encrypted),
       pgPassword: open(stored.pgPassword, stored.encrypted),
-      launchSecret: open(stored.launchSecret, stored.encrypted),
       backupDir: stored.backupDir,
       retentionDays: stored.retentionDays,
     }
@@ -87,7 +84,6 @@ export async function loadOrCreateConfig(
   const created: DesktopConfig = {
     jwtKey: randomHex(48),
     pgPassword: randomHex(24),
-    launchSecret: randomHex(32),
     backupDir: paths.backupsDefault,
     retentionDays: 30,
   }
@@ -95,7 +91,6 @@ export async function loadOrCreateConfig(
     encrypted: useEncryption,
     jwtKey: seal(created.jwtKey),
     pgPassword: seal(created.pgPassword),
-    launchSecret: seal(created.launchSecret),
     backupDir: created.backupDir,
     retentionDays: created.retentionDays,
   }
