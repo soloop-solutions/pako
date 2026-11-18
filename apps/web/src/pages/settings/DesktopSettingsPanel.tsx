@@ -24,7 +24,7 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function Panel({ bridge }: { bridge: DesktopBridge }) {
+function Panel({ bridge, canManage }: { bridge: DesktopBridge; canManage: boolean }) {
   const intl = useIntl();
   const confirm = useConfirm();
   const [settings, setSettings] = useState<BackupSettings | null>(null);
@@ -48,7 +48,14 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
     void refresh();
   }, [refresh]);
 
-  const fmt = (iso: string) => intl.formatDate(iso, { dateStyle: "medium", timeStyle: "short" });
+  const fmt = (iso: string) => {
+    if (Number.isNaN(new Date(iso).getTime())) return iso;
+    try {
+      return intl.formatDate(iso, { dateStyle: "medium", timeStyle: "short" });
+    } catch {
+      return iso;
+    }
+  };
 
   async function backupNow() {
     setBusy(true);
@@ -73,7 +80,9 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
     setNotice(null);
     try {
       const result = await bridge.restoreFromFile();
-      if (!result.ok) {
+      if (!result.ok && result.error === "cancelled") {
+        return;
+      } else if (!result.ok) {
         setNotice({ tone: "error", text: intl.formatMessage({ id: "desktop.settings.restoreFailed" }, { error: result.error }) });
       } else if (!result.verify.ok) {
         setNotice({
@@ -92,8 +101,14 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
   }
 
   async function changeDir() {
-    const dir = await bridge.chooseBackupDir();
-    if (dir) await refresh();
+    setNotice(null);
+    try {
+      const dir = await bridge.chooseBackupDir();
+      if (dir) await refresh();
+    } catch (err) {
+      const text = err instanceof Error ? err.message : String(err);
+      setNotice({ tone: "error", text: intl.formatMessage({ id: "desktop.settings.changeFailed" }, { error: text }) });
+    }
   }
 
   const last = settings?.lastBackupAt ?? null;
@@ -148,9 +163,11 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
             <dt className="text-muted-foreground">{intl.formatMessage({ id: "desktop.settings.folder" })}</dt>
             <dd className="truncate font-mono text-xs">{settings.dir}</dd>
             <dd>
-              <Button type="button" variant="outline" size="sm" onClick={() => void changeDir()}>
-                {intl.formatMessage({ id: "desktop.settings.change" })}
-              </Button>
+              {canManage && (
+                <Button type="button" variant="outline" size="sm" onClick={() => void changeDir()}>
+                  {intl.formatMessage({ id: "desktop.settings.change" })}
+                </Button>
+              )}
             </dd>
             <dt className="text-muted-foreground">{intl.formatMessage({ id: "desktop.settings.retention" })}</dt>
             <dd className="col-span-2">{intl.formatMessage({ id: "desktop.settings.retentionDays" }, { days: settings.retentionDays })}</dd>
@@ -162,19 +179,21 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
           <Button type="button" disabled={busy} onClick={() => void backupNow()}>
             {busy ? intl.formatMessage({ id: "desktop.settings.backingUp" }) : intl.formatMessage({ id: "desktop.settings.backupNow" })}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={busy}
-            onClick={() =>
-              confirm(intl.formatMessage({ id: "desktop.settings.restoreConfirm" }), () => void restore(), {
-                confirmLabel: intl.formatMessage({ id: "desktop.settings.restoreChoose" }),
-                destructive: true,
-              })
-            }
-          >
-            {intl.formatMessage({ id: "desktop.settings.restore" })}
-          </Button>
+          {canManage && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() =>
+                confirm(intl.formatMessage({ id: "desktop.settings.restoreConfirm" }), () => void restore(), {
+                  confirmLabel: intl.formatMessage({ id: "desktop.settings.restoreChoose" }),
+                  destructive: true,
+                })
+              }
+            >
+              {intl.formatMessage({ id: "desktop.settings.restore" })}
+            </Button>
+          )}
         </div>
         <div className="flex flex-col gap-1">
           <h4 className="text-sm font-medium">{intl.formatMessage({ id: "desktop.settings.list" })}</h4>
@@ -198,8 +217,8 @@ function Panel({ bridge }: { bridge: DesktopBridge }) {
   );
 }
 
-export function DesktopSettingsPanel() {
+export function DesktopSettingsPanel({ canManage }: { canManage: boolean }) {
   const bridge = getDesktopBridge();
   if (!bridge) return null;
-  return <Panel bridge={bridge} />;
+  return <Panel bridge={bridge} canManage={canManage} />;
 }

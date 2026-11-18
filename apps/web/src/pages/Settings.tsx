@@ -75,11 +75,11 @@ export function Settings() {
         </CardContent>
       </Card>
 
-      <DesktopSettingsPanel />
+      <DesktopSettingsPanel canManage={hasSettingsAccess} />
 
       <DesktopLicensePanel />
 
-      <DesktopRecoveryCodePanel />
+      {hasSettingsAccess && <DesktopRecoveryCodePanel />}
 
       {/* Business types: the company's type and the packs it uses. */}
       {activeCompany && hasSettingsAccess && <BusinessTypeSettings companyId={activeCompany.id} />}

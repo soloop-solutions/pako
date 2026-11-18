@@ -22,11 +22,11 @@ function setBridge() {
   (window as unknown as { pakoDesktop?: unknown }).pakoDesktop = bridge;
 }
 
-function renderPanel() {
+function renderPanel(canManage = true) {
   return render(
     <IntlProviderWrapper>
       <ConfirmProvider>
-        <DesktopSettingsPanel />
+        <DesktopSettingsPanel canManage={canManage} />
       </ConfirmProvider>
     </IntlProviderWrapper>,
   );
@@ -122,5 +122,63 @@ describe("DesktopSettingsPanel", () => {
     renderPanel();
     await screen.findByText("/b");
     expect(screen.queryByText(/last automatic backup failed/i)).not.toBeInTheDocument();
+  });
+
+  it("DesktopSettings_WithoutSettingsAccess_HidesRestoreAndFolderChange_KeepsBackupAndList", async () => {
+    setBridge();
+    renderPanel(false);
+    expect(await screen.findByText("/Users/a/PAKO Backups")).toBeInTheDocument();
+    expect(screen.getByText("pako-2026-11-10.bak")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Back up now" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Restore from file" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
+  });
+
+  it("DesktopSettings_WithSettingsAccess_ShowsRestoreAndFolderChange", async () => {
+    setBridge();
+    renderPanel(true);
+    await screen.findByText("/Users/a/PAKO Backups");
+    expect(screen.getByRole("button", { name: "Restore from file" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Change" })).toBeInTheDocument();
+  });
+
+  it("DesktopSettings_CancelledRestore_IsASilentNoOp", async () => {
+    setBridge();
+    bridge.restoreFromFile.mockResolvedValue({ ok: false, error: "cancelled" });
+    renderPanel();
+    await screen.findByText("/Users/a/PAKO Backups");
+    fireEvent.click(screen.getByRole("button", { name: "Restore from file" }));
+    await act(async () => {
+      fireEvent.click(await screen.findByRole("button", { name: "Choose file" }));
+    });
+    await waitFor(() => expect(bridge.restoreFromFile).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Restore from file" })).toBeEnabled());
+    expect(screen.queryByText(/Restore failed/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("DesktopSettings_ChangeFolderFailure_ShowsAnError", async () => {
+    setBridge();
+    bridge.chooseBackupDir.mockRejectedValue(new Error("PAKO cannot write to this folder. Choose another one."));
+    renderPanel();
+    await screen.findByText("/Users/a/PAKO Backups");
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(await screen.findByText(/PAKO cannot write to this folder/)).toBeInTheDocument();
+  });
+
+  it("DesktopSettings_MalformedDates_DoNotBlankThePanel", async () => {
+    setBridge();
+    bridge.listBackups.mockResolvedValue([{ ...info, createdAt: "not-a-date" }]);
+    bridge.getBackupSettings.mockResolvedValue({ dir: "/b", retentionDays: 30, lastBackupAt: "garbage" });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      renderPanel();
+      expect(await screen.findByText("/b")).toBeInTheDocument();
+      expect(screen.getByText("pako-2026-11-10.bak")).toBeInTheDocument();
+      expect(screen.queryByText(/Invalid Date/)).not.toBeInTheDocument();
+      expect(screen.getByText("garbage")).toBeInTheDocument();
+    } finally {
+      errors.mockRestore();
+    }
   });
 });

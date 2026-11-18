@@ -1795,6 +1795,7 @@ export const en: Record<string, string> = {
   "desktop.recoveryCode.shownOnce": "This is your new recovery code. It is shown only once, and every earlier code no longer works. Print it or write it down and keep it somewhere safe.",
   "desktop.recoveryCode.error": "A new recovery code could not be generated. Check the password and try again.",
   "desktop.settings.autoBackupFailed": "The last automatic backup failed ({date}): {error}. Back up now, or check the backup folder.",
+  "desktop.settings.changeFailed": "The backup folder was not changed: {error}",
 };
 
 export const sq: Record<string, string> = {
@@ -3574,6 +3575,7 @@ export const sq: Record<string, string> = {
   "desktop.recoveryCode.shownOnce": "Ky është kodi juaj i ri i rikuperimit. Shfaqet vetëm një herë dhe asnjë kod i mëparshëm nuk vlen më. Printojeni ose shkruajeni dhe mbajeni në vend të sigurt.",
   "desktop.recoveryCode.error": "Nuk u krijua dot një kod i ri rikuperimi. Kontrolloni fjalëkalimin dhe provoni përsëri.",
   "desktop.settings.autoBackupFailed": "Kopja e fundit automatike rezervë dështoi ({date}): {error}. Bëni kopjen tani ose kontrolloni dosjen e kopjeve.",
+  "desktop.settings.changeFailed": "Dosja e kopjeve rezervë nuk u ndryshua: {error}",
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
