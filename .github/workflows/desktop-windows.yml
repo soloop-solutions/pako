@@ -1,0 +1,34 @@
+name: Desktop Windows installer
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Locate Visual C++ runtime
+        shell: pwsh
+        run: |
+          $dir = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022\*\VC\Redist\MSVC\*\x64\Microsoft.VC143.CRT" -Directory | Select-Object -Last 1
+          if (-not $dir) { throw "Microsoft.VC143.CRT not found" }
+          "PAKO_VCRUNTIME_DIR=$($dir.FullName)" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:desktop
+        env:
+          PAKO_ALLOW_DEV_LICENSE_KEY: "1"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PAKO-Setup-dev-unsigned
+          path: apps/desktop/dist/PAKO-Setup-*.exe
+          if-no-files-found: error
+          retention-days: 7
