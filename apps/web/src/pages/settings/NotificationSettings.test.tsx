@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import type { NotificationSettingResponse, SaveNotificationSettingsRequest } from "@pako/shared";
+import type { NotificationSettingResponse, SaveNotificationSettingsRequest, TestEmailResponse } from "@pako/shared";
 
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
@@ -18,6 +18,8 @@ const saveMock = vi.fn(async (_companyId: string, body: SaveNotificationSettings
   settings = body.settings;
   return settings;
 });
+
+const testMock = vi.fn<(companyId: string) => Promise<TestEmailResponse>>(async () => ({ recipient: "owner@co.test", sent: true, mode: "Api", error: undefined }));
 
 vi.mock("@/api/client", async () => {
   const actual = await vi.importActual<typeof import("@/api/client")>("@/api/client");
@@ -45,6 +47,7 @@ vi.mock("@/api/client", async () => {
         pageSize: 200,
       }),
       retryNotification: vi.fn(async () => undefined),
+      sendCompanyTestEmail: (id: string) => testMock(id),
     },
   };
 });
@@ -85,5 +88,22 @@ describe("NotificationSettings", () => {
     expect(await screen.findByText("arta@x.test")).toBeInTheDocument();
     expect(screen.getByText("SMTP down")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("sends a test email and says what happened", async () => {
+    renderCard();
+    fireEvent.click(await screen.findByRole("button", { name: "Send test email" }));
+    expect(await screen.findByTestId("notifications-test-result")).toHaveTextContent("Test email sent to owner@co.test.");
+    expect(testMock).toHaveBeenCalledWith(companyId);
+
+    testMock.mockResolvedValueOnce({ recipient: "owner@co.test", sent: false, mode: "Api", error: "Email API answered 401: bad key" });
+    fireEvent.click(screen.getByRole("button", { name: "Send test email" }));
+    await waitFor(() =>
+      expect(screen.getByTestId("notifications-test-result")).toHaveTextContent("was not sent: Email API answered 401: bad key"),
+    );
+
+    testMock.mockResolvedValueOnce({ recipient: "owner@co.test", sent: true, mode: "Log", error: undefined });
+    fireEvent.click(screen.getByRole("button", { name: "Send test email" }));
+    await waitFor(() => expect(screen.getByTestId("notifications-test-result")).toHaveTextContent("log-only mode"));
   });
 });

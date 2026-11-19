@@ -138,24 +138,7 @@ public class DashboardController : ControllerBase
         return File(bytes, DashboardPdfRenderer.PdfContentType, $"dashboard-{from:yyyyMMdd}-{to:yyyyMMdd}.pdf");
     }
 
-    private static byte[]? LogoBytes(string? logoUrl)
-    {
-        const string marker = ";base64,";
-        if (logoUrl is null || !logoUrl.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
-            || logoUrl.StartsWith("data:image/svg", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-        var at = logoUrl.IndexOf(marker, StringComparison.Ordinal);
-        try
-        {
-            return at < 0 ? null : Convert.FromBase64String(logoUrl[(at + marker.Length)..]);
-        }
-        catch (FormatException)
-        {
-            return null;
-        }
-    }
+    private static byte[]? LogoBytes(string? logoUrl) => CompanyLogo.Bytes(logoUrl);
 
     private async Task<DashboardLayoutResponse> LoadWidgetsAsync(Guid companyId)
     {

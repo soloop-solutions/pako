@@ -1845,4 +1845,56 @@ Porositë tuaja në portal: {link}</value></data>
   <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Lloji i dokumentit duhet të jetë "Buy" ose "Sell".</value></data>
   <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Muaji duhet të jetë ndërmjet 1 dhe 12.</value></data>
   <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Viti duhet të jetë ndërmjet 2000 dhe 2100.</value></data>
+  <data name="InvoiceEmailNotPosted" xml:space="preserve"><value>Vetëm një dokument i postuar mund të dërgohet me email. Postojeni fillimisht, pastaj dërgojeni.</value></data>
+  <data name="InvoiceEmailNoRecipient" xml:space="preserve"><value>{0} nuk ka adresë emaili. Shtojeni te klienti, ose shkruani adresën ku do të dërgohet.</value></data>
+  <data name="InvoiceEmailTooManyRecipients" xml:space="preserve"><value>Dërgoni te më së shumti {0} adresa njëherësh.</value></data>
+  <data name="InvoiceEmailInvalidAddress" xml:space="preserve"><value>"{0}" nuk është adresë emaili e vlefshme.</value></data>
+  <data name="InvoiceEmailMessageTooLong" xml:space="preserve"><value>Mesazhi mund të ketë më së shumti {0} karaktere.</value></data>
+  <data name="TestEmailNoAddress" xml:space="preserve"><value>Llogaria juaj nuk ka adresë emaili ku të dërgohet testi.</value></data>
+  <data name="Email_InvoiceSent_Subject" xml:space="preserve"><value>{company}: {document} {number}</value></data>
+  <data name="Email_InvoiceSent_Body" xml:space="preserve"><value>I/E nderuar {customer},
+
+{message}{company} ju dërgoi {document} {number} në vlerë {total}, me afat pagese {dueDate}. E gjeni të bashkëngjitur si PDF.
+
+Kjo adresë nuk pranon përgjigje; për pyetje kontaktoni drejtpërdrejt {company}.</value></data>
+  <data name="Email_TestEmail_Subject" xml:space="preserve"><value>Email testues nga PAKO</value></data>
+  <data name="Email_TestEmail_Body" xml:space="preserve"><value>Ky është një email testues nga PAKO për {company}.
+
+Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></data>
+  <data name="Pdf_Invoice_Title_Invoice" xml:space="preserve"><value>Faturë</value></data>
+  <data name="Pdf_Invoice_Title_CreditNote" xml:space="preserve"><value>Notë kreditore</value></data>
+  <data name="Pdf_Invoice_Title_DebitNote" xml:space="preserve"><value>Notë debitore</value></data>
+  <data name="Pdf_Invoice_Title_DownPayment" xml:space="preserve"><value>Faturë parapagimi</value></data>
+  <data name="Pdf_Invoice_Title_SalesReturn" xml:space="preserve"><value>Kthim shitjeje</value></data>
+  <data name="Pdf_Invoice_Title_Proforma" xml:space="preserve"><value>Faturë proforma</value></data>
+  <data name="Pdf_Invoice_Number" xml:space="preserve"><value>Nr.</value></data>
+  <data name="Pdf_Invoice_Draft" xml:space="preserve"><value>Draft — ende pa numër</value></data>
+  <data name="Pdf_Invoice_NotPosted" xml:space="preserve"><value>E papostuar</value></data>
+  <data name="Pdf_Invoice_Cancelled" xml:space="preserve"><value>E anuluar</value></data>
+  <data name="Pdf_Invoice_VatNumber" xml:space="preserve"><value>Nr. TVSH</value></data>
+  <data name="Pdf_Invoice_FiscalNumber" xml:space="preserve"><value>Nr. fiskal</value></data>
+  <data name="Pdf_Invoice_BusinessNumber" xml:space="preserve"><value>Nr. i biznesit</value></data>
+  <data name="Pdf_Invoice_BillTo" xml:space="preserve"><value>Faturuar për</value></data>
+  <data name="Pdf_Invoice_IssueDate" xml:space="preserve"><value>Data e lëshimit</value></data>
+  <data name="Pdf_Invoice_DueDate" xml:space="preserve"><value>Afati i pagesës</value></data>
+  <data name="Pdf_Invoice_PaymentTerms" xml:space="preserve"><value>Kushtet e pagesës</value></data>
+  <data name="Pdf_Invoice_NetDays" xml:space="preserve"><value>{0} ditë</value></data>
+  <data name="Pdf_Invoice_Currency" xml:space="preserve"><value>Valuta</value></data>
+  <data name="Pdf_Invoice_OriginalRef" xml:space="preserve"><value>Dokumenti origjinal</value></data>
+  <data name="Pdf_Invoice_Col_Description" xml:space="preserve"><value>Përshkrimi</value></data>
+  <data name="Pdf_Invoice_Col_Quantity" xml:space="preserve"><value>Sasia</value></data>
+  <data name="Pdf_Invoice_Col_UnitPrice" xml:space="preserve"><value>Çmimi njësi</value></data>
+  <data name="Pdf_Invoice_Col_Discount" xml:space="preserve"><value>Rabati</value></data>
+  <data name="Pdf_Invoice_Col_Vat" xml:space="preserve"><value>TVSH</value></data>
+  <data name="Pdf_Invoice_Col_VatAmount" xml:space="preserve"><value>Vlera e TVSH</value></data>
+  <data name="Pdf_Invoice_Col_Total" xml:space="preserve"><value>Totali</value></data>
+  <data name="Pdf_Invoice_AmountBeforeDiscount" xml:space="preserve"><value>Vlera para rabatit</value></data>
+  <data name="Pdf_Invoice_TotalDiscount" xml:space="preserve"><value>Rabati</value></data>
+  <data name="Pdf_Invoice_Subtotal" xml:space="preserve"><value>Nëntotali (neto)</value></data>
+  <data name="Pdf_Invoice_TotalVat" xml:space="preserve"><value>TVSH gjithsej</value></data>
+  <data name="Pdf_Invoice_GrandTotal" xml:space="preserve"><value>Totali për pagesë</value></data>
+  <data name="Pdf_Invoice_Notes" xml:space="preserve"><value>Shënime</value></data>
+  <data name="Pdf_Invoice_PaymentInfo" xml:space="preserve"><value>Pagesa</value></data>
+  <data name="Pdf_Invoice_Bank" xml:space="preserve"><value>Banka</value></data>
+  <data name="Pdf_Invoice_GeneratedBy" xml:space="preserve"><value>Gjeneruar nga PAKO</value></data>
 </root>

@@ -34,6 +34,7 @@ export function NotificationSettings({ companyId }: NotificationSettingsProps) {
   const { access } = useMyAccess();
   const isAdmin = access?.isAdmin ?? false;
   const [error, setError] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   const settingsKey = ["notificationSettings", companyId] as const;
   const logKey = ["notificationLog", companyId] as const;
@@ -58,6 +59,23 @@ export function NotificationSettings({ companyId }: NotificationSettingsProps) {
     mutationFn: (id: string) => apiClient.retryNotification(companyId, id),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: logKey }),
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "notifications.retryError" }))),
+  });
+
+  // Sent at once (not queued) so the result — or the provider's refusal — shows right here.
+  const testMutation = useMutation({
+    mutationFn: () => apiClient.sendCompanyTestEmail(companyId),
+    onSuccess: (result) => {
+      void queryClient.invalidateQueries({ queryKey: logKey });
+      if (!result.sent) {
+        setError(null);
+        setTestResult({ ok: false, text: intl.formatMessage({ id: "notifications.testFailed" }, { to: result.recipient, error: result.error ?? "" }) });
+      } else if (result.mode.toLowerCase() === "log") {
+        setTestResult({ ok: false, text: intl.formatMessage({ id: "notifications.testLogOnly" }) });
+      } else {
+        setTestResult({ ok: true, text: intl.formatMessage({ id: "notifications.testSent" }, { to: result.recipient }) });
+      }
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "notifications.saveError" }))),
   });
 
   const templateLabel = (template: string) => intl.formatMessage({ id: `notifications.template.${template}` });
@@ -133,6 +151,22 @@ export function NotificationSettings({ companyId }: NotificationSettingsProps) {
           ))}
         </fieldset>
         {!isAdmin && <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "notifications.adminOnly" })}</p>}
+
+        {isAdmin && (
+          <div className="flex flex-col gap-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button size="sm" variant="outline" disabled={testMutation.isPending} onClick={() => testMutation.mutate()}>
+                {intl.formatMessage({ id: testMutation.isPending ? "notifications.testing" : "notifications.test" })}
+              </Button>
+              <span className="text-xs text-muted-foreground">{intl.formatMessage({ id: "notifications.testHint" })}</span>
+            </div>
+            {testResult && (
+              <Alert variant={testResult.ok ? "default" : "destructive"} data-testid="notifications-test-result">
+                <AlertDescription>{testResult.text}</AlertDescription>
+              </Alert>
+            )}
+          </div>
+        )}
 
         {isAdmin && (
           <div className="flex flex-col gap-2">

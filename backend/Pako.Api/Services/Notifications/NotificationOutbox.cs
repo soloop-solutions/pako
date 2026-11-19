@@ -171,6 +171,6 @@ public class NotificationOutbox
         return await HrTeamAsync(employee.CompanyId);
     }
 
-    private static bool IsPlausibleEmail(string? email) =>
+    public static bool IsPlausibleEmail(string? email) =>
         !string.IsNullOrWhiteSpace(email) && email.Contains('@') && email.Trim().Length <= 256;
 }
