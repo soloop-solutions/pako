@@ -132,6 +132,7 @@ builder.Services.AddScoped<Pako.Api.Authorization.PortalContext>();
 builder.Services.AddScoped<Pako.Api.Services.PayrollRunComposer>();
 builder.Services.AddScoped<Pako.Api.Services.LedgerAggregator>();
 builder.Services.AddScoped<Pako.Api.Services.ExportLabels>();
+builder.Services.AddScoped<Pako.Api.Services.BankStatementService>();
 builder.Services.AddScoped<Pako.Api.Services.TaxReportService>();
 builder.Services.AddScoped<Pako.Api.Services.ReportSourceResolver>();
 builder.Services.AddScoped<Pako.Api.Services.VendorLedgerService>();

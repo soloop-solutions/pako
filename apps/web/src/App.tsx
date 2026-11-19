@@ -34,6 +34,7 @@ const ForgotPassword = lazy(() => import("@/pages/PasswordReset").then(m => ({ d
 const ResetPassword = lazy(() => import("@/pages/PasswordReset").then(m => ({ default: m.ResetPassword })));
 const BillDetail = lazy(() => import("@/pages/bills/BillDetail").then(m => ({ default: m.BillDetail })));
 const InvoiceDetail = lazy(() => import("@/pages/invoicing/InvoiceDetail").then(m => ({ default: m.InvoiceDetail })));
+const BankStatementDetail = lazy(() => import("@/pages/bank/BankStatementDetail").then(m => ({ default: m.BankStatementDetail })));
 const PayrollRunDetail = lazy(() => import("@/pages/payroll/PayrollRunDetail").then(m => ({ default: m.PayrollRunDetail })));
 const EmployeeDetail = lazy(() => import("@/pages/hr/EmployeeDetail").then(m => ({ default: m.EmployeeDetail })));
 const StockDocumentDetail = lazy(() => import("@/pages/inventory/StockDocumentDetail").then(m => ({ default: m.StockDocumentDetail })));
@@ -122,6 +123,7 @@ export function App() {
                         />
                       ))}
                       <Route path="/invoicing/:id" element={<ModuleGate module="sales"><InstanceRoute Component={InvoiceDetail} /></ModuleGate>} />
+                      <Route path="/bank-statements/:id" element={<ModuleGate module="accounting"><InstanceRoute Component={BankStatementDetail} /></ModuleGate>} />
                       <Route path="/sales-returns/:id" element={<ModuleGate module="sales"><InstanceRoute Component={InvoiceDetail} /></ModuleGate>} />
                       <Route path="/bills/:id" element={<ModuleGate module="purchases"><InstanceRoute Component={BillDetail} /></ModuleGate>} />
                       <Route path="/purchase-returns/:id" element={<ModuleGate module="purchases"><InstanceRoute Component={BillDetail} /></ModuleGate>} />

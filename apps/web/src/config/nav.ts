@@ -10,6 +10,7 @@ import {
   RotateCcw,
   FileClock,
   GitMerge,
+  Landmark,
   BarChart3,
   Building,
   Building2,
@@ -104,6 +105,7 @@ const UsersAndRoles = lazy(() => import("@/pages/admin/UsersAndRoles").then(m =>
 const MyPayslips = lazy(() => import("@/pages/me/MyPayslips").then(m => ({ default: m.MyPayslips })));
 const MyProfile = lazy(() => import("@/pages/me/MyProfile").then(m => ({ default: m.MyProfile })));
 const Reconciliation = lazy(() => import("@/pages/reconciliation/Reconciliation").then(m => ({ default: m.Reconciliation })));
+const BankStatements = lazy(() => import("@/pages/bank/BankStatements").then(m => ({ default: m.BankStatements })));
 const Reports = lazy(() => import("@/pages/Reports").then(m => ({ default: m.Reports })));
 const Items = lazy(() => import("@/pages/items/Items").then(m => ({ default: m.Items })));
 const ItemCategories = lazy(() => import("@/pages/inventory/ItemCategories").then(m => ({ default: m.ItemCategories })));
@@ -488,10 +490,18 @@ export const navCategories: NavCategory[] = [
     ],
   },
   {
-    // Banka & Arka: bank and cash work — reconciliation today, bank statement import next.
+    // Banka & Arka: bank and cash work — bank statement import (docs/BANK_STATEMENTS.md) and reconciliation.
     id: "bankCash",
     labelKey: "sidebar.category.bankCash",
     items: [
+      {
+        titleKey: "nav.bankStatements",
+        path: "/bank-statements",
+        icon: Landmark,
+        descriptionKey: "nav.bankStatements.description",
+        Element: BankStatements,
+        module: "accounting",
+      },
       {
         titleKey: "nav.reconciliation",
         path: "/reconciliation",
