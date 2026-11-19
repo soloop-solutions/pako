@@ -329,6 +329,150 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("attachments", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Banking.BankStatement", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("BankAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("ClosingBalance")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("ConfirmedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("FileHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<decimal>("OpeningBalance")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly>("PeriodFrom")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("PeriodTo")
+                        .HasColumnType("date");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BankAccountId");
+
+                    b.HasIndex("CompanyId", "FileHash")
+                        .IsUnique();
+
+                    b.HasIndex("CompanyId", "PeriodFrom");
+
+                    b.ToTable("bank_statements", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Banking.BankStatementLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AmountIn")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("AmountOut")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("BillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Fingerprint")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDuplicate")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("JournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("MatchAmount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("PartnerText")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<Guid?>("ReconciliationId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<int>("RowNumber")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid>("StatementId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BillId");
+
+                    b.HasIndex("Fingerprint");
+
+                    b.HasIndex("InvoiceId");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("ReconciliationId");
+
+                    b.HasIndex("StatementId", "RowNumber");
+
+                    b.ToTable("bank_statement_lines", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Bills.Bill", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8935,6 +9079,55 @@ namespace Pako.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Banking.BankStatement", b =>
+                {
+                    b.HasOne("Pako.Domain.Ledger.Account", null)
+                        .WithMany()
+                        .HasForeignKey("BankAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Banking.BankStatementLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Bills.Bill", null)
+                        .WithMany()
+                        .HasForeignKey("BillId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Invoicing.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Ledger.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Reconciliation.Reconciliation", null)
+                        .WithMany()
+                        .HasForeignKey("ReconciliationId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Banking.BankStatement", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("StatementId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Pako.Domain.Bills.Bill", b =>
                 {
                     b.HasOne("Pako.Domain.Bills.Bill", null)
@@ -11154,6 +11347,11 @@ namespace Pako.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Pako.Domain.Assets.DepreciationRun", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Banking.BankStatement", b =>
                 {
                     b.Navigation("Lines");
                 });
