@@ -756,6 +756,9 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvoiceOnlyDueDateOrNotesEditableAfterPosting"].Value);
         }
 
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, invoice.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
+
         var dueDateChanged = invoice.DueDate != request.DueDate;
         var notesChanged = invoice.InternalNotes != request.InternalNotes;
 
@@ -840,6 +843,9 @@ public class InvoicesController : ControllerBase
         {
             return NotFound();
         }
+
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, invoice.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
 
         if (invoice.State != InvoiceState.Posted)
         {
@@ -997,6 +1003,9 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, invoice.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
+
         // The credit note must be visible too — otherwise its id becomes an existence oracle.
         var creditNote = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .FirstOrDefaultAsync(i => i.Id == request.CreditNoteId && i.CompanyId == companyId);
@@ -1093,6 +1102,9 @@ public class InvoicesController : ControllerBase
         {
             return NotFound();
         }
+
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, invoice.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
 
         var downPayment = await _db.Invoices.AsNoTracking().VisibleTo(_access)
             .FirstOrDefaultAsync(i => i.Id == request.DownPaymentInvoiceId && i.CompanyId == companyId);

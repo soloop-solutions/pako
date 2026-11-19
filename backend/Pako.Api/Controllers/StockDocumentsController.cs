@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Domain.Ledger;
 using Pako.Domain.Hr;
 using Pako.Domain.Inventory;
 using Pako.Infrastructure;
@@ -175,6 +176,10 @@ public class StockDocumentsController : ControllerBase
         var company = await _db.Companies.FirstAsync(c => c.Id == companyId);
         var document = await Load(companyId, id, tracking: true);
         if (document is null) return NotFound();
+
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, document.Date); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
+
         try
         {
             await _documents.PostAsync(company, document, CurrentUserId);
