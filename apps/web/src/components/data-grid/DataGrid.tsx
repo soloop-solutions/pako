@@ -53,6 +53,7 @@ export interface DataGridProps<TData extends object> {
   globalFilterPlaceholder?: string;
   emptyMessage?: string;
   exportFileName?: string;
+  onExportAll?: () => void | Promise<unknown>;
   // manualFiltering/manualSorting/manualGrouping default true: column filters, header-click sort,
   // and group-by only write to the URL, they never reorder/hide the `data` prop as given. Pass
   // false only when `data` is guaranteed to hold the full dataset the consumer cares about (e.g. a
@@ -89,6 +90,7 @@ export function DataGrid<TData extends object>({
   globalFilterPlaceholder,
   emptyMessage,
   exportFileName,
+  onExportAll,
   manualFiltering = true,
   manualSorting = true,
   manualGrouping = true,
@@ -329,7 +331,7 @@ export function DataGrid<TData extends object>({
               {intl.formatMessage({ id: "dataGrid.export" })}
             </Button>
             {exportPanelOpen && (
-              <div className="absolute right-0 z-10 mt-1 w-44 rounded-md border bg-popover p-1 shadow-md">
+              <div className="absolute right-0 z-10 mt-1 w-64 rounded-md border bg-popover p-1 shadow-md">
                 <button
                   type="button"
                   className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-accent"
@@ -354,6 +356,18 @@ export function DataGrid<TData extends object>({
                 >
                   {intl.formatMessage({ id: "dataGrid.exportCsv" })}
                 </button>
+                {onExportAll && (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs font-medium hover:bg-accent"
+                    onClick={() => {
+                      setExportPanelOpen(false);
+                      void onExportAll();
+                    }}
+                  >
+                    {intl.formatMessage({ id: "dataGrid.exportAllMatching" })}
+                  </button>
+                )}
               </div>
             )}
           </div>

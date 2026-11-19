@@ -15,6 +15,7 @@ import { LinkedRow } from "./LinkedRow";
 import { DrillAmount, ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { usePnlReport } from "./usePnlReport";
+import { formatReportAmount } from "@/lib/amount";
 
 export function PnlTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof usePnlReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
@@ -125,11 +126,11 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
               </Table>
             </div>
             <div className="flex flex-col items-end gap-1 text-sm">
-              <p>{intl.formatMessage({ id: "reports.totalIncome" }, { amount: pnl.totalIncome.toFixed(2) })}</p>
-              <p>{intl.formatMessage({ id: "reports.pnlTotalCostOfRevenuePlain" }, { amount: pnl.totalCostOfRevenue.toFixed(2) })}</p>
-              <p>{intl.formatMessage({ id: "reports.pnlGrossProfit" }, { amount: pnl.grossProfit.toFixed(2) })}</p>
-              <p>{intl.formatMessage({ id: "reports.pnlTotalOperatingExpenses" }, { amount: pnl.totalOperatingExpenses.toFixed(2) })}</p>
-              <p className="font-medium">{intl.formatMessage({ id: "reports.netIncome" }, { amount: pnl.netIncome.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "reports.totalIncome" }, { amount: formatReportAmount(pnl.totalIncome) })}</p>
+              <p>{intl.formatMessage({ id: "reports.pnlTotalCostOfRevenuePlain" }, { amount: formatReportAmount(pnl.totalCostOfRevenue) })}</p>
+              <p>{intl.formatMessage({ id: "reports.pnlGrossProfit" }, { amount: formatReportAmount(pnl.grossProfit) })}</p>
+              <p>{intl.formatMessage({ id: "reports.pnlTotalOperatingExpenses" }, { amount: formatReportAmount(pnl.totalOperatingExpenses) })}</p>
+              <p className="font-medium">{intl.formatMessage({ id: "reports.netIncome" }, { amount: formatReportAmount(pnl.netIncome) })}</p>
             </div>
           </>
         )}

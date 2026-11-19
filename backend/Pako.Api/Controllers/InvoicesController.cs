@@ -30,6 +30,7 @@ public class InvoicesController : ControllerBase
     private readonly NumberSeriesService _numberSeries;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly CompanyAccessContext _access;
+    private readonly ExportLabels? _labels;
 
     // HR module: every invoice read goes through .VisibleTo(_access), so a partner-scoped staff
     // user gets 404 on another partner's document (never a hint that it exists), and every write
@@ -40,8 +41,10 @@ public class InvoicesController : ControllerBase
         IDocumentNumberService documentNumberService,
         NumberSeriesService numberSeries,
         IStringLocalizer<ErrorMessages> localizer,
-        CompanyAccessContext access)
+        CompanyAccessContext access,
+        ExportLabels? labels = null)
     {
+        _labels = labels;
         _db = db;
         _taxComputationService = taxComputationService;
         _documentNumberService = documentNumberService;
@@ -63,7 +66,8 @@ public class InvoicesController : ControllerBase
             .ToListAsync();
 
         var partnerNames = await PartnerNamesAsync(companyId, invoices.Select(i => i.PartnerId));
-        return Ok(invoices.Select(i => ToResponse(i, partnerNames)).ToList());
+        var userNames = await UserNamesAsync(invoices.Select(i => i.CreatedByUserId));
+        return Ok(invoices.Select(i => ToResponse(i, partnerNames, userNames: userNames)).ToList());
     }
 
     [HttpGet("paged")]
@@ -77,11 +81,91 @@ public class InvoicesController : ControllerBase
         [FromQuery] DocumentType[]? excludeDocumentType = null,
         [FromQuery] string? state = null,
         [FromQuery] string? sort = null,
-        [FromQuery] Guid? partnerId = null)
+        [FromQuery] Guid? partnerId = null,
+        [FromQuery(Name = "from")] DateOnly? issuedFrom = null,
+        [FromQuery(Name = "to")] DateOnly? issuedTo = null,
+        [FromQuery] string? paymentStatus = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
+        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus);
+        if (query is null) return BadRequest(error);
+        query = Sorted(query, sort);
+
+        var total = await query.CountAsync();
+        var invoices = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        var partnerNames = await PartnerNamesAsync(companyId, invoices.Select(i => i.PartnerId));
+        var userNames = await UserNamesAsync(invoices.Select(i => i.CreatedByUserId));
+        return Ok(new PaginatedResponse<InvoiceResponse>(invoices.Select(i => ToResponse(i, partnerNames, userNames: userNames)).ToList(), total, page, pageSize));
+    }
+
+    [ProducesXlsx]
+    [EnableRateLimiting(AuthRateLimit.ExcelExportPolicy)]
+    [HttpGet("export", Name = "InvoicesExport")]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
+    public async Task<IActionResult> Export(
+        Guid companyId,
+        [FromQuery] string? search = null,
+        [FromQuery] DocumentType[]? documentType = null,
+        [FromQuery] DocumentType[]? excludeDocumentType = null,
+        [FromQuery] string? state = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] Guid? partnerId = null,
+        [FromQuery(Name = "from")] DateOnly? issuedFrom = null,
+        [FromQuery(Name = "to")] DateOnly? issuedTo = null,
+        [FromQuery] string? paymentStatus = null)
+    {
+        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus);
+        if (query is null) return BadRequest(new { error });
+
+        const int maxRows = 10000;
+        var rows = await Sorted(query, sort).AsNoTracking().Take(maxRows + 1).ToListAsync();
+        if (rows.Count > maxRows) return BadRequest(new { error = _localizer["ExportTooManyRows"].Value });
+
+        var partnerNames = await PartnerNamesAsync(companyId, rows.Select(i => i.PartnerId));
+        var userNames = await UserNamesAsync(rows.Select(i => i.CreatedByUserId));
+        var labels = _labels ?? new ExportLabels(_localizer);
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        var headers = new List<string>
+        {
+            labels["Common_Document"], labels["Common_Type"], labels["Common_Partner"], labels["Common_IssueDate"], labels["Common_DueDate"],
+            labels["Common_State"], labels["Common_CreatedBy"], labels["Common_Total"], labels["Common_Paid"], labels["Common_Outstanding"], labels["Common_PaymentStatus"]
+        };
+
+        var cells = new List<IReadOnlyList<object?>>();
+        foreach (var i in rows)
+        {
+            decimal? total = null, paid = null, outstanding = null;
+            string? status = null;
+            if (i.State == InvoiceState.Posted)
+            {
+                var balance = await ComputeBalanceAsync(companyId, i.Id, i.JournalEntryId, i.DocumentType, i.PartnerId);
+                (total, paid, outstanding) = (balance.Total, balance.Reconciled, balance.Outstanding);
+                if (i.DocumentType != DocumentType.CreditNote)
+                {
+                    var code = balance.Outstanding <= 0 ? "paid" : i.DueDate < today ? "overdue" : balance.Reconciled > 0 ? "partial" : "unpaid";
+                    status = labels["Enum_PayStatus_" + code];
+                }
+            }
+
+            cells.Add(new object?[]
+            {
+                i.InvoiceNumber, labels.DocType(i.DocumentType.ToString()), partnerNames.GetValueOrDefault(i.PartnerId), i.IssueDate, i.DueDate,
+                i.State.ToString(), i.CreatedByUserId is { } creator ? userNames.GetValueOrDefault(creator) : null, total, paid, outstanding, status
+            });
+        }
+
+        var bytes = ExcelExportService.BuildWorkbook(labels["Sheet_SalesInvoices"], headers, cells);
+        return File(bytes, ExcelExportService.XlsxContentType, $"invoices-{today:yyyyMMdd}.xlsx");
+    }
+
+    private async Task<(IQueryable<Invoice>? Query, string? Error)> FilteredAsync(
+        Guid companyId, string? search, DocumentType[]? documentType, DocumentType[]? excludeDocumentType, string? state,
+        Guid? partnerId, DateOnly? issuedFrom, DateOnly? issuedTo, string? paymentStatus)
+    {
         var query = _db.Invoices.AsNoTracking().VisibleTo(_access)
             .Include(i => i.Lines)
             .Where(i => i.CompanyId == companyId);
@@ -93,6 +177,9 @@ public class InvoicesController : ControllerBase
         }
 
         if (partnerId is { } pid) query = query.Where(i => i.PartnerId == pid);
+
+        if (issuedFrom is { } fromDate) query = query.Where(i => i.IssueDate >= fromDate);
+        if (issuedTo is { } toDate) query = query.Where(i => i.IssueDate <= toDate);
 
         if (documentType is { Length: > 0 }) query = query.Where(i => documentType.Contains(i.DocumentType));
         if (excludeDocumentType is { Length: > 0 }) query = query.Where(i => !excludeDocumentType.Contains(i.DocumentType));
@@ -106,6 +193,31 @@ public class InvoicesController : ControllerBase
                 partnerIds.Contains(i.PartnerId));
         }
 
+        if (!string.IsNullOrWhiteSpace(paymentStatus))
+        {
+            var wanted = paymentStatus.Trim().ToLowerInvariant();
+            if (wanted is not ("unpaid" or "partial" or "paid" or "overdue")) return (null, _localizer["PaymentStatusInvalid"].Value);
+            var today = DateOnly.FromDateTime(DateTime.UtcNow);
+            var candidates = await query
+                .Where(i => i.State == InvoiceState.Posted && i.DocumentType != DocumentType.CreditNote)
+                .Select(i => new { i.Id, i.JournalEntryId, i.DocumentType, i.PartnerId, i.DueDate })
+                .ToListAsync();
+            var matching = new List<Guid>();
+            foreach (var c in candidates)
+            {
+                var balance = await ComputeBalanceAsync(companyId, c.Id, c.JournalEntryId, c.DocumentType, c.PartnerId);
+                var status = balance.Outstanding <= 0 ? "paid" : c.DueDate < today ? "overdue" : balance.Reconciled > 0 ? "partial" : "unpaid";
+                if (status == wanted) matching.Add(c.Id);
+            }
+
+            query = query.Where(i => matching.Contains(i.Id));
+        }
+
+        return (query, null);
+    }
+
+    private IQueryable<Invoice> Sorted(IQueryable<Invoice> query, string? sort)
+    {
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
         query = (sortField?.ToLowerInvariant() switch
@@ -119,12 +231,7 @@ public class InvoicesController : ControllerBase
             "issuedate" => descending ? query.OrderByDescending(i => i.IssueDate) : query.OrderBy(i => i.IssueDate),
             _ => query.OrderByDescending(i => i.IssueDate).ThenByDescending(i => i.CreatedAt)
         }).ThenBy(i => i.Id);
-
-        var total = await query.CountAsync();
-        var invoices = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
-
-        var partnerNames = await PartnerNamesAsync(companyId, invoices.Select(i => i.PartnerId));
-        return Ok(new PaginatedResponse<InvoiceResponse>(invoices.Select(i => ToResponse(i, partnerNames)).ToList(), total, page, pageSize));
+        return query;
     }
 
     [HttpGet("{id:guid}")]
@@ -1839,13 +1946,23 @@ public class InvoicesController : ControllerBase
             .ToDictionaryAsync(p => p.Id, p => p.Name);
     }
 
+    private async Task<Dictionary<Guid, string>> UserNamesAsync(IEnumerable<Guid?> userIds)
+    {
+        var ids = userIds.Where(u => u.HasValue).Select(u => u!.Value).Distinct().ToList();
+        if (ids.Count == 0) return new();
+        return await _db.Users.AsNoTracking()
+            .Where(u => ids.Contains(u.Id))
+            .ToDictionaryAsync(u => u.Id, u => u.FullName ?? u.Email ?? string.Empty);
+    }
+
     private static InvoiceLineResponse LineResponse(InvoiceLine l, DocumentLineAmounts? amounts) => new(
         l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber,
         l.SalesOrderLineId, l.DeliveryLineId,
         amounts?.AmountBeforeDiscount, amounts?.DiscountAmount, amounts?.NetAmount, amounts?.TaxAmount, amounts?.GrossAmount);
 
     private static InvoiceResponse ToResponse(
-        Invoice i, Dictionary<Guid, string>? partnerNames = null, Func<InvoiceLine, DocumentLineAmounts>? lineAmounts = null)
+        Invoice i, Dictionary<Guid, string>? partnerNames = null, Func<InvoiceLine, DocumentLineAmounts>? lineAmounts = null,
+        Dictionary<Guid, string>? userNames = null)
     {
         var amounts = lineAmounts is null ? null : i.Lines.ToDictionary(l => l.Id, lineAmounts);
         InvoiceAmountTotals? totals = null;
@@ -1879,6 +1996,8 @@ public class InvoicesController : ControllerBase
             i.GraceDays,
             i.WarehouseId,
             i.ProjectId,
+            i.CreatedByUserId,
+            i.CreatedByUserId is { } creator ? userNames?.GetValueOrDefault(creator) : null,
             totals,
             breakdown);
     }

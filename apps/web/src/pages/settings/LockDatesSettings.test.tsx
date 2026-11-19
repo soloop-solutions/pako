@@ -167,16 +167,16 @@ describe("LockDatesSettings", () => {
   it("loads all five lock dates unset and saves the four soft locks", async () => {
     renderPage();
 
-    await waitFor(() => expect(screen.getByLabelText("Global lock")).toBeInTheDocument());
-    expect(screen.getByLabelText("Global lock")).toHaveValue("");
-    expect(screen.getByLabelText("Tax lock")).toHaveValue("");
+    await waitFor(() => expect(screen.getByLabelText(/^Global lock( \*)?$/)).toBeInTheDocument());
+    expect(screen.getByLabelText(/^Global lock( \*)?$/)).toHaveValue("");
+    expect(screen.getByLabelText(/^Tax lock( \*)?$/)).toHaveValue("");
 
-    fireEvent.change(screen.getByLabelText("Global lock"), { target: { value: "2026-08-31" } });
-    fireEvent.change(screen.getByLabelText("Sale lock"), { target: { value: "2026-08-31" } });
+    fireEvent.change(screen.getByLabelText(/^Global lock( \*)?$/), { target: { value: "2026-08-31" } });
+    fireEvent.change(screen.getByLabelText(/^Sale lock( \*)?$/), { target: { value: "2026-08-31" } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(screen.getByLabelText("Global lock")).toHaveValue("31.08.2026"));
-    expect(screen.getByLabelText("Sale lock")).toHaveValue("31.08.2026");
+    await waitFor(() => expect(screen.getByLabelText(/^Global lock( \*)?$/)).toHaveValue("31.08.2026"));
+    expect(screen.getByLabelText(/^Sale lock( \*)?$/)).toHaveValue("31.08.2026");
     expect(softMock).toHaveBeenCalledTimes(2);
     expect(softMock).toHaveBeenCalledWith(companyId, { lockDateField: 0, lockDate: "2026-08-31" });
     expect(softMock).toHaveBeenCalledWith(companyId, { lockDateField: 2, lockDate: "2026-08-31" });
@@ -184,30 +184,30 @@ describe("LockDatesSettings", () => {
 
   it("requires explicit confirmation before setting the hard lock, and it cannot be undone afterwards", async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByLabelText("Hard lock")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(/^Hard lock( \*)?$/)).toBeInTheDocument());
 
-    fireEvent.change(screen.getByLabelText("Hard lock"), { target: { value: "2026-07-31" } });
+    fireEvent.change(screen.getByLabelText(/^Hard lock( \*)?$/), { target: { value: "2026-07-31" } });
     fireEvent.click(screen.getByRole("button", { name: "Set hard lock" }));
 
     expect(screen.getByText(/This cannot be undone/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Yes, set the hard lock permanently" }));
 
     await waitFor(() => expect(screen.getByText("The hard lock is set to 2026-07-31.")).toBeInTheDocument());
-    expect(screen.queryByLabelText("Hard lock")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/^Hard lock( \*)?$/)).not.toBeInTheDocument();
     expect(hardMock).toHaveBeenCalledWith(companyId, { lockDate: "2026-07-31" });
   });
 
   it("grants and revokes a lock exception for an admin", async () => {
     renderPage();
-    await waitFor(() => expect(screen.getByLabelText("Member")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByLabelText(/^Member( \*)?$/)).toBeInTheDocument());
 
     // Open the Member dropdown and select "viewer@pako.test"
-    fireEvent.click(screen.getByLabelText("Member"));
+    fireEvent.click(screen.getByLabelText(/^Member( \*)?$/));
     fireEvent.mouseDown(await screen.findByRole("option", { name: "viewer@pako.test" }));
 
-    fireEvent.change(screen.getByLabelText("Effective date"), { target: { value: "2026-08-01" } });
-    fireEvent.change(screen.getByLabelText("Reason"), { target: { value: "Late supplier invoice" } });
-    fireEvent.change(screen.getByLabelText("Until"), { target: { value: "2026-09-30" } });
+    fireEvent.change(screen.getByLabelText(/^Effective date( \*)?$/), { target: { value: "2026-08-01" } });
+    fireEvent.change(screen.getByLabelText(/^Reason( \*)?$/), { target: { value: "Late supplier invoice" } });
+    fireEvent.change(screen.getByLabelText(/^Until( \*)?$/), { target: { value: "2026-09-30" } });
     fireEvent.click(screen.getByRole("button", { name: "Grant exception" }));
 
     await waitFor(() => expect(screen.getByText("Late supplier invoice")).toBeInTheDocument());

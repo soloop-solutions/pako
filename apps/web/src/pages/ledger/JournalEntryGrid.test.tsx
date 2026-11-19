@@ -106,7 +106,7 @@ function renderGrid(onCreated = vi.fn()) {
 
 /** After clicking Save, the password dialog appears — complete it so the actual create proceeds. */
 async function completePasswordDialog() {
-  const passwordInput = await screen.findByLabelText("Password");
+  const passwordInput = await screen.findByLabelText(/^Password( \*)?$/);
   fireEvent.change(passwordInput, { target: { value: "testpassword" } });
   fireEvent.click(screen.getByRole("button", { name: "Confirm & Continue" }));
   await waitFor(() => expect(actionTokens).toHaveBeenCalled());

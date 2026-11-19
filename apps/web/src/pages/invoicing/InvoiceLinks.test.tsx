@@ -175,7 +175,7 @@ describe("Period discount rules on a new invoice", () => {
 describe("Editing a draft invoice (P6)", () => {
   it("keeps the order and delivery links of a line whose quantity changed", async () => {
     const draft: InvoiceResponse = {
-      id: "inv1", partnerId: "p1", invoiceNumber: undefined, issueDate: "2026-11-01", dueDate: "2026-11-01", state: "Draft", documentType: 0,
+      id: "inv1", partnerId: "p1", partnerName: "Customer", invoiceNumber: undefined, issueDate: "2026-11-01", dueDate: "2026-11-01", state: "Draft", documentType: 0,
       originalInvoiceId: undefined, journalEntryId: undefined, internalNotes: undefined, priceMode: 0, paymentTermDays: undefined, graceDays: undefined,
       lines: [{
         id: "l1", description: "Ujë 0.5L", quantity: 4, unitPrice: 2.7, taxDefinitionId: undefined, revenueAccountId: "r1", discountPercent: 0,

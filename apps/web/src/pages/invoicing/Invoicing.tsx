@@ -18,11 +18,24 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { downloadFileResponse } from "@/pages/reports/helpers";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { DocumentFilterBar } from "@/components/data-grid/DocumentFilterBar";
+import { useDocumentFilters } from "@/components/data-grid/useDocumentFilters";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
+import { dateToIso } from "@/lib/dates";
+import {
+  documentStateBadgeVariant,
+  getDocumentRowClassName,
+  InvoiceDocumentType,
+  invoiceDocumentTypeLabel,
+  paymentStatus,
+  paymentStatusBadgeVariant,
+  type PaymentStatus,
+} from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { useInvoicePrefill } from "@/pages/invoicing/invoicePrefill";
@@ -99,10 +112,11 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     [isProforma],
   );
 
+  const docFilters = useDocumentFilters(GRID_ID);
   const paged = usePagedGrid<InvoiceResponse>({
     gridId: GRID_ID,
     enabled: !!companyId,
-    queryKey: ["invoices-paged", companyId, scope],
+    queryKey: ["invoices-paged", companyId, scope, docFilters.filters],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort, filters }) => {
       const result = await apiClient.paged2(
@@ -114,7 +128,10 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         documentScopeFilter.excludeDocumentType,
         filters.state || undefined,
         sort,
-        undefined,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
+        isProforma ? undefined : docFilters.filters.paymentStatus || undefined,
       );
       return { items: result.items, total: result.total };
     },
@@ -161,6 +178,28 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     }
   }
 
+  async function exportAll() {
+    try {
+      const file = await apiClient.invoicesExport(
+        companyId as string,
+        paged.urlState.globalFilter.trim() || undefined,
+        documentScopeFilter.documentType,
+        documentScopeFilter.excludeDocumentType,
+        paged.urlState.columnFilters.state || undefined,
+        paged.urlState.sort ? `${paged.urlState.sort.desc ? "-" : ""}${paged.urlState.sort.id}` : undefined,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
+        isProforma ? undefined : docFilters.filters.paymentStatus || undefined,
+      );
+      downloadFileResponse(file, "invoices.xlsx");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "dataGrid.exportAllError" })));
+    }
+  }
+
+  const gridRows = useMemo(() => displayedInvoices.map((row) => (row.id in balances ? { ...row } : row)), [displayedInvoices, balances]);
+
   const columns = useMemo<ColumnDef<InvoiceResponse>[]>(
     () => [
       {
@@ -197,6 +236,12 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         },
       },
       {
+        id: "createdBy",
+        header: intl.formatMessage({ id: "invoicing.createdBy" }),
+        accessorFn: (row) => row.createdByName ?? "",
+        cell: ({ getValue }) => (getValue() as string) || "-",
+      },
+      {
         id: "outstanding",
         header: intl.formatMessage({ id: "invoicing.outstanding" }),
         meta: { numeric: true },
@@ -207,6 +252,35 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           const value = getValue() as number | undefined;
           if (row.original.state !== "Posted") return "-";
           return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "paid",
+        header: intl.formatMessage({ id: "invoicing.paid" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        enableSorting: false,
+        accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.reconciled : undefined),
+        cell: ({ getValue, row }) => {
+          const value = getValue() as number | undefined;
+          if (row.original.state !== "Posted") return "-";
+          return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "paymentStatus",
+        header: intl.formatMessage({ id: "invoicing.paymentStatus" }),
+        enableColumnFilter: false,
+        enableSorting: false,
+        accessorFn: (row) =>
+          row.state === "Posted" && row.documentType !== InvoiceDocumentType.CreditNote
+            ? paymentStatus(balances[row.id], row.dueDate, dateToIso(new Date()))
+            : undefined,
+        cell: ({ getValue, row }) => {
+          if (row.original.state !== "Posted" || row.original.documentType === InvoiceDocumentType.CreditNote) return "-";
+          const status = getValue() as PaymentStatus | undefined;
+          if (!status) return "...";
+          return <Badge variant={paymentStatusBadgeVariant(status)}>{intl.formatMessage({ id: `invoicing.paymentStatus.${status}` })}</Badge>;
         },
       },
       {
@@ -361,10 +435,12 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           <CardTitle>{intl.formatMessage({ id: isProforma ? "proforma.proformasTable" : "invoicing.invoices" })}</CardTitle>
         </CardHeader>
         <CardContent>
+          <DocumentFilterBar controls={docFilters} partners={customers} partnerLabelId="docFilters.customer" showPaymentStatus={!isProforma} />
           <DataGrid
+            onExportAll={exportAll}
             gridId={GRID_ID}
             columns={visibleColumns}
-            data={displayedInvoices}
+            data={gridRows}
             rowCount={paged.total}
             isLoading={paged.query.isPending}
             getRowId={(row) => row.id}

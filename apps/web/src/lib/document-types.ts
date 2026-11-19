@@ -145,6 +145,32 @@ export function documentStateBadgeVariant(state: string): "draft" | "success" | 
   }
 }
 
+export type PaymentStatus = "unpaid" | "partial" | "paid" | "overdue";
+
+export function paymentStatus(
+  balance: { reconciled: number; outstanding: number } | undefined,
+  dueDate: string,
+  today: string,
+): PaymentStatus | undefined {
+  if (!balance) return undefined;
+  if (balance.outstanding <= 0) return "paid";
+  if (dueDate < today) return "overdue";
+  return balance.reconciled > 0 ? "partial" : "unpaid";
+}
+
+export function paymentStatusBadgeVariant(status: PaymentStatus): "success" | "info" | "secondary" | "destructive" {
+  switch (status) {
+    case "paid":
+      return "success";
+    case "partial":
+      return "info";
+    case "overdue":
+      return "destructive";
+    default:
+      return "secondary";
+  }
+}
+
 // Row-level className for DataGrid's `getRowClassName` prop. Draft rows are
 // slightly muted; cancelled rows are struck through and dimmed; posted rows
 // keep the default styling.

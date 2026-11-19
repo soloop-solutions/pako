@@ -105,6 +105,8 @@ public record InvoiceResponse(
     int? GraceDays,
     Guid? WarehouseId = null,
     Guid? ProjectId = null,
+    Guid? CreatedByUserId = null,
+    string? CreatedByName = null,
     // Document totals and the VAT breakdown per tax code for the printed invoice, from the same
     // server-computed line amounts. Set on the single-invoice GET; null in lists.
     InvoiceAmountTotals? Totals = null,

@@ -1644,6 +1644,22 @@ Vlerësimi: {estimate} €.</value></data>
   </data>
   <data name="FeatureDisabled" xml:space="preserve"><value>Ky funksion nuk përdoret nga kjo kompani. Administratori i saj mund ta ndryshojë llojin e biznesit, ose administratori i platformës mund ta aktivizojë paketën.</value></data>
   <data name="BusinessTypeInvalid" xml:space="preserve"><value>Zgjidhni llojin e biznesit.</value></data>
+  <data name="Export_Common_IssueDate" xml:space="preserve"><value>Data e lëshimit</value></data>
+  <data name="Export_Common_DueDate" xml:space="preserve"><value>Afati i pagesës</value></data>
+  <data name="Export_Common_State" xml:space="preserve"><value>Gjendja</value></data>
+  <data name="Export_Common_CreatedBy" xml:space="preserve"><value>Krijuar nga</value></data>
+  <data name="Export_Common_Paid" xml:space="preserve"><value>E paguar / e shlyer</value></data>
+  <data name="Export_Common_Outstanding" xml:space="preserve"><value>E papaguar</value></data>
+  <data name="Export_Common_PaymentStatus" xml:space="preserve"><value>Statusi i pagesës</value></data>
+  <data name="Export_Sheet_SalesInvoices" xml:space="preserve"><value>Faturat e shitjes</value></data>
+  <data name="Export_Sheet_PurchaseInvoices" xml:space="preserve"><value>Faturat e blerjes</value></data>
+  <data name="Export_Enum_PayStatus_unpaid" xml:space="preserve"><value>E papaguar</value></data>
+  <data name="Export_Enum_PayStatus_partial" xml:space="preserve"><value>Pjesërisht e paguar</value></data>
+  <data name="Export_Enum_PayStatus_paid" xml:space="preserve"><value>E paguar</value></data>
+  <data name="Export_Enum_PayStatus_overdue" xml:space="preserve"><value>E vonuar</value></data>
+  <data name="ExportTooManyRows" xml:space="preserve"><value>Shumë rreshta për t'u eksportuar njëherësh. Ngushtoni filtrat (p.sh. një periudhë më të shkurtër).</value></data>
+  <data name="PaymentStatusInvalid" xml:space="preserve"><value>Zgjidhni një status të vlefshëm të pagesës.</value></data>
+  <data name="NegativeNumberStyleInvalid" xml:space="preserve"><value>Zgjidhni stilin e numrave.</value></data>
   <data name="FeaturesInvalid" xml:space="preserve"><value>Njëra nga paketat nuk njihet.</value></data>
   <data name="Export_Dash_W_kpi_revenue" xml:space="preserve"><value>Të hyrat</value></data>
   <data name="Export_Dash_W_kpi_expenses" xml:space="preserve"><value>Shpenzimet</value></data>

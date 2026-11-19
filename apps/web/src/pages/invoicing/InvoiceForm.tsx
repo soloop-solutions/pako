@@ -371,7 +371,7 @@ export function InvoiceForm({
     }
     let cancelled = false;
     void apiClient
-      .paged2(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId)
+      .paged2(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId, undefined, undefined, undefined)
       .then((result) => {
         if (!cancelled) setOriginalInvoiceCandidates(result.items);
       })

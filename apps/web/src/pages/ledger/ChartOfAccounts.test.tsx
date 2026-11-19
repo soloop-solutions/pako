@@ -144,7 +144,7 @@ describe("ChartOfAccounts", () => {
     fireEvent.mouseDown(screen.getByRole("option", { name: "Assets · Cash and Cash Equivalents" }));
 
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "100200" } });
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Test Cash Drawer" } });
+    fireEvent.change(screen.getByLabelText(/^Name( \*)?$/), { target: { value: "Test Cash Drawer" } });
 
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
@@ -162,7 +162,7 @@ describe("ChartOfAccounts", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add account" }));
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "200100" } });
-    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Bad Code" } });
+    fireEvent.change(screen.getByLabelText(/^Name( \*)?$/), { target: { value: "Bad Code" } });
     fireEvent.click(screen.getByRole("button", { name: "Create account" }));
 
     expect(await screen.findByText(/100000.*109999/)).toBeInTheDocument();

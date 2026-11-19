@@ -60,6 +60,13 @@ export const companyTypesEn: Record<string, string> = {
   "company.pack.rentals.description": "Leases and the monthly rent run.",
 
   // Settings → business type
+  "company.negativeStyle.title": "Negative numbers",
+  "company.negativeStyle.description": "How negative amounts are written in reports and Excel exports.",
+  "company.negativeStyle.label": "Negative amount format",
+  "company.negativeStyle.parentheses": "Parentheses: (100.00)",
+  "company.negativeStyle.minus": "Minus sign: -100.00",
+  "company.negativeStyle.saved": "Negative number format saved.",
+  "company.negativeStyle.saveError": "The format was not saved.",
   "company.businessTypeSettings.title": "Business type",
   "company.businessTypeSettings.description": "What kind of business {companyName} is, and the packs it uses.",
   "company.businessTypeSettings.change": "Change business type",
@@ -161,6 +168,13 @@ export const companyTypesSq: Record<string, string> = {
 
   // Platform administration
   "platform.col.businessType": "Lloji i biznesit",
+  "company.negativeStyle.title": "Numrat negativë",
+  "company.negativeStyle.description": "Si shkruhen shumat negative në raporte dhe në eksportet Excel.",
+  "company.negativeStyle.label": "Formati i shumës negative",
+  "company.negativeStyle.parentheses": "Kllapa: (100.00)",
+  "company.negativeStyle.minus": "Shenja minus: -100.00",
+  "company.negativeStyle.saved": "Formati i numrave negativë u ruajt.",
+  "company.negativeStyle.saveError": "Formati nuk u ruajt.",
   "platform.packs.title": "Paketat",
   "platform.packs.description": "Paketat vertikale që përdor kjo kompani. Faqet dhe pikat fundore të një pakete joaktive fshihen dhe refuzohen.",
   "platform.packs.saveError": "Paketat nuk u ruajtën.",

@@ -220,6 +220,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         ValidateImmutability();
+        StampCreator();
         var captured = AuditCapture.Capture(this, _auditContext);
         var pending = PendingAuditEntries();
         if (pending.Count == 0)
@@ -267,6 +268,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         await ValidateImmutabilityAsync(cancellationToken);
+        StampCreator();
         var captured = AuditCapture.Capture(this, _auditContext);
         var pending = PendingAuditEntries();
         if (pending.Count == 0)
@@ -314,6 +316,19 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
             if (transaction is not null)
             {
                 await transaction.DisposeAsync();
+            }
+        }
+    }
+
+    private void StampCreator()
+    {
+        if (!Guid.TryParse(_auditContext?.UserId, out var userId)) return;
+        foreach (var entry in ChangeTracker.Entries().Where(e => e.State == EntityState.Added))
+        {
+            switch (entry.Entity)
+            {
+                case Invoice { CreatedByUserId: null } invoice: invoice.CreatedByUserId = userId; break;
+                case Bill { CreatedByUserId: null } bill: bill.CreatedByUserId = userId; break;
             }
         }
     }

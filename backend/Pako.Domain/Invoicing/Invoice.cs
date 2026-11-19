@@ -48,6 +48,7 @@ public class Invoice
     public Guid? OriginalInvoiceId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Guid? CreatedByUserId { get; set; }
 
     // S0.3 (Sprint 0 registers, additive/inert): not read by Post()/DocumentLineCalculator yet —
     // Track C wires PriceMode up; PaymentTermDays/GraceDays feed Track C6's aging report.

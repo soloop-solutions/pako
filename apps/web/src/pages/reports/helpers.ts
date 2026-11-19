@@ -1,5 +1,7 @@
 import type { FileResponse } from "@pako/shared";
 
+import { formatReportAmount } from "@/lib/amount";
+
 export type ExcelRow = (string | number)[];
 
 function formatLocalDate(date: Date): string {
@@ -49,6 +51,4 @@ export function downloadFileResponse(file: FileResponse, fallbackFileName: strin
   URL.revokeObjectURL(url);
 }
 
-export function formatAmount(amount: number): string {
-  return amount.toFixed(2);
-}
+export const formatAmount = formatReportAmount;

@@ -84,8 +84,8 @@ describe("WithholdingTax", () => {
     await screen.findByText("Ljubica Azemi");
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[0]);
-    fireEvent.change(screen.getByLabelText("NUI / Fiscal no. / Personal no."), { target: { value: "810123456" } });
-    fireEvent.change(screen.getByLabelText("Business name / Person name"), { target: { value: "Acme LLC" } });
+    fireEvent.change(screen.getByLabelText(/^NUI \/ Fiscal no\. \/ Personal no\.( \*)?$/), { target: { value: "810123456" } });
+    fireEvent.change(screen.getByLabelText(/^Business name \/ Person name( \*)?$/), { target: { value: "Acme LLC" } });
     fireEvent.change(screen.getByLabelText("Gross interest paid (4)"), { target: { value: "200" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[1]);
 
@@ -105,8 +105,8 @@ describe("WithholdingTax", () => {
     await screen.findByText("Ljubica Azemi");
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[0]);
-    fireEvent.change(screen.getByLabelText("NUI / Fiscal no. / Personal no."), { target: { value: "810123456" } });
-    fireEvent.change(screen.getByLabelText("Business name / Person name"), { target: { value: "Landlord" } });
+    fireEvent.change(screen.getByLabelText(/^NUI \/ Fiscal no\. \/ Personal no\.( \*)?$/), { target: { value: "810123456" } });
+    fireEvent.change(screen.getByLabelText(/^Business name \/ Person name( \*)?$/), { target: { value: "Landlord" } });
     fireEvent.change(screen.getByLabelText("Gross rent paid, excl. VAT (8)"), { target: { value: "500" } });
 
     expect(screen.getAllByRole("button", { name: "Add entry" })[1]).toBeDisabled();
@@ -142,7 +142,7 @@ describe("WithholdingTax", () => {
     await screen.findByText("Ljubica Azemi");
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
-    const name = screen.getByLabelText("Business name / Person name") as HTMLInputElement;
+    const name = screen.getByLabelText(/^Business name \/ Person name( \*)?$/) as HTMLInputElement;
     expect(name.value).toBe("Ljubica Azemi");
     fireEvent.change(name, { target: { value: "Ljubica A." } });
     fireEvent.click(screen.getByRole("button", { name: "Save" }));

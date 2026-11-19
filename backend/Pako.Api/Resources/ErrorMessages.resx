@@ -1644,6 +1644,22 @@ Estimate: {estimate} €.</value></data>
   </data>
   <data name="FeatureDisabled" xml:space="preserve"><value>This feature isn't used by this company. Its administrator can change the business type, or the platform administrator can switch the pack on.</value></data>
   <data name="BusinessTypeInvalid" xml:space="preserve"><value>Choose a business type.</value></data>
+  <data name="Export_Common_IssueDate" xml:space="preserve"><value>Issue date</value></data>
+  <data name="Export_Common_DueDate" xml:space="preserve"><value>Due date</value></data>
+  <data name="Export_Common_State" xml:space="preserve"><value>State</value></data>
+  <data name="Export_Common_CreatedBy" xml:space="preserve"><value>Created by</value></data>
+  <data name="Export_Common_Paid" xml:space="preserve"><value>Paid / settled</value></data>
+  <data name="Export_Common_Outstanding" xml:space="preserve"><value>Outstanding</value></data>
+  <data name="Export_Common_PaymentStatus" xml:space="preserve"><value>Payment status</value></data>
+  <data name="Export_Sheet_SalesInvoices" xml:space="preserve"><value>Sales invoices</value></data>
+  <data name="Export_Sheet_PurchaseInvoices" xml:space="preserve"><value>Purchase invoices</value></data>
+  <data name="Export_Enum_PayStatus_unpaid" xml:space="preserve"><value>Unpaid</value></data>
+  <data name="Export_Enum_PayStatus_partial" xml:space="preserve"><value>Partly paid</value></data>
+  <data name="Export_Enum_PayStatus_paid" xml:space="preserve"><value>Paid</value></data>
+  <data name="Export_Enum_PayStatus_overdue" xml:space="preserve"><value>Overdue</value></data>
+  <data name="ExportTooManyRows" xml:space="preserve"><value>Too many rows to export at once. Narrow the filters (for example a shorter date range).</value></data>
+  <data name="PaymentStatusInvalid" xml:space="preserve"><value>Choose a valid payment status.</value></data>
+  <data name="NegativeNumberStyleInvalid" xml:space="preserve"><value>Choose a number style.</value></data>
   <data name="FeaturesInvalid" xml:space="preserve"><value>One of the packs isn't known.</value></data>
   <data name="Export_Dash_W_kpi_revenue" xml:space="preserve"><value>Revenue</value></data>
   <data name="Export_Dash_W_kpi_expenses" xml:space="preserve"><value>Expenses</value></data>

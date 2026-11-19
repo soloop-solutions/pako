@@ -173,7 +173,7 @@ public class CompanyLocksController : ControllerBase
             c.DocumentFooter, c.PaymentInstructions,
             c.LogoUrl, c.StampUrl,
             c.VatRegistrationDate, c.FunctionalCurrency,
-            c.IsArchived, c.ArchivedAt);
+            c.IsArchived, c.ArchivedAt, c.BusinessType, BusinessTypes.Names(c.EnabledFeatures), c.NegativeNumberStyle);
 
     private static AccountLockExceptionResponse ToResponse(AccountLockException e, DateTime asOfUtc) =>
         new(e.Id, e.UserId, e.LockDateField, e.LockDate, e.Reason, e.EndsAt, e.CreatedAt, e.GrantedByUserId, e.RevokedAt, e.RevokedByUserId, e.IsLive(asOfUtc));

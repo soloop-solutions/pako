@@ -25,6 +25,7 @@ builder.Services.AddSingleton(uploads);
 builder.Services.AddControllers(options =>
     {
         options.Filters.Add<Pako.Api.Authorization.ActiveUserFilter>();
+        options.Filters.Add<Pako.Api.Services.ExportNumberStyleFilter>();
         if (desktop.Enabled) options.Filters.Add<Pako.Api.Desktop.LicenseEnforcementFilter>();
     })
     .ConfigureApplicationPartManager(m => m.FeatureProviders.Add(new Pako.Api.Controllers.DesktopControllerFeatureProvider(desktop.Enabled)));

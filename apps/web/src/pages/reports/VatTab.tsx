@@ -13,6 +13,7 @@ import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { useVatReport } from "./useVatReport";
+import { formatReportAmount } from "@/lib/amount";
 
 export function VatTab({ report, companyName, taxLockDate }: { report: ReturnType<typeof useVatReport>; companyName: string; taxLockDate: string | undefined }) {
   const intl = useIntl();
@@ -69,7 +70,7 @@ export function VatTab({ report, companyName, taxLockDate }: { report: ReturnTyp
                     <TableRow key={line.taxDefinitionId}>
                       <TableCell>{line.name}</TableCell>
                       <TableCell className="text-right">{(line.rate * 100).toFixed(0)}%</TableCell>
-                      <TableCell className="text-right">{line.amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{formatReportAmount(line.amount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -90,16 +91,16 @@ export function VatTab({ report, companyName, taxLockDate }: { report: ReturnTyp
                     <TableRow key={line.taxDefinitionId}>
                       <TableCell>{line.name}</TableCell>
                       <TableCell className="text-right">{(line.rate * 100).toFixed(0)}%</TableCell>
-                      <TableCell className="text-right">{line.amount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right">{formatReportAmount(line.amount)}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
             <div className="flex flex-col items-end gap-1 text-sm">
-              <p>{intl.formatMessage({ id: "reports.totalOutputVat" }, { amount: vatReturn.totalOutputVat.toFixed(2) })}</p>
-              <p>{intl.formatMessage({ id: "reports.totalInputVat" }, { amount: vatReturn.totalInputVat.toFixed(2) })}</p>
-              <p className="font-medium">{intl.formatMessage({ id: "reports.netVatDue" }, { amount: vatReturn.netVatDue.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "reports.totalOutputVat" }, { amount: formatReportAmount(vatReturn.totalOutputVat) })}</p>
+              <p>{intl.formatMessage({ id: "reports.totalInputVat" }, { amount: formatReportAmount(vatReturn.totalInputVat) })}</p>
+              <p className="font-medium">{intl.formatMessage({ id: "reports.netVatDue" }, { amount: formatReportAmount(vatReturn.netVatDue) })}</p>
             </div>
           </>
         )}
