@@ -45,6 +45,7 @@ import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { SubmitToAtkButton } from "@/components/SubmitToAtkButton";
+import { InvoiceEmailCard, InvoicePdfButton } from "@/components/shared/InvoiceEmail";
 
 export function InvoiceDetail() {
   const intl = useIntl();
@@ -302,6 +303,12 @@ export function InvoiceDetail() {
                   {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
                 </Button>
               )}
+              {!editing && invoice.state !== "Draft" && (
+                <InvoicePdfButton
+                  fileName={`${invoice.invoiceNumber ?? invoice.id}.pdf`}
+                  load={() => apiClient.getInvoicePdf(activeCompany.id, invoice.id)}
+                />
+              )}
               <Badge variant={documentStateBadgeVariant(invoice.state)}>{invoice.state}</Badge>
             </div>
           </div>
@@ -548,6 +555,18 @@ export function InvoiceDetail() {
             <ActivityTimeline companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} />
           </CardContent>
         </Card>
+      )}
+
+      {invoice.state === "Posted" && (
+        <InvoiceEmailCard
+          companyId={activeCompany.id}
+          invoiceId={invoice.id}
+          documentLabel={invoiceDocumentTypeLabel(invoice.documentType, intl)}
+          number={invoice.invoiceNumber ?? undefined}
+          customerName={partner?.name ?? invoice.partnerName ?? ""}
+          customerEmail={partner?.email ?? undefined}
+          canSend={canWrite("sales")}
+        />
       )}
 
       <EntityHistory entityType="Invoice" entityId={invoice.id} />

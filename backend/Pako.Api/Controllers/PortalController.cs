@@ -204,6 +204,19 @@ public class PortalController : ControllerBase
         }).ToList(), total, page, pageSize));
     }
 
+    // Email delivery: the invoice as a PDF — only the customer's own posted documents (same scope as above).
+    [HttpGet("{companyId:guid}/invoices/{id:guid}/pdf", Name = "GetPortalInvoicePdf")]
+    [ProducesPdf]
+    [RequirePortalAccess]
+    public async Task<IActionResult> InvoicePdf(Guid companyId, Guid id, [FromServices] InvoiceDocumentService documents)
+    {
+        if (!await _portalService.Invoices(companyId, _portal.PartnerId).AnyAsync(i => i.Id == id)) return NotFound();
+        var document = await documents.LoadAsync(companyId, id);
+        if (document is null) return NotFound();
+        var bytes = InvoicePdfRenderer.Render(document, key => _localizer[key].Value, System.Globalization.CultureInfo.CurrentUICulture);
+        return File(bytes, InvoicePdfRenderer.PdfContentType, InvoicePdfRenderer.FileName(document));
+    }
+
     [HttpGet("{companyId:guid}/invoices/{id:guid}", Name = "GetPortalInvoice")]
     [RequirePortalAccess]
     public async Task<ActionResult<PortalInvoiceResponse>> Invoice(Guid companyId, Guid id)

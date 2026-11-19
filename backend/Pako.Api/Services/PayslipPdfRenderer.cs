@@ -24,7 +24,15 @@ public static class PayslipPdfRenderer
     }
 
     public static byte[] RenderPayslip(PayslipDocument document, Func<string, string> label, CultureInfo culture) =>
-        Document.Create(container => ComposePayslip(container, document, label, culture)).GeneratePdf();
+        Document.Create(container => ComposePayslip(container, document, label, culture))
+            .WithMetadata(FixedDates(document.PeriodEnd)).GeneratePdf();
+
+    // Same payslip, same bytes: a retried email repeats the same request (see InvoicePdfRenderer).
+    private static DocumentMetadata FixedDates(DateOnly day)
+    {
+        var date = new DateTimeOffset(day.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+        return new DocumentMetadata { Creator = "PAKO", Producer = "PAKO", CreationDate = date, ModifiedDate = date };
+    }
 
     // One PDF per payslip, named so a bank-upload or archive folder sorts by employee.
     public static byte[] RenderPayslipZip(IEnumerable<PayslipDocument> documents, Func<string, string> label, CultureInfo culture)

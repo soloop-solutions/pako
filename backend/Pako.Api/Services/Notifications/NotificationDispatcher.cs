@@ -73,17 +73,21 @@ public class NotificationDispatcher
     private readonly IEmailSender _sender;
     private readonly NotificationRenderer _renderer;
     private readonly PayslipDocumentService _payslips;
+    private readonly InvoiceDocumentService _invoices;
+    private readonly EmailOptions _options;
     private readonly ILogger<NotificationDispatcher> _logger;
 
     public NotificationDispatcher(
         PakoDbContext db, IEmailSender sender, NotificationRenderer renderer, PayslipDocumentService payslips,
-        ILogger<NotificationDispatcher> logger)
+        ILogger<NotificationDispatcher> logger, InvoiceDocumentService? invoices = null, IOptions<EmailOptions>? options = null)
     {
         _db = db;
         _sender = sender;
         _renderer = renderer;
         _payslips = payslips;
         _logger = logger;
+        _invoices = invoices ?? new InvoiceDocumentService(db, new Pako.Domain.Tax.TaxComputationService());
+        _options = options?.Value ?? new EmailOptions();
     }
 
     public async Task<List<Guid>> ClaimDueAsync(DateTime now, CancellationToken cancellationToken = default)
@@ -116,9 +120,21 @@ public class NotificationDispatcher
             {
                 var (subject, text, html) = _renderer.Render(notification);
                 var attachments = await AttachmentsAsync(notification);
-                await _sender.SendAsync(new EmailMessage(notification.RecipientEmail, subject, text, html, attachments), cancellationToken);
+                if (attachments.Sum(a => (long)a.Content.Length) > _options.MaxAttachmentBytes)
+                {
+                    throw new PermanentEmailFailure($"Attachments exceed {_options.MaxAttachmentBytes / (1024 * 1024)} MB.");
+                }
+
+                await _sender.SendAsync(
+                    new EmailMessage(notification.RecipientEmail, subject, text, html, attachments, notification.Id.ToString("N")), cancellationToken);
                 notification.MarkSent(DateTime.UtcNow);
                 sent++;
+            }
+            catch (PermanentEmailFailure ex)
+            {
+                _logger.LogWarning("Notification {Id} ({Template}) to {To} refused for good: {Error}",
+                    notification.Id, notification.Template, notification.RecipientEmail, ex.Message);
+                notification.MarkFailedPermanently(ex.Message);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -135,11 +151,31 @@ public class NotificationDispatcher
 
     private async Task<IReadOnlyList<EmailAttachment>> AttachmentsAsync(Notification notification)
     {
-        if (notification.AttachmentKind != NotificationAttachments.PayslipLine ||
-            notification.AttachmentRefId is not { } lineId || notification.CompanyId is not { } companyId)
+        if (notification.AttachmentRefId is not { } refId || notification.CompanyId is not { } companyId)
         {
             return Array.Empty<EmailAttachment>();
         }
+
+        return notification.AttachmentKind switch
+        {
+            NotificationAttachments.PayslipLine => await PayslipAsync(notification, companyId, refId),
+            NotificationAttachments.Invoice => await InvoiceAsync(notification, companyId, refId),
+            _ => Array.Empty<EmailAttachment>(),
+        };
+    }
+
+    // The invoice PDF in the email's language. An invoice that no longer exists cannot be sent at all.
+    private async Task<IReadOnlyList<EmailAttachment>> InvoiceAsync(Notification notification, Guid companyId, Guid invoiceId)
+    {
+        var document = await _invoices.LoadAsync(companyId, invoiceId)
+            ?? throw new PermanentEmailFailure("The invoice no longer exists.");
+        var pdf = InvoicePdfRenderer.Render(document, NotificationRenderer.Labels(notification.Culture),
+            CultureInfo.GetCultureInfo(notification.Culture));
+        return new[] { new EmailAttachment(InvoicePdfRenderer.FileName(document), InvoicePdfRenderer.PdfContentType, pdf) };
+    }
+
+    private async Task<IReadOnlyList<EmailAttachment>> PayslipAsync(Notification notification, Guid companyId, Guid lineId)
+    {
 
         var runId = await _db.PayslipLines.AsNoTracking().Where(l => l.Id == lineId).Select(l => (Guid?)l.PayrollRunId).FirstOrDefaultAsync();
         if (runId is null) return Array.Empty<EmailAttachment>();
@@ -156,4 +192,5 @@ public class NotificationDispatcher
 public static class NotificationAttachments
 {
     public const string PayslipLine = "PayslipLine";
+    public const string Invoice = "Invoice";
 }

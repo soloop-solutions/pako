@@ -333,6 +333,12 @@ public class PortalTests : IAsyncLifetime
         Assert.Equal(detail.Gross, detail.Net + detail.Vat);
         Assert.IsType<NotFoundResult>((await portal.Invoice(c.Id, otherInvoice.Id)).Result);
 
+        // The PDF: same scope — own posted documents only.
+        var documents = new InvoiceDocumentService(c.Db, Tax);
+        var pdf = Assert.IsType<FileContentResult>(await portal.InvoicePdf(c.Id, mine.Id, documents));
+        Assert.Equal("application/pdf", pdf.ContentType);
+        Assert.IsType<NotFoundResult>(await portal.InvoicePdf(c.Id, otherInvoice.Id, documents));
+
         var summary = (PortalSummaryResponse)Assert.IsType<OkObjectResult>((await portal.Summary(c.Id)).Result).Value!;
         Assert.Equal((100m, "Bar Prishtina"), (summary.Outstanding, summary.PartnerName));
         var seen = (PortalOrderResponse)Assert.IsType<OkObjectResult>((await portal.Order(c.Id, order.Id)).Result).Value!;

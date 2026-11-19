@@ -9,6 +9,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
+import { InvoicePdfButton } from "@/components/shared/InvoiceEmail";
 import { PrintButton } from "@/components/shared/PrintButton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -104,7 +105,15 @@ export function PortalInvoiceDetail() {
           <ArrowLeft className="size-4" />
           {t("portal.nav.invoices")}
         </Link>
-        {invoice && <PrintButton contentRef={printRef} size="sm" />}
+        {invoice && (
+          <div className="flex items-center gap-2">
+            <InvoicePdfButton
+              fileName={`${invoice.number ?? invoice.id}.pdf`}
+              load={() => apiClient.getPortalInvoicePdf(companyId, invoice.id)}
+            />
+            <PrintButton contentRef={printRef} size="sm" />
+          </div>
+        )}
       </div>
       {query.isError && (
         <Alert variant="destructive">

@@ -1861,4 +1861,56 @@ Your orders in the portal: {link}</value></data>
   <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Document type must be "Buy" or "Sell".</value></data>
   <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Month must be between 1 and 12.</value></data>
   <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Year must be between 2000 and 2100.</value></data>
+  <data name="InvoiceEmailNotPosted" xml:space="preserve"><value>Only a posted document can be emailed. Post it first, then send it.</value></data>
+  <data name="InvoiceEmailNoRecipient" xml:space="preserve"><value>{0} has no email address. Add one to the customer, or type the address to send to.</value></data>
+  <data name="InvoiceEmailTooManyRecipients" xml:space="preserve"><value>Send to at most {0} addresses at a time.</value></data>
+  <data name="InvoiceEmailInvalidAddress" xml:space="preserve"><value>"{0}" is not a valid email address.</value></data>
+  <data name="InvoiceEmailMessageTooLong" xml:space="preserve"><value>The message can be at most {0} characters.</value></data>
+  <data name="TestEmailNoAddress" xml:space="preserve"><value>Your account has no email address to send the test to.</value></data>
+  <data name="Email_InvoiceSent_Subject" xml:space="preserve"><value>{company}: {document} {number}</value></data>
+  <data name="Email_InvoiceSent_Body" xml:space="preserve"><value>Dear {customer},
+
+{message}{company} sent you {document} {number} for {total}, due on {dueDate}. It is attached as a PDF.
+
+This address does not receive replies; contact {company} directly with any questions.</value></data>
+  <data name="Email_TestEmail_Subject" xml:space="preserve"><value>PAKO test email</value></data>
+  <data name="Email_TestEmail_Body" xml:space="preserve"><value>This is a test email from PAKO for {company}.
+
+If you are reading it, email delivery works (mode: {mode}).</value></data>
+  <data name="Pdf_Invoice_Title_Invoice" xml:space="preserve"><value>Invoice</value></data>
+  <data name="Pdf_Invoice_Title_CreditNote" xml:space="preserve"><value>Credit note</value></data>
+  <data name="Pdf_Invoice_Title_DebitNote" xml:space="preserve"><value>Debit note</value></data>
+  <data name="Pdf_Invoice_Title_DownPayment" xml:space="preserve"><value>Down payment invoice</value></data>
+  <data name="Pdf_Invoice_Title_SalesReturn" xml:space="preserve"><value>Sales return</value></data>
+  <data name="Pdf_Invoice_Title_Proforma" xml:space="preserve"><value>Proforma invoice</value></data>
+  <data name="Pdf_Invoice_Number" xml:space="preserve"><value>No.</value></data>
+  <data name="Pdf_Invoice_Draft" xml:space="preserve"><value>Draft — not numbered yet</value></data>
+  <data name="Pdf_Invoice_NotPosted" xml:space="preserve"><value>Not posted</value></data>
+  <data name="Pdf_Invoice_Cancelled" xml:space="preserve"><value>Cancelled</value></data>
+  <data name="Pdf_Invoice_VatNumber" xml:space="preserve"><value>VAT no.</value></data>
+  <data name="Pdf_Invoice_FiscalNumber" xml:space="preserve"><value>Fiscal no.</value></data>
+  <data name="Pdf_Invoice_BusinessNumber" xml:space="preserve"><value>Business no.</value></data>
+  <data name="Pdf_Invoice_BillTo" xml:space="preserve"><value>Bill to</value></data>
+  <data name="Pdf_Invoice_IssueDate" xml:space="preserve"><value>Issue date</value></data>
+  <data name="Pdf_Invoice_DueDate" xml:space="preserve"><value>Due date</value></data>
+  <data name="Pdf_Invoice_PaymentTerms" xml:space="preserve"><value>Payment terms</value></data>
+  <data name="Pdf_Invoice_NetDays" xml:space="preserve"><value>Net {0} days</value></data>
+  <data name="Pdf_Invoice_Currency" xml:space="preserve"><value>Currency</value></data>
+  <data name="Pdf_Invoice_OriginalRef" xml:space="preserve"><value>Original document</value></data>
+  <data name="Pdf_Invoice_Col_Description" xml:space="preserve"><value>Description</value></data>
+  <data name="Pdf_Invoice_Col_Quantity" xml:space="preserve"><value>Qty</value></data>
+  <data name="Pdf_Invoice_Col_UnitPrice" xml:space="preserve"><value>Unit price</value></data>
+  <data name="Pdf_Invoice_Col_Discount" xml:space="preserve"><value>Disc.</value></data>
+  <data name="Pdf_Invoice_Col_Vat" xml:space="preserve"><value>VAT</value></data>
+  <data name="Pdf_Invoice_Col_VatAmount" xml:space="preserve"><value>VAT amount</value></data>
+  <data name="Pdf_Invoice_Col_Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Pdf_Invoice_AmountBeforeDiscount" xml:space="preserve"><value>Amount before discount</value></data>
+  <data name="Pdf_Invoice_TotalDiscount" xml:space="preserve"><value>Discount</value></data>
+  <data name="Pdf_Invoice_Subtotal" xml:space="preserve"><value>Subtotal (net)</value></data>
+  <data name="Pdf_Invoice_TotalVat" xml:space="preserve"><value>Total VAT</value></data>
+  <data name="Pdf_Invoice_GrandTotal" xml:space="preserve"><value>Total to pay</value></data>
+  <data name="Pdf_Invoice_Notes" xml:space="preserve"><value>Notes</value></data>
+  <data name="Pdf_Invoice_PaymentInfo" xml:space="preserve"><value>Payment</value></data>
+  <data name="Pdf_Invoice_Bank" xml:space="preserve"><value>Bank</value></data>
+  <data name="Pdf_Invoice_GeneratedBy" xml:space="preserve"><value>Generated by PAKO</value></data>
 </root>

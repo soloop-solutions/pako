@@ -51,6 +51,15 @@ public class Notification
         LastError = null;
     }
 
+    // The provider refused the message itself (bad address, rejected content): retrying cannot help.
+    public void MarkFailedPermanently(string error)
+    {
+        Attempts++;
+        LastError = error.Length > 1000 ? error[..1000] : error;
+        LockedUntil = null;
+        State = NotificationState.Failed;
+    }
+
     // Exponential backoff: 1, 2, 4, 8, 16 minutes, then Failed for good.
     public void MarkAttemptFailed(string error, DateTime now)
     {
@@ -90,6 +99,11 @@ public static class NotificationTemplates
     public const string PortalOrderPlaced = "PortalOrderPlaced";
     public const string PortalOrderConfirmed = "PortalOrderConfirmed";
     public const string PortalOrderCancelled = "PortalOrderCancelled";
+
+    // Email delivery: sent by hand from a posted invoice, with its PDF; and "Send test email" from the
+    // notification settings or the platform admin. Neither is switchable per company.
+    public const string InvoiceSent = "InvoiceSent";
+    public const string TestEmail = "TestEmail";
 
     // docs/USER_ACCESS_PLAN.md. Security mail: never switchable off per company.
     public const string UserInvitation = "UserInvitation";

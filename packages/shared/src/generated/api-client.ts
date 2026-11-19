@@ -5903,6 +5903,85 @@ export class PakoApiClient {
     }
 
     /**
+     * @return OK
+     */
+    sendCompanyTestEmail(companyId: string): Promise<TestEmailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/notifications/test";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSendCompanyTestEmail(_response);
+        });
+    }
+
+    protected processSendCompanyTestEmail(response: Response): Promise<TestEmailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TestEmailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TestEmailResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    sendPlatformTestEmail(body: SendTestEmailRequest): Promise<TestEmailResponse> {
+        let url_ = this.baseUrl + "/api/platform/email/test";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSendPlatformTestEmail(_response);
+        });
+    }
+
+    protected processSendPlatformTestEmail(response: Response): Promise<TestEmailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as TestEmailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<TestEmailResponse>(null as any);
+    }
+
+    /**
      * @param employeeId (optional) 
      * @param state (optional) 
      * @return OK
@@ -9061,6 +9140,186 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<MarginReportResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getInvoicePdf(companyId: string, invoiceId: string): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{invoiceId}/pdf";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (invoiceId === undefined || invoiceId === null)
+            throw new globalThis.Error("The parameter 'invoiceId' must be defined.");
+        url_ = url_.replace("{invoiceId}", encodeURIComponent("" + invoiceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/pdf"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetInvoicePdf(_response);
+        });
+    }
+
+    protected processGetInvoicePdf(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    emailInvoice(companyId: string, invoiceId: string, body: EmailInvoiceRequest): Promise<InvoiceEmailResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{invoiceId}/email";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (invoiceId === undefined || invoiceId === null)
+            throw new globalThis.Error("The parameter 'invoiceId' must be defined.");
+        url_ = url_.replace("{invoiceId}", encodeURIComponent("" + invoiceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processEmailInvoice(_response);
+        });
+    }
+
+    protected processEmailInvoice(response: Response): Promise<InvoiceEmailResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceEmailResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<InvoiceEmailResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listInvoiceEmails(companyId: string, invoiceId: string): Promise<InvoiceEmailResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{invoiceId}/emails";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (invoiceId === undefined || invoiceId === null)
+            throw new globalThis.Error("The parameter 'invoiceId' must be defined.");
+        url_ = url_.replace("{invoiceId}", encodeURIComponent("" + invoiceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListInvoiceEmails(_response);
+        });
+    }
+
+    protected processListInvoiceEmails(response: Response): Promise<InvoiceEmailResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceEmailResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<InvoiceEmailResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    retryInvoiceEmail(companyId: string, invoiceId: string, emailId: string): Promise<InvoiceEmailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{invoiceId}/emails/{emailId}/retry";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (invoiceId === undefined || invoiceId === null)
+            throw new globalThis.Error("The parameter 'invoiceId' must be defined.");
+        url_ = url_.replace("{invoiceId}", encodeURIComponent("" + invoiceId));
+        if (emailId === undefined || emailId === null)
+            throw new globalThis.Error("The parameter 'emailId' must be defined.");
+        url_ = url_.replace("{emailId}", encodeURIComponent("" + emailId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRetryInvoiceEmail(_response);
+        });
+    }
+
+    protected processRetryInvoiceEmail(response: Response): Promise<InvoiceEmailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceEmailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<InvoiceEmailResponse>(null as any);
     }
 
     /**
@@ -16575,6 +16834,53 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<PaginatedResponseOfPortalInvoiceSummaryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getPortalInvoicePdf(companyId: string, id: string): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/invoices/{id}/pdf";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/pdf"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetPortalInvoicePdf(_response);
+        });
+    }
+
+    protected processGetPortalInvoicePdf(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
     }
 
     /**
@@ -31938,6 +32244,14 @@ export interface EditPostedInvoiceRequest {
     [key: string]: any;
 }
 
+export interface EmailInvoiceRequest {
+    to?: string[] | undefined;
+    message?: string | undefined;
+    culture?: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface EmployeeContractResponse {
     id: string;
     employeeId: string;
@@ -32691,6 +33005,18 @@ export interface InvoiceAmountTotals {
     netAmount: number;
     taxAmount: number;
     grossAmount: number;
+
+    [key: string]: any;
+}
+
+export interface InvoiceEmailResponse {
+    id: string;
+    recipient: string;
+    state: string;
+    attempts: number;
+    lastError: string | undefined;
+    createdAt: string;
+    sentAt: string | undefined;
 
     [key: string]: any;
 }
@@ -36641,6 +36967,12 @@ export interface SecureJournalResponse {
     [key: string]: any;
 }
 
+export interface SendTestEmailRequest {
+    to?: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface SerialLookupResponse {
     itemId: string;
     itemName: string;
@@ -37175,6 +37507,15 @@ export interface TaxDefinitionResponse {
     code: string | undefined;
     direction: number | undefined;
     isReverseCharge: boolean;
+
+    [key: string]: any;
+}
+
+export interface TestEmailResponse {
+    recipient: string;
+    sent: boolean;
+    mode: string;
+    error: string | undefined;
 
     [key: string]: any;
 }

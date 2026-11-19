@@ -14,6 +14,25 @@ using Pako.Infrastructure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Machine-only secrets (e.g. the Resend key, docs/EMAIL.md): appsettings.{Environment}.local.json is
+// gitignored. Inserted before environment variables, so a server's env still wins.
+{
+    var sources = builder.Configuration.Sources;
+    // The unprefixed env source comes after appsettings.{Env}.json; the ASPNETCORE_/DOTNET_ ones come
+    // before appsettings.json, and inserting there would let appsettings.json override this file.
+    var envIndex = sources.ToList().FindLastIndex(s =>
+        s is Microsoft.Extensions.Configuration.EnvironmentVariables.EnvironmentVariablesConfigurationSource { Prefix: null or "" });
+    var local = new Microsoft.Extensions.Configuration.Json.JsonConfigurationSource
+    {
+        Path = $"appsettings.{builder.Environment.EnvironmentName}.local.json",
+        Optional = true,
+        ReloadOnChange = true,
+    };
+    local.ResolveFileProvider();
+    if (local.FileProvider is null) local.FileProvider = builder.Environment.ContentRootFileProvider;
+    if (envIndex < 0) sources.Add(local); else sources.Insert(envIndex, local);
+}
+
 // Add services to the container.
 
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
@@ -132,6 +151,7 @@ builder.Services.AddScoped<Pako.Api.Services.StockService>();
 builder.Services.AddScoped<Pako.Api.Services.StockDocumentService>();
 builder.Services.AddScoped<Pako.Api.Services.PriceListService>();
 builder.Services.AddScoped<Pako.Api.Services.PosService>();
+builder.Services.AddScoped<Pako.Api.Services.InvoiceDocumentService>();
 // ATK SEF fiscalization client (AI 01/2026).
 builder.Services.AddHttpClient<Pako.Fiscal.Xk.AtkFiscalClient>(client =>
 {
@@ -155,11 +175,22 @@ builder.Services.AddScoped<Pako.Api.Services.PlatformAdminService>();
 builder.Services.AddScoped<PlatformBootstrap>();
 
 // E7/E8: email outbox + background jobs. Email:Mode=Log (default) never sends; Smtp needs
-// Email:Host etc., with the password from the environment (Email__Password).
+// Email:Host etc. (password from Email__Password); Api posts to an HTTP email API (key from
+// Email__Api__ApiKey). docs/EMAIL.md. A real mode with an unusable configuration refuses to start.
 builder.Services.Configure<Pako.Api.Services.Notifications.EmailOptions>(builder.Configuration.GetSection(Pako.Api.Services.Notifications.EmailOptions.Section));
-if (string.Equals(builder.Configuration["Email:Mode"], "Smtp", StringComparison.OrdinalIgnoreCase))
+var emailOptions = builder.Configuration.GetSection(Pako.Api.Services.Notifications.EmailOptions.Section).Get<Pako.Api.Services.Notifications.EmailOptions>()
+    ?? new Pako.Api.Services.Notifications.EmailOptions();
+if (emailOptions.Problems() is { Count: > 0 } emailProblems)
+{
+    throw new InvalidOperationException("Email is misconfigured: " + string.Join(" ", emailProblems));
+}
+if (emailOptions.IsMode(Pako.Api.Services.Notifications.EmailOptions.SmtpMode))
 {
     builder.Services.AddTransient<Pako.Api.Services.Notifications.IEmailSender, Pako.Api.Services.Notifications.SmtpEmailSender>();
+}
+else if (emailOptions.IsMode(Pako.Api.Services.Notifications.EmailOptions.ApiMode))
+{
+    builder.Services.AddHttpClient<Pako.Api.Services.Notifications.IEmailSender, Pako.Api.Services.Notifications.ApiEmailSender>();
 }
 else
 {

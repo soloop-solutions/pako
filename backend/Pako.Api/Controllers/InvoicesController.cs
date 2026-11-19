@@ -247,19 +247,11 @@ public class InvoicesController : ControllerBase
             return NotFound();
         }
 
-        // The printed invoice shows per-line discount, net, VAT and total: computed here with the
-        // posting calculator so the print never does its own money math.
-        var taxIds = invoice.Lines.Where(l => l.TaxDefinitionId != null).Select(l => l.TaxDefinitionId!.Value).Distinct().ToList();
-        var taxDefinitionsById = await _db.TaxDefinitions.AsNoTracking()
-            .Include(t => t.RepartitionLines)
-            .Where(t => t.CompanyId == companyId && taxIds.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id);
-        DocumentLineAmounts LineAmounts(InvoiceLine line) => DocumentLineCalculator.Amounts(
-            line.Quantity, line.UnitPrice, line.DiscountPercent,
-            line.TaxDefinitionId is { } taxId ? taxDefinitionsById.GetValueOrDefault(taxId) : null,
-            _taxComputationService, invoice.PriceMode);
-
-        return Ok(ToResponse(invoice, lineAmounts: LineAmounts));
+        // The printed invoice shows per-line discount, net, VAT and total: computed with the posting
+        // calculator, by the same loader the invoice PDF and email use, so the print never does its own
+        // money math and the three always agree.
+        var lineAmounts = await new InvoiceDocumentService(_db, _taxComputationService).LineAmountsAsync(invoice);
+        return Ok(ToResponse(invoice, lineAmounts: lineAmounts));
     }
 
     // A4 (v2 release): there is deliberately no DELETE route on this controller — a posted
