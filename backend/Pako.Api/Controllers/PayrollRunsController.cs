@@ -209,6 +209,9 @@ public class PayrollRunsController : ControllerBase
             .FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
         if (payrollRun is null) return NotFound();
 
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, payrollRun.PeriodEnd); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
+
         // B9: payroll isn't Sale/Purchase/Cash/Bank in nature — stays on General, the same journal
         // it always posted to, just resolved explicitly now that "the first journal for this
         // company" is ambiguous with five seeded.

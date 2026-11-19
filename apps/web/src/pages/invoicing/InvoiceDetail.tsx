@@ -422,7 +422,7 @@ export function InvoiceDetail() {
             </div>
           )}
 
-          {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
+          {invoice.state === "Draft" && !isMonthLocked && invoice.documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}
@@ -444,7 +444,7 @@ export function InvoiceDetail() {
         </CardContent>
       </Card>
 
-      {invoice.state === "Posted" && invoice.documentType === InvoiceDocumentType.Invoice && (
+      {invoice.state === "Posted" && !isMonthLocked && invoice.documentType === InvoiceDocumentType.Invoice && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.actions" })}</CardTitle>
@@ -464,7 +464,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && (
+      {invoice.state === "Posted" && !isMonthLocked && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "editPostedFields.title" })}</CardTitle>
@@ -482,7 +482,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && balance && balance.outstanding > 0 && canApprove("sales") && (
+      {invoice.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && canApprove("sales") && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -510,7 +510,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("sales") && (
+      {invoice.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("sales") && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyCreditNote" })}</CardTitle>
@@ -529,7 +529,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && canApprove("sales") && (
+      {invoice.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && canApprove("sales") && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyDownPayment" })}</CardTitle>
@@ -547,7 +547,7 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && activeCompany.allowNumberOverride && isAdmin && (
+      {invoice.state === "Posted" && !isMonthLocked && activeCompany.allowNumberOverride && isAdmin && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "overrideNumber.title" })}</CardTitle>

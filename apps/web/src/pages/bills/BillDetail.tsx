@@ -354,7 +354,7 @@ export function BillDetail() {
             <p className="font-medium">{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
           </div>
 
-          {bill.state === "Draft" && canApprove("purchases") && (
+          {bill.state === "Draft" && !isMonthLocked && canApprove("purchases") && (
             <div className="flex flex-col items-start gap-1">
               <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
                 {posting ? intl.formatMessage({ id: "billDetail.posting" }) : intl.formatMessage({ id: "billDetail.postBill" })}
@@ -376,7 +376,7 @@ export function BillDetail() {
         </CardContent>
       </Card>
 
-      {bill.state === "Posted" && bill.documentType === BillDocumentType.Bill && (
+      {bill.state === "Posted" && !isMonthLocked && bill.documentType === BillDocumentType.Bill && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "billDetail.actions" })}</CardTitle>
@@ -395,7 +395,7 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && (
+      {bill.state === "Posted" && !isMonthLocked && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "editPostedFields.title" })}</CardTitle>
@@ -413,7 +413,7 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && balance && balance.outstanding > 0 && canApprove("purchases") && (
+      {bill.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && canApprove("purchases") && (
         <Card>
           <CardHeader>
             <CardTitle>
@@ -441,7 +441,7 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("purchases") && (
+      {bill.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("purchases") && (
         <Card>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "billDetail.applyCreditNote" })}</CardTitle>

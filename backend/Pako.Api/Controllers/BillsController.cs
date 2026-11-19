@@ -712,6 +712,9 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["BillOnlyDueDateOrNotesEditableAfterPosting"].Value);
         }
 
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, bill.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
+
         var dueDateChanged = bill.DueDate != request.DueDate;
         var notesChanged = bill.InternalNotes != request.InternalNotes;
 
@@ -795,6 +798,9 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, bill.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
+
         if (bill.State != BillState.Posted)
         {
             return BadRequest(_localizer["BillMustBePostedForPayment"].Value);
@@ -869,6 +875,9 @@ public class BillsController : ControllerBase
         {
             return NotFound();
         }
+
+        try { await MonthLockService.EnsureMonthOpenAsync(_db, companyId, bill.IssueDate); }
+        catch (MonthLockViolationException ex) { return BadRequest(ex.Message); }
 
         // The credit note must be visible too — otherwise its id becomes an existence oracle.
         var creditNote = await _db.Bills.AsNoTracking().VisibleTo(_access)
