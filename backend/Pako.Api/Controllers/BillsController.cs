@@ -689,78 +689,10 @@ public class BillsController : ControllerBase
     private async Task<RecordPaymentOutcome> TryRecordPaymentAsync(
         Company company, Bill bill, decimal amount, Guid cashOrBankAccountId, DateOnly date)
     {
-        var payableAccountId = await GetPayableAccountIdAsync(company.Id, bill.PartnerId);
-        if (payableAccountId == Guid.Empty)
-        {
-            return new RecordPaymentOutcome(BadRequest(_localizer["NoPayableAccount"].Value), null);
-        }
-
-        // B9: Cash or Bank journal, whichever matches the account the payment actually moved
-        // through — not "the first journal for this company" (ambiguous now that Sale/Purchase/
-        // Cash/Bank/General all exist).
-        var cashOrBankAccountSubType = await _db.Accounts.AsNoTracking()
-            .Where(a => a.Id == cashOrBankAccountId).Select(a => a.AccountSubType).FirstOrDefaultAsync();
-        var journal = await JournalResolver.GetAsync(_db, company.Id, JournalResolver.SettlementJournalType(cashOrBankAccountSubType));
-        if (journal is null)
-        {
-            return new RecordPaymentOutcome(BadRequest(_localizer["NoJournalToPost"].Value), null);
-        }
-
-        // A Purchase Return or Credit Note is a credit document — "recording a payment" against it
-        // means receiving a refund from the supplier: cash comes IN (Debit Cash) and the supplier's
-        // credit balance is cleared (Credit AP). Normal bills are the reverse: cash OUT (Credit
-        // Cash), payable cleared (Debit AP).
-        var isCreditDocument = bill.DocumentType is DocumentType.CreditNote or DocumentType.PurchaseReturn;
-
-        var settlementEntry = new JournalEntry
-        {
-            Id = Guid.NewGuid(),
-            CompanyId = company.Id,
-            JournalId = journal.Id,
-            Date = date,
-            Reference = isCreditDocument
-                ? $"Refund for {bill.VendorReference}"
-                : $"Payment for {bill.VendorReference}",
-            Lines =
-            {
-                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = payableAccountId, PartnerId = bill.PartnerId,
-                    Debit = isCreditDocument ? 0m : amount,
-                    Credit = isCreditDocument ? amount : 0m },
-                new JournalEntryLine { Id = Guid.NewGuid(), AccountId = cashOrBankAccountId,
-                    Debit = isCreditDocument ? amount : 0m,
-                    Credit = isCreditDocument ? 0m : amount }
-            }
-        };
-
-        try
-        {
-            settlementEntry.Post(company);
-        }
-        catch (Exception ex) when (
-            ex is InvalidOperationException or
-            UnbalancedJournalEntryException or
-            AccountingLockDateViolationException or
-            TaxLockDateViolationException)
-        {
-            return new RecordPaymentOutcome(BadRequest(ex.Message), null);
-        }
-
-        _db.JournalEntries.Add(settlementEntry);
-        await _db.SaveChangesAsync();
-
-        var settlementLineId = settlementEntry.Lines.Single(l => l.AccountId == payableAccountId).Id;
-        var result = await ReconciliationCreator.TryCreateAsync(_db, company.Id, null, bill.Id, settlementLineId, amount);
-        if (result.Status == ReconciliationCreationStatus.NotFound)
-        {
-            return new RecordPaymentOutcome(NotFound(), null);
-        }
-
-        if (result.Status == ReconciliationCreationStatus.ValidationFailed)
-        {
-            return new RecordPaymentOutcome(BadRequest(result.Error), null);
-        }
-
-        return new RecordPaymentOutcome(null, result.Reconciliation);
+        var outcome = await new PaymentRecorder(_db, _localizer).ForBillAsync(company, bill, amount, cashOrBankAccountId, date);
+        if (outcome.NotFound) return new RecordPaymentOutcome(NotFound(), null);
+        if (outcome.Error is not null) return new RecordPaymentOutcome(BadRequest(outcome.Error), null);
+        return new RecordPaymentOutcome(null, outcome.Reconciliation);
     }
 
     // AP mirror of InvoicesController.ApplyCreditNote — feeds the vendor credit note's own AP
@@ -904,22 +836,8 @@ public class BillsController : ControllerBase
     // B8: partner's own PayableAccountId wins when set and the caller has a partner to ask about
     // (every call site that posts, pays, or reads a specific document does); the company's
     // default otherwise — mirrors InvoicesController.GetReceivableAccountIdAsync exactly.
-    private async Task<Guid> GetPayableAccountIdAsync(Guid companyId, Guid? partnerId = null)
-    {
-        if (partnerId is { } id)
-        {
-            var partnerAccountId = await _db.Partners.AsNoTracking()
-                .Where(p => p.Id == id && p.CompanyId == companyId)
-                .Select(p => p.PayableAccountId)
-                .FirstOrDefaultAsync();
-            if (partnerAccountId is { } paId)
-            {
-                return paId;
-            }
-        }
-
-        return (await GetAccountDefaultsAsync(companyId))?.PayableAccountId ?? Guid.Empty;
-    }
+    private Task<Guid> GetPayableAccountIdAsync(Guid companyId, Guid? partnerId = null) =>
+        new PaymentRecorder(_db, _localizer).PayableAccountIdAsync(companyId, partnerId);
 
     [HttpGet("{id:guid}/post-preview")]
     [RequireCompanyAccess(module: AccessModule.Purchases)]

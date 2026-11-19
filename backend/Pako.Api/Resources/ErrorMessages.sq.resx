@@ -1845,4 +1845,53 @@ Porositë tuaja në portal: {link}</value></data>
   <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Lloji i dokumentit duhet të jetë "Buy" ose "Sell".</value></data>
   <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Muaji duhet të jetë ndërmjet 1 dhe 12.</value></data>
   <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Viti duhet të jetë ndërmjet 2000 dhe 2100.</value></data>
+  <data name="BankStmtFile" xml:space="preserve"><value>Ngarkoni skedarin Excel të ekstraktit bankar të PAKO (.xlsx, deri në 5 MB).</value></data>
+  <data name="BankStmtNotExcel" xml:space="preserve"><value>Skedari nuk është skedar Excel (.xlsx).</value></data>
+  <data name="BankStmtNotTemplate" xml:space="preserve"><value>Ky nuk është modeli i ekstraktit bankar të PAKO. Shkarkoni modelin dhe plotësojeni.</value></data>
+  <data name="BankStmtNotBankAccount" xml:space="preserve"><value>Zgjidhni një llogari bankare.</value></data>
+  <data name="BankStmtOtherAccount" xml:space="preserve"><value>Ky model është shkarkuar për një llogari tjetër bankare.</value></data>
+  <data name="BankStmtSameFile" xml:space="preserve"><value>Ky skedar është importuar tashmë.</value></data>
+  <data name="BankStmtOpeningRequired" xml:space="preserve"><value>Shkruani gjendjen fillestare.</value></data>
+  <data name="BankStmtClosingRequired" xml:space="preserve"><value>Shkruani gjendjen përfundimtare.</value></data>
+  <data name="BankStmtTooManyLines" xml:space="preserve"><value>Të shumtën {0} rreshta për ekstrakt.</value></data>
+  <data name="BankStmtBadDate" xml:space="preserve"><value>Data nuk është e vlefshme (përdorni dd.mm.vvvv).</value></data>
+  <data name="BankStmtBadAmount" xml:space="preserve"><value>Shuma nuk është numër.</value></data>
+  <data name="BankStmtNegativeAmount" xml:space="preserve"><value>Shumat nuk mund të jenë negative: daljet shkruajini te kolona Dalje.</value></data>
+  <data name="BankStmtBothAmounts" xml:space="preserve"><value>Plotësoni Hyrje ose Dalje, jo të dyja.</value></data>
+  <data name="BankStmtNoAmount" xml:space="preserve"><value>Plotësoni Hyrje ose Dalje.</value></data>
+  <data name="BankStmtDateOutsidePeriod" xml:space="preserve"><value>Data është jashtë periudhës së ekstraktit.</value></data>
+  <data name="BankStmtNoLines" xml:space="preserve"><value>Ekstrakti nuk ka rreshta.</value></data>
+  <data name="BankStmtBadPeriod" xml:space="preserve"><value>Fillimi i periudhës është pas përfundimit të saj.</value></data>
+  <data name="BankStmtLineAlreadyPosted" xml:space="preserve"><value>Ky rresht është regjistruar tashmë si pagesë.</value></data>
+  <data name="BankStmtOneDocument" xml:space="preserve"><value>Zgjidhni një faturë shitjeje ose një faturë blerjeje.</value></data>
+  <data name="BankStmtWrongDirection" xml:space="preserve"><value>Hyrjet paguajnë fatura shitjeje; daljet paguajnë fatura blerjeje.</value></data>
+  <data name="BankStmtDocumentNotOpen" xml:space="preserve"><value>Dokumenti nuk është i postuar ose është paguar tashmë.</value></data>
+  <data name="BankStmtAmountTooHigh" xml:space="preserve"><value>Shuma duhet të jetë më e madhe se 0 dhe jo më shumë se {0:N2} (e hapur në dokument) dhe {1:N2} (rreshti).</value></data>
+  <data name="BankStmtNotDraft" xml:space="preserve"><value>Vetëm një ekstrakt i pakonfirmuar mund të ndryshohet kështu.</value></data>
+  <data name="BankStmtBalanceMismatch" xml:space="preserve"><value>Gjendja fillestare + hyrjet − daljet nuk barazohet me gjendjen përfundimtare (diferenca {0:N2}). Kontrolloni për rresht që mungon ose është dyfishuar.</value></data>
+  <data name="BankStmtConfirmFirst" xml:space="preserve"><value>Konfirmoni fillimisht ekstraktin.</value></data>
+  <data name="BankStmtNothingToPost" xml:space="preserve"><value>Zgjidhni fillimisht një faturë për këtë rresht.</value></data>
+  <data name="BankStmtRowError" xml:space="preserve"><value>Rreshti {0}: {1}</value></data>
+  <data name="Export_BankStmt_Sheet" xml:space="preserve"><value>Ekstrakti</value></data>
+  <data name="Export_BankStmt_Title" xml:space="preserve"><value>Ekstrakti bankar (PAKO)</value></data>
+  <data name="Export_BankStmt_Account" xml:space="preserve"><value>Llogaria bankare</value></data>
+  <data name="Export_BankStmt_Iban" xml:space="preserve"><value>IBAN</value></data>
+  <data name="Export_BankStmt_PeriodFrom" xml:space="preserve"><value>Periudha nga</value></data>
+  <data name="Export_BankStmt_PeriodTo" xml:space="preserve"><value>Periudha deri</value></data>
+  <data name="Export_BankStmt_Opening" xml:space="preserve"><value>Gjendja fillestare</value></data>
+  <data name="Export_BankStmt_Closing" xml:space="preserve"><value>Gjendja përfundimtare</value></data>
+  <data name="Export_BankStmt_Col_Date" xml:space="preserve"><value>Data</value></data>
+  <data name="Export_BankStmt_Col_Description" xml:space="preserve"><value>Përshkrimi</value></data>
+  <data name="Export_BankStmt_Col_Partner" xml:space="preserve"><value>Partneri (emri ose nr. fiskal)</value></data>
+  <data name="Export_BankStmt_Col_Reference" xml:space="preserve"><value>Referenca (nr. i faturës)</value></data>
+  <data name="Export_BankStmt_Col_In" xml:space="preserve"><value>Hyrje</value></data>
+  <data name="Export_BankStmt_Col_Out" xml:space="preserve"><value>Dalje</value></data>
+  <data name="Export_BankStmt_HelpSheet" xml:space="preserve"><value>Udhëzime</value></data>
+  <data name="Export_BankStmt_HelpTitle" xml:space="preserve"><value>Si të plotësohet ekstrakti bankar</value></data>
+  <data name="Export_BankStmt_Help1" xml:space="preserve"><value>Kopjoni çdo rresht të ekstraktit bankar në një rresht, nga rreshti 11: data, përshkrimi, partneri dhe shuma te Hyrje ose Dalje.</value></data>
+  <data name="Export_BankStmt_Help2" xml:space="preserve"><value>Hyrjet paguajnë fatura shitjeje, daljet paguajnë fatura blerjeje. Shkruani numrin e faturës te Referenca, që PAKO ta gjejë.</value></data>
+  <data name="Export_BankStmt_Help3" xml:space="preserve"><value>Partneri: emri si në PAKO, ose numri fiskal ose i TVSH-së.</value></data>
+  <data name="Export_BankStmt_Help4" xml:space="preserve"><value>Plotësoni periudhën dhe gjendjen fillestare e përfundimtare nga ekstrakti. Fillestarja + hyrjet − daljet duhet të barazohet me përfundimtaren.</value></data>
+  <data name="Export_BankStmt_Help5" xml:space="preserve"><value>Komisionet bankare, transferet dhe rreshtat e tjerë që nuk paguajnë faturë mund të mbeten në skedar: PAKO i lë të hapur dhe ju i regjistroni me dorë.</value></data>
+  <data name="Export_BankStmt_Help6" xml:space="preserve"><value>Mos e ndryshoni strukturën ose kolonën e fshehur. Ngarkojeni skedarin te Banka &amp; Arka → Ekstraktet bankare.</value></data>
 </root>

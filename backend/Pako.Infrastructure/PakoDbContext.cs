@@ -58,6 +58,8 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<PayslipLine> PayslipLines => Set<PayslipLine>();
     public DbSet<Attachment> Attachments => Set<Attachment>();
     public DbSet<AccountingDocument> AccountingDocuments => Set<AccountingDocument>();
+    public DbSet<Pako.Domain.Banking.BankStatement> BankStatements => Set<Pako.Domain.Banking.BankStatement>();
+    public DbSet<Pako.Domain.Banking.BankStatementLine> BankStatementLines => Set<Pako.Domain.Banking.BankStatementLine>();
     public DbSet<WithholdingTaxEntry> WithholdingTaxEntries => Set<WithholdingTaxEntry>();
     public DbSet<Department> Departments => Set<Department>();
     public DbSet<EmployeePartnerAssignment> EmployeePartnerAssignments => Set<EmployeePartnerAssignment>();

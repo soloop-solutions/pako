@@ -1433,6 +1433,452 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    listBankStatementAccounts(companyId: string): Promise<BankStatementAccountResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/accounts";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListBankStatementAccounts(_response);
+        });
+    }
+
+    protected processListBankStatementAccounts(response: Response): Promise<BankStatementAccountResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementAccountResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementAccountResponse[]>(null as any);
+    }
+
+    /**
+     * @param bankAccountId (optional) 
+     * @return OK
+     */
+    downloadBankStatementTemplate(companyId: string, bankAccountId: string | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/template?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (bankAccountId === null)
+            throw new globalThis.Error("The parameter 'bankAccountId' cannot be null.");
+        else if (bankAccountId !== undefined)
+            url_ += "bankAccountId=" + encodeURIComponent("" + bankAccountId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDownloadBankStatementTemplate(_response);
+        });
+    }
+
+    protected processDownloadBankStatementTemplate(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
+     * @param file (optional) 
+     * @param bankAccountId (optional) 
+     * @return OK
+     */
+    importBankStatement(companyId: string, file: FileParameter | undefined, bankAccountId: string | undefined): Promise<BankStatementImportResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/import";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (file === null || file === undefined)
+            throw new globalThis.Error("The parameter 'file' cannot be null.");
+        else
+            content_.append("File", file.data, file.fileName ? file.fileName : "File");
+        if (bankAccountId === null || bankAccountId === undefined)
+            throw new globalThis.Error("The parameter 'bankAccountId' cannot be null.");
+        else
+            content_.append("BankAccountId", bankAccountId.toString());
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processImportBankStatement(_response);
+        });
+    }
+
+    protected processImportBankStatement(response: Response): Promise<BankStatementImportResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementImportResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementImportResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listBankStatements(companyId: string): Promise<BankStatementSummaryResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListBankStatements(_response);
+        });
+    }
+
+    protected processListBankStatements(response: Response): Promise<BankStatementSummaryResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementSummaryResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementSummaryResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getBankStatement(companyId: string, id: string): Promise<BankStatementDetailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetBankStatement(_response);
+        });
+    }
+
+    protected processGetBankStatement(response: Response): Promise<BankStatementDetailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementDetailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementDetailResponse>(null as any);
+    }
+
+    /**
+     * @return No Content
+     */
+    deleteBankStatement(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeleteBankStatement(_response);
+        });
+    }
+
+    protected processDeleteBankStatement(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @return OK
+     */
+    listBankStatementLineCandidates(companyId: string, id: string, lineId: string, search: string | undefined): Promise<BankStatementCandidateResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/{id}/lines/{lineId}/candidates?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        if (lineId === undefined || lineId === null)
+            throw new globalThis.Error("The parameter 'lineId' must be defined.");
+        url_ = url_.replace("{lineId}", encodeURIComponent("" + lineId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListBankStatementLineCandidates(_response);
+        });
+    }
+
+    protected processListBankStatementLineCandidates(response: Response): Promise<BankStatementCandidateResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementCandidateResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementCandidateResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateBankStatementLine(companyId: string, id: string, lineId: string, body: UpdateBankStatementLineRequest): Promise<BankStatementDetailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/{id}/lines/{lineId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        if (lineId === undefined || lineId === null)
+            throw new globalThis.Error("The parameter 'lineId' must be defined.");
+        url_ = url_.replace("{lineId}", encodeURIComponent("" + lineId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateBankStatementLine(_response);
+        });
+    }
+
+    protected processUpdateBankStatementLine(response: Response): Promise<BankStatementDetailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementDetailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementDetailResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    confirmBankStatement(companyId: string, id: string): Promise<BankStatementDetailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/{id}/confirm";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConfirmBankStatement(_response);
+        });
+    }
+
+    protected processConfirmBankStatement(response: Response): Promise<BankStatementDetailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementDetailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementDetailResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    postBankStatementLine(companyId: string, id: string, lineId: string): Promise<BankStatementDetailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/{id}/lines/{lineId}/post";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        if (lineId === undefined || lineId === null)
+            throw new globalThis.Error("The parameter 'lineId' must be defined.");
+        url_ = url_.replace("{lineId}", encodeURIComponent("" + lineId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPostBankStatementLine(_response);
+        });
+    }
+
+    protected processPostBankStatementLine(response: Response): Promise<BankStatementDetailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementDetailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementDetailResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     billsAll(companyId: string): Promise<BillResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/bills";
         if (companyId === undefined || companyId === null)
@@ -30487,6 +30933,94 @@ export interface BalanceSheetResponse {
     [key: string]: any;
 }
 
+export interface BankStatementAccountResponse {
+    id: string;
+    code: string;
+    name: string;
+
+    [key: string]: any;
+}
+
+export interface BankStatementCandidateResponse {
+    kind: string;
+    id: string;
+    number: string;
+    partnerId: string;
+    partnerName: string;
+    issueDate: string;
+    outstanding: number;
+
+    [key: string]: any;
+}
+
+export interface BankStatementDetailResponse {
+    summary: BankStatementSummaryResponse;
+    balanceDifference: number;
+    ledgerOpeningBalance: number;
+    lines: BankStatementLineResponse[];
+
+    [key: string]: any;
+}
+
+export interface BankStatementImportError {
+    row: number;
+    message: string;
+
+    [key: string]: any;
+}
+
+export interface BankStatementImportResponse {
+    statement: BankStatementDetailResponse | undefined;
+    errors: BankStatementImportError[];
+
+    [key: string]: any;
+}
+
+export interface BankStatementLineResponse {
+    id: string;
+    rowNumber: number;
+    date: string;
+    description: string;
+    partnerText: string | undefined;
+    reference: string | undefined;
+    amountIn: number;
+    amountOut: number;
+    state: string;
+    matchStatus: string;
+    isDuplicate: boolean;
+    partnerId: string | undefined;
+    partnerName: string | undefined;
+    invoiceId: string | undefined;
+    billId: string | undefined;
+    documentNumber: string | undefined;
+    documentOutstanding: number | undefined;
+    matchAmount: number | undefined;
+    journalEntryId: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface BankStatementSummaryResponse {
+    id: string;
+    bankAccountId: string;
+    bankAccountName: string;
+    fileName: string;
+    periodFrom: string;
+    periodTo: string;
+    openingBalance: number;
+    closingBalance: number;
+    totalIn: number;
+    totalOut: number;
+    state: string;
+    lineCount: number;
+    matchedCount: number;
+    openCount: number;
+    createdAt: string;
+    confirmedAt: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface BarcodeRuleResponse {
     id: string;
     prefix: string;
@@ -37073,6 +37607,15 @@ export interface UpdateAccountRequest {
     profiles: number;
     validFrom: string | undefined;
     validTo: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface UpdateBankStatementLineRequest {
+    invoiceId?: string | undefined;
+    billId?: string | undefined;
+    amount?: number | undefined;
+    ignore?: boolean | undefined;
 
     [key: string]: any;
 }

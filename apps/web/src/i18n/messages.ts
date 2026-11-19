@@ -18,6 +18,7 @@ import { verticalsEn, verticalsSq } from "@/i18n/messages.verticals";
 import { companyTypesEn, companyTypesSq } from "@/i18n/messages.companyTypes";
 import { uiEn, uiSq } from "@/i18n/messages.ui";
 import { portalEn, portalSq } from "@/i18n/messages.portal";
+import { bankEn, bankSq } from "@/i18n/messages.bank";
 
 export const en: Record<string, string> = {
   // Nav
@@ -3982,5 +3983,7 @@ Object.assign(sq, uiSq);
 // Client feedback phase 5: customer portal (keys "portal.*", "so.source.*", "so.portal.*").
 Object.assign(en, portalEn);
 Object.assign(sq, portalSq);
+Object.assign(en, bankEn);
+Object.assign(sq, bankSq);
 
 export const messages: Record<string, Record<string, string>> = { en, sq };
