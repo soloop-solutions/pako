@@ -21,6 +21,6 @@ export default defineConfig({
       },
     },
     setupFiles: "./src/test/setup.ts",
-    exclude: [...configDefaults.exclude, "e2e/offline.spec.ts"],
+    exclude: [...configDefaults.exclude, "e2e/**"],
   },
 });

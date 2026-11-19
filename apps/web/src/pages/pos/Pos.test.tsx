@@ -180,7 +180,7 @@ describe("Till", () => {
   });
 
   it("does not sell on a fiscal register without PAKO Station", async () => {
-    api.getPosBootstrap.mockResolvedValue({ ...BOOT, register: { ...REGISTER, fiscalMode: 1 } });
+    api.getPosBootstrap.mockResolvedValue({ ...BOOT, register: { ...REGISTER, fiscalMode: 2 } });
     renderTill();
     expect(await screen.findByText(/signed on the till by PAKO Station/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Scan a barcode or search…")).not.toBeInTheDocument();

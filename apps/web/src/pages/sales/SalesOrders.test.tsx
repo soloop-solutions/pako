@@ -174,7 +174,7 @@ describe("Sales order form (P6)", () => {
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Market Arbeni is over the credit limit 1000.00.")).toBeInTheDocument();
     expect(api.confirmSalesOrder).toHaveBeenNthCalledWith(1, "c1", "so1", { overrideReason: undefined });
-    fireEvent.change(within(dialog).getByLabelText("Reason"), { target: { value: "Pays on Friday" } });
+    fireEvent.change(within(dialog).getByLabelText(/^Reason( \*)?$/), { target: { value: "Pays on Friday" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Confirm with reason" }));
 
     await waitFor(() => expect(api.confirmSalesOrder).toHaveBeenNthCalledWith(2, "c1", "so1", { overrideReason: "Pays on Friday" }));

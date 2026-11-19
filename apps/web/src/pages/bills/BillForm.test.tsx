@@ -31,7 +31,7 @@ vi.mock("@/hooks/useEntityFavorites", () => ({
 vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ activeCompanyId: "c1" }) }));
 
 const DRAFT: BillResponse = {
-  id: "b1", partnerId: "p1", vendorReference: undefined, issueDate: "2026-10-31", dueDate: "2026-10-31", state: "Draft",
+  id: "b1", partnerId: "p1", partnerName: "Vendor", vendorReference: undefined, issueDate: "2026-10-31", dueDate: "2026-10-31", state: "Draft",
   documentType: 0, originalBillId: undefined, journalEntryId: undefined, internalNotes: undefined, priceMode: 0,
   lines: [{
     id: "bl1", description: "Flour 25kg", quantity: 4, unitPrice: 12, taxDefinitionId: undefined, expenseAccountId: "e1",

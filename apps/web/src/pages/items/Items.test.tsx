@@ -86,9 +86,12 @@ describe("Item form — till fields", () => {
     renderItems();
     fireEvent.click(await screen.findByRole("button", { name: "Add item" }));
     const dialog = await screen.findByRole("dialog");
+    for (let step = 0; step < 3; step++) {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    }
     fireEvent.change(within(dialog).getByLabelText(/^Name/), { target: { value: "Djathë i bardhë" } });
     fireEvent.change(within(dialog).getByLabelText(/^Unit/), { target: { value: "kg" } });
-    fireEvent.change(within(dialog).getByLabelText("PLU"), { target: { value: "0042" } });
+    fireEvent.change(within(dialog).getByLabelText(/^PLU( \*)?$/), { target: { value: "0042" } });
     fireEvent.change(within(dialog).getByLabelText("Minimum age"), { target: { value: "16" } });
     fireEvent.click(within(dialog).getByLabelText("Sold by weight"));
     await pick(dialog, "item-revenue-account", "400100");
@@ -106,7 +109,7 @@ describe("Item form — till fields", () => {
     renderItems();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
     const dialog = await screen.findByRole("dialog");
-    expect(within(dialog).getByLabelText("PLU")).toHaveValue("12");
+    expect(within(dialog).getByLabelText(/^PLU( \*)?$/)).toHaveValue("12");
     const age = within(dialog).getByLabelText("Minimum age");
     expect(age).toHaveValue(18);
     fireEvent.change(age, { target: { value: "" } });

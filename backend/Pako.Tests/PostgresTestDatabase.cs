@@ -27,6 +27,12 @@ internal static class PostgresTestDatabase
         using var admin = new NpgsqlConnection(AdminConnectionString);
         admin.Open();
 
+        using (var extension = admin.CreateCommand())
+        {
+            extension.CommandText = "CREATE EXTENSION IF NOT EXISTS pg_trgm SCHEMA public";
+            extension.ExecuteNonQuery();
+        }
+
         var staleSchemas = new List<string>();
         using (var list = admin.CreateCommand())
         {

@@ -285,7 +285,10 @@ public class UserAdminTests : IAsyncLifetime
         var seed = await SeedAsync();
         var auth = new Pako.Api.Controllers.AuthController(seed.Users,
             new Pako.Api.Auth.JwtTokenService(new Pako.Api.Auth.JwtOptions { Key = "test-only-signing-key-not-for-production-32chars+", Issuer = "Pako", Audience = "Pako" }),
-            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance);
+            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
 
         for (var i = 0; i < 5; i++)
         {
@@ -388,7 +391,10 @@ public class UserAdminTests : IAsyncLifetime
         var seed = await SeedAsync();
         var auth = new Pako.Api.Controllers.AuthController(seed.Users,
             new Pako.Api.Auth.JwtTokenService(new Pako.Api.Auth.JwtOptions { Key = "test-only-signing-key-not-for-production-32chars+", Issuer = "Pako", Audience = "Pako" }),
-            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance);
+            new NullStringLocalizer<ErrorMessages>(), new ActionTokenService(), NullLogger<Pako.Api.Controllers.AuthController>.Instance)
+        {
+            ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() }
+        };
         for (var i = 0; i < 5; i++)
         {
             await auth.Login(new LoginRequest("admin@co.test", "wrong"));

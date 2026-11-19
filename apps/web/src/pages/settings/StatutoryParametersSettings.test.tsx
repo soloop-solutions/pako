@@ -89,10 +89,10 @@ describe("StatutoryParametersSettings", () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("5%")).toBeInTheDocument());
 
-    await chooseOption(screen.getByLabelText("Parameter"), "Pension, employer");
-    fireEvent.change(screen.getByLabelText("Effective from"), { target: { value: "2027-01-01" } });
-    fireEvent.change(screen.getByLabelText("Value (%)"), { target: { value: "6" } });
-    fireEvent.change(screen.getByLabelText("Source"), { target: { value: "Law 05/L-xxx" } });
+    await chooseOption(screen.getByLabelText(/^Parameter( \*)?$/), "Pension, employer");
+    fireEvent.change(screen.getByLabelText(/^Effective from( \*)?$/), { target: { value: "2027-01-01" } });
+    fireEvent.change(screen.getByLabelText(/^Value \(%\)( \*)?$/), { target: { value: "6" } });
+    fireEvent.change(screen.getByLabelText(/^Source( \*)?$/), { target: { value: "Law 05/L-xxx" } });
     fireEvent.click(screen.getByRole("button", { name: "Add value" }));
 
     await waitFor(() =>
@@ -108,8 +108,8 @@ describe("StatutoryParametersSettings", () => {
   it("refuses to submit without a date", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("5%")).toBeInTheDocument());
-    fireEvent.change(screen.getByLabelText("Value"), { target: { value: "400" } });
-    fireEvent.click(screen.getByRole("button", { name: "Add value" }));
+    fireEvent.change(screen.getByLabelText(/^Value( \*)?$/), { target: { value: "400" } });
+    fireEvent.submit(screen.getByRole("form", { name: /./ }));
     expect(screen.getByText("Choose a parameter, an effective date and a numeric value.")).toBeInTheDocument();
     expect(createMock).not.toHaveBeenCalled();
   });
