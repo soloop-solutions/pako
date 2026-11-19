@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AppointmentResponse,
@@ -12,6 +12,7 @@ import type {
   PosBootstrapResponse,
   PosCatalogItemResponse,
   PosOrderLineRequest,
+  PosOrderRequest,
   PosOrderResponse,
   PosOrderSummaryResponse,
   PosPaymentRequest,
@@ -58,6 +59,9 @@ import { isPast } from "@/pages/pos/specialist/specialist-utils";
 import { FleetCardDialog, LitresPrompt, NozzlePanel, SubstitutesDialog, TillPartsDialog, TillPrescriptionDialog } from "@/pages/pos/specialist/TillSpecialist";
 import { WaiterControl } from "@/pages/pos/restaurant/WaiterControl";
 import { WaiterHandover } from "@/pages/pos/restaurant/WaiterHandover";
+import { useOnlineStatus } from "@/hooks/useOnlineStatus";
+import { computeLocalQuote } from "@/pages/pos/offlineQuote";
+import { enqueueOfflineOrder, getPendingOrders, syncOfflineOrders, subscribeQueue } from "@/pages/pos/offlineQueue";
 
 /** P3: cafés and restaurants open the till on the floor plan. */
 const isRestaurant = (profile: number) => profile === RegisterProfile.Cafe || profile === RegisterProfile.Restaurant;
@@ -374,6 +378,16 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
   // P2: the age check, weight or open price asked before an item goes into the basket.
   const [prompt, setPrompt] = useState<Prompt | null>(null);
   const [done, setDone] = useState<PosOrderResponse | null>(null);
+  // Offline: show a "queued" confirmation when the order was saved locally.
+  const [offlineDone, setOfflineDone] = useState(false);
+  const online = useOnlineStatus();
+  // Track pending offline orders for the sync badge.
+  const pendingCount = useSyncExternalStore(subscribeQueue, () => getPendingOrders().length, () => 0);
+  // Auto-sync queued orders when back online.
+  useEffect(() => {
+    if (!online || pendingCount === 0) return;
+    syncOfflineOrders();
+  }, [online, pendingCount]);
   // One ClientUuid per sale (D11). It lives here, not in the payment dialog, so cancelling and
   // paying again after a failed or lost answer reuses it and the server records the sale once.
   // Only a recorded sale or an emptied basket starts a new one.
@@ -393,9 +407,19 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
   }), [codes, loyaltyNumber, redeemPoints, prescription, fleetCard, channelOrder]);
   const quote = useQuery({
     queryKey: ["posQuote", companyId, boot.register.id, requestLines, extras],
-    queryFn: () => apiClient.quotePosBasket(companyId, boot.register.id, { lines: requestLines, ...extras }),
+    queryFn: async () => {
+      if (!navigator.onLine) return computeLocalQuote(catalog, requestLines);
+      try {
+        return await apiClient.quotePosBasket(companyId, boot.register.id, { lines: requestLines, ...extras });
+      } catch (err) {
+        if (!navigator.onLine) return computeLocalQuote(catalog, requestLines);
+        throw err;
+      }
+    },
     enabled: basket.length > 0,
     placeholderData: keepPreviousData,
+    retry: online ? 3 : false,
+    networkMode: "always",
   });
 
   const found = useMemo(() => {
@@ -941,6 +965,22 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_28rem]">
+      {(!online || pendingCount > 0) && (
+        <div className="col-span-full flex justify-center py-1.5" role="status">
+          <div className={cn(
+            "inline-flex items-center gap-2 rounded-full px-4 py-1 text-xs font-medium shadow-sm",
+            !online
+              ? "border border-amber-500/30 bg-amber-500/15 text-amber-400"
+              : "border border-blue-500/30 bg-blue-500/15 text-blue-400",
+          )}>
+            <span className={cn(
+              "inline-block size-2 rounded-full",
+              !online ? "bg-amber-400" : "animate-pulse bg-blue-400",
+            )} />
+            {!online ? t("till.offline") : t("till.offlineSync", { count: pendingCount })}
+          </div>
+        </div>
+      )}
       {/* Catalogue */}
       <section className="flex min-h-0 flex-col gap-3 border-r p-4">
         <Input
@@ -1421,6 +1461,7 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
           customerOrderId={customerOrder?.id}
           appointmentId={appointment?.id}
           repairTicketId={repair?.id}
+          catalog={catalog}
           offers={[
             ...(customerOrder && customerOrder.deposited > 0 ? [{ reference: customerOrder.depositCardNumber, amount: customerOrder.deposited }] : []),
             ...(appointment?.depositCardNumber && appointment.deposited > 0 ? [{ reference: appointment.depositCardNumber, amount: appointment.deposited }] : []),
@@ -1439,6 +1480,19 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
             resetSpecialist();
             setSaleUuid(crypto.randomUUID());
             setDone(order);
+          }}
+          onOfflineDone={() => {
+            setDialog(null);
+            setBasket([]);
+            setDrafts({});
+            resetExtras();
+            setCustomerOrder(null);
+            setExchangeCredit(null);
+            setAppointment(null);
+            setRepair(null);
+            resetSpecialist();
+            setSaleUuid(crypto.randomUUID());
+            setOfflineDone(true);
           }}
         />
       )}
@@ -1592,6 +1646,17 @@ function TillBody({ boot, sessionId, catalog, onFloorPlan }: {
       {dialog === "x" && <ReportDialog sessionId={sessionId} onClose={() => setDialog(null)} />}
       {dialog === "close" && <CloseSessionDialog boot={boot} sessionId={sessionId} onClose={() => setDialog(null)} />}
       {done && <DoneDialog boot={boot} order={done} onClose={() => setDone(null)} />}
+      {offlineDone && (
+        <FormDialog open onOpenChange={(open) => !open && setOfflineDone(false)} title={t("till.offlineDone.title")} size="sm">
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div className="rounded-full bg-amber-100 p-3 dark:bg-amber-900">
+              <ShoppingBag className="size-8 text-amber-600 dark:text-amber-400" />
+            </div>
+            <p className="text-center text-sm">{t("till.offlineDone.message")}</p>
+            <Button autoFocus onClick={() => setOfflineDone(false)}>{t("till.newSale")}</Button>
+          </div>
+        </FormDialog>
+      )}
     </div>
   );
 }
@@ -1832,7 +1897,7 @@ interface Tender {
 }
 
 export function PaymentDialog({
-  boot, sessionId, clientUuid, lines, extras, total, customerOrderId, offers = [], tabId, allowTip = false, appointmentId, repairTicketId, onClose, onDone,
+  boot, sessionId, clientUuid, lines, extras, total, customerOrderId, offers = [], tabId, allowTip = false, appointmentId, repairTicketId, catalog, onClose, onDone, onOfflineDone,
 }: {
   boot: PosBootstrapResponse;
   sessionId: string;
@@ -1853,8 +1918,12 @@ export function PaymentDialog({
   /** P4: the appointment this sale checks out, or the repair it collects. */
   appointmentId?: string;
   repairTicketId?: string;
+  /** Catalogue for offline quote fallback. */
+  catalog?: PosCatalogItemResponse[];
   onClose: () => void;
   onDone: (order: PosOrderResponse) => void;
+  /** Called instead of onDone when the order was queued offline. */
+  onOfflineDone?: () => void;
 }) {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
@@ -1878,10 +1947,21 @@ export function PaymentDialog({
     ...(p.partnerId ? { partnerId: p.partnerId } : {}),
   }));
   const tabPart = tabId ? { tabId } : {};
+  const online = useOnlineStatus();
   const quote = useQuery({
     queryKey: ["posQuote", companyId, boot.register.id, lines, paymentRequests, extras, tabId],
-    queryFn: () => apiClient.quotePosBasket(companyId, boot.register.id, { lines, payments: paymentRequests, ...extras, ...tabPart }),
+    queryFn: async () => {
+      if (!navigator.onLine && catalog) return computeLocalQuote(catalog, lines, paymentRequests);
+      try {
+        return await apiClient.quotePosBasket(companyId, boot.register.id, { lines, payments: paymentRequests, ...extras, ...tabPart });
+      } catch (err) {
+        if (!navigator.onLine && catalog) return computeLocalQuote(catalog, lines, paymentRequests);
+        throw err;
+      }
+    },
     placeholderData: keepPreviousData,
+    retry: online ? 3 : false,
+    networkMode: "always",
   });
   // The dialog's own quote is the figure to show once it is in; the till's is only a first guess.
   const due = quote.data?.total ?? total;
@@ -1964,17 +2044,31 @@ export function PaymentDialog({
     setPayments((p) => [...p, { methodId: onAccountTender.id, name: t("spec.pay.onAccount", { name: tp.name }), amount, partnerId: tp.partnerId }]);
   }
 
+  const isOffline = !navigator.onLine;
+  const orderRequest: PosOrderRequest = {
+    clientUuid, sessionId, kind: PosOrderKind.Sale, orderedAt: new Date().toISOString(), lines, payments: paymentRequests, createdOffline: isOffline,
+    ...extras,
+    ...(customerOrderId ? { customerOrderId } : {}),
+    ...(appointmentId ? { appointmentId } : {}),
+    ...(repairTicketId ? { repairTicketId } : {}),
+    ...tabPart,
+  };
   const submit = useMutation({
-    mutationFn: () =>
-      apiClient.submitPosOrder(companyId, {
-        clientUuid, sessionId, kind: PosOrderKind.Sale, orderedAt: new Date().toISOString(), lines, payments: paymentRequests, createdOffline: false,
-        ...extras,
-        ...(customerOrderId ? { customerOrderId } : {}),
-        ...(appointmentId ? { appointmentId } : {}),
-        ...(repairTicketId ? { repairTicketId } : {}),
-        ...tabPart,
-      }),
-    onSuccess: onDone,
+    mutationFn: async () => {
+      try {
+        return await apiClient.submitPosOrder(companyId, orderRequest);
+      } catch (err) {
+        if (!navigator.onLine) {
+          enqueueOfflineOrder(companyId, orderRequest);
+          return null; // signal offline success
+        }
+        throw err;
+      }
+    },
+    onSuccess: (order) => {
+      if (order) onDone(order);
+      else onOfflineDone?.();
+    },
     onError: (err: unknown) => setError(getApiErrorMessage(err, t("till.saleError"))),
   });
 
