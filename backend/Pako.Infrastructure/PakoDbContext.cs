@@ -198,6 +198,8 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Pako.Domain.Inventory.PriceListPrice> PriceListPrices => Set<Pako.Domain.Inventory.PriceListPrice>();
     public DbSet<Pako.Domain.Inventory.PriceChange> PriceChanges => Set<Pako.Domain.Inventory.PriceChange>();
     public DbSet<Pako.Domain.Inventory.PriceChangeLine> PriceChangeLines => Set<Pako.Domain.Inventory.PriceChangeLine>();
+    public DbSet<MonthLock> MonthLocks => Set<MonthLock>();
+    public DbSet<MonthLockEvent> MonthLockEvents => Set<MonthLockEvent>();
     public DbSet<UserInvitation> UserInvitations => Set<UserInvitation>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Pako.Domain.Desktop.DesktopLicenseRecord> DesktopLicenseRecords => Set<Pako.Domain.Desktop.DesktopLicenseRecord>();

@@ -1157,6 +1157,7 @@ public class BillsController : ControllerBase
         JournalEntry journalEntry;
         try
         {
+            await MonthLockService.EnsureMonthOpenAsync(_db, company.Id, bill.IssueDate);
             journalEntry = bill.Post(
                 effectiveCompany, journal.Id, payableAccountId, _taxComputationService, taxDefinitionsById,
                 defaults.ReverseChargeInputVatAccountId, defaults.ReverseChargeOutputVatAccountId);
@@ -1168,6 +1169,7 @@ public class BillsController : ControllerBase
             TaxLockDateViolationException or
             HardLockDateViolationException or
             PurchaseLockDateViolationException or
+            MonthLockViolationException or
             InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);

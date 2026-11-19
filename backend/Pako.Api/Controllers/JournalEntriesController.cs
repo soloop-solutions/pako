@@ -299,6 +299,7 @@ public class JournalEntriesController : ControllerBase
 
             try
             {
+                await MonthLockService.EnsureMonthOpenAsync(_db, companyId, entry.Date);
                 entry.Post(effectiveCompany);
             }
             catch (Exception ex) when (
@@ -308,6 +309,7 @@ public class JournalEntriesController : ControllerBase
                 AccountingLockDateViolationException or
                 TaxLockDateViolationException or
                 HardLockDateViolationException or
+                MonthLockViolationException or
                 InconsistentForeignCurrencyDataException or
                 InvalidOperationException)
             {
@@ -383,6 +385,7 @@ public class JournalEntriesController : ControllerBase
         JournalEntry reversal;
         try
         {
+            await MonthLockService.EnsureMonthOpenAsync(_db, companyId, request.Date);
             reversal = entry.Reverse(effectiveCompanyForReversal, request.Date, request.Reference);
         }
         catch (Exception ex) when (
@@ -393,6 +396,7 @@ public class JournalEntriesController : ControllerBase
             AccountingLockDateViolationException or
             TaxLockDateViolationException or
             HardLockDateViolationException or
+            MonthLockViolationException or
             InconsistentForeignCurrencyDataException)
         {
             return BadRequest(ex.Message);

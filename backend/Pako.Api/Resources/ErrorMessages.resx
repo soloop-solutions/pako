@@ -1861,6 +1861,7 @@ Your orders in the portal: {link}</value></data>
   <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Document type must be "Buy" or "Sell".</value></data>
   <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Month must be between 1 and 12.</value></data>
   <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Year must be between 2000 and 2100.</value></data>
+<<<<<<< HEAD
   <data name="InvoiceEmailNotPosted" xml:space="preserve"><value>Only a posted document can be emailed. Post it first, then send it.</value></data>
   <data name="InvoiceEmailNoRecipient" xml:space="preserve"><value>{0} has no email address. Add one to the customer, or type the address to send to.</value></data>
   <data name="InvoiceEmailTooManyRecipients" xml:space="preserve"><value>Send to at most {0} addresses at a time.</value></data>
@@ -1962,4 +1963,12 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="Export_BankStmt_Help4" xml:space="preserve"><value>Fill in the period and the opening and closing balance from the bank statement. Opening + money in − money out must equal the closing balance.</value></data>
   <data name="Export_BankStmt_Help5" xml:space="preserve"><value>Bank fees, transfers and other lines that pay no invoice can stay in the file: PAKO leaves them open and you enter them by hand.</value></data>
   <data name="Export_BankStmt_Help6" xml:space="preserve"><value>Don't change the layout or the hidden column. Upload the file under Bank &amp; Cash → Bank statements.</value></data>
+
+  <!-- Month locks (period closing) -->
+  <data name="MonthLockInvalidYear" xml:space="preserve"><value>Year must be between 2000 and 2100.</value></data>
+  <data name="MonthLockInvalidMonth" xml:space="preserve"><value>Month must be between 1 and 12.</value></data>
+  <data name="MonthLockCannotLockCurrentOrFuture" xml:space="preserve"><value>Cannot lock the current or a future month.</value></data>
+  <data name="MonthLockUnlockReasonRequired" xml:space="preserve"><value>A reason is required to unlock a month.</value></data>
+  <data name="MonthLockNotLocked" xml:space="preserve"><value>This month is not locked.</value></data>
+  <data name="MonthLockBlockedByHardLock" xml:space="preserve"><value>Cannot unlock this month: it falls on or before the hard lock date.</value></data>
 </root>

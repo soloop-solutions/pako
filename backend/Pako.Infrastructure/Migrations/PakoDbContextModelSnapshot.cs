@@ -1571,6 +1571,83 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("memberships", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Companies.MonthLock", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsLocked")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("LockedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("UnlockReason")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime?>("UnlockedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("UnlockedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Year", "Month")
+                        .IsUnique();
+
+                    b.ToTable("month_locks", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Companies.MonthLockEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Action")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Month")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CompanyId", "Year");
+
+                    b.ToTable("month_lock_events", (string)null);
+                });
+
             modelBuilder.Entity("Pako.Domain.Companies.NumberSeries", b =>
                 {
                     b.Property<Guid>("Id")

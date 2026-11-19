@@ -1861,6 +1861,7 @@ Porositë tuaja në portal: {link}</value></data>
   <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Lloji i dokumentit duhet të jetë "Buy" ose "Sell".</value></data>
   <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Muaji duhet të jetë ndërmjet 1 dhe 12.</value></data>
   <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Viti duhet të jetë ndërmjet 2000 dhe 2100.</value></data>
+<<<<<<< HEAD
   <data name="InvoiceEmailNotPosted" xml:space="preserve"><value>Vetëm një dokument i postuar mund të dërgohet me email. Postojeni fillimisht, pastaj dërgojeni.</value></data>
   <data name="InvoiceEmailNoRecipient" xml:space="preserve"><value>{0} nuk ka adresë emaili. Shtojeni te klienti, ose shkruani adresën ku do të dërgohet.</value></data>
   <data name="InvoiceEmailTooManyRecipients" xml:space="preserve"><value>Dërgoni te më së shumti {0} adresa njëherësh.</value></data>
@@ -1962,4 +1963,12 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="Export_BankStmt_Help4" xml:space="preserve"><value>Plotësoni periudhën dhe gjendjen fillestare e përfundimtare nga ekstrakti. Fillestarja + hyrjet − daljet duhet të barazohet me përfundimtaren.</value></data>
   <data name="Export_BankStmt_Help5" xml:space="preserve"><value>Komisionet bankare, transferet dhe rreshtat e tjerë që nuk paguajnë faturë mund të mbeten në skedar: PAKO i lë të hapur dhe ju i regjistroni me dorë.</value></data>
   <data name="Export_BankStmt_Help6" xml:space="preserve"><value>Mos e ndryshoni strukturën ose kolonën e fshehur. Ngarkojeni skedarin te Banka &amp; Arka → Ekstraktet bankare.</value></data>
+
+  <!-- Kyçja mujore (mbyllja e periudhave) -->
+  <data name="MonthLockInvalidYear" xml:space="preserve"><value>Viti duhet të jetë ndërmjet 2000 dhe 2100.</value></data>
+  <data name="MonthLockInvalidMonth" xml:space="preserve"><value>Muaji duhet të jetë ndërmjet 1 dhe 12.</value></data>
+  <data name="MonthLockCannotLockCurrentOrFuture" xml:space="preserve"><value>Nuk mund të kyçet muaji aktual ose një muaj i ardhshëm.</value></data>
+  <data name="MonthLockUnlockReasonRequired" xml:space="preserve"><value>Kërkohet një arsye për të zhbllokuar një muaj.</value></data>
+  <data name="MonthLockNotLocked" xml:space="preserve"><value>Ky muaj nuk është i kyçur.</value></data>
+  <data name="MonthLockBlockedByHardLock" xml:space="preserve"><value>Nuk mund të zhbllokohet ky muaj: bie në ose para datës së kyçjes së fortë.</value></data>
 </root>
