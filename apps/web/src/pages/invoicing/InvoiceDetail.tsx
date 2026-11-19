@@ -415,9 +415,9 @@ export function InvoiceDetail() {
             </div>
           )}
 
-          {invoice.state === "Draft" && !isMonthLocked && invoice.documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
+          {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
             <div className="flex flex-col items-start gap-1">
-              <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
+              <Button onClick={() => setShowPostPreview(true)} disabled={posting || isMonthLocked}>
                 {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}
@@ -437,8 +437,8 @@ export function InvoiceDetail() {
         </CardContent>
       </Card>
 
-      {invoice.state === "Posted" && !isMonthLocked && invoice.documentType === InvoiceDocumentType.Invoice && (
-        <Card>
+      {invoice.state === "Posted" && invoice.documentType === InvoiceDocumentType.Invoice && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.actions" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "invoiceDetail.actionsDescription" })}</CardDescription>
@@ -457,8 +457,8 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && !isMonthLocked && (
-        <Card>
+      {invoice.state === "Posted" && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "editPostedFields.title" })}</CardTitle>
           </CardHeader>
@@ -475,8 +475,8 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && canApprove("sales") && (
-        <Card>
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && canApprove("sales") && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>
               {isCreditDocument
@@ -503,8 +503,8 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("sales") && (
-        <Card>
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("sales") && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyCreditNote" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "invoiceDetail.applyCreditNoteDescription" })}</CardDescription>
@@ -522,8 +522,8 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && canApprove("sales") && (
-        <Card>
+      {invoice.state === "Posted" && balance && balance.outstanding > 0 && downPaymentOptions.length > 0 && canApprove("sales") && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "invoiceDetail.applyDownPayment" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "invoiceDetail.applyDownPaymentDescription" })}</CardDescription>
@@ -540,8 +540,8 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      {invoice.state === "Posted" && !isMonthLocked && activeCompany.allowNumberOverride && isAdmin && (
-        <Card>
+      {invoice.state === "Posted" && activeCompany.allowNumberOverride && isAdmin && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "overrideNumber.title" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "overrideNumber.description" })}</CardDescription>
@@ -560,13 +560,13 @@ export function InvoiceDetail() {
         </Card>
       )}
 
-      <Card>
+      <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "attachments.title" })}</CardTitle>
           <CardDescription>{intl.formatMessage({ id: "attachments.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <AttachmentsPanel companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} readOnly={!canWrite("sales")} />
+          <AttachmentsPanel companyId={activeCompany.id} documentKind="invoice" documentId={invoice.id} readOnly={isMonthLocked || !canWrite("sales")} />
         </CardContent>
       </Card>
 
