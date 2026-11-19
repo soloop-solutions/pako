@@ -3634,7 +3634,6 @@ export const sq: Record<string, string> = {
   "accountingDocuments.back": "Kthehu",
   "accountingDocuments.monthTitle": "Dokumentet e vitit {year} p\u00ebr muajin {month}",
   "accountingDocuments.loading": "Po ngarkohen dokumentet...",
->>>>>>> 774840f (Accounting documents: file cabinet by year/month/type (buy/sell))
 };
 
 // HR module keys live in their own files (messages.hr/payroll/leave.ts) and are merged in here.
