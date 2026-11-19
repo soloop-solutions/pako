@@ -578,9 +578,18 @@ public class BillsController : ControllerBase
             return BadRequest(_localizer["BillNotEditableWhenCancelled"].Value);
         }
 
-        if (bill.State == BillState.Posted)
+        var wasPosted = bill.State == BillState.Posted;
+
+        if (wasPosted)
         {
-            return BadRequest(_localizer["BillOnlyDueDateOrNotesEditableAfterPosting"].Value);
+            try
+            {
+                await MonthLockService.EnsureMonthOpenAsync(_db, companyId, bill.IssueDate);
+            }
+            catch (MonthLockViolationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
@@ -638,7 +647,49 @@ public class BillsController : ControllerBase
         bill.WarehouseId = request.WarehouseId;
         bill.ProjectId = request.ProjectId;
 
-        await _db.SaveChangesAsync();
+        if (wasPosted)
+        {
+            var oldJournalEntry = await _db.JournalEntries.Include(e => e.Lines)
+                .FirstOrDefaultAsync(e => e.Id == bill.JournalEntryId);
+            if (oldJournalEntry is not null)
+            {
+                var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+                try
+                {
+                    var reversal = oldJournalEntry.Reverse(effectiveCompany, bill.IssueDate, $"Re-edit reversal of {bill.VendorReference}");
+                    reversal.PostedByUserId = CurrentUserId;
+                    reversal.SourceDocumentId = oldJournalEntry.Id;
+                    _db.JournalEntries.Add(reversal);
+                }
+                catch (Exception ex) when (
+                    ex is AccountingLockDateViolationException or
+                    TaxLockDateViolationException or
+                    HardLockDateViolationException)
+                {
+                    return BadRequest(ex.Message);
+                }
+            }
+
+            bill.State = BillState.Draft;
+            bill.JournalEntryId = null;
+
+            await _db.SaveChangesAsync();
+
+            var trackedCompany = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+            if (trackedCompany is null) return NotFound();
+
+            var postError = await PostDraftBillAsync(trackedCompany, bill);
+            if (postError is not null) return postError;
+
+            AuditController.Stage(_db, companyId, "Bill", bill.Id.ToString(),
+                "ReEdit", CurrentUserId.ToString(), $"VendorRef: {bill.VendorReference}");
+
+            await _db.SaveChangesAsync();
+        }
+        else
+        {
+            await _db.SaveChangesAsync();
+        }
 
         bill.Lines = lines;
         return Ok(ToResponse(bill));

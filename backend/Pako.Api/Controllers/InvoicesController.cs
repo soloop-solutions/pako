@@ -709,9 +709,19 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvoiceNotEditableWhenCancelled"].Value);
         }
 
-        if (invoice.State == InvoiceState.Posted)
+        var wasPosted = invoice.State == InvoiceState.Posted;
+
+        // If the invoice is posted, check that its month is not locked before allowing re-edit.
+        if (wasPosted)
         {
-            return BadRequest(_localizer["InvoiceOnlyDueDateOrNotesEditableAfterPosting"].Value);
+            try
+            {
+                await MonthLockService.EnsureMonthOpenAsync(_db, companyId, invoice.IssueDate);
+            }
+            catch (MonthLockViolationException ex)
+            {
+                return BadRequest(ex.Message);
+            }
         }
 
         var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
@@ -786,7 +796,52 @@ public class InvoicesController : ControllerBase
             invoice.InvoiceNumber = userNumber.Trim();
         }
 
-        await _db.SaveChangesAsync();
+        if (wasPosted)
+        {
+            // Reverse the old journal entry before saving the updated invoice.
+            var oldJournalEntry = await _db.JournalEntries.Include(e => e.Lines)
+                .FirstOrDefaultAsync(e => e.Id == invoice.JournalEntryId);
+            if (oldJournalEntry is not null)
+            {
+                var effectiveCompany = await AccountLockService.GetEffectiveCompanyAsync(_db, company, CurrentUserId);
+                try
+                {
+                    var reversal = oldJournalEntry.Reverse(effectiveCompany, invoice.IssueDate, $"Re-edit reversal of {invoice.InvoiceNumber}");
+                    reversal.PostedByUserId = CurrentUserId;
+                    reversal.SourceDocumentId = oldJournalEntry.Id;
+                    _db.JournalEntries.Add(reversal);
+                }
+                catch (Exception ex) when (
+                    ex is AccountingLockDateViolationException or
+                    TaxLockDateViolationException or
+                    HardLockDateViolationException)
+                {
+                    return BadRequest(ex.Message);
+                }
+            }
+
+            // Reset to Draft so Post() and immutability checks allow the re-post.
+            invoice.State = InvoiceState.Draft;
+            invoice.JournalEntryId = null;
+
+            await _db.SaveChangesAsync();
+
+            // Re-post with the updated data — reuse the existing posting pipeline.
+            var trackedCompany = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+            if (trackedCompany is null) return NotFound();
+
+            var postError = await PostDraftInvoiceAsync(trackedCompany, invoice);
+            if (postError is not null) return postError;
+
+            AuditController.Stage(_db, companyId, "Invoice", invoice.Id.ToString(),
+                "ReEdit", CurrentUserId.ToString(), $"Number: {invoice.InvoiceNumber}");
+
+            await _db.SaveChangesAsync();
+        }
+        else
+        {
+            await _db.SaveChangesAsync();
+        }
 
         invoice.Lines = lines;
         return Ok(ToResponse(invoice));

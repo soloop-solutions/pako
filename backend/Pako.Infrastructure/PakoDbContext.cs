@@ -437,6 +437,17 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         entry.Properties.Where(p => p.IsModified).All(p =>
             p.Metadata.Name is nameof(Invoice.DueDate) or nameof(Invoice.InternalNotes) or nameof(Invoice.InvoiceNumber));
 
+    // Period closing: allow full edits on a Posted invoice/bill when the controller is re-editing
+    // it (Posted → Draft transition to reverse + re-post). The controller sets State = Draft and
+    // clears JournalEntryId before modifying lines/prices — this guard recognises that transition.
+    private static bool IsReEditTransition(EntityEntry<Invoice> entry) =>
+        entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted &&
+        entry.CurrentValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Draft;
+
+    private static bool IsReEditTransition(EntityEntry<Bill> entry) =>
+        entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted &&
+        entry.CurrentValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Draft;
+
     private static bool OnlyDueDateOrInternalNotesChanged(EntityEntry<Bill> entry) =>
         entry.Properties.Where(p => p.IsModified).All(p =>
             p.Metadata.Name is nameof(Bill.DueDate) or nameof(Bill.InternalNotes));
@@ -475,7 +486,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         foreach (var entry in ChangeTracker.Entries<Invoice>())
         {
             if (entry.State == EntityState.Deleted ||
-                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry) && !IsReEditTransition(entry)))
             {
                 if (entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted)
                 {
@@ -488,6 +499,12 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                // Check the tracked parent first — during a re-edit the tracked entity is already
+                // Draft while the database still holds Posted (not yet saved).
+                var trackedParent = ChangeTracker.Entries<Invoice>()
+                    .FirstOrDefault(e => e.Entity.Id == entry.Entity.InvoiceId);
+                if (trackedParent is not null && IsReEditTransition(trackedParent)) continue;
+
                 var parentState = Invoices.AsNoTracking()
                     .Where(i => i.Id == entry.Entity.InvoiceId)
                     .Select(i => i.State)
@@ -502,7 +519,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         foreach (var entry in ChangeTracker.Entries<Bill>())
         {
             if (entry.State == EntityState.Deleted ||
-                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry) && !IsReEditTransition(entry)))
             {
                 if (entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted)
                 {
@@ -515,6 +532,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                var trackedParent = ChangeTracker.Entries<Bill>()
+                    .FirstOrDefault(e => e.Entity.Id == entry.Entity.BillId);
+                if (trackedParent is not null && IsReEditTransition(trackedParent)) continue;
+
                 var parentState = Bills.AsNoTracking()
                     .Where(b => b.Id == entry.Entity.BillId)
                     .Select(b => b.State)
@@ -603,7 +624,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         foreach (var entry in ChangeTracker.Entries<Invoice>())
         {
             if (entry.State == EntityState.Deleted ||
-                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry) && !IsReEditTransition(entry)))
             {
                 if (entry.OriginalValues.GetValue<InvoiceState>(nameof(Invoice.State)) == InvoiceState.Posted)
                 {
@@ -616,6 +637,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                var trackedParent = ChangeTracker.Entries<Invoice>()
+                    .FirstOrDefault(e => e.Entity.Id == entry.Entity.InvoiceId);
+                if (trackedParent is not null && IsReEditTransition(trackedParent)) continue;
+
                 var parentState = await Invoices.AsNoTracking()
                     .Where(i => i.Id == entry.Entity.InvoiceId)
                     .Select(i => i.State)
@@ -630,7 +655,7 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         foreach (var entry in ChangeTracker.Entries<Bill>())
         {
             if (entry.State == EntityState.Deleted ||
-                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry)))
+                (entry.State == EntityState.Modified && !OnlyDueDateOrInternalNotesChanged(entry) && !IsReEditTransition(entry)))
             {
                 if (entry.OriginalValues.GetValue<BillState>(nameof(Bill.State)) == BillState.Posted)
                 {
@@ -643,6 +668,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
         {
             if (entry.State is EntityState.Modified or EntityState.Deleted)
             {
+                var trackedParent = ChangeTracker.Entries<Bill>()
+                    .FirstOrDefault(e => e.Entity.Id == entry.Entity.BillId);
+                if (trackedParent is not null && IsReEditTransition(trackedParent)) continue;
+
                 var parentState = await Bills.AsNoTracking()
                     .Where(b => b.Id == entry.Entity.BillId)
                     .Select(b => b.State)
