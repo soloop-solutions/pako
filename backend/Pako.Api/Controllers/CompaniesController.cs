@@ -22,11 +22,13 @@ public class CompaniesController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
+    private readonly UploadStorage _uploads;
 
-    public CompaniesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
+    public CompaniesController(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer, UploadStorage? uploads = null)
     {
         _db = db;
         _localizer = localizer;
+        _uploads = uploads ?? UploadStorage.From(new Pako.Api.Desktop.DesktopOptions());
     }
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
@@ -543,14 +545,18 @@ public class CompaniesController : ControllerBase
         if (file.Length > 2 * 1024 * 1024) // 2 MB limit
             return BadRequest(_localizer["FileTooLarge"].Value);
 
-        var allowedTypes = new[] { "image/png", "image/jpeg", "image/svg+xml", "image/webp" };
-        if (!allowedTypes.Contains(file.ContentType))
+        var ext = UploadStorage.ImageExtension(file.ContentType);
+        if (ext is null)
             return BadRequest(_localizer["InvalidImageType"].Value);
 
-        var uploadsDir = Path.Combine("wwwroot", "uploads", "companies", companyId.ToString());
+        using var buffer = new MemoryStream();
+        await file.CopyToAsync(buffer);
+        if (!UploadImageValidator.IsValid(file.ContentType, buffer.GetBuffer().AsSpan(0, (int)buffer.Length)))
+            return BadRequest(_localizer["InvalidImageType"].Value);
+
+        var uploadsDir = _uploads.CompanyDirectory(companyId);
         Directory.CreateDirectory(uploadsDir);
 
-        var ext = Path.GetExtension(file.FileName);
         var fileName = $"{kind}{ext}";
         var filePath = Path.Combine(uploadsDir, fileName);
 
@@ -558,8 +564,11 @@ public class CompaniesController : ControllerBase
         foreach (var old in Directory.GetFiles(uploadsDir, $"{kind}.*"))
             System.IO.File.Delete(old);
 
-        await using var stream = new FileStream(filePath, FileMode.Create);
-        await file.CopyToAsync(stream);
+        await using (var stream = new FileStream(filePath, FileMode.Create))
+        {
+            buffer.Position = 0;
+            await buffer.CopyToAsync(stream);
+        }
 
         var url = $"/uploads/companies/{companyId}/{fileName}";
         if (kind == "logo") company.LogoUrl = url;
@@ -578,7 +587,7 @@ public class CompaniesController : ControllerBase
         if (kind == "logo") company.LogoUrl = null;
         else company.StampUrl = null;
 
-        var uploadsDir = Path.Combine("wwwroot", "uploads", "companies", companyId.ToString());
+        var uploadsDir = _uploads.CompanyDirectory(companyId);
         if (Directory.Exists(uploadsDir))
         {
             foreach (var old in Directory.GetFiles(uploadsDir, $"{kind}.*"))

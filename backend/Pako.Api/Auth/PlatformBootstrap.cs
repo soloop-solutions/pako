@@ -28,6 +28,17 @@ public class PlatformBootstrap
 
     public enum Outcome { NotConfigured, AlreadyHasAdministrator, Created, Promoted, Failed }
 
+    public Task<IdentityResult> CreateAdministratorAsync(string email, string password, string fullName) =>
+        _users.CreateAsync(new AppUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true,
+            FullName = fullName,
+            IsPlatformAdmin = true,
+            CompanyLimit = null,
+        }, password);
+
     public async Task<Outcome> RunAsync()
     {
         var email = _options.BootstrapAdmin.Email?.Trim();
@@ -51,16 +62,7 @@ public class PlatformBootstrap
             return Outcome.Failed;
         }
 
-        user = new AppUser
-        {
-            UserName = email,
-            Email = email,
-            EmailConfirmed = true,
-            FullName = "PAKO Administrator",
-            IsPlatformAdmin = true,
-            CompanyLimit = null,
-        };
-        var created = await _users.CreateAsync(user, _options.BootstrapAdmin.Password);
+        var created = await CreateAdministratorAsync(email, _options.BootstrapAdmin.Password, "PAKO Administrator");
         if (!created.Succeeded)
         {
             _logger.LogError("Could not create the first administrator {Email}: {Errors}", email,

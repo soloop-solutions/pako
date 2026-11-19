@@ -10,3 +10,7 @@ node_modules/
 
 # E7: emails written by Email:Mode=Log in development
 backend/Pako.Api/dev-mail/
+
+# Desktop packaging: downloaded Postgres and staged resources
+.cache/
+apps/desktop/resources/

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
+import { LicenseBanner } from "@/pages/desktop/LicenseBanner";
 import { TabsProvider, useTabs } from "@/context/TabsContext";
 
 // Leaving the company with unsaved edits: a real dialog (focus stays inside, Escape or a click
@@ -116,6 +117,7 @@ function AppShell() {
         )}
 
         <div className="flex flex-1 flex-col overflow-hidden">
+          <LicenseBanner />
           <header className="flex h-12 shrink-0 items-center justify-between border-b px-4 lg:px-6">
             <div className="flex items-center gap-3">
               {/* Mobile hamburger + brand */}

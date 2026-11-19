@@ -20,6 +20,39 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    healthz(): Promise<void> {
+        let url_ = this.baseUrl + "/healthz";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processHealthz(_response);
+        });
+    }
+
+    protected processHealthz(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     accountGroups(companyId: string): Promise<AccountGroupResponse[]> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/account-groups";
         if (companyId === undefined || companyId === null)
@@ -4849,6 +4882,274 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    desktopAuditVerify(): Promise<DesktopAuditVerifyResponse> {
+        let url_ = this.baseUrl + "/api/desktop/audit-verify";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDesktopAuditVerify(_response);
+        });
+    }
+
+    protected processDesktopAuditVerify(response: Response): Promise<DesktopAuditVerifyResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DesktopAuditVerifyResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DesktopAuditVerifyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getDesktopLicense(): Promise<DesktopLicenseResponse> {
+        let url_ = this.baseUrl + "/api/desktop/license";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetDesktopLicense(_response);
+        });
+    }
+
+    protected processGetDesktopLicense(response: Response): Promise<DesktopLicenseResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DesktopLicenseResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DesktopLicenseResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    activateDesktopLicense(body: ActivateLicenseRequest): Promise<DesktopLicenseResponse> {
+        let url_ = this.baseUrl + "/api/desktop/license";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processActivateDesktopLicense(_response);
+        });
+    }
+
+    protected processActivateDesktopLicense(response: Response): Promise<DesktopLicenseResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DesktopLicenseResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DesktopLicenseResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    regenerateDesktopRecoveryCode(body: RegenerateRecoveryCodeRequest): Promise<RecoverAdminResponse> {
+        let url_ = this.baseUrl + "/api/desktop/recovery-code/regenerate";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRegenerateDesktopRecoveryCode(_response);
+        });
+    }
+
+    protected processRegenerateDesktopRecoveryCode(response: Response): Promise<RecoverAdminResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as RecoverAdminResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<RecoverAdminResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getDesktopSetup(): Promise<DesktopSetupStatusResponse> {
+        let url_ = this.baseUrl + "/api/desktop/setup";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetDesktopSetup(_response);
+        });
+    }
+
+    protected processGetDesktopSetup(response: Response): Promise<DesktopSetupStatusResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DesktopSetupStatusResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DesktopSetupStatusResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    completeDesktopSetup(body: DesktopSetupRequest): Promise<DesktopSetupResponse> {
+        let url_ = this.baseUrl + "/api/desktop/setup";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCompleteDesktopSetup(_response);
+        });
+    }
+
+    protected processCompleteDesktopSetup(response: Response): Promise<DesktopSetupResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DesktopSetupResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DesktopSetupResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    recoverDesktopAdmin(body: RecoverAdminRequest): Promise<RecoverAdminResponse> {
+        let url_ = this.baseUrl + "/api/desktop/recover";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRecoverDesktopAdmin(_response);
+        });
+    }
+
+    protected processRecoverDesktopAdmin(response: Response): Promise<RecoverAdminResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as RecoverAdminResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<RecoverAdminResponse>(null as any);
     }
 
     /**
@@ -29021,6 +29322,12 @@ export interface ActionTokenResponse {
     [key: string]: any;
 }
 
+export interface ActivateLicenseRequest {
+    licenseKey: string;
+
+    [key: string]: any;
+}
+
 export interface AddBarcodeRequest {
     barcode: string;
 
@@ -30369,6 +30676,13 @@ export interface DepreciationCategoryTotal {
     [key: string]: any;
 }
 
+export interface DesktopAuditFailure {
+    companyId: string;
+    reason: string;
+
+    [key: string]: any;
+}
+
 export interface DepreciationPreviewLine {
     fixedAssetId: string;
     code: string;
@@ -30381,6 +30695,13 @@ export interface DepreciationPreviewLine {
     [key: string]: any;
 }
 
+export interface DesktopAuditVerifyResponse {
+    ok: boolean;
+    failures: DesktopAuditFailure[];
+
+    [key: string]: any;
+}
+
 export interface DepreciationPreviewResponse {
     period: string;
     lastPostedPeriod: string | undefined;
@@ -30388,6 +30709,16 @@ export interface DepreciationPreviewResponse {
     total: number;
     lines: DepreciationPreviewLine[];
     categories: DepreciationCategoryTotal[];
+
+    [key: string]: any;
+}
+
+export interface DesktopLicenseResponse {
+    status: string;
+    trialDaysLeft: number;
+    machineCode: string;
+    customer: string | undefined;
+    expiresAt: string | undefined;
 
     [key: string]: any;
 }
@@ -30405,12 +30736,26 @@ export interface DepreciationRunResponse {
     [key: string]: any;
 }
 
+export interface DesktopSetupRequest {
+    email: string;
+    password: string;
+    fullName: string;
+
+    [key: string]: any;
+}
+
 export interface DepreciationScheduleLineResponse {
     period: string;
     amount: number;
     accumulated: number;
     bookValue: number;
     posted: boolean;
+
+    [key: string]: any;
+}
+
+export interface DesktopSetupResponse {
+    recoveryCode: string;
 
     [key: string]: any;
 }
@@ -30437,6 +30782,12 @@ export interface DisposeFixedAssetRequest {
     date: string;
     proceeds?: number | undefined;
     proceedsAccountId?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface DesktopSetupStatusResponse {
+    needsSetup: boolean;
 
     [key: string]: any;
 }
@@ -33510,8 +33861,28 @@ export interface RecordSelectionsRequest {
     [key: string]: any;
 }
 
+export interface RecoverAdminRequest {
+    email: string;
+    recoveryCode: string;
+    newPassword: string;
+
+    [key: string]: any;
+}
+
+export interface RecoverAdminResponse {
+    recoveryCode: string;
+
+    [key: string]: any;
+}
+
 export interface RefreshRequest {
     refreshToken: string;
+
+    [key: string]: any;
+}
+
+export interface RegenerateRecoveryCodeRequest {
+    currentPassword: string;
 
     [key: string]: any;
 }

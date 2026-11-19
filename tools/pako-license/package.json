@@ -1,0 +1,15 @@
+{
+  "name": "@pako/license-cli",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "bin": {
+    "pako-license": "cli.mjs"
+  },
+  "scripts": {
+    "test": "node --test lib.test.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

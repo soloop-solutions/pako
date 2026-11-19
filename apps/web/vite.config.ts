@@ -1,5 +1,6 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
@@ -20,5 +21,6 @@ export default defineConfig({
       },
     },
     setupFiles: "./src/test/setup.ts",
+    exclude: [...configDefaults.exclude, "e2e/offline.spec.ts"],
   },
 });

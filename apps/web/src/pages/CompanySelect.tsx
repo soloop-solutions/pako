@@ -457,8 +457,18 @@ function NewCompanyDialog({
       description={t("companies.createCompanyDescription")}
       size="lg"
       dirty={dirty}
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" onClick={close}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" form="new-company-form" disabled={saving || values.name.trim().length === 0}>
+            {saving ? t("companies.creating") : t("lobby.createAndOpen")}
+          </Button>
+        </div>
+      }
     >
-      <form className="flex flex-col gap-5" onSubmit={submit}>
+      <form id="new-company-form" className="flex flex-col gap-5" onSubmit={submit}>
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{error}</AlertDescription>
@@ -521,14 +531,6 @@ function NewCompanyDialog({
           pendingBankAccounts={pendingBanks}
           onPendingBankAccountsChange={(a) => { setPendingBanks(a); setDirty(true); }}
         />
-        <div className="sticky bottom-0 -mx-6 -mb-6 flex justify-end gap-2 border-t bg-background px-6 py-3">
-          <Button type="button" variant="outline" onClick={close}>
-            {t("common.cancel")}
-          </Button>
-          <Button type="submit" disabled={saving || values.name.trim().length === 0}>
-            {saving ? t("companies.creating") : t("lobby.createAndOpen")}
-          </Button>
-        </div>
       </form>
     </FormDialog>
   );

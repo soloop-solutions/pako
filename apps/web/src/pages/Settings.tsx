@@ -9,6 +9,9 @@ import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { BusinessTypeSettings } from "@/pages/settings/BusinessTypeSettings";
+import { DesktopLicensePanel } from "@/pages/settings/DesktopLicensePanel";
+import { DesktopRecoveryCodePanel } from "@/pages/settings/DesktopRecoveryCodePanel";
+import { DesktopSettingsPanel } from "@/pages/settings/DesktopSettingsPanel";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
 import { NumberingSettings } from "@/pages/settings/NumberingSettings";
@@ -71,6 +74,12 @@ export function Settings() {
           )}
         </CardContent>
       </Card>
+
+      <DesktopSettingsPanel canManage={hasSettingsAccess} />
+
+      <DesktopLicensePanel />
+
+      {hasSettingsAccess && <DesktopRecoveryCodePanel />}
 
       {/* Business types: the company's type and the packs it uses. */}
       {activeCompany && hasSettingsAccess && <BusinessTypeSettings companyId={activeCompany.id} />}

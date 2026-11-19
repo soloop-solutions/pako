@@ -1,7 +1,8 @@
 import { lazy, Suspense, type ComponentType } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 
+import { createAppQueryClient } from "@/api/queryClient";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RequireCompany } from "@/components/RequireCompany";
@@ -14,6 +15,10 @@ import { ComingSoon } from "@/pages/ComingSoon";
 import { CompanySelect } from "@/pages/CompanySelect";
 import { Landing } from "@/pages/Landing";
 import { Login } from "@/pages/Login";
+import { DesktopSetupGuard } from "@/pages/desktop/DesktopSetupGuard";
+import { FirstRunPage } from "@/pages/desktop/FirstRunPage";
+import { RecoverAdminPage } from "@/pages/desktop/RecoverAdminPage";
+import { AccessLinkPage } from "@/pages/desktop/AccessLinkPage";
 import { RequestAccount } from "@/pages/RequestAccount";
 
 // Lazy-loaded page components for code splitting.
@@ -50,14 +55,7 @@ function InstanceRoute({ Component }: { Component: ComponentType }) {
   return <Component key={id} />;
 }
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+const queryClient = createAppQueryClient();
 
 export function App() {
   return (
@@ -65,8 +63,12 @@ export function App() {
       <AuthProvider>
         <CompanyProvider>
           <BrowserRouter>
+            <DesktopSetupGuard>
             <Suspense fallback={<div className="flex-1" />}>
               <Routes>
+                <Route path="/first-run" element={<FirstRunPage />} />
+                <Route path="/recover-admin" element={<RecoverAdminPage />} />
+                <Route path="/use-link" element={<AccessLinkPage />} />
                 <Route path="/login" element={<Login />} />
                 {/* No self-registration (docs/PLATFORM_ADMIN.md): people request an account. */}
                 <Route path="/register" element={<Navigate to="/request-account" replace />} />
@@ -124,6 +126,7 @@ export function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Suspense>
+            </DesktopSetupGuard>
           </BrowserRouter>
         </CompanyProvider>
       </AuthProvider>

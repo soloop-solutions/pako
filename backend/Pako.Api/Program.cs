@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.AspNetCore.DataProtection;
 using System.Globalization;
 using System.Text;
@@ -16,7 +17,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 
 builder.Services.AddLocalization(options => options.ResourcesPath = "Resources");
-builder.Services.AddControllers(options => options.Filters.Add<Pako.Api.Authorization.ActiveUserFilter>());
+var desktop = builder.Configuration.GetSection(Pako.Api.Desktop.DesktopOptions.Section).Get<Pako.Api.Desktop.DesktopOptions>()
+    ?? new Pako.Api.Desktop.DesktopOptions();
+builder.Services.AddSingleton(desktop);
+var uploads = Pako.Api.Services.UploadStorage.From(desktop);
+builder.Services.AddSingleton(uploads);
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<Pako.Api.Authorization.ActiveUserFilter>();
+        if (desktop.Enabled) options.Filters.Add<Pako.Api.Desktop.LicenseEnforcementFilter>();
+    })
+    .ConfigureApplicationPartManager(m => m.FeatureProviders.Add(new Pako.Api.Controllers.DesktopControllerFeatureProvider(desktop.Enabled)));
+if (desktop.Enabled)
+{
+    builder.Services.TryAddSingleton(TimeProvider.System);
+    builder.Services.AddSingleton<Pako.Api.Desktop.IMachineIdProvider, Pako.Api.Desktop.WindowsMachineIdProvider>();
+    builder.Services.AddSingleton(new Pako.Api.Desktop.LicensePublicKeyHolder(Pako.Domain.Desktop.LicensePublicKey.Value.ToArray()));
+    builder.Services.AddScoped<Pako.Api.Desktop.DesktopLicenseService>();
+    builder.Services.AddSingleton<Pako.Api.Desktop.RecoveryThrottle>();
+}
 builder.Services.Configure<Pako.Api.Auth.PlatformOptions>(builder.Configuration.GetSection(Pako.Api.Auth.PlatformOptions.Section));
 builder.Services.AddAuthRateLimit(builder.Configuration.GetValue("Platform:AuthRequestsPerMinute", 30));
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -185,6 +204,18 @@ await Pako.Api.Services.DemoDatabaseSync.RunAsync(app.Configuration, app.Environ
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<PakoDbContext>();
+    if (desktop.Enabled)
+    {
+        var unknown = await Pako.Api.Desktop.SchemaGuard.UnknownAppliedMigrationsAsync(db.Database);
+        if (unknown.Count > 0)
+        {
+            var message = Pako.Api.Desktop.SchemaGuard.NewerSchemaMessage(unknown);
+            app.Logger.LogCritical("{Message}", message);
+            Console.Error.WriteLine(message);
+            Environment.ExitCode = Pako.Api.Desktop.SchemaGuard.NewerSchemaExitCode;
+            return;
+        }
+    }
     db.Database.Migrate();
     // The first administrator, once per database (docs/PLATFORM_ADMIN.md "First run").
     await scope.ServiceProvider.GetRequiredService<PlatformBootstrap>().RunAsync();
@@ -206,10 +237,41 @@ app.UseRequestLocalization(new RequestLocalizationOptions
     SupportedUICultures = supportedCultures
 });
 
-app.UseHttpsRedirection();
-app.UseStaticFiles();
+if (desktop.Enabled)
+{
+    app.UseMiddleware<Pako.Api.Desktop.LaunchSecretMiddleware>();
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+    if (!string.IsNullOrWhiteSpace(desktop.DataDirectory))
+    {
+        Directory.CreateDirectory(uploads.Root);
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploads.Root),
+            RequestPath = Pako.Api.Services.UploadStorage.RequestPath,
+            OnPrepareResponse = Pako.Api.Services.UploadStorage.ApplySandboxHeaders,
+        });
+    }
+    app.UseRouting();
+}
+else
+{
+    app.UseHttpsRedirection();
+    var hostedUploads = Path.Combine(app.Environment.WebRootPath ?? Path.Combine(app.Environment.ContentRootPath, "wwwroot"), "uploads");
+    Directory.CreateDirectory(hostedUploads);
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(hostedUploads),
+        RequestPath = Pako.Api.Services.UploadStorage.RequestPath,
+        OnPrepareResponse = Pako.Api.Services.UploadStorage.ApplySandboxHeaders,
+    });
+    app.UseStaticFiles();
+}
 
-app.UseCors(CorsPolicy);
+if (!desktop.Enabled)
+{
+    app.UseCors(CorsPolicy);
+}
 
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -218,4 +280,16 @@ app.UseAuthorization();
 app.MapControllers();
 app.MapHub<Pako.Api.Hubs.PosHub>("/hubs/pos");
 
+if (desktop.Enabled)
+{
+    app.MapGet("/healthz", async (PakoDbContext db) =>
+    {
+        var applied = await db.Database.GetAppliedMigrationsAsync();
+        return Results.Ok(new { status = "ok", schemaVersion = applied.LastOrDefault() ?? string.Empty });
+    });
+    app.MapFallbackToFile("{*path:regex(^(?!api(/|$)|hubs(/|$))(?!.*[.][^/]*$).*$)}", "index.html");
+}
+
 app.Run();
+
+public partial class Program;

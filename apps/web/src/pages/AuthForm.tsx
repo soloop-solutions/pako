@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 
 import { getApiErrorMessage } from "@/api/client";
@@ -10,6 +10,9 @@ import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/context/AuthContext";
+import { getDesktopBridge } from "@/lib/desktopBridge";
+import { RecoverLink } from "@/pages/desktop/RecoverLink";
+import { AccessLinkEntry } from "@/pages/desktop/AccessLinkEntry";
 
 type AuthFormProps = {
   mode: "login" | "register";
@@ -19,6 +22,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const intl = useIntl();
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  const notice = (useLocation().state as { notice?: string } | null)?.notice;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -75,6 +79,11 @@ export function AuthForm({ mode }: AuthFormProps) {
       description={intl.formatMessage({ id: "auth.platformDescription" })}
     >
           <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+            {notice === "desktop.recover.success" && (
+              <Alert>
+                <AlertDescription>{intl.formatMessage({ id: notice })}</AlertDescription>
+              </Alert>
+            )}
             {error && (
               <Alert variant="destructive">
                 <AlertDescription>{error}</AlertDescription>
@@ -122,6 +131,8 @@ export function AuthForm({ mode }: AuthFormProps) {
                 {intl.formatMessage({ id: "auth.forgotPassword" })}
               </Link>
             )}
+            {isLogin && getDesktopBridge() && <RecoverLink />}
+            {isLogin && getDesktopBridge() && <AccessLinkEntry />}
             <Button type="submit" disabled={submitting}>
               {submitting
                 ? intl.formatMessage({ id: "auth.pleaseWait" })

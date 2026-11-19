@@ -1,0 +1,9 @@
+{
+  "ok": false,
+  "failures": [
+    {
+      "companyId": "3f2b8c1e-5a7d-4e2f-9b1c-8d6e4a2f7c90",
+      "reason": "EntryHashMismatch"
+    }
+  ]
+}

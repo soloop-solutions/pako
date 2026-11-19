@@ -4,8 +4,16 @@ import { en, sq } from "@/i18n/messages";
 import { getStoredAuth, setStoredAuth } from "@/lib/auth-storage";
 import { POS_OPERATOR_HEADER, posOperatorTokenFor } from "@/lib/pos-operator";
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248";
+export const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:5248").replace(/\/+$/, "");
 const LANGUAGE_STORAGE_KEY = "pako.language";
+
+export function publicApiBase(): string {
+  return (API_BASE_URL || window.location.origin).replace(/\/$/, "");
+}
+
+export function uploadUrl(path: string): string {
+  return `${import.meta.env.VITE_API_URL ?? API_BASE_URL}${path}`;
+}
 
 function currentLocale(): string {
   try {
@@ -101,12 +109,19 @@ export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Pro
 
 export const apiClient = new PakoApiClient(API_BASE_URL, { fetch: authorizedFetch });
 
+export function isLicenseReadOnlyError(err: unknown): boolean {
+  return err instanceof ApiException && err.status === 403 && !!err.response?.includes("LicenseReadOnly");
+}
+
 export function getApiErrorMessage(err: unknown, fallback?: string): string {
   const msgs = currentLocale() === "sq" ? sq : en;
   const fb = fallback ?? msgs["errors.somethingWentWrong"];
   if (err instanceof ApiException) {
     // Map common HTTP status codes to user-friendly messages
-    if (err.status === 403) return msgs["errors.noPermission"];
+    if (err.status === 403) {
+      if (isLicenseReadOnlyError(err)) return msgs["desktop.license.readOnlyError"];
+      return msgs["errors.noPermission"];
+    }
     if (err.status === 404) return msgs["errors.notFound"];
     if (err.status === 409) return msgs["errors.conflict"];
     const raw = err.response?.trim();
