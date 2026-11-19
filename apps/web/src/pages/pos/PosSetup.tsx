@@ -604,7 +604,74 @@ function RegisterDialog({ register, stores, onClose, onSaved }: {
           <Button type="submit" disabled={save.isPending || !storeId || !cashAccountId}>{t("common.save")}</Button>
         </div>
       </form>
+      {register && <AtkOnboardingPanel register={register} onCertificateInstalled={onSaved} />}
     </FormDialog>
+  );
+}
+
+// ATK onboarding: verify → generate key + CSR → get certificate from ATK.
+function AtkOnboardingPanel({ register, onCertificateInstalled }: { register: RegisterResponse; onCertificateInstalled: () => void }) {
+  const intl = useIntl();
+  const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
+  const { activeCompanyId } = useCompany();
+  const companyId = activeCompanyId as string;
+  const [step, setStep] = useState<"idle" | "verified" | "done">(register.certificateNotAfter ? "done" : "idle");
+  const [verifyResult, setVerifyResult] = useState<{ businessName: string; verificationCode: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const hasFiscalFields = register.fiscalPosNumber > 0 && !!register.fiscalizationNumber;
+
+  const verify = useMutation({
+    mutationFn: () => apiClient.atkVerifyRegister(companyId, register.id),
+    onSuccess: (result) => {
+      setVerifyResult(result);
+      setStep("verified");
+      setError(null);
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, t("atk.verifyError"))),
+  });
+
+  const onboard = useMutation({
+    mutationFn: () => apiClient.atkOnboardRegister(companyId, register.id, {
+      verificationCode: verifyResult!.verificationCode,
+      businessName: verifyResult!.businessName,
+    }),
+    onSuccess: () => {
+      setStep("done");
+      setError(null);
+      onCertificateInstalled();
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, t("atk.onboardError"))),
+  });
+
+  if (!hasFiscalFields) return null;
+
+  return (
+    <div className="mt-4 border-t pt-4">
+      <p className="mb-2 text-sm font-semibold">{t("atk.onboarding.title")}</p>
+      {error && <Alert variant="destructive" className="mb-2"><AlertDescription>{error}</AlertDescription></Alert>}
+
+      {step === "done" && register.certificateNotAfter && (
+        <p className="text-sm text-success-foreground">
+          {t("atk.onboarding.done", { date: intl.formatDate(register.certificateNotAfter) })}
+        </p>
+      )}
+
+      {step === "idle" && (
+        <Button size="sm" disabled={verify.isPending} onClick={() => { setError(null); verify.mutate(); }}>
+          {verify.isPending ? t("common.loading") : t("atk.onboarding.verify")}
+        </Button>
+      )}
+
+      {step === "verified" && verifyResult && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm">{t("atk.onboarding.businessConfirmed", { name: verifyResult.businessName })}</p>
+          <Button size="sm" disabled={onboard.isPending} onClick={() => { setError(null); onboard.mutate(); }}>
+            {onboard.isPending ? t("common.loading") : t("atk.onboarding.generateCertificate")}
+          </Button>
+        </div>
+      )}
+    </div>
   );
 }
 

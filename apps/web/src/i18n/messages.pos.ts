@@ -106,6 +106,10 @@ export const posEn: Record<string, string> = {
   "till.pay.confirm": "Complete sale",
   "till.pay.cashLimit": "Cash above 2,000 € from an individual isn't allowed (since 1 June 2026). Take the rest by card or bank.",
   "till.saleError": "The sale was not recorded.",
+  "till.offline": "Offline — sales saved locally, will sync when reconnected",
+  "till.offlineSync": "Syncing {count} offline sale(s)…",
+  "till.offlineDone.title": "Sale saved offline",
+  "till.offlineDone.message": "The sale has been saved locally. It will be submitted to the server automatically when the connection is restored.",
   "till.done": "Sale complete",
   "till.newSale": "New sale",
   "till.print": "Print coupon",
@@ -468,6 +472,15 @@ export const posEn: Record<string, string> = {
   "till.exchange.drop": "Drop the exchange credit",
   "till.pay.offer": "Card {number}: {amount}",
   "till.pay.offer.use": "Use",
+  // ATK onboarding
+  "atk.onboarding.title": "ATK Fiscalization",
+  "atk.onboarding.verify": "Connect to ATK",
+  "atk.onboarding.businessConfirmed": "ATK confirmed: {name}",
+  "atk.onboarding.generateCertificate": "Generate certificate",
+  "atk.onboarding.done": "ATK certificate installed (expires {date})",
+  "atk.verifyError": "ATK verification failed",
+  "atk.onboardError": "ATK onboarding failed",
+  "atk.retry": "Retry ATK",
 };
 
 export const posSq: Record<string, string> = {
@@ -573,6 +586,10 @@ export const posSq: Record<string, string> = {
   "till.pay.confirm": "Përfundo shitjen",
   "till.pay.cashLimit": "Pagesa në para të gatshme mbi 2.000 € nga një person fizik nuk lejohet (që nga 1 qershori 2026). Pjesën tjetër merreni me kartelë ose bankë.",
   "till.saleError": "Shitja nuk u regjistrua.",
+  "till.offline": "Offline — shitjet ruhen lokalisht, sinkronizohen kur të kthehet lidhja",
+  "till.offlineSync": "Duke sinkronizuar {count} shitje offline…",
+  "till.offlineDone.title": "Shitja u ruajt offline",
+  "till.offlineDone.message": "Shitja u ruajt lokalisht. Do të dërgohet automatikisht në server kur të kthehet lidhja me internet.",
   "till.done": "Shitja përfundoi",
   "till.newSale": "Shitje e re",
   "till.print": "Printo kuponin",
@@ -935,6 +952,15 @@ export const posSq: Record<string, string> = {
   "till.exchange.drop": "Hiq kreditin e ndërrimit",
   "till.pay.offer": "Kartela {number}: {amount}",
   "till.pay.offer.use": "Përdor",
+  // ATK onboarding
+  "atk.onboarding.title": "Fiskalizimi ATK",
+  "atk.onboarding.verify": "Lidhu me ATK",
+  "atk.onboarding.businessConfirmed": "ATK konfirmoi: {name}",
+  "atk.onboarding.generateCertificate": "Gjenero certifikatën",
+  "atk.onboarding.done": "Certifikata e ATK-së e instaluar (skadon {date})",
+  "atk.verifyError": "Verifikimi me ATK dështoi",
+  "atk.onboardError": "Regjistrimi me ATK dështoi",
+  "atk.retry": "Riprovo ATK",
 };
 
 // P3 restaurant till (floor plan, tabs, waiters, kitchen display): its own file, keys "rest.*".

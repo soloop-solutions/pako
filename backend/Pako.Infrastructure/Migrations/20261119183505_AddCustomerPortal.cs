@@ -11,6 +11,12 @@ namespace Pako.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
+            // Missing from main's ATK SEF commit (cb24644): Register.EncryptedPrivateKeyPem had no migration.
+            migrationBuilder.AddColumn<string>(
+                name: "EncryptedPrivateKeyPem",
+                table: "pos_registers",
+                type: "text",
+                nullable: true);
             migrationBuilder.AddColumn<Guid>(
                 name: "PartnerId",
                 table: "user_invitations",
@@ -75,6 +81,9 @@ namespace Pako.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            migrationBuilder.DropColumn(
+                name: "EncryptedPrivateKeyPem",
+                table: "pos_registers");
             migrationBuilder.Sql(
                 """
                 DELETE FROM memberships WHERE "Role" = 'ClientCustomer';

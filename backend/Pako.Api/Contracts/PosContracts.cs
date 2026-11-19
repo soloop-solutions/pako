@@ -21,6 +21,11 @@ public record SaveRegisterRequest(Guid StoreId, string Code, string Name, Regist
     int FiscalPosNumber, Guid CashAccountId, string? FiscalizationNumber = null, bool IsActive = true);
 // The certificate ATK signed for this till (PEM); the private key never leaves the till.
 public record SaveRegisterCertificateRequest(string CertificatePem);
+// ATK onboarding step 2: the verification code from step 1 and the business name ATK returned.
+public record AtkOnboardRequest(string VerificationCode, string BusinessName);
+public record AtkVerifyResponse(string BusinessName, string VerificationCode);
+public record AtkOnboardResponse(DateTime CertificateExpiry, string Thumbprint);
+public record AtkRetryResponse(int AtkStatus, ulong? AtkTransactionNo, string? AtkError);
 
 // ---- Sessions ----
 

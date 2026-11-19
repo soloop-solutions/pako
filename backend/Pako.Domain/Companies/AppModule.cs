@@ -42,5 +42,5 @@ public static class AppModules
     };
 
     public static bool IsEnabled(AppModule enabled, AccessModule area) =>
-        For(area) is not { } module || enabled.HasFlag(module);
+        area == AccessModule.Pos || For(area) is not { } module || enabled.HasFlag(module);
 }

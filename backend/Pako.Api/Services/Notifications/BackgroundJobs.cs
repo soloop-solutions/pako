@@ -285,6 +285,17 @@ public class BackgroundJobsHostedService : BackgroundService
         {
             _logger.LogError(ex, "Notification dispatch failed");
         }
+
+        // ATK coupon retry: send pending fiscal documents to ATK (AI 01/2026 Art. 44, 48h deadline).
+        try
+        {
+            using var scope = _scopes.CreateScope();
+            await AtkCouponRetryJob.RunAsync(scope.ServiceProvider, stoppingToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "ATK coupon retry failed");
+        }
     }
 }
 

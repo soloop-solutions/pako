@@ -1272,6 +1272,12 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="PosCertificateInvalid" xml:space="preserve">
     <value>That isn't a valid ATK certificate (PEM, ECDSA P-256).</value>
   </data>
+  <data name="PosNuiMissing" xml:space="preserve">
+    <value>The company has no fiscal number (NUI). Set it in company settings first.</value>
+  </data>
+  <data name="PosFiscalizationNumberMissing" xml:space="preserve">
+    <value>This register has no fiscalization number. Enter the number from ATK's EDI form.</value>
+  </data>
   <data name="PosTenderDuplicate" xml:space="preserve"><value>The same payment method is counted twice. Enter each method once.</value></data>
   <data name="PosTaxNotForSales" xml:space="preserve"><value>The VAT code "{0}" can't go on a coupon: use an active sales VAT code.</value></data>
   <data name="PosDiscountTooLarge" xml:space="preserve"><value>The discount on "{0}" is larger than the line. Lower the discount.</value></data>
@@ -1830,4 +1836,13 @@ Follow it in the portal: {link}</value></data>
   <data name="Email_PortalOrderCancelled_Body" xml:space="preserve"><value>{company} cancelled your order {reference}. Contact them for details.
 
 Your orders in the portal: {link}</value></data>
+
+  <!-- Accounting documents -->
+  <data name="AccountingDocumentNotFound" xml:space="preserve"><value>Accounting document not found.</value></data>
+  <data name="AccountingDocumentFileRequired" xml:space="preserve"><value>A file is required.</value></data>
+  <data name="AccountingDocumentEmptyFile" xml:space="preserve"><value>The uploaded file is empty.</value></data>
+  <data name="AccountingDocumentTooLarge" xml:space="preserve"><value>The file exceeds the maximum size of 20 MB.</value></data>
+  <data name="AccountingDocumentInvalidType" xml:space="preserve"><value>Document type must be "Buy" or "Sell".</value></data>
+  <data name="AccountingDocumentInvalidMonth" xml:space="preserve"><value>Month must be between 1 and 12.</value></data>
+  <data name="AccountingDocumentInvalidYear" xml:space="preserve"><value>Year must be between 2000 and 2100.</value></data>
 </root>
