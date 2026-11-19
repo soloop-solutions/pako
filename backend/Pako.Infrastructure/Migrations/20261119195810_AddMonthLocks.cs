@@ -11,12 +11,6 @@ namespace Pako.Infrastructure.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<string>(
-                name: "EncryptedPrivateKeyPem",
-                table: "pos_registers",
-                type: "text",
-                nullable: true);
-
             migrationBuilder.CreateTable(
                 name: "month_lock_events",
                 columns: table => new
@@ -75,10 +69,6 @@ namespace Pako.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "month_locks");
-
-            migrationBuilder.DropColumn(
-                name: "EncryptedPrivateKeyPem",
-                table: "pos_registers");
         }
     }
 }
