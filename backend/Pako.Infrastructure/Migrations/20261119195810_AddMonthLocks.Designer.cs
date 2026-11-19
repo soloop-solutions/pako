@@ -12,7 +12,7 @@ using Pako.Infrastructure;
 namespace Pako.Infrastructure.Migrations
 {
     [DbContext(typeof(PakoDbContext))]
-    [Migration("20261119194851_AddMonthLocks")]
+    [Migration("20261119195810_AddMonthLocks")]
     partial class AddMonthLocks
     {
         /// <inheritdoc />
