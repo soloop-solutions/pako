@@ -13,8 +13,11 @@ import type {
   TaxDefinitionResponse,
 } from "@pako/shared";
 
+import { useQuery } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
 import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { monthLocksClient } from "@/api/month-locks-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -65,6 +68,16 @@ export function BillDetail() {
   // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
   const [editing, setEditing] = useState(false);
   const billPrintRef = useRef<HTMLDivElement>(null);
+
+  const billYear = bill ? new Date(bill.issueDate).getFullYear() : null;
+  const billMonth = bill ? new Date(bill.issueDate).getMonth() + 1 : null;
+  const monthLockQuery = useQuery({
+    queryKey: ["month-locks", companyId, billYear],
+    queryFn: () => monthLocksClient.getYear(companyId!, billYear!),
+    enabled: !!companyId && billYear !== null,
+  });
+  const isMonthLocked = billMonth !== null
+    && (monthLockQuery.data?.months ?? []).some((m) => m.month === billMonth && m.isLocked);
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
@@ -234,6 +247,20 @@ export function BillDetail() {
         </Alert>
       )}
 
+      {isMonthLocked && bill.state === "Posted" && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning-border bg-warning/40 px-4 py-3">
+          <Lock className="size-4 shrink-0 text-warning-foreground" />
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-warning-foreground">
+              {intl.formatMessage({ id: "billDetail.monthLocked.title" })}
+            </span>
+            <span className="text-xs text-warning-foreground/80">
+              {intl.formatMessage({ id: "billDetail.monthLocked.description" })}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Card ref={billPrintRef} className={cn(bill.state === "Draft" && "border-dashed bg-muted/30", bill.state === "Cancelled" && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -245,7 +272,7 @@ export function BillDetail() {
               <CardDescription>{partner?.name ?? bill.partnerId}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {bill.state === "Draft" && !editing && (
+              {(bill.state === "Draft" || (bill.state === "Posted" && !isMonthLocked)) && !editing && (
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                   {intl.formatMessage({ id: "common.edit" })}
                 </Button>

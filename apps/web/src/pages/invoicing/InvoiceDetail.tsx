@@ -15,8 +15,11 @@ import type {
   TaxDefinitionResponse,
 } from "@pako/shared";
 
+import { useQuery } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
 import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { monthLocksClient } from "@/api/month-locks-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -78,6 +81,17 @@ export function InvoiceDetail() {
   const [showPostPreview, setShowPostPreview] = useState(false);
   // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
   const [editing, setEditing] = useState(false);
+
+  // Period closing: check if the invoice's month is locked.
+  const invoiceYear = invoice ? new Date(invoice.issueDate).getFullYear() : null;
+  const invoiceMonth = invoice ? new Date(invoice.issueDate).getMonth() + 1 : null;
+  const monthLockQuery = useQuery({
+    queryKey: ["month-locks", companyId, invoiceYear],
+    queryFn: () => monthLocksClient.getYear(companyId!, invoiceYear!),
+    enabled: !!companyId && invoiceYear !== null,
+  });
+  const isMonthLocked = invoiceMonth !== null
+    && (monthLockQuery.data?.months ?? []).some((m) => m.month === invoiceMonth && m.isLocked);
   const [showDocPreview, setShowDocPreview] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -282,6 +296,20 @@ export function InvoiceDetail() {
         </Alert>
       )}
 
+      {isMonthLocked && invoice.state === "Posted" && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning-border bg-warning/40 px-4 py-3">
+          <Lock className="size-4 shrink-0 text-warning-foreground" />
+          <div className="flex flex-col">
+            <span className="text-sm font-medium text-warning-foreground">
+              {intl.formatMessage({ id: "invoiceDetail.monthLocked.title" })}
+            </span>
+            <span className="text-xs text-warning-foreground/80">
+              {intl.formatMessage({ id: "invoiceDetail.monthLocked.description" })}
+            </span>
+          </div>
+        </div>
+      )}
+
       <Card className={cn(invoice.state === "Draft" && "border-dashed bg-muted/30", invoice.state === "Cancelled" && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -293,7 +321,7 @@ export function InvoiceDetail() {
               <CardDescription>{partner?.name ?? invoice.partnerId}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {invoice.state === "Draft" && !editing && (
+              {(invoice.state === "Draft" || (invoice.state === "Posted" && !isMonthLocked)) && !editing && (
                 <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
                   {intl.formatMessage({ id: "common.edit" })}
                 </Button>
