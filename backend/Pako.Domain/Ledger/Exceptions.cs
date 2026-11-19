@@ -98,6 +98,20 @@ public class PurchaseLockDateViolationException : Exception
     }
 }
 
+// Per-month period lock: the month containing the transaction date has been closed.
+public class MonthLockViolationException : Exception
+{
+    public int Year { get; }
+    public int Month { get; }
+
+    public MonthLockViolationException(int year, int month)
+        : base($"Cannot post: {year}-{month:D2} is closed.")
+    {
+        Year = year;
+        Month = month;
+    }
+}
+
 public class PostedJournalEntryImmutableException : Exception
 {
     public Guid JournalEntryId { get; }

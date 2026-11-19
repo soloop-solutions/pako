@@ -58,7 +58,7 @@ import {
   PartyPopper,
   TicketCheck,
 } from "lucide-react";
-import { BadgeCheck, CalendarClock, FolderArchive, UsersRound, Wrench } from "lucide-react";
+import { BadgeCheck, CalendarClock, FolderArchive, LockKeyhole, UsersRound, Wrench } from "lucide-react";
 // docs/POS_PLAN.md P6 distribution.
 import { Calculator, ClipboardPen, Footprints, MapPinned, PackagePlus, Route as RouteIcon } from "lucide-react";
 // -- Lazy page imports: each page is code-split into its own chunk. --
@@ -137,6 +137,7 @@ const Vehicles = lazy(() => import("@/pages/inventory/Vehicles").then(m => ({ de
 const AccountingDocumentsPage = lazy(() => import("@/pages/accounting-documents/AccountingDocuments").then(m => ({ default: m.AccountingDocuments })));
 const AccountingDocumentTypeSelectionPage = lazy(() => import("@/pages/accounting-documents/AccountingDocumentTypeSelection").then(m => ({ default: m.AccountingDocumentTypeSelection })));
 const AccountingDocumentDetailsPage = lazy(() => import("@/pages/accounting-documents/AccountingDocumentDetails").then(m => ({ default: m.AccountingDocumentDetails })));
+const PeriodClosing = lazy(() => import("@/pages/period-closing/PeriodClosing").then(m => ({ default: m.PeriodClosing })));
 const Settings = lazy(() => import("@/pages/Settings").then(m => ({ default: m.Settings })));
 const WithholdingTax = lazy(() => import("@/pages/tax/WithholdingTax").then(m => ({ default: m.WithholdingTax })));
 const YearEnd = lazy(() => import("@/pages/YearEnd").then(m => ({ default: m.YearEnd })));
@@ -525,6 +526,14 @@ export const navCategories: NavCategory[] = [
         icon: FolderArchive,
         descriptionKey: "nav.accountingDocuments.description",
         Element: AccountingDocumentsPage,
+      },
+      {
+        titleKey: "nav.periodClosing",
+        path: "/period-closing",
+        icon: LockKeyhole,
+        descriptionKey: "nav.periodClosing.description",
+        Element: PeriodClosing,
+        module: "settings",
       },
     ],
   },
