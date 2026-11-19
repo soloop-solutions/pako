@@ -1,4 +1,5 @@
 using ClosedXML.Excel;
+using Pako.Domain.Companies;
 
 namespace Pako.Api.Services;
 
@@ -16,6 +17,17 @@ public static class ExcelExportService
     // Shared by every export action's [Produces] attribute (so NSwag generates a blob-returning
     // client method instead of a bare void) and its File(...) call, so the two can't drift apart.
     public const string XlsxContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    private static readonly AsyncLocal<NegativeNumberStyle> NegativeStyle = new();
+
+    public static NegativeNumberStyle CurrentNegativeStyle
+    {
+        get => NegativeStyle.Value;
+        set => NegativeStyle.Value = value;
+    }
+
+    public static string AmountFormat(NegativeNumberStyle style) =>
+        style == NegativeNumberStyle.MinusSign ? "#,##0.00" : "#,##0.00_);(#,##0.00)";
 
     public static byte[] BuildWorkbook(string sheetName, IReadOnlyList<string> headers, IReadOnlyList<IReadOnlyList<object?>> rows) =>
         BuildWorkbook(sheetName, null, headers, rows);
@@ -100,7 +112,7 @@ public static class ExcelExportService
                 break;
             case decimal dec:
                 cell.Value = dec;
-                cell.Style.NumberFormat.Format = "#,##0.00";
+                cell.Style.NumberFormat.Format = AmountFormat(CurrentNegativeStyle);
                 break;
             case int i:
                 cell.Value = i;

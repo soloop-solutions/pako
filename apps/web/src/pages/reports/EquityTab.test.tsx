@@ -37,7 +37,7 @@ describe("EquityTab", () => {
     renderReports(URL_);
     expect(await screen.findByText("Opening equity")).toBeInTheDocument();
     expect(screen.getByText("Retained earnings (dividends paid)")).toBeInTheDocument();
-    expect(screen.getByText("-20000.00")).toBeInTheDocument();
+    expect(screen.getByText("(20000.00)")).toBeInTheDocument();
     expect(screen.getByText("Closing equity")).toBeInTheDocument();
     expect(screen.getByText("70000.00")).toBeInTheDocument();
     expect(screen.getAllByText("45000.00").length).toBe(2);

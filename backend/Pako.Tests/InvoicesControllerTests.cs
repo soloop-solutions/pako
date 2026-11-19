@@ -289,6 +289,90 @@ public class InvoicesControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task ListPaged_FiltersByIssueDateRange()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+        foreach (var date in new[] { new DateOnly(2026, 9, 5), new DateOnly(2026, 10, 5), new DateOnly(2026, 11, 5) })
+        {
+            db.Invoices.Add(new Invoice { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = date, DueDate = date.AddDays(30) });
+        }
+
+        await db.SaveChangesAsync();
+
+        var october = (PaginatedResponse<InvoiceResponse>)Assert.IsType<OkObjectResult>(
+            (await controller.ListPaged(companyId, issuedFrom: new DateOnly(2026, 10, 1), issuedTo: new DateOnly(2026, 10, 31))).Result).Value!;
+        Assert.Equal(new[] { new DateOnly(2026, 10, 5) }, october.Items.Select(i => i.IssueDate));
+
+        var fromOctober = (PaginatedResponse<InvoiceResponse>)Assert.IsType<OkObjectResult>(
+            (await controller.ListPaged(companyId, issuedFrom: new DateOnly(2026, 10, 1))).Result).Value!;
+        Assert.Equal(2, fromOctober.Total);
+    }
+
+    [Fact]
+    public async Task Export_UsesTheSameFiltersAsTheGrid_AllPagesNotJustOne()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+        for (var n = 0; n < 5; n++)
+        {
+            db.Invoices.Add(new Invoice { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = new DateOnly(2026, 10, 1 + n), DueDate = new DateOnly(2026, 11, 1) });
+        }
+
+        db.Invoices.Add(new Invoice { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = new DateOnly(2026, 9, 1), DueDate = new DateOnly(2026, 10, 1) });
+        await db.SaveChangesAsync();
+
+        var page = (PaginatedResponse<InvoiceResponse>)Assert.IsType<OkObjectResult>(
+            (await controller.ListPaged(companyId, pageSize: 2, issuedFrom: new DateOnly(2026, 10, 1), issuedTo: new DateOnly(2026, 10, 31))).Result).Value!;
+        Assert.Equal(2, page.Items.Count);
+        Assert.Equal(5, page.Total);
+
+        var file = Assert.IsType<FileContentResult>(await controller.Export(companyId, issuedFrom: new DateOnly(2026, 10, 1), issuedTo: new DateOnly(2026, 10, 31)));
+        using var workbook = new ClosedXML.Excel.XLWorkbook(new MemoryStream(file.FileContents));
+        Assert.Equal(1 + page.Total, workbook.Worksheet(1).LastRowUsed()!.RowNumber());
+    }
+
+    [Fact]
+    public async Task Export_RejectsAnUnknownPaymentStatus()
+    {
+        var (db, companyId, _, _) = await SeedAsync();
+        var result = await NewController(db).Export(companyId, paymentStatus: "nonsense");
+        Assert.IsType<BadRequestObjectResult>(result);
+    }
+
+    [Fact]
+    public async Task ListPaged_FiltersByPaymentStatus()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var controller = NewController(db);
+
+        async Task<Guid> PostedAsync(DateOnly dueDate)
+        {
+            var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m) with { DueDate = dueDate });
+            var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+            await controller.Post(companyId, invoice.Id);
+            return invoice.Id;
+        }
+
+        var paid = await PostedAsync(new DateOnly(2030, 1, 1));
+        await controller.RecordPayment(companyId, paid, new RecordPaymentRequest(100m, cashAccountId, new DateOnly(2026, 8, 27)));
+        var partial = await PostedAsync(new DateOnly(2030, 1, 1));
+        await controller.RecordPayment(companyId, partial, new RecordPaymentRequest(40m, cashAccountId, new DateOnly(2026, 8, 27)));
+        var unpaid = await PostedAsync(new DateOnly(2030, 1, 1));
+        var overdue = await PostedAsync(new DateOnly(2020, 1, 1));
+
+        async Task<List<Guid>> IdsFor(string status) =>
+            ((PaginatedResponse<InvoiceResponse>)Assert.IsType<OkObjectResult>((await controller.ListPaged(companyId, paymentStatus: status)).Result).Value!)
+            .Items.Select(i => i.Id).ToList();
+
+        Assert.Equal(new[] { paid }, await IdsFor("paid"));
+        Assert.Equal(new[] { partial }, await IdsFor("partial"));
+        Assert.Equal(new[] { unpaid }, await IdsFor("unpaid"));
+        Assert.Equal(new[] { overdue }, await IdsFor("overdue"));
+        Assert.IsType<BadRequestObjectResult>((await controller.ListPaged(companyId, paymentStatus: "nonsense")).Result);
+    }
+
+    [Fact]
     public async Task RecordPayment_FullAmount_CreatesReconciliationAndZeroesOutstandingBalance()
     {
         var (db, companyId, partnerId, cashAccountId) = await SeedAsync();

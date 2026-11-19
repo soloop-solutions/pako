@@ -70,6 +70,22 @@ public class BusinessTypeTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task NegativeNumberStyle_DefaultsToParentheses_AndIsChangeable()
+    {
+        var (db, companies) = await SetupAsync();
+        var company = Created(await companies.Create(new CreateCompanyRequest("Style Co")));
+        Assert.Equal(NegativeNumberStyle.Parentheses, company.NegativeNumberStyle);
+
+        var changed = (CompanyResponse)Assert.IsType<OkObjectResult>(
+            (await companies.UpdateNegativeNumberStyle(company.Id, new UpdateNegativeNumberStyleRequest(NegativeNumberStyle.MinusSign))).Result).Value!;
+        Assert.Equal(NegativeNumberStyle.MinusSign, changed.NegativeNumberStyle);
+        Assert.Equal(NegativeNumberStyle.MinusSign, (await db.Companies.AsNoTracking().SingleAsync(c => c.Id == company.Id)).NegativeNumberStyle);
+
+        Assert.IsType<BadRequestObjectResult>(
+            (await companies.UpdateNegativeNumberStyle(company.Id, new UpdateNegativeNumberStyleRequest((NegativeNumberStyle)9))).Result);
+    }
+
+    [Fact]
     public async Task APacksEndpoints_RefuseACompanyThatDoesNotUseIt()
     {
         var (db, companies) = await SetupAsync();

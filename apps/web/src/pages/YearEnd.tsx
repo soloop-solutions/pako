@@ -13,6 +13,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 import { YearEndStockCheck } from "@/pages/inventory/YearEndStockCheck";
+import { formatReportAmount } from "@/lib/amount";
 import { buildRollForward, type RollForward } from "@/pages/year-end/rollForward";
 
 // F12, Part 1 — a real, read-only roll-forward VIEW, not a "close the year" action. There is zero
@@ -151,15 +152,15 @@ export function YearEnd() {
                           <TableRow key={line.accountId}>
                             <TableCell>{line.accountCode}</TableCell>
                             <TableCell>{line.accountName}</TableCell>
-                            <TableCell className="text-right tabular-nums">{line.beginning.toFixed(2)}</TableCell>
-                            <TableCell className="text-right tabular-nums">{line.movement.toFixed(2)}</TableCell>
-                            <TableCell className="text-right tabular-nums">{line.ending.toFixed(2)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{formatReportAmount(line.beginning)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{formatReportAmount(line.movement)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{formatReportAmount(line.ending)}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
                     </Table>
                     <p className="mt-1 text-right text-sm font-medium tabular-nums">
-                      {intl.formatMessage({ id: "yearEnd.totalMovement" }, { amount: (totalEnding - totalBeginning).toFixed(2) })}
+                      {intl.formatMessage({ id: "yearEnd.totalMovement" }, { amount: formatReportAmount(totalEnding - totalBeginning) })}
                     </p>
                   </div>
                 );
@@ -177,8 +178,8 @@ export function YearEnd() {
                   {intl.formatMessage(
                     { id: "reports.balanceEquation" },
                     {
-                      assets: rollForward.totalBeginningAssets.toFixed(2),
-                      liabilitiesPlusEquity: (rollForward.totalBeginningLiabilities + rollForward.totalBeginningEquity).toFixed(2),
+                      assets: formatReportAmount(rollForward.totalBeginningAssets),
+                      liabilitiesPlusEquity: formatReportAmount(rollForward.totalBeginningLiabilities + rollForward.totalBeginningEquity),
                     },
                   )}
                 </p>
@@ -193,8 +194,8 @@ export function YearEnd() {
                   {intl.formatMessage(
                     { id: "reports.balanceEquation" },
                     {
-                      assets: rollForward.totalEndingAssets.toFixed(2),
-                      liabilitiesPlusEquity: (rollForward.totalEndingLiabilities + rollForward.totalEndingEquity).toFixed(2),
+                      assets: formatReportAmount(rollForward.totalEndingAssets),
+                      liabilitiesPlusEquity: formatReportAmount(rollForward.totalEndingLiabilities + rollForward.totalEndingEquity),
                     },
                   )}
                 </p>

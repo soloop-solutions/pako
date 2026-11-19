@@ -4,6 +4,7 @@ import type { CompanyResponse, UpdateCompanyProfileRequest } from "@pako/shared"
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { useAuth } from "@/context/AuthContext";
+import { setNegativeNumberStyle } from "@/lib/amount";
 import { recordCompanyOpened } from "@/lib/company-last-opened";
 import { CompanyPresence, newTabId, type OpenElsewhere } from "@/lib/company-presence";
 
@@ -161,6 +162,7 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
   }
 
   const activeCompany = companies.find((c) => c.id === activeCompanyId) ?? null;
+  setNegativeNumberStyle(activeCompany?.negativeNumberStyle);
 
   return (
     <CompanyContext.Provider

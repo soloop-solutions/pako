@@ -341,6 +341,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("DocumentType")
                         .HasColumnType("integer");
 
@@ -736,6 +739,9 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
+
+                    b.Property<int>("NegativeNumberStyle")
+                        .HasColumnType("integer");
 
                     b.Property<int>("NextCreditNoteNumber")
                         .HasColumnType("integer");
@@ -3370,6 +3376,9 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid");
 
                     b.Property<int>("DocumentType")
                         .HasColumnType("integer");

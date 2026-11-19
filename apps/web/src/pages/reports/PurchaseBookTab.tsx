@@ -15,6 +15,7 @@ import { LinkedRow } from "./LinkedRow";
 import { ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { usePurchaseBookReport } from "./usePurchaseBookReport";
+import { formatReportAmount } from "@/lib/amount";
 
 export function PurchaseBookTab({ report, companyName, taxLockDate }: { report: ReturnType<typeof usePurchaseBookReport>; companyName: string; taxLockDate: string | undefined }) {
   const intl = useIntl();
@@ -92,18 +93,18 @@ export function PurchaseBookTab({ report, companyName, taxLockDate }: { report: 
                       <TableCell>{line.partnerFiscalNumber ?? "-"}</TableCell>
                       <TableCell>{line.vatCode}</TableCell>
                       <TableCell className="text-right tabular-nums">{(line.rate * 100).toFixed(0)}%</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.netAmount.toFixed(2)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.vatAmount.toFixed(2)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.grossAmount.toFixed(2)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatReportAmount(line.netAmount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatReportAmount(line.vatAmount)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{formatReportAmount(line.grossAmount)}</TableCell>
                     </LinkedRow>
                   ))}
                 </TableBody>
               </Table>
             )}
             <div className="flex flex-col items-end gap-1 text-sm">
-              <p>{intl.formatMessage({ id: "reports.bookTotalNet" }, { amount: purchaseBook.totalNet.toFixed(2) })}</p>
-              <p>{intl.formatMessage({ id: "reports.bookTotalVat" }, { amount: purchaseBook.totalVat.toFixed(2) })}</p>
-              <p className="font-medium">{intl.formatMessage({ id: "reports.bookTotalGross" }, { amount: purchaseBook.totalGross.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "reports.bookTotalNet" }, { amount: formatReportAmount(purchaseBook.totalNet) })}</p>
+              <p>{intl.formatMessage({ id: "reports.bookTotalVat" }, { amount: formatReportAmount(purchaseBook.totalVat) })}</p>
+              <p className="font-medium">{intl.formatMessage({ id: "reports.bookTotalGross" }, { amount: formatReportAmount(purchaseBook.totalGross) })}</p>
             </div>
           </>
         )}

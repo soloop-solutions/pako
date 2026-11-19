@@ -90,6 +90,8 @@ public class Company
     // via the /override-number endpoint; FirmAccountant may not (adminOnly on that route).
     public bool AllowNumberOverride { get; set; }
 
+    public NegativeNumberStyle NegativeNumberStyle { get; set; } = NegativeNumberStyle.Parentheses;
+
     // ---- Company profile (extended) ----
     public string? TradingName { get; set; }
     public string? BusinessNumber { get; set; }   // Numri i biznesit

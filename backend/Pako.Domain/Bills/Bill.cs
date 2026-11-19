@@ -37,6 +37,7 @@ public class Bill
     public Guid? OriginalBillId { get; set; }
     public Guid? JournalEntryId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public Guid? CreatedByUserId { get; set; }
 
     // A5 (v2 release): mirror of Invoice.InternalNotes — see BillsController.Update.
     public string? InternalNotes { get; set; }

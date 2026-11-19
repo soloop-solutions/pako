@@ -49,9 +49,9 @@ describe("VendorsTab", () => {
     expect(m.vendorSynthetic).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", false);
   });
 
-  it("renders a negative closing with a minus sign, distinct style and a legend", async () => {
+  it("renders a negative closing in parentheses, distinct style and a legend", async () => {
     renderReports(URL_);
-    const negative = await screen.findByText("-300.00");
+    const negative = await screen.findByText("(300.00)");
     expect(negative).toHaveAttribute("data-vendor-owes-us", "true");
     expect(negative.className).toContain("warning");
     expect(screen.getByText(/the vendor owes us/i)).toBeInTheDocument();

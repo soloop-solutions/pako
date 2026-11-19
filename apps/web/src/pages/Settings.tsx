@@ -12,6 +12,7 @@ import { BusinessTypeSettings } from "@/pages/settings/BusinessTypeSettings";
 import { DesktopLicensePanel } from "@/pages/settings/DesktopLicensePanel";
 import { DesktopRecoveryCodePanel } from "@/pages/settings/DesktopRecoveryCodePanel";
 import { DesktopSettingsPanel } from "@/pages/settings/DesktopSettingsPanel";
+import { NegativeNumberStyleSettings } from "@/pages/settings/NegativeNumberStyleSettings";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
 import { NumberingSettings } from "@/pages/settings/NumberingSettings";
@@ -83,6 +84,8 @@ export function Settings() {
 
       {/* Business types: the company's type and the packs it uses. */}
       {activeCompany && hasSettingsAccess && <BusinessTypeSettings companyId={activeCompany.id} />}
+
+      {activeCompany && hasSettingsAccess && <NegativeNumberStyleSettings companyId={activeCompany.id} />}
 
       {activeCompany && hasSettingsAccess && <NumberingSettings companyId={activeCompany.id} />}
 

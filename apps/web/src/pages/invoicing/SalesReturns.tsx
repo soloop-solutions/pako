@@ -75,6 +75,9 @@ export function SalesReturns() {
         filters.state || undefined,
         sort,
         undefined,
+        undefined,
+        undefined,
+        undefined,
       );
       return { items: result.items, total: result.total };
     },

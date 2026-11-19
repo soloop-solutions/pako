@@ -13,6 +13,7 @@ public record CreateCompanyRequest(string Name, Guid? FirmId = null, CompanyProf
 // docs/COMPANY_TYPES.md: changing the type resets the packs to the type's own.
 public record UpdateBusinessTypeRequest(BusinessType BusinessType);
 public record UpdateCompanyFeaturesRequest(List<string> Features);
+public record UpdateNegativeNumberStyleRequest(NegativeNumberStyle NegativeNumberStyle);
 
 // B4: SaleLockDate/PurchaseLockDate/HardLockDate alongside the existing two.
 // Company profile fields added in AddCompanyProfile migration; archive in AddCompanyArchive.
@@ -41,7 +42,8 @@ public record CompanyResponse(
     DateTime? ArchivedAt,
     // docs/COMPANY_TYPES.md: the kind of business and the vertical packs switched on.
     BusinessType BusinessType = BusinessType.General,
-    List<string>? Features = null);
+    List<string>? Features = null,
+    NegativeNumberStyle NegativeNumberStyle = NegativeNumberStyle.Parentheses);
 
 public record CompanyBankAccountResponse(
     Guid Id, string BankName, string? AccountHolder, string? Iban, string? SwiftBic,

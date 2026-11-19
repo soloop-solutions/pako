@@ -250,6 +250,18 @@ public class CompaniesController : ControllerBase
         return Ok(ToResponse(company));
     }
 
+    [HttpPut("{companyId:guid}/negative-number-style", Name = "UpdateCompanyNegativeNumberStyle")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
+    public async Task<ActionResult<CompanyResponse>> UpdateNegativeNumberStyle(Guid companyId, UpdateNegativeNumberStyleRequest request)
+    {
+        if (!Enum.IsDefined(request.NegativeNumberStyle)) return BadRequest(_localizer["NegativeNumberStyleInvalid"].Value);
+        var company = await _db.Companies.FirstOrDefaultAsync(c => c.Id == companyId);
+        if (company is null) return NotFound();
+        company.NegativeNumberStyle = request.NegativeNumberStyle;
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(company));
+    }
+
     [HttpPut("{companyId:guid}/profile")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Settings)]
     [ProducesResponseType(typeof(CompanyResponse), StatusCodes.Status200OK)]
@@ -610,7 +622,7 @@ public class CompaniesController : ControllerBase
             c.DocumentFooter, c.PaymentInstructions,
             c.LogoUrl, c.StampUrl,
             c.VatRegistrationDate, c.FunctionalCurrency,
-            c.IsArchived, c.ArchivedAt, c.BusinessType, BusinessTypes.Names(c.EnabledFeatures));
+            c.IsArchived, c.ArchivedAt, c.BusinessType, BusinessTypes.Names(c.EnabledFeatures), c.NegativeNumberStyle);
 
     private static CompanyBankAccountResponse ToBankAccountResponse(CompanyBankAccount b) =>
         new(b.Id, b.BankName, b.AccountHolder, b.Iban, b.SwiftBic, b.IsDefault, b.SortOrder);

@@ -18,11 +18,24 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
+import { downloadFileResponse } from "@/pages/reports/helpers";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { DocumentFilterBar } from "@/components/data-grid/DocumentFilterBar";
+import { useDocumentFilters } from "@/components/data-grid/useDocumentFilters";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
+import { dateToIso } from "@/lib/dates";
+import {
+  BillDocumentType,
+  billDocumentTypeLabel,
+  documentStateBadgeVariant,
+  getDocumentRowClassName,
+  paymentStatus,
+  paymentStatusBadgeVariant,
+  type PaymentStatus,
+} from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
@@ -74,13 +87,14 @@ export function Bills() {
 
   const vendors = partners.filter((p) => p.isVendor);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  const docFilters = useDocumentFilters(GRID_ID);
   const paged = usePagedGrid<BillResponse>({
     gridId: GRID_ID,
     enabled: !!companyId,
-    queryKey: ["bills-paged", companyId],
+    queryKey: ["bills-paged", companyId, docFilters.filters],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort, filters }) => {
-      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort, undefined);
+      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort, docFilters.filters.partnerId || undefined, docFilters.filters.from || undefined, docFilters.filters.to || undefined, docFilters.filters.paymentStatus || undefined);
       return { items: result.items, total: result.total };
     },
   });
@@ -107,6 +121,28 @@ export function Bills() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [companyId, displayedBills]);
+
+  async function exportAll() {
+    try {
+      const file = await apiClient.billsExport(
+        companyId as string,
+        paged.urlState.globalFilter.trim() || undefined,
+        undefined,
+        [BillDocumentType.PurchaseReturn],
+        paged.urlState.columnFilters.state || undefined,
+        paged.urlState.sort ? `${paged.urlState.sort.desc ? "-" : ""}${paged.urlState.sort.id}` : undefined,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
+        docFilters.filters.paymentStatus || undefined,
+      );
+      downloadFileResponse(file, "bills.xlsx");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "dataGrid.exportAllError" })));
+    }
+  }
+
+  const gridRows = useMemo(() => displayedBills.map((row) => (row.id in balances ? { ...row } : row)), [displayedBills, balances]);
 
   const columns = useMemo<ColumnDef<BillResponse>[]>(
     () => [
@@ -144,6 +180,12 @@ export function Bills() {
         },
       },
       {
+        id: "createdBy",
+        header: intl.formatMessage({ id: "invoicing.createdBy" }),
+        accessorFn: (row) => row.createdByName ?? "",
+        cell: ({ getValue }) => (getValue() as string) || "-",
+      },
+      {
         id: "outstanding",
         header: intl.formatMessage({ id: "invoicing.outstanding" }),
         meta: { numeric: true },
@@ -154,6 +196,35 @@ export function Bills() {
           const value = getValue() as number | undefined;
           if (row.original.state !== "Posted") return "-";
           return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "paid",
+        header: intl.formatMessage({ id: "invoicing.paid" }),
+        meta: { numeric: true },
+        enableColumnFilter: false,
+        enableSorting: false,
+        accessorFn: (row) => (row.state === "Posted" ? balances[row.id]?.reconciled : undefined),
+        cell: ({ getValue, row }) => {
+          const value = getValue() as number | undefined;
+          if (row.original.state !== "Posted") return "-";
+          return value !== undefined ? value.toFixed(2) : "...";
+        },
+      },
+      {
+        id: "paymentStatus",
+        header: intl.formatMessage({ id: "invoicing.paymentStatus" }),
+        enableColumnFilter: false,
+        enableSorting: false,
+        accessorFn: (row) =>
+          row.state === "Posted" && row.documentType !== BillDocumentType.CreditNote
+            ? paymentStatus(balances[row.id], row.dueDate, dateToIso(new Date()))
+            : undefined,
+        cell: ({ getValue, row }) => {
+          if (row.original.state !== "Posted" || row.original.documentType === BillDocumentType.CreditNote) return "-";
+          const status = getValue() as PaymentStatus | undefined;
+          if (!status) return "...";
+          return <Badge variant={paymentStatusBadgeVariant(status)}>{intl.formatMessage({ id: `invoicing.paymentStatus.${status}` })}</Badge>;
         },
       },
       {
@@ -265,10 +336,12 @@ export function Bills() {
           <CardTitle>{intl.formatMessage({ id: "bills.billsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
+          <DocumentFilterBar controls={docFilters} partners={vendors} partnerLabelId="docFilters.vendor" showPaymentStatus />
           <DataGrid
+            onExportAll={exportAll}
             gridId={GRID_ID}
             columns={visibleColumns}
-            data={displayedBills}
+            data={gridRows}
             rowCount={paged.total}
             isLoading={paged.query.isPending}
             getRowId={(row) => row.id}

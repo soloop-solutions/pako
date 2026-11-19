@@ -17,6 +17,7 @@ import { DrillAmount, ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import { ComparativeBalanceSheet } from "./ComparativeBalanceSheet";
 import type { useBalanceSheetReport } from "./useBalanceSheetReport";
+import { formatReportAmount } from "@/lib/amount";
 
 export function BalanceSheetTab({ report, companyName, accountingLockDate }: { report: ReturnType<typeof useBalanceSheetReport>; companyName: string; accountingLockDate: string | undefined }) {
   const intl = useIntl();
@@ -94,7 +95,7 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
                   </TableBody>
                 </Table>
                 <p className="mt-1 text-right text-sm font-medium">
-                  {intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })}
+                  {intl.formatMessage({ id: totalKey }, { amount: formatReportAmount(total) })}
                 </p>
               </div>
             ))}
@@ -110,8 +111,8 @@ export function BalanceSheetTab({ report, companyName, accountingLockDate }: { r
               {intl.formatMessage(
                 { id: "reports.balanceEquation" },
                 {
-                  assets: balanceSheet.totalAssets.toFixed(2),
-                  liabilitiesPlusEquity: balanceSheet.totalLiabilitiesAndEquity.toFixed(2),
+                  assets: formatReportAmount(balanceSheet.totalAssets),
+                  liabilitiesPlusEquity: formatReportAmount(balanceSheet.totalLiabilitiesAndEquity),
                 },
               )}
             </p>

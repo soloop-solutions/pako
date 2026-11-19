@@ -88,7 +88,9 @@ public record BillResponse(
     string? InternalNotes,
     PriceMode PriceMode,
     Guid? WarehouseId = null,
-    Guid? ProjectId = null);
+    Guid? ProjectId = null,
+    Guid? CreatedByUserId = null,
+    string? CreatedByName = null);
 
 // ---- Purchase orders (docs/INVENTORY_PLAN.md §12 P5) ----
 

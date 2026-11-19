@@ -16,6 +16,7 @@ import { LinkedRow } from "./LinkedRow";
 import { ExportButton, LockNotice } from "./shared";
 import { isOnOrBeforeLock } from "./helpers";
 import type { useDebtReport } from "./useDebtReport";
+import { formatReportAmount } from "@/lib/amount";
 
 export function DebtTab({ report, accountingLockDate }: { report: ReturnType<typeof useDebtReport>; accountingLockDate: string | undefined }) {
   const intl = useIntl();
@@ -84,14 +85,14 @@ export function DebtTab({ report, accountingLockDate }: { report: ReturnType<typ
                             <TableCell>{line.invoiceNumber ?? "-"}</TableCell>
                             <TableCell><MaybeEntityLink to={partnerPath(line.partnerId, "customer")}>{debtPartnerName(line.partnerId)}</MaybeEntityLink></TableCell>
                             <TableCell>{line.dueDate}</TableCell>
-                            <TableCell className="text-right">{line.outstanding.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">{formatReportAmount(line.outstanding)}</TableCell>
                           </LinkedRow>
                         ))}
                       </TableBody>
                     </Table>
                   )}
                   <p className="mt-1 text-right text-sm font-medium">
-                    {intl.formatMessage({ id: totalKey }, { amount: total.toFixed(2) })}
+                    {intl.formatMessage({ id: totalKey }, { amount: formatReportAmount(total) })}
                   </p>
                 </div>
               );

@@ -4,6 +4,7 @@ import { Download, Lock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { formatReportAmount } from "@/lib/amount";
 
 export function LockNotice({ lockDate, messageId }: { lockDate: string; messageId: "reports.periodLockedAccounting" | "reports.periodLockedTax" }) {
   const intl = useIntl();
@@ -30,7 +31,7 @@ export function ExportButton({ onClick, loading }: { onClick: () => void; loadin
 
 /** Renders a report amount; non-zero values link to the trial balance filtered by account code. */
 export function DrillAmount({ amount, accountCode }: { amount: number; accountCode: string }) {
-  const formatted = amount.toFixed(2);
+  const formatted = formatReportAmount(amount);
   if (amount === 0) return <>{formatted}</>;
   return (
     <Link

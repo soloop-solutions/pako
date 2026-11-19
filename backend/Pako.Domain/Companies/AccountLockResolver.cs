@@ -36,7 +36,8 @@ public static class AccountLockResolver
             FunctionalCurrency = company.FunctionalCurrency,
             EnabledProfiles = company.EnabledProfiles,
             IsVatRegistered = company.IsVatRegistered,
-            AllowNumberOverride = company.AllowNumberOverride
+            AllowNumberOverride = company.AllowNumberOverride,
+            NegativeNumberStyle = company.NegativeNumberStyle
         };
 
         DateOnly? Effective(DateOnly? companyDate, LockDateField field)
