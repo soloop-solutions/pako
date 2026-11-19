@@ -354,9 +354,9 @@ export function BillDetail() {
             <p className="font-medium">{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
           </div>
 
-          {bill.state === "Draft" && !isMonthLocked && canApprove("purchases") && (
+          {bill.state === "Draft" && canApprove("purchases") && (
             <div className="flex flex-col items-start gap-1">
-              <Button onClick={() => setShowPostPreview(true)} disabled={posting}>
+              <Button onClick={() => setShowPostPreview(true)} disabled={posting || isMonthLocked}>
                 {posting ? intl.formatMessage({ id: "billDetail.posting" }) : intl.formatMessage({ id: "billDetail.postBill" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}
@@ -376,8 +376,8 @@ export function BillDetail() {
         </CardContent>
       </Card>
 
-      {bill.state === "Posted" && !isMonthLocked && bill.documentType === BillDocumentType.Bill && (
-        <Card>
+      {bill.state === "Posted" && bill.documentType === BillDocumentType.Bill && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "billDetail.actions" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "billDetail.actionsDescription" })}</CardDescription>
@@ -395,8 +395,8 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && !isMonthLocked && (
-        <Card>
+      {bill.state === "Posted" && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "editPostedFields.title" })}</CardTitle>
           </CardHeader>
@@ -413,8 +413,8 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && canApprove("purchases") && (
-        <Card>
+      {bill.state === "Posted" && balance && balance.outstanding > 0 && canApprove("purchases") && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>
               {isCreditDocument
@@ -441,8 +441,8 @@ export function BillDetail() {
         </Card>
       )}
 
-      {bill.state === "Posted" && !isMonthLocked && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("purchases") && (
-        <Card>
+      {bill.state === "Posted" && balance && balance.outstanding > 0 && creditNoteOptions.length > 0 && canApprove("purchases") && (
+        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>{intl.formatMessage({ id: "billDetail.applyCreditNote" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "billDetail.applyCreditNoteDescription" })}</CardDescription>
@@ -460,13 +460,13 @@ export function BillDetail() {
         </Card>
       )}
 
-      <Card>
+      <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "attachments.title" })}</CardTitle>
           <CardDescription>{intl.formatMessage({ id: "attachments.description" })}</CardDescription>
         </CardHeader>
         <CardContent>
-          <AttachmentsPanel companyId={activeCompany.id} documentKind="bill" documentId={bill.id} readOnly={!canWrite("purchases")} />
+          <AttachmentsPanel companyId={activeCompany.id} documentKind="bill" documentId={bill.id} readOnly={isMonthLocked || !canWrite("purchases")} />
         </CardContent>
       </Card>
 
