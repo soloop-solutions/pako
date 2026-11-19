@@ -177,6 +177,10 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Pako.Domain.Bills.PurchaseOrder> PurchaseOrders => Set<Pako.Domain.Bills.PurchaseOrder>();
     public DbSet<Pako.Domain.Invoicing.SalesOrder> SalesOrders => Set<Pako.Domain.Invoicing.SalesOrder>();
     public DbSet<Pako.Domain.Invoicing.DiscountRule> DiscountRules => Set<Pako.Domain.Invoicing.DiscountRule>();
+    public DbSet<Pako.Domain.Assets.AssetCategory> AssetCategories => Set<Pako.Domain.Assets.AssetCategory>();
+    public DbSet<Pako.Domain.Assets.FixedAsset> FixedAssets => Set<Pako.Domain.Assets.FixedAsset>();
+    public DbSet<Pako.Domain.Assets.DepreciationRun> DepreciationRuns => Set<Pako.Domain.Assets.DepreciationRun>();
+    public DbSet<Pako.Domain.Assets.DepreciationRunLine> DepreciationRunLines => Set<Pako.Domain.Assets.DepreciationRunLine>();
     public DbSet<Pako.Domain.Invoicing.SalesOrderLine> SalesOrderLines => Set<Pako.Domain.Invoicing.SalesOrderLine>();
     public DbSet<Pako.Domain.Inventory.SalesRoute> SalesRoutes => Set<Pako.Domain.Inventory.SalesRoute>();
     public DbSet<Pako.Domain.Inventory.SalesRouteStop> SalesRouteStops => Set<Pako.Domain.Inventory.SalesRouteStop>();

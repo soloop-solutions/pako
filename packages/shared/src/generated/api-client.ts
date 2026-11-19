@@ -6808,6 +6808,724 @@ export class PakoApiClient {
     }
 
     /**
+     * @return OK
+     */
+    listAssetCategories(companyId: string): Promise<AssetCategoryResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/categories";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListAssetCategories(_response);
+        });
+    }
+
+    protected processListAssetCategories(response: Response): Promise<AssetCategoryResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AssetCategoryResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AssetCategoryResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    createAssetCategory(companyId: string, body: SaveAssetCategoryRequest): Promise<AssetCategoryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/categories";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateAssetCategory(_response);
+        });
+    }
+
+    protected processCreateAssetCategory(response: Response): Promise<AssetCategoryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AssetCategoryResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AssetCategoryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateAssetCategory(companyId: string, id: string, body: SaveAssetCategoryRequest): Promise<AssetCategoryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/categories/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateAssetCategory(_response);
+        });
+    }
+
+    protected processUpdateAssetCategory(response: Response): Promise<AssetCategoryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AssetCategoryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AssetCategoryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    createDefaultAssetCategories(companyId: string): Promise<AssetCategoryResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/categories/defaults";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateDefaultAssetCategories(_response);
+        });
+    }
+
+    protected processCreateDefaultAssetCategories(response: Response): Promise<AssetCategoryResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AssetCategoryResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AssetCategoryResponse[]>(null as any);
+    }
+
+    /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @param search (optional) 
+     * @param sort (optional) 
+     * @param status (optional) 
+     * @param categoryId (optional) 
+     * @return OK
+     */
+    listFixedAssets(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, sort: string | undefined, status: string | undefined, categoryId: string | undefined): Promise<PaginatedResponseOfFixedAssetResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (sort === null)
+            throw new globalThis.Error("The parameter 'sort' cannot be null.");
+        else if (sort !== undefined)
+            url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        if (status === null)
+            throw new globalThis.Error("The parameter 'status' cannot be null.");
+        else if (status !== undefined)
+            url_ += "status=" + encodeURIComponent("" + status) + "&";
+        if (categoryId === null)
+            throw new globalThis.Error("The parameter 'categoryId' cannot be null.");
+        else if (categoryId !== undefined)
+            url_ += "categoryId=" + encodeURIComponent("" + categoryId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListFixedAssets(_response);
+        });
+    }
+
+    protected processListFixedAssets(response: Response): Promise<PaginatedResponseOfFixedAssetResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfFixedAssetResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfFixedAssetResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    createFixedAsset(companyId: string, body: SaveFixedAssetRequest): Promise<FixedAssetResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateFixedAsset(_response);
+        });
+    }
+
+    protected processCreateFixedAsset(response: Response): Promise<FixedAssetResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as FixedAssetResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FixedAssetResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getFixedAsset(companyId: string, id: string): Promise<FixedAssetDetailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetFixedAsset(_response);
+        });
+    }
+
+    protected processGetFixedAsset(response: Response): Promise<FixedAssetDetailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as FixedAssetDetailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FixedAssetDetailResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateFixedAsset(companyId: string, id: string, body: SaveFixedAssetRequest): Promise<FixedAssetResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateFixedAsset(_response);
+        });
+    }
+
+    protected processUpdateFixedAsset(response: Response): Promise<FixedAssetResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as FixedAssetResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FixedAssetResponse>(null as any);
+    }
+
+    /**
+     * @return No Content
+     */
+    deleteFixedAsset(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeleteFixedAsset(_response);
+        });
+    }
+
+    protected processDeleteFixedAsset(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    disposeFixedAsset(companyId: string, id: string, body: DisposeFixedAssetRequest): Promise<FixedAssetResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/{id}/dispose";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDisposeFixedAsset(_response);
+        });
+    }
+
+    protected processDisposeFixedAsset(response: Response): Promise<FixedAssetResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as FixedAssetResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FixedAssetResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listDepreciationRuns(companyId: string): Promise<DepreciationRunResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/depreciation-runs";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListDepreciationRuns(_response);
+        });
+    }
+
+    protected processListDepreciationRuns(response: Response): Promise<DepreciationRunResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DepreciationRunResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DepreciationRunResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    postDepreciationRun(companyId: string, body: PostDepreciationRunRequest): Promise<DepreciationRunResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/depreciation-runs";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPostDepreciationRun(_response);
+        });
+    }
+
+    protected processPostDepreciationRun(response: Response): Promise<DepreciationRunResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DepreciationRunResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DepreciationRunResponse>(null as any);
+    }
+
+    /**
+     * @param period (optional) 
+     * @return OK
+     */
+    previewDepreciationRun(companyId: string, period: string | undefined): Promise<DepreciationPreviewResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/depreciation-runs/preview?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (period === null)
+            throw new globalThis.Error("The parameter 'period' cannot be null.");
+        else if (period !== undefined)
+            url_ += "period=" + encodeURIComponent("" + period) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPreviewDepreciationRun(_response);
+        });
+    }
+
+    protected processPreviewDepreciationRun(response: Response): Promise<DepreciationPreviewResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DepreciationPreviewResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DepreciationPreviewResponse>(null as any);
+    }
+
+    /**
+     * @param date (optional) 
+     * @return OK
+     */
+    reverseDepreciationRun(companyId: string, runId: string, date: string | undefined): Promise<DepreciationRunResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/depreciation-runs/{runId}/reverse?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (runId === undefined || runId === null)
+            throw new globalThis.Error("The parameter 'runId' must be defined.");
+        url_ = url_.replace("{runId}", encodeURIComponent("" + runId));
+        if (date === null)
+            throw new globalThis.Error("The parameter 'date' cannot be null.");
+        else if (date !== undefined)
+            url_ += "date=" + encodeURIComponent("" + date) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processReverseDepreciationRun(_response);
+        });
+    }
+
+    protected processReverseDepreciationRun(response: Response): Promise<DepreciationRunResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DepreciationRunResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DepreciationRunResponse>(null as any);
+    }
+
+    /**
+     * @param year (optional) 
+     * @return OK
+     */
+    fixedAssetSchedule(companyId: string, year: number | undefined): Promise<FixedAssetScheduleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/schedule?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processFixedAssetSchedule(_response);
+        });
+    }
+
+    protected processFixedAssetSchedule(response: Response): Promise<FixedAssetScheduleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as FixedAssetScheduleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FixedAssetScheduleResponse>(null as any);
+    }
+
+    /**
+     * @param year (optional) 
+     * @return OK
+     */
+    fixedAssetScheduleExport(companyId: string, year: number | undefined): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/fixed-assets/schedule/export?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processFixedAssetScheduleExport(_response);
+        });
+    }
+
+    protected processFixedAssetScheduleExport(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
      * @param from (optional) 
      * @param to (optional) 
      * @param accountId (optional) 
@@ -28463,6 +29181,23 @@ export interface ApproveTimesheetMonthRequest {
     [key: string]: any;
 }
 
+export interface AssetCategoryResponse {
+    id: string;
+    name: string;
+    assetAccountId: string;
+    assetAccountCode: string;
+    isDepreciable: boolean;
+    accumulatedDepreciationAccountId: string | undefined;
+    accumulatedDepreciationAccountCode: string | undefined;
+    depreciationExpenseAccountId: string | undefined;
+    depreciationExpenseAccountCode: string | undefined;
+    defaultUsefulLifeMonths: number;
+    isActive: boolean;
+    assetCount: number;
+
+    [key: string]: any;
+}
+
 export interface AttachmentResponse {
     id: string;
     ownerType: string;
@@ -29624,6 +30359,62 @@ export interface DepartmentResponse {
     [key: string]: any;
 }
 
+export interface DepreciationCategoryTotal {
+    categoryId: string;
+    categoryName: string;
+    expenseAccountCode: string;
+    accumulatedAccountCode: string;
+    amount: number;
+
+    [key: string]: any;
+}
+
+export interface DepreciationPreviewLine {
+    fixedAssetId: string;
+    code: string;
+    name: string;
+    categoryName: string;
+    amount: number;
+    accumulatedAfter: number;
+    bookValueAfter: number;
+
+    [key: string]: any;
+}
+
+export interface DepreciationPreviewResponse {
+    period: string;
+    lastPostedPeriod: string | undefined;
+    alreadyPosted: boolean;
+    total: number;
+    lines: DepreciationPreviewLine[];
+    categories: DepreciationCategoryTotal[];
+
+    [key: string]: any;
+}
+
+export interface DepreciationRunResponse {
+    id: string;
+    period: string;
+    state: string;
+    total: number;
+    assetCount: number;
+    journalEntryId: string;
+    reversalJournalEntryId: string | undefined;
+    postedAt: string;
+
+    [key: string]: any;
+}
+
+export interface DepreciationScheduleLineResponse {
+    period: string;
+    amount: number;
+    accumulated: number;
+    bookValue: number;
+    posted: boolean;
+
+    [key: string]: any;
+}
+
 export interface DiscountRuleResponse {
     id: string;
     name: string;
@@ -29638,6 +30429,14 @@ export interface DiscountRuleResponse {
     itemName: string | undefined;
     priority: number;
     isActive: boolean;
+
+    [key: string]: any;
+}
+
+export interface DisposeFixedAssetRequest {
+    date: string;
+    proceeds?: number | undefined;
+    proceedsAccountId?: string | undefined;
 
     [key: string]: any;
 }
@@ -29985,6 +30784,84 @@ export interface FitmentResponse {
     yearFrom: number | undefined;
     yearTo: number | undefined;
     engine: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface FixedAssetDetailResponse {
+    asset: FixedAssetResponse;
+    schedule: DepreciationScheduleLineResponse[];
+
+    [key: string]: any;
+}
+
+export interface FixedAssetResponse {
+    id: string;
+    code: string;
+    name: string;
+    categoryId: string;
+    categoryName: string;
+    isDepreciable: boolean;
+    acquisitionDate: string;
+    inServiceDate: string;
+    cost: number;
+    residualValue: number;
+    usefulLifeMonths: number;
+    openingAccumulatedDepreciation: number;
+    accumulatedDepreciation: number;
+    bookValue: number;
+    monthlyDepreciation: number;
+    lastDepreciatedPeriod: string | undefined;
+    isFullyDepreciated: boolean;
+    status: string;
+    disposedOn: string | undefined;
+    disposalProceeds: number | undefined;
+    disposalJournalEntryId: string | undefined;
+    hasDepreciation: boolean;
+    serialNumber: string | undefined;
+    location: string | undefined;
+    notes: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface FixedAssetScheduleAmounts {
+    costOpening: number;
+    additions: number;
+    costDisposed: number;
+    costClosing: number;
+    accumulatedOpening: number;
+    depreciation: number;
+    accumulatedDisposed: number;
+    accumulatedClosing: number;
+    bookValueOpening: number;
+    bookValueClosing: number;
+
+    [key: string]: any;
+}
+
+export interface FixedAssetScheduleCategory {
+    categoryName: string;
+    amounts: FixedAssetScheduleAmounts;
+
+    [key: string]: any;
+}
+
+export interface FixedAssetScheduleLine {
+    fixedAssetId: string;
+    code: string;
+    name: string;
+    categoryName: string;
+    amounts: FixedAssetScheduleAmounts;
+
+    [key: string]: any;
+}
+
+export interface FixedAssetScheduleResponse {
+    year: number;
+    lines: FixedAssetScheduleLine[];
+    categories: FixedAssetScheduleCategory[];
+    total: FixedAssetScheduleAmounts;
 
     [key: string]: any;
 }
@@ -31147,6 +32024,15 @@ export interface PaginatedResponseOfEmployeeDetailResponse {
     [key: string]: any;
 }
 
+export interface PaginatedResponseOfFixedAssetResponse {
+    items: FixedAssetResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
 export interface PaginatedResponseOfGiftCardResponse {
     items: GiftCardResponse[];
     total: number;
@@ -31968,6 +32854,12 @@ export interface PosScanResponse {
     lotNumber?: string | undefined;
     expiryDate?: string | undefined;
     serialNumber?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface PostDepreciationRunRequest {
+    period: string;
 
     [key: string]: any;
 }
@@ -33147,6 +34039,18 @@ export interface SaveAppointmentRequest {
     [key: string]: any;
 }
 
+export interface SaveAssetCategoryRequest {
+    name: string;
+    assetAccountId: string;
+    isDepreciable: boolean;
+    accumulatedDepreciationAccountId: string | undefined;
+    depreciationExpenseAccountId: string | undefined;
+    defaultUsefulLifeMonths: number;
+    isActive?: boolean | undefined;
+
+    [key: string]: any;
+}
+
 export interface SaveBarcodeRuleRequest {
     prefix: string;
     kind: number;
@@ -33331,6 +34235,23 @@ export interface SaveEventTicketTypeRequest {
 export interface SaveExpenseClaimRequest {
     title: string;
     lines: ExpenseClaimLineRequest[];
+
+    [key: string]: any;
+}
+
+export interface SaveFixedAssetRequest {
+    code: string | undefined;
+    name: string;
+    categoryId: string;
+    acquisitionDate: string;
+    inServiceDate: string;
+    cost: number;
+    residualValue?: number | undefined;
+    usefulLifeMonths?: number | undefined;
+    openingAccumulatedDepreciation?: number | undefined;
+    serialNumber?: string | undefined;
+    location?: string | undefined;
+    notes?: string | undefined;
 
     [key: string]: any;
 }

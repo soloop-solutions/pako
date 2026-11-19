@@ -90,6 +90,7 @@ const EmployeeLoans = lazy(() => import("@/pages/payroll/EmployeeLoans").then(m 
 const Employees = lazy(() => import("@/pages/hr/Employees").then(m => ({ default: m.Employees })));
 const Departments = lazy(() => import("@/pages/hr/Departments").then(m => ({ default: m.Departments })));
 const DiscountRules = lazy(() => import("@/pages/sales/DiscountRules").then(m => ({ default: m.DiscountRules })));
+const FixedAssets = lazy(() => import("@/pages/assets/FixedAssets").then(m => ({ default: m.FixedAssets })));
 const CostCenters = lazy(() => import("@/pages/ledger/CostCenters").then(m => ({ default: m.CostCenters })));
 const Leave = lazy(() => import("@/pages/leave/Leave").then(m => ({ default: m.Leave })));
 const MyLeave = lazy(() => import("@/pages/me/MyLeave").then(m => ({ default: m.MyLeave })));
@@ -517,6 +518,13 @@ export const navCategories: NavCategory[] = [
         icon: Target,
         descriptionKey: "nav.costCenters.description",
         Element: CostCenters,
+      },
+      {
+        titleKey: "nav.fixedAssets",
+        path: "/fixed-assets",
+        icon: Building2,
+        descriptionKey: "nav.fixedAssets.description",
+        Element: FixedAssets,
       },
     ],
   },

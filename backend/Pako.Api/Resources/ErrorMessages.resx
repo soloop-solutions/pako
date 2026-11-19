@@ -1765,4 +1765,46 @@ Estimate: {estimate} €.</value></data>
   <data name="DiscountRulePercentInvalid" xml:space="preserve"><value>The discount must be more than 0% and at most 100%.</value></data>
   <data name="DiscountRuleTargetRequired" xml:space="preserve"><value>Choose a customer, an item category or an item for the discount rule.</value></data>
   <data name="DiscountRuleTargetNotFound" xml:space="preserve"><value>The customer, category or item of this discount rule was not found in this company.</value></data>
+  <data name="AssetCategoryNameRequired" xml:space="preserve"><value>Enter a name for the asset category (up to 128 characters).</value></data>
+  <data name="AssetCategoryNameTaken" xml:space="preserve"><value>An asset category with this name already exists.</value></data>
+  <data name="AssetCategoryAccountInvalid" xml:space="preserve"><value>Choose an active, postable asset account (15xxxx) for the category.</value></data>
+  <data name="AssetCategoryDepreciationAccountsRequired" xml:space="preserve"><value>A depreciable category needs an accumulated depreciation account (159xxx) and a depreciation expense account (65xxxx), both active and postable.</value></data>
+  <data name="AssetCategoryLockedByDepreciation" xml:space="preserve"><value>Assets of this category already have posted depreciation: its accounts and whether it depreciates can no longer change. Create a new category instead.</value></data>
+  <data name="FixedAssetNameRequired" xml:space="preserve"><value>Enter a name for the asset (up to 256 characters).</value></data>
+  <data name="FixedAssetCodeRequired" xml:space="preserve"><value>Enter a code for the asset (up to 32 characters).</value></data>
+  <data name="FixedAssetCodeTaken" xml:space="preserve"><value>Another asset already has this code.</value></data>
+  <data name="FixedAssetCategoryNotFound" xml:space="preserve"><value>Choose an active asset category of this company.</value></data>
+  <data name="FixedAssetDatesInvalid" xml:space="preserve"><value>The in-service date cannot be before the acquisition date.</value></data>
+  <data name="FixedAssetAmountsInvalid" xml:space="preserve"><value>The cost must be more than 0 and the residual value between 0 and the cost, both with at most 2 decimals.</value></data>
+  <data name="FixedAssetUsefulLifeInvalid" xml:space="preserve"><value>The useful life must be between 1 and 1200 months.</value></data>
+  <data name="FixedAssetOpeningInvalid" xml:space="preserve"><value>The depreciation taken before Pako must be between 0 and the cost less the residual value.</value></data>
+  <data name="FixedAssetLockedByDepreciation" xml:space="preserve"><value>This asset already has posted depreciation or is disposed: only its name, code, serial number, location and notes can change. Reverse the depreciation runs first to change the plan.</value></data>
+  <data name="FixedAssetHasDepreciation" xml:space="preserve"><value>This asset has depreciation runs or is disposed and cannot be deleted.</value></data>
+  <data name="FixedAssetNotActive" xml:space="preserve"><value>This asset is already disposed.</value></data>
+  <data name="FixedAssetDisposalDateInvalid" xml:space="preserve"><value>The disposal date cannot be before the acquisition date.</value></data>
+  <data name="FixedAssetDisposalAfterDepreciation" xml:space="preserve"><value>Depreciation is posted for a month after the disposal date. Reverse those runs first, or dispose of the asset on a later date.</value></data>
+  <data name="FixedAssetProceedsAccountInvalid" xml:space="preserve"><value>Choose the active account the proceeds went to (cash, bank or a receivable).</value></data>
+  <data name="FixedAssetGainLossAccountMissing" xml:space="preserve"><value>Account {0} (gain or loss on the sale of assets) is missing from the chart of accounts.</value></data>
+  <data name="FixedAssetDisposalReference" xml:space="preserve"><value>Asset disposal</value></data>
+  <data name="DepreciationEntryReference" xml:space="preserve"><value>Depreciation</value></data>
+  <data name="DepreciationPeriodAlreadyPosted" xml:space="preserve"><value>Depreciation for this month is already posted.</value></data>
+  <data name="DepreciationPeriodNotAfterLast" xml:space="preserve"><value>Depreciation is already posted for a later month. Runs go forward month by month; reverse the later runs first.</value></data>
+  <data name="DepreciationNothingToPost" xml:space="preserve"><value>No asset has depreciation for this month.</value></data>
+  <data name="DepreciationRunNotLatest" xml:space="preserve"><value>Only the latest posted depreciation run can be reversed. Reverse the later months first.</value></data>
+  <data name="DepreciationRunAlreadyReversed" xml:space="preserve"><value>This depreciation run is already reversed.</value></data>
+  <data name="DepreciationRunHasDisposedAsset" xml:space="preserve"><value>An asset in this run has been disposed since; the run can no longer be reversed.</value></data>
+  <data name="Export_Sheet_FixedAssetSchedule" xml:space="preserve"><value>Fixed asset schedule</value></data>
+  <data name="Export_Fa_Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Export_Fa_Name" xml:space="preserve"><value>Asset</value></data>
+  <data name="Export_Fa_Category" xml:space="preserve"><value>Category</value></data>
+  <data name="Export_Fa_CostOpening" xml:space="preserve"><value>Cost at start of year</value></data>
+  <data name="Export_Fa_Additions" xml:space="preserve"><value>Additions</value></data>
+  <data name="Export_Fa_CostDisposed" xml:space="preserve"><value>Disposals (cost)</value></data>
+  <data name="Export_Fa_CostClosing" xml:space="preserve"><value>Cost at end of year</value></data>
+  <data name="Export_Fa_AccumulatedOpening" xml:space="preserve"><value>Accumulated depreciation at start</value></data>
+  <data name="Export_Fa_Depreciation" xml:space="preserve"><value>Depreciation for the year</value></data>
+  <data name="Export_Fa_AccumulatedDisposed" xml:space="preserve"><value>Depreciation on disposals</value></data>
+  <data name="Export_Fa_AccumulatedClosing" xml:space="preserve"><value>Accumulated depreciation at end</value></data>
+  <data name="Export_Fa_BookValueOpening" xml:space="preserve"><value>Book value at start</value></data>
+  <data name="Export_Fa_BookValueClosing" xml:space="preserve"><value>Book value at end</value></data>
 </root>

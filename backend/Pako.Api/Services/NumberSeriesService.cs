@@ -203,6 +203,15 @@ public class NumberSeriesService
             return await changes.Select(d => d.Number!).ToListAsync();
         }
 
+        // Client feedback 2026-11: fixed asset codes (AS-00001), one series across the years.
+        if (documentType == "FixedAsset")
+        {
+            var assets = _db.FixedAssets.AsNoTracking().Where(a => a.CompanyId == companyId);
+            if (isDayScoped && date is { } ad) assets = assets.Where(a => a.AcquisitionDate == ad);
+            else if (isYearScoped) assets = assets.Where(a => a.AcquisitionDate >= yearStart && a.AcquisitionDate <= yearEnd);
+            return await assets.Select(a => a.Code).ToListAsync();
+        }
+
         // docs/INVENTORY_PLAN.md: stock documents number per type ("Stock" + StockDocumentType).
         if (documentType.StartsWith("Stock") && Enum.TryParse<Pako.Domain.Inventory.StockDocumentType>(documentType["Stock".Length..], out var stockType))
         {
@@ -402,6 +411,7 @@ public class NumberSeriesService
         "SalesOrder" => "SO-{seq:D4}/{yyyy}",
         "PriceChange" => "NIV-{seq:D4}/{yyyy}",
         "PurchaseOrder" => "PO-{seq:D4}/{yyyy}",
+        "FixedAsset" => "AS-{seq:D5}",
         _ => "{seq:D4}"
     };
 

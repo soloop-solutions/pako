@@ -86,6 +86,204 @@ namespace Pako.Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Pako.Domain.Assets.AssetCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("AccumulatedDepreciationAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AssetAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DefaultUsefulLifeMonths")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid?>("DepreciationExpenseAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsDepreciable")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccumulatedDepreciationAccountId");
+
+                    b.HasIndex("AssetAccountId");
+
+                    b.HasIndex("DepreciationExpenseAccountId");
+
+                    b.HasIndex("CompanyId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("asset_categories", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.DepreciationRun", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Period")
+                        .HasColumnType("date");
+
+                    b.Property<DateTime>("PostedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("PostedByUserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReversalJournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("State")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("Total")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("ReversalJournalEntryId");
+
+                    b.HasIndex("CompanyId", "Period")
+                        .IsUnique()
+                        .HasFilter("\"State\" = 0");
+
+                    b.ToTable("depreciation_runs", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.DepreciationRunLine", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid>("DepreciationRunId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("FixedAssetId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DepreciationRunId");
+
+                    b.HasIndex("FixedAssetId");
+
+                    b.ToTable("depreciation_run_lines", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.FixedAsset", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("AcquisitionDate")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Cost")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("DisposalJournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("DisposalProceeds")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<DateOnly?>("DisposedOn")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly>("InServiceDate")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.Property<decimal>("OpeningAccumulatedDepreciation")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<decimal>("ResidualValue")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<string>("SerialNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("character varying(128)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("UsefulLifeMonths")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("DisposalJournalEntryId");
+
+                    b.HasIndex("CompanyId", "Code")
+                        .IsUnique();
+
+                    b.ToTable("fixed_assets", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_fixed_assets_amounts", "\"Cost\" > 0 AND \"ResidualValue\" >= 0 AND \"ResidualValue\" <= \"Cost\" AND \"OpeningAccumulatedDepreciation\" >= 0 AND \"UsefulLifeMonths\" >= 0");
+                        });
+                });
+
             modelBuilder.Entity("Pako.Domain.Attachments.Attachment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -8525,6 +8723,86 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("Pako.Domain.Assets.AssetCategory", b =>
+                {
+                    b.HasOne("Pako.Domain.Ledger.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccumulatedDepreciationAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Ledger.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AssetAccountId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Ledger.Account", null)
+                        .WithMany()
+                        .HasForeignKey("DepreciationExpenseAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.DepreciationRun", b =>
+                {
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Ledger.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Ledger.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ReversalJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.DepreciationRunLine", b =>
+                {
+                    b.HasOne("Pako.Domain.Assets.DepreciationRun", null)
+                        .WithMany("Lines")
+                        .HasForeignKey("DepreciationRunId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Assets.FixedAsset", null)
+                        .WithMany()
+                        .HasForeignKey("FixedAssetId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.FixedAsset", b =>
+                {
+                    b.HasOne("Pako.Domain.Assets.AssetCategory", null)
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Ledger.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("DisposalJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+                });
+
             modelBuilder.Entity("Pako.Domain.Bills.Bill", b =>
                 {
                     b.HasOne("Pako.Domain.Bills.Bill", null)
@@ -10731,6 +11009,11 @@ namespace Pako.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("TaxDefinition");
+                });
+
+            modelBuilder.Entity("Pako.Domain.Assets.DepreciationRun", b =>
+                {
+                    b.Navigation("Lines");
                 });
 
             modelBuilder.Entity("Pako.Domain.Bills.Bill", b =>

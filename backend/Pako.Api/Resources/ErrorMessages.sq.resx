@@ -1765,4 +1765,46 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="DiscountRulePercentInvalid" xml:space="preserve"><value>Zbritja duhet të jetë më shumë se 0% dhe jo më shumë se 100%.</value></data>
   <data name="DiscountRuleTargetRequired" xml:space="preserve"><value>Zgjidhni një blerës, një kategori artikujsh ose një artikull për rregullin e zbritjes.</value></data>
   <data name="DiscountRuleTargetNotFound" xml:space="preserve"><value>Blerësi, kategoria ose artikulli i këtij rregulli të zbritjes nuk u gjet në këtë kompani.</value></data>
+  <data name="AssetCategoryNameRequired" xml:space="preserve"><value>Shkruani emrin e kategorisë së aseteve (deri në 128 karaktere).</value></data>
+  <data name="AssetCategoryNameTaken" xml:space="preserve"><value>Ekziston tashmë një kategori asetesh me këtë emër.</value></data>
+  <data name="AssetCategoryAccountInvalid" xml:space="preserve"><value>Zgjidhni një llogari aktive dhe të regjistrueshme të asetit (15xxxx) për kategorinë.</value></data>
+  <data name="AssetCategoryDepreciationAccountsRequired" xml:space="preserve"><value>Një kategori që amortizohet ka nevojë për llogarinë e amortizimit të akumuluar (159xxx) dhe llogarinë e shpenzimit të amortizimit (65xxxx), të dyja aktive dhe të regjistrueshme.</value></data>
+  <data name="AssetCategoryLockedByDepreciation" xml:space="preserve"><value>Asetet e kësaj kategorie kanë amortizim të regjistruar: llogaritë dhe amortizimi i saj nuk mund të ndryshohen më. Krijoni një kategori të re.</value></data>
+  <data name="FixedAssetNameRequired" xml:space="preserve"><value>Shkruani emrin e asetit (deri në 256 karaktere).</value></data>
+  <data name="FixedAssetCodeRequired" xml:space="preserve"><value>Shkruani kodin e asetit (deri në 32 karaktere).</value></data>
+  <data name="FixedAssetCodeTaken" xml:space="preserve"><value>Një aset tjetër e ka tashmë këtë kod.</value></data>
+  <data name="FixedAssetCategoryNotFound" xml:space="preserve"><value>Zgjidhni një kategori aktive asetesh të kësaj kompanie.</value></data>
+  <data name="FixedAssetDatesInvalid" xml:space="preserve"><value>Data e vënies në përdorim nuk mund të jetë para datës së blerjes.</value></data>
+  <data name="FixedAssetAmountsInvalid" xml:space="preserve"><value>Kostoja duhet të jetë më e madhe se 0 dhe vlera e mbetur midis 0 dhe kostos, të dyja me më së shumti 2 shifra dhjetore.</value></data>
+  <data name="FixedAssetUsefulLifeInvalid" xml:space="preserve"><value>Jeta e dobishme duhet të jetë midis 1 dhe 1200 muajve.</value></data>
+  <data name="FixedAssetOpeningInvalid" xml:space="preserve"><value>Amortizimi i bërë para Pako duhet të jetë midis 0 dhe kostos minus vlerën e mbetur.</value></data>
+  <data name="FixedAssetLockedByDepreciation" xml:space="preserve"><value>Ky aset ka amortizim të regjistruar ose është nxjerrë jashtë përdorimit: ndryshohen vetëm emri, kodi, numri serik, vendndodhja dhe shënimet. Për të ndryshuar planin, anuloni më parë amortizimet.</value></data>
+  <data name="FixedAssetHasDepreciation" xml:space="preserve"><value>Ky aset ka amortizime ose është nxjerrë jashtë përdorimit dhe nuk mund të fshihet.</value></data>
+  <data name="FixedAssetNotActive" xml:space="preserve"><value>Ky aset është nxjerrë tashmë jashtë përdorimit.</value></data>
+  <data name="FixedAssetDisposalDateInvalid" xml:space="preserve"><value>Data e nxjerrjes jashtë përdorimit nuk mund të jetë para datës së blerjes.</value></data>
+  <data name="FixedAssetDisposalAfterDepreciation" xml:space="preserve"><value>Ka amortizim të regjistruar për një muaj pas datës së nxjerrjes jashtë përdorimit. Anuloni më parë ato amortizime ose zgjidhni një datë më të vonë.</value></data>
+  <data name="FixedAssetProceedsAccountInvalid" xml:space="preserve"><value>Zgjidhni llogarinë aktive ku hynë të ardhurat (arka, banka ose një llogari e arkëtueshme).</value></data>
+  <data name="FixedAssetGainLossAccountMissing" xml:space="preserve"><value>Llogaria {0} (fitimi ose humbja nga shitja e aseteve) mungon në planin kontabël.</value></data>
+  <data name="FixedAssetDisposalReference" xml:space="preserve"><value>Nxjerrje aseti</value></data>
+  <data name="DepreciationEntryReference" xml:space="preserve"><value>Amortizimi</value></data>
+  <data name="DepreciationPeriodAlreadyPosted" xml:space="preserve"><value>Amortizimi për këtë muaj është regjistruar tashmë.</value></data>
+  <data name="DepreciationPeriodNotAfterLast" xml:space="preserve"><value>Amortizimi është regjistruar tashmë për një muaj më të vonë. Amortizimet shkojnë muaj pas muaji; anuloni më parë muajt e mëvonshëm.</value></data>
+  <data name="DepreciationNothingToPost" xml:space="preserve"><value>Asnjë aset nuk ka amortizim për këtë muaj.</value></data>
+  <data name="DepreciationRunNotLatest" xml:space="preserve"><value>Mund të anulohet vetëm amortizimi i fundit i regjistruar. Anuloni më parë muajt e mëvonshëm.</value></data>
+  <data name="DepreciationRunAlreadyReversed" xml:space="preserve"><value>Ky amortizim është anuluar tashmë.</value></data>
+  <data name="DepreciationRunHasDisposedAsset" xml:space="preserve"><value>Një aset i këtij amortizimi është nxjerrë jashtë përdorimit; amortizimi nuk mund të anulohet më.</value></data>
+  <data name="Export_Sheet_FixedAssetSchedule" xml:space="preserve"><value>Pasqyra e aseteve</value></data>
+  <data name="Export_Fa_Code" xml:space="preserve"><value>Kodi</value></data>
+  <data name="Export_Fa_Name" xml:space="preserve"><value>Aseti</value></data>
+  <data name="Export_Fa_Category" xml:space="preserve"><value>Kategoria</value></data>
+  <data name="Export_Fa_CostOpening" xml:space="preserve"><value>Kostoja në fillim të vitit</value></data>
+  <data name="Export_Fa_Additions" xml:space="preserve"><value>Shtesat</value></data>
+  <data name="Export_Fa_CostDisposed" xml:space="preserve"><value>Daljet (kostoja)</value></data>
+  <data name="Export_Fa_CostClosing" xml:space="preserve"><value>Kostoja në fund të vitit</value></data>
+  <data name="Export_Fa_AccumulatedOpening" xml:space="preserve"><value>Amortizimi i akumuluar në fillim</value></data>
+  <data name="Export_Fa_Depreciation" xml:space="preserve"><value>Amortizimi i vitit</value></data>
+  <data name="Export_Fa_AccumulatedDisposed" xml:space="preserve"><value>Amortizimi i daljeve</value></data>
+  <data name="Export_Fa_AccumulatedClosing" xml:space="preserve"><value>Amortizimi i akumuluar në fund</value></data>
+  <data name="Export_Fa_BookValueOpening" xml:space="preserve"><value>Vlera kontabël në fillim</value></data>
+  <data name="Export_Fa_BookValueClosing" xml:space="preserve"><value>Vlera kontabël në fund</value></data>
 </root>
