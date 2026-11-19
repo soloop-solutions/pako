@@ -83,7 +83,9 @@ public class CompanyAccessFilter : IAsyncActionFilter
             .ToListAsync();
         var roles = memberships.Select(m => m.Role).ToList();
 
-        var classicRoles = roles.Where(r => r != MembershipRole.ClientStaff).ToList();
+        // A customer portal login (ClientCustomer) grants nothing here: the portal has its own
+        // endpoints and filter (PortalAccessFilter).
+        var classicRoles = roles.Where(r => r is not (MembershipRole.ClientStaff or MembershipRole.ClientCustomer)).ToList();
         var allowedByClassicRole = classicRoles.Count > 0 &&
             (!_writeAccess || classicRoles.Any(WriteCapableRoles.Contains)) &&
             (!_adminOnly || classicRoles.Any(AdminRoles.Contains));

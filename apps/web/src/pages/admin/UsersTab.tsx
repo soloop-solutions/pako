@@ -136,7 +136,11 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
   }
 
   const accessLabel = (user: CompanyUserResponse) =>
-    user.access === "Role" ? user.roleName ?? "—" : intl.formatMessage({ id: `admin.access.${user.access}` });
+    user.access === "Role"
+      ? user.roleName ?? "—"
+      : user.access === "Customer" && user.partnerName
+        ? `${intl.formatMessage({ id: "admin.access.Customer" })} · ${user.partnerName}`
+        : intl.formatMessage({ id: `admin.access.${user.access}` });
 
   const columns = useMemo<ColumnDef<CompanyUserResponse>[]>(
     () => [
@@ -196,10 +200,13 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
           }
           return (
             <div className="flex justify-end gap-1">
-              <Button size="xs" variant="outline" onClick={() => openEdit(user)}>
-                {intl.formatMessage({ id: "admin.users.changeAccess" })}
-              </Button>
-              {!user.isYou && (
+              {/* A customer's portal login has no role to change and resets its own password. */}
+              {user.access !== "Customer" && (
+                <Button size="xs" variant="outline" onClick={() => openEdit(user)}>
+                  {intl.formatMessage({ id: "admin.users.changeAccess" })}
+                </Button>
+              )}
+              {!user.isYou && user.access !== "Customer" && (
                 <Button size="xs" variant="ghost" onClick={() => actionMutation.mutate({ user, action: "reset" })}>
                   {intl.formatMessage({ id: "admin.users.resetPassword" })}
                 </Button>

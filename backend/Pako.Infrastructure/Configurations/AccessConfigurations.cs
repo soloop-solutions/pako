@@ -46,6 +46,7 @@ public class UserInvitationConfiguration : IEntityTypeConfiguration<UserInvitati
         builder.Property(i => i.Role).HasConversion<string>().HasMaxLength(32);
         builder.HasOne<Company>().WithMany().HasForeignKey(i => i.CompanyId).OnDelete(DeleteBehavior.Cascade);
         builder.HasOne<CompanyRole>().WithMany().HasForeignKey(i => i.CompanyRoleId).OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne<Partner>().WithMany().HasForeignKey(i => i.PartnerId).OnDelete(DeleteBehavior.Cascade);
         builder.HasIndex(i => i.TokenHash).IsUnique();
         builder.HasIndex(i => new { i.CompanyId, i.Email });
     }

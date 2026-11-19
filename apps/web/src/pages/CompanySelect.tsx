@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CompanyResponse } from "@pako/shared";
-import { Building2, LayoutGrid, List, LogOut, Plus, Search, ShieldCheck } from "lucide-react";
+import { Building2, LayoutGrid, List, LogOut, Plus, Search, ShieldCheck, Store } from "lucide-react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -49,7 +49,7 @@ export function CompanySelect() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { auth, logout } = useAuth();
-  const { companies, loading, activeCompanyId, setActiveCompanyId, leaveCompany, companiesOpenElsewhere, replacedBy, clearReplacedNotice } = useCompany();
+  const { companies, loading, loaded, activeCompanyId, setActiveCompanyId, leaveCompany, companiesOpenElsewhere, replacedBy, clearReplacedNotice } = useCompany();
   const [conflict, setConflict] = useState<{ target: CompanyResponse; openName: string; unsaved: boolean } | null>(null);
   const [checking, setChecking] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -67,6 +67,19 @@ export function CompanySelect() {
   const limit = rawLimit != null && rawLimit > 0 ? rawLimit : undefined;
   const created = account.data?.companiesCreated ?? 0;
   const atLimit = limit != null && created >= limit;
+
+  // Client feedback phase 5: logins that are a customer's portal contact. One with no company of
+  // its own goes straight to the portal; otherwise the portals are listed above the companies.
+  const portals = useQuery({ queryKey: ["portal", "companies"], queryFn: () => apiClient.listPortalCompanies() }).data ?? [];
+  const portalOnly = loaded && !loading && companies.length === 0 && portals.length > 0;
+  useEffect(() => {
+    if (portalOnly) navigate("/portal", { replace: true });
+  }, [portalOnly, navigate]);
+
+  function openPortal(companyId: string) {
+    sessionStorage.setItem("pako.portalCompanyId", companyId);
+    navigate("/portal");
+  }
 
   useEffect(() => {
     if (activeCompanyId) leaveCompany();
@@ -198,6 +211,24 @@ export function CompanySelect() {
               </button>
             </AlertDescription>
           </Alert>
+        )}
+
+        {portals.length > 0 && (
+          <section className="mb-6 rounded-lg border bg-card p-4" aria-label={t("portal.lobbyTitle")}>
+            <h2 className="mb-1 flex items-center gap-2 font-medium">
+              <Store className="size-4" />
+              {t("portal.lobbyTitle")}
+            </h2>
+            <p className="mb-3 text-sm text-muted-foreground">{t("portal.lobbyHint")}</p>
+            <div className="flex flex-wrap gap-2">
+              {portals.map((p) => (
+                <Button key={p.companyId} variant="outline" onClick={() => openPortal(p.companyId)}>
+                  {p.companyName}
+                  <span className="text-xs text-muted-foreground">({p.partnerName})</span>
+                </Button>
+              ))}
+            </div>
+          </section>
         )}
 
         {loading && companies.length === 0 ? (

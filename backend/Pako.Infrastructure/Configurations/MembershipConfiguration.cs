@@ -17,5 +17,7 @@ public class MembershipConfiguration : IEntityTypeConfiguration<Membership>
         builder.HasIndex(m => new { m.UserId, m.FirmId });
         // A role in use can't be deleted (the dashboard asks to move its users first).
         builder.HasOne<CompanyRole>().WithMany().HasForeignKey(m => m.CompanyRoleId).OnDelete(DeleteBehavior.Restrict);
+        // A customer with portal logins can't be deleted while they exist (partners are deactivated anyway).
+        builder.HasOne<Partner>().WithMany().HasForeignKey(m => m.PartnerId).OnDelete(DeleteBehavior.Restrict);
     }
 }

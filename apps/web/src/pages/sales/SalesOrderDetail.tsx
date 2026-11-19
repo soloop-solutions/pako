@@ -97,6 +97,8 @@ export function SalesOrderDetail() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const [override, setOverride] = useState<{ message: string; reason: string; error?: string } | null>(null);
+  // Client feedback phase 5: confirming a portal order also drafts its invoice (or says why not).
+  const [draftInvoice, setDraftInvoice] = useState<{ id?: string; warning?: string } | null>(null);
 
   const lookup = useItemLookup(lines.map((l) => l.itemId));
   const itemOptions = useMemo(() => {
@@ -263,6 +265,7 @@ export function SalesOrderDetail() {
     },
     onSuccess: async (saved) => {
       setOverride(null);
+      setDraftInvoice(saved.draftInvoiceId || saved.draftInvoiceWarning ? { id: saved.draftInvoiceId, warning: saved.draftInvoiceWarning } : null);
       await done(saved);
     },
     onError: (err: unknown, overrideReason) => {
@@ -336,6 +339,7 @@ export function SalesOrderDetail() {
             <CardTitle className="flex flex-wrap items-center gap-2">
               {t(state >= SalesOrderState.Confirmed ? "so.title" : "so.quoteTitle")} {number ?? ""}
               <SalesOrderStateBadge state={state} />
+              {order?.source === 1 && <Badge variant="outline">{t("so.source.portal")}</Badge>}
               {order && state >= SalesOrderState.Confirmed && <SalesProgressBadge kind="delivery" progress={order.delivery} />}
               {order && state >= SalesOrderState.Confirmed && <SalesProgressBadge kind="invoicing" progress={order.invoicing} />}
             </CardTitle>
@@ -379,6 +383,19 @@ export function SalesOrderDetail() {
               {apiError && (
                 <Alert variant="destructive">
                   <AlertDescription>{apiError}</AlertDescription>
+                </Alert>
+              )}
+              {draftInvoice?.id && (
+                <Alert>
+                  <AlertDescription>
+                    {t("so.portal.draftInvoiceMade")}{" "}
+                    <Link className="font-medium underline" to={`/invoicing/${draftInvoice.id}`}>{t("so.portal.openDraftInvoice")}</Link>
+                  </AlertDescription>
+                </Alert>
+              )}
+              {draftInvoice?.warning && (
+                <Alert variant="destructive">
+                  <AlertDescription>{draftInvoice.warning}</AlertDescription>
                 </Alert>
               )}
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">

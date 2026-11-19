@@ -29,10 +29,16 @@ public class SalesOrdersController : ControllerBase
     private readonly CompanyAccessContext _access;
     private readonly Pako.Domain.Tax.ITaxComputationService _tax;
     private readonly SalesCreditService _credit;
+    private readonly Pako.Api.Services.Notifications.NotificationOutbox? _outbox;
+    private readonly string _appUrl;
 
     public SalesOrdersController(PakoDbContext db, NumberSeriesService numbers, IStringLocalizer<ErrorMessages> localizer, CompanyAccessContext access,
-        Pako.Domain.Tax.ITaxComputationService tax, SalesCreditService credit)
+        Pako.Domain.Tax.ITaxComputationService tax, SalesCreditService credit,
+        Pako.Api.Services.Notifications.NotificationOutbox? outbox = null,
+        Microsoft.Extensions.Options.IOptions<Pako.Api.Services.Notifications.EmailOptions>? email = null)
     {
+        _outbox = outbox;
+        _appUrl = (email?.Value.AppBaseUrl ?? string.Empty).TrimEnd('/');
         _db = db;
         _numbers = numbers;
         _localizer = localizer;
@@ -47,13 +53,14 @@ public class SalesOrdersController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<PaginatedResponse<SalesOrderSummaryResponse>>> List(Guid companyId,
         [FromQuery] SalesOrderState? state = null, [FromQuery] Guid? partnerId = null, [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] SalesOrderSource? source = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
         var query = Visible(companyId);
         if (state is { } s) query = query.Where(o => o.State == s);
         if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
+        if (source is { } from) query = query.Where(o => o.Source == from);
         if (!string.IsNullOrWhiteSpace(search))
         {
             var pattern = LikePattern.Contains(search);
@@ -73,7 +80,7 @@ public class SalesOrdersController : ControllerBase
         return Ok(new PaginatedResponse<SalesOrderSummaryResponse>(orders.Select(o => new SalesOrderSummaryResponse(o.Id, o.QuoteNumber, o.Number,
             o.PartnerId, partners.GetValueOrDefault(o.PartnerId) ?? "?", o.Date, o.DeliveryDate, o.State, o.Lines.Sum(l => l.Gross),
             Progress(o.Lines, l => tracked.Contains(l.ItemId) ? delivered.GetValueOrDefault(l.Id) : invoiced.GetValueOrDefault(l.Id).Posted),
-            Progress(o.Lines, l => invoiced.GetValueOrDefault(l.Id).Posted), o.Lines.Count)).ToList(), total, page, pageSize));
+            Progress(o.Lines, l => invoiced.GetValueOrDefault(l.Id).Posted), o.Lines.Count, o.Source)).ToList(), total, page, pageSize));
     }
 
     [HttpGet("{id:guid}", Name = "GetSalesOrder")]
@@ -172,8 +179,60 @@ public class SalesOrdersController : ControllerBase
         order.State = SalesOrderState.Confirmed;
         order.ConfirmedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
-        if (transaction is not null) await transaction.CommitAsync();
-        return Ok(await ToResponseAsync(order));
+        if (transaction is not null)
+        {
+            await transaction.CommitAsync();
+            await transaction.DisposeAsync();
+        }
+        if (order.Source != SalesOrderSource.Portal) return Ok(await ToResponseAsync(order));
+
+        // Client feedback phase 5: the customer ordered through the portal, so the confirmed
+        // order becomes a draft invoice at once (posted by staff as usual), and the customer hears.
+        var (invoiceId, warning) = await DraftInvoiceAsync(companyId, order);
+        await NotifyCustomerAsync(order, Pako.Domain.Notifications.NotificationTemplates.PortalOrderConfirmed);
+        await _db.SaveChangesAsync();
+        return Ok(await ToResponseAsync(order) with { DraftInvoiceId = invoiceId, DraftInvoiceWarning = warning });
+    }
+
+    // Everything the order still has to bill (goods not delivered yet included: the invoice then
+    // sends them), through the same create path as an invoice typed by hand.
+    private async Task<(Guid? InvoiceId, string? Warning)> DraftInvoiceAsync(Guid companyId, SalesOrder order)
+    {
+        var draft = await InvoiceDraft(companyId, order.Id, undelivered: true);
+        if (draft.Result is not OkObjectResult { Value: SalesInvoiceDraftResponse lines }) return (null, MessageOf(draft.Result));
+        var terms = await _db.Partners.AsNoTracking().Where(p => p.Id == order.PartnerId).Select(p => p.PaymentTermDays).FirstOrDefaultAsync() ?? 0;
+        var today = DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow));
+        var request = new CreateInvoiceRequest(order.PartnerId, today, today.AddDays(terms),
+            lines.Lines.Select(l => new CreateInvoiceLineRequest(l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, null, l.DiscountPercent,
+                l.ItemId, l.UnitName, null, l.SalesOrderLineId, l.DeliveryLineId)).ToList(),
+            WarehouseId: order.WarehouseId, InternalNotes: order.Number);
+        var invoices = Microsoft.Extensions.DependencyInjection.ActivatorUtilities.CreateInstance<InvoicesController>(HttpContext.RequestServices);
+        invoices.ControllerContext = ControllerContext;
+        var created = await invoices.Create(companyId, request);
+        return created.Result is ObjectResult { Value: InvoiceResponse invoice } && invoice.Id != Guid.Empty
+            ? (invoice.Id, null)
+            : (null, MessageOf(created.Result));
+    }
+
+    private string MessageOf(IActionResult? result) => result switch
+    {
+        ObjectResult { Value: string text } => string.Format(_localizer["PortalDraftInvoiceFailed"].Value, text),
+        _ => string.Format(_localizer["PortalDraftInvoiceFailed"].Value, string.Empty).TrimEnd(' ', ':'),
+    };
+
+    // A portal order's customer hears what the company decided.
+    private async Task NotifyCustomerAsync(SalesOrder order, string template)
+    {
+        if (_outbox is null || order.Source != SalesOrderSource.Portal) return;
+        var company = await _db.Companies.AsNoTracking().Where(c => c.Id == order.CompanyId).Select(c => c.Name).FirstAsync();
+        await _outbox.EnqueueAsync(order.CompanyId, template, await _outbox.PortalUsersAsync(order.CompanyId, order.PartnerId),
+            new Dictionary<string, string>
+            {
+                ["company"] = company,
+                ["reference"] = PortalService.Reference(order),
+                ["number"] = order.Number ?? string.Empty,
+                ["link"] = $"{_appUrl}/portal/orders/{order.Id}",
+            });
     }
 
     // Why the customer can't take this order now, or null.
@@ -237,6 +296,7 @@ public class SalesOrdersController : ControllerBase
         }
         order.State = SalesOrderState.Cancelled;
         order.ClosedAt = DateTime.UtcNow;
+        await NotifyCustomerAsync(order, Pako.Domain.Notifications.NotificationTemplates.PortalOrderCancelled);
         await _db.SaveChangesAsync();
         return Ok(await ToResponseAsync(order));
     }
@@ -510,6 +570,6 @@ public class SalesOrdersController : ControllerBase
             lines.Sum(l => l.Net), lines.Sum(l => l.Vat), lines.Sum(l => l.Gross),
             Progress(order.Lines, l => tracked.Contains(l.ItemId) ? delivered.GetValueOrDefault(l.Id) : invoiced.GetValueOrDefault(l.Id).Posted),
             Progress(order.Lines, l => invoiced.GetValueOrDefault(l.Id).Posted), order.BlockOverrideReason, order.QuotedAt, order.ConfirmedAt, lines,
-            deliveries.Concat(invoices).OrderBy(d => d.Date).ToList());
+            deliveries.Concat(invoices).OrderBy(d => d.Date).ToList(), order.Source);
     }
 }

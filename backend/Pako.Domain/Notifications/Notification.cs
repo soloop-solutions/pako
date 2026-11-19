@@ -85,6 +85,11 @@ public static class NotificationTemplates
     // docs/POS_PLAN.md P4: to a till's customers.
     public const string AppointmentReminder = "AppointmentReminder";
     public const string RepairStatus = "RepairStatus";
+    // Client feedback phase 5 — the customer portal: a new order to the sales team, and the
+    // company's answer to the customer.
+    public const string PortalOrderPlaced = "PortalOrderPlaced";
+    public const string PortalOrderConfirmed = "PortalOrderConfirmed";
+    public const string PortalOrderCancelled = "PortalOrderCancelled";
 
     // docs/USER_ACCESS_PLAN.md. Security mail: never switchable off per company.
     public const string UserInvitation = "UserInvitation";
@@ -94,7 +99,8 @@ public static class NotificationTemplates
     public static readonly IReadOnlyList<string> CompanyConfigurable = new[]
     {
         LeaveSubmitted, LeaveDecided, PayslipReady, StaffInvitation, EdiDeadline, ContractEnding, ProbationEnding,
-        ProfileChangeRequested, ProfileChangeDecided, ExpenseClaimSubmitted, ExpenseClaimDecided, AppointmentReminder, RepairStatus
+        ProfileChangeRequested, ProfileChangeDecided, ExpenseClaimSubmitted, ExpenseClaimDecided, AppointmentReminder, RepairStatus,
+        PortalOrderPlaced, PortalOrderConfirmed, PortalOrderCancelled
     };
 }
 

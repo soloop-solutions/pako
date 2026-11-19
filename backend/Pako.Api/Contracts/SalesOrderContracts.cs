@@ -28,10 +28,15 @@ public record SalesOrderDocumentResponse(Guid Id, string Kind, string? Number, D
 public record SalesOrderResponse(Guid Id, Guid PartnerId, string PartnerName, SalesOrderState State, string? QuoteNumber, string? Number,
     DateOnly Date, DateOnly? ValidUntil, DateOnly? DeliveryDate, Guid? WarehouseId, string? CustomerReference, string? DeliveryAddress,
     string? Notes, Guid? RouteVisitId, decimal Net, decimal Vat, decimal Total, string Delivery, string Invoicing, string? BlockOverrideReason,
-    DateTime? QuotedAt, DateTime? ConfirmedAt, List<SalesOrderLineResponse> Lines, List<SalesOrderDocumentResponse> Documents);
+    DateTime? QuotedAt, DateTime? ConfirmedAt, List<SalesOrderLineResponse> Lines, List<SalesOrderDocumentResponse> Documents,
+    // Client feedback phase 5: where the order came from (Staff or Portal). Confirming a portal
+    // order also makes its draft invoice: its id, or why it couldn't be made (the order stays
+    // confirmed; invoice it from the order as usual).
+    SalesOrderSource? Source = null, Guid? DraftInvoiceId = null, string? DraftInvoiceWarning = null);
 
 public record SalesOrderSummaryResponse(Guid Id, string? QuoteNumber, string? Number, Guid PartnerId, string PartnerName, DateOnly Date,
-    DateOnly? DeliveryDate, SalesOrderState State, decimal Total, string Delivery, string Invoicing, int LineCount);
+    DateOnly? DeliveryDate, SalesOrderState State, decimal Total, string Delivery, string Invoicing, int LineCount,
+    SalesOrderSource? Source = null);
 
 // The customer's exposure: open receivable, confirmed orders not yet invoiced, what is left under
 // the limit, and invoices past due (with the oldest's days overdue).

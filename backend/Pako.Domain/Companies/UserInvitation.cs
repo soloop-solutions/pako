@@ -20,6 +20,9 @@ public class UserInvitation
     public Guid? CompanyRoleId { get; set; }
     public Guid? EmployeeId { get; set; }
 
+    // Set for a customer portal invitation (Role = ClientCustomer): the customer it gives access to.
+    public Guid? PartnerId { get; set; }
+
     public Guid InvitedByUserId { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime ExpiresAt { get; set; }
@@ -30,7 +33,8 @@ public class UserInvitation
 
     // Returns the raw token (shown once, put in the link) and stores its hash.
     public static (UserInvitation Invitation, string Token) Create(
-        Guid companyId, string email, string? fullName, MembershipRole role, Guid? companyRoleId, Guid? employeeId, Guid invitedBy, DateTime now)
+        Guid companyId, string email, string? fullName, MembershipRole role, Guid? companyRoleId, Guid? employeeId, Guid invitedBy, DateTime now,
+        Guid? partnerId = null)
     {
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
         var invitation = new UserInvitation
@@ -43,6 +47,7 @@ public class UserInvitation
             Role = role,
             CompanyRoleId = companyRoleId,
             EmployeeId = employeeId,
+            PartnerId = partnerId,
             InvitedByUserId = invitedBy,
             CreatedAt = now,
             ExpiresAt = now.AddDays(ExpiryDays)

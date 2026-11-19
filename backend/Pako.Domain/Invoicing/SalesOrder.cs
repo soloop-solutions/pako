@@ -16,6 +16,14 @@ public enum SalesOrderState
     Cancelled,
 }
 
+// Who started the order: staff in the app, or the customer through the portal (client feedback
+// phase 5). A portal order arrives as a draft; confirming it also makes the draft invoice.
+public enum SalesOrderSource
+{
+    Staff,
+    Portal,
+}
+
 [Pako.Domain.Shared.Audited]
 public class SalesOrder
 {
@@ -40,6 +48,7 @@ public class SalesOrder
     public string? BlockOverrideReason { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public Guid? CreatedByUserId { get; set; }
+    public SalesOrderSource Source { get; set; } = SalesOrderSource.Staff;
     public DateTime? QuotedAt { get; set; }
     public DateTime? ConfirmedAt { get; set; }
     public DateTime? ClosedAt { get; set; }

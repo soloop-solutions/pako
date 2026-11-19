@@ -156,6 +156,7 @@ public class UserAdminService
         var employees = await _db.Employees.AsNoTracking()
             .Where(e => e.CompanyId == companyId && e.UserId != null)
             .ToDictionaryAsync(e => e.UserId!.Value, e => new { e.Id, e.Name });
+        var partners = await PartnerNamesAsync(companyId);
 
         var rows = memberships.Select(m =>
         {
@@ -164,7 +165,8 @@ public class UserAdminService
             var access = MembershipRoles.AccessLabel(m.Role);
             return new CompanyUserResponse(m.Id, null, m.UserId, user?.Email ?? string.Empty, user?.FullName ?? employee?.Name, access,
                 m.CompanyRoleId, m.CompanyRoleId is { } r ? roles.GetValueOrDefault(r) : null, employee?.Id, employee?.Name,
-                m.IsActive ? "Active" : "Deactivated", user?.LastLoginAt, null, m.FirmId != null, m.UserId == currentUserId);
+                m.IsActive ? "Active" : "Deactivated", user?.LastLoginAt, null, m.FirmId != null, m.UserId == currentUserId,
+                m.PartnerId, m.PartnerId is { } p ? partners.GetValueOrDefault(p) : null);
         }).ToList();
 
         var now = DateTime.UtcNow;
@@ -175,22 +177,41 @@ public class UserAdminService
         var invitedEmployees = await _db.Employees.AsNoTracking()
             .Where(e => invitations.Select(i => i.EmployeeId).Contains(e.Id))
             .ToDictionaryAsync(e => e.Id, e => e.Name);
-        rows.AddRange(invitations.Select(i => InvitationRow(i, roles, invitedEmployees, now)));
+        rows.AddRange(invitations.Select(i => InvitationRow(i, roles, invitedEmployees, now, partners)));
 
         return rows.OrderBy(r => r.IsFirmMember).ThenBy(r => r.Status == "Deactivated").ThenBy(r => r.FullName ?? r.Email).ToList();
     }
 
-    private static CompanyUserResponse InvitationRow(UserInvitation i, IReadOnlyDictionary<Guid, string> roles, IReadOnlyDictionary<Guid, string> employees, DateTime now) =>
-        new(null, i.Id, null, i.Email, i.FullName, i.Role == MembershipRole.ClientAdmin ? "Administrator" : "Role",
+    private static CompanyUserResponse InvitationRow(UserInvitation i, IReadOnlyDictionary<Guid, string> roles, IReadOnlyDictionary<Guid, string> employees, DateTime now,
+        IReadOnlyDictionary<Guid, string>? partners = null) =>
+        new(null, i.Id, null, i.Email, i.FullName, MembershipRoles.AccessLabel(i.Role) is "Customer" or "Administrator" ? MembershipRoles.AccessLabel(i.Role) : "Role",
             i.CompanyRoleId, i.CompanyRoleId is { } r ? roles.GetValueOrDefault(r) : null,
             i.EmployeeId, i.EmployeeId is { } e ? employees.GetValueOrDefault(e) : null,
-            i.IsOpen(now) ? "Invited" : "Expired", null, i.CreatedAt, false, false);
+            i.IsOpen(now) ? "Invited" : "Expired", null, i.CreatedAt, false, false,
+            i.PartnerId, i.PartnerId is { } p ? partners?.GetValueOrDefault(p) : null);
+
+    // Names of the customers that have portal logins or invitations.
+    private async Task<Dictionary<Guid, string>> PartnerNamesAsync(Guid companyId)
+    {
+        var ids = _db.Memberships.Where(m => m.CompanyId == companyId && m.PartnerId != null).Select(m => m.PartnerId!.Value)
+            .Union(_db.UserInvitations.Where(i => i.CompanyId == companyId && i.PartnerId != null).Select(i => i.PartnerId!.Value));
+        return await _db.Partners.AsNoTracking().Where(p => p.CompanyId == companyId && ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, p => p.Name);
+    }
 
     public async Task<AdminResult<InvitationCreatedResponse>> InviteAsync(Guid companyId, InviteUserRequest request, Guid actor)
     {
         var email = request.Email?.Trim() ?? string.Empty;
         if (!email.Contains('@') || email.Length > 256) return AdminResult<InvitationCreatedResponse>.Fail(_localizer["InviteEmailInvalid"].Value);
-        if (await ValidateAssignmentAsync(companyId, request.Administrator, request.RoleId, request.EmployeeId, null) is { } error)
+        var customer = request.PartnerId;
+        if (customer is { } partnerId)
+        {
+            // A customer portal login: only for a customer of this company.
+            if (!await _db.Partners.AnyAsync(p => p.Id == partnerId && p.CompanyId == companyId && p.IsCustomer))
+            {
+                return AdminResult<InvitationCreatedResponse>.Fail(_localizer["InvalidCustomerPartner"].Value);
+            }
+        }
+        else if (await ValidateAssignmentAsync(companyId, request.Administrator, request.RoleId, request.EmployeeId, null) is { } error)
         {
             return AdminResult<InvitationCreatedResponse>.Fail(error);
         }
@@ -208,9 +229,11 @@ public class UserAdminService
             open.RevokedAt = now;
         }
 
-        var (invitation, token) = UserInvitation.Create(companyId, email, request.FullName,
-            request.Administrator ? MembershipRole.ClientAdmin : MembershipRole.ClientStaff,
-            request.Administrator ? null : request.RoleId, request.EmployeeId, actor, now);
+        var (invitation, token) = customer is { } customerId
+            ? UserInvitation.Create(companyId, email, request.FullName, MembershipRole.ClientCustomer, null, null, actor, now, customerId)
+            : UserInvitation.Create(companyId, email, request.FullName,
+                request.Administrator ? MembershipRole.ClientAdmin : MembershipRole.ClientStaff,
+                request.Administrator ? null : request.RoleId, request.EmployeeId, actor, now);
         _db.UserInvitations.Add(invitation);
         var url = await QueueInvitationEmailAsync(invitation, token, actor);
         Audit(companyId, "UserInvitation", invitation.Id, "Invite", actor);
@@ -218,7 +241,8 @@ public class UserAdminService
 
         var roles = await _db.CompanyRoles.AsNoTracking().Where(r => r.CompanyId == companyId).ToDictionaryAsync(r => r.Id, r => r.Name);
         var employees = await _db.Employees.AsNoTracking().Where(e => e.Id == invitation.EmployeeId).ToDictionaryAsync(e => e.Id, e => e.Name);
-        return new AdminResult<InvitationCreatedResponse>(new InvitationCreatedResponse(InvitationRow(invitation, roles, employees, now), LinkForAdmin(url), invitation.ExpiresAt), null);
+        var partnerNames = await _db.Partners.AsNoTracking().Where(p => p.Id == invitation.PartnerId).ToDictionaryAsync(p => p.Id, p => p.Name);
+        return new AdminResult<InvitationCreatedResponse>(new InvitationCreatedResponse(InvitationRow(invitation, roles, employees, now, partnerNames), LinkForAdmin(url), invitation.ExpiresAt), null);
     }
 
     public async Task<AdminResult<InvitationCreatedResponse>> ResendAsync(Guid companyId, Guid invitationId, Guid actor)
@@ -229,7 +253,7 @@ public class UserAdminService
         // A fresh token and expiry: the old link stops working.
         var now = DateTime.UtcNow;
         var (fresh, token) = UserInvitation.Create(companyId, invitation.Email, invitation.FullName, invitation.Role,
-            invitation.CompanyRoleId, invitation.EmployeeId, actor, now);
+            invitation.CompanyRoleId, invitation.EmployeeId, actor, now, invitation.PartnerId);
         invitation.TokenHash = fresh.TokenHash;
         invitation.ExpiresAt = fresh.ExpiresAt;
         var url = await QueueInvitationEmailAsync(invitation, token, actor);
@@ -272,6 +296,8 @@ public class UserAdminService
     {
         var membership = await _db.Memberships.FirstOrDefaultAsync(m => m.Id == membershipId && m.CompanyId == companyId);
         if (membership is null) return _localizer["MemberNotFound"].Value;
+        // A customer portal login stays one: remove it and invite the person as staff instead.
+        if (membership.Role == MembershipRole.ClientCustomer) return _localizer["PortalUserNotEditable"].Value;
         if (await ValidateAssignmentAsync(companyId, request.Administrator, request.RoleId, request.EmployeeId, membership.UserId) is { } error) return error;
 
         var wasAdmin = membership.Role == MembershipRole.ClientAdmin;
@@ -406,14 +432,30 @@ public class UserAdminService
             await _users.ResetAccessFailedCountAsync(user);
         }
 
-        if (!await _db.Memberships.AnyAsync(m => m.UserId == user.Id && m.CompanyId == invitation.CompanyId))
+        if (invitation.Role == MembershipRole.ClientCustomer)
         {
-            var membership = Membership.ForCompany(user.Id, invitation.CompanyId, invitation.Role);
-            membership.CompanyRoleId = invitation.Role == MembershipRole.ClientStaff ? invitation.CompanyRoleId : null;
-            _db.Memberships.Add(membership);
+            // A customer portal login. Someone already working in the company keeps that access
+            // only: the two never mix on one login.
+            if (invitation.PartnerId is not { } partnerId || !await _db.Partners.AnyAsync(p => p.Id == partnerId && p.CompanyId == invitation.CompanyId))
+            {
+                return AdminResult<AppUser>.Fail(_localizer["InvitationInvalid"].Value);
+            }
+            if (!await _db.Memberships.AnyAsync(m => m.UserId == user.Id && m.CompanyId == invitation.CompanyId))
+            {
+                _db.Memberships.Add(Membership.ForCustomer(user.Id, invitation.CompanyId, partnerId));
+            }
         }
+        else
+        {
+            if (!await _db.Memberships.AnyAsync(m => m.UserId == user.Id && m.CompanyId == invitation.CompanyId))
+            {
+                var membership = Membership.ForCompany(user.Id, invitation.CompanyId, invitation.Role);
+                membership.CompanyRoleId = invitation.Role == MembershipRole.ClientStaff ? invitation.CompanyRoleId : null;
+                _db.Memberships.Add(membership);
+            }
 
-        await LinkEmployeeAsync(invitation.CompanyId, user.Id, invitation.EmployeeId);
+            await LinkEmployeeAsync(invitation.CompanyId, user.Id, invitation.EmployeeId);
+        }
         invitation.AcceptedAt = DateTime.UtcNow;
         Audit(invitation.CompanyId, "UserInvitation", invitation.Id, "Accept", user.Id);
         await _db.SaveChangesAsync();

@@ -23,6 +23,7 @@ import { EntityHistory } from "@/components/shared/EntityHistory";
 import { useCompany } from "@/context/CompanyContext";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
+import { PartnerPortalAccess } from "@/pages/partners/PartnerPortalAccess";
 
 export interface PartnerListPageLabels {
   titleKey: string;
@@ -418,6 +419,7 @@ export function PartnerListPage({
             onDirtyChange={setDirty}
           />
         )}
+        {editingPartner?.isCustomer && activeCompanyId && <PartnerPortalAccess companyId={activeCompanyId} partnerId={editingPartner.id} />}
         {editingPartner && <div className="mt-4"><EntityHistory entityType="Partner" entityId={editingPartner.id} /></div>}
       </FormDialog>
 

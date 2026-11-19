@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -23,6 +24,7 @@ import { cn } from "@/lib/utils";
 import { SalesOrderStateBadge, SalesProgressBadge } from "@/pages/sales/SalesOrderBadges";
 
 const GRID_ID = "sales-orders";
+const SALES_ORDER_SOURCE_PORTAL = 1;
 
 // docs/POS_PLAN.md P6 — quotes and B2B sales orders, and how much of each is delivered and invoiced.
 export function SalesOrders() {
@@ -34,12 +36,14 @@ export function SalesOrders() {
   const grid = useDataGridUrlState(GRID_ID, 50);
   const [state, setState] = useUrlParam("state", "", [`${GRID_ID}.page`]);
   const [partnerId, setPartnerId] = useUrlParam("partner", "", [`${GRID_ID}.page`]);
+  // Client feedback phase 5: orders placed by customers in the portal ("1") or by staff ("0").
+  const [source, setSource] = useUrlParam("source", "", [`${GRID_ID}.page`]);
   const customers = (usePartners().data ?? []).filter((p) => p.isCustomer);
 
   const query = useQuery({
-    queryKey: ["salesOrders", activeCompanyId, state, partnerId, grid.globalFilter, grid.page, grid.pageSize],
+    queryKey: ["salesOrders", activeCompanyId, state, partnerId, source, grid.globalFilter, grid.page, grid.pageSize],
     queryFn: () => apiClient.listSalesOrders(activeCompanyId as string, state === "" ? undefined : Number(state), partnerId || undefined,
-      grid.globalFilter || undefined, grid.page, grid.pageSize),
+      grid.globalFilter || undefined, grid.page, grid.pageSize, source === "" ? undefined : Number(source)),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
@@ -50,7 +54,12 @@ export function SalesOrders() {
       {
         accessorKey: "number",
         header: t("so.col.number"),
-        cell: ({ row }) => row.original.number ?? row.original.quoteNumber ?? t("stock.doc.draftNumber"),
+        cell: ({ row }) => (
+          <span className="inline-flex items-center gap-1.5">
+            {row.original.number ?? row.original.quoteNumber ?? t("stock.doc.draftNumber")}
+            {row.original.source === SALES_ORDER_SOURCE_PORTAL && <Badge variant="outline">{t("so.source.portal")}</Badge>}
+          </span>
+        ),
       },
       { accessorKey: "partnerName", header: t("so.col.customer") },
       { accessorKey: "deliveryDate", header: t("so.col.deliveryDate"), cell: ({ getValue }) => formatIsoDate(intl, getValue() as string | undefined) },
@@ -104,6 +113,23 @@ export function SalesOrders() {
                 )}
               >
                 {value === "" ? t("stock.doc.allTypes") : t(`so.state.${value}`)}
+              </button>
+            ))}
+          </div>
+          <div className="inline-flex w-fit rounded-md border bg-card p-0.5" role="radiogroup" aria-label={t("so.source.label")}>
+            {["", "0", "1"].map((value) => (
+              <button
+                key={value || "all"}
+                type="button"
+                role="radio"
+                aria-checked={source === value}
+                onClick={() => setSource(value)}
+                className={cn(
+                  "h-7 rounded-[5px] px-3 text-[12.5px] font-medium",
+                  source === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                )}
+              >
+                {t(value === "" ? "so.source.all" : value === "1" ? "so.source.portal" : "so.source.staff")}
               </button>
             ))}
           </div>

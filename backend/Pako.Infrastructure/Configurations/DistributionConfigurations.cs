@@ -14,6 +14,7 @@ public class SalesOrderConfiguration : IEntityTypeConfiguration<SalesOrder>
         builder.ToTable("sales_orders");
         builder.HasKey(o => o.Id);
         builder.Property(o => o.State).HasConversion<string>().HasMaxLength(16);
+        builder.Property(o => o.Source).HasConversion<string>().HasMaxLength(16);
         builder.Property(o => o.QuoteNumber).HasMaxLength(64);
         builder.Property(o => o.Number).HasMaxLength(64);
         builder.Property(o => o.CustomerReference).HasMaxLength(128);

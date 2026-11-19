@@ -25,6 +25,7 @@ public class PosHub : Hub
         var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
         if (store is null || company is null || !company.EnabledModules.HasFlag(Pako.Domain.Companies.AppModule.Pos)) throw new HubException("Not found.");
         var member = await _db.Memberships.AsNoTracking().AnyAsync(m => m.UserId == userId && m.IsActive
+            && m.Role != Pako.Domain.Companies.MembershipRole.ClientCustomer
             && (m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId)));
         if (!member) throw new HubException("Not found.");
         await Groups.AddToGroupAsync(Context.ConnectionId, StoreGroup(storeId));

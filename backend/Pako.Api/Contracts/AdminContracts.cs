@@ -35,9 +35,14 @@ public record CompanyUserResponse(
     DateTime? LastLoginAt,
     DateTime? InvitedAt,
     bool IsFirmMember,
-    bool IsYou);
+    bool IsYou,
+    // Client feedback phase 5: a customer portal login (Access = "Customer") and its customer.
+    Guid? PartnerId = null,
+    string? PartnerName = null);
 
-public record InviteUserRequest(string Email, string? FullName, bool Administrator, Guid? RoleId, Guid? EmployeeId);
+// PartnerId set: a customer portal login for that customer (Administrator, RoleId and EmployeeId
+// are then ignored).
+public record InviteUserRequest(string Email, string? FullName, bool Administrator, Guid? RoleId, Guid? EmployeeId, Guid? PartnerId = null);
 
 // The link is returned so the admin can share it even before email is configured.
 public record InvitationCreatedResponse(CompanyUserResponse User, string InviteUrl, DateTime ExpiresAt);

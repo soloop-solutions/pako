@@ -80,6 +80,7 @@ public class PosOperatorService
     {
         var company = await _db.Companies.AsNoTracking().FirstOrDefaultAsync(c => c.Id == companyId);
         return company is not null && await _db.Memberships.AsNoTracking().AnyAsync(m => m.UserId == userId && m.IsActive
+            && m.Role != Pako.Domain.Companies.MembershipRole.ClientCustomer
             && (m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId)));
     }
 

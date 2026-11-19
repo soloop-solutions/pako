@@ -193,4 +193,23 @@ describe("Sales order form (P6)", () => {
     expect(await screen.findByText("Invoices are overdue.")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
+
+  // Client feedback phase 5: confirming a customer's portal order drafts its invoice.
+  it("links the draft invoice made when a portal order is confirmed", async () => {
+    api.getSalesOrder.mockResolvedValue({ ...ORDER, source: 1 });
+    api.confirmSalesOrder.mockResolvedValue({ ...ORDER, source: 1, state: 2, number: "SO-00002", draftInvoiceId: "inv9" });
+    renderAt("/sales-orders/so1", <SalesOrderDetail />);
+    expect(await screen.findByText("Portal")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm order" }));
+    expect(await screen.findByRole("link", { name: "Open the draft invoice" })).toHaveAttribute("href", "/invoicing/inv9");
+  });
+
+  it("says why a portal order's draft invoice could not be made", async () => {
+    api.getSalesOrder.mockResolvedValue({ ...ORDER, source: 1 });
+    api.confirmSalesOrder.mockResolvedValue({ ...ORDER, source: 1, state: 2, number: "SO-00003", draftInvoiceWarning: "The order is confirmed, but its draft invoice could not be made: no revenue account." });
+    renderAt("/sales-orders/so1", <SalesOrderDetail />);
+    fireEvent.click(await screen.findByRole("button", { name: "Confirm order" }));
+    expect(await screen.findByText(/its draft invoice could not be made/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open the draft invoice" })).not.toBeInTheDocument();
+  });
 });

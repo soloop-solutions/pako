@@ -1393,6 +1393,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Role")
                         .IsRequired()
                         .HasMaxLength(32)
@@ -1408,6 +1411,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasIndex("CompanyRoleId");
 
                     b.HasIndex("FirmId");
+
+                    b.HasIndex("PartnerId");
 
                     b.HasIndex("UserId", "CompanyId");
 
@@ -1621,6 +1626,9 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid>("InvitedByUserId")
                         .HasColumnType("uuid");
 
+                    b.Property<Guid?>("PartnerId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime?>("RevokedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -1637,6 +1645,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyRoleId");
+
+                    b.HasIndex("PartnerId");
 
                     b.HasIndex("TokenHash")
                         .IsUnique();
@@ -3508,6 +3518,11 @@ namespace Pako.Infrastructure.Migrations
 
                     b.Property<Guid?>("RouteVisitId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("Source")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
 
                     b.Property<string>("State")
                         .IsRequired()
@@ -9061,6 +9076,11 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("FirmId")
                         .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("Pako.Domain.Companies.Partner", b =>
@@ -9083,6 +9103,11 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("CompanyRoleId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("Pako.Domain.Hr.EmployeeContract", b =>

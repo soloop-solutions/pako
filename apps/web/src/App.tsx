@@ -22,6 +22,13 @@ import { AccessLinkPage } from "@/pages/desktop/AccessLinkPage";
 import { RequestAccount } from "@/pages/RequestAccount";
 
 // Lazy-loaded page components for code splitting.
+const PortalLayout = lazy(() => import("@/pages/portal/PortalLayout").then(m => ({ default: m.PortalLayout })));
+const PortalCatalogue = lazy(() => import("@/pages/portal/PortalCatalogue").then(m => ({ default: m.PortalCatalogue })));
+const PortalCart = lazy(() => import("@/pages/portal/PortalCart").then(m => ({ default: m.PortalCart })));
+const PortalOrders = lazy(() => import("@/pages/portal/PortalOrders").then(m => ({ default: m.PortalOrders })));
+const PortalOrderDetail = lazy(() => import("@/pages/portal/PortalOrders").then(m => ({ default: m.PortalOrderDetail })));
+const PortalInvoices = lazy(() => import("@/pages/portal/PortalInvoices").then(m => ({ default: m.PortalInvoices })));
+const PortalInvoiceDetail = lazy(() => import("@/pages/portal/PortalInvoices").then(m => ({ default: m.PortalInvoiceDetail })));
 const AcceptInvitation = lazy(() => import("@/pages/AcceptInvitation").then(m => ({ default: m.AcceptInvitation })));
 const ForgotPassword = lazy(() => import("@/pages/PasswordReset").then(m => ({ default: m.ForgotPassword })));
 const ResetPassword = lazy(() => import("@/pages/PasswordReset").then(m => ({ default: m.ResetPassword })));
@@ -83,6 +90,14 @@ export function App() {
                 <Route element={<RequireAuth />}>
                   <Route path="/select-company" element={<CompanySelect />} />
                   <Route path="/platform" element={<PlatformAdmin />} />
+                  <Route path="/portal" element={<PortalLayout />}>
+                    <Route index element={<PortalCatalogue />} />
+                    <Route path="cart" element={<PortalCart />} />
+                    <Route path="orders" element={<PortalOrders />} />
+                    <Route path="orders/:id" element={<PortalOrderDetail />} />
+                    <Route path="invoices" element={<PortalInvoices />} />
+                    <Route path="invoices/:id" element={<PortalInvoiceDetail />} />
+                  </Route>
                   <Route element={<RequireCompany />}>
                     {/* docs/POS_PLAN.md: the till is full screen, outside the app shell. */}
                     <Route path="/pos/till/:registerId" element={<ModuleGate module="pos"><Till /></ModuleGate>} />

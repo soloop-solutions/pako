@@ -1811,4 +1811,23 @@ Vlerësimi: {estimate} €.</value></data>
   <data name="LicenseReadOnly" xml:space="preserve"><value>Periudha provuese ka përfunduar. PAKO është vetëm për lexim derisa të aktivizohet një çelës licence.</value></data>
   <data name="RecoveryCodeInvalid" xml:space="preserve"><value>Emaili ose kodi i rikthimit nuk është i vlefshëm, ose rikthimi është i bllokuar përkohësisht. Provoni përsëri më vonë.</value></data>
   <data name="RecoveryCodeRegenerateInvalid" xml:space="preserve"><value>Fjalëkalimi aktual nuk është i saktë, ose kontrolli është i bllokuar përkohësisht pas disa përpjekjeve. Provoni përsëri më vonë.</value></data>
+  <data name="PortalOrderEmpty" xml:space="preserve"><value>Shtoni të paktën një artikull në porosi.</value></data>
+  <data name="PortalOrderTooManyLines" xml:space="preserve"><value>Një porosi mund të ketë deri në {0} rreshta. Ndajeni në dy porosi.</value></data>
+  <data name="PortalItemUnavailable" xml:space="preserve"><value>Një artikull në shportë nuk ofrohet më. Hiqeni dhe provoni përsëri.</value></data>
+  <data name="PortalDeliveryDateInPast" xml:space="preserve"><value>Data e dëshiruar e dorëzimit nuk mund të jetë në të kaluarën.</value></data>
+  <data name="PortalOrderNotCancellable" xml:space="preserve"><value>Kompania i është përgjigjur tashmë kësaj porosie, ndaj nuk mund të tërhiqet këtu. Kontaktojeni për ta ndryshuar.</value></data>
+  <data name="PortalDraftInvoiceFailed" xml:space="preserve"><value>Porosia u konfirmua, por fatura draft nuk u krijua: {0} Krijojeni faturën nga porosia.</value></data>
+  <data name="PortalUserNotEditable" xml:space="preserve"><value>Ky është një hyrje në portalin e klientit. Hiqeni dhe ftojeni personin përsëri për t'i dhënë qasje tjetër.</value></data>
+  <data name="Email_PortalOrderPlaced_Subject" xml:space="preserve"><value>{company}: porosi e re nga portali {reference} nga {customer}</value></data>
+  <data name="Email_PortalOrderPlaced_Body" xml:space="preserve"><value>{customer} bëri porosinë {reference} në portalin e klientit: {lines} rreshta, {total} € me TVSH.
+
+Kontrollojeni dhe konfirmojeni te Porositë e shitjes (konfirmimi krijon edhe faturën draft): {link}</value></data>
+  <data name="Email_PortalOrderConfirmed_Subject" xml:space="preserve"><value>{company}: porosia juaj {reference} u konfirmua</value></data>
+  <data name="Email_PortalOrderConfirmed_Body" xml:space="preserve"><value>{company} e konfirmoi porosinë tuaj {reference} si porosinë {number}.
+
+Ndiqeni në portal: {link}</value></data>
+  <data name="Email_PortalOrderCancelled_Subject" xml:space="preserve"><value>{company}: porosia juaj {reference} nuk u pranua</value></data>
+  <data name="Email_PortalOrderCancelled_Body" xml:space="preserve"><value>{company} e anuloi porosinë tuaj {reference}. Kontaktojeni për hollësi.
+
+Porositë tuaja në portal: {link}</value></data>
 </root>

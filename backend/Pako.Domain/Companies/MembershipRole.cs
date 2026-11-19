@@ -9,7 +9,12 @@ public enum MembershipRole
 
     // A company's own employee with a login. Access comes from the employee's department
     // (module permissions + partner scope), never from the role itself.
-    ClientStaff
+    ClientStaff,
+
+    // A customer's contact with a login to the customer portal (client feedback phase 5): sees only
+    // its own partner's catalogue prices, orders, invoices and balance through api/portal, and is
+    // refused by every normal company endpoint. Membership.PartnerId names the customer.
+    ClientCustomer
 }
 
 public static class MembershipRoles
@@ -21,6 +26,7 @@ public static class MembershipRoles
         MembershipRole.ClientViewer => "ReadOnly",
         MembershipRole.FirmAdmin => "FirmAdmin",
         MembershipRole.FirmAccountant => "FirmAccountant",
+        MembershipRole.ClientCustomer => "Customer",
         _ => "Role"
     };
 

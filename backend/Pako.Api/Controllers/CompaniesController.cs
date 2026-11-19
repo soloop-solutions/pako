@@ -337,8 +337,9 @@ public class CompaniesController : ControllerBase
             .Select(m => m.FirmId!.Value)
             .ToListAsync();
 
+        // A customer portal login lists its companies through api/portal/companies instead.
         var directCompanyIds = await _db.Memberships.AsNoTracking()
-            .Where(m => m.UserId == userId && m.CompanyId != null && m.IsActive)
+            .Where(m => m.UserId == userId && m.CompanyId != null && m.IsActive && m.Role != MembershipRole.ClientCustomer)
             .Select(m => m.CompanyId!.Value)
             .ToListAsync();
 

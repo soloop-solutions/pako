@@ -121,6 +121,42 @@ public class NotificationOutbox
             .ToList();
     }
 
+    // Who handles customer orders: the firm's admins and accountants, the company's admins, and
+    // users whose role edits Sales (client feedback phase 5: a new portal order).
+    public async Task<List<NotificationRecipient>> SalesTeamAsync(Guid companyId)
+    {
+        var firmId = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.FirmId).FirstOrDefaultAsync();
+        var userIds = await _db.Memberships.AsNoTracking()
+            .Where(m => m.IsActive && ((m.CompanyId == companyId && m.Role == MembershipRole.ClientAdmin) ||
+                        (firmId != null && m.FirmId == firmId && (m.Role == MembershipRole.FirmAdmin || m.Role == MembershipRole.FirmAccountant))))
+            .Select(m => m.UserId)
+            .ToListAsync();
+        userIds.AddRange(await (
+            from m in _db.Memberships.AsNoTracking()
+            join r in _db.CompanyRoles.AsNoTracking() on m.CompanyRoleId equals r.Id
+            where m.CompanyId == companyId && m.IsActive && m.Role == MembershipRole.ClientStaff && r.SalesAccess >= AccessLevel.Write
+            select m.UserId).ToListAsync());
+        var languages = await _db.Employees.AsNoTracking()
+            .Where(e => e.CompanyId == companyId && e.UserId != null && userIds.Contains(e.UserId.Value))
+            .Select(e => new { UserId = e.UserId!.Value, e.PreferredLanguage })
+            .ToListAsync();
+        var distinct = userIds.Distinct().ToList();
+        var emails = await _db.Users.AsNoTracking().Where(u => distinct.Contains(u.Id) && u.Email != null)
+            .Select(u => new { u.Id, u.Email }).ToListAsync();
+        return emails.Select(u => new NotificationRecipient(u.Email!,
+            languages.FirstOrDefault(l => l.UserId == u.Id)?.PreferredLanguage ?? DefaultCulture)).ToList();
+    }
+
+    // A customer's portal logins (client feedback phase 5).
+    public async Task<List<NotificationRecipient>> PortalUsersAsync(Guid companyId, Guid partnerId)
+    {
+        var userIds = _db.Memberships.AsNoTracking()
+            .Where(m => m.CompanyId == companyId && m.PartnerId == partnerId && m.IsActive && m.Role == MembershipRole.ClientCustomer)
+            .Select(m => m.UserId);
+        return await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id) && u.Email != null)
+            .Select(u => new NotificationRecipient(u.Email!, DefaultCulture)).ToListAsync();
+    }
+
     // Who decides an employee's leave: their direct manager when that manager can be reached,
     // otherwise the HR team.
     public async Task<List<NotificationRecipient>> LeaveApproversAsync(Employee employee)

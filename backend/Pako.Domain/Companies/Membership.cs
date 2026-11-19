@@ -19,6 +19,9 @@ public class Membership
     // docs/USER_ACCESS_PLAN.md: what a ClientStaff user may do (ignored for other roles).
     public Guid? CompanyRoleId { get; set; }
 
+    // The customer a ClientCustomer membership belongs to (null for every other role).
+    public Guid? PartnerId { get; set; }
+
     // A deactivated membership grants nothing; the next request after deactivation is refused.
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -42,4 +45,8 @@ public class Membership
 
         return new Membership { Id = Guid.NewGuid(), UserId = userId, CompanyId = companyId, Role = role };
     }
+
+    // A portal login for one customer of the company.
+    public static Membership ForCustomer(Guid userId, Guid companyId, Guid partnerId) =>
+        new() { Id = Guid.NewGuid(), UserId = userId, CompanyId = companyId, Role = MembershipRole.ClientCustomer, PartnerId = partnerId };
 }

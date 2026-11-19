@@ -4713,178 +4713,6 @@ export class PakoApiClient {
     }
 
     /**
-     * @param activeOn (optional) 
-     * @return OK
-     */
-    listDiscountRules(companyId: string, activeOn: string | undefined): Promise<DiscountRuleResponse[]> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules?";
-        if (companyId === undefined || companyId === null)
-            throw new globalThis.Error("The parameter 'companyId' must be defined.");
-        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
-        if (activeOn === null)
-            throw new globalThis.Error("The parameter 'activeOn' cannot be null.");
-        else if (activeOn !== undefined)
-            url_ += "activeOn=" + encodeURIComponent("" + activeOn) + "&";
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_: RequestInit = {
-            method: "GET",
-            headers: {
-                "Accept": "application/json"
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processListDiscountRules(_response);
-        });
-    }
-
-    protected processListDiscountRules(response: Response): Promise<DiscountRuleResponse[]> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
-            return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse[];
-            return result200;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<DiscountRuleResponse[]>(null as any);
-    }
-
-    /**
-     * @return Created
-     */
-    createDiscountRule(companyId: string, body: SaveDiscountRuleRequest): Promise<DiscountRuleResponse> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules";
-        if (companyId === undefined || companyId === null)
-            throw new globalThis.Error("The parameter 'companyId' must be defined.");
-        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
-        url_ = url_.replace(/[?&]$/, "");
-
-        const content_ = JSON.stringify(body);
-
-        let options_: RequestInit = {
-            body: content_,
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processCreateDiscountRule(_response);
-        });
-    }
-
-    protected processCreateDiscountRule(response: Response): Promise<DiscountRuleResponse> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 201) {
-            return response.text().then((_responseText) => {
-            let result201: any = null;
-            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse;
-            return result201;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<DiscountRuleResponse>(null as any);
-    }
-
-    /**
-     * @return OK
-     */
-    updateDiscountRule(companyId: string, id: string, body: SaveDiscountRuleRequest): Promise<DiscountRuleResponse> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules/{id}";
-        if (companyId === undefined || companyId === null)
-            throw new globalThis.Error("The parameter 'companyId' must be defined.");
-        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
-        if (id === undefined || id === null)
-            throw new globalThis.Error("The parameter 'id' must be defined.");
-        url_ = url_.replace("{id}", encodeURIComponent("" + id));
-        url_ = url_.replace(/[?&]$/, "");
-
-        const content_ = JSON.stringify(body);
-
-        let options_: RequestInit = {
-            body: content_,
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json",
-                "Accept": "application/json"
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processUpdateDiscountRule(_response);
-        });
-    }
-
-    protected processUpdateDiscountRule(response: Response): Promise<DiscountRuleResponse> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
-            return response.text().then((_responseText) => {
-            let result200: any = null;
-            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse;
-            return result200;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<DiscountRuleResponse>(null as any);
-    }
-
-    /**
-     * @return OK
-     */
-    deleteDiscountRule(companyId: string, id: string): Promise<void> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules/{id}";
-        if (companyId === undefined || companyId === null)
-            throw new globalThis.Error("The parameter 'companyId' must be defined.");
-        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
-        if (id === undefined || id === null)
-            throw new globalThis.Error("The parameter 'id' must be defined.");
-        url_ = url_.replace("{id}", encodeURIComponent("" + id));
-        url_ = url_.replace(/[?&]$/, "");
-
-        let options_: RequestInit = {
-            method: "DELETE",
-            headers: {
-            }
-        };
-
-        return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processDeleteDiscountRule(_response);
-        });
-    }
-
-    protected processDeleteDiscountRule(response: Response): Promise<void> {
-        const status = response.status;
-        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 200) {
-            return response.text().then((_responseText) => {
-            return;
-            });
-        } else if (status !== 200 && status !== 204) {
-            return response.text().then((_responseText) => {
-            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
-            });
-        }
-        return Promise.resolve<void>(null as any);
-    }
-
-    /**
      * @return OK
      */
     desktopAuditVerify(): Promise<DesktopAuditVerifyResponse> {
@@ -5150,6 +4978,178 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<RecoverAdminResponse>(null as any);
+    }
+
+    /**
+     * @param activeOn (optional) 
+     * @return OK
+     */
+    listDiscountRules(companyId: string, activeOn: string | undefined): Promise<DiscountRuleResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (activeOn === null)
+            throw new globalThis.Error("The parameter 'activeOn' cannot be null.");
+        else if (activeOn !== undefined)
+            url_ += "activeOn=" + encodeURIComponent("" + activeOn) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListDiscountRules(_response);
+        });
+    }
+
+    protected processListDiscountRules(response: Response): Promise<DiscountRuleResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DiscountRuleResponse[]>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    createDiscountRule(companyId: string, body: SaveDiscountRuleRequest): Promise<DiscountRuleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreateDiscountRule(_response);
+        });
+    }
+
+    protected processCreateDiscountRule(response: Response): Promise<DiscountRuleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DiscountRuleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    updateDiscountRule(companyId: string, id: string, body: SaveDiscountRuleRequest): Promise<DiscountRuleResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUpdateDiscountRule(_response);
+        });
+    }
+
+    protected processUpdateDiscountRule(response: Response): Promise<DiscountRuleResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as DiscountRuleResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<DiscountRuleResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    deleteDiscountRule(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/discount-rules/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeleteDiscountRule(_response);
+        });
+    }
+
+    protected processDeleteDiscountRule(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
     }
 
     /**
@@ -15684,6 +15684,489 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<PlatformCompanyResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listPortalCompanies(): Promise<PortalCompanyResponse[]> {
+        let url_ = this.baseUrl + "/api/portal/companies";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPortalCompanies(_response);
+        });
+    }
+
+    protected processListPortalCompanies(response: Response): Promise<PortalCompanyResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalCompanyResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalCompanyResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getPortalSummary(companyId: string): Promise<PortalSummaryResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetPortalSummary(_response);
+        });
+    }
+
+    protected processGetPortalSummary(response: Response): Promise<PortalSummaryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalSummaryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalSummaryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listPortalCategories(companyId: string): Promise<PortalCategoryResponse[]> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/categories";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPortalCategories(_response);
+        });
+    }
+
+    protected processListPortalCategories(response: Response): Promise<PortalCategoryResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalCategoryResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalCategoryResponse[]>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @param categoryId (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listPortalCatalogue(companyId: string, search: string | undefined, categoryId: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPortalCatalogueItemResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/catalogue?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (categoryId === null)
+            throw new globalThis.Error("The parameter 'categoryId' cannot be null.");
+        else if (categoryId !== undefined)
+            url_ += "categoryId=" + encodeURIComponent("" + categoryId) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPortalCatalogue(_response);
+        });
+    }
+
+    protected processListPortalCatalogue(response: Response): Promise<PaginatedResponseOfPortalCatalogueItemResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPortalCatalogueItemResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfPortalCatalogueItemResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    pricePortalCart(companyId: string, body: PortalCartRequest): Promise<PortalCartResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/cart";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPricePortalCart(_response);
+        });
+    }
+
+    protected processPricePortalCart(response: Response): Promise<PortalCartResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalCartResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalCartResponse>(null as any);
+    }
+
+    /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listPortalOrders(companyId: string, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPortalOrderSummaryResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/orders?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPortalOrders(_response);
+        });
+    }
+
+    protected processListPortalOrders(response: Response): Promise<PaginatedResponseOfPortalOrderSummaryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPortalOrderSummaryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfPortalOrderSummaryResponse>(null as any);
+    }
+
+    /**
+     * @return Created
+     */
+    placePortalOrder(companyId: string, body: PlacePortalOrderRequest): Promise<PortalOrderResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/orders";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPlacePortalOrder(_response);
+        });
+    }
+
+    protected processPlacePortalOrder(response: Response): Promise<PortalOrderResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 201) {
+            return response.text().then((_responseText) => {
+            let result201: any = null;
+            result201 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalOrderResponse;
+            return result201;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalOrderResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getPortalOrder(companyId: string, id: string): Promise<PortalOrderResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/orders/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetPortalOrder(_response);
+        });
+    }
+
+    protected processGetPortalOrder(response: Response): Promise<PortalOrderResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalOrderResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalOrderResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    cancelPortalOrder(companyId: string, id: string): Promise<PortalOrderResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/orders/{id}/cancel";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCancelPortalOrder(_response);
+        });
+    }
+
+    protected processCancelPortalOrder(response: Response): Promise<PortalOrderResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalOrderResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalOrderResponse>(null as any);
+    }
+
+    /**
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    listPortalInvoices(companyId: string, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPortalInvoiceSummaryResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/invoices?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPortalInvoices(_response);
+        });
+    }
+
+    protected processListPortalInvoices(response: Response): Promise<PaginatedResponseOfPortalInvoiceSummaryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PaginatedResponseOfPortalInvoiceSummaryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PaginatedResponseOfPortalInvoiceSummaryResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    getPortalInvoice(companyId: string, id: string): Promise<PortalInvoiceResponse> {
+        let url_ = this.baseUrl + "/api/portal/companies/{companyId}/invoices/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processGetPortalInvoice(_response);
+        });
+    }
+
+    protected processGetPortalInvoice(response: Response): Promise<PortalInvoiceResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PortalInvoiceResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PortalInvoiceResponse>(null as any);
     }
 
     /**
@@ -26231,9 +26714,10 @@ export class PakoApiClient {
      * @param search (optional) 
      * @param page (optional) 
      * @param pageSize (optional) 
+     * @param source (optional) 
      * @return OK
      */
-    listSalesOrders(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfSalesOrderSummaryResponse> {
+    listSalesOrders(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, source: number | undefined): Promise<PaginatedResponseOfSalesOrderSummaryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/sales-orders?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -26258,6 +26742,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
         else if (pageSize !== undefined)
             url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (source === null)
+            throw new globalThis.Error("The parameter 'source' cannot be null.");
+        else if (source !== undefined)
+            url_ += "source=" + encodeURIComponent("" + source) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -30028,6 +30516,8 @@ export interface CompanyUserResponse {
     invitedAt: string | undefined;
     isFirmMember: boolean;
     isYou: boolean;
+    partnerId?: string | undefined;
+    partnerName?: string | undefined;
 
     [key: string]: any;
 }
@@ -30676,13 +31166,6 @@ export interface DepreciationCategoryTotal {
     [key: string]: any;
 }
 
-export interface DesktopAuditFailure {
-    companyId: string;
-    reason: string;
-
-    [key: string]: any;
-}
-
 export interface DepreciationPreviewLine {
     fixedAssetId: string;
     code: string;
@@ -30695,13 +31178,6 @@ export interface DepreciationPreviewLine {
     [key: string]: any;
 }
 
-export interface DesktopAuditVerifyResponse {
-    ok: boolean;
-    failures: DesktopAuditFailure[];
-
-    [key: string]: any;
-}
-
 export interface DepreciationPreviewResponse {
     period: string;
     lastPostedPeriod: string | undefined;
@@ -30709,16 +31185,6 @@ export interface DepreciationPreviewResponse {
     total: number;
     lines: DepreciationPreviewLine[];
     categories: DepreciationCategoryTotal[];
-
-    [key: string]: any;
-}
-
-export interface DesktopLicenseResponse {
-    status: string;
-    trialDaysLeft: number;
-    machineCode: string;
-    customer: string | undefined;
-    expiresAt: string | undefined;
 
     [key: string]: any;
 }
@@ -30736,14 +31202,6 @@ export interface DepreciationRunResponse {
     [key: string]: any;
 }
 
-export interface DesktopSetupRequest {
-    email: string;
-    password: string;
-    fullName: string;
-
-    [key: string]: any;
-}
-
 export interface DepreciationScheduleLineResponse {
     period: string;
     amount: number;
@@ -30754,8 +31212,46 @@ export interface DepreciationScheduleLineResponse {
     [key: string]: any;
 }
 
+export interface DesktopAuditFailure {
+    companyId: string;
+    reason: string;
+
+    [key: string]: any;
+}
+
+export interface DesktopAuditVerifyResponse {
+    ok: boolean;
+    failures: DesktopAuditFailure[];
+
+    [key: string]: any;
+}
+
+export interface DesktopLicenseResponse {
+    status: string;
+    trialDaysLeft: number;
+    machineCode: string;
+    customer: string | undefined;
+    expiresAt: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface DesktopSetupRequest {
+    email: string;
+    password: string;
+    fullName: string;
+
+    [key: string]: any;
+}
+
 export interface DesktopSetupResponse {
     recoveryCode: string;
+
+    [key: string]: any;
+}
+
+export interface DesktopSetupStatusResponse {
+    needsSetup: boolean;
 
     [key: string]: any;
 }
@@ -30782,12 +31278,6 @@ export interface DisposeFixedAssetRequest {
     date: string;
     proceeds?: number | undefined;
     proceedsAccountId?: string | undefined;
-
-    [key: string]: any;
-}
-
-export interface DesktopSetupStatusResponse {
-    needsSetup: boolean;
 
     [key: string]: any;
 }
@@ -31556,6 +32046,7 @@ export interface InviteUserRequest {
     administrator: boolean;
     roleId: string | undefined;
     employeeId: string | undefined;
+    partnerId?: string | undefined;
 
     [key: string]: any;
 }
@@ -32483,6 +32974,33 @@ export interface PaginatedResponseOfPlatformUserResponse {
     [key: string]: any;
 }
 
+export interface PaginatedResponseOfPortalCatalogueItemResponse {
+    items: PortalCatalogueItemResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfPortalInvoiceSummaryResponse {
+    items: PortalInvoiceSummaryResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface PaginatedResponseOfPortalOrderSummaryResponse {
+    items: PortalOrderSummaryResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
 export interface PaginatedResponseOfPosOrderSummaryResponse {
     items: PosOrderSummaryResponse[];
     total: number;
@@ -32833,6 +33351,16 @@ export interface PinFavoriteRequest {
     [key: string]: any;
 }
 
+export interface PlacePortalOrderRequest {
+    lines: PortalOrderLineRequest[];
+    customerReference?: string | undefined;
+    deliveryAddress?: string | undefined;
+    deliveryDate?: string | undefined;
+    notes?: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface PlatformAuditResponse {
     id: string;
     occurredAt: string;
@@ -32891,6 +33419,183 @@ export interface PlatformUserResponse {
     companyAccessCount: number;
     createdAt: string;
     lastLoginAt: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface PortalCartRequest {
+    lines: PortalOrderLineRequest[];
+
+    [key: string]: any;
+}
+
+export interface PortalCartResponse {
+    lines: PortalPricedLineResponse[];
+    net: number;
+    vat: number;
+    gross: number;
+
+    [key: string]: any;
+}
+
+export interface PortalCatalogueItemResponse {
+    itemId: string;
+    code: number;
+    name: string;
+    description: string | undefined;
+    categoryId: string | undefined;
+    categoryName: string | undefined;
+    unit: string;
+    price: number;
+    discountPercent: number;
+    priceAfterDiscount: number;
+    inStock: boolean | undefined;
+    units: PortalUnitPriceResponse[];
+
+    [key: string]: any;
+}
+
+export interface PortalCategoryResponse {
+    id: string;
+    name: string;
+
+    [key: string]: any;
+}
+
+export interface PortalCompanyResponse {
+    companyId: string;
+    companyName: string;
+    partnerId: string;
+    partnerName: string;
+    logoUrl: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface PortalDocumentResponse {
+    id: string;
+    number: string | undefined;
+    date: string;
+
+    [key: string]: any;
+}
+
+export interface PortalInvoiceResponse {
+    id: string;
+    number: string | undefined;
+    kind: string;
+    issueDate: string;
+    dueDate: string;
+    companyName: string;
+    companyFiscalNumber: string | undefined;
+    companyVatNumber: string | undefined;
+    companyAddress: string | undefined;
+    partnerName: string;
+    partnerFiscalNumber: string | undefined;
+    partnerAddress: string | undefined;
+    lines: PortalPricedLineResponse[];
+    net: number;
+    vat: number;
+    gross: number;
+    open: number | undefined;
+    overdue: boolean;
+
+    [key: string]: any;
+}
+
+export interface PortalInvoiceSummaryResponse {
+    id: string;
+    number: string | undefined;
+    kind: string;
+    issueDate: string;
+    dueDate: string;
+    gross: number;
+    open: number | undefined;
+    overdue: boolean;
+
+    [key: string]: any;
+}
+
+export interface PortalOrderLineRequest {
+    itemId: string;
+    quantity: number;
+    unitName?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface PortalOrderResponse {
+    id: string;
+    reference: string;
+    number: string | undefined;
+    date: string;
+    deliveryDate: string | undefined;
+    status: string;
+    customerReference: string | undefined;
+    deliveryAddress: string | undefined;
+    notes: string | undefined;
+    createdAt: string;
+    canCancel: boolean;
+    lines: PortalPricedLineResponse[];
+    net: number;
+    vat: number;
+    gross: number;
+    invoices: PortalDocumentResponse[];
+
+    [key: string]: any;
+}
+
+export interface PortalOrderSummaryResponse {
+    id: string;
+    reference: string;
+    number: string | undefined;
+    date: string;
+    deliveryDate: string | undefined;
+    status: string;
+    gross: number;
+    lineCount: number;
+    customerReference: string | undefined;
+    createdAt: string;
+
+    [key: string]: any;
+}
+
+export interface PortalPricedLineResponse {
+    itemId: string | undefined;
+    description: string;
+    quantity: number;
+    unitName: string | undefined;
+    unitPrice: number;
+    discountPercent: number;
+    net: number;
+    vat: number;
+    gross: number;
+
+    [key: string]: any;
+}
+
+export interface PortalSummaryResponse {
+    companyId: string;
+    companyName: string;
+    companyEmail: string | undefined;
+    companyPhone: string | undefined;
+    logoUrl: string | undefined;
+    partnerId: string;
+    partnerName: string;
+    outstanding: number;
+    overdue: number;
+    openOrders: number;
+    creditLimit: number | undefined;
+    available: number | undefined;
+    overdueBlocked: boolean;
+
+    [key: string]: any;
+}
+
+export interface PortalUnitPriceResponse {
+    unitName: string;
+    factor: number;
+    price: number;
 
     [key: string]: any;
 }
@@ -34345,6 +35050,9 @@ export interface SalesOrderResponse {
     confirmedAt: string | undefined;
     lines: SalesOrderLineResponse[];
     documents: SalesOrderDocumentResponse[];
+    source?: number | undefined;
+    draftInvoiceId?: string | undefined;
+    draftInvoiceWarning?: string | undefined;
 
     [key: string]: any;
 }
@@ -34362,6 +35070,7 @@ export interface SalesOrderSummaryResponse {
     delivery: string;
     invoicing: string;
     lineCount: number;
+    source?: number | undefined;
 
     [key: string]: any;
 }
