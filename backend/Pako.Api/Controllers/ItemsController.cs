@@ -1,3 +1,5 @@
+using System.Globalization;
+using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -6,6 +8,8 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
+using Pako.Domain.Inventory;
+using Pako.Domain.Tax;
 using Pako.Infrastructure;
 using Pako.Domain.Hr;
 
@@ -347,6 +351,84 @@ public class ItemsController : ControllerBase
         await _db.SaveChangesAsync();
         return NoContent();
     }
+
+    // ---- Stock import ----
+
+    [HttpGet("import/template")]
+    [RequireCompanyAccess]
+    [ProducesXlsx]
+    public IActionResult ImportTemplate([FromQuery] bool filled = false)
+    {
+        var language = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
+        var service = CreateImportService();
+        var bytes = service.GenerateTemplate(filled, language);
+        var fileName = filled ? "stock-import-template-examples.xlsx" : "stock-import-template.xlsx";
+        return File(bytes, ExcelExportService.XlsxContentType, fileName);
+    }
+
+    [HttpPost("import/preview")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    public async Task<ActionResult<StockImportPreviewResponse>> ImportPreview(Guid companyId,
+        IFormFile file,
+        [FromForm] Guid? fallbackRevenueAccountId = null,
+        [FromForm] Guid? fallbackExpenseAccountId = null,
+        [FromForm] Guid? fallbackInventoryAccountId = null)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(_localizer["StockImportNoFile"].Value);
+
+        if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(_localizer["StockImportInvalidFormat"].Value);
+
+        try
+        {
+            var service = CreateImportService();
+            using var stream = file.OpenReadStream();
+            var result = await service.ParseAndPreviewAsync(stream, file.Length, companyId,
+                fallbackRevenueAccountId, fallbackExpenseAccountId, fallbackInventoryAccountId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("import/confirm")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
+    public async Task<ActionResult<StockImportConfirmResponse>> ImportConfirm(Guid companyId,
+        IFormFile file,
+        [FromForm] Guid warehouseId,
+        [FromForm] DateOnly openingDate,
+        [FromForm] Guid? fallbackRevenueAccountId = null,
+        [FromForm] Guid? fallbackExpenseAccountId = null,
+        [FromForm] Guid? fallbackInventoryAccountId = null)
+    {
+        if (file is null || file.Length == 0)
+            return BadRequest(_localizer["StockImportNoFile"].Value);
+
+        if (!file.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return BadRequest(_localizer["StockImportInvalidFormat"].Value);
+
+        try
+        {
+            var service = CreateImportService();
+            using var stream = file.OpenReadStream();
+            var userId = Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
+            var result = await service.ConfirmAsync(stream, file.Length, companyId, warehouseId, openingDate,
+                fallbackRevenueAccountId, fallbackExpenseAccountId, fallbackInventoryAccountId, userId);
+            return Ok(result);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
+    private StockImportService CreateImportService() =>
+        new(_db, _numberSeries,
+            new StockDocumentService(_db, new StockService(_db, _localizer), _numberSeries, _localizer, new TaxComputationService()),
+            _localizer);
 
     private async Task<ActionResult?> ValidateDefaultAccounts(Guid companyId, Guid? revenueAccountId, Guid? expenseAccountId, Guid? inventoryAccountId)
     {

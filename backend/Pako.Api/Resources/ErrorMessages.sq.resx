@@ -1971,4 +1971,23 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="MonthLockUnlockReasonRequired" xml:space="preserve"><value>Kërkohet një arsye për të zhbllokuar një muaj.</value></data>
   <data name="MonthLockNotLocked" xml:space="preserve"><value>Ky muaj nuk është i kyçur.</value></data>
   <data name="MonthLockBlockedByHardLock" xml:space="preserve"><value>Nuk mund të zhbllokohet ky muaj: bie në ose para datës së kyçjes së fortë.</value></data>
+
+  <!-- Importimi i Stokut -->
+  <data name="StockImportFileTooLarge" xml:space="preserve"><value>Skedari tejkalon limitin e madhësisë prej 10 MB.</value></data>
+  <data name="StockImportParseError" xml:space="preserve"><value>Nuk mund të lexohet skedari Excel. Sigurohuni që është skedar i vlefshëm .xlsx.</value></data>
+  <data name="StockImportRowCap" xml:space="preserve"><value>Skedari përmban më shumë se {0} rreshta. Ndajeni në skedarë më të vegjël.</value></data>
+  <data name="StockImportNameRequired" xml:space="preserve"><value>Emri është i detyrueshëm.</value></data>
+  <data name="StockImportUnitRequired" xml:space="preserve"><value>Njësia është e detyrueshme.</value></data>
+  <data name="StockImportAccountsMissing" xml:space="preserve"><value>Llogaritë e të ardhurave, shpenzimeve dhe inventarit janë të gjitha të detyrueshme (nga rreshti ose nga parazgjedhja).</value></data>
+  <data name="StockImportAccountNotFound" xml:space="preserve"><value>Kodi i llogarisë {0} "{1}" nuk u gjet.</value></data>
+  <data name="StockImportDuplicateName" xml:space="preserve"><value>Emër i dyfishuar në këtë skedar (i pari në rreshtin {0}).</value></data>
+  <data name="StockImportDuplicateNameExisting" xml:space="preserve"><value>Një artikull me këtë emër ekziston tashmë.</value></data>
+  <data name="StockImportDuplicateBarcode" xml:space="preserve"><value>Barkod i dyfishuar në këtë skedar (i pari në rreshtin {0}).</value></data>
+  <data name="StockImportDuplicateBarcodeExisting" xml:space="preserve"><value>Ky barkod është regjistruar tashmë për një artikull tjetër.</value></data>
+  <data name="StockImportBarcodeTooLong" xml:space="preserve"><value>Barkodi duhet të jetë 64 karaktere ose më pak.</value></data>
+  <data name="StockImportOpeningCostRequired" xml:space="preserve"><value>Kosto për njësi fillestare kërkohet kur sasia fillestare është më e madhe se zero.</value></data>
+  <data name="StockImportNewCategory" xml:space="preserve"><value>Kategoria "{0}" do të krijohet.</value></data>
+  <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>Kodi i TVSH-së "{0}" nuk u gjet.</value></data>
+  <data name="StockImportNoFile" xml:space="preserve"><value>Asnjë skedar nuk u ngarkua.</value></data>
+  <data name="StockImportInvalidFormat" xml:space="preserve"><value>Vetëm skedarë .xlsx pranohen.</value></data>
 </root>

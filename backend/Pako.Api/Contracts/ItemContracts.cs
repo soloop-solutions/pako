@@ -195,3 +195,52 @@ public record RecipeLineResponse(Guid IngredientItemId, string IngredientName, s
 public record SaveRecipeRequest(List<SaveRecipeLineRequest> Lines);
 public record SaveRecipeLineRequest(Guid IngredientItemId, decimal Quantity, decimal WastePercent = 0m);
 
+// ---- Stock import ----
+
+public record StockImportPreviewResponse(
+    List<StockImportPreviewRow> Rows,
+    StockImportSummary Summary,
+    List<string> NewCategories);
+
+public record StockImportPreviewRow(
+    int RowNumber,
+    string Status,  // "Ready", "Warning", "Error"
+    string? Name,
+    string? Unit,
+    string? Category,
+    decimal? SalePrice,
+    string? RevenueAccountCode,
+    string? ExpenseAccountCode,
+    string? InventoryAccountCode,
+    string? VatCode,
+    decimal? MinimumStock,
+    string? Barcode,
+    decimal? OpeningQty,
+    decimal? OpeningUnitCost,
+    string? PurchaseUnit,
+    decimal? PurchaseFactor,
+    string? SalesUnit,
+    decimal? SalesFactor,
+    string? Description,
+    List<string> Errors,
+    List<string> Warnings);
+
+public record StockImportSummary(int Ready, int Warnings, int ErrorCount);
+
+public record StockImportConfirmRequest(
+    Guid WarehouseId,
+    DateOnly OpeningDate,
+    Guid? FallbackRevenueAccountId = null,
+    Guid? FallbackExpenseAccountId = null,
+    Guid? FallbackInventoryAccountId = null);
+
+public record StockImportConfirmResponse(
+    int Created,
+    int Skipped,
+    List<string> CreatedCategories,
+    Guid? OpeningDocumentId = null,
+    string? OpeningDocumentNumber = null,
+    List<StockImportRowError>? Errors = null);
+
+public record StockImportRowError(int RowNumber, string Message);
+
