@@ -106,7 +106,8 @@ public class PosTests : IAsyncLifetime
     }
 
     private static PosController Pos(Co c) =>
-        As(new PosController(c.Db, new PosService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()), new NullStringLocalizer<ErrorMessages>()),
+        As(new PosController(c.Db, new PosService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()), new NullStringLocalizer<ErrorMessages>(),
+            new AtkFiscalClient(new HttpClient { BaseAddress = AtkFiscalClient.BaseUrl(AtkEnvironment.Test) }), new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build()),
             new PriceListService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()),
             new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), Operators(c)), c.UserId);
 

@@ -1785,4 +1785,23 @@ Estimate: {estimate} €.</value></data>
   <data name="MonthLockUnlockReasonRequired" xml:space="preserve"><value>A reason is required to unlock a month.</value></data>
   <data name="MonthLockNotLocked" xml:space="preserve"><value>This month is not locked.</value></data>
   <data name="MonthLockBlockedByHardLock" xml:space="preserve"><value>Cannot unlock this month: it falls on or before the hard lock date.</value></data>
+
+  <!-- Stock Import -->
+  <data name="StockImportFileTooLarge" xml:space="preserve"><value>The file exceeds the 10 MB size limit.</value></data>
+  <data name="StockImportParseError" xml:space="preserve"><value>Could not read the Excel file. Make sure it is a valid .xlsx file.</value></data>
+  <data name="StockImportRowCap" xml:space="preserve"><value>The file contains more than {0} rows. Split it into smaller files.</value></data>
+  <data name="StockImportNameRequired" xml:space="preserve"><value>Name is required.</value></data>
+  <data name="StockImportUnitRequired" xml:space="preserve"><value>Unit is required.</value></data>
+  <data name="StockImportAccountsMissing" xml:space="preserve"><value>Revenue, expense and inventory accounts are all required (from the row or the fallback).</value></data>
+  <data name="StockImportAccountNotFound" xml:space="preserve"><value>{0} account code "{1}" not found.</value></data>
+  <data name="StockImportDuplicateName" xml:space="preserve"><value>Duplicate name in this file (first at row {0}).</value></data>
+  <data name="StockImportDuplicateNameExisting" xml:space="preserve"><value>An item with this name already exists.</value></data>
+  <data name="StockImportDuplicateBarcode" xml:space="preserve"><value>Duplicate barcode in this file (first at row {0}).</value></data>
+  <data name="StockImportDuplicateBarcodeExisting" xml:space="preserve"><value>This barcode is already registered for another item.</value></data>
+  <data name="StockImportBarcodeTooLong" xml:space="preserve"><value>Barcode must be 64 characters or fewer.</value></data>
+  <data name="StockImportOpeningCostRequired" xml:space="preserve"><value>Opening unit cost is required when opening quantity is greater than zero.</value></data>
+  <data name="StockImportNewCategory" xml:space="preserve"><value>Category "{0}" will be created.</value></data>
+  <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>VAT code "{0}" not found.</value></data>
+  <data name="StockImportNoFile" xml:space="preserve"><value>No file was uploaded.</value></data>
+  <data name="StockImportInvalidFormat" xml:space="preserve"><value>Only .xlsx files are accepted.</value></data>
 </root>

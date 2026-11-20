@@ -25,6 +25,7 @@ import { ItemForm, type ItemFormFields } from "@/pages/items/ItemForm";
 import { ItemAttributesDialog, ItemVariantsPanel } from "@/pages/items/ItemVariants";
 import { ItemRecipePanel } from "@/pages/items/ItemRecipe";
 import { ItemPartsPanel } from "@/pages/items/ItemParts";
+import { StockImportDialog } from "@/pages/items/StockImportDialog";
 import type { AccountResponse, ItemResponse, TaxDefinitionResponse } from "@pako/shared";
 import { useConfirm } from "@/components/ui/confirm-context";
 import { TabButton } from "@/components/ui/tabs";
@@ -107,6 +108,7 @@ export function Items() {
   const [dirty, setDirty] = useState(false);
 
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   // Wizard step state for create dialog.
   const [wizardStep, setWizardStep] = useState(0);
@@ -548,7 +550,7 @@ export function Items() {
           <Button variant="outline" onClick={() => setAttributesOpen(true)}>
             {intl.formatMessage({ id: "items.attributes.manage" })}
           </Button>
-          <Button variant="outline" onClick={() => toast.info(intl.formatMessage({ id: "items.import.title" }) + " — coming soon")}>
+          <Button variant="outline" onClick={() => setImportOpen(true)}>
             {intl.formatMessage({ id: "items.import.title" })}
           </Button>
           <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); setWizardStep(0); }}>
@@ -557,6 +559,7 @@ export function Items() {
         </div>
       </div>
       {attributesOpen && <ItemAttributesDialog onClose={() => setAttributesOpen(false)} />}
+      {importOpen && <StockImportDialog open={importOpen} onOpenChange={setImportOpen} onComplete={() => refreshItems()} />}
 
       {loadError && (
         <Alert variant="destructive">
