@@ -9,7 +9,8 @@ public class VatDeclarationService(PakoDbContext db, CompanyAccessContext access
     public const int CarryLookbackMonths = 12;
 
     public async Task<VatDeclarationResult> ComputeAsync(
-        Guid companyId, int year, int month, decimal? carriedCreditOverride, decimal refundRequested)
+        Guid companyId, int year, int month, decimal? carriedCreditOverride, decimal refundRequested,
+        DateOnly? from = null, DateOnly? to = null)
     {
         var target = new DateOnly(year, month, 1);
         var windowStart = carriedCreditOverride is null ? target.AddMonths(-CarryLookbackMonths) : target;
@@ -35,11 +36,20 @@ public class VatDeclarationService(PakoDbContext db, CompanyAccessContext access
             }
         }
 
-        return VatDeclaration.Calculate(AmountsFor(target), carried, refundRequested);
+        var targetAmounts = from is null && to is null
+            ? AmountsFor(target)
+            : AtkBookMapper.DeclarationAmounts(
+                sales.Where(r => IsInMonth(r, target) && IsInRange(r, from, to)),
+                purchases.Where(r => IsInMonth(r, target) && IsInRange(r, from, to)));
+
+        return VatDeclaration.Calculate(targetAmounts, carried, refundRequested);
     }
 
     private static bool IsInMonth(AtkTaxRow row, DateOnly month) =>
         row.IssueDate.Year == month.Year && row.IssueDate.Month == month.Month;
+
+    private static bool IsInRange(AtkTaxRow row, DateOnly? from, DateOnly? to) =>
+        (from is null || row.IssueDate >= from) && (to is null || row.IssueDate <= to);
 
     private static AtkTaxRow ToAtkRow(TaxReportService.TaxBookRow r) =>
         new(r.DocumentId, r.DocumentNumber, r.IssueDate, r.PartnerId, r.VatCode, r.Rate, r.NetAmount,

@@ -25,3 +25,40 @@ public record JournalEntryResponse(
     string? SequenceNumber,
     DateTime? PostedAtUtc,
     List<JournalEntryLineResponse> Lines);
+
+public record JournalEntrySourceLineResponse(
+    string Description,
+    decimal Quantity,
+    decimal UnitPrice,
+    decimal DiscountPercent,
+    decimal NetAmount,
+    decimal TaxAmount,
+    decimal GrossAmount);
+
+public record JournalEntrySourceDocumentResponse(
+    string Kind,
+    Guid Id,
+    string? DocumentNumber,
+    DateOnly? Date,
+    Guid? PartnerId,
+    string? PartnerName,
+    string? Notes,
+    List<JournalEntrySourceLineResponse> Lines,
+    decimal NetAmount,
+    decimal TaxAmount,
+    decimal GrossAmount);
+
+public record JournalEntryDetailResponse(
+    Guid Id,
+    Guid JournalId,
+    DateOnly Date,
+    string? Description,
+    string? Reference,
+    string? Remarks,
+    string State,
+    string? SequenceNumber,
+    DateTime? PostedAtUtc,
+    List<JournalEntryLineResponse> Lines,
+    string SourceKind,
+    Guid SourceId,
+    JournalEntrySourceDocumentResponse? SourceDocument = null);

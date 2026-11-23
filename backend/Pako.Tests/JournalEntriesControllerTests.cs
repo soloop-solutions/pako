@@ -503,4 +503,54 @@ public class JournalEntriesControllerTests : IAsyncLifetime
 
         Assert.IsType<NotFoundResult>(result);
     }
+
+    [Fact]
+    public async Task Get_EntryFromInvoice_ReturnsSourceDocumentWithLinesAndPartner()
+    {
+        var (db, companyId, journalId, _, _) = await SeedAsync();
+        var partner = new Partner { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Buyer SH.P.K.", IsCustomer = true };
+        var invoice = new Pako.Domain.Invoicing.Invoice
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partner.Id, InvoiceNumber = "INV-0007",
+            IssueDate = new DateOnly(2026, 8, 26), DueDate = new DateOnly(2026, 9, 25), InternalNotes = "Deliver Monday",
+            Lines = { new Pako.Domain.Invoicing.InvoiceLine { Id = Guid.NewGuid(), Description = "Widgets", Quantity = 3m, UnitPrice = 10m, RevenueAccountId = Guid.NewGuid() } }
+        };
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journalId, Date = invoice.IssueDate,
+            Remarks = "Memo text", SourceDocumentId = invoice.Id
+        };
+        db.Partners.Add(partner);
+        db.Invoices.Add(invoice);
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db).Get(companyId, entry.Id);
+
+        var detail = Assert.IsType<JournalEntryDetailResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Memo text", detail.Remarks);
+        Assert.Equal("Invoice", detail.SourceKind);
+        var source = Assert.IsType<JournalEntrySourceDocumentResponse>(detail.SourceDocument);
+        Assert.Equal("INV-0007", source.DocumentNumber);
+        Assert.Equal("Buyer SH.P.K.", source.PartnerName);
+        Assert.Equal("Deliver Monday", source.Notes);
+        var line = Assert.Single(source.Lines);
+        Assert.Equal("Widgets", line.Description);
+        Assert.Equal(3m, line.Quantity);
+        Assert.Equal(30m, source.GrossAmount);
+    }
+
+    [Fact]
+    public async Task Get_ManualEntry_HasNoSourceDocument()
+    {
+        var (db, companyId, journalId, _, _) = await SeedAsync();
+        var entry = new JournalEntry { Id = Guid.NewGuid(), CompanyId = companyId, JournalId = journalId, Date = new DateOnly(2026, 8, 26) };
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+
+        var detail = Assert.IsType<JournalEntryDetailResponse>(Assert.IsType<OkObjectResult>((await NewController(db).Get(companyId, entry.Id)).Result).Value);
+
+        Assert.Equal("JournalEntry", detail.SourceKind);
+        Assert.Null(detail.SourceDocument);
+    }
 }
