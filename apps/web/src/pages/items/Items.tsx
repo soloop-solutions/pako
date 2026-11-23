@@ -116,14 +116,15 @@ export function Items() {
   const totalWizardSteps = WIZARD_STEPS.length;
 
 
-  const itemsQueryKey = ["items", activeCompanyId, urlState.skip, urlState.take, urlState.globalFilter] as const;
+  const sortParam = urlState.sort ? `${urlState.sort.desc ? "-" : ""}${urlState.sort.id}` : undefined;
+  const itemsQueryKey = ["items", activeCompanyId, urlState.skip, urlState.take, urlState.globalFilter, sortParam] as const;
 
   const itemsQuery = useQuery({
     queryKey: itemsQueryKey,
     queryFn: async () => {
       // B7: itemsGET is now page-based (1-indexed page, pageSize), not skip/take — convert.
       const page = Math.floor(urlState.skip / urlState.take) + 1;
-      return apiClient.itemsGET(activeCompanyId as string, page, urlState.take, urlState.globalFilter || undefined, undefined);
+      return apiClient.itemsGET(activeCompanyId as string, page, urlState.take, urlState.globalFilter || undefined, sortParam);
     },
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
@@ -384,7 +385,7 @@ export function Items() {
   const shownTab = editTabs.includes(editTab) ? editTab : "details";
 
   const columns = useMemo<ColumnDef<ItemResponse>[]>(
-    () => [
+    () => ([
       {
         accessorKey: "code",
         header: intl.formatMessage({ id: "common.code" }),
@@ -411,12 +412,10 @@ export function Items() {
         id: "type",
         header: intl.formatMessage({ id: "items.form.type" }),
         accessorFn: (row) => itemTypeLabel(row.type, intl),
-        enableSorting: false,
       },
       {
         accessorKey: "unit",
         header: intl.formatMessage({ id: "items.unit" }),
-        enableSorting: false,
         cell: ({ getValue }) => {
           const value = getValue();
           return typeof value === "string" ? value : "";
@@ -436,6 +435,7 @@ export function Items() {
         accessorFn: (item) => item.wholesalePrice ?? null,
         header: intl.formatMessage({ id: "items.wholesalePrice" }),
         meta: { numeric: true },
+        enableSorting: false,
         cell: ({ getValue }) => {
           const value = getValue();
           return typeof value === "number" ? `${value.toFixed(2)} €` : "—";
@@ -534,7 +534,7 @@ export function Items() {
           </div>
         ),
       },
-    ],
+    ] as ColumnDef<ItemResponse>[]).map((col) => ({ ...col, enableColumnFilter: false })),
     [intl, handleAddBarcode, handleRemoveBarcode, taxes, accounts, stockOnHand, setEditingId, handleToggleActive, handleDelete],
   );
 

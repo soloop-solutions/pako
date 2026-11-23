@@ -43,7 +43,8 @@ public class StockDocumentsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<ActionResult<PaginatedResponse<StockDocumentSummaryResponse>>> List(Guid companyId,
         [FromQuery] StockDocumentType? type = null, [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] Guid? siteId = null)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] Guid? siteId = null,
+        [FromQuery] string? sort = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
@@ -52,7 +53,17 @@ public class StockDocumentsController : ControllerBase
         if (siteId is { } site) query = query.Where(d => d.SiteId == site);
         if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
         var total = await query.CountAsync();
-        var documents = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt)
+        var descending = sort is not null && sort.StartsWith('-');
+        var sortField = descending ? sort![1..] : sort;
+        IOrderedQueryable<StockDocument> ordered = sortField?.ToLowerInvariant() switch
+        {
+            "number" => descending ? query.OrderByDescending(d => d.Number) : query.OrderBy(d => d.Number),
+            "type" => descending ? query.OrderByDescending(d => d.Type) : query.OrderBy(d => d.Type),
+            "state" => descending ? query.OrderByDescending(d => d.State) : query.OrderBy(d => d.State),
+            _ => descending ? query.OrderBy(d => d.Date).ThenBy(d => d.CreatedAt)
+                            : query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt),
+        };
+        var documents = await ordered
             .Skip((page - 1) * pageSize).Take(pageSize)
             .Select(d => new { d.Id, d.Type, d.State, d.Number, d.Date, d.WarehouseId, d.DestinationWarehouseId, Lines = d.Lines.Count, d.SiteId,
                 PartnerName = _db.Partners.Where(p => p.Id == d.PartnerId).Select(p => p.Name).FirstOrDefault(),
