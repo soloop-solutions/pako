@@ -17,7 +17,8 @@ public record PayslipInput(
     decimal TaxableAdditions = 0m,
     decimal Deductions = 0m,
     bool IsPrimaryEmployer = true,
-    bool PensionExempt = false);
+    bool PensionExempt = false,
+    bool TaxExempt = false);
 
 // Statutory parameters, supplied by the caller from Pako.Localization.Xk.
 public record PayrollStatutoryRates(
@@ -89,9 +90,10 @@ public class PayrollCalculationService : IPayrollCalculationService
         var employerPension = input.PensionExempt ? 0m : Round(gross * rates.EmployerPensionRate);
 
         var taxableMonthly = gross - employeePension;
-        var pit = input.IsPrimaryEmployer
-            ? Round(ComputeAnnualPit(taxableMonthly * 12m, rates.AnnualPitBrackets) / 12m)
-            : Round(Math.Max(taxableMonthly, 0m) * rates.SecondaryEmployerFlatRate);
+        var pit = input.TaxExempt ? 0m
+            : input.IsPrimaryEmployer
+                ? Round(ComputeAnnualPit(taxableMonthly * 12m, rates.AnnualPitBrackets) / 12m)
+                : Round(Math.Max(taxableMonthly, 0m) * rates.SecondaryEmployerFlatRate);
 
         var netPay = gross - pit - employeePension - deductions;
 

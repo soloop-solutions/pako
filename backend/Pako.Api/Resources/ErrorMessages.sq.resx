@@ -1994,4 +1994,27 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="PaymentAlreadyCancelled" xml:space="preserve"><value>Kjo pagesë është anuluar tashmë.</value></data>
   <data name="BankStmtDirectAccountNotPostable" xml:space="preserve"><value>Kjo llogari nuk mund të përdoret për regjistrime të drejtpërdrejta.</value></data>
   <data name="BankStmtDirectAccountIsControl" xml:space="preserve"><value>Llogaritë kontrolluese (AK/AP) nuk mund të përdoren. Regjistroni një faturë ose porosi blerje.</value></data>
+  <data name="Export_Common_Yes" xml:space="preserve"><value>PO</value></data>
+  <data name="Export_Common_No" xml:space="preserve"><value>JO</value></data>
+  <data name="Export_Payroll_Employee" xml:space="preserve"><value>Punonjësi</value></data>
+  <data name="Export_Payroll_PersonalNumber" xml:space="preserve"><value>Numri personal</value></data>
+  <data name="Export_Payroll_Department" xml:space="preserve"><value>Departamenti</value></data>
+  <data name="Export_Payroll_WorkingDays" xml:space="preserve"><value>Ditë pune</value></data>
+  <data name="Export_Payroll_PaidDays" xml:space="preserve"><value>Ditë të paguara</value></data>
+  <data name="Export_Payroll_BaseSalary" xml:space="preserve"><value>Paga bazë</value></data>
+  <data name="Export_Payroll_Bonuses" xml:space="preserve"><value>Bonuset</value></data>
+  <data name="Export_Payroll_OtherAdditions" xml:space="preserve"><value>Shtesat tjera</value></data>
+  <data name="Export_Payroll_Gross" xml:space="preserve"><value>Bruto</value></data>
+  <data name="Export_Payroll_EmployeePension" xml:space="preserve"><value>Kontributi i punonjësit</value></data>
+  <data name="Export_Payroll_EmployerPension" xml:space="preserve"><value>Kontributi i punëdhënësit</value></data>
+  <data name="Export_Payroll_Pit" xml:space="preserve"><value>Tatimi në paga</value></data>
+  <data name="Export_Payroll_Deductions" xml:space="preserve"><value>Zbritjet</value></data>
+  <data name="Export_Payroll_NetPay" xml:space="preserve"><value>Paga neto</value></data>
+  <data name="Export_Payroll_PrimaryEmployer" xml:space="preserve"><value>Punëdhënës primar</value></data>
+  <data name="Export_Payroll_HasContributions" xml:space="preserve"><value>Ka kontribute</value></data>
+  <data name="Export_Payroll_HasTax" xml:space="preserve"><value>Ka tatim</value></data>
+  <data name="Export_Payroll_Register" xml:space="preserve"><value>Lista e pagave</value></data>
+  <data name="Export_Payroll_Payslip" xml:space="preserve"><value>Fletëpagesa</value></data>
+  <data name="Export_Payroll_Payslips" xml:space="preserve"><value>Fletëpagesat</value></data>
+  <data name="Export_Payroll_EmployeesList" xml:space="preserve"><value>Lista e punonjësve</value></data>
 </root>

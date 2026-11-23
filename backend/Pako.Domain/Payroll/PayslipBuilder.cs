@@ -65,7 +65,7 @@ public class PayslipBuilder
         var loanRepayments = data.Adjustments.Where(a => a.IsLoanRepayment).Sum(a => a.Amount);
 
         var result = _calculation.Compute(
-            new PayslipInput(baseSalary, bonus + otherAdditions, deductions, employee.IsPrimaryEmployer, employee.PensionExempt),
+            new PayslipInput(baseSalary, bonus + otherAdditions, deductions, employee.IsPrimaryEmployer, employee.PensionExempt, employee.TaxExempt),
             _rates);
 
         return new PayslipLine
@@ -87,7 +87,9 @@ public class PayslipBuilder
             LoanRepaymentAmount = Math.Round(loanRepayments, 2, MidpointRounding.AwayFromZero),
             NetPay = result.NetPay + reimbursements,
             ReimbursementAmount = reimbursements,
-            IsPrimaryEmployer = employee.IsPrimaryEmployer
+            IsPrimaryEmployer = employee.IsPrimaryEmployer,
+            PensionExempt = employee.PensionExempt,
+            TaxExempt = employee.TaxExempt
         };
     }
 }

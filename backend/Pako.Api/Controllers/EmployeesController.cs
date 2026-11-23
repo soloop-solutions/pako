@@ -126,6 +126,46 @@ public class EmployeesController : ControllerBase
         return Ok((await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
     }
 
+    // ---- Change history (Odoo chatter-style, backed by the audit trail) ----
+
+    [HttpGet("{id:guid}/history", Name = "EmployeeHistory")]
+    [RequireCompanyAccess(module: AccessModule.Hr)]
+    public async Task<ActionResult<PaginatedResponse<AuditEntryResponse>>> History(
+        Guid companyId, Guid id,
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    {
+        if (!await _db.Employees.AnyAsync(e => e.Id == id && e.CompanyId == companyId)) return NotFound();
+
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 100);
+
+        var entityId = id.ToString();
+        var query = _db.AuditEntries.AsNoTracking()
+            .Where(a => a.CompanyId == companyId && a.EntityType == "Employee" && a.EntityId == entityId)
+            .OrderByDescending(a => a.OccurredAtUtc);
+
+        var total = await query.CountAsync();
+        var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+
+        var userIds = entries.Where(a => a.UserId != null).Select(a => a.UserId!).Distinct().ToList();
+        var users = userIds.Count == 0
+            ? new Dictionary<string, (string? Name, string? Email)>()
+            : (await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id.ToString()))
+                .Select(u => new { u.Id, u.FullName, u.Email }).ToListAsync())
+                .ToDictionary(u => u.Id.ToString(), u => (u.FullName, u.Email));
+
+        var items = entries.Select(a =>
+        {
+            var user = a.UserId is not null && users.TryGetValue(a.UserId, out var found)
+                ? found : ((string?)null, (string?)null);
+            return new AuditEntryResponse(
+                a.Id, a.EntityType, a.EntityId, a.Action, a.UserId, a.OccurredAtUtc, a.Changes,
+                user.Item1, user.Item2);
+        }).ToList();
+
+        return Ok(new PaginatedResponse<AuditEntryResponse>(items, total, page, pageSize));
+    }
+
     // ---- Partner assignments ----
 
     [HttpGet("{id:guid}/partners", Name = "ListEmployeePartners")]
@@ -374,6 +414,7 @@ public class EmployeesController : ControllerBase
         }
         employee.IsPrimaryEmployer = request.IsPrimaryEmployer;
         employee.PensionExempt = request.PensionExempt;
+        employee.TaxExempt = request.TaxExempt;
         employee.IsActive = request.IsActive;
         if (request.ReceivePayslipsByEmail is { } byEmail) employee.ReceivePayslipsByEmail = byEmail;
         if (request.CommissionPlanId is { } planId && !await _db.CommissionPlans.AnyAsync(p => p.Id == planId && p.CompanyId == companyId))
@@ -462,6 +503,7 @@ public class EmployeesController : ControllerBase
                 payVisible ? currentSalary : 0m,
                 e.IsPrimaryEmployer,
                 e.PensionExempt,
+                e.TaxExempt,
                 e.IsActive,
                 partnerCounts.GetValueOrDefault(e.Id),
                 warnings,

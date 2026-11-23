@@ -4614,6 +4614,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("xid")
                         .HasColumnName("xmin");
 
+                    b.Property<bool>("TaxExempt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<DateOnly?>("TerminationDate")
                         .HasColumnType("date");
 
@@ -4875,11 +4880,21 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<Guid>("PayrollRunId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("PensionExempt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
                     b.Property<decimal>("PitAmount")
                         .HasColumnType("numeric(18,2)");
 
                     b.Property<decimal>("ReimbursementAmount")
                         .HasColumnType("numeric(18,2)");
+
+                    b.Property<bool>("TaxExempt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<decimal>("WorkingDays")
                         .HasColumnType("numeric(6,2)");
