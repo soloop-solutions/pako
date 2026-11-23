@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 
 function Table({ className, ...props }: React.ComponentProps<"table">) {
   return (
-    <div data-slot="table-container" className="relative w-full overflow-x-auto scrollbar-brand">
+    <div data-slot="table-container" className="relative w-full max-h-[calc(100vh-14rem)] overflow-auto scrollbar-brand">
       <table data-slot="table" className={cn("w-full caption-bottom text-sm", className)} {...props} />
     </div>
   );
@@ -14,7 +14,7 @@ function TableHeader({ className, ...props }: React.ComponentProps<"thead">) {
   return (
     <thead
       data-slot="table-header"
-      className={cn("bg-grid-header [&_tr]:border-b [&_tr]:border-b-grid-header-border", className)}
+      className={cn("bg-grid-header [&_tr]:border-b [&_tr]:border-b-grid-header-border [&_th]:sticky [&_th]:top-0 [&_th]:z-10 [&_th]:bg-grid-header [&_th]:shadow-[inset_0_-1px_0_var(--grid-header-border)] [&_tr:nth-child(2)_th]:top-[30px]", className)}
       {...props}
     />
   );

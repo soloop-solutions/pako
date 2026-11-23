@@ -10,7 +10,7 @@ const options = [
 
 describe("Select search", () => {
   it("matches the label, never the id behind an option", () => {
-    render(<Select value="" onValueChange={() => {}} options={options} />);
+    render(<Select value="" onValueChange={() => {}} options={options} searchable />);
     fireEvent.click(screen.getByRole("combobox"));
     fireEvent.change(screen.getByPlaceholderText("Search..."), { target: { value: "d3b" } });
     expect(screen.queryAllByRole("option")).toHaveLength(0);

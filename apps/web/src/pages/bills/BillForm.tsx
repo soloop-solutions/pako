@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, BillResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 import { toast } from "sonner";
@@ -301,6 +302,26 @@ export function BillForm({
     setLines((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const billDraft = useFormDraft({
+    kind: "bill",
+    title: intl.formatMessage({ id: "drafts.bill" }),
+    enabled: !editingBill && fixedDocumentType === undefined,
+    dirty: !!partnerId || !!vendorReference || lines.some((l) => l.description.trim() !== "" || l.itemId !== ""),
+    getState: () => ({ partnerId, documentType, vendorReference, issueDate, dueDate, internalNotes, warehouseId, projectId, priceMode, lines }),
+    restore: (d) => {
+      setPartnerId(d.partnerId);
+      setDocumentType(d.documentType);
+      setVendorReference(d.vendorReference);
+      setIssueDate(d.issueDate);
+      setDueDate(d.dueDate);
+      setInternalNotes(d.internalNotes);
+      setWarehouseId(d.warehouseId);
+      setProjectId(d.projectId);
+      setPriceMode(d.priceMode);
+      setLines(d.lines);
+    },
+  });
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setApiError(null);
@@ -399,6 +420,7 @@ export function BillForm({
         setPaymentAmount("");
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.billCreated" }));
+        billDraft.markDone();
         onCreated();
       }
     } catch (err) {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOptionalDrafts } from "@/context/DraftsContext";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -57,6 +58,10 @@ export function Bills() {
   const [error, setError] = useState<string | null>(null);
   const [billFormOpen, setBillFormOpen] = useState(false);
   const [vendorFormOpen, setVendorFormOpen] = useState(false);
+  const resumeRequest = useOptionalDrafts()?.resumeRequest ?? null;
+  useEffect(() => {
+    if (resumeRequest?.kind === "bill") setBillFormOpen(true);
+  }, [resumeRequest]);
   const [billFormKey, setBillFormKey] = useState(0);
 
   const refresh = useCallback(async () => {

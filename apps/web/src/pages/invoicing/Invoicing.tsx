@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOptionalDrafts } from "@/context/DraftsContext";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -70,6 +71,10 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
   const [invoiceFormKey, setInvoiceFormKey] = useState(0);
   // docs/POS_PLAN.md P6: ?salesOrder= / ?delivery= opens the form filled from that document.
   const prefill = useInvoicePrefill(companyId, intl.formatMessage({ id: "dist.invoice.nothingToInvoice" }));
+  const resumeRequest = useOptionalDrafts()?.resumeRequest ?? null;
+  useEffect(() => {
+    if (resumeRequest?.kind === "invoice") setInvoiceFormOpen(true);
+  }, [resumeRequest]);
   const formOpen = invoiceFormOpen || !!prefill.prefill;
   const closeInvoiceForm = () => {
     setInvoiceFormOpen(false);

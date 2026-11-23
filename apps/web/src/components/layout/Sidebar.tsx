@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, MoreHorizontal, Search, Star, X } from "lucide-react";
+import { ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, Search, Star, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Link, useLocation } from "react-router-dom";
 
@@ -136,6 +136,20 @@ export function Sidebar() {
     });
   }
 
+  function toggleCollapsed(categoryId: string) {
+    setPrefs((prev) => {
+      const current = prev.collapsed ?? [];
+      return {
+        ...prev,
+        collapsed: current.includes(categoryId) ? current.filter((id) => id !== categoryId) : [...current, categoryId],
+      };
+    });
+  }
+
+  function setAllCollapsed(collapse: boolean) {
+    setPrefs((prev) => ({ ...prev, collapsed: collapse ? navCategories.map((c) => c.id) : [] }));
+  }
+
   function toggleHidden(categoryId: string, path: string) {
     setPrefs((prev) => {
       const cat = prev.categories[categoryId];
@@ -209,6 +223,16 @@ export function Sidebar() {
 
           <div className="border-t" />
 
+          <div className="flex justify-end px-3 py-0.5">
+            <button
+              type="button"
+              onClick={() => setAllCollapsed((prefs.collapsed ?? []).length < navCategories.length)}
+              className="text-[11px] text-muted-foreground hover:text-foreground"
+            >
+              {intl.formatMessage({ id: (prefs.collapsed ?? []).length < navCategories.length ? "sidebar.collapseAll" : "sidebar.expandAll" })}
+            </button>
+          </div>
+
           {/* TASK-018: hide Favourites/Suggested when the sidebar has fewer than 10 accessible items. */}
           {navCategories.reduce((n, c) => n + c.items.filter((i) => isAllowed(i.path)).length, 0) >= 10 && (
             <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} onPin={toggleFavourite} userId={userId} />
@@ -228,15 +252,25 @@ export function Sidebar() {
             const visibleItems = orderedItems.filter((i) => !catPrefs.hidden.includes(i.path));
             const hiddenItems = orderedItems.filter((i) => catPrefs.hidden.includes(i.path));
             const expanded = !!expandedCategories[category.id];
-            const shown = expanded ? orderedItems : visibleItems;
+            const folded = (prefs.collapsed ?? []).includes(category.id);
+            const shown = folded ? orderedItems.filter((i) => isActive(i.path)) : expanded ? orderedItems : visibleItems;
 
             return (
               <div key={category.id}>
                 <div className="border-t" />
                 <div className="relative flex h-[22px] items-center px-3">
-                  <span className="text-[10.5px] font-bold tracking-[0.09em] text-muted-foreground uppercase">
-                    {intl.formatMessage({ id: category.labelKey })}
-                  </span>
+                  <button
+                    type="button"
+                    aria-expanded={!folded}
+                    aria-label={intl.formatMessage({ id: folded ? "sidebar.expandSection" : "sidebar.collapseSection" }, { category: intl.formatMessage({ id: category.labelKey }) })}
+                    onClick={() => toggleCollapsed(category.id)}
+                    className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                  >
+                    {folded ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
+                    <span className="text-[10.5px] font-bold tracking-[0.09em] uppercase">
+                      {intl.formatMessage({ id: category.labelKey })}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     aria-label={intl.formatMessage({ id: "sidebar.customize" }, { category: intl.formatMessage({ id: category.labelKey }) })}
@@ -297,7 +331,7 @@ export function Sidebar() {
                   </div>
                 ))}
 
-                {hiddenItems.length > 0 && (
+                {!folded && hiddenItems.length > 0 && (
                   <button
                     type="button"
                     onClick={() => setExpandedCategories((prev) => ({ ...prev, [category.id]: !expanded }))}

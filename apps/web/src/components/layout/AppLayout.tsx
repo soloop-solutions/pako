@@ -10,6 +10,7 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
+import { DraftsRibbon } from "@/components/layout/DraftsRibbon";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TabStrip } from "@/components/layout/TabStrip";
@@ -18,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { LicenseBanner } from "@/pages/desktop/LicenseBanner";
+import { DraftsProvider } from "@/context/DraftsContext";
 import { TabsProvider, useTabs } from "@/context/TabsContext";
 
 // Leaving the company with unsaved edits: a real dialog (focus stays inside, Escape or a click
@@ -166,6 +168,7 @@ function AppShell() {
               </Suspense>
             </RouteErrorBoundary>
           </main>
+          <DraftsRibbon />
         </div>
       </div>
       <GlobalSearch />
@@ -180,7 +183,9 @@ function AppShell() {
 export function AppLayout() {
   return (
     <TabsProvider>
-      <AppShell />
+      <DraftsProvider>
+        <AppShell />
+      </DraftsProvider>
     </TabsProvider>
   );
 }

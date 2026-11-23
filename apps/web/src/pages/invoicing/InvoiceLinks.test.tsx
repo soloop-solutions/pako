@@ -198,3 +198,32 @@ describe("Editing a draft invoice (P6)", () => {
     await waitFor(() => expect(onSaved).toHaveBeenCalled());
   });
 });
+
+describe("Save & pay", () => {
+  const CASH = { id: "pm1", name: "Cash", kind: 0, isActive: true };
+
+  function renderCreate() {
+    return renderAt("/invoicing", (
+      <InvoiceForm companyId="c1" customers={[CUSTOMER as never]} taxes={[]} paymentMethods={[CASH as never]} isVatRegistered={false}
+        items={[WATER as never]} onCreated={() => {}} />
+    ));
+  }
+
+  it("does not open the payment dialog without a customer, and says why", async () => {
+    renderCreate();
+    const description = (await screen.findByText("Description")).parentElement!.querySelector("input")!;
+    fireEvent.change(description, { target: { value: "Consulting" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save & pay" }));
+
+    expect(await screen.findByText("Select a customer.")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog", { name: "Save & pay" })).not.toBeInTheDocument();
+    expect(api.invoicesPOST).not.toHaveBeenCalled();
+  });
+
+  it("does not pay a later plain save after a refused Save & pay", async () => {
+    renderCreate();
+    fireEvent.click(screen.getByRole("button", { name: "Save & pay" }));
+    fireEvent.click(screen.getByRole("button", { name: "Create invoice" }));
+    await waitFor(() => expect(api.invoicesPOST).not.toHaveBeenCalled());
+  });
+});

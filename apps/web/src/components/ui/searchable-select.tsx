@@ -10,6 +10,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { Check, ChevronDown, Plus, Search, Star, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/searchMatch";
 
 // ---------------------------------------------------------------------------
 // SearchableSelect — a branded, accessible, searchable dropdown that replaces
@@ -58,30 +59,22 @@ function flattenOptions(items: OptionOrGroup[]): SelectOption[] {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function optionMatches(option: SelectOption, query: string): boolean {
+  return matchesSearch(query, option.label, option.description, UUID_PATTERN.test(option.value) ? undefined : option.value);
+}
+
 function filterItems(items: OptionOrGroup[], query: string): OptionOrGroup[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return items;
+  if (!query.trim()) return items;
 
   const result: OptionOrGroup[] = [];
   for (const item of items) {
     if (isGroup(item)) {
-      const filtered = item.options.filter(
-        (o) =>
-          o.label.toLowerCase().includes(q) ||
-          (o.description ?? "").toLowerCase().includes(q) ||
-          (!UUID_PATTERN.test(o.value) && o.value.toLowerCase().includes(q)),
-      );
+      const filtered = item.options.filter((o) => optionMatches(o, query));
       if (filtered.length > 0) {
         result.push({ label: item.label, options: filtered });
       }
-    } else {
-      if (
-        item.label.toLowerCase().includes(q) ||
-        (item.description ?? "").toLowerCase().includes(q) ||
-        (!UUID_PATTERN.test(item.value) && item.value.toLowerCase().includes(q))
-      ) {
-        result.push(item);
-      }
+    } else if (optionMatches(item, query)) {
+      result.push(item);
     }
   }
   return result;
@@ -182,7 +175,7 @@ export function SearchableSelect({
   const flatFiltered = flattenOptions(filtered);
   // Build the navigable list: empty option (if any) + filtered options
   const navigableOptions: SelectOption[] = [];
-  if (emptyOptionLabel && (!query || emptyOptionLabel.toLowerCase().includes(query.toLowerCase()))) {
+  if (emptyOptionLabel && (!query || matchesSearch(query, emptyOptionLabel))) {
     navigableOptions.push({ value: "", label: emptyOptionLabel });
   }
   navigableOptions.push(...flatFiltered);
@@ -248,7 +241,7 @@ export function SearchableSelect({
   }
 
   // Track flat index across groups for highlight navigation
-  let flatIndex = emptyOptionLabel && (!query || emptyOptionLabel.toLowerCase().includes(query.toLowerCase())) ? 1 : 0;
+  let flatIndex = emptyOptionLabel && (!query || matchesSearch(query, emptyOptionLabel)) ? 1 : 0;
 
   // Build favorites sections when no query is active
   const hasFavorites = favorites && (favorites.pinnedIds.size > 0 || favorites.autoIds.size > 0);
@@ -432,9 +425,7 @@ export function SearchableSelect({
             {/* Empty / clear option */}
             {emptyOptionLabel &&
               (!query ||
-                emptyOptionLabel
-                  .toLowerCase()
-                  .includes(query.toLowerCase())) &&
+                matchesSearch(query, emptyOptionLabel)) &&
               renderOptionButton(
                 { value: "", label: emptyOptionLabel },
                 0,
