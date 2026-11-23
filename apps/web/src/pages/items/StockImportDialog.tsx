@@ -2,6 +2,7 @@ import { useCallback, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import * as XLSX from "xlsx";
 import type { AccountResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -9,6 +10,7 @@ import {
   downloadImportTemplate,
   previewStockImport,
   confirmStockImport,
+  type StockImportPreviewRow,
   type StockImportPreviewResponse,
   type StockImportConfirmResponse,
 } from "@/api/stock-import-client";
@@ -24,6 +26,99 @@ import { useWarehouses } from "@/hooks/useStock";
 import { AccountType, isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
 
 type Step = "setup" | "preview" | "results";
+
+interface EditableRow {
+  rowNumber: number;
+  name: string;
+  description: string;
+  unit: string;
+  category: string;
+  salePrice: string;
+  revenueAccountCode: string;
+  expenseAccountCode: string;
+  inventoryAccountCode: string;
+  vatCode: string;
+  minimumStock: string;
+  barcode: string;
+  openingQty: string;
+  openingUnitCost: string;
+  purchaseUnit: string;
+  purchaseFactor: string;
+  salesUnit: string;
+  salesFactor: string;
+  // Server-side validation results (updated after re-validate)
+  status: string;
+  errors: string[];
+  warnings: string[];
+  dirty: boolean;
+}
+
+function previewToEditable(row: StockImportPreviewRow): EditableRow {
+  return {
+    rowNumber: row.rowNumber,
+    name: row.name ?? "",
+    description: row.description ?? "",
+    unit: row.unit ?? "",
+    category: row.category ?? "",
+    salePrice: row.salePrice != null ? String(row.salePrice) : "",
+    revenueAccountCode: row.revenueAccountCode ?? "",
+    expenseAccountCode: row.expenseAccountCode ?? "",
+    inventoryAccountCode: row.inventoryAccountCode ?? "",
+    vatCode: row.vatCode ?? "",
+    minimumStock: row.minimumStock != null ? String(row.minimumStock) : "",
+    barcode: row.barcode ?? "",
+    openingQty: row.openingQty != null ? String(row.openingQty) : "",
+    openingUnitCost: row.openingUnitCost != null ? String(row.openingUnitCost) : "",
+    purchaseUnit: row.purchaseUnit ?? "",
+    purchaseFactor: row.purchaseFactor != null ? String(row.purchaseFactor) : "",
+    salesUnit: row.salesUnit ?? "",
+    salesFactor: row.salesFactor != null ? String(row.salesFactor) : "",
+    status: row.status,
+    errors: [...row.errors],
+    warnings: [...row.warnings],
+    dirty: false,
+  };
+}
+
+const HEADERS = ["Name", "Description", "Unit", "Category", "Sale Price",
+  "Revenue Account", "Expense Account", "Inventory Account", "VAT Code", "Min Stock",
+  "Barcode", "Opening Qty", "Opening Unit Cost", "Purchase Unit", "Purchase Factor",
+  "Sales Unit", "Sales Factor"];
+
+function buildXlsxFile(rows: EditableRow[]): File {
+  const data = [HEADERS, ...rows.map((r) => [
+    r.name, r.description, r.unit, r.category,
+    r.salePrice ? Number(r.salePrice) : null,
+    r.revenueAccountCode, r.expenseAccountCode, r.inventoryAccountCode,
+    r.vatCode,
+    r.minimumStock ? Number(r.minimumStock) : null,
+    r.barcode,
+    r.openingQty ? Number(r.openingQty) : null,
+    r.openingUnitCost ? Number(r.openingUnitCost) : null,
+    r.purchaseUnit,
+    r.purchaseFactor ? Number(r.purchaseFactor) : null,
+    r.salesUnit,
+    r.salesFactor ? Number(r.salesFactor) : null,
+  ])];
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Stock");
+  const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  return new File([buf], "stock-import-corrected.xlsx", {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+}
+
+function downloadBlob(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
 
 interface Props {
   open: boolean;
@@ -50,6 +145,7 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<StockImportPreviewResponse | null>(null);
+  const [editedRows, setEditedRows] = useState<EditableRow[]>([]);
   const [result, setResult] = useState<StockImportConfirmResponse | null>(null);
 
   // Data queries
@@ -87,6 +183,7 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
     setFile(f);
     setError(null);
     setPreview(null);
+    setEditedRows([]);
   }, [validateFile]);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -101,20 +198,13 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
   const handleDownload = useCallback(async (filled: boolean) => {
     try {
       const blob = await downloadImportTemplate(companyId, filled);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = filled ? "stock-import-template-examples.xlsx" : "stock-import-template.xlsx";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      downloadBlob(blob, filled ? "stock-import-template-examples.xlsx" : "stock-import-template.xlsx");
     } catch (err) {
       toast.error(getApiErrorMessage(err));
     }
   }, [companyId]);
 
-  // Preview
+  // Preview (from original file)
   const handlePreview = useCallback(async () => {
     if (!file) return;
     setLoading(true);
@@ -122,6 +212,7 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
     try {
       const result = await previewStockImport(companyId, file, fallbackRevenue || undefined, fallbackExpense || undefined, fallbackInventory || undefined);
       setPreview(result);
+      setEditedRows(result.rows.map(previewToEditable));
       setStep("preview");
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "items.import.error.parseError" })));
@@ -130,13 +221,30 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
     }
   }, [companyId, file, fallbackRevenue, fallbackExpense, fallbackInventory, intl]);
 
-  // Confirm
-  const handleConfirm = useCallback(async () => {
-    if (!file || !warehouseId) return;
+  // Re-validate (from edited rows)
+  const handleRevalidate = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await confirmStockImport(companyId, file, warehouseId, openingDate, fallbackRevenue || undefined, fallbackExpense || undefined, fallbackInventory || undefined);
+      const xlsx = buildXlsxFile(editedRows);
+      const result = await previewStockImport(companyId, xlsx, fallbackRevenue || undefined, fallbackExpense || undefined, fallbackInventory || undefined);
+      setPreview(result);
+      setEditedRows(result.rows.map(previewToEditable));
+    } catch (err) {
+      setError(getApiErrorMessage(err, intl.formatMessage({ id: "items.import.error.parseError" })));
+    } finally {
+      setLoading(false);
+    }
+  }, [companyId, editedRows, fallbackRevenue, fallbackExpense, fallbackInventory, intl]);
+
+  // Confirm (from edited rows)
+  const handleConfirm = useCallback(async () => {
+    if (!warehouseId) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const xlsx = buildXlsxFile(editedRows);
+      const res = await confirmStockImport(companyId, xlsx, warehouseId, openingDate, fallbackRevenue || undefined, fallbackExpense || undefined, fallbackInventory || undefined);
       setResult(res);
       setStep("results");
     } catch (err) {
@@ -144,7 +252,12 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [companyId, file, warehouseId, openingDate, fallbackRevenue, fallbackExpense, fallbackInventory, intl]);
+  }, [companyId, editedRows, warehouseId, openingDate, fallbackRevenue, fallbackExpense, fallbackInventory, intl]);
+
+  const handleDownloadCorrected = useCallback(() => {
+    const xlsx = buildXlsxFile(editedRows);
+    downloadBlob(xlsx, "stock-import-corrected.xlsx");
+  }, [editedRows]);
 
   const handleClose = useCallback(() => {
     if (step === "results") onComplete();
@@ -154,11 +267,19 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
   const handleReupload = useCallback(() => {
     setFile(null);
     setPreview(null);
+    setEditedRows([]);
     setError(null);
     setStep("setup");
   }, []);
 
+  const updateRow = useCallback((rowNumber: number, field: keyof EditableRow, value: string) => {
+    setEditedRows((prev) => prev.map((r) =>
+      r.rowNumber === rowNumber ? { ...r, [field]: value, dirty: true } : r
+    ));
+  }, []);
+
   const readyCount = preview?.summary.ready ?? 0;
+  const hasDirtyRows = editedRows.some((r) => r.dirty);
 
   const accountLabel = (a: AccountResponse) => `${a.code} \u00b7 ${a.name}`;
 
@@ -191,17 +312,29 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
             <Button type="button" variant="outline" onClick={handleReupload}>
               {intl.formatMessage({ id: "items.import.reupload" })}
             </Button>
-            <Button type="button" onClick={handleConfirm} disabled={readyCount === 0 || loading}>
+            {hasDirtyRows && (
+              <Button type="button" variant="outline" onClick={handleRevalidate} disabled={loading}>
+                {intl.formatMessage({ id: "items.import.revalidate" })}
+              </Button>
+            )}
+            <Button type="button" onClick={hasDirtyRows ? handleRevalidate : handleConfirm} disabled={(!hasDirtyRows && readyCount === 0) || loading}>
               {loading
                 ? intl.formatMessage({ id: "items.import.processing" })
-                : intl.formatMessage({ id: "items.import.confirm.count" }, { count: readyCount })}
+                : hasDirtyRows
+                  ? intl.formatMessage({ id: "items.import.revalidate" })
+                  : intl.formatMessage({ id: "items.import.confirm.count" }, { count: readyCount })}
             </Button>
           </>
         )}
         {step === "results" && (
-          <Button type="button" onClick={handleClose}>
-            {intl.formatMessage({ id: "items.import.results.done" })}
-          </Button>
+          <>
+            <Button type="button" variant="outline" onClick={handleDownloadCorrected}>
+              {intl.formatMessage({ id: "items.import.downloadCorrected" })}
+            </Button>
+            <Button type="button" onClick={handleClose}>
+              {intl.formatMessage({ id: "items.import.results.done" })}
+            </Button>
+          </>
         )}
       </div>
     </div>
@@ -249,7 +382,9 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
         onDownload={handleDownload}
       />}
 
-      {step === "preview" && preview && <PreviewStep intl={intl} preview={preview} />}
+      {step === "preview" && preview && (
+        <PreviewStep intl={intl} preview={preview} editedRows={editedRows} onUpdateRow={updateRow} />
+      )}
 
       {step === "results" && result && <ResultsStep intl={intl} result={result} />}
     </FormDialog>
@@ -293,7 +428,6 @@ function SetupStep({
 }) {
   return (
     <div className="space-y-4">
-      {/* Template downloads */}
       <div className="flex gap-2">
         <Button type="button" variant="outline" size="sm" onClick={() => onDownload(false)}>
           {intl.formatMessage({ id: "items.import.downloadTemplate" })}
@@ -303,7 +437,6 @@ function SetupStep({
         </Button>
       </div>
 
-      {/* Warehouse + Opening date */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FormField label={intl.formatMessage({ id: "items.import.warehouse" })} htmlFor="import-warehouse" required
           hint={intl.formatMessage({ id: "items.import.warehouse.description" })}>
@@ -322,67 +455,43 @@ function SetupStep({
         </FormField>
       </div>
 
-      {/* Fallback accounts */}
       <fieldset className="rounded-md border p-3 space-y-3">
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.import.fallbackAccounts" })}</legend>
         <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.import.fallbackAccounts.description" })}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <FormField label={intl.formatMessage({ id: "items.import.fallbackRevenue" })} htmlFor="import-fallback-revenue">
-            <SearchableSelect
-              id="import-fallback-revenue"
-              value={fallbackRevenue}
-              onChange={onFallbackRevenueChange}
-              placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
-              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-              noResultsText={intl.formatMessage({ id: "common.noResults" })}
-              emptyOptionLabel="—"
-              options={incomeAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
-            />
+            <SearchableSelect id="import-fallback-revenue" value={fallbackRevenue} onChange={onFallbackRevenueChange}
+              placeholder={intl.formatMessage({ id: "items.form.selectAccount" })} searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })} emptyOptionLabel="—"
+              options={incomeAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))} />
           </FormField>
           <FormField label={intl.formatMessage({ id: "items.import.fallbackExpense" })} htmlFor="import-fallback-expense">
-            <SearchableSelect
-              id="import-fallback-expense"
-              value={fallbackExpense}
-              onChange={onFallbackExpenseChange}
-              placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
-              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-              noResultsText={intl.formatMessage({ id: "common.noResults" })}
-              emptyOptionLabel="—"
-              options={expenseAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
-            />
+            <SearchableSelect id="import-fallback-expense" value={fallbackExpense} onChange={onFallbackExpenseChange}
+              placeholder={intl.formatMessage({ id: "items.form.selectAccount" })} searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })} emptyOptionLabel="—"
+              options={expenseAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))} />
           </FormField>
           <FormField label={intl.formatMessage({ id: "items.import.fallbackInventory" })} htmlFor="import-fallback-inventory">
-            <SearchableSelect
-              id="import-fallback-inventory"
-              value={fallbackInventory}
-              onChange={onFallbackInventoryChange}
-              placeholder={intl.formatMessage({ id: "items.form.selectAccount" })}
-              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-              noResultsText={intl.formatMessage({ id: "common.noResults" })}
-              emptyOptionLabel="—"
-              options={inventoryAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))}
-            />
+            <SearchableSelect id="import-fallback-inventory" value={fallbackInventory} onChange={onFallbackInventoryChange}
+              placeholder={intl.formatMessage({ id: "items.form.selectAccount" })} searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+              noResultsText={intl.formatMessage({ id: "common.noResults" })} emptyOptionLabel="—"
+              options={inventoryAccounts.map((a) => ({ value: a.id, label: accountLabel(a) }))} />
           </FormField>
         </div>
       </fieldset>
 
-      {/* File drop zone */}
       <div
         className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 transition-colors cursor-pointer ${
           dragOver ? "bg-primary/5 border-primary" : "bg-muted/30 border-muted-foreground/25 hover:bg-muted/50 hover:border-muted-foreground/40"
         }`}
-        onDragOver={onDragOver}
-        onDragLeave={onDragLeave}
-        onDrop={onDrop}
+        onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop}
         onClick={() => !file && fileInputRef.current?.click()}
       >
         {file ? (
           <div className="flex items-center gap-3">
             <span className="text-sm font-medium">{file.name}</span>
             <span className="text-xs text-muted-foreground">({(file.size / 1024).toFixed(0)} KB)</span>
-            <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onFileSelect(new File([], "")); fileInputRef.current!.value = ""; }}>
-              x
-            </Button>
+            <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onFileSelect(new File([], "")); fileInputRef.current!.value = ""; }}>x</Button>
           </div>
         ) : (
           <>
@@ -393,22 +502,59 @@ function SetupStep({
             <p className="text-xs text-muted-foreground">Max 10 MB, .xlsx</p>
           </>
         )}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".xlsx"
-          className="hidden"
-          onChange={(e) => { const f = e.target.files?.[0]; if (f) onFileSelect(f); }}
-        />
+        <input ref={fileInputRef} type="file" accept=".xlsx" className="hidden"
+          onChange={(e) => { const f = e.target.files?.[0]; if (f) onFileSelect(f); }} />
       </div>
     </div>
   );
 }
 
+// ---- Editable Cell ----
+
+function EditableCell({ value, onChange, type = "text", className = "" }: {
+  value: string;
+  onChange: (v: string) => void;
+  type?: "text" | "number";
+  className?: string;
+}) {
+  const [editing, setEditing] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  if (!editing) {
+    return (
+      <span
+        className={`block cursor-text rounded px-1 -mx-1 hover:bg-muted/50 min-h-[1.25rem] ${className}`}
+        onClick={() => { setEditing(true); setTimeout(() => inputRef.current?.focus(), 0); }}
+      >
+        {value || <span className="text-muted-foreground">—</span>}
+      </span>
+    );
+  }
+
+  return (
+    <input
+      ref={inputRef}
+      type={type}
+      step={type === "number" ? "any" : undefined}
+      className={`block w-full rounded border border-primary/50 bg-background px-1 py-0 text-sm outline-none focus:ring-1 focus:ring-primary/30 ${className}`}
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      onBlur={() => setEditing(false)}
+      onKeyDown={(e) => { if (e.key === "Enter" || e.key === "Escape") setEditing(false); }}
+      autoFocus
+    />
+  );
+}
+
 // ---- Preview Step ----
 
-function PreviewStep({ intl, preview }: { intl: ReturnType<typeof useIntl>; preview: StockImportPreviewResponse }) {
-  const { summary, rows, newCategories } = preview;
+function PreviewStep({ intl, preview, editedRows, onUpdateRow }: {
+  intl: ReturnType<typeof useIntl>;
+  preview: StockImportPreviewResponse;
+  editedRows: EditableRow[];
+  onUpdateRow: (rowNumber: number, field: keyof EditableRow, value: string) => void;
+}) {
+  const { summary, newCategories } = preview;
 
   return (
     <div className="space-y-3">
@@ -433,29 +579,41 @@ function PreviewStep({ intl, preview }: { intl: ReturnType<typeof useIntl>; prev
             {" "}{newCategories.join(", ")}
           </span>
         )}
+        {editedRows.some((r) => r.dirty) && (
+          <Badge variant="outline" className="border-blue-500 text-blue-700">
+            {intl.formatMessage({ id: "items.import.preview.edited" })}
+          </Badge>
+        )}
       </div>
+
+      <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.import.preview.editHint" })}</p>
 
       {/* Preview table */}
       <div className="max-h-[60vh] overflow-auto rounded-md border">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-background border-b">
+          <thead className="sticky top-0 bg-background border-b z-10">
             <tr className="text-left text-xs text-muted-foreground">
               <th className="px-2 py-1.5 w-10">#</th>
-              <th className="px-2 py-1.5 w-16">{intl.formatMessage({ id: "items.import.col.status" })}</th>
-              <th className="px-2 py-1.5">{intl.formatMessage({ id: "items.form.name" })}</th>
-              <th className="px-2 py-1.5">{intl.formatMessage({ id: "items.form.unit" })}</th>
-              <th className="px-2 py-1.5">{intl.formatMessage({ id: "items.category" })}</th>
-              <th className="px-2 py-1.5 text-right">{intl.formatMessage({ id: "items.defaultPrice" })}</th>
-              <th className="px-2 py-1.5 text-right">{intl.formatMessage({ id: "items.import.col.openingQty" })}</th>
-              <th className="px-2 py-1.5 text-right">{intl.formatMessage({ id: "items.import.col.unitCost" })}</th>
-              <th className="px-2 py-1.5">{intl.formatMessage({ id: "items.import.col.errors" })}</th>
+              <th className="px-2 py-1.5 w-12">{intl.formatMessage({ id: "items.import.col.status" })}</th>
+              <th className="px-2 py-1.5 min-w-[140px]">{intl.formatMessage({ id: "items.form.name" })}</th>
+              <th className="px-2 py-1.5 min-w-[60px]">{intl.formatMessage({ id: "items.form.unit" })}</th>
+              <th className="px-2 py-1.5 min-w-[100px]">{intl.formatMessage({ id: "items.category" })}</th>
+              <th className="px-2 py-1.5 min-w-[80px]">{intl.formatMessage({ id: "items.defaultPrice" })}</th>
+              <th className="px-2 py-1.5 min-w-[60px]">{intl.formatMessage({ id: "items.import.col.vatCode" })}</th>
+              <th className="px-2 py-1.5 min-w-[70px]">{intl.formatMessage({ id: "items.import.col.openingQty" })}</th>
+              <th className="px-2 py-1.5 min-w-[70px]">{intl.formatMessage({ id: "items.import.col.unitCost" })}</th>
+              <th className="px-2 py-1.5 min-w-[70px]">{intl.formatMessage({ id: "items.import.col.revAcct" })}</th>
+              <th className="px-2 py-1.5 min-w-[70px]">{intl.formatMessage({ id: "items.import.col.expAcct" })}</th>
+              <th className="px-2 py-1.5 min-w-[70px]">{intl.formatMessage({ id: "items.import.col.invAcct" })}</th>
+              <th className="px-2 py-1.5 min-w-[200px]">{intl.formatMessage({ id: "items.import.col.errors" })}</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
+            {editedRows.map((row) => (
               <tr
                 key={row.rowNumber}
                 className={
+                  row.dirty ? "bg-blue-50 dark:bg-blue-950/20" :
                   row.status === "Error" ? "bg-red-50 dark:bg-red-950/20" :
                   row.status === "Warning" ? "bg-yellow-50 dark:bg-yellow-950/20" :
                   ""
@@ -463,16 +621,23 @@ function PreviewStep({ intl, preview }: { intl: ReturnType<typeof useIntl>; prev
               >
                 <td className="px-2 py-1 text-xs text-muted-foreground tabular-nums">{row.rowNumber}</td>
                 <td className="px-2 py-1">
-                  {row.status === "Ready" && <span className="text-green-600 text-xs font-medium">OK</span>}
-                  {row.status === "Warning" && <span className="text-yellow-600 text-xs font-medium">!</span>}
-                  {row.status === "Error" && <span className="text-red-600 text-xs font-medium">x</span>}
+                  {row.dirty
+                    ? <span className="text-blue-600 text-xs font-medium">*</span>
+                    : row.status === "Ready" ? <span className="text-green-600 text-xs font-medium">OK</span>
+                    : row.status === "Warning" ? <span className="text-yellow-600 text-xs font-medium">!</span>
+                    : <span className="text-red-600 text-xs font-medium">x</span>
+                  }
                 </td>
-                <td className="px-2 py-1 max-w-[200px] truncate">{row.name ?? "—"}</td>
-                <td className="px-2 py-1">{row.unit ?? "—"}</td>
-                <td className="px-2 py-1 max-w-[120px] truncate">{row.category ?? "—"}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{row.salePrice != null ? row.salePrice.toFixed(2) : "—"}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{row.openingQty != null ? row.openingQty : "—"}</td>
-                <td className="px-2 py-1 text-right tabular-nums">{row.openingUnitCost != null ? row.openingUnitCost.toFixed(2) : "—"}</td>
+                <td className="px-2 py-1"><EditableCell value={row.name} onChange={(v) => onUpdateRow(row.rowNumber, "name", v)} /></td>
+                <td className="px-2 py-1"><EditableCell value={row.unit} onChange={(v) => onUpdateRow(row.rowNumber, "unit", v)} /></td>
+                <td className="px-2 py-1"><EditableCell value={row.category} onChange={(v) => onUpdateRow(row.rowNumber, "category", v)} /></td>
+                <td className="px-2 py-1"><EditableCell value={row.salePrice} onChange={(v) => onUpdateRow(row.rowNumber, "salePrice", v)} type="number" className="text-right tabular-nums" /></td>
+                <td className="px-2 py-1"><EditableCell value={row.vatCode} onChange={(v) => onUpdateRow(row.rowNumber, "vatCode", v)} /></td>
+                <td className="px-2 py-1"><EditableCell value={row.openingQty} onChange={(v) => onUpdateRow(row.rowNumber, "openingQty", v)} type="number" className="text-right tabular-nums" /></td>
+                <td className="px-2 py-1"><EditableCell value={row.openingUnitCost} onChange={(v) => onUpdateRow(row.rowNumber, "openingUnitCost", v)} type="number" className="text-right tabular-nums" /></td>
+                <td className="px-2 py-1"><EditableCell value={row.revenueAccountCode} onChange={(v) => onUpdateRow(row.rowNumber, "revenueAccountCode", v)} /></td>
+                <td className="px-2 py-1"><EditableCell value={row.expenseAccountCode} onChange={(v) => onUpdateRow(row.rowNumber, "expenseAccountCode", v)} /></td>
+                <td className="px-2 py-1"><EditableCell value={row.inventoryAccountCode} onChange={(v) => onUpdateRow(row.rowNumber, "inventoryAccountCode", v)} /></td>
                 <td className="px-2 py-1 text-xs max-w-[300px]">
                   {row.errors.length > 0 && <span className="text-red-600">{row.errors.join("; ")}</span>}
                   {row.warnings.length > 0 && <span className="text-yellow-600">{row.warnings.join("; ")}</span>}
@@ -488,7 +653,10 @@ function PreviewStep({ intl, preview }: { intl: ReturnType<typeof useIntl>; prev
 
 // ---- Results Step ----
 
-function ResultsStep({ intl, result }: { intl: ReturnType<typeof useIntl>; result: StockImportConfirmResponse }) {
+function ResultsStep({ intl, result }: {
+  intl: ReturnType<typeof useIntl>;
+  result: StockImportConfirmResponse;
+}) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2 text-green-700">
