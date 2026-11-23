@@ -148,9 +148,9 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                 </div>
               </div>
 
-              <div className="overflow-x-auto rounded-md border">
+              <div className="max-h-[70vh] overflow-auto rounded-md border">
                 <table className="w-full text-sm" aria-label={intl.formatMessage({ id: "admin.roles.matrix" })}>
-                  <thead className="bg-muted/40 text-xs text-muted-foreground">
+                  <thead className="sticky top-0 z-10 bg-muted text-xs text-muted-foreground">
                     <tr>
                       <th className="px-3 py-1.5 text-left font-medium">{intl.formatMessage({ id: "admin.roles.area" })}</th>
                       {ACCESS_LEVELS.map((level) => (

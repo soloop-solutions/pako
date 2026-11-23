@@ -738,4 +738,30 @@ public class VatDeclarationTests : IAsyncLifetime
 
         Assert.Equal("X", BoxRow(sheet, "8").Cell(3).GetString());
     }
+
+    [Fact]
+    public async Task Declaration_DayRangeInsideMonth_CountsOnlyThoseDays()
+    {
+        var s = await SeedAsync();
+
+        var early = Assert.IsType<VatDeclarationResponse>(Assert.IsType<OkObjectResult>(
+            (await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, null, null, new DateOnly(2026, 2, 1), new DateOnly(2026, 2, 4))).Result).Value);
+        var covering = Assert.IsType<VatDeclarationResponse>(Assert.IsType<OkObjectResult>(
+            (await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, null, null, new DateOnly(2026, 2, 5), new DateOnly(2026, 2, 5))).Result).Value);
+        var whole = await Run(s, 2026, 2);
+
+        Assert.Equal(0m, early.TotalVatCalculated);
+        Assert.Equal(457.63m, covering.TotalVatCalculated);
+        Assert.Equal(whole.TotalVatCalculated, covering.TotalVatCalculated);
+    }
+
+    [Fact]
+    public async Task Declaration_DayRangeOutsideMonth_Rejected()
+    {
+        var s = await SeedAsync();
+
+        var result = await Controller(s.Db).Declaration(s.CompanyId, 2026, 2, null, null, new DateOnly(2026, 1, 31), new DateOnly(2026, 2, 10));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
 }

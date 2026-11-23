@@ -317,4 +317,19 @@ public class PartnersControllerTests : IAsyncLifetime
         db.Partners.Add(new Partner { Id = Guid.NewGuid(), CompanyId = companyId, Name = "B", TaxNumber = "777666555", IsCustomer = true });
         await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
     }
+
+    [Fact]
+    public async Task Create_DuplicateTaxNumber_MessageNamesNuisAndExistingPartner()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+        await controller.Create(companyId, new CreatePartnerRequest("Existing Partner SH.P.K.", "811234567", true, false));
+
+        var result = await controller.Create(companyId, new CreatePartnerRequest("Other", "811234567", true, false));
+
+        var message = Assert.IsType<string>(Assert.IsType<ConflictObjectResult>(result.Result).Value);
+        Assert.Contains("NUIS 811234567", message);
+        Assert.Contains("already registered", message);
+        Assert.Contains("Existing Partner SH.P.K.", message);
+    }
 }

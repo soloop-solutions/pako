@@ -10,6 +10,7 @@ import * as Popover from "@radix-ui/react-popover";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { matchesSearch } from "@/lib/searchMatch";
 
 // ---------------------------------------------------------------------------
 // Select — a branded, accessible, searchable dropdown for fixed option sets.
@@ -54,17 +55,18 @@ export interface SelectProps {
   className?: string;
   /** Custom render for the selected value display */
   renderValue?: (option: SelectOption | undefined) => ReactNode;
+  /** Show the search box (default: true when there are more than 5 options) */
+  searchable?: boolean;
 }
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function filterOptions(options: SelectOption[], query: string): SelectOption[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return options;
-  return options.filter(
-    (o) => o.label.toLowerCase().includes(q) || (!UUID_PATTERN.test(o.value) && o.value.toLowerCase().includes(q)),
-  );
+  if (!query.trim()) return options;
+  return options.filter((o) => matchesSearch(query, o.label, UUID_PATTERN.test(o.value) ? undefined : o.value));
 }
+
+const SEARCH_THRESHOLD = 0;
 
 export function Select({
   value,
@@ -79,7 +81,9 @@ export function Select({
   disabled,
   className,
   renderValue,
+  searchable: searchableProp,
 }: SelectProps) {
+  const searchable = searchableProp ?? options.length > SEARCH_THRESHOLD;
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [highlightIndex, setHighlightIndex] = useState(-1);
@@ -231,12 +235,13 @@ export function Select({
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95",
           )}
           onKeyDown={handleKeyDown}
+          tabIndex={-1}
           onOpenAutoFocus={(e) => {
             e.preventDefault();
-            searchRef.current?.focus();
+            (searchRef.current ?? e.currentTarget as HTMLElement | null)?.focus();
           }}
         >
-          {/* Search input */}
+          {searchable && (
           <div className="flex items-center gap-2 border-b px-2 py-1.5">
             <Search className="size-3.5 shrink-0 text-muted-foreground" />
             <input
@@ -263,6 +268,7 @@ export function Select({
               </button>
             )}
           </div>
+          )}
 
           <div
             ref={listRef}

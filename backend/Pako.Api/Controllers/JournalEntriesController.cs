@@ -8,6 +8,7 @@ using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Microsoft.Extensions.Localization;
 using Pako.Api.Services;
+using Pako.Domain.Documents;
 using Pako.Domain.Ledger;
 using Pako.Infrastructure;
 using Pako.Domain.Hr;
@@ -25,10 +26,12 @@ public class JournalEntriesController : ControllerBase
     private readonly NumberSeriesService _numberSeries;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly ExportLabels _labels;
+    private readonly CompanyAccessContext? _access;
 
-    public JournalEntriesController(PakoDbContext db, NumberSeriesService numberSeries, IStringLocalizer<ErrorMessages> localizer, ExportLabels labels)
+    public JournalEntriesController(PakoDbContext db, NumberSeriesService numberSeries, IStringLocalizer<ErrorMessages> localizer, ExportLabels labels, CompanyAccessContext? access = null)
     {
         _labels = labels;
+        _access = access;
         _db = db;
         _numberSeries = numberSeries;
         _localizer = localizer;
@@ -94,6 +97,76 @@ public class JournalEntriesController : ControllerBase
         var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
         return Ok(new PaginatedResponse<JournalEntryResponse>(entries.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
+    [HttpGet("{id:guid}", Name = "JournalEntryDetail")]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
+    public async Task<ActionResult<JournalEntryDetailResponse>> Get(Guid companyId, Guid id)
+    {
+        var entry = await _db.JournalEntries.AsNoTracking()
+            .Include(e => e.Lines)
+            .FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
+        if (entry is null)
+        {
+            return NotFound();
+        }
+
+        var source = (await new ReportSourceResolver(_db).ResolveEntriesAsync(companyId, new[] { id }))[id];
+        var document = await LoadSourceDocumentAsync(companyId, source);
+        var r = ToResponse(entry);
+        return Ok(new JournalEntryDetailResponse(
+            r.Id, r.JournalId, r.Date, r.Description, r.Reference, r.Remarks, r.State, r.SequenceNumber, r.PostedAtUtc, r.Lines,
+            source.Kind, source.Id, document));
+    }
+
+    private async Task<JournalEntrySourceDocumentResponse?> LoadSourceDocumentAsync(Guid companyId, ReportSource source)
+    {
+        var tax = new Pako.Domain.Tax.TaxComputationService();
+        if (source.Kind is ReportSourceKinds.Invoice or ReportSourceKinds.SalesReturn)
+        {
+            var invoices = _db.Invoices.AsNoTracking();
+            if (_access is not null) invoices = invoices.VisibleTo(_access);
+            var invoice = await invoices.Include(i => i.Lines)
+                .FirstOrDefaultAsync(i => i.Id == source.Id && i.CompanyId == companyId);
+            if (invoice is null) return null;
+            var amountsFor = await new InvoiceDocumentService(_db, tax).LineAmountsAsync(invoice);
+            var partnerName = await _db.Partners.AsNoTracking().Where(p => p.Id == invoice.PartnerId && p.CompanyId == companyId)
+                .Select(p => p.Name).FirstOrDefaultAsync();
+            var lines = invoice.Lines.Select(l => (Line: l.Description, l.Quantity, l.UnitPrice, l.DiscountPercent, Amounts: amountsFor(l))).ToList();
+            return BuildSource(source, invoice.InvoiceNumber, invoice.IssueDate, invoice.PartnerId, partnerName, invoice.InternalNotes, lines);
+        }
+
+        if (source.Kind is ReportSourceKinds.Bill or ReportSourceKinds.PurchaseReturn)
+        {
+            var bills = _db.Bills.AsNoTracking();
+            if (_access is not null) bills = bills.VisibleTo(_access);
+            var bill = await bills.Include(b => b.Lines)
+                .FirstOrDefaultAsync(b => b.Id == source.Id && b.CompanyId == companyId);
+            if (bill is null) return null;
+            var taxIds = bill.Lines.Where(l => l.TaxDefinitionId != null).Select(l => l.TaxDefinitionId!.Value).Distinct().ToList();
+            var taxes = await _db.TaxDefinitions.AsNoTracking().Include(t => t.RepartitionLines)
+                .Where(t => t.CompanyId == companyId && taxIds.Contains(t.Id)).ToDictionaryAsync(t => t.Id);
+            var partnerName = await _db.Partners.AsNoTracking().Where(p => p.Id == bill.PartnerId && p.CompanyId == companyId)
+                .Select(p => p.Name).FirstOrDefaultAsync();
+            var lines = bill.Lines.Select(l => (Line: l.Description, l.Quantity, l.UnitPrice, l.DiscountPercent,
+                Amounts: DocumentLineCalculator.Amounts(l.Quantity, l.UnitPrice, l.DiscountPercent,
+                    l.TaxDefinitionId is { } taxId ? taxes.GetValueOrDefault(taxId) : null, tax, bill.PriceMode))).ToList();
+            return BuildSource(source, bill.VendorReference, bill.IssueDate, bill.PartnerId, partnerName, bill.InternalNotes, lines);
+        }
+
+        return null;
+    }
+
+    private static JournalEntrySourceDocumentResponse BuildSource(
+        ReportSource source, string? number, DateOnly date, Guid partnerId, string? partnerName, string? notes,
+        List<(string Line, decimal Quantity, decimal UnitPrice, decimal DiscountPercent, DocumentLineAmounts Amounts)> lines)
+    {
+        var sum = DocumentLineAmounts.Sum(lines.Select(l => l.Amounts));
+        return new JournalEntrySourceDocumentResponse(
+            source.Kind, source.Id, number, date, partnerId, partnerName, notes,
+            lines.Select(l => new JournalEntrySourceLineResponse(
+                l.Line, l.Quantity, l.UnitPrice, l.DiscountPercent, l.Amounts.NetAmount, l.Amounts.TaxAmount, l.Amounts.GrossAmount)).ToList(),
+            sum.NetAmount, sum.TaxAmount, sum.GrossAmount);
     }
 
     // B11: any journal entry, exported for the paper record — account code/name and partner name

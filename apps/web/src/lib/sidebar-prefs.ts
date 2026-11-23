@@ -11,6 +11,8 @@ export interface SidebarPrefs {
   /** Item ids (paths) starred into Favourites, in display order. Excludes the fixed create actions. */
   favourites: string[];
   categories: Record<string, CategoryPrefs>;
+  /** Category ids the user folded away; the section header stays so it can be opened again. */
+  collapsed?: string[];
 }
 
 function storageKey(userId: string, scope: string): string {
@@ -27,7 +29,7 @@ export function emptyPrefs(source: NavCategory[] = navCategories): SidebarPrefs 
   for (const category of source) {
     categories[category.id] = defaultCategoryPrefs(category);
   }
-  return { favourites: [], categories };
+  return { favourites: [], categories, collapsed: [] };
 }
 
 /** Reconciles stored prefs against the current nav.ts — new items appear (visible) at the end,
@@ -48,7 +50,11 @@ function reconcile(prefs: SidebarPrefs, source: NavCategory[]): SidebarPrefs {
   for (const category of source) {
     categories[category.id] = reconcileCategory(category, prefs.categories[category.id]);
   }
-  return { favourites: prefs.favourites.filter((id) => allIds.has(id)), categories };
+  return {
+    favourites: prefs.favourites.filter((id) => allIds.has(id)),
+    categories,
+    collapsed: (prefs.collapsed ?? []).filter((id) => categories[id]),
+  };
 }
 
 export function loadSidebarPrefs(userId: string, source: NavCategory[] = navCategories, scope = ""): SidebarPrefs {
@@ -60,6 +66,7 @@ export function loadSidebarPrefs(userId: string, source: NavCategory[] = navCate
     return reconcile({
       favourites: Array.isArray(parsed.favourites) ? parsed.favourites : base.favourites,
       categories: parsed.categories && typeof parsed.categories === "object" ? { ...base.categories, ...parsed.categories } : base.categories,
+      collapsed: Array.isArray(parsed.collapsed) ? parsed.collapsed : [],
     }, source);
   } catch {
     return emptyPrefs(source);

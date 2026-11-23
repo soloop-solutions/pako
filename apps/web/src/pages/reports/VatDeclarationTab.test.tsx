@@ -43,7 +43,7 @@ describe("VatDeclarationTab", () => {
   it("has a VAT declaration tab that loads the chosen month with no optional credit params", async () => {
     renderReports(URL_);
     expect(await screen.findByText("Taxable sales at 18%")).toBeInTheDocument();
-    expect(m.vatDeclaration).toHaveBeenCalledWith("c1", 2026, 9, undefined, undefined);
+    expect(m.vatDeclaration).toHaveBeenCalledWith("c1", 2026, 9, undefined, undefined, undefined, undefined);
     expect(screen.getByRole("button", { name: "VAT declaration" })).toBeInTheDocument();
   });
 
@@ -94,39 +94,59 @@ describe("VatDeclarationTab", () => {
     const credit = screen.getByLabelText("Credit carried forward [68]");
     fireEvent.change(credit, { target: { value: "500" } });
     fireEvent.blur(credit);
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 500, undefined));
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 500, undefined, undefined, undefined));
     expect(screen.getByTestId("location").textContent).toContain("carriedCredit=500");
     const refund = screen.getByLabelText("Refund requested [70]");
     fireEvent.change(refund, { target: { value: "25.5" } });
     fireEvent.blur(refund);
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 500, 25.5));
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 500, 25.5, undefined, undefined));
     fireEvent.change(credit, { target: { value: "" } });
     fireEvent.blur(credit);
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, undefined, 25.5));
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, undefined, 25.5, undefined, undefined));
   });
 
   it("changes year and month through the URL", async () => {
     renderReports(URL_);
     await screen.findByText("Taxable sales at 18%");
     fireEvent.change(screen.getByLabelText("Month"), { target: { value: "8" } });
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 8, undefined, undefined));
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 8, undefined, undefined, undefined, undefined));
     expect(screen.getByTestId("location").textContent).toContain("month=8");
     fireEvent.change(screen.getByLabelText("Year"), { target: { value: "2025" } });
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2025, 8, undefined, undefined));
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2025, 8, undefined, undefined, undefined, undefined));
   });
 
   it("defaults to the current month", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 9, 31, 12, 0, 0));
     renderReports("/reports?tab=vat-declaration");
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenCalledWith("c1", 2026, 10, undefined, undefined));
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenCalledWith("c1", 2026, 10, undefined, undefined, undefined, undefined));
   });
 
   it("exports through vatDeclarationExport with the same parameters", async () => {
     renderReports(`${URL_}&carriedCredit=1000&refundRequested=5`);
     await screen.findByText("Taxable sales at 18%");
     fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
-    await waitFor(() => expect(m.vatDeclarationExport).toHaveBeenCalledWith("c1", 2026, 9, 1000, 5));
+    await waitFor(() => expect(m.vatDeclarationExport).toHaveBeenCalledWith("c1", 2026, 9, 1000, 5, undefined, undefined));
+  });
+
+  it("passes a partial-month range to the query and the export, and omits it for the full month", async () => {
+    renderReports(`${URL_}&fromDay=5&toDay=20`);
+    await screen.findByText("Taxable sales at 18%");
+    expect(m.vatDeclaration).toHaveBeenCalledWith("c1", 2026, 9, undefined, undefined, "2026-09-05", "2026-09-20");
+    fireEvent.click(screen.getByRole("button", { name: "Export to Excel" }));
+    await waitFor(() => expect(m.vatDeclarationExport).toHaveBeenCalledWith("c1", 2026, 9, undefined, undefined, "2026-09-05", "2026-09-20"));
+    fireEvent.change(screen.getByLabelText("To day"), { target: { value: "30" } });
+    fireEvent.change(screen.getByLabelText("From day"), { target: { value: "1" } });
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, undefined, undefined, undefined, undefined));
+  });
+
+  it("clamps days to the month length and resets them when the month changes", async () => {
+    renderReports("/reports?tab=vat-declaration&year=2026&month=2&fromDay=3&toDay=31");
+    await screen.findByText("Taxable sales at 18%");
+    expect(m.vatDeclaration).toHaveBeenCalledWith("c1", 2026, 2, undefined, undefined, "2026-02-03", "2026-02-28");
+    fireEvent.change(screen.getByLabelText("Month"), { target: { value: "3" } });
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 3, undefined, undefined, undefined, undefined));
+    expect(screen.getByTestId("location").textContent).not.toContain("fromDay");
   });
 
   it("renders section titles and headers in Albanian", async () => {
@@ -166,13 +186,13 @@ describe("VatDeclarationTab", () => {
     await act(async () => {
       vi.advanceTimersByTime(300);
     });
-    expect(m.vatDeclaration).not.toHaveBeenCalledWith("c1", 2026, 9, 50, undefined);
+    expect(m.vatDeclaration).not.toHaveBeenCalledWith("c1", 2026, 9, 50, undefined, undefined, undefined);
     await act(async () => {
       vi.advanceTimersByTime(150);
     });
     vi.useRealTimers();
-    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 50, undefined));
-    expect(m.vatDeclaration).not.toHaveBeenCalledWith("c1", 2026, 9, 5, undefined);
+    await waitFor(() => expect(m.vatDeclaration).toHaveBeenLastCalledWith("c1", 2026, 9, 50, undefined, undefined, undefined));
+    expect(m.vatDeclaration).not.toHaveBeenCalledWith("c1", 2026, 9, 5, undefined, undefined, undefined);
   });
 
   it.each(["13", "0", "abc"])("rejects an invalid month param %s without calling the API", async (bad) => {

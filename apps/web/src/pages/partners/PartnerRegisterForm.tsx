@@ -47,6 +47,7 @@ export interface PartnerRegisterFormProps {
   initial?: PartnerResponse;
   submitting: boolean;
   error: string | null;
+  errorOnTaxNumber?: boolean;
   onSubmit: (fields: PartnerRegisterFormFields) => void;
   onCancel?: () => void;
   /** Pre-select a role when creating from the Customers or Vendors page. */
@@ -70,7 +71,7 @@ function hasAny(...values: (string | number | boolean | null | undefined)[]) {
   return values.some((v) => v != null && v !== "" && v !== false);
 }
 
-export function PartnerRegisterForm({ mode, accounts, initial, submitting, error, onSubmit, onCancel, defaultRole, role, createButtonLabelKey, onDirtyChange }: PartnerRegisterFormProps) {
+export function PartnerRegisterForm({ mode, accounts, initial, submitting, error, errorOnTaxNumber, onSubmit, onCancel, defaultRole, role, createButtonLabelKey, onDirtyChange }: PartnerRegisterFormProps) {
   const intl = useIntl();
 
   const [entityType, setEntityType] = useState<PartnerEntityType>(inferEntityType(initial));
@@ -145,7 +146,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
 
   return (
     <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-      {error && (
+      {error && !(errorOnTaxNumber && entityType === "company") && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
         </Alert>
@@ -204,8 +205,12 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           {entityType === "company" ? (
             <div className="flex flex-col gap-1">
               <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.nui" })}</Label>
-              <Input id="partner-tax-number" inputMode="numeric" maxLength={64} value={taxNumber} onChange={(e) => setTaxNumber(e.target.value)} />
-              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.nuiHint" })}</p>
+              <Input id="partner-tax-number" inputMode="numeric" maxLength={64} value={taxNumber} aria-invalid={errorOnTaxNumber ? true : undefined} aria-describedby={errorOnTaxNumber ? "partner-tax-number-error" : undefined} onChange={(e) => setTaxNumber(e.target.value)} />
+              {errorOnTaxNumber && error ? (
+                <p id="partner-tax-number-error" role="alert" className="text-xs text-destructive">{error}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.nuiHint" })}</p>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-1">

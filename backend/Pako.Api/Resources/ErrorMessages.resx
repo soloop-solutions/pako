@@ -124,6 +124,8 @@
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Fiscal number must be 64 characters or fewer.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>The selected control account does not belong to this company.</value></data>
   <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>A partner with this NUI already exists in this company.</value></data>
+  <data name="PartnerTaxNumberAlreadyRegisteredTo" xml:space="preserve"><value>The NUIS {0} is already registered in this company, on partner "{1}". Open that partner instead of creating a duplicate.</value></data>
+  <data name="PartnerTaxNumberAlreadyRegistered" xml:space="preserve"><value>The NUIS {0} is already registered in this company on another partner.</value></data>
   <data name="PartnerEmailInvalid" xml:space="preserve"><value>The partner email address is not valid.</value></data>
   <data name="PartnerContactFieldTooLong" xml:space="preserve"><value>A partner contact or address field is too long.</value></data>
 
@@ -916,6 +918,7 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="Export_VatDecl_Section_Calculation" xml:space="preserve"><value>Calculation</value></data>
   <data name="Export_Sheet_VatDeclaration" xml:space="preserve"><value>VAT Declaration</value></data>
   <data name="VatDeclarationPeriodInvalid" xml:space="preserve"><value>The month must be between 1 and 12 and the year between 2000 and 2100.</value></data>
+  <data name="VatDeclarationDayRangeInvalid" xml:space="preserve"><value>The day range must fall inside the selected month and start on or before its end.</value></data>
   <data name="VatDeclarationCarriedCreditInvalid" xml:space="preserve"><value>The carried credit cannot be negative.</value></data>
   <data name="VatDeclarationRefundInvalid" xml:space="preserve"><value>The refund request must be between 0 and the remaining credit balance.</value></data>
   <data name="VatDeclarationRefundExceedsCredit" xml:space="preserve"><value>The refund requested cannot exceed the remaining credit ([69]).</value></data>

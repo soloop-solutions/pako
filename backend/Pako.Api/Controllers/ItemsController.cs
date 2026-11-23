@@ -354,7 +354,7 @@ public class ItemsController : ControllerBase
 
     // ---- Stock import ----
 
-    [HttpGet("import/template")]
+    [HttpGet("import/template", Name = "ItemsImportTemplate")]
     [RequireCompanyAccess]
     [ProducesXlsx]
     public IActionResult ImportTemplate([FromQuery] bool filled = false)
@@ -366,7 +366,7 @@ public class ItemsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, fileName);
     }
 
-    [HttpPost("import/preview")]
+    [HttpPost("import/preview", Name = "ItemsImportPreview")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     public async Task<ActionResult<StockImportPreviewResponse>> ImportPreview(Guid companyId,
         IFormFile file,
@@ -394,7 +394,7 @@ public class ItemsController : ControllerBase
         }
     }
 
-    [HttpPost("import/confirm")]
+    [HttpPost("import/confirm", Name = "ItemsImportConfirm")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Items)]
     public async Task<ActionResult<StockImportConfirmResponse>> ImportConfirm(Guid companyId,
         IFormFile file,

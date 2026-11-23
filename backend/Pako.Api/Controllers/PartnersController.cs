@@ -244,12 +244,19 @@ public class PartnersController : ControllerBase
         if (!string.IsNullOrWhiteSpace(taxNumber))
         {
             var normalizedTaxNumber = taxNumber.Trim();
-            var duplicateExists = await _db.Partners.AsNoTracking()
-                .AnyAsync(p => p.CompanyId == companyId
-                            && p.TaxNumber == normalizedTaxNumber
-                            && (excludePartnerId == null || p.Id != excludePartnerId));
-            if (duplicateExists)
-                return Conflict(_localizer["PartnerTaxNumberAlreadyExists"].Value);
+            var duplicate = await _db.Partners.AsNoTracking()
+                .Where(p => p.CompanyId == companyId
+                         && p.TaxNumber == normalizedTaxNumber
+                         && (excludePartnerId == null || p.Id != excludePartnerId))
+                .Select(p => new { p.Id, p.Name })
+                .FirstOrDefaultAsync();
+            if (duplicate is not null)
+            {
+                var visible = await _db.Partners.AsNoTracking().VisibleTo(_access).AnyAsync(p => p.Id == duplicate.Id);
+                return Conflict(visible
+                    ? string.Format(_localizer["PartnerTaxNumberAlreadyRegisteredTo"].Value, normalizedTaxNumber, duplicate.Name)
+                    : string.Format(_localizer["PartnerTaxNumberAlreadyRegistered"].Value, normalizedTaxNumber));
+            }
         }
 
         if (fiscalNumber is { Length: > 64 })
