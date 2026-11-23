@@ -80,6 +80,7 @@ export function ItemCardPanel({ itemId, linkRows = true }: { itemId: string; lin
             {intl.formatMessage({ id: "stock.card.summary" }, {
               openQty: intl.formatNumber(card.openingQuantity), openValue: formatAmount(card.openingValue),
               closeQty: intl.formatNumber(card.closingQuantity), closeValue: formatAmount(card.closingValue),
+              avgCost: card.closingQuantity ? intl.formatNumber(card.closingValue / card.closingQuantity, { maximumFractionDigits: 4 }) : "—",
             })}
           </p>
         )}

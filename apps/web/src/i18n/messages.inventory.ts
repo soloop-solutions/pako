@@ -167,7 +167,7 @@ export const inventoryEn: Record<string, string> = {
   "stock.card.qtyAfter": "Qty after",
   "stock.card.valueAfter": "Value after",
   "stock.card.empty": "No movements in this period.",
-  "stock.card.summary": "Opening {openQty} ({openValue}) · Closing {closeQty} ({closeValue})",
+  "stock.card.summary": "Opening {openQty} ({openValue}) · Closing {closeQty} ({closeValue}) · Avg cost {avgCost}",
 
   "stock.kind.receipt": "Receipt",
   "stock.kind.issue": "Issue",
@@ -642,7 +642,7 @@ export const inventorySq: Record<string, string> = {
   "stock.card.qtyAfter": "Sasia pas",
   "stock.card.valueAfter": "Vlera pas",
   "stock.card.empty": "Nuk ka lëvizje në këtë periudhë.",
-  "stock.card.summary": "Fillimi {openQty} ({openValue}) · Fundi {closeQty} ({closeValue})",
+  "stock.card.summary": "Fillimi {openQty} ({openValue}) · Fundi {closeQty} ({closeValue}) · Kosto mesatare {avgCost}",
 
   "stock.kind.receipt": "Hyrje",
   "stock.kind.issue": "Dalje",
