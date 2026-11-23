@@ -1989,4 +1989,9 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>Kodi i TVSH-së "{0}" nuk u gjet.</value></data>
   <data name="StockImportNoFile" xml:space="preserve"><value>Asnjë skedar nuk u ngarkua.</value></data>
   <data name="StockImportInvalidFormat" xml:space="preserve"><value>Vetëm skedarë .xlsx pranohen.</value></data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>Pagesa nuk u gjet ose është rakorduar tashmë.</value></data>
+  <data name="PaymentNotOutstanding" xml:space="preserve"><value>Pagesa nuk është në gjendje të hapur.</value></data>
+  <data name="PaymentAlreadyCancelled" xml:space="preserve"><value>Kjo pagesë është anuluar tashmë.</value></data>
+  <data name="BankStmtDirectAccountNotPostable" xml:space="preserve"><value>Kjo llogari nuk mund të përdoret për regjistrime të drejtpërdrejta.</value></data>
+  <data name="BankStmtDirectAccountIsControl" xml:space="preserve"><value>Llogaritë kontrolluese (AK/AP) nuk mund të përdoren. Regjistroni një faturë ose porosi blerje.</value></data>
 </root>

@@ -1989,4 +1989,9 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>VAT code "{0}" not found.</value></data>
   <data name="StockImportNoFile" xml:space="preserve"><value>No file was uploaded.</value></data>
   <data name="StockImportInvalidFormat" xml:space="preserve"><value>Only .xlsx files are accepted.</value></data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>Payment not found or already reconciled.</value></data>
+  <data name="PaymentNotOutstanding" xml:space="preserve"><value>Payment is not in outstanding state.</value></data>
+  <data name="PaymentAlreadyCancelled" xml:space="preserve"><value>This payment has already been cancelled.</value></data>
+  <data name="BankStmtDirectAccountNotPostable" xml:space="preserve"><value>This account cannot be used for direct entries.</value></data>
+  <data name="BankStmtDirectAccountIsControl" xml:space="preserve"><value>Control accounts (AR/AP) cannot be used. Record a bill or invoice instead.</value></data>
 </root>

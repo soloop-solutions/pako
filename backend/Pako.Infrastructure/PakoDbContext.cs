@@ -205,6 +205,9 @@ public class PakoDbContext : IdentityUserContext<AppUser, Guid>
     public DbSet<Pako.Domain.Desktop.DesktopLicenseRecord> DesktopLicenseRecords => Set<Pako.Domain.Desktop.DesktopLicenseRecord>();
     public DbSet<Pako.Infrastructure.Desktop.AdminRecoveryRecord> AdminRecoveryRecords => Set<Pako.Infrastructure.Desktop.AdminRecoveryRecord>();
 
+    // Two-step payments
+    public DbSet<Pako.Domain.Payments.Payment> Payments => Set<Pako.Domain.Payments.Payment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);

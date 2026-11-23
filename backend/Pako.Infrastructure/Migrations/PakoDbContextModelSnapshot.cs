@@ -412,6 +412,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<Guid?>("DirectAccountId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Fingerprint")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -436,6 +439,9 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<Guid?>("PaymentId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("ReconciliationId")
                         .HasColumnType("uuid");
 
@@ -458,6 +464,8 @@ namespace Pako.Infrastructure.Migrations
 
                     b.HasIndex("BillId");
 
+                    b.HasIndex("DirectAccountId");
+
                     b.HasIndex("Fingerprint");
 
                     b.HasIndex("InvoiceId");
@@ -465,6 +473,8 @@ namespace Pako.Infrastructure.Migrations
                     b.HasIndex("JournalEntryId");
 
                     b.HasIndex("PartnerId");
+
+                    b.HasIndex("PaymentId");
 
                     b.HasIndex("ReconciliationId");
 
@@ -994,6 +1004,12 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("NetPayPayableAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OutstandingPaymentsAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OutstandingReceiptsAccountId")
                         .HasColumnType("uuid");
 
                     b.Property<Guid>("PayableAccountId")
@@ -4092,6 +4108,12 @@ namespace Pako.Infrastructure.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<Guid?>("OutstandingPaymentsAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("OutstandingReceiptsAccountId")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("SequenceNextNumber")
                         .HasColumnType("integer");
 
@@ -4376,6 +4398,85 @@ namespace Pako.Infrastructure.Migrations
                     b.HasIndex("State", "NextAttemptAt");
 
                     b.ToTable("notifications", (string)null);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Payments.Payment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("Amount")
+                        .HasColumnType("numeric(18,2)");
+
+                    b.Property<Guid?>("BankStatementLineId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("BillId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClearingJournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("CompanyId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("CreatedByUserId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<Guid>("DestinationAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Direction")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.Property<Guid?>("InvoiceId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("JournalEntryId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("OutstandingAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("PartnerId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BillId")
+                        .HasFilter("\"BillId\" IS NOT NULL");
+
+                    b.HasIndex("ClearingJournalEntryId");
+
+                    b.HasIndex("InvoiceId")
+                        .HasFilter("\"InvoiceId\" IS NOT NULL");
+
+                    b.HasIndex("JournalEntryId");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("CompanyId", "State");
+
+                    b.ToTable("payments", (string)null);
                 });
 
             modelBuilder.Entity("Pako.Domain.Payroll.CommissionPlan", b =>
@@ -9178,6 +9279,11 @@ namespace Pako.Infrastructure.Migrations
                         .HasForeignKey("BillId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("Pako.Domain.Ledger.Account", null)
+                        .WithMany()
+                        .HasForeignKey("DirectAccountId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Pako.Domain.Invoicing.Invoice", null)
                         .WithMany()
                         .HasForeignKey("InvoiceId")
@@ -9192,6 +9298,11 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("PartnerId")
                         .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Pako.Domain.Payments.Payment", null)
+                        .WithMany()
+                        .HasForeignKey("PaymentId")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("Pako.Domain.Reconciliation.Reconciliation", null)
                         .WithMany()
@@ -10079,6 +10190,42 @@ namespace Pako.Infrastructure.Migrations
                         .WithMany()
                         .HasForeignKey("CompanyId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("Pako.Domain.Payments.Payment", b =>
+                {
+                    b.HasOne("Pako.Domain.Bills.Bill", null)
+                        .WithMany()
+                        .HasForeignKey("BillId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Ledger.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("ClearingJournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Companies.Company", null)
+                        .WithMany()
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Invoicing.Invoice", null)
+                        .WithMany()
+                        .HasForeignKey("InvoiceId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Pako.Domain.Ledger.JournalEntry", null)
+                        .WithMany()
+                        .HasForeignKey("JournalEntryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Pako.Domain.Companies.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("Pako.Domain.Payroll.EmployeeLoan", b =>

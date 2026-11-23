@@ -2,6 +2,8 @@ code,name_sq,name_en,class,group,statement,normal_balance,subledger,default_vat_
 100100,Arka kryesore,Main Cash,1,10,BS,D,CASH,NA,NA,CORE,CHG,VAT was EXEMPT -> NA
 100200,Arka valutore,Foreign Currency Cash,1,10,BS,D,CASH,NA,NA,CORE,CHG,Multi-currency; revalue at period end
 100300,Para në rrugë,Cash in Transit,1,10,BS,D,CASH,NA,NA,CORE,KEEP,
+100400,Pagesa bankare në pritje,Outstanding Bank Payments,1,10,BS,D,-,NA,NA,CORE,NEW,Payments registered but not yet on the bank statement; must be zero once reconciled
+100500,Arkëtime bankare në pritje,Outstanding Bank Receipts,1,10,BS,D,-,NA,NA,CORE,NEW,Receipts registered but not yet on the bank statement; must be zero once reconciled
 100900,Diferenca në arkë,Cash Over / Short,1,10,BS,D,-,NA,NON,CORE,NEW,Shortages generally non-deductible
 101001,Banka Raiffeisen,Raiffeisen Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,
 101002,Banka TEB,TEB Bank,1,10,BS,D,BANK,NA,NA,CORE,CHG,

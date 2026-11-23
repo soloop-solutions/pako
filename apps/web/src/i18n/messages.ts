@@ -33,6 +33,7 @@ export const en: Record<string, string> = {
   "nav.salesReturns": "Sales returns",
   "nav.purchaseReturns": "Purchase returns",
   "nav.proforma": "Proforma",
+  "nav.payments": "Payments",
   "nav.reconciliation": "Reconciliation",
   "nav.payroll": "Payroll",
   "nav.reports": "Reports",
@@ -53,6 +54,7 @@ export const en: Record<string, string> = {
   "nav.salesReturns.description": "Goods or services returned by a customer.",
   "nav.purchaseReturns.description": "Goods or services returned to a vendor.",
   "nav.proforma.description": "Offers that are not yet legal invoices.",
+  "nav.payments.description": "Outstanding and reconciled payments.",
   "nav.reconciliation.description": "Match payments against invoices and bills.",
   "nav.payroll.description": "Employees and payroll runs.",
   "nav.reports.description": "Balance sheet, P&L, and VAT return.",
@@ -988,6 +990,7 @@ export const en: Record<string, string> = {
   "overrideNumber.success": "Number overridden to {number}.",
 
   "recordPayment.amount": "Amount",
+  "recordPayment.date": "Date",
   "recordPayment.cashBankAccount": "Cash / bank account",
   "recordPayment.noCashBankAccount": "No cash/bank account seeded",
   "recordPayment.recordPayment": "Record payment",
@@ -1807,6 +1810,27 @@ export const en: Record<string, string> = {
   "payment.refundSupplier": "Receive supplier refund",
   "payment.refundSupplierDescription": "Record a refund received from the supplier for this return/credit note.",
 
+  // Payment status (two-step payments)
+  "payment.inPayment": "In Payment",
+  "payment.awaitingBankRec": "Awaiting bank reconciliation",
+
+  // Payments page
+  "payments.title": "Payments",
+  "payments.outstanding": "Outstanding",
+  "payments.reconciled": "Reconciled",
+  "payments.cancelled": "Cancelled",
+  "payments.all": "All",
+  "payments.direction.inbound": "Receipt",
+  "payments.direction.outbound": "Payment",
+  "payments.cancel": "Cancel Payment",
+  "payments.cancelConfirm": "Cancel this payment? The journal entry will be reversed.",
+  "payments.empty": "No payments recorded yet.",
+
+  // Bank statement direct entry
+  "bankStatement.createEntry": "Create Entry",
+  "bankStatement.assignAccount": "Assign account",
+  "bankStatement.matchedPayment": "Matched to outstanding payment",
+
   // Global search (Item 33)
   "search.placeholder": "Search invoices, partners, accounts...",
   "search.noResults": "No results found.",
@@ -2051,6 +2075,7 @@ export const sq: Record<string, string> = {
   "nav.salesReturns": "Kthimet e shitjes",
   "nav.purchaseReturns": "Kthimet e blerjes",
   "nav.proforma": "Proforma",
+  "nav.payments": "Pagesat",
   "nav.reconciliation": "Rakordimi",
   "nav.payroll": "List\u00ebpagesa",
   "nav.reports": "Raportet",
@@ -2071,6 +2096,7 @@ export const sq: Record<string, string> = {
   "nav.salesReturns.description": "Mallra ose sh\u00ebrbime t\u00eb kthyera nga nj\u00eb klient.",
   "nav.purchaseReturns.description": "Mallra ose sh\u00ebrbime t\u00eb kthyera te nj\u00eb furnitor.",
   "nav.proforma.description": "Oferta q\u00eb ende nuk jan\u00eb fatura ligjore.",
+  "nav.payments.description": "Pagesat n\u00eb pritje dhe t\u00eb rakorduar.",
   "nav.reconciliation.description": "Rakordimi i pagesave me faturat.",
   "nav.payroll.description": "Punonj\u00ebsit dhe list\u00ebpagesat.",
   "nav.reports.description": "Bilanci, fitimi dhe humbja, dhe deklarata e TVSH-s\u00eb.",
@@ -3006,6 +3032,7 @@ export const sq: Record<string, string> = {
   "overrideNumber.success": "Numri u anashkalua n\u00eb {number}.",
 
   "recordPayment.amount": "Shuma",
+  "recordPayment.date": "Data",
   "recordPayment.cashBankAccount": "Llogaria e ark\u00ebs / bank\u00ebs",
   "recordPayment.noCashBankAccount": "Nuk ka llogari ark\u00eb/bank\u00eb t\u00eb konfiguruar",
   "recordPayment.recordPayment": "Regjistro pages\u00ebn",
@@ -3824,6 +3851,27 @@ export const sq: Record<string, string> = {
   "payment.refund": "Lësho kthimin",
   "payment.refundSupplier": "Merr kthimin nga furnizuesi",
   "payment.refundSupplierDescription": "Regjistro kthimin e parave nga furnizuesi p\u00ebr k\u00ebt\u00eb kthim/not\u00eb kreditore.",
+
+  // Payment status (two-step payments)
+  "payment.inPayment": "N\u00eb Pages\u00eb",
+  "payment.awaitingBankRec": "N\u00eb pritje t\u00eb rakordimit bankar",
+
+  // Payments page
+  "payments.title": "Pagesat",
+  "payments.outstanding": "N\u00eb pritje",
+  "payments.reconciled": "T\u00eb rakorduar",
+  "payments.cancelled": "T\u00eb anuluara",
+  "payments.all": "T\u00eb gjitha",
+  "payments.direction.inbound": "Ark\u00ebtim",
+  "payments.direction.outbound": "Pages\u00eb",
+  "payments.cancel": "Anulo pages\u00ebn",
+  "payments.cancelConfirm": "Anulo k\u00ebt\u00eb pages\u00eb? Urdhëresa do t\u00eb kthehet.",
+  "payments.empty": "Asgj\u00eb pages\u00eb e regjistruar ende.",
+
+  // Bank statement direct entry
+  "bankStatement.createEntry": "Krijo regjistrim",
+  "bankStatement.assignAccount": "Cakto llogarinë",
+  "bankStatement.matchedPayment": "I p\u00ebrputhur me pages\u00ebn n\u00eb pritje",
 
   // Global search (Item 33)
   "search.placeholder": "K\u00ebrko fatura, partner\u00eb, llogari...",
