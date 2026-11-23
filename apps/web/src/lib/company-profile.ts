@@ -28,16 +28,18 @@ export interface CompanyProfileValues {
   paymentInstructions: string;
 }
 
+// ARBK official legal forms — https://arbk.rks-gov.net/Page/32
 export const LEGAL_FORM_OPTIONS = [
-  { value: 0, labelKey: "companyProfile.legalForm.individual" },
+  { value: 0, labelKey: "companyProfile.legalForm.biznesiIndividual" },
+  { value: 3, labelKey: "companyProfile.legalForm.ortakeriPergjithshme" },
+  { value: 4, labelKey: "companyProfile.legalForm.ortakeriKufizuar" },
   { value: 1, labelKey: "companyProfile.legalForm.shpk" },
   { value: 2, labelKey: "companyProfile.legalForm.sha" },
-  { value: 3, labelKey: "companyProfile.legalForm.shk" },
-  { value: 4, labelKey: "companyProfile.legalForm.shkKomandite" },
-  { value: 5, labelKey: "companyProfile.legalForm.oe" },
-  { value: 6, labelKey: "companyProfile.legalForm.ngo" },
-  { value: 7, labelKey: "companyProfile.legalForm.publicEntity" },
-  { value: 99, labelKey: "companyProfile.legalForm.other" },
+  { value: 5, labelKey: "companyProfile.legalForm.shoqeriaHuajTregtare" },
+  { value: 6, labelKey: "companyProfile.legalForm.zyraPerfaqesise" },
+  { value: 8, labelKey: "companyProfile.legalForm.ndermarrjeShoqerore" },
+  { value: 7, labelKey: "companyProfile.legalForm.ndermarrjePublike" },
+  { value: 9, labelKey: "companyProfile.legalForm.kooperativaBujqesore" },
 ] as const;
 
 export function emptyProfileValues(): CompanyProfileValues {
