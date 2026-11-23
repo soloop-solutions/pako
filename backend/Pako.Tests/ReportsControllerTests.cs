@@ -207,6 +207,20 @@ public class ReportsControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task VatReturnMonths_ListsEachMonthWithPostedEntries_NewestFirst()
+    {
+        var (db, companyId) = await SeedMixedScenario();
+        var controller = new ReportsController(db, new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), new LedgerAggregator(db), new ExportLabels(new NullStringLocalizer<ErrorMessages>()));
+
+        var result = await controller.VatReturnMonths(companyId);
+
+        var months = Assert.IsType<List<ReportMonthResponse>>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.NotEmpty(months);
+        Assert.Equal(months.OrderByDescending(m => m.Year).ThenByDescending(m => m.Month).ToList(), months);
+        Assert.Equal(months.Count, months.Distinct().Count());
+    }
+
+    [Fact]
     public async Task VatReturn_SeparatesOutputAndInputAndComputesNetDue()
     {
         var (db, companyId) = await SeedMixedScenario();

@@ -1992,4 +1992,10 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>VAT code "{0}" not found.</value></data>
   <data name="StockImportNoFile" xml:space="preserve"><value>No file was uploaded.</value></data>
   <data name="StockImportInvalidFormat" xml:space="preserve"><value>Only .xlsx files are accepted.</value></data>
+  <data name="CompanyBusinessNumberAlreadyRegistered" xml:space="preserve">
+    <value>This business number ({0}) is already registered to another company on PAKO. A company cannot be registered twice; contact the firm or administrator that manages it.</value>
+  </data>
+  <data name="CompanyFiscalNumberAlreadyRegistered" xml:space="preserve">
+    <value>This fiscal number ({0}) is already registered to another company on PAKO. A company cannot be registered twice; contact the firm or administrator that manages it.</value>
+  </data>
 </root>

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Localization;
+using Npgsql;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
@@ -63,6 +64,17 @@ public class CompaniesController : ControllerBase
             }
         }
 
+        var newBusinessNumber = string.IsNullOrWhiteSpace(request.BusinessNumber) ? null : request.BusinessNumber.Trim();
+        var newFiscalNumber = string.IsNullOrWhiteSpace(request.FiscalNumber) ? null : request.FiscalNumber.Trim();
+        if (newBusinessNumber is not null && !Regex.IsMatch(newBusinessNumber, @"^\d+$"))
+            return BadRequest(_localizer["CompanyBusinessNumberInvalid"].Value);
+        if (newFiscalNumber is not null && !Regex.IsMatch(newFiscalNumber, @"^\d+$"))
+            return BadRequest(_localizer["CompanyFiscalNumberInvalid"].Value);
+        if (newBusinessNumber is not null && await _db.Companies.AsNoTracking().AnyAsync(c => c.BusinessNumber == newBusinessNumber))
+            return BadRequest(string.Format(_localizer["CompanyBusinessNumberAlreadyRegistered"].Value, newBusinessNumber));
+        if (newFiscalNumber is not null && await _db.Companies.AsNoTracking().AnyAsync(c => c.FiscalNumber == newFiscalNumber))
+            return BadRequest(string.Format(_localizer["CompanyFiscalNumberAlreadyRegistered"].Value, newFiscalNumber));
+
         // docs/PLATFORM_ADMIN.md: each accountant may create only as many companies as a platform
         // administrator allows (null = no limit). Archived companies still count.
         // The count and the insert share one transaction holding a per-user lock, so parallel requests
@@ -90,6 +102,8 @@ public class CompaniesController : ControllerBase
             EnabledFeatures = BusinessTypes.Features(request.BusinessType ?? BusinessType.General),
             EnabledModules = BusinessTypes.Modules(request.BusinessType ?? BusinessType.General),
             Country = "Kosovo",
+            BusinessNumber = newBusinessNumber,
+            FiscalNumber = newFiscalNumber,
             CreatedByUserId = CurrentUserId
         };
         _db.Companies.Add(company);
@@ -229,7 +243,14 @@ public class CompaniesController : ControllerBase
             _db.Memberships.Add(Membership.ForCompany(CurrentUserId, company.Id, MembershipRole.ClientAdmin));
         }
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (CompanyNumberClash(ex, newBusinessNumber, newFiscalNumber) is { } clash)
+        {
+            return BadRequest(clash);
+        }
         if (transaction is not null) await transaction.CommitAsync();
 
         return StatusCode(StatusCodes.Status201Created, ToResponse(company));
@@ -302,6 +323,13 @@ public class CompaniesController : ControllerBase
         if (request.Iban is { Length: > 0 } iban && !Regex.IsMatch(iban.Replace(" ", "").ToUpperInvariant(), @"^[A-Z]{2}\d{2}[\dA-Z]{4,}$"))
             return BadRequest(_localizer["CompanyIbanInvalid"].Value);
 
+        if (request.BusinessNumber is { Length: > 0 } newBn && newBn != company.BusinessNumber
+            && await _db.Companies.AsNoTracking().AnyAsync(c => c.Id != companyId && c.BusinessNumber == newBn))
+            return BadRequest(string.Format(_localizer["CompanyBusinessNumberAlreadyRegistered"].Value, newBn));
+        if (request.FiscalNumber is { Length: > 0 } newFn && newFn != company.FiscalNumber
+            && await _db.Companies.AsNoTracking().AnyAsync(c => c.Id != companyId && c.FiscalNumber == newFn))
+            return BadRequest(string.Format(_localizer["CompanyFiscalNumberAlreadyRegistered"].Value, newFn));
+
         if (request.BusinessNumber is not null) company.BusinessNumber = request.BusinessNumber == "" ? null : request.BusinessNumber;
         if (request.FiscalNumber is not null) company.FiscalNumber = request.FiscalNumber == "" ? null : request.FiscalNumber;
         if (request.VatNumber is not null) company.VatNumber = request.VatNumber == "" ? null : request.VatNumber;
@@ -335,7 +363,14 @@ public class CompaniesController : ControllerBase
         if (request.IsVatRegistered is not null) company.IsVatRegistered = request.IsVatRegistered.Value;
         if (request.VatRegistrationDate is not null) company.VatRegistrationDate = request.VatRegistrationDate;
 
-        await _db.SaveChangesAsync();
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (CompanyNumberClash(ex, request.BusinessNumber, request.FiscalNumber) is { } clash)
+        {
+            return BadRequest(clash);
+        }
         return Ok(ToResponse(company));
     }
 
@@ -610,6 +645,16 @@ public class CompaniesController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok(ToResponse(company));
     }
+
+    private string? CompanyNumberClash(DbUpdateException ex, string? businessNumber, string? fiscalNumber) =>
+        ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } pg
+            ? pg.ConstraintName switch
+            {
+                "IX_companies_BusinessNumber" => string.Format(_localizer["CompanyBusinessNumberAlreadyRegistered"].Value, businessNumber),
+                "IX_companies_FiscalNumber" => string.Format(_localizer["CompanyFiscalNumberAlreadyRegistered"].Value, fiscalNumber),
+                _ => null
+            }
+            : null;
 
     private static CompanyResponse ToResponse(Company c) =>
         new(c.Id, c.Name, c.FirmId, c.AccountingLockDate, c.TaxLockDate, c.EnabledProfiles, c.IsVatRegistered, c.AllowNumberOverride,

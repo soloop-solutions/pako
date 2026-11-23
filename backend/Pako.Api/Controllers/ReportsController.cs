@@ -164,6 +164,24 @@ public class ReportsController : ControllerBase
         return File(bytes, ExcelExportService.XlsxContentType, $"balance-sheet-{asOf:yyyyMMdd}.xlsx");
     }
 
+    [HttpGet("vat-return/months", Name = "VatReturnMonths")]
+    [RequireCompanyAccess(module: AccessModule.Reports)]
+    public async Task<ActionResult<List<ReportMonthResponse>>> VatReturnMonths(Guid companyId)
+    {
+        if (_access.IsPartnerRestricted)
+        {
+            return ReportNotAvailableForScopedUser();
+        }
+
+        var months = await _db.JournalEntries.AsNoTracking()
+            .Where(e => e.CompanyId == companyId && e.State != JournalEntryState.Draft)
+            .Select(e => new { e.Date.Year, e.Date.Month })
+            .Distinct()
+            .OrderByDescending(m => m.Year).ThenByDescending(m => m.Month)
+            .ToListAsync();
+        return Ok(months.Select(m => new ReportMonthResponse(m.Year, m.Month)).ToList());
+    }
+
     [HttpGet("vat-return")]
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<VatReturnResponse>> VatReturn(

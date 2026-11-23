@@ -23,6 +23,8 @@ public class CompanyConfiguration : IEntityTypeConfiguration<Company>
         builder.Property(c => c.TradingName).HasMaxLength(256);
         builder.Property(c => c.BusinessNumber).HasMaxLength(50);
         builder.Property(c => c.FiscalNumber).HasMaxLength(50);
+        builder.HasIndex(c => c.BusinessNumber).IsUnique().HasFilter("\"BusinessNumber\" IS NOT NULL");
+        builder.HasIndex(c => c.FiscalNumber).IsUnique().HasFilter("\"FiscalNumber\" IS NOT NULL");
         builder.Property(c => c.VatNumber).HasMaxLength(50);
         builder.Property(c => c.BusinessActivity).HasMaxLength(256);
         builder.Property(c => c.Description).HasMaxLength(2000);

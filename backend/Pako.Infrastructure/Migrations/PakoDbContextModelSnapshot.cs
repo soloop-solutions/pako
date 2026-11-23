@@ -961,7 +961,15 @@ namespace Pako.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BusinessNumber")
+                        .IsUnique()
+                        .HasFilter("\"BusinessNumber\" IS NOT NULL");
+
                     b.HasIndex("FirmId");
+
+                    b.HasIndex("FiscalNumber")
+                        .IsUnique()
+                        .HasFilter("\"FiscalNumber\" IS NOT NULL");
 
                     b.ToTable("companies", (string)null);
                 });
