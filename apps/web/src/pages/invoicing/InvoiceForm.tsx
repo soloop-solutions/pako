@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
@@ -803,7 +804,7 @@ export function InvoiceForm({
       )}
 
       <FormField label={intl.formatMessage({ id: "invoiceForm.internalNotes" })} htmlFor="invoice-internal-notes">
-        <Input id="invoice-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+        <Textarea id="invoice-internal-notes" rows={3} value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
       </FormField>
 
       {creditExposure && creditExposure.creditLimit != null && (() => {

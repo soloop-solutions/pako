@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Menu, X } from "lucide-react";
+import { Building2, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -62,6 +62,23 @@ function AppShell() {
   const { tabs } = useTabs();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarHidden, setSidebarHidden] = useState(() => {
+    try {
+      return localStorage.getItem("pako.sidebarHidden") === "true";
+    } catch {
+      return false;
+    }
+  });
+  function toggleSidebarHidden() {
+    setSidebarHidden((prev) => {
+      try {
+        localStorage.setItem("pako.sidebarHidden", String(!prev));
+      } catch {
+        return !prev;
+      }
+      return !prev;
+    });
+  }
   const hasDirtyTabs = tabs.some((t) => t.dirty);
 
   // Close mobile sidebar on navigation
@@ -97,7 +114,7 @@ function AppShell() {
           document instead — dragging the sidebar and top bar along with it. */}
       <div className="flex h-screen overflow-hidden">
         {/* Desktop sidebar — always visible on lg+ */}
-        <div className="hidden lg:flex">
+        <div className={sidebarHidden ? "hidden" : "hidden lg:flex"}>
           <Sidebar />
         </div>
 
@@ -130,6 +147,15 @@ function AppShell() {
                 aria-label={intl.formatMessage({ id: "sidebar.openMenu" })}
               >
                 <Menu className="size-5" />
+              </button>
+              <button
+                type="button"
+                className="hidden rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground lg:inline-flex"
+                onClick={toggleSidebarHidden}
+                aria-label={intl.formatMessage({ id: sidebarHidden ? "sidebar.showSidebar" : "sidebar.hideSidebar" })}
+                title={intl.formatMessage({ id: sidebarHidden ? "sidebar.showSidebar" : "sidebar.hideSidebar" })}
+              >
+                {sidebarHidden ? <PanelLeftOpen className="size-5" /> : <PanelLeftClose className="size-5" />}
               </button>
               <div className="flex items-center gap-2 lg:hidden">
                 <BrandMark className="size-5 text-primary" />

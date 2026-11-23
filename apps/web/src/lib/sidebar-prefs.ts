@@ -116,3 +116,23 @@ export function getTopNavPaths(userId: string, limit: number): string[] {
     return [];
   }
 }
+
+const focusKey = (userId: string) => `pako.sidebarFocus.${userId}`;
+
+export function loadSidebarFocus(userId: string | null): boolean {
+  if (!userId) return false;
+  try {
+    return localStorage.getItem(focusKey(userId)) === "true";
+  } catch {
+    return false;
+  }
+}
+
+export function saveSidebarFocus(userId: string | null, focus: boolean): void {
+  if (!userId) return;
+  try {
+    localStorage.setItem(focusKey(userId), String(focus));
+  } catch {
+    // Storage unavailable — the choice just won't persist across reloads.
+  }
+}

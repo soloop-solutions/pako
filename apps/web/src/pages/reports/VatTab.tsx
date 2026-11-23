@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { AccountingTooltip } from "@/components/shared/AccountingTooltip";
 import { ExportButton, LockNotice } from "./shared";
@@ -18,7 +19,7 @@ import { formatReportAmount } from "@/lib/amount";
 export function VatTab({ report, companyName, taxLockDate }: { report: ReturnType<typeof useVatReport>; companyName: string; taxLockDate: string | undefined }) {
   const intl = useIntl();
   const printRef = useRef<HTMLDivElement>(null);
-  const { vatFrom, setVatFrom, vatTo, setVatTo, vatReturn, vatPeriod, vatError, vatLoading, loadVatReturn, exporter } = report;
+  const { vatFrom, setVatFrom, vatTo, setVatTo, vatReturn, vatPeriod, vatError, vatLoading, loadVatReturn, exporter, monthOptions, selectedMonth, selectMonth } = report;
 
   const vatLocked = !!vatPeriod && isOnOrBeforeLock(vatPeriod.to, taxLockDate);
 
@@ -30,6 +31,20 @@ export function VatTab({ report, companyName, taxLockDate }: { report: ReturnTyp
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
+          <div className="flex min-w-48 flex-col gap-2">
+            <Label htmlFor="vat-month">{intl.formatMessage({ id: "reports.vatMonth" })}</Label>
+            <Select
+              id="vat-month"
+              value={selectedMonth}
+              onValueChange={selectMonth}
+              placeholder={intl.formatMessage({ id: monthOptions.length ? "reports.vatMonthPlaceholder" : "reports.vatMonthNone" })}
+              disabled={monthOptions.length === 0}
+              options={monthOptions.map((value) => {
+                const [year, month] = value.split("-").map(Number);
+                return { value, label: intl.formatDate(new Date(year, month - 1, 1), { month: "long", year: "numeric" }) };
+              })}
+            />
+          </div>
           <div className="flex flex-col gap-2">
             <Label htmlFor="vat-from">{intl.formatMessage({ id: "reports.from" })}</Label>
             <Input id="vat-from" type="date" value={vatFrom} onChange={(event) => setVatFrom(event.target.value)} />
