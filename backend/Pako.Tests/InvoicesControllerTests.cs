@@ -844,7 +844,7 @@ public class InvoicesControllerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_PostedInvoice_Rejected()
+    public async Task Update_PostedInvoice_ReversesOldEntryAndRepostsWithNewData()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
         var controller = NewController(db);
@@ -852,14 +852,20 @@ public class InvoicesControllerTests : IAsyncLifetime
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
         await controller.Post(companyId, invoice.Id);
+        var originalEntryId = (await db.Invoices.AsNoTracking().SingleAsync(i => i.Id == invoice.Id)).JournalEntryId;
+        var entriesBefore = await db.JournalEntries.CountAsync();
 
         var result = await controller.Update(companyId, invoice.Id, new UpdateInvoiceRequest(
             partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
-            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 100m, null, null) },
+            new List<CreateInvoiceLineRequest> { new("Consulting", 1m, 250m, null, null) },
             DocumentType.Invoice, null, null));
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("due date and internal notes", badRequest.Value!.ToString());
+        var updated = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Posted", updated.State);
+        Assert.Equal(new DateOnly(2026, 12, 1), updated.DueDate);
+        Assert.NotNull(updated.JournalEntryId);
+        Assert.NotEqual(originalEntryId, updated.JournalEntryId);
+        Assert.Equal(entriesBefore + 2, await db.JournalEntries.CountAsync());
     }
 
     [Fact]
