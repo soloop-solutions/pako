@@ -19,7 +19,7 @@ const modulesSq: Record<string, [string, string]> = {
   hr: ["Burimet njerëzore", "Punonjësit, departamentet, pushimet, orët e punës, shpenzimet dhe vetëshërbimi Unë."],
   payroll: ["Pagat", "Listëpagesat, fletëpagesat, huatë dhe komisionet. Kërkon Burimet njerëzore."],
   inventory: ["Stoku", "Magazinat, gjendja e stokut, stoku fillestar, transferimet, inventarizimet, nxjerrjet jashtë përdorimit dhe raportet e stokut."],
-  pos: ["Pika e shitjes", "Dyqanet, arkat, shitja me kupon fiskal (ATK SEF), turnet e arkës dhe raportet X/Z."],
+  pos: ["Pika e shitjes", "Njësitë, arkat, shitja me kupon fiskal (ATK SEF), turnet e arkës dhe raportet X/Z."],
 };
 const moduleMessages = (m: Record<string, [string, string]>) =>
   Object.fromEntries(Object.entries(m).flatMap(([k, [name, description]]) => [

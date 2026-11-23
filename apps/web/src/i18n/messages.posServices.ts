@@ -310,7 +310,7 @@ export const posServicesSq: Record<string, string> = {
   "svc.nav.repairs.description": "Fletët e riparimit: pranimi, preventivi, statusi gjatë punës dhe marrja në arkë.",
 
   // Shared
-  "svc.allStores": "Të gjitha dyqanet",
+  "svc.allStores": "Të gjitha njësitë",
   "svc.minutes": "{n} min",
   "svc.weekday.0": "E hënë",
   "svc.weekday.1": "E martë",
@@ -357,7 +357,7 @@ export const posServicesSq: Record<string, string> = {
   "svc.phone": "Telefoni",
   "svc.email": "E-mail",
   "svc.notes": "Shënime",
-  "svc.noTill": "Ky dyqan nuk ka arkë për pagesë. Shtoni një arkë në Dyqanet dhe arkat.",
+  "svc.noTill": "Ky dyqan nuk ka arkë për pagesë. Shtoni një arkë në Njësitë dhe arkat.",
 
   // Appointments
   "svc.appt.new": "Takim i ri",
@@ -372,7 +372,7 @@ export const posServicesSq: Record<string, string> = {
   "svc.appt.resource.all": "Të gjitha burimet",
   "svc.appt.resource.pick": "Zgjidhni kush ose ku…",
   "svc.appt.loadError": "Takimet nuk u ngarkuan. Ringarkoni faqen.",
-  "svc.appt.noStore": "Krijoni fillimisht një dyqan (Dyqanet dhe arkat), pastaj burimet e tij.",
+  "svc.appt.noStore": "Krijoni fillimisht një dyqan (Njësitë dhe arkat), pastaj burimet e tij.",
   "svc.appt.noResources": "Ky dyqan nuk ka burime aktive. Shtoni staf, dhoma ose pajisje te Burimet.",
   "svc.appt.bookSlot": "Rezervo {column} në {time}",
   "svc.appt.online": "Rezervuar online",
