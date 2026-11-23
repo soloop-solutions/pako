@@ -44,6 +44,65 @@ public class CompaniesControllerTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task UpdateProfile_RefusesBusinessAndFiscalNumberOfAnotherCompany()
+    {
+        var db = await NewContextAsync();
+        var userId = Guid.NewGuid();
+        var first = new Company { Id = Guid.NewGuid(), Name = "First", BusinessNumber = "811111111", FiscalNumber = "822222222" };
+        var second = new Company { Id = Guid.NewGuid(), Name = "Second" };
+        db.Companies.AddRange(first, second);
+        await db.SaveChangesAsync();
+        var controller = NewController(db, userId);
+
+        var business = await controller.UpdateProfile(second.Id, new UpdateCompanyProfileRequest(BusinessNumber: "811111111"));
+        var fiscal = await controller.UpdateProfile(second.Id, new UpdateCompanyProfileRequest(FiscalNumber: "822222222"));
+        var distinct = await controller.UpdateProfile(second.Id, new UpdateCompanyProfileRequest(BusinessNumber: "833333333"));
+
+        Assert.Contains("811111111", Assert.IsType<BadRequestObjectResult>(business.Result).Value!.ToString());
+        Assert.Contains("822222222", Assert.IsType<BadRequestObjectResult>(fiscal.Result).Value!.ToString());
+        Assert.IsType<OkObjectResult>(distinct.Result);
+        var again = await controller.UpdateProfile(first.Id, new UpdateCompanyProfileRequest(BusinessNumber: "811111111"));
+        Assert.IsType<OkObjectResult>(again.Result);
+    }
+
+    [Fact]
+    public async Task Create_RefusesBusinessNumberOfAnExistingCompany_AndCreatesNothing()
+    {
+        var db = await NewContextAsync();
+        db.Companies.Add(new Company { Id = Guid.NewGuid(), Name = "Existing", BusinessNumber = "811111111", FiscalNumber = "822222222" });
+        await db.SaveChangesAsync();
+        var controller = NewController(db, Guid.NewGuid());
+
+        var business = await controller.Create(new CreateCompanyRequest("Copy", BusinessNumber: "811111111"));
+        var fiscal = await controller.Create(new CreateCompanyRequest("Copy", FiscalNumber: "822222222"));
+
+        Assert.Contains("811111111", Assert.IsType<BadRequestObjectResult>(business.Result).Value!.ToString());
+        Assert.Contains("822222222", Assert.IsType<BadRequestObjectResult>(fiscal.Result).Value!.ToString());
+        Assert.Single(db.Companies);
+
+        var fresh = await controller.Create(new CreateCompanyRequest("Fresh", BusinessNumber: "833333333"));
+        Assert.Equal("833333333", Assert.IsType<CompanyResponse>(Assert.IsType<ObjectResult>(fresh.Result).Value).BusinessNumber);
+    }
+
+    [Fact]
+    public async Task Database_RefusesTwoCompaniesWithTheSameBusinessOrFiscalNumber_ButAllowsManyWithoutOne()
+    {
+        var db = await NewContextAsync();
+        db.Companies.AddRange(
+            new Company { Id = Guid.NewGuid(), Name = "A", BusinessNumber = "811111111", FiscalNumber = "822222222" },
+            new Company { Id = Guid.NewGuid(), Name = "B" },
+            new Company { Id = Guid.NewGuid(), Name = "C" });
+        await db.SaveChangesAsync();
+
+        db.Companies.Add(new Company { Id = Guid.NewGuid(), Name = "Same NRB", BusinessNumber = "811111111" });
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+        db.ChangeTracker.Clear();
+
+        db.Companies.Add(new Company { Id = Guid.NewGuid(), Name = "Same fiscal", FiscalNumber = "822222222" });
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
+
+    [Fact]
     public async Task Create_RejectsNameOver256Characters()
     {
         var db = await NewContextAsync();

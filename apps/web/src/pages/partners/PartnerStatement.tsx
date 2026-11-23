@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCompany } from "@/context/CompanyContext";
+import { entityPath } from "@/lib/entityLinks";
 import { formatAmount } from "@/lib/payroll-enums";
 
 function yearStart(): string {
@@ -133,6 +134,7 @@ export function PartnerStatement() {
             rowCount={lines.length}
             isLoading={statementQuery.isPending}
             getRowId={(row, i) => `${row.date}-${i}`}
+            getRowLink={(row) => entityPath({ kind: row.sourceKind, id: row.sourceId })}
             emptyMessage={intl.formatMessage({ id: "statement.empty" })}
             exportFileName={`statement-${statement?.partnerName ?? "partner"}-${from}-${to}`}
             manualFiltering={false}

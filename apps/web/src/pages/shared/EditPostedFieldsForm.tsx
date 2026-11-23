@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 // A5 (v2 release): the entire editable surface of a Posted invoice/bill — due date and internal
 // notes, nothing else. Deliberately not reusing InvoiceForm/BillForm's big line-editor grid,
@@ -71,7 +72,7 @@ export function EditPostedFieldsForm({
           label={intl.formatMessage({ id: "editPostedFields.internalNotes" })}
           htmlFor="edit-posted-notes"
         >
-          <Input id="edit-posted-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+          <Textarea id="edit-posted-notes" rows={3} value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
         </FormField>
       </div>
       <Button type="submit" className="w-fit" disabled={submitting}>

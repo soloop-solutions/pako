@@ -27989,6 +27989,45 @@ export class PakoApiClient {
     }
 
     /**
+     * @return OK
+     */
+    vatReturnMonths(companyId: string): Promise<ReportMonthResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/reports/vat-return/months";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processVatReturnMonths(_response);
+        });
+    }
+
+    protected processVatReturnMonths(response: Response): Promise<ReportMonthResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ReportMonthResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ReportMonthResponse[]>(null as any);
+    }
+
+    /**
      * @param from (optional) 
      * @param to (optional) 
      * @return OK
@@ -32603,6 +32642,8 @@ export interface CreateCompanyRequest {
     enabledProfiles?: number | undefined;
     isVatRegistered?: boolean | undefined;
     businessType?: number | undefined;
+    businessNumber?: string | undefined;
+    fiscalNumber?: string | undefined;
 
     [key: string]: any;
 }
@@ -35159,6 +35200,8 @@ export interface PartnerStatementLine {
     debit: number;
     credit: number;
     balance: number;
+    sourceKind?: string | undefined;
+    sourceId?: string | undefined;
 
     [key: string]: any;
 }
@@ -36723,6 +36766,13 @@ export interface ReportLine {
     accountCode: string;
     accountName: string;
     amount: number;
+
+    [key: string]: any;
+}
+
+export interface ReportMonthResponse {
+    year: number;
+    month: number;
 
     [key: string]: any;
 }

@@ -3,6 +3,9 @@ import { ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, Search, Star, X }
 import { useIntl } from "react-intl";
 import { Link, useLocation } from "react-router-dom";
 
+import { navSearchTerms } from "@/config/navSearchTerms";
+import { matchesSearch } from "@/lib/searchMatch";
+
 import { bottomNavItems, favouriteActions, navCategories as defaultNavCategories, topNavItems, type NavItem, type NavModule } from "@/config/nav";
 import { applyNavLayout, navLayoutFor, navLayoutScope } from "@/config/navLayout";
 import { useCompany } from "@/context/CompanyContext";
@@ -12,8 +15,10 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import {
   emptyPrefs,
   getTopNavPaths,
+  loadSidebarFocus,
   loadSidebarPrefs,
   recordNavigation,
+  saveSidebarFocus,
   saveSidebarPrefs,
   type CategoryPrefs,
   type SidebarPrefs,
@@ -118,6 +123,11 @@ export function Sidebar() {
 
   const [query, setQuery] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [manuallyOpen, setManuallyOpen] = useState<Record<string, boolean>>({});
+  const [focus, setFocusState] = useState(() => loadSidebarFocus(userId));
+  useEffect(() => {
+    setFocusState(loadSidebarFocus(userId));
+  }, [userId]);
   const [openSavedViewFor, setOpenSavedViewFor] = useState<string | null>(null);
   const [customizeCategoryId, setCustomizeCategoryId] = useState<string | null>(null);
   const [customizeAnchor, setCustomizeAnchor] = useState<DOMRect | null>(null);
@@ -125,6 +135,8 @@ export function Sidebar() {
   function isActive(path: string): boolean {
     return location.pathname === path || location.pathname.startsWith(`${path}/`);
   }
+
+  const activeCategoryId = navCategories.find((c) => c.items.some((i) => isAllowed(i.path) && isActive(i.path)))?.id;
 
   function toggleFavourite(path: string) {
     setPrefs((prev) => {
@@ -146,8 +158,11 @@ export function Sidebar() {
     });
   }
 
-  function setAllCollapsed(collapse: boolean) {
-    setPrefs((prev) => ({ ...prev, collapsed: collapse ? navCategories.map((c) => c.id) : [] }));
+  function setFocus(focus: boolean) {
+    setManuallyOpen({});
+    setFocusState(focus);
+    saveSidebarFocus(userId, focus);
+    setPrefs((prev) => ({ ...prev, collapsed: [] }));
   }
 
   function toggleHidden(categoryId: string, path: string) {
@@ -180,7 +195,16 @@ export function Sidebar() {
 
   const searchQuery = query.trim().toLowerCase();
   const searchResults = searchQuery
-    ? [...allItemsByPath.values()].filter((item) => isAllowed(item.path) && label(item).toLowerCase().includes(searchQuery))
+    ? [...allItemsByPath.values()]
+        .filter((item) => isAllowed(item.path))
+        .map((item) => {
+          if (matchesSearch(searchQuery, label(item))) return { item, rank: 0 };
+          const detail = [intl.formatMessage({ id: item.descriptionKey }), navSearchTerms[item.path]];
+          return matchesSearch(searchQuery, label(item), ...detail) ? { item, rank: 1 } : null;
+        })
+        .filter((match): match is { item: NavItem; rank: number } => match !== null)
+        .sort((a, b) => a.rank - b.rank)
+        .map((match) => match.item)
     : null;
 
   return (
@@ -226,10 +250,10 @@ export function Sidebar() {
           <div className="flex justify-end px-3 py-0.5">
             <button
               type="button"
-              onClick={() => setAllCollapsed((prefs.collapsed ?? []).length < navCategories.length)}
+              onClick={() => setFocus(!focus)}
               className="text-[11px] text-muted-foreground hover:text-foreground"
             >
-              {intl.formatMessage({ id: (prefs.collapsed ?? []).length < navCategories.length ? "sidebar.collapseAll" : "sidebar.expandAll" })}
+              {intl.formatMessage({ id: focus ? "sidebar.expandAll" : "sidebar.collapseAll" })}
             </button>
           </div>
 
@@ -252,7 +276,7 @@ export function Sidebar() {
             const visibleItems = orderedItems.filter((i) => !catPrefs.hidden.includes(i.path));
             const hiddenItems = orderedItems.filter((i) => catPrefs.hidden.includes(i.path));
             const expanded = !!expandedCategories[category.id];
-            const folded = (prefs.collapsed ?? []).includes(category.id);
+            const folded = focus ? category.id !== activeCategoryId && !manuallyOpen[category.id] : (prefs.collapsed ?? []).includes(category.id);
             const shown = folded ? orderedItems.filter((i) => isActive(i.path)) : expanded ? orderedItems : visibleItems;
 
             return (
@@ -263,7 +287,7 @@ export function Sidebar() {
                     type="button"
                     aria-expanded={!folded}
                     aria-label={intl.formatMessage({ id: folded ? "sidebar.expandSection" : "sidebar.collapseSection" }, { category: intl.formatMessage({ id: category.labelKey }) })}
-                    onClick={() => toggleCollapsed(category.id)}
+                    onClick={() => (focus ? setManuallyOpen((prev) => ({ ...prev, [category.id]: !prev[category.id] })) : toggleCollapsed(category.id))}
                     className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
                   >
                     {folded ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}

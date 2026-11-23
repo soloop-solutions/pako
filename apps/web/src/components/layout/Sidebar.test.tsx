@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Sidebar } from "@/components/layout/Sidebar";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
+import { saveSidebarFocus } from "@/lib/sidebar-prefs";
 
 const getMyAccess = vi.fn();
 
@@ -32,9 +33,10 @@ async function expandAll() {
   for (const button of screen.getAllByRole("button", { name: /^Show more/ })) fireEvent.click(button);
 }
 
-function renderSidebar() {
+function renderSidebar(showAll = true) {
+  saveSidebarFocus("user-1", !showAll);
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(
+  const result = render(
     <MemoryRouter>
       <IntlProviderWrapper>
         <QueryClientProvider client={queryClient}>
@@ -43,12 +45,25 @@ function renderSidebar() {
       </IntlProviderWrapper>
     </MemoryRouter>,
   );
+  return result;
 }
 
 describe("Sidebar module access", () => {
   beforeEach(() => {
     getMyAccess.mockReset();
     localStorage.clear();
+  });
+
+  it("folds every section except the one holding the open page until Show all sections is pressed", async () => {
+    getMyAccess.mockResolvedValue({ isStaff: false, canWrite: true, isAdmin: true, partnerRestricted: false, assignedPartnerCount: 0, modules: FULL });
+    renderSidebar(false);
+
+    await waitFor(() => expect(getMyAccess).toHaveBeenCalled());
+    expect(screen.queryByText("Employees")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all sections" }));
+    expect(screen.getByText("Employees")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Collapse sections" })).toBeInTheDocument();
   });
 
   it("shows the HR category for a user with full access", async () => {

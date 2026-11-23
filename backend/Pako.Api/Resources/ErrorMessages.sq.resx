@@ -1992,4 +1992,10 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>Kodi i TVSH-së "{0}" nuk u gjet.</value></data>
   <data name="StockImportNoFile" xml:space="preserve"><value>Asnjë skedar nuk u ngarkua.</value></data>
   <data name="StockImportInvalidFormat" xml:space="preserve"><value>Vetëm skedarë .xlsx pranohen.</value></data>
+  <data name="CompanyBusinessNumberAlreadyRegistered" xml:space="preserve">
+    <value>Ky numër biznesi ({0}) është i regjistruar tashmë te një kompani tjetër në PAKO. Një kompani nuk mund të regjistrohet dy herë; kontaktoni zyrën ose administratorin që e menaxhon.</value>
+  </data>
+  <data name="CompanyFiscalNumberAlreadyRegistered" xml:space="preserve">
+    <value>Ky numër fiskal ({0}) është i regjistruar tashmë te një kompani tjetër në PAKO. Një kompani nuk mund të regjistrohet dy herë; kontaktoni zyrën ose administratorin që e menaxhon.</value>
+  </data>
 </root>

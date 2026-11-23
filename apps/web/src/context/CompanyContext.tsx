@@ -148,7 +148,14 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
 
   // Companies are created only from the lobby, which then opens the new one.
   async function createCompany(name: string, firmId?: string, options?: CreateCompanyOptions): Promise<CreatedCompany> {
-    const created = await apiClient.companies({ name, firmId, isVatRegistered: options?.isVatRegistered, businessType: options?.businessType });
+    const created = await apiClient.companies({
+      name,
+      firmId,
+      isVatRegistered: options?.isVatRegistered,
+      businessType: options?.businessType,
+      businessNumber: options?.profile?.businessNumber || undefined,
+      fiscalNumber: options?.profile?.fiscalNumber || undefined,
+    });
     let profileError: unknown = null;
     if (options?.profile) {
       try {

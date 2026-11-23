@@ -819,6 +819,9 @@ export const en: Record<string, string> = {
   "reports.vatDeclaration": "VAT declaration",
   "reports.vatDeclarationTab": "VAT declaration",
   "reports.vatReturnTab": "VAT Return",
+  "reports.vatMonth": "Month",
+  "reports.vatMonthPlaceholder": "Choose a month",
+  "reports.vatMonthNone": "No months with entries yet",
   "reports.monthInvalid": "Month must be a number from 1 to 12.",
   "reports.vatDeclLoadError": "Could not load the VAT declaration.",
   "reports.vatDeclTaxpayer": "Taxpayer",
@@ -1673,6 +1676,8 @@ export const en: Record<string, string> = {
 
   // Task 8 — app shell: sidebar
   "sidebar.openMenu": "Open menu",
+  "sidebar.hideSidebar": "Hide menu",
+  "sidebar.showSidebar": "Show menu",
   "sidebar.filterPlaceholder": "Filter menu",
   "sidebar.noResults": "No matches.",
   "sidebar.category.favourites": "Favourites",
@@ -2860,6 +2865,9 @@ export const sq: Record<string, string> = {
   "reports.vatDeclaration": "Deklarata e TVSH-s\u00eb",
   "reports.vatDeclarationTab": "Deklarata e TVSH-s\u00eb (formulari)",
   "reports.vatReturnTab": "P\u00ebrmbledhja e TVSH-s\u00eb",
+  "reports.vatMonth": "Muaji",
+  "reports.vatMonthPlaceholder": "Zgjidhni muajin",
+  "reports.vatMonthNone": "Ende nuk ka muaj me regjistrime",
   "reports.monthInvalid": "Muaji duhet t\u00eb jet\u00eb num\u00ebr nga 1 n\u00eb 12.",
   "reports.vatDeclLoadError": "Deklarata e TVSH-s\u00eb nuk u ngarkua.",
   "reports.vatDeclTaxpayer": "Tatimpaguesi",
@@ -3714,6 +3722,8 @@ export const sq: Record<string, string> = {
 
   // Task 8 — app shell: sidebar
   "sidebar.openMenu": "Hap menynë",
+  "sidebar.hideSidebar": "Fshih menynë",
+  "sidebar.showSidebar": "Shfaq menynë",
   "sidebar.filterPlaceholder": "Filtro menynë",
   "sidebar.noResults": "Nuk ka përputhje.",
   "sidebar.category.favourites": "Të preferuarat",

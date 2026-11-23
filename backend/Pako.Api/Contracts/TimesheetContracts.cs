@@ -45,7 +45,9 @@ public record PartnerStatementLine(
     decimal Debit,
     decimal Credit,
     // Running balance after this line (debit − credit: positive = the partner owes us).
-    decimal Balance);
+    decimal Balance,
+    string? SourceKind = null,
+    Guid? SourceId = null);
 
 public record PartnerStatementResponse(
     Guid PartnerId,
