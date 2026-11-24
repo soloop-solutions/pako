@@ -569,16 +569,97 @@ public class InvoicesControllerTests : IAsyncLifetime
 
     // A1 (v2 release): the meeting's business case — a customer is invoiced 1000 EUR, refuses the
     // goods, seller issues a 1000 EUR return. Two documents exist afterwards, original untouched.
+    // Client request 2026-11-23: a customer's default revenue account fills a line that names none
+    // (and has no item), ahead of the company default.
     [Fact]
-    public async Task Create_SalesReturn_WithoutOriginalInvoiceId_Rejected()
+    public async Task Create_LineWithoutAccount_TakesTheCustomersDefaultRevenueAccount()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var customerRevenueId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = customerRevenueId, CompanyId = companyId, Code = "4100", Name = "Service revenue", AccountType = AccountType.Income });
+        var customer = await db.Partners.SingleAsync(p => p.Id == partnerId);
+        customer.DefaultRevenueAccountId = customerRevenueId;
+        await db.SaveChangesAsync();
+
+        var created = await NewController(db).Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+
+        var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        Assert.Equal(customerRevenueId, Assert.Single(invoice.Lines).RevenueAccountId);
+    }
+
+    // Client request 2026-11-23: the creation screen prices an unsaved invoice on the server, with the
+    // same calculator the saved invoice's GET (and the PDF) use.
+    private static async Task<Guid> SeedSalesVat18Async(PakoDbContext db, Guid companyId)
+    {
+        (await db.Companies.FindAsync(companyId))!.IsVatRegistered = true;
+        var vatAccountId = await db.Accounts.Where(a => a.CompanyId == companyId && a.Code == "2100").Select(a => a.Id).SingleAsync();
+        var taxId = Guid.NewGuid();
+        db.TaxDefinitions.Add(new TaxDefinition
+        {
+            Id = taxId, CompanyId = companyId, Name = "TVSH 18%", Code = "S18", Rate = 0.18m, Direction = TaxDirection.Out, IsActive = true,
+            RepartitionLines = { new TaxRepartitionLine { Id = Guid.NewGuid(), AccountId = vatAccountId, Percentage = 100m } }
+        });
+        await db.SaveChangesAsync();
+        return taxId;
+    }
+
+    [Fact]
+    public async Task Quote_MatchesTheSavedInvoicesAmounts()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var taxId = await SeedSalesVat18Async(db, companyId);
+        var controller = NewController(db);
+        var request = new CreateInvoiceRequest(partnerId, new DateOnly(2026, 8, 26), new DateOnly(2026, 9, 25),
+            new List<CreateInvoiceLineRequest> { new("Consulting", 2m, 59m, taxId, null, 10m), new("Setup", 1m, 30m, taxId, null) });
+        var created = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId, request)).Result).Value);
+        var saved = Assert.IsType<InvoiceResponse>(Assert.IsType<OkObjectResult>((await controller.Get(companyId, created.Id)).Result).Value);
+
+        var quote = Assert.IsType<InvoiceQuoteResponse>(Assert.IsType<OkObjectResult>((await controller.Quote(companyId, new InvoiceQuoteRequest(
+            PriceMode.GrossInclusive,
+            new List<InvoiceQuoteLineRequest> { new(2m, 59m, 10m, taxId), new(1m, 30m, 0m, taxId) }))).Result).Value);
+
+        Assert.Equal(saved.Lines.OrderBy(l => l.Description).Select(l => (l.NetAmount, l.TaxAmount, l.GrossAmount, l.DiscountAmount, l.UnitPriceNet, l.UnitPriceGross)),
+            quote.Lines.Select(l => ((decimal?)l.NetAmount, (decimal?)l.TaxAmount, (decimal?)l.GrossAmount, (decimal?)l.DiscountAmount, (decimal?)l.UnitPriceNet, (decimal?)l.UnitPriceGross)));
+        Assert.Equal(saved.Totals, quote.Totals);
+        Assert.Equal((136.20m, 50m), (quote.Totals.GrossAmount, quote.Lines[0].UnitPriceNet));
+        Assert.Equal(quote.TotalInWords, saved.TotalInWords);
+        Assert.False(string.IsNullOrWhiteSpace(quote.TotalInWords));
+        var vat = Assert.Single(quote.TaxBreakdown);
+        Assert.Equal((taxId, quote.Totals.NetAmount, quote.Totals.TaxAmount), (vat.TaxDefinitionId, vat.NetAmount, vat.TaxAmount));
+    }
+
+    [Fact]
+    public async Task Quote_TaxOfAnotherCompany_Rejected()
+    {
+        var (db, companyId, _, _) = await SeedAsync();
+
+        var result = await NewController(db).Quote(companyId, new InvoiceQuoteRequest(
+            PriceMode.GrossInclusive, new List<InvoiceQuoteLineRequest> { new(1m, 10m, 0m, Guid.NewGuid()) }));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    // Client request 2026-11-23: a return need not be linked to an invoice. It posts with no cap,
+    // as the mirror of an invoice on the receivable account.
+    [Fact]
+    public async Task SalesReturn_WithoutOriginalInvoice_CreatesAndPosts()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, null));
+        var created = await controller.Create(companyId, SalesReturnRequestWithLine(partnerId, 1m, 1000m, null));
+        var salesReturn = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        Assert.Null(salesReturn.OriginalInvoiceId);
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("originalInvoiceId", badRequest.Value!.ToString());
+        var result = await controller.Post(companyId, salesReturn.Id);
+        Assert.Equal(200, ((ObjectResult)result.Result!).StatusCode);
+
+        var receivableAccountId = (await db.CompanyAccountDefaults.AsNoTracking()
+            .SingleAsync(d => d.CompanyId == companyId)).ReceivableAccountId;
+        var receivableCredit = await db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.AccountId == receivableAccountId && l.JournalEntry!.CompanyId == companyId && l.JournalEntry.State == JournalEntryState.Posted)
+            .SumAsync(l => l.Credit - l.Debit);
+        Assert.Equal(1000m, receivableCredit);
     }
 
     [Fact]

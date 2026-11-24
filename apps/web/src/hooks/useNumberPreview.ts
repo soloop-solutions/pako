@@ -34,7 +34,7 @@ export function useNumberPreview(
     }
     let cancelled = false;
     apiClient
-      .preview(companyId, documentType, validDate)
+      .previewGET(companyId, documentType, validDate)
       .then((result) => {
         if (!cancelled) setNumber(result.number);
       })

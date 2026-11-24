@@ -1705,6 +1705,18 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<decimal?>("CreditLimit")
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<Guid?>("DefaultExpenseAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultPurchaseTaxDefinitionId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultRevenueAccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("DefaultSaleTaxDefinitionId")
+                        .HasColumnType("uuid");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -1769,6 +1781,10 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.Property<string>("TaxNumber")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("VatNumber")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 

@@ -433,9 +433,9 @@ public class ReportsControllerTests : IAsyncLifetime
         // IsVatRegistered: true — R07 (PostingRuleValidator.ValidateVatCounterpartyTaxNumber, B8)
         // requires TaxNumber specifically for a VAT-registered counterparty; a business posting
         // real VAT codes (S18/B18) needs this set, not FiscalNumber (the natural-person case).
-        var customerResult = await partnersController.Create(company.Id, new CreatePartnerRequest("Customer Co", "810111111", IsCustomer: true, IsVendor: false, IsVatRegistered: true));
+        var customerResult = await partnersController.Create(company.Id, new CreatePartnerRequest("Customer Co", "810111111", IsCustomer: true, IsVendor: false, IsVatRegistered: true, VatNumber: "330111111"));
         var customer = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>(customerResult.Result).Value);
-        var vendorResult = await partnersController.Create(company.Id, new CreatePartnerRequest("Vendor Co", "810222222", IsCustomer: false, IsVendor: true, IsVatRegistered: true));
+        var vendorResult = await partnersController.Create(company.Id, new CreatePartnerRequest("Vendor Co", "810222222", IsCustomer: false, IsVendor: true, IsVatRegistered: true, VatNumber: "330222222"));
         var vendor = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>(vendorResult.Result).Value);
 
         var s18 = await db.TaxDefinitions.AsNoTracking().SingleAsync(t => t.CompanyId == company.Id && t.Code == "S18");

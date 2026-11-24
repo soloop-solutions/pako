@@ -273,7 +273,7 @@ export function StockDocumentDetail() {
                 <PrintButton contentRef={printRef} size="xs" />
                 {/* docs/POS_PLAN.md P6: bill what this delivery note sent and isn't invoiced yet. */}
                 {posted && isDelivery && canWrite("sales") && document.lines.some((l) => l.quantity > (l.billed ?? 0)) && (
-                  <Button type="button" size="xs" onClick={() => navigate(`/invoicing?delivery=${document.id}`)}>
+                  <Button type="button" size="xs" onClick={() => navigate(`/invoicing/new?delivery=${document.id}`)}>
                     <FileText className="size-3.5" />
                     {t("dist.delivery.createInvoice")}
                   </Button>

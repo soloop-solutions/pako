@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultableLine, type ItemDefaultsSource } from "@/lib/item-line-defaults";
+import { applyItemDefaultsToLine, overriddenItemLineFields, reapplyPartnerDefaults, type ItemDefaultableLine, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 
 const BASELINE_TAX_ID = "baseline-tax";
 
@@ -81,5 +81,29 @@ describe("overriddenItemLineFields", () => {
     // test pins the correct end state, not just the absence of a false positive.
     const line = applyItemDefaultsToLine(applyItemDefaultsToLine(emptyLine(), itemA(), BASELINE_TAX_ID), itemBNoDefaults(), BASELINE_TAX_ID);
     expect(overriddenItemLineFields(line, itemBNoDefaults())).toEqual({ price: false, tax: false, account: false });
+  });
+});
+
+describe("reapplyPartnerDefaults", () => {
+  type L = { taxDefinitionId: string; account: string };
+  const get = (l: L) => l.account;
+  const set = (l: L, account: string): L => ({ ...l, account });
+  const previous = { taxDefinitionId: "BEX", accountId: "" };
+  const next = { taxDefinitionId: "B18", accountId: "rent" };
+  const item = { name: "Paper", defaultUnitPrice: undefined, defaultTaxDefinitionId: "B8", defaultAccountId: undefined };
+
+  it("moves a line still on the previous partner's defaults to the new partner's", () => {
+    expect(reapplyPartnerDefaults({ taxDefinitionId: "BEX", account: "" }, get, set, undefined, previous, next))
+      .toEqual({ taxDefinitionId: "B18", account: "rent" });
+  });
+
+  it("keeps what the user changed", () => {
+    expect(reapplyPartnerDefaults({ taxDefinitionId: "B8", account: "fuel" }, get, set, undefined, previous, next))
+      .toEqual({ taxDefinitionId: "B8", account: "fuel" });
+  });
+
+  it("keeps a field the line's item sets", () => {
+    expect(reapplyPartnerDefaults({ taxDefinitionId: "BEX", account: "" }, get, set, item, previous, next))
+      .toEqual({ taxDefinitionId: "BEX", account: "rent" });
   });
 });

@@ -9,6 +9,7 @@ using Pako.Api.Contracts;
 using Pako.Api.Services;
 using Pako.Domain.Companies;
 using Pako.Domain.Hr;
+using Pako.Domain.Tax;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Controllers;
@@ -107,8 +108,10 @@ public class PartnersController : ControllerBase
     [ProducesResponseType(typeof(PartnerResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
-        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit)
+        var validationError = ValidateRolesAndVat(request.IsCustomer, request.IsVendor, request.IsVatRegistered, request.VatNumber)
+            ?? await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit)
             ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
+            ?? await ValidateLineDefaultsAsync(companyId, request.DefaultSaleTaxDefinitionId, request.DefaultPurchaseTaxDefinitionId, request.DefaultExpenseAccountId, request.DefaultRevenueAccountId)
             ?? ValidateContact(request.Email, request.Phone, request.ContactPerson, request.StreetAddress, request.City, request.PostalCode, request.Country);
         if (validationError is not null) return validationError;
 
@@ -122,12 +125,17 @@ public class PartnersController : ControllerBase
             IsVendor = request.IsVendor,
             FiscalNumber = request.FiscalNumber,
             IsVatRegistered = request.IsVatRegistered,
+            VatNumber = request.IsVatRegistered ? request.VatNumber?.Trim() : null,
             ReceivableAccountId = request.ReceivableAccountId,
             PayableAccountId = request.PayableAccountId,
             PaymentTermDays = request.PaymentTermDays,
             CreditLimit = request.CreditLimit,
             PriceListId = request.PriceListId,
             PriceTier = request.PriceTier ?? PriceTier.Retail,
+            DefaultSaleTaxDefinitionId = request.DefaultSaleTaxDefinitionId,
+            DefaultPurchaseTaxDefinitionId = request.DefaultPurchaseTaxDefinitionId,
+            DefaultExpenseAccountId = request.DefaultExpenseAccountId,
+            DefaultRevenueAccountId = request.DefaultRevenueAccountId,
             OverdueBlockDays = request.OverdueBlockDays,
             Email = Clean(request.Email),
             Phone = Clean(request.Phone),
@@ -172,8 +180,10 @@ public class PartnersController : ControllerBase
         var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
         if (partner is null) return NotFound();
 
-        var validationError = await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId)
+        var validationError = ValidateRolesAndVat(request.IsCustomer, request.IsVendor, request.IsVatRegistered, request.VatNumber)
+            ?? await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId)
             ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
+            ?? await ValidateLineDefaultsAsync(companyId, request.DefaultSaleTaxDefinitionId, request.DefaultPurchaseTaxDefinitionId, request.DefaultExpenseAccountId, request.DefaultRevenueAccountId)
             ?? ValidateContact(request.Email, request.Phone, request.ContactPerson, request.StreetAddress, request.City, request.PostalCode, request.Country);
         if (validationError is not null) return validationError;
 
@@ -183,12 +193,17 @@ public class PartnersController : ControllerBase
         partner.IsVendor = request.IsVendor;
         partner.FiscalNumber = request.FiscalNumber;
         partner.IsVatRegistered = request.IsVatRegistered;
+        partner.VatNumber = request.IsVatRegistered ? request.VatNumber?.Trim() : null;
         partner.ReceivableAccountId = request.ReceivableAccountId;
         partner.PayableAccountId = request.PayableAccountId;
         partner.PaymentTermDays = request.PaymentTermDays;
         partner.CreditLimit = request.CreditLimit;
         partner.PriceListId = request.PriceListId;
         partner.PriceTier = request.PriceTier ?? PriceTier.Retail;
+        partner.DefaultSaleTaxDefinitionId = request.DefaultSaleTaxDefinitionId;
+        partner.DefaultPurchaseTaxDefinitionId = request.DefaultPurchaseTaxDefinitionId;
+        partner.DefaultExpenseAccountId = request.DefaultExpenseAccountId;
+        partner.DefaultRevenueAccountId = request.DefaultRevenueAccountId;
         partner.OverdueBlockDays = request.OverdueBlockDays;
         partner.Email = Clean(request.Email);
         partner.Phone = Clean(request.Phone);
@@ -272,6 +287,30 @@ public class PartnersController : ControllerBase
         return null;
     }
 
+    // Client request 2026-11-23: the partner's line defaults must be the company's own, active tax
+    // codes for the right side (sale / purchase) and active, non-control accounts (a control account
+    // on a line breaks R04).
+    private async Task<ActionResult?> ValidateLineDefaultsAsync(Guid companyId, Guid? saleTaxId, Guid? purchaseTaxId, Guid? expenseAccountId, Guid? revenueAccountId)
+    {
+        if (saleTaxId is { } saleId &&
+            !await _db.TaxDefinitions.AsNoTracking().AnyAsync(t => t.Id == saleId && t.CompanyId == companyId && t.IsActive
+                && (t.Scope == TaxScope.Sale || t.Scope == TaxScope.Both)))
+            return BadRequest(_localizer["PartnerDefaultTaxInvalid"].Value);
+        if (purchaseTaxId is { } purchaseId &&
+            !await _db.TaxDefinitions.AsNoTracking().AnyAsync(t => t.Id == purchaseId && t.CompanyId == companyId && t.IsActive
+                && (t.Scope == TaxScope.Purchase || t.Scope == TaxScope.Both)))
+            return BadRequest(_localizer["PartnerDefaultTaxInvalid"].Value);
+
+        foreach (var accountId in new[] { expenseAccountId, revenueAccountId })
+        {
+            if (accountId is not { } id) continue;
+            var ok = await _db.Accounts.AsNoTracking()
+                .AnyAsync(a => a.Id == id && a.CompanyId == companyId && a.IsActive && !a.IsControl);
+            if (!ok) return BadRequest(_localizer["PartnerDefaultAccountInvalid"].Value);
+        }
+        return null;
+    }
+
     // docs/POS_PLAN.md P6: a customer can only be given a customer price list.
     private async Task<ActionResult?> ValidateSalesTermsAsync(Guid companyId, Guid? priceListId, int? overdueBlockDays)
     {
@@ -300,7 +339,22 @@ public class PartnersController : ControllerBase
     private static PartnerResponse ToResponse(Partner p) => new(
         p.Id, p.Name, p.TaxNumber, p.IsCustomer, p.IsVendor, p.FiscalNumber, p.IsVatRegistered,
         p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays,
-        p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country, p.PriceTier);
+        p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country, p.PriceTier,
+        p.DefaultSaleTaxDefinitionId, p.DefaultPurchaseTaxDefinitionId, p.DefaultExpenseAccountId, p.DefaultRevenueAccountId,
+        p.VatNumber);
+
+    // Client request 2026-11-23: customers and suppliers are separate records — a partner is one or
+    // the other, never both — and a VAT-registered partner must carry its VAT number.
+    private ActionResult? ValidateRolesAndVat(bool isCustomer, bool isVendor, bool isVatRegistered, string? vatNumber)
+    {
+        if (isCustomer && isVendor)
+            return BadRequest(_localizer["PartnerSingleRoleRequired"].Value);
+        if (isVatRegistered && string.IsNullOrWhiteSpace(vatNumber))
+            return BadRequest(_localizer["PartnerVatNumberRequired"].Value);
+        if (vatNumber is not null && vatNumber.Trim().Length > 64)
+            return BadRequest(_localizer["PartnerVatNumberTooLong"].Value);
+        return null;
+    }
 
     // J15: the partner's account statement. Readable by anyone who can see the partner — including
     // partner-restricted staff for their assigned partners, who get 404 for any other partner.

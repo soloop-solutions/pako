@@ -3,12 +3,10 @@ import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type {
-  AccountResponse,
   ApplyCreditNoteResponse,
   ApplyDownPaymentResponse,
   DocumentBalanceResponse,
   InvoiceResponse,
-  ItemResponse,
   MemberResponse,
   PartnerResponse,
   PaymentMethodResponse,
@@ -17,7 +15,6 @@ import type {
 
 import { useQuery } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
-import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { monthLocksClient } from "@/api/month-locks-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -30,12 +27,11 @@ import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
 import { documentStateBadgeVariant, invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
 import { isCompanyAdminRole } from "@/lib/membership-enums";
-import { computeLine } from "@/lib/tax-enums";
+import { PriceMode } from "@/lib/tax-enums";
 import { cn } from "@/lib/utils";
-import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
+import { useCompanyBankAccounts } from "@/hooks/useCompanyBankAccounts";
 import { buildDocumentDataFromResponse } from "@/lib/invoice-document-data";
 import { InvoicePreviewDialog } from "@/components/shared/InvoicePreviewDialog";
-import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { ApplyDownPaymentForm, type DownPaymentOption } from "@/pages/shared/ApplyDownPaymentForm";
 import { PostingPreview } from "@/components/shared/PostingPreview";
@@ -52,6 +48,7 @@ import { InvoiceEmailCard, InvoicePdfButton } from "@/components/shared/InvoiceE
 
 export function InvoiceDetail() {
   const intl = useIntl();
+  const bankAccounts = useCompanyBankAccounts();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeCompany } = useCompany();
@@ -65,10 +62,6 @@ export function InvoiceDetail() {
   const [allInvoices, setAllInvoices] = useState<InvoiceResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
-  // F5 — see Invoicing.tsx's identical fields; needed here so editing a Draft invoice also gets
-  // the item picker/account override.
-  const [items, setItems] = useState<ItemResponse[]>([]);
-  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [members, setMembers] = useState<MemberResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
@@ -80,7 +73,6 @@ export function InvoiceDetail() {
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
   const [showPostPreview, setShowPostPreview] = useState(false);
   // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
-  const [editing, setEditing] = useState(false);
 
   // Period closing: check if the invoice's month is locked.
   const invoiceYear = invoice ? new Date(invoice.issueDate).getFullYear() : null;
@@ -98,7 +90,7 @@ export function InvoiceDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult, itemsResult, accountsResult] =
+      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult] =
         await Promise.all([
           apiClient.invoicesGET(companyId, id),
           apiClient.partnersAll(companyId),
@@ -106,8 +98,6 @@ export function InvoiceDetail() {
           apiClient.invoicesAll(companyId),
           apiClient.paymentMethodsAll(companyId),
           apiClient.membersAll(companyId),
-          fetchAllItems(companyId),
-          apiClient.accountsAll(companyId),
         ]);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
@@ -115,8 +105,6 @@ export function InvoiceDetail() {
       setAllInvoices(allInvoicesResult);
       setPaymentMethods(paymentMethodsResult);
       setMembers(membersResult);
-      setItems(itemsResult.items);
-      setAccounts(accountsResult);
 
       if (invoiceResult.state === "Posted") {
         setBalance(await apiClient.balance2(companyId, id));
@@ -154,14 +142,11 @@ export function InvoiceDetail() {
   }, [refresh]);
 
   // Task 8: instance tabs are titled with the document number, per the same fallback InvoiceForm
-  // already uses ("Draft invoice" only for a legacy draft with no number). `dirty` is the existing
-  // inline-edit toggle, not real field-level change tracking — no form in the app tracks that yet.
+  // already uses ("Draft invoice" only for a legacy draft with no number). Editing now happens on
+  // its own page (InvoiceEditorPage, client request 2026-11-23), which carries the unsaved guard.
   useTabMeta({
     title: invoice ? (invoice.invoiceNumber ?? intl.formatMessage({ id: "invoiceDetail.draftInvoice" })) : undefined,
-    dirty: editing,
   });
-
-  useUnsavedChanges(editing);
 
   async function handlePost() {
     if (!companyId || !id) return;
@@ -267,16 +252,10 @@ export function InvoiceDetail() {
     }
   }
 
-  let total = 0;
-  let estimatedNet = 0;
-  let estimatedTax = 0;
-  for (const line of invoice.lines) {
-    const enteredAmount = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
-    const { net, tax, gross } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), invoice.priceMode);
-    total += gross;
-    estimatedNet += net;
-    estimatedTax += tax;
-  }
+  // Every amount comes from the server (DocumentLineCalculator), never computed here.
+  const totals = invoice.totals;
+  const money = (value: number | undefined) => (value ?? 0).toFixed(2);
+  const priceHeaderId = invoice.priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat";
 
   return (
     <div className="flex flex-col gap-6">
@@ -321,17 +300,19 @@ export function InvoiceDetail() {
               <CardDescription>{partner?.name ?? invoice.partnerId}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {(invoice.state === "Draft" || (invoice.state === "Posted" && !isMonthLocked)) && !editing && (
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              {(invoice.state === "Draft" || (invoice.state === "Posted" && !isMonthLocked)) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate(`${invoice.documentType === InvoiceDocumentType.SalesReturn ? "/sales-returns" : "/invoicing"}/${invoice.id}/edit`)}
+                >
                   {intl.formatMessage({ id: "common.edit" })}
                 </Button>
               )}
-              {!editing && (
-                <Button variant="outline" size="sm" onClick={() => setShowDocPreview(true)}>
-                  {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
-                </Button>
-              )}
-              {!editing && invoice.state !== "Draft" && (
+              <Button variant="outline" size="sm" onClick={() => setShowDocPreview(true)}>
+                {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
+              </Button>
+              {invoice.state !== "Draft" && (
                 <InvoicePdfButton
                   fileName={`${invoice.invoiceNumber ?? invoice.id}.pdf`}
                   load={() => apiClient.getInvoicePdf(activeCompany.id, invoice.id)}
@@ -342,24 +323,6 @@ export function InvoiceDetail() {
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {editing ? (
-            <InvoiceForm
-              companyId={activeCompany.id}
-              customers={partners.filter((p) => p.isCustomer)}
-              taxes={taxes}
-              paymentMethods={paymentMethods}
-              items={items}
-              accounts={accounts}
-              isVatRegistered={activeCompany.isVatRegistered}
-              editingInvoice={invoice}
-              onCreated={() => {}}
-              onSaved={() => {
-                setEditing(false);
-                void refresh();
-              }}
-            />
-          ) : (
-            <>
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
               <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.issueDate" })}</span> {invoice.issueDate}
@@ -379,38 +342,34 @@ export function InvoiceDetail() {
               <TableRow>
                 <TableHead>{intl.formatMessage({ id: "invoiceForm.description" })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.qty" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.priceInclVat" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: priceHeaderId })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "documentLine.netValue" })}</TableHead>
                 {activeCompany.isVatRegistered && <TableHead>{intl.formatMessage({ id: "invoiceForm.tax" })}</TableHead>}
-                {activeCompany.isVatRegistered && <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.net" })}</TableHead>}
                 {activeCompany.isVatRegistered && <TableHead className="text-right">{intl.formatMessage({ id: "invoiceForm.vat" })}</TableHead>}
                 <TableHead className="text-right">{intl.formatMessage({ id: "common.total" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {invoice.lines.map((line) => {
-                const enteredAmount = line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
-                const { net, tax, gross } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), invoice.priceMode);
-                return (
-                  <TableRow key={line.id}>
-                    <TableCell>{line.description}</TableCell>
-                    <TableCell className="text-right">{line.quantity}</TableCell>
-                    <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
-                    {activeCompany.isVatRegistered && <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>}
-                    {activeCompany.isVatRegistered && <TableCell className="text-right">{net.toFixed(2)}</TableCell>}
-                    {activeCompany.isVatRegistered && <TableCell className="text-right">{tax.toFixed(2)}</TableCell>}
-                    <TableCell className="text-right">{gross.toFixed(2)}</TableCell>
-                  </TableRow>
-                );
-              })}
+              {invoice.lines.map((line) => (
+                <TableRow key={line.id}>
+                  <TableCell>{line.description}</TableCell>
+                  <TableCell className="text-right tabular-nums">{line.unitName ? `${line.quantity} ${line.unitName}` : line.quantity}</TableCell>
+                  <TableCell className="text-right tabular-nums">{line.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{line.discountPercent.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{money(line.netAmount)}</TableCell>
+                  {activeCompany.isVatRegistered && <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>}
+                  {activeCompany.isVatRegistered && <TableCell className="text-right tabular-nums">{money(line.taxAmount)}</TableCell>}
+                  <TableCell className="text-right tabular-nums">{money(line.grossAmount)}</TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
 
           <div className="flex flex-col items-end gap-1 text-sm">
-            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "invoiceDetail.netExclVat" }, { amount: estimatedNet.toFixed(2) })}</p>}
-            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "invoiceDetail.vatAmount" }, { amount: estimatedTax.toFixed(2) })}</p>}
-            <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
+            <p>{intl.formatMessage({ id: "invoiceDetail.netExclVat" }, { amount: money(totals?.netAmount) })}</p>
+            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "invoiceDetail.vatAmount" }, { amount: money(totals?.taxAmount) })}</p>}
+            <p className="font-medium">{intl.formatMessage({ id: "invoiceDetail.totalAmount" }, { amount: money(totals?.grossAmount) })}</p>
           </div>
 
           {invoice.state === "Draft" && invoice.documentType === InvoiceDocumentType.Proforma && (
@@ -439,8 +398,6 @@ export function InvoiceDetail() {
             </div>
           )}
             {relatedDocs.length > 0 && <RelatedDocuments documents={relatedDocs} />}
-            </>
-          )}
         </CardContent>
       </Card>
 
@@ -617,8 +574,8 @@ export function InvoiceDetail() {
         <InvoicePreviewDialog
           data={buildDocumentDataFromResponse({
             invoice,
-            company: activeCompany,
-            customer: partner ? { name: partner.name, taxNumber: partner.taxNumber ?? undefined, fiscalNumber: partner.fiscalNumber ?? undefined, isVatRegistered: partner.isVatRegistered } : undefined,
+            company: { ...activeCompany, bankAccounts: bankAccounts.data },
+            customer: partner,
             taxes,
             originalDocumentNumber: invoice.originalInvoiceId
               ? (allInvoices.find((i) => i.id === invoice.originalInvoiceId)?.invoiceNumber ?? undefined)

@@ -1,18 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
-import { Link } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import type {
-  AccountResponse,
-  DocumentBalanceResponse,
-  InvoiceResponse,
-  ItemResponse,
-  PartnerResponse,
-  PaymentMethodResponse,
-  TaxDefinitionResponse,
-} from "@pako/shared";
+import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse } from "@pako/shared";
 
-import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, API_BASE_URL, authorizedFetch, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -36,9 +27,6 @@ import {
   paymentStatusBadgeVariant,
   type PaymentStatus,
 } from "@/lib/document-types";
-import { taxesForSale } from "@/lib/tax-enums";
-import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
-import { useInvoicePrefill } from "@/pages/invoicing/invoicePrefill";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 
 export type InvoiceRegisterScope = "invoice" | "proforma";
@@ -53,45 +41,26 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
-  // F5 — item picker on the line editor and the accounts its default revenue account is picked
-  // from. `itemsGET`'s `take` is capped at 200 server-side (see Items.tsx's own comment) — a
-  // plain <select> stays usable up to that many, per docs/FRONTEND_BRIEF.md's F5 instruction to
-  // only reach for a searchable combobox if a plain select is genuinely unusable.
-  const [items, setItems] = useState<ItemResponse[]>([]);
-  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
   const [convertingId, setConvertingId] = useState<string | null>(null);
   const [convertMessage, setConvertMessage] = useState<{ text: string; invoiceId: string } | null>(null);
-  const [invoiceFormOpen, setInvoiceFormOpen] = useState(false);
   const [customerFormOpen, setCustomerFormOpen] = useState(false);
-  const [invoiceFormKey, setInvoiceFormKey] = useState(0);
-  // docs/POS_PLAN.md P6: ?salesOrder= / ?delivery= opens the form filled from that document.
-  const prefill = useInvoicePrefill(companyId, intl.formatMessage({ id: "dist.invoice.nothingToInvoice" }));
-  const formOpen = invoiceFormOpen || !!prefill.prefill;
-  const closeInvoiceForm = () => {
-    setInvoiceFormOpen(false);
-    if (prefill.active) prefill.clear();
-  };
+  const navigate = useNavigate();
+  // docs/POS_PLAN.md P6: older links and bookmarks to /invoicing?salesOrder= / ?delivery= now open
+  // the invoice page (/invoicing/new), which reads the same parameters.
+  const [searchParams] = useSearchParams();
+  useEffect(() => {
+    if (!isProforma && (searchParams.has("salesOrder") || searchParams.has("delivery"))) {
+      navigate(`/invoicing/new?${searchParams.toString()}`, { replace: true });
+    }
+  }, [isProforma, searchParams, navigate]);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
-        apiClient.taxes(companyId),
-        apiClient.paymentMethodsAll(companyId),
-        fetchAllItems(companyId),
-        apiClient.accountsAll(companyId),
-      ]);
-      setPartners(partnersResult);
-      setTaxes(taxesResult);
-      setPaymentMethods(paymentMethodsResult);
-      setItems(itemsResult.items);
-      setAccounts(accountsResult);
+      setPartners(await apiClient.partnersAll(companyId));
 
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: isProforma ? "proforma.loadError" : "invoicing.loadError" })));
@@ -320,26 +289,8 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     [columns, isProforma],
   );
 
-  const handleInvoiceCreated = useCallback(async () => {
-    setInvoiceFormOpen(false);
-    if (prefill.active) prefill.clear();
-    setInvoiceFormKey((k) => k + 1);
-    await refresh();
-    await paged.query.refetch();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refresh, prefill.active, paged.query.refetch]);
-
   const handleCustomerCreated = useCallback(async () => {
     setCustomerFormOpen(false);
-    await refresh();
-  }, [refresh]);
-
-  // Inline creation from within InvoiceForm — refresh data without closing the form.
-  const handleInlinePartnerCreated = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
-
-  const handleInlineItemCreated = useCallback(async () => {
     await refresh();
   }, [refresh]);
 
@@ -364,14 +315,6 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-      {prefill.active && prefill.error != null && (
-        <Alert variant="destructive">
-          <AlertDescription className="flex flex-wrap items-center justify-between gap-2">
-            {getApiErrorMessage(prefill.error, intl.formatMessage({ id: "dist.invoice.prefillError" }))}
-            <Button size="sm" variant="outline" onClick={prefill.clear}>{intl.formatMessage({ id: "common.close" })}</Button>
-          </AlertDescription>
-        </Alert>
-      )}
       {convertMessage && (
         <Alert>
           <AlertDescription>
@@ -382,10 +325,9 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           </AlertDescription>
         </Alert>
       )}
-      {prefill.isPending && <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "dist.invoice.prefillLoading" })}</p>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => setInvoiceFormOpen(true)}>
+        <Button onClick={() => navigate(isProforma ? "/proforma/new" : "/invoicing/new")}>
           {intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
         </Button>
         <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
@@ -404,30 +346,6 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         size="sm"
       >
         <PartnerForm companyId={activeCompany.id} role="customer" onCreated={handleCustomerCreated} />
-      </FormDialog>
-
-      <FormDialog
-        open={formOpen}
-        onOpenChange={(open) => { if (!open) closeInvoiceForm(); }}
-        title={intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
-        description={intl.formatMessage({ id: isProforma ? "proforma.newProformaDescription" : "invoicing.newInvoiceDescription" })}
-        size="full"
-      >
-        <InvoiceForm
-          key={`${invoiceFormKey}${prefill.prefill ? "-prefill" : ""}`}
-          companyId={activeCompany.id}
-          prefill={prefill.prefill}
-          customers={customers}
-          taxes={taxesForSale(taxes)}
-          paymentMethods={paymentMethods}
-          items={items}
-          accounts={accounts}
-          isVatRegistered={activeCompany.isVatRegistered}
-          onCreated={handleInvoiceCreated}
-          onPartnerCreated={handleInlinePartnerCreated}
-          onItemCreated={handleInlineItemCreated}
-          fixedDocumentType={isProforma ? InvoiceDocumentType.Proforma : undefined}
-        />
       </FormDialog>
 
       <Card>

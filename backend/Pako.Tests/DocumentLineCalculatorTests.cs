@@ -171,4 +171,31 @@ public class DocumentLineCalculatorTests
         Assert.Equal((30m, 0m, 30m, 0m, 30m),
             (amounts.AmountBeforeDiscount, amounts.DiscountAmount, amounts.NetAmount, amounts.TaxAmount, amounts.GrossAmount));
     }
+
+    // Client request 2026-11-23: the printed invoice shows the unit price with and without VAT.
+    [Fact]
+    public void Amounts_GrossMode_GivesTheUnitPriceOnBothBases()
+    {
+        var amounts = DocumentLineCalculator.Amounts(2m, 118m, 10m, Standard18(), TaxService, PriceMode.GrossInclusive);
+
+        Assert.Equal((100m, 118m), (amounts.UnitPriceNet, amounts.UnitPriceGross));
+    }
+
+    [Fact]
+    public void Amounts_NetMode_GivesTheUnitPriceOnBothBases()
+    {
+        var amounts = DocumentLineCalculator.Amounts(3m, 10m, 0m, Standard08(), TaxService, PriceMode.NetExclusive);
+
+        Assert.Equal((10m, 10.80m), (amounts.UnitPriceNet, amounts.UnitPriceGross));
+    }
+
+    [Fact]
+    public void Amounts_ReverseChargeOrNoTax_UnitPriceIsTheSameOnBothBases()
+    {
+        var reverse = DocumentLineCalculator.Amounts(1m, 100m, 0m, ReverseCharge18(), TaxService, PriceMode.NetExclusive);
+        var untaxed = DocumentLineCalculator.Amounts(1m, 100m, 0m, null, TaxService);
+
+        Assert.Equal((100m, 100m), (reverse.UnitPriceNet, reverse.UnitPriceGross));
+        Assert.Equal((100m, 100m), (untaxed.UnitPriceNet, untaxed.UnitPriceGross));
+    }
 }

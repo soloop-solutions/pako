@@ -16,7 +16,7 @@ const api = vi.hoisted(() => ({
   accountsAll: vi.fn(),
   listItemCategories: vi.fn(),
   // The item form previews the next item code (number series).
-  preview: vi.fn(),
+  previewGET: vi.fn(),
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -74,7 +74,7 @@ describe("Item form — till fields", () => {
     Object.values(api).forEach((f) => f.mockReset());
     api.itemsGET.mockResolvedValue({ items: [BEER], total: 1 });
     api.taxes.mockResolvedValue([]);
-    api.preview.mockResolvedValue({ number: "1001" });
+    api.previewGET.mockResolvedValue({ number: "1001" });
     // An item needs revenue, expense and stock accounts (main: the save is disabled without them).
     api.accountsAll.mockResolvedValue(ACCOUNTS);
     api.listItemCategories.mockResolvedValue([]);

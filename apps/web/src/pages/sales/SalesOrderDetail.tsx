@@ -359,11 +359,11 @@ export function SalesOrderDetail() {
             )}
             {canInvoice && (
               <>
-                <Button size="sm" onClick={() => navigate(`/invoicing?salesOrder=${id}`)}>
+                <Button size="sm" onClick={() => navigate(`/invoicing/new?salesOrder=${id}`)}>
                   <FileText className="size-4" />
                   {t("so.invoiceDelivered")}
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => navigate(`/invoicing?salesOrder=${id}&undelivered=1`)}>
+                <Button size="sm" variant="outline" onClick={() => navigate(`/invoicing/new?salesOrder=${id}&undelivered=1`)}>
                   <FileText className="size-4" />
                   {t("so.invoiceAll")}
                 </Button>

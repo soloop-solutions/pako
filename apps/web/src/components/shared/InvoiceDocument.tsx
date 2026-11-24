@@ -1,39 +1,33 @@
 import { useIntl } from "react-intl";
 
 // ---------------------------------------------------------------------------
-// InvoiceDocument — A pure, printable, A4-portrait invoice document.
+// InvoiceDocument — the printable A4-portrait sales document (invoice, credit/debit note, down
+// payment, sales return, proforma). It mirrors the server PDF (InvoicePdfRenderer.cs) block for block:
+// seller header, boxed buyer, dates, a 13-column line table, VAT per rate with its base, totals, the
+// total in words, payment details and the "Dorëzoi / Pranoi / Vula" signature boxes.
 //
-// This component renders a professional customer-facing invoice that:
-//  - Works for all document types (Invoice, CreditNote, DebitNote, DownPayment, SalesReturn, Proforma)
-//  - Accepts pre-computed or raw line data (no API calls, no side effects)
-//  - Shows DRAFT watermark for unpersisted/draft invoices
-//  - Hides watermark for posted invoices
-//  - Uses @media print CSS for clean printing
-//  - Supports Albanian and English via react-intl
-//  - Renders Albanian characters (ë, Ë, ç, Ç) correctly
-//
-// Data contract: the caller builds an InvoiceDocumentData object from whatever
-// source they have (form state, API response, or a mix) — this component never
-// fetches, never mutates, never posts.
+// Every amount comes from the server: the single-invoice GET for a saved document, POST
+// invoices/quote for the unsaved preview. This component never computes money; a figure the caller
+// does not have yet renders as "—".
 // ---------------------------------------------------------------------------
 
 export interface InvoiceLineData {
+  itemCode?: string;
   description: string;
+  unitName?: string;
   quantity: number;
-  unitPrice: number;
   discountPercent: number;
-  /** Already-resolved tax definition, if any */
-  tax?: { id: string; name: string; rate: number; code?: string; isReverseCharge?: boolean };
-  /** Net, tax, gross — from the API for a saved invoice; computeLine() only for an unsaved preview */
-  net: number;
-  taxAmount: number;
-  gross: number;
-  /** Entered amount before the line discount and the discount itself (document price basis) */
-  amountBeforeDiscount?: number;
+  /** e.g. "18%"; undefined for a line without a tax code */
+  taxRateLabel?: string;
+  unitPriceNet?: number;
+  unitPriceGross?: number;
   discountAmount?: number;
+  net?: number;
+  taxAmount?: number;
+  gross?: number;
 }
 
-/** Server-computed document totals (InvoiceResponse.totals); absent for an unsaved preview. */
+/** Server-computed document totals. */
 export interface InvoiceTotalsData {
   amountBeforeDiscount: number;
   discountAmount: number;
@@ -42,8 +36,15 @@ export interface InvoiceTotalsData {
   gross: number;
 }
 
+export interface InvoiceVatRow {
+  label: string;
+  base: number;
+  vat: number;
+  gross?: number;
+}
+
 export interface InvoiceDocumentData {
-  /** "Invoice" | "CreditNote" | "DebitNote" | "DownPayment" | "SalesReturn" | "Proforma" */
+  /** 0 Invoice, 1 CreditNote, 2 DebitNote, 3 DownPayment, 4 SalesReturn, 5 Proforma */
   documentType: number;
   /** Official number (posted) or undefined (draft/unsaved) */
   invoiceNumber?: string;
@@ -51,53 +52,61 @@ export interface InvoiceDocumentData {
   state: string;
   issueDate: string;
   dueDate: string;
-  /** Price mode: 0 = GrossInclusive, 1 = NetExclusive */
+  /** 0 = GrossInclusive, 1 = NetExclusive */
   priceMode: number;
-  /** Internal notes */
   internalNotes?: string;
-  /** Payment term days */
   paymentTermDays?: number;
 
-  /** Company (seller) information */
   company: {
     name: string;
+    legalName?: string;
+    legalForm?: string;
     vatNumber?: string;
     fiscalNumber?: string;
     businessNumber?: string;
     address?: string;
+    postalCode?: string;
     municipality?: string;
     country?: string;
     phone?: string;
     email?: string;
+    website?: string;
     iban?: string;
     bankName?: string;
+    bankAccountHolder?: string;
+    swiftBic?: string;
+    /** Every bank account the company lists (default first); the single fields above stand in when empty */
+    bankAccounts?: { bankName: string; accountHolder?: string; iban?: string; swiftBic?: string }[];
     paymentInstructions?: string;
     documentFooter?: string;
+    logoUrl?: string;
+    stampUrl?: string;
   };
 
-  /** Customer (buyer) information */
   customer: {
     name: string;
+    /** NUI */
     taxNumber?: string;
+    vatNumber?: string;
+    /** Personal number of a natural person */
     fiscalNumber?: string;
-    isVatRegistered?: boolean;
+    contactPerson?: string;
+    streetAddress?: string;
+    postalCode?: string;
+    city?: string;
+    country?: string;
+    phone?: string;
+    email?: string;
   };
 
-  /** Line items */
   lines: InvoiceLineData[];
-
-  /** Original document reference (for returns, credit notes) */
   originalDocumentNumber?: string;
-
-  /** Currency */
   currency: string;
-
-  /** Totals and VAT breakdown from the API (saved invoices). When absent, the preview sums its lines. */
   totals?: InvoiceTotalsData;
-  taxBreakdown?: { taxDefinitionId: string; net: number; tax: number }[];
+  vatRows?: InvoiceVatRow[];
+  totalInWords?: string;
 }
 
-// Document type to i18n key mapping
 const DOCUMENT_TYPE_TITLE_KEYS: Record<number, string> = {
   0: "invoiceDoc.title.invoice",
   1: "invoiceDoc.title.creditNote",
@@ -107,9 +116,7 @@ const DOCUMENT_TYPE_TITLE_KEYS: Record<number, string> = {
   5: "invoiceDoc.title.proforma",
 };
 
-function formatMoney(value: number, currency: string): string {
-  return `${currency} ${value.toFixed(2)}`;
-}
+const money = (value: number | undefined) => (value == null ? "—" : value.toFixed(2));
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return "—";
@@ -118,255 +125,253 @@ function formatDate(dateStr: string): string {
   return dateStr;
 }
 
+const join = (separator: string, ...parts: (string | undefined | null | false)[]) =>
+  parts.filter((part): part is string => !!part && part.trim() !== "").join(separator);
+
 export function InvoiceDocument({ data }: { data: InvoiceDocumentData }) {
   const intl = useIntl();
+  const t = (id: string) => intl.formatMessage({ id });
+  const captioned = (id: string, value?: string) => (value ? `${t(id)}: ${value}` : undefined);
 
   const isDraft = data.state === "Draft" || data.state === "Preview";
   const titleKey = DOCUMENT_TYPE_TITLE_KEYS[data.documentType] ?? "invoiceDoc.title.invoice";
+  const { company, customer, totals } = data;
+  const banks = company.bankAccounts && company.bankAccounts.length > 0
+    ? company.bankAccounts
+    : company.bankName || company.iban
+      ? [{ bankName: company.bankName ?? "", iban: company.iban, swiftBic: company.swiftBic, accountHolder: company.bankAccountHolder }]
+      : [];
+  const hasDiscount = (totals?.discountAmount ?? 0) !== 0;
 
-  // Totals: a saved invoice carries them from the API (InvoiceResponse.totals); only an unsaved
-  // preview, which has no server figures yet, sums its own preview lines.
-  const lineBeforeDiscount = (line: InvoiceLineData) => line.amountBeforeDiscount ?? line.quantity * line.unitPrice;
-  const lineDiscount = (line: InvoiceLineData) =>
-    line.discountAmount ?? (line.quantity * line.unitPrice * line.discountPercent) / 100;
-  const totals: InvoiceTotalsData = data.totals ?? {
-    amountBeforeDiscount: data.lines.reduce((sum, line) => sum + lineBeforeDiscount(line), 0),
-    discountAmount: data.lines.reduce((sum, line) => sum + lineDiscount(line), 0),
-    net: data.lines.reduce((sum, line) => sum + line.net, 0),
-    tax: data.lines.reduce((sum, line) => sum + line.taxAmount, 0),
-    gross: data.lines.reduce((sum, line) => sum + line.gross, 0),
-  };
-  const hasDiscount = data.lines.some((line) => line.discountPercent > 0);
-  const subtotal = totals.net;
-  const totalTax = totals.tax;
-  const grandTotal = totals.gross;
+  const companyIds = join(" · ",
+    captioned("invoiceDoc.businessNumber", company.businessNumber),
+    captioned("invoiceDoc.fiscalNumber", company.fiscalNumber),
+    captioned("invoiceDoc.vatNumber", company.vatNumber));
+  const customerIds = join(" · ",
+    captioned("invoiceDoc.nui", customer.taxNumber),
+    captioned("invoiceDoc.vatNumber", customer.vatNumber),
+    captioned("invoiceDoc.personalNumber", customer.fiscalNumber));
 
-  // VAT by tax code: from the API when present, otherwise grouped from the preview lines.
-  const taxById = new Map<string, NonNullable<InvoiceLineData["tax"]>>();
-  for (const line of data.lines) if (line.tax) taxById.set(line.tax.id, line.tax);
-  const vatBreakdown = new Map<string, { label: string; rate: number; taxable: number; vat: number }>();
-  if (data.taxBreakdown) {
-    for (const entry of data.taxBreakdown) {
-      const tax = taxById.get(entry.taxDefinitionId);
-      vatBreakdown.set(entry.taxDefinitionId, { label: tax?.name ?? "", rate: tax?.rate ?? 0, taxable: entry.net, vat: entry.tax });
-    }
-  } else {
-    for (const line of data.lines) {
-      if (!line.tax) continue;
-      const existing = vatBreakdown.get(line.tax.id);
-      if (existing) {
-        existing.taxable += line.net;
-        existing.vat += line.taxAmount;
-      } else {
-        vatBreakdown.set(line.tax.id, { label: line.tax.name, rate: line.tax.rate, taxable: line.net, vat: line.taxAmount });
-      }
-    }
-  }
+  const th = "py-1.5 pr-1 text-[10px] font-semibold uppercase tracking-wide text-gray-500 align-bottom print:text-[8px]";
+  const td = "py-1 pr-1 align-top tabular-nums";
 
   return (
-    <div className="invoice-document relative mx-auto w-full bg-white text-black px-10 py-12 font-[system-ui,sans-serif] text-[13px] leading-[1.6] print:w-[210mm] print:min-h-[297mm] print:p-[20mm] print:text-[11px] print:leading-[1.5]">
-      {/* DRAFT / PREVIEW watermark */}
+    <div className="invoice-document relative mx-auto w-full bg-white text-black px-8 py-10 font-[system-ui,sans-serif] text-[12px] leading-[1.5] print:w-[210mm] print:min-h-[297mm] print:p-[12mm] print:text-[10px]">
       {isDraft && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
           <span className="text-6xl font-bold text-gray-200 rotate-[-35deg] select-none tracking-widest print:text-[80px]">
-            {data.state === "Preview"
-              ? intl.formatMessage({ id: "invoiceDoc.watermark.preview" })
-              : intl.formatMessage({ id: "invoiceDoc.watermark.draft" })}
+            {t(data.state === "Preview" ? "invoiceDoc.watermark.preview" : "invoiceDoc.watermark.draft")}
           </span>
         </div>
       )}
 
-      {/* HEADER */}
-      <div className="flex justify-between items-start mb-8">
-        <div>
-          <h1 className="text-[22px] font-bold text-gray-800 mb-1 print:text-[24px]">
-            {intl.formatMessage({ id: titleKey })}
-          </h1>
-          <p className="text-sm text-gray-500 print:text-[13px]">
-            {data.invoiceNumber
-              ? `${intl.formatMessage({ id: "invoiceDoc.number" })}: ${data.invoiceNumber}`
-              : intl.formatMessage({ id: "invoiceDoc.draftReference" })}
-          </p>
-        </div>
-        <div className="text-right">
-          <p className="text-base font-semibold text-gray-800 print:text-[16px]">{data.company.name}</p>
-          {data.company.address && <p className="text-gray-500">{data.company.address}</p>}
-          {data.company.municipality && (
-            <p className="text-gray-500">
-              {data.company.municipality}{data.company.country ? `, ${data.company.country}` : ""}
-            </p>
+      {/* SELLER + TITLE */}
+      <div className="mb-4 flex items-start justify-between gap-6 border-b-2 border-gray-800 pb-3">
+        <div className="flex items-start gap-3">
+          {company.logoUrl ? (
+            <img src={company.logoUrl} alt="" className="max-h-16 max-w-28 object-contain" />
+          ) : (
+            <div className="flex size-14 items-center justify-center bg-gray-800 text-xl font-bold text-white">
+              {company.name.slice(0, 1).toUpperCase() || "?"}
+            </div>
           )}
-          {data.company.vatNumber && (
-            <p className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.vatNumber" })}: {data.company.vatNumber}</p>
-          )}
-          {data.company.fiscalNumber && (
-            <p className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.fiscalNumber" })}: {data.company.fiscalNumber}</p>
-          )}
-          {data.company.businessNumber && (
-            <p className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.businessNumber" })}: {data.company.businessNumber}</p>
-          )}
-          {data.company.phone && <p className="text-gray-500">{data.company.phone}</p>}
-          {data.company.email && <p className="text-gray-500">{data.company.email}</p>}
-        </div>
-      </div>
-
-      {/* INFO GRID */}
-      <div className="grid grid-cols-2 gap-8 mb-8 pb-6 border-b border-gray-200">
-        {/* Customer */}
-        <div>
-          <p className="text-[10px] font-semibold uppercase text-gray-400 mb-1 tracking-wider">
-            {intl.formatMessage({ id: "invoiceDoc.billTo" })}
-          </p>
-          <p className="text-sm font-semibold text-gray-800 print:text-[13px]">{data.customer.name}</p>
-          {data.customer.taxNumber && (
-            <p className="text-gray-600">{intl.formatMessage({ id: "invoiceDoc.vatNumber" })}: {data.customer.taxNumber}</p>
-          )}
-          {data.customer.fiscalNumber && (
-            <p className="text-gray-600">{intl.formatMessage({ id: "invoiceDoc.fiscalNumber" })}: {data.customer.fiscalNumber}</p>
-          )}
-        </div>
-
-        {/* Dates & details */}
-        <div className="text-right">
-          <div className="inline-grid grid-cols-[auto_auto] gap-x-4 gap-y-1 text-right">
-            <span className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.issueDate" })}:</span>
-            <span className="font-medium">{formatDate(data.issueDate)}</span>
-            <span className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.dueDate" })}:</span>
-            <span className="font-medium">{formatDate(data.dueDate)}</span>
-            {data.paymentTermDays != null && data.paymentTermDays > 0 && (
-              <>
-                <span className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.paymentTerms" })}:</span>
-                <span className="font-medium">{intl.formatMessage({ id: "invoiceDoc.netDays" }, { days: data.paymentTermDays })}</span>
-              </>
+          <div className="text-gray-600">
+            <p className="text-base font-bold text-gray-900">{join(" ", company.name, company.legalForm)}</p>
+            {company.legalName && <p>{company.legalName}</p>}
+            {join(", ", company.address, join(" ", company.postalCode, company.municipality), company.country) && (
+              <p>{join(", ", company.address, join(" ", company.postalCode, company.municipality), company.country)}</p>
             )}
-            <span className="text-gray-500">{intl.formatMessage({ id: "invoiceDoc.currency" })}:</span>
-            <span className="font-medium">{data.currency}</span>
+            {companyIds && <p>{companyIds}</p>}
+            {join(" · ", captioned("invoiceDoc.phone", company.phone), company.email, company.website) && (
+              <p>{join(" · ", captioned("invoiceDoc.phone", company.phone), company.email, company.website)}</p>
+            )}
           </div>
-          {data.originalDocumentNumber && (
-            <p className="mt-2 text-gray-500">
-              {intl.formatMessage({ id: "invoiceDoc.originalRef" })}: {data.originalDocumentNumber}
-            </p>
-          )}
+        </div>
+        <div className="shrink-0 text-right">
+          <h1 className="text-[22px] font-bold uppercase text-gray-800">{t(titleKey)}</h1>
+          <p className="text-sm font-semibold">
+            {data.invoiceNumber ? `${t("invoiceDoc.number")}: ${data.invoiceNumber}` : t("invoiceDoc.draftReference")}
+          </p>
         </div>
       </div>
 
-      {/* ITEMS TABLE */}
-      <table className="w-full mb-6 border-collapse">
+      {/* BUYER + DATES */}
+      <div className="mb-4 flex gap-6">
+        <div className="flex-1 rounded-sm border border-gray-200 bg-gray-50 p-3 text-gray-600">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t("invoiceDoc.buyer")}</p>
+          <p className="text-sm font-bold text-gray-900">{customer.name}</p>
+          {customer.contactPerson && <p>{captioned("invoiceDoc.contactPerson", customer.contactPerson)}</p>}
+          {join(", ", customer.streetAddress, join(" ", customer.postalCode, customer.city), customer.country) && (
+            <p>{join(", ", customer.streetAddress, join(" ", customer.postalCode, customer.city), customer.country)}</p>
+          )}
+          {customerIds && <p>{customerIds}</p>}
+          {join(" · ", captioned("invoiceDoc.phone", customer.phone), customer.email) && (
+            <p>{join(" · ", captioned("invoiceDoc.phone", customer.phone), customer.email)}</p>
+          )}
+        </div>
+        <dl className="grid w-56 shrink-0 grid-cols-[auto_1fr] content-start gap-x-3 gap-y-0.5">
+          <dt className="text-gray-500">{t("invoiceDoc.issueDate")}</dt>
+          <dd className="text-right font-medium">{formatDate(data.issueDate)}</dd>
+          <dt className="text-gray-500">{t("invoiceDoc.dueDate")}</dt>
+          <dd className="text-right font-medium">{formatDate(data.dueDate)}</dd>
+          {data.paymentTermDays != null && data.paymentTermDays > 0 && (
+            <>
+              <dt className="text-gray-500">{t("invoiceDoc.paymentTerms")}</dt>
+              <dd className="text-right font-medium">{intl.formatMessage({ id: "invoiceDoc.netDays" }, { days: data.paymentTermDays })}</dd>
+            </>
+          )}
+          <dt className="text-gray-500">{t("invoiceDoc.currency")}</dt>
+          <dd className="text-right font-medium">{data.currency}</dd>
+          {data.originalDocumentNumber && (
+            <>
+              <dt className="text-gray-500">{t("invoiceDoc.originalRef")}</dt>
+              <dd className="text-right font-medium">{data.originalDocumentNumber}</dd>
+            </>
+          )}
+        </dl>
+      </div>
+
+      {/* LINES — every column always shown, as on the PDF */}
+      <table className="mb-4 w-full border-collapse text-[11px] print:text-[8.5px]">
         <thead>
           <tr className="border-b-2 border-gray-800">
-            <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-8">#</th>
-            <th className="py-2 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px]">{intl.formatMessage({ id: "invoiceDoc.col.description" })}</th>
-            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.qty" })}</th>
-            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-24">{intl.formatMessage({ id: "invoiceDoc.col.unitPrice" })}</th>
-            {hasDiscount && (
-              <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.discount" })}</th>
-            )}
-            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-16">{intl.formatMessage({ id: "invoiceDoc.col.vat" })}</th>
-            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-20">{intl.formatMessage({ id: "invoiceDoc.col.vatAmount" })}</th>
-            <th className="py-2 text-right text-xs font-semibold uppercase tracking-wider text-gray-500 print:text-[10px] w-24">{intl.formatMessage({ id: "invoiceDoc.col.total" })}</th>
+            <th className={`${th} w-6 text-left`}>{t("invoiceDoc.col.no")}</th>
+            <th className={`${th} w-12 text-left`}>{t("invoiceDoc.col.code")}</th>
+            <th className={`${th} text-left`}>{t("invoiceDoc.col.description")}</th>
+            <th className={`${th} w-10 text-left`}>{t("invoiceDoc.col.unit")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.qty")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.unitPriceExclVat")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.unitPriceInclVat")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.discountPercent")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.discountAmount")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.net")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.vatRate")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.vatValue")}</th>
+            <th className={`${th} text-right`}>{t("invoiceDoc.col.total")}</th>
           </tr>
         </thead>
         <tbody>
           {data.lines.map((line, index) => (
             <tr key={index} className="border-b border-gray-100">
-              <td className="py-2 text-gray-400 tabular-nums">{index + 1}</td>
-              <td className="py-2 text-gray-800">{line.description || "—"}</td>
-              <td className="py-2 text-right tabular-nums">{line.quantity}</td>
-              <td className="py-2 text-right tabular-nums">{line.unitPrice.toFixed(2)}</td>
-              {hasDiscount && (
-                <td className="py-2 text-right tabular-nums">
-                  {line.discountPercent > 0 ? (
-                    <>
-                      {line.discountPercent}%
-                      <span className="block text-[11px] text-gray-500 print:text-[9px]">-{lineDiscount(line).toFixed(2)}</span>
-                    </>
-                  ) : (
-                    "—"
-                  )}
-                </td>
-              )}
-              <td className="py-2 text-right tabular-nums text-gray-500">
-                {line.tax ? `${(line.tax.rate * 100).toFixed(0)}%` : "0%"}
-              </td>
-              <td className="py-2 text-right tabular-nums">{line.taxAmount.toFixed(2)}</td>
-              <td className="py-2 text-right tabular-nums font-medium">{line.gross.toFixed(2)}</td>
+              <td className={`${td} text-gray-400`}>{index + 1}</td>
+              <td className={td}>{line.itemCode ?? ""}</td>
+              <td className={`${td} text-gray-800`}>{line.description || "—"}</td>
+              <td className={td}>{line.unitName ?? ""}</td>
+              <td className={`${td} text-right`}>{line.quantity}</td>
+              <td className={`${td} text-right`}>{money(line.unitPriceNet)}</td>
+              <td className={`${td} text-right`}>{money(line.unitPriceGross)}</td>
+              <td className={`${td} text-right`}>{line.discountPercent > 0 ? `${line.discountPercent}%` : "—"}</td>
+              <td className={`${td} text-right`}>{line.discountAmount ? money(line.discountAmount) : "—"}</td>
+              <td className={`${td} text-right`}>{money(line.net)}</td>
+              <td className={`${td} text-right text-gray-500`}>{line.taxRateLabel ?? "—"}</td>
+              <td className={`${td} text-right`}>{money(line.taxAmount)}</td>
+              <td className={`${td} text-right font-semibold`}>{money(line.gross)}</td>
             </tr>
           ))}
         </tbody>
       </table>
 
-      {/* TOTALS */}
-      <div className="flex justify-end mb-8">
-        <div className="w-72">
-          {/* Rabat first, on the entered price basis: before discount − discount = amount charged. */}
+      {/* VAT TABLE + TOTALS */}
+      <div className="mb-3 flex items-start gap-6">
+        <div className="flex-1">
+          {data.vatRows && data.vatRows.length > 0 && (
+            <table className="w-full border-collapse text-[11px] print:text-[9px]">
+              <thead>
+                <tr className="border-b border-gray-800">
+                  <th className={`${th} text-left`}>{t("invoiceDoc.vatTable.rate")}</th>
+                  <th className={`${th} text-right`}>{t("invoiceDoc.vatTable.base")}</th>
+                  <th className={`${th} text-right`}>{t("invoiceDoc.vatTable.vat")}</th>
+                  <th className={`${th} text-right`}>{t("invoiceDoc.vatTable.total")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.vatRows.map((row) => (
+                  <tr key={row.label} className="border-b border-gray-100">
+                    <td className={td}>{row.label}</td>
+                    <td className={`${td} text-right`}>{money(row.base)}</td>
+                    <td className={`${td} text-right`}>{money(row.vat)}</td>
+                    <td className={`${td} text-right`}>{money(row.gross)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+        <div className="w-64 shrink-0">
           {hasDiscount && (
             <>
-              <div className="flex justify-between py-1 text-gray-600">
-                <span>{intl.formatMessage({ id: "invoiceDoc.amountBeforeDiscount" })}</span>
-                <span className="tabular-nums">{formatMoney(totals.amountBeforeDiscount, data.currency)}</span>
-              </div>
-              <div className="flex justify-between py-1 text-gray-600">
-                <span>{intl.formatMessage({ id: "invoiceDoc.totalDiscount" })}</span>
-                <span className="tabular-nums">-{formatMoney(totals.discountAmount, data.currency)}</span>
-              </div>
+              <TotalRow label={t("invoiceDoc.amountBeforeDiscount")} value={money(totals?.amountBeforeDiscount)} />
+              <TotalRow label={t("invoiceDoc.totalDiscount")} value={`-${money(totals?.discountAmount)}`} />
             </>
           )}
-          <div className={`flex justify-between py-1 text-gray-600${hasDiscount ? " border-t border-gray-200 mt-1 pt-1" : ""}`}>
-            <span>{intl.formatMessage({ id: "invoiceDoc.subtotal" })}</span>
-            <span className="tabular-nums">{formatMoney(subtotal, data.currency)}</span>
-          </div>
-          {/* VAT breakdown */}
-          {Array.from(vatBreakdown.values()).map((entry) => (
-            <div key={entry.label} className="flex justify-between py-1 text-gray-600">
-              <span>{entry.label} ({(entry.rate * 100).toFixed(0)}%)</span>
-              <span className="tabular-nums">{formatMoney(entry.vat, data.currency)}</span>
-            </div>
-          ))}
-          {totalTax > 0.005 && (
-            <div className="flex justify-between py-1 text-gray-600 border-t border-gray-200 mt-1 pt-1">
-              <span>{intl.formatMessage({ id: "invoiceDoc.totalVat" })}</span>
-              <span className="tabular-nums">{formatMoney(totalTax, data.currency)}</span>
-            </div>
-          )}
-          <div className="flex justify-between py-2 text-base font-bold text-gray-800 border-t-2 border-gray-800 mt-1 print:text-[14px]">
-            <span>{intl.formatMessage({ id: "invoiceDoc.grandTotal" })}</span>
-            <span className="tabular-nums">{formatMoney(grandTotal, data.currency)}</span>
+          <TotalRow label={t("invoiceDoc.subtotal")} value={money(totals?.net)} />
+          <TotalRow label={t("invoiceDoc.totalVat")} value={money(totals?.tax)} />
+          <div className="mt-1 flex justify-between bg-gray-800 px-2 py-1.5 text-sm font-bold text-white">
+            <span>{t("invoiceDoc.grandTotal")}</span>
+            <span className="tabular-nums">{`${money(totals?.gross)} ${data.currency}`}</span>
           </div>
         </div>
       </div>
 
-      {/* NOTES */}
+      {data.totalInWords && (
+        <p className="mb-4">
+          <span className="text-gray-500">{t("invoiceDoc.inWords")}: </span>
+          <span className="italic">{data.totalInWords}</span>
+        </p>
+      )}
+
       {data.internalNotes && (
-        <div className="mb-6 pb-4 border-b border-gray-100">
-          <p className="text-[10px] font-semibold uppercase text-gray-400 mb-1 tracking-wider">
-            {intl.formatMessage({ id: "invoiceDoc.notes" })}
-          </p>
-          <p className="text-gray-600 whitespace-pre-line">{data.internalNotes}</p>
+        <div className="mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t("invoiceDoc.notes")}</p>
+          <p className="whitespace-pre-line text-gray-700">{data.internalNotes}</p>
         </div>
       )}
 
-      {/* PAYMENT INSTRUCTIONS */}
-      {data.company.paymentInstructions && (
-        <div className="mb-6 pb-4 border-b border-gray-100">
-          <p className="text-[10px] font-semibold uppercase text-gray-400 mb-1 tracking-wider">
-            {intl.formatMessage({ id: "invoiceDoc.paymentInfo" })}
-          </p>
-          <p className="text-gray-600 whitespace-pre-line">{data.company.paymentInstructions}</p>
-          {data.company.iban && <p className="text-gray-600">IBAN: {data.company.iban}</p>}
-          {data.company.bankName && <p className="text-gray-600">{data.company.bankName}</p>}
+      {(company.paymentInstructions || banks.length > 0) && (
+        <div className="mb-3">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400">{t("invoiceDoc.paymentInfo")}</p>
+          {company.paymentInstructions && <p className="whitespace-pre-line text-gray-700">{company.paymentInstructions}</p>}
+          {banks.map((bank, index) => (
+            <p key={index} className="text-gray-700">
+              {join(" · ",
+                bank.bankName,
+                bank.iban ? `IBAN: ${bank.iban}` : undefined,
+                bank.swiftBic ? `SWIFT/BIC: ${bank.swiftBic}` : undefined,
+                captioned("invoiceDoc.accountHolder", bank.accountHolder))}
+            </p>
+          ))}
         </div>
       )}
 
-      {/* FOOTER */}
-      <div className="mt-auto pt-6 text-xs text-gray-400 text-center border-t border-gray-100 print:text-[9px]">
-        <p>{data.company.name}</p>
-        {data.company.address && (
-          <p>{data.company.address}{data.company.municipality ? `, ${data.company.municipality}` : ""}</p>
-        )}
-        {data.company.vatNumber && <p>{intl.formatMessage({ id: "invoiceDoc.vatNumber" })}: {data.company.vatNumber}</p>}
-        {data.company.documentFooter && <p className="mt-1">{data.company.documentFooter}</p>}
-        <p className="mt-1">{intl.formatMessage({ id: "invoiceDoc.generatedBy" })}</p>
+      {/* DELIVERED BY / RECEIVED BY / STAMP */}
+      <div className="mt-8 grid grid-cols-3 gap-6 break-inside-avoid">
+        {[
+          { key: "invoiceDoc.deliveredBy", image: undefined },
+          { key: "invoiceDoc.receivedBy", image: undefined },
+          { key: "invoiceDoc.stampAndSignature", image: company.stampUrl },
+        ].map((box) => (
+          <div key={box.key} className="text-center">
+            <div className="flex h-20 items-center justify-center">
+              {box.image && <img src={box.image} alt="" className="max-h-20 max-w-full object-contain" />}
+            </div>
+            <p className="border-t border-gray-800 pt-1 text-xs text-gray-500">{t(box.key)}</p>
+          </div>
+        ))}
       </div>
+
+      <div className="mt-6 border-t border-gray-100 pt-3 text-center text-xs text-gray-400 print:text-[8px]">
+        {company.documentFooter && <p>{company.documentFooter}</p>}
+        <p>{t("invoiceDoc.generatedBy")}</p>
+      </div>
+    </div>
+  );
+}
+
+function TotalRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between py-0.5 text-gray-700">
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
     </div>
   );
 }

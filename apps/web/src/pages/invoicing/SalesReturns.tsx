@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -11,11 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
-import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType } from "@/lib/document-types";
-import { taxesForSale } from "@/lib/tax-enums";
-import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 
 const GRID_ID = "salesReturns";
 
@@ -29,25 +26,15 @@ export function SalesReturns() {
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [originalNumbers, setOriginalNumbers] = useState<Record<string, string>>({});
-  const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formKey, setFormKey] = useState(0);
+  const navigate = useNavigate();
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, taxesResult, paymentMethodsResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
-        apiClient.taxes(companyId),
-        apiClient.paymentMethodsAll(companyId),
-      ]);
-      setPartners(partnersResult);
-      setTaxes(taxesResult);
-      setPaymentMethods(paymentMethodsResult);
+      setPartners(await apiClient.partnersAll(companyId));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "salesReturns.loadError" })));
     }
@@ -57,7 +44,6 @@ export function SalesReturns() {
     void refresh();
   }, [refresh]);
 
-  const customers = partners.filter((p) => p.isCustomer);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
   const paged = usePagedGrid<InvoiceResponse>({
     gridId: GRID_ID,
@@ -87,7 +73,6 @@ export function SalesReturns() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [paged.items, balances, originalNumbers],
   );
-  const refetchPaged = paged.query.refetch;
 
   useEffect(() => {
     if (!companyId) return;
@@ -184,13 +169,6 @@ export function SalesReturns() {
     [columns],
   );
 
-  const handleCreated = useCallback(async () => {
-    setFormOpen(false);
-    setFormKey((k) => k + 1);
-    await refresh();
-    await refetchPaged();
-  }, [refresh, refetchPaged]);
-
   if (!activeCompany) {
     return (
       <Card>
@@ -218,29 +196,10 @@ export function SalesReturns() {
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "salesReturns.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "salesReturns.description" })}</p>
         </div>
-        <Button onClick={() => setFormOpen(true)}>
+        <Button onClick={() => navigate("/sales-returns/new")}>
           {intl.formatMessage({ id: "salesReturns.newReturn" })}
         </Button>
       </div>
-
-      <FormDialog
-        open={formOpen}
-        onOpenChange={(open) => { if (!open) setFormOpen(false); }}
-        title={intl.formatMessage({ id: "salesReturns.newReturn" })}
-        description={intl.formatMessage({ id: "salesReturns.newReturnDescription" })}
-        size="full"
-      >
-        <InvoiceForm
-          key={formKey}
-          companyId={activeCompany.id}
-          customers={customers}
-          taxes={taxesForSale(taxes)}
-          paymentMethods={paymentMethods}
-          isVatRegistered={activeCompany.isVatRegistered}
-          onCreated={handleCreated}
-          fixedDocumentType={InvoiceDocumentType.SalesReturn}
-        />
-      </FormDialog>
 
       <Card>
         <CardHeader>

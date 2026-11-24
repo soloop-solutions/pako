@@ -128,6 +128,84 @@ public class PartnersControllerTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
+    // Client request 2026-11-23: customers and suppliers are separate; VAT number when VAT registered.
+    [Fact]
+    public async Task Create_CustomerAndSupplierAtOnce_Rejected()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest("Acme LLC", null, true, true));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+        Assert.False(await db.Partners.AnyAsync());
+    }
+
+    [Fact]
+    public async Task Update_LegacyPartnerWithBothRoles_MustChooseOne()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<PartnerResponse>(((ObjectResult)(await controller.Create(companyId, new CreatePartnerRequest("Acme LLC", null, true, false))).Result!).Value);
+
+        Assert.IsType<BadRequestObjectResult>((await controller.Update(companyId, created.Id, new UpdatePartnerRequest("Acme LLC", null, true, true))).Result);
+        Assert.IsType<OkObjectResult>((await controller.Update(companyId, created.Id, new UpdatePartnerRequest("Acme LLC", null, true, false))).Result);
+    }
+
+    [Fact]
+    public async Task Create_VatRegisteredWithoutVatNumber_Rejected()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest("Acme LLC", "811234567", true, false, IsVatRegistered: true, VatNumber: "  "));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Fact]
+    public async Task Create_VatRegistered_StoresVatNumber_AndDropsItWhenNotRegistered()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+
+        var vat = Assert.IsType<PartnerResponse>(((ObjectResult)(await controller.Create(companyId,
+            new CreatePartnerRequest("Acme LLC", "811234567", true, false, IsVatRegistered: true, VatNumber: " 330123456 "))).Result!).Value);
+        Assert.Equal("330123456", vat.VatNumber);
+
+        var updated = Assert.IsType<PartnerResponse>(Assert.IsType<OkObjectResult>((await controller.Update(companyId, vat.Id,
+            new UpdatePartnerRequest("Acme LLC", "811234567", true, false, IsVatRegistered: false, VatNumber: "330123456"))).Result).Value);
+        Assert.Null(updated.VatNumber);
+    }
+
+    // Client request 2026-11-23: partner line defaults.
+    [Fact]
+    public async Task Create_StoresLineDefaults()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var expense = new Account { Id = Guid.NewGuid(), CompanyId = companyId, Code = "610000", Name = "Rent", AccountType = AccountType.Expense };
+        db.Accounts.Add(expense);
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest(
+            "Landlord", null, false, true, DefaultExpenseAccountId: expense.Id));
+
+        var created = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>(result.Result).Value);
+        Assert.Equal(expense.Id, created.DefaultExpenseAccountId);
+    }
+
+    [Fact]
+    public async Task Create_ControlAccountAsLineDefault_Rejected()
+    {
+        var (db, companyId, accountId) = await SeedCompanyWithAccountAsync();
+        var control = await db.Accounts.SingleAsync(a => a.Id == accountId);
+        control.IsControl = true;
+        await db.SaveChangesAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest(
+            "Acme LLC", null, true, false, DefaultRevenueAccountId: accountId));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
     [Fact]
     public async Task Update_ChangesSubledgerFields()
     {

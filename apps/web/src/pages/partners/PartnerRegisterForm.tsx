@@ -12,6 +12,11 @@ import { AccountType } from "@/lib/ledger-enums";
 import { usePriceLists } from "@/hooks/useDistribution";
 import { Select } from "@/components/ui/select";
 import { CreditStatusPanel } from "@/pages/sales/CreditStatusPanel";
+import { useQuery } from "@tanstack/react-query";
+import { apiClient } from "@/api/client";
+import { useCompany } from "@/context/CompanyContext";
+import { isExpenseAccountType, isIncomeAccountType } from "@/lib/ledger-enums";
+import { taxesForPurchase, taxesForSale, taxRatePercentLabel } from "@/lib/tax-enums";
 
 export type PartnerEntityType = "company" | "person";
 
@@ -22,6 +27,8 @@ export interface PartnerRegisterFormFields {
   isVendor: boolean;
   fiscalNumber: string | null;
   isVatRegistered: boolean;
+  /** VAT number (Nr. i TVSH), required when isVatRegistered; null otherwise. */
+  vatNumber: string | null;
   receivableAccountId: string | null;
   payableAccountId: string | null;
   paymentTermDays: number | null;
@@ -32,6 +39,12 @@ export interface PartnerRegisterFormFields {
   /** 0 = retail, 1 = wholesale item prices (when no price list sets one). */
   priceTier: number;
   overdueBlockDays: number | null;
+  // Client request 2026-11-23: what new document lines for this partner take when their item sets
+  // nothing (null = the company default).
+  defaultSaleTaxDefinitionId: string | null;
+  defaultPurchaseTaxDefinitionId: string | null;
+  defaultRevenueAccountId: string | null;
+  defaultExpenseAccountId: string | null;
   email: string | null;
   phone: string | null;
   contactPerson: string | null;
@@ -77,9 +90,19 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const [name, setName] = useState(initial?.name ?? "");
   const [taxNumber, setTaxNumber] = useState(initial?.taxNumber ?? "");
   const [fiscalNumber, setFiscalNumber] = useState(initial?.fiscalNumber ?? "");
-  const [isCustomer, setIsCustomer] = useState(role === "customer" ? true : (initial?.isCustomer ?? (defaultRole === "vendor" ? false : true)));
-  const [isVendor, setIsVendor] = useState(role === "vendor" ? true : (initial?.isVendor ?? (defaultRole === "vendor" ? true : false)));
+  // Client request 2026-11-23: a partner is a customer or a supplier, never both. A partner saved
+  // with both roles before the split keeps them here so the form can say so; the server refuses
+  // to save it until one role is chosen (on the Customers/Suppliers pages Save stays disabled).
+  const legacyBothRoles = mode === "edit" && !!initial?.isCustomer && !!initial?.isVendor;
+  const [isCustomer, setIsCustomer] = useState(
+    legacyBothRoles ? true : role ? role === "customer" : (initial?.isCustomer ?? defaultRole !== "vendor"),
+  );
+  const [isVendor, setIsVendor] = useState(
+    legacyBothRoles ? true : role ? role === "vendor" : (initial?.isVendor ?? defaultRole === "vendor"),
+  );
   const [isVatRegistered, setIsVatRegistered] = useState(initial?.isVatRegistered ?? false);
+  const [vatNumber, setVatNumber] = useState(initial?.vatNumber ?? "");
+  const vatNumberMissing = isVatRegistered && !vatNumber.trim();
   const [receivableAccountId, setReceivableAccountId] = useState(initial?.receivableAccountId ?? "");
   const [payableAccountId, setPayableAccountId] = useState(initial?.payableAccountId ?? "");
   const [paymentTermDays, setPaymentTermDays] = useState(initial?.paymentTermDays != null ? String(initial.paymentTermDays) : "");
@@ -87,6 +110,10 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   const [priceListId, setPriceListId] = useState(initial?.priceListId ?? "");
   const [priceTier, setPriceTier] = useState(String(initial?.priceTier ?? 0));
   const [overdueBlockDays, setOverdueBlockDays] = useState(initial?.overdueBlockDays != null ? String(initial.overdueBlockDays) : "");
+  const [defaultSaleTaxId, setDefaultSaleTaxId] = useState(initial?.defaultSaleTaxDefinitionId ?? "");
+  const [defaultPurchaseTaxId, setDefaultPurchaseTaxId] = useState(initial?.defaultPurchaseTaxDefinitionId ?? "");
+  const [defaultRevenueAccountId, setDefaultRevenueAccountId] = useState(initial?.defaultRevenueAccountId ?? "");
+  const [defaultExpenseAccountId, setDefaultExpenseAccountId] = useState(initial?.defaultExpenseAccountId ?? "");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [phone, setPhone] = useState(initial?.phone ?? "");
   const [contactPerson, setContactPerson] = useState(initial?.contactPerson ?? "");
@@ -102,7 +129,19 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
     onDirtyChange?.(true);
   // only on field changes, not initial render
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, priceTier, overdueBlockDays, entityType, email, phone, contactPerson, streetAddress, city, postalCode, country]);
+  }, [name, taxNumber, fiscalNumber, isCustomer, isVendor, isVatRegistered, vatNumber, receivableAccountId, payableAccountId, paymentTermDays, creditLimit, priceListId, priceTier, overdueBlockDays, entityType, email, phone, contactPerson, streetAddress, city, postalCode, country, defaultSaleTaxId, defaultPurchaseTaxId, defaultRevenueAccountId, defaultExpenseAccountId]);
+
+  const { activeCompanyId } = useCompany();
+  const taxes = useQuery({
+    queryKey: ["taxes", activeCompanyId],
+    queryFn: () => apiClient.taxes(activeCompanyId as string),
+    enabled: !!activeCompanyId,
+    staleTime: 60_000,
+  }).data ?? [];
+  const activeTaxes = taxes.filter((t) => t.isActive !== false);
+  const lineAccountLabel = (a: AccountResponse) => `${a.code} · ${a.name}`;
+  const revenueAccounts = accounts.filter((a) => isIncomeAccountType(a.accountType));
+  const expenseAccounts = accounts.filter((a) => isExpenseAccountType(a.accountType));
 
   const receivableAccounts = accounts.filter((a) => a.accountType === AccountType.Receivable);
   // Bug fix: also include CurrentLiability accounts that have a Partner subledger (value 1),
@@ -114,7 +153,8 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   // Auto-open collapsible sections when they already have data (edit mode).
   const hasContactData = hasAny(initial?.contactPerson, initial?.email, initial?.phone);
   const hasAddressData = hasAny(initial?.streetAddress, initial?.city, initial?.postalCode, initial?.country);
-  const hasAccountingData = hasAny(initial?.isVatRegistered, initial?.receivableAccountId, initial?.payableAccountId, initial?.paymentTermDays, initial?.creditLimit);
+  const hasAccountingData = hasAny(initial?.isVatRegistered, initial?.receivableAccountId, initial?.payableAccountId, initial?.paymentTermDays, initial?.creditLimit,
+    initial?.defaultSaleTaxDefinitionId, initial?.defaultPurchaseTaxDefinitionId, initial?.defaultRevenueAccountId, initial?.defaultExpenseAccountId);
   const hasDistributionData = hasAny(initial?.priceListId, initial?.overdueBlockDays, initial?.priceTier || undefined);
 
   function handleSubmit(e: FormEvent) {
@@ -126,6 +166,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       isVendor,
       fiscalNumber: entityType === "person" ? (fiscalNumber.trim() || null) : null,
       isVatRegistered,
+      vatNumber: isVatRegistered ? vatNumber.trim() || null : null,
       receivableAccountId: receivableAccountId || null,
       payableAccountId: payableAccountId || null,
       paymentTermDays: paymentTermDays ? parseInt(paymentTermDays, 10) : null,
@@ -133,6 +174,10 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       priceListId: isCustomer ? priceListId || null : null,
       priceTier: isCustomer ? parseInt(priceTier, 10) : 0,
       overdueBlockDays: isCustomer && overdueBlockDays !== "" ? parseInt(overdueBlockDays, 10) : null,
+      defaultSaleTaxDefinitionId: isCustomer ? defaultSaleTaxId || null : null,
+      defaultPurchaseTaxDefinitionId: isVendor ? defaultPurchaseTaxId || null : null,
+      defaultRevenueAccountId: isCustomer ? defaultRevenueAccountId || null : null,
+      defaultExpenseAccountId: isVendor ? defaultExpenseAccountId || null : null,
       email: email.trim() || null,
       phone: phone.trim() || null,
       contactPerson: contactPerson.trim() || null,
@@ -167,30 +212,22 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           </div>
         </div>
 
-        {role && (
-          <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={role === "customer" ? isVendor : isCustomer}
-                onChange={(e) => (role === "customer" ? setIsVendor(e.target.checked) : setIsCustomer(e.target.checked))}
-              />
-              {intl.formatMessage({ id: role === "customer" ? "partners.form.alsoVendor" : "partners.form.alsoCustomer" })}
-            </label>
-            <p className="text-xs text-muted-foreground">
-              {intl.formatMessage({ id: role === "customer" ? "partners.form.alsoVendorHint" : "partners.form.alsoCustomerHint" })}
-            </p>
-          </div>
+        {legacyBothRoles && (
+          <Alert variant="destructive">
+            <AlertDescription>{intl.formatMessage({ id: "partners.form.legacyBothRoles" })}</AlertDescription>
+          </Alert>
         )}
-        {!defaultRole && !role && (
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={isCustomer} onChange={(e) => setIsCustomer(e.target.checked)} />
+        {((!defaultRole && !role) || legacyBothRoles) && (
+          // The full partner list (hidden route), or a partner saved with both roles: pick exactly one.
+          <div className="flex gap-2" role="radiogroup" aria-label={intl.formatMessage({ id: "partners.form.roleLabel" })}>
+            <Button type="button" size="sm" role="radio" aria-checked={isCustomer} variant={isCustomer ? "default" : "outline"}
+              onClick={() => { setIsCustomer(true); setIsVendor(false); }}>
               {intl.formatMessage({ id: "partners.form.isCustomer" })}
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={isVendor} onChange={(e) => setIsVendor(e.target.checked)} />
+            </Button>
+            <Button type="button" size="sm" role="radio" aria-checked={isVendor} variant={isVendor ? "default" : "outline"}
+              onClick={() => { setIsVendor(true); setIsCustomer(false); }}>
               {intl.formatMessage({ id: "partners.form.isVendor" })}
-            </label>
+            </Button>
           </div>
         )}
 
@@ -211,6 +248,25 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
             <div className="flex flex-col gap-1">
               <Label htmlFor="partner-fiscal-number">{intl.formatMessage({ id: "partners.form.fiscalNumber" })}</Label>
               <Input id="partner-fiscal-number" value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
+            </div>
+          )}
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="flex items-center gap-2 self-end pb-2 text-sm">
+            <Checkbox checked={isVatRegistered} onChange={(e) => setIsVatRegistered(e.target.checked)} />
+            {intl.formatMessage({ id: "partnerForm.vatRegistered" })}
+          </label>
+          {isVatRegistered && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="partner-vat-number">
+                {intl.formatMessage({ id: "partners.form.vatNumber" })} <span className="text-destructive">*</span>
+              </Label>
+              <Input id="partner-vat-number" required maxLength={64} value={vatNumber} aria-invalid={vatNumberMissing || undefined}
+                onChange={(e) => setVatNumber(e.target.value)} />
+              {vatNumberMissing && (
+                <p className="text-xs text-destructive">{intl.formatMessage({ id: "partners.form.vatNumberRequired" })}</p>
+              )}
             </div>
           )}
         </div>
@@ -264,11 +320,6 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
       <details className="group rounded-md border p-3" open={hasAccountingData || undefined}>
         <summary className="cursor-pointer text-sm font-medium">{intl.formatMessage({ id: "partners.form.accountingSection" })}</summary>
         <div className="mt-3 flex flex-col gap-3">
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox checked={isVatRegistered} onChange={(e) => setIsVatRegistered(e.target.checked)} />
-            {intl.formatMessage({ id: "partnerForm.vatRegistered" })}
-          </label>
-
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {showCustomerFields && (
               <div className="flex flex-col gap-1">
@@ -331,6 +382,71 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
               />
             </div>}
           </div>
+
+          {/* Line defaults: what a new invoice/bill line takes when its item sets nothing. */}
+          <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.lineDefaultsHint" })}</p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {showCustomerFields && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="partner-default-sale-tax">{intl.formatMessage({ id: "partners.form.defaultSaleTax" })}</Label>
+                  <SearchableSelect
+                    id="partner-default-sale-tax"
+                    value={defaultSaleTaxId}
+                    onChange={setDefaultSaleTaxId}
+                    placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                    searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                    noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                    emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                    options={taxesForSale(activeTaxes).map((t) => ({ value: t.id, label: taxRatePercentLabel(t), description: t.code ?? undefined }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="partner-default-revenue">{intl.formatMessage({ id: "partners.form.defaultRevenueAccount" })}</Label>
+                  <SearchableSelect
+                    id="partner-default-revenue"
+                    value={defaultRevenueAccountId}
+                    onChange={setDefaultRevenueAccountId}
+                    placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                    searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                    noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                    emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                    options={revenueAccounts.map((a) => ({ value: a.id, label: lineAccountLabel(a) }))}
+                  />
+                </div>
+              </>
+            )}
+            {showVendorFields && (
+              <>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="partner-default-purchase-tax">{intl.formatMessage({ id: "partners.form.defaultPurchaseTax" })}</Label>
+                  <SearchableSelect
+                    id="partner-default-purchase-tax"
+                    value={defaultPurchaseTaxId}
+                    onChange={setDefaultPurchaseTaxId}
+                    placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                    searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                    noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                    emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                    options={taxesForPurchase(activeTaxes).map((t) => ({ value: t.id, label: taxRatePercentLabel(t), description: t.code ?? undefined }))}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="partner-default-expense">{intl.formatMessage({ id: "partners.form.defaultExpenseAccount" })}</Label>
+                  <SearchableSelect
+                    id="partner-default-expense"
+                    value={defaultExpenseAccountId}
+                    onChange={setDefaultExpenseAccountId}
+                    placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                    searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                    noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                    emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                    options={expenseAccounts.map((a) => ({ value: a.id, label: lineAccountLabel(a) }))}
+                  />
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </details>
 
@@ -388,7 +504,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
 
       {/* ── Actions ── */}
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting || !name.trim() || (!isCustomer && !isVendor)}>
+        <Button type="submit" disabled={submitting || !name.trim() || (!isCustomer && !isVendor) || (isCustomer && isVendor) || vatNumberMissing}>
           {submitting
             ? intl.formatMessage({ id: "common.saving" })
             : intl.formatMessage({ id: mode === "create" ? (createButtonLabelKey ?? "partners.addPartner") : "common.save" })}

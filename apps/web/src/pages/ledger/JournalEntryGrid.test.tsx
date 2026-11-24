@@ -36,7 +36,7 @@ vi.mock("@/api/client", async (importOriginal) => {
       journalEntries: (...args: unknown[]) => journalEntriesCreate(...args),
       post3: (...args: unknown[]) => post3(...args),
       actionTokens: (...args: unknown[]) => actionTokens(...args),
-      preview: (...args: unknown[]) => preview(...(args as [])),
+      previewGET: (...args: unknown[]) => preview(...(args as [])),
       listCostCenters: (...args: unknown[]) => listCostCenters(...(args as [])),
     },
   };

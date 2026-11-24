@@ -38,7 +38,6 @@ import {
 } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
-import { PartnerForm } from "@/pages/shared/PartnerForm";
 
 const GRID_ID = "bills";
 
@@ -56,7 +55,6 @@ export function Bills() {
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
   const [billFormOpen, setBillFormOpen] = useState(false);
-  const [vendorFormOpen, setVendorFormOpen] = useState(false);
   const [billFormKey, setBillFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
@@ -246,17 +244,12 @@ export function Bills() {
   );
   const visibleColumns = useMemo(() => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "dueDate", "state"], ["state"]), [columns]);
 
-  const handleBillCreated = useCallback(async () => {
-    setBillFormOpen(false);
+  const handleBillCreated = useCallback(async (options?: { keepOpen?: boolean }) => {
+    if (!options?.keepOpen) setBillFormOpen(false);
     setBillFormKey((k) => k + 1);
     await refresh();
     await refetchPaged();
   }, [refresh, refetchPaged]);
-
-  const handleVendorCreated = useCallback(async () => {
-    setVendorFormOpen(false);
-    await refresh();
-  }, [refresh]);
 
   const handleInlinePartnerCreated = useCallback(async () => {
     await refresh();
@@ -291,23 +284,11 @@ export function Bills() {
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.description" })}</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" onClick={() => setVendorFormOpen(true)}>
-            {intl.formatMessage({ id: "bills.addVendor" })}
-          </Button>
           <Button onClick={() => setBillFormOpen(true)}>
             {intl.formatMessage({ id: "bills.newBill" })}
           </Button>
         </div>
       </div>
-
-      <FormDialog
-        open={vendorFormOpen}
-        onOpenChange={(open) => { if (!open) setVendorFormOpen(false); }}
-        title={intl.formatMessage({ id: "bills.addVendor" })}
-        size="sm"
-      >
-        <PartnerForm companyId={activeCompany.id} role="vendor" onCreated={handleVendorCreated} />
-      </FormDialog>
 
       <FormDialog
         open={billFormOpen}

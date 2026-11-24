@@ -74,7 +74,7 @@ export async function prefillFromDelivery(companyId: string, deliveryId: string,
   };
 }
 
-// docs/POS_PLAN.md P6: `/invoicing?salesOrder=<id>[&undelivered=1]` or `?delivery=<id>` opens the
+// docs/POS_PLAN.md P6: `/invoicing/new?salesOrder=<id>[&undelivered=1]` or `?delivery=<id>` opens the
 // new-invoice form filled from that order or delivery note.
 export function useInvoicePrefill(companyId: string | null, nothingLeft: string) {
   const [params, setParams] = useSearchParams();

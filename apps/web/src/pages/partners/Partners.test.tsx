@@ -52,6 +52,7 @@ const ACME = {
   isVendor: false,
   fiscalNumber: undefined,
   isVatRegistered: true,
+  vatNumber: "330000001",
   receivableAccountId: "acc-ar",
   payableAccountId: undefined,
   paymentTermDays: 30,

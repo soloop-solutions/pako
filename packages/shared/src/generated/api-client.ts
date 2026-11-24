@@ -10170,6 +10170,49 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    quoteInvoice(companyId: string, body: InvoiceQuoteRequest): Promise<InvoiceQuoteResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/quote";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processQuoteInvoice(_response);
+        });
+    }
+
+    protected processQuoteInvoice(response: Response): Promise<InvoiceQuoteResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceQuoteResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<InvoiceQuoteResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     discard2(companyId: string, id: string): Promise<void> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/discard";
         if (companyId === undefined || companyId === null)
@@ -10990,6 +11033,179 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @param filled (optional) 
+     * @return OK
+     */
+    template(filled: boolean | undefined, companyId: string): Promise<FileResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/import/template?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (filled === null)
+            throw new globalThis.Error("The parameter 'filled' cannot be null.");
+        else if (filled !== undefined)
+            url_ += "filled=" + encodeURIComponent("" + filled) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processTemplate(_response);
+        });
+    }
+
+    protected processTemplate(response: Response): Promise<FileResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200 || status === 206) {
+            const contentDisposition = response.headers ? response.headers.get("content-disposition") : undefined;
+            let fileNameMatch = contentDisposition ? /filename\*=(?:(\\?['"])(.*?)\1|(?:[^\s]+'.*?')?([^;\n]*))/g.exec(contentDisposition) : undefined;
+            let fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[3] || fileNameMatch[2] : undefined;
+            if (fileName) {
+                fileName = decodeURIComponent(fileName);
+            } else {
+                fileNameMatch = contentDisposition ? /filename="?([^"]*?)"?(;|$)/g.exec(contentDisposition) : undefined;
+                fileName = fileNameMatch && fileNameMatch.length > 1 ? fileNameMatch[1] : undefined;
+            }
+            return response.blob().then(blob => { return { fileName: fileName, data: blob, status: status, headers: _headers }; });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<FileResponse>(null as any);
+    }
+
+    /**
+     * @param fallbackRevenueAccountId (optional) 
+     * @param fallbackExpenseAccountId (optional) 
+     * @param fallbackInventoryAccountId (optional) 
+     * @return OK
+     */
+    previewPOST(companyId: string, fallbackRevenueAccountId: string | undefined, fallbackExpenseAccountId: string | undefined, fallbackInventoryAccountId: string | undefined): Promise<StockImportPreviewResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/import/preview";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (fallbackRevenueAccountId === null || fallbackRevenueAccountId === undefined)
+            throw new globalThis.Error("The parameter 'fallbackRevenueAccountId' cannot be null.");
+        else
+            content_.append("fallbackRevenueAccountId", fallbackRevenueAccountId.toString());
+        if (fallbackExpenseAccountId === null || fallbackExpenseAccountId === undefined)
+            throw new globalThis.Error("The parameter 'fallbackExpenseAccountId' cannot be null.");
+        else
+            content_.append("fallbackExpenseAccountId", fallbackExpenseAccountId.toString());
+        if (fallbackInventoryAccountId === null || fallbackInventoryAccountId === undefined)
+            throw new globalThis.Error("The parameter 'fallbackInventoryAccountId' cannot be null.");
+        else
+            content_.append("fallbackInventoryAccountId", fallbackInventoryAccountId.toString());
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPreviewPOST(_response);
+        });
+    }
+
+    protected processPreviewPOST(response: Response): Promise<StockImportPreviewResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockImportPreviewResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockImportPreviewResponse>(null as any);
+    }
+
+    /**
+     * @param warehouseId (optional) 
+     * @param openingDate (optional) 
+     * @param fallbackRevenueAccountId (optional) 
+     * @param fallbackExpenseAccountId (optional) 
+     * @param fallbackInventoryAccountId (optional) 
+     * @return OK
+     */
+    confirm(companyId: string, warehouseId: string | undefined, openingDate: string | undefined, fallbackRevenueAccountId: string | undefined, fallbackExpenseAccountId: string | undefined, fallbackInventoryAccountId: string | undefined): Promise<StockImportConfirmResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/items/import/confirm";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = new FormData();
+        if (warehouseId === null || warehouseId === undefined)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else
+            content_.append("warehouseId", warehouseId.toString());
+        if (openingDate === null || openingDate === undefined)
+            throw new globalThis.Error("The parameter 'openingDate' cannot be null.");
+        else
+            content_.append("openingDate", openingDate.toString());
+        if (fallbackRevenueAccountId === null || fallbackRevenueAccountId === undefined)
+            throw new globalThis.Error("The parameter 'fallbackRevenueAccountId' cannot be null.");
+        else
+            content_.append("fallbackRevenueAccountId", fallbackRevenueAccountId.toString());
+        if (fallbackExpenseAccountId === null || fallbackExpenseAccountId === undefined)
+            throw new globalThis.Error("The parameter 'fallbackExpenseAccountId' cannot be null.");
+        else
+            content_.append("fallbackExpenseAccountId", fallbackExpenseAccountId.toString());
+        if (fallbackInventoryAccountId === null || fallbackInventoryAccountId === undefined)
+            throw new globalThis.Error("The parameter 'fallbackInventoryAccountId' cannot be null.");
+        else
+            content_.append("fallbackInventoryAccountId", fallbackInventoryAccountId.toString());
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConfirm(_response);
+        });
+    }
+
+    protected processConfirm(response: Response): Promise<StockImportConfirmResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as StockImportConfirmResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<StockImportConfirmResponse>(null as any);
     }
 
     /**
@@ -13764,6 +13980,190 @@ export class PakoApiClient {
     }
 
     /**
+     * @param year (optional) 
+     * @return OK
+     */
+    monthLocks(companyId: string, year: number | undefined): Promise<MonthLockYearResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/month-locks?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processMonthLocks(_response);
+        });
+    }
+
+    protected processMonthLocks(response: Response): Promise<MonthLockYearResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as MonthLockYearResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MonthLockYearResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    lock(companyId: string, body: LockMonthsRequest): Promise<MonthLockYearResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/month-locks/lock";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processLock(_response);
+        });
+    }
+
+    protected processLock(response: Response): Promise<MonthLockYearResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as MonthLockYearResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MonthLockYearResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    unlock(companyId: string, body: UnlockMonthRequest): Promise<MonthLockYearResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/month-locks/unlock";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUnlock(_response);
+        });
+    }
+
+    protected processUnlock(response: Response): Promise<MonthLockYearResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as MonthLockYearResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MonthLockYearResponse>(null as any);
+    }
+
+    /**
+     * @param year (optional) 
+     * @param page (optional) 
+     * @param pageSize (optional) 
+     * @return OK
+     */
+    history(companyId: string, year: number | undefined, page: number | undefined, pageSize: number | undefined): Promise<MonthLockHistoryResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/month-locks/history?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (year === null)
+            throw new globalThis.Error("The parameter 'year' cannot be null.");
+        else if (year !== undefined)
+            url_ += "year=" + encodeURIComponent("" + year) + "&";
+        if (page === null)
+            throw new globalThis.Error("The parameter 'page' cannot be null.");
+        else if (page !== undefined)
+            url_ += "page=" + encodeURIComponent("" + page) + "&";
+        if (pageSize === null)
+            throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
+        else if (pageSize !== undefined)
+            url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processHistory(_response);
+        });
+    }
+
+    protected processHistory(response: Response): Promise<MonthLockHistoryResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as MonthLockHistoryResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<MonthLockHistoryResponse>(null as any);
+    }
+
+    /**
      * @return OK
      */
     getMyAccess(companyId: string): Promise<MyAccessResponse> {
@@ -14067,7 +14467,7 @@ export class PakoApiClient {
      * @param date (optional) 
      * @return OK
      */
-    preview(companyId: string, documentType: string | undefined, date: string | undefined): Promise<NumberPreviewResponse> {
+    previewGET(companyId: string, documentType: string | undefined, date: string | undefined): Promise<NumberPreviewResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/number-series/preview?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -14090,11 +14490,11 @@ export class PakoApiClient {
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
-            return this.processPreview(_response);
+            return this.processPreviewGET(_response);
         });
     }
 
-    protected processPreview(response: Response): Promise<NumberPreviewResponse> {
+    protected processPreviewGET(response: Response): Promise<NumberPreviewResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -31605,6 +32005,11 @@ export interface BillLineResponse {
     lotNumber?: string | undefined;
     expiryDate?: string | undefined;
     costCodeId?: string | undefined;
+    amountBeforeDiscount?: number | undefined;
+    discountAmount?: number | undefined;
+    netAmount?: number | undefined;
+    taxAmount?: number | undefined;
+    grossAmount?: number | undefined;
 
     [key: string]: any;
 }
@@ -31627,6 +32032,8 @@ export interface BillResponse {
     projectId?: string | undefined;
     createdByUserId?: string | undefined;
     createdByName?: string | undefined;
+    totals?: InvoiceAmountTotals | undefined;
+    taxBreakdown?: InvoiceTaxBreakdownLine[] | undefined;
 
     [key: string]: any;
 }
@@ -32156,7 +32563,7 @@ export interface CreateBillRequest {
     partnerId: string;
     vendorReference: string | undefined;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateBillLineRequest[];
     documentType?: number;
     originalBillId?: string | undefined;
@@ -32234,7 +32641,7 @@ export interface CreateInvoicePaymentRequest {
 export interface CreateInvoiceRequest {
     partnerId: string;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateInvoiceLineRequest[];
     documentType?: number;
     originalInvoiceId?: string | undefined;
@@ -32366,6 +32773,11 @@ export interface CreatePartnerRequest {
     postalCode?: string | undefined;
     country?: string | undefined;
     priceTier?: number | undefined;
+    defaultSaleTaxDefinitionId?: string | undefined;
+    defaultPurchaseTaxDefinitionId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    vatNumber?: string | undefined;
 
     [key: string]: any;
 }
@@ -33581,6 +33993,46 @@ export interface InvoiceLineResponse {
     netAmount?: number | undefined;
     taxAmount?: number | undefined;
     grossAmount?: number | undefined;
+    itemCode?: string | undefined;
+    unitPriceNet?: number | undefined;
+    unitPriceGross?: number | undefined;
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteLineRequest {
+    quantity: number;
+    unitPrice: number;
+    discountPercent: number;
+    taxDefinitionId: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteLineResponse {
+    amountBeforeDiscount: number;
+    discountAmount: number;
+    netAmount: number;
+    taxAmount: number;
+    grossAmount: number;
+    unitPriceNet: number;
+    unitPriceGross: number;
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteRequest {
+    priceMode: number;
+    lines: InvoiceQuoteLineRequest[];
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteResponse {
+    lines: InvoiceQuoteLineResponse[];
+    totals: InvoiceAmountTotals;
+    taxBreakdown: InvoiceTaxBreakdownLine[];
+    totalInWords: string;
 
     [key: string]: any;
 }
@@ -33607,6 +34059,7 @@ export interface InvoiceResponse {
     createdByName?: string | undefined;
     totals?: InvoiceAmountTotals | undefined;
     taxBreakdown?: InvoiceTaxBreakdownLine[] | undefined;
+    totalInWords?: string | undefined;
 
     [key: string]: any;
 }
@@ -33615,6 +34068,7 @@ export interface InvoiceTaxBreakdownLine {
     taxDefinitionId: string;
     netAmount: number;
     taxAmount: number;
+    grossAmount?: number | undefined;
 
     [key: string]: any;
 }
@@ -33948,6 +34402,13 @@ export interface LoanRepaymentResponse {
     [key: string]: any;
 }
 
+export interface LockMonthsRequest {
+    year: number;
+    months: number[];
+
+    [key: string]: any;
+}
+
 export interface LoginRequest {
     email: string;
     password: string;
@@ -34105,6 +34566,46 @@ export interface ModuleAccessResponse {
     users?: number;
     inventory?: number;
     pos?: number;
+
+    [key: string]: any;
+}
+
+export interface MonthLockEventResponse {
+    id: string;
+    year: number;
+    month: number;
+    action: number;
+    userId: string;
+    userEmail: string | undefined;
+    timestamp: string;
+    reason: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface MonthLockHistoryResponse {
+    items: MonthLockEventResponse[];
+    total: number;
+    page: number;
+    pageSize: number;
+
+    [key: string]: any;
+}
+
+export interface MonthLockResponse {
+    year: number;
+    month: number;
+    isLocked: boolean;
+    lockedByUserId: string | undefined;
+    lockedByEmail: string | undefined;
+    lockedAt: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface MonthLockYearResponse {
+    year: number;
+    months: MonthLockResponse[];
 
     [key: string]: any;
 }
@@ -34635,6 +35136,11 @@ export interface PartnerResponse {
     postalCode?: string | undefined;
     country?: string | undefined;
     priceTier?: number | undefined;
+    defaultSaleTaxDefinitionId?: string | undefined;
+    defaultPurchaseTaxDefinitionId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    vatNumber?: string | undefined;
 
     [key: string]: any;
 }
@@ -37742,6 +38248,66 @@ export interface StockDocumentSummaryResponse {
     [key: string]: any;
 }
 
+export interface StockImportConfirmResponse {
+    created: number;
+    skipped: number;
+    createdCategories: string[];
+    openingDocumentId?: string | undefined;
+    openingDocumentNumber?: string | undefined;
+    errors?: StockImportRowError[] | undefined;
+
+    [key: string]: any;
+}
+
+export interface StockImportPreviewResponse {
+    rows: StockImportPreviewRow[];
+    summary: StockImportSummary;
+    newCategories: string[];
+
+    [key: string]: any;
+}
+
+export interface StockImportPreviewRow {
+    rowNumber: number;
+    status: string;
+    name: string | undefined;
+    unit: string | undefined;
+    category: string | undefined;
+    salePrice: number | undefined;
+    revenueAccountCode: string | undefined;
+    expenseAccountCode: string | undefined;
+    inventoryAccountCode: string | undefined;
+    vatCode: string | undefined;
+    minimumStock: number | undefined;
+    barcode: string | undefined;
+    openingQty: number | undefined;
+    openingUnitCost: number | undefined;
+    purchaseUnit: string | undefined;
+    purchaseFactor: number | undefined;
+    salesUnit: string | undefined;
+    salesFactor: number | undefined;
+    description: string | undefined;
+    errors: string[];
+    warnings: string[];
+
+    [key: string]: any;
+}
+
+export interface StockImportRowError {
+    rowNumber: number;
+    message: string;
+
+    [key: string]: any;
+}
+
+export interface StockImportSummary {
+    ready: number;
+    warnings: number;
+    errorCount: number;
+
+    [key: string]: any;
+}
+
 export interface StockLevelResponse {
     itemId: string;
     itemCode: number;
@@ -38183,6 +38749,14 @@ export interface UnitResponse {
     [key: string]: any;
 }
 
+export interface UnlockMonthRequest {
+    year: number;
+    month: number;
+    reason: string;
+
+    [key: string]: any;
+}
+
 export interface UpdateAccountRequest {
     code: string;
     name: string;
@@ -38221,7 +38795,7 @@ export interface UpdateBillRequest {
     partnerId: string;
     vendorReference: string | undefined;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateBillLineRequest[];
     documentType: number;
     originalBillId: string | undefined;
@@ -38300,7 +38874,7 @@ export interface UpdateCompanyUserRequest {
 export interface UpdateInvoiceRequest {
     partnerId: string;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateInvoiceLineRequest[];
     documentType: number;
     originalInvoiceId: string | undefined;
@@ -38406,6 +38980,11 @@ export interface UpdatePartnerRequest {
     postalCode?: string | undefined;
     country?: string | undefined;
     priceTier?: number | undefined;
+    defaultSaleTaxDefinitionId?: string | undefined;
+    defaultPurchaseTaxDefinitionId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    vatNumber?: string | undefined;
 
     [key: string]: any;
 }

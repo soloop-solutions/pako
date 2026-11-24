@@ -1989,4 +1989,35 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>Kodi i TVSH-së "{0}" nuk u gjet.</value></data>
   <data name="StockImportNoFile" xml:space="preserve"><value>Asnjë skedar nuk u ngarkua.</value></data>
   <data name="StockImportInvalidFormat" xml:space="preserve"><value>Vetëm skedarë .xlsx pranohen.</value></data>
+  <data name="OriginalBillMustMatchVendorAndType" xml:space="preserve"><value>Dokumenti origjinal duhet të jetë faturë blerjeje nga i njëjti furnitor.</value></data>
+  <data name="LineUnitTooLong" xml:space="preserve"><value>Njësia e rreshtit mund të ketë të shumtën 32 karaktere.</value></data>
+  <data name="PartnerDefaultTaxInvalid" xml:space="preserve"><value>Kodi i paracaktuar i TVSH-së duhet të jetë kod aktiv shitjeje (blerës) ose blerjeje (furnitor) i kësaj kompanie.</value></data>
+  <data name="PartnerDefaultAccountInvalid" xml:space="preserve"><value>Llogaria e paracaktuar duhet të jetë llogari aktive e kësaj kompanie dhe jo llogari kontrolli.</value></data>
+  <data name="Pdf_Invoice_Col_Net" xml:space="preserve"><value>Vlera pa TVSH</value></data>
+  <data name="Pdf_Invoice_Col_UnitPriceInclVat" xml:space="preserve"><value>Çmimi me TVSH</value></data>
+  <data name="Pdf_Invoice_Col_UnitPriceExclVat" xml:space="preserve"><value>Çmimi pa TVSH</value></data>
+  <data name="Pdf_Invoice_AccountHolder" xml:space="preserve"><value>Mbajtësi i llogarisë</value></data>
+  <data name="Pdf_Invoice_Swift" xml:space="preserve"><value>SWIFT/BIC</value></data>
+  <data name="Pdf_Invoice_StampAndSignature" xml:space="preserve"><value>Vula dhe nënshkrimi</value></data>
+  <data name="PartnerSingleRoleRequired" xml:space="preserve"><value>Partneri është ose klient ose furnitor, jo të dyja. Krijoni një regjistrim të veçantë si furnitor për këtë biznes.</value></data>
+  <data name="PartnerVatNumberRequired" xml:space="preserve"><value>Partneri është i regjistruar në TVSH: shkruani numrin e TVSH-së.</value></data>
+  <data name="PartnerVatNumberTooLong" xml:space="preserve"><value>Numri i TVSH-së mund të ketë më së shumti 64 karaktere.</value></data>
+  <data name="Pdf_Invoice_Nui" xml:space="preserve"><value>NUI</value></data>
+  <data name="Pdf_Invoice_Col_No" xml:space="preserve"><value>Nr.</value></data>
+  <data name="Pdf_Invoice_Col_Code" xml:space="preserve"><value>Kodi</value></data>
+  <data name="Pdf_Invoice_Col_Unit" xml:space="preserve"><value>Njësia</value></data>
+  <data name="Pdf_Invoice_Col_DiscountPercent" xml:space="preserve"><value>Rabat %</value></data>
+  <data name="Pdf_Invoice_Col_DiscountAmount" xml:space="preserve"><value>Rabati</value></data>
+  <data name="Pdf_Invoice_Col_VatRate" xml:space="preserve"><value>TVSH %</value></data>
+  <data name="Pdf_Invoice_Col_VatValue" xml:space="preserve"><value>TVSH</value></data>
+  <data name="Pdf_Invoice_Buyer" xml:space="preserve"><value>Blerësi</value></data>
+  <data name="Pdf_Invoice_ContactPerson" xml:space="preserve"><value>Kontakti</value></data>
+  <data name="Pdf_Invoice_Phone" xml:space="preserve"><value>Tel.</value></data>
+  <data name="Pdf_Invoice_VatTable_Rate" xml:space="preserve"><value>Norma e TVSH</value></data>
+  <data name="Pdf_Invoice_VatTable_Base" xml:space="preserve"><value>Baza</value></data>
+  <data name="Pdf_Invoice_VatTable_Vat" xml:space="preserve"><value>TVSH</value></data>
+  <data name="Pdf_Invoice_VatTable_Total" xml:space="preserve"><value>Totali</value></data>
+  <data name="Pdf_Invoice_InWords" xml:space="preserve"><value>Me fjalë</value></data>
+  <data name="Pdf_Invoice_DeliveredBy" xml:space="preserve"><value>Dorëzoi</value></data>
+  <data name="Pdf_Invoice_ReceivedBy" xml:space="preserve"><value>Pranoi</value></data>
 </root>

@@ -31,13 +31,42 @@ export function applyItemDefaultsToLine(
   line: ItemDefaultableLine,
   item: ItemDefaultsSource,
   baselineTaxId: string,
+  baselineAccountId = "",
 ): ItemDefaultableLine {
   return {
     description: line.description.trim() ? line.description : item.name,
     unitPrice: item.defaultUnitPrice != null ? String(item.defaultUnitPrice) : "",
     taxDefinitionId: item.defaultTaxDefinitionId ?? baselineTaxId,
-    accountId: item.defaultAccountId ?? "",
+    accountId: item.defaultAccountId ?? baselineAccountId,
   };
+}
+
+// The partner-driven part of a line's defaults: the VAT code and account a line takes when its
+// item sets none (client request 2026-11-23 — the partner's own defaults, else the form's rule).
+export interface PartnerLineDefaults {
+  taxDefinitionId: string;
+  accountId: string;
+}
+
+// A different partner was picked: every line still showing the previous partner's default for a
+// field (that is, the user did not change it and the line's item has no default of its own for it)
+// takes the new partner's default. Lines the user edited, and fields the item sets, stay as they are.
+export function reapplyPartnerDefaults<T extends { taxDefinitionId: string }>(
+  line: T,
+  getAccount: (line: T) => string,
+  setAccount: (line: T, accountId: string) => T,
+  item: ItemDefaultsSource | undefined,
+  previous: PartnerLineDefaults,
+  next: PartnerLineDefaults,
+): T {
+  let result = line;
+  if (item?.defaultTaxDefinitionId == null && line.taxDefinitionId === previous.taxDefinitionId) {
+    result = { ...result, taxDefinitionId: next.taxDefinitionId };
+  }
+  if (item?.defaultAccountId == null && getAccount(line) === previous.accountId) {
+    result = setAccount(result, next.accountId);
+  }
+  return result;
 }
 
 // "Shows clearly when it has overridden something": only a field the SELECTED item actually has

@@ -359,8 +359,10 @@ export const navCategories: NavCategory[] = [
   {
     // Customers and the partner statement (Konsumatorët); Partners page kept as a route but removed
     // from sidebar — accountants work with Customers and Vendors as separate lists.
+    // Client request 2026-11-23: Customers and Suppliers sit side by side (they are separate lists
+    // since then). Suppliers keep the purchases module gate they had under Purchases.
     id: "customers",
-    labelKey: "sidebar.category.customers",
+    labelKey: "sidebar.category.customersAndSuppliers",
     items: [
       {
         titleKey: "nav.customers",
@@ -369,6 +371,14 @@ export const navCategories: NavCategory[] = [
         descriptionKey: "nav.customers.description",
         Element: Customers,
         module: "sales",
+      },
+      {
+        titleKey: "nav.vendors",
+        path: "/vendors",
+        icon: Truck,
+        descriptionKey: "nav.vendors.description",
+        Element: Vendors,
+        module: "purchases",
       },
       {
         titleKey: "nav.partnerStatement",
@@ -480,13 +490,6 @@ export const navCategories: NavCategory[] = [
         Element: PurchaseReturns,
         gridId: "purchaseReturns",
         savedViews: purchaseReturnSavedViews,
-      },
-      {
-        titleKey: "nav.vendors",
-        path: "/vendors",
-        icon: Truck,
-        descriptionKey: "nav.vendors.description",
-        Element: Vendors,
       },
     ],
   },
@@ -727,7 +730,7 @@ export const navCategories: NavCategory[] = [
  * the correct destination without inventing new routes.
  */
 export const favouriteActions: FavouriteAction[] = [
-  { id: "action:newInvoice", labelKey: "sidebar.action.newInvoice", path: "/invoicing", icon: Plus },
+  { id: "action:newInvoice", labelKey: "sidebar.action.newInvoice", path: "/invoicing/new", icon: Plus },
   { id: "action:newJournalEntry", labelKey: "sidebar.action.newJournalEntry", path: "/ledger", icon: Plus },
 ];
 
