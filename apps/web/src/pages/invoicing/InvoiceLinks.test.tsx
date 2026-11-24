@@ -27,6 +27,7 @@ const api = vi.hoisted(() => ({
   getStockDocument: vi.fn(),
   resolvePrices: vi.fn(),
   invoicesPOST: vi.fn(),
+  post2: vi.fn(),
   invoicesPUT: vi.fn(),
   invoicesGET: vi.fn(),
   quoteInvoice: vi.fn(),
@@ -48,6 +49,10 @@ vi.mock("@/hooks/useEntityFavorites", () => ({
 }));
 
 vi.mock("@/context/TabsContext", () => ({ useTabMeta: () => {} }));
+
+vi.mock("@/hooks/useMyAccess", () => ({
+  useMyAccess: () => ({ access: { isAdmin: true }, isLoading: false, isStaff: false, canSee: () => true, canWrite: () => true, canApprove: () => true }),
+}));
 
 vi.mock("@/context/CompanyContext", () => ({
   useCompany: () => ({ activeCompanyId: "c1", activeCompany: { id: "c1", name: "Pako Distribution", isVatRegistered: false } }),
@@ -295,6 +300,17 @@ describe("Invoice editor page", () => {
 
     await pickCustomerAndItem();
     fireEvent.click(screen.getByRole("button", { name: "Create invoice" }));
+    expect(await screen.findByTestId("landed")).toHaveTextContent("/invoicing/inv1");
+    expect(api.post2).not.toHaveBeenCalled();
+  });
+
+  // UI/UX round 2026-11-24: create and post in one step, then open the invoice.
+  it("Create & post posts the new invoice and opens it", async () => {
+    api.post2.mockResolvedValue(undefined);
+    renderEditor("/invoicing/new");
+    await pickCustomerAndItem();
+    fireEvent.click(screen.getByRole("button", { name: "Create & post" }));
+    await waitFor(() => expect(api.post2).toHaveBeenCalledWith("c1", "inv1"));
     expect(await screen.findByTestId("landed")).toHaveTextContent("/invoicing/inv1");
   });
 });

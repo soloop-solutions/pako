@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useScrollToHash } from "@/hooks/useScrollToHash";
 import { formatDisplayDate } from "@/lib/dates";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
@@ -169,6 +170,8 @@ export function BillDetail() {
     toast.success(msg);
     await refresh();
   }
+
+  useScrollToHash(!!bill);
 
   if (!activeCompany || !bill) {
     return (
@@ -406,7 +409,7 @@ export function BillDetail() {
       )}
 
       {bill.state === "Posted" && balance && balance.outstanding > 0 && canApprove("purchases") && (
-        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
+        <Card id="payment" className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>
               {isCreditDocument

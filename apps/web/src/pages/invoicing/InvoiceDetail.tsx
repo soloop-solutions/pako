@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useScrollToHash } from "@/hooks/useScrollToHash";
 import { formatDisplayDate } from "@/lib/dates";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
@@ -201,6 +202,8 @@ export function InvoiceDetail() {
     toast.success(msg);
     await refresh();
   }
+
+  useScrollToHash(!!invoice);
 
   if (!activeCompany || !invoice) {
     return (
@@ -442,7 +445,7 @@ export function InvoiceDetail() {
       )}
 
       {invoice.state === "Posted" && balance && balance.outstanding > 0 && canApprove("sales") && (
-        <Card className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
+        <Card id="payment" className={isMonthLocked ? "opacity-50 pointer-events-none select-none" : undefined}>
           <CardHeader>
             <CardTitle>
               {isCreditDocument

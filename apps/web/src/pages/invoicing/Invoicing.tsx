@@ -185,7 +185,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
       )}
       {!isProforma && invoice.state === "Posted" && (balances[invoice.id]?.outstanding ?? 0) > 0 && canApprove("sales") && (
         <RowActionButton label={intl.formatMessage({ id: "listActions.pay" })} icon={CircleDollarSign}
-          onClick={() => navigate(entityPath({ kind: "Invoice", id: invoice.id }) ?? "/invoicing")} />
+          onClick={() => navigate(`${entityPath({ kind: "Invoice", id: invoice.id }) ?? "/invoicing"}#payment`)} />
       )}
     </>
   );

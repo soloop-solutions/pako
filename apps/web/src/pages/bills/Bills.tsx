@@ -148,7 +148,7 @@ export function Bills() {
       )}
       {bill.state === "Posted" && (balances[bill.id]?.outstanding ?? 0) > 0 && mayPost && (
         <RowActionButton label={intl.formatMessage({ id: "listActions.pay" })} icon={CircleDollarSign}
-          onClick={() => navigate(entityPath({ kind: "Bill", id: bill.id }) ?? "/bills")} />
+          onClick={() => navigate(`${entityPath({ kind: "Bill", id: bill.id }) ?? "/bills"}#payment`)} />
       )}
     </>
   );
@@ -336,12 +336,18 @@ export function Bills() {
   );
   const visibleColumns = useMemo(() => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "dueDate", "state"], ["state"]), [columns]);
 
-  const handleBillCreated = useCallback(async (options?: { keepOpen?: boolean }) => {
+  const handleBillCreated = useCallback(async (options?: { keepOpen?: boolean; bill?: BillResponse }) => {
     if (!options?.keepOpen) setBillFormOpen(false);
     setBillFormKey((k) => k + 1);
+    // UI/UX round 2026-11-24: open the bill just entered (post, pay) instead of leaving the user to
+    // find it in the list; "Save and add new" keeps the form open as before.
+    if (!options?.keepOpen && options?.bill?.id) {
+      navigate(entityPath({ kind: "Bill", id: options.bill.id }) ?? "/bills");
+      return;
+    }
     await refresh();
     await refetchPaged();
-  }, [refresh, refetchPaged]);
+  }, [navigate, refresh, refetchPaged]);
 
   const handleInlinePartnerCreated = useCallback(async () => {
     await refresh();

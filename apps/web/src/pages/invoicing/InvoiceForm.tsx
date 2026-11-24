@@ -36,6 +36,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 import { QuickItemForm } from "@/pages/shared/QuickItemForm";
 import { useHotkey } from "@/hooks/useHotkey";
+import { useMyAccess } from "@/hooks/useMyAccess";
 
 type Line = {
   description: string;
@@ -258,6 +259,10 @@ export function InvoiceForm({
   const [submitting, setSubmitting] = useState(false);
   // Set by the "Save and add new" button just before the form submits.
   const keepOpenRef = useRef(false);
+  // UI/UX round 2026-11-24: "Create & post" — post the new invoice straight away through the same
+  // endpoint as the invoice page; if the server refuses, the invoice stays a draft and opens.
+  const postAfterCreateRef = useRef(false);
+  const { canApprove } = useMyAccess();
   // Ctrl+S / ⌘S saves, like the Save button (client request 2026-11-24).
   useHotkey("mod+s", () => {
     keepOpenRef.current = false;
@@ -673,6 +678,14 @@ export function InvoiceForm({
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.invoiceCreated" }));
         invoiceDraft.markDone();
+        if (postAfterCreateRef.current && created?.id) {
+          try {
+            await apiClient.post2(companyId, created.id);
+            toast.success(intl.formatMessage({ id: "invoiceForm.postedNow" }));
+          } catch (postErr) {
+            toast.error(getApiErrorMessage(postErr, intl.formatMessage({ id: "invoiceDetail.postError" })));
+          }
+        }
         onCreated({ keepOpen: keepOpenRef.current, invoice: created });
       }
     } catch (err) {
@@ -681,6 +694,7 @@ export function InvoiceForm({
       toast.error(msg);
     } finally {
       keepOpenRef.current = false;
+      postAfterCreateRef.current = false;
       setSubmitting(false);
     }
   }
@@ -1099,7 +1113,12 @@ export function InvoiceForm({
             {intl.formatMessage({ id: "invoiceForm.saveAndPay" })}
           </Button>
         )}
-        <Button type="submit" disabled={submitting} onClick={() => { keepOpenRef.current = false; }}>
+        {!editingInvoice && documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
+          <Button type="submit" variant="secondary" disabled={submitting} onClick={() => { keepOpenRef.current = false; postAfterCreateRef.current = true; }}>
+            {intl.formatMessage({ id: "invoiceForm.createAndPost" })}
+          </Button>
+        )}
+        <Button type="submit" disabled={submitting} onClick={() => { keepOpenRef.current = false; postAfterCreateRef.current = false; }}>
           {editingInvoice
             ? submitting
               ? intl.formatMessage({ id: "invoiceForm.saving" })

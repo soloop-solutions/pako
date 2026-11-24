@@ -121,7 +121,7 @@ type BillFormProps = {
   items?: ItemResponse[];
   accounts?: AccountResponse[];
   /** `keepOpen` is true for "Save and add new": the parent refreshes but keeps the dialog open. */
-  onCreated: (options?: { keepOpen?: boolean }) => void;
+  onCreated: (options?: { keepOpen?: boolean; bill?: BillResponse }) => void;
   // A6 (v2 release): see InvoiceForm.tsx's identical prop for the full rationale — used by the
   // Purchase returns page to fix this form to PurchaseReturn with no type selector shown.
   fixedDocumentType?: number;
@@ -426,7 +426,7 @@ export function BillForm({
         recordFavorites();
         onSaved?.();
       } else {
-        await apiClient.billsPOST(companyId, {
+        const created = await apiClient.billsPOST(companyId, {
           partnerId,
           vendorReference: vendorReference.trim() || undefined,
           issueDate,
@@ -453,7 +453,7 @@ export function BillForm({
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.billCreated" }));
         billDraft.markDone();
-        onCreated({ keepOpen: keepOpenRef.current });
+        onCreated({ keepOpen: keepOpenRef.current, bill: created });
       }
     } catch (err) {
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingBill ? "billForm.saveError" : "billForm.createError" }));
