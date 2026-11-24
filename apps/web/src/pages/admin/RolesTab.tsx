@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { Copy, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import type { CompanyRoleResponse, ModuleAccessResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -44,6 +45,8 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
+  const justCreatedRef = useRef<HTMLButtonElement>(null);
   const queryKey = ["admin", "roles", companyId] as const;
 
   const rolesQuery = useQuery({ queryKey, queryFn: () => apiClient.listCompanyRoles(companyId) });
@@ -55,14 +58,30 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
     void queryClient.invalidateQueries({ queryKey: ["admin", "users", companyId] });
   };
 
+  // Scroll the newly created role into view and clear the highlight after the animation
+  useEffect(() => {
+    if (!justCreatedId) return;
+    justCreatedRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const timer = setTimeout(() => setJustCreatedId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [justCreatedId, roles]);
+
   const saveMutation = useMutation({
     mutationFn: (d: Draft) => {
       const body = { name: d.name.trim(), description: d.description.trim() || undefined, levels: d.levels, partnerScope: d.partnerScope };
       return d.id ? apiClient.updateCompanyRole(companyId, d.id, body) : apiClient.createCompanyRole(companyId, body);
     },
-    onSuccess: (saved) => {
+    onSuccess: (saved, submitted) => {
+      const isNew = !submitted.id;
       setError(null);
-      setDraft(toDraft(saved));
+      if (isNew) {
+        setDraft(null);
+        setJustCreatedId(saved.id);
+        toast.success(intl.formatMessage({ id: "admin.roles.created" }, { name: saved.name }));
+      } else {
+        setDraft(toDraft(saved));
+        toast.success(intl.formatMessage({ id: "admin.roles.updated" }, { name: saved.name }));
+      }
       refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "admin.roles.saveError" }))),
@@ -72,6 +91,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
     mutationFn: (id: string) => apiClient.deleteCompanyRole(companyId, id),
     onSuccess: () => {
       setDraft(null);
+      toast.success(intl.formatMessage({ id: "admin.roles.deleted" }));
       refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "admin.roles.deleteError" }))),
@@ -104,14 +124,17 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
           {roles.map((role) => (
             <button
               key={role.id}
+              ref={role.id === justCreatedId ? justCreatedRef : undefined}
               type="button"
               onClick={() => {
                 setError(null);
+                setJustCreatedId(null);
                 setDraft(toDraft(role));
               }}
               className={cn(
-                "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50",
+                "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50",
                 draft?.id === role.id && "border-primary bg-muted/50",
+                role.id === justCreatedId && "animate-pulse border-primary bg-primary/10",
               )}
             >
               <span className="font-medium">{role.name}</span>
