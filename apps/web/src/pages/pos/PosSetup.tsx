@@ -20,6 +20,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useCompany } from "@/context/CompanyContext";
 import { ShelfLabelsCard } from "@/pages/pos/ShelfLabels";
+import { PosDevicesCard } from "@/pages/pos/device/PosDevices";
+import { StaffPinsCard } from "@/pages/pos/StaffPins";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { posRegistersKey, posStoresKey, usePosRegisters, usePosStores } from "@/hooks/usePos";
@@ -217,6 +219,9 @@ export function PosSetup() {
           />
         </CardContent>
       </Card>
+
+      {canEdit && <StaffPinsCard />}
+      {canEdit && <PosDevicesCard />}
 
       <ShelfLabelsCard />
 

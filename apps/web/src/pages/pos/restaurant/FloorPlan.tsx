@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
+import { useIsPhone } from "@/hooks/useIsPhone";
 import { TabKind, TabState, TableShape, tabKindKey } from "@/lib/pos-enums";
 import { cn } from "@/lib/utils";
 import { tabKindLabelKey } from "@/pages/pos/restaurant/tab-utils";
@@ -52,6 +53,7 @@ export function FloorPlanView({ storeId, plan, floorId, onFloor, onOpenTab, tool
   const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
   const [opening, setOpening] = useState<{ kind: number; table?: FloorPlanTableResponse } | null>(null);
   const [picking, setPicking] = useState<FloorPlanTableResponse | null>(null);
+  const phone = useIsPhone();
 
   const floors = plan?.floors ?? [];
   const floor = floors.find((f) => f.id === floorId) ?? floors[0];
@@ -65,15 +67,15 @@ export function FloorPlanView({ storeId, plan, floorId, onFloor, onOpenTab, tool
   }
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_20rem]">
-      <section className="flex min-h-0 flex-col gap-3 border-r p-4">
-        <div className="flex flex-wrap items-center gap-2">
+    <div className={cn("grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_20rem]", phone && "auto-rows-min overflow-y-auto")}>
+      <section className={cn("flex min-h-0 flex-col gap-3 p-4", phone ? "p-3" : "border-r")}>
+        <div className={cn("flex items-center gap-2", phone ? "-mx-3 overflow-x-auto px-3" : "flex-wrap")}>
           {floors.map((f) => (
-            <Button key={f.id} size="sm" variant={f.id === floor?.id ? "default" : "outline"} onClick={() => onFloor(f.id)}>
+            <Button key={f.id} size={phone ? "default" : "sm"} className="shrink-0" variant={f.id === floor?.id ? "default" : "outline"} onClick={() => onFloor(f.id)}>
               {f.name}
             </Button>
           ))}
-          <Legend />
+          {!phone && <Legend />}
         </div>
         {!plan ? (
           <p className="text-muted-foreground">{t("common.loading")}</p>
@@ -81,6 +83,47 @@ export function FloorPlanView({ storeId, plan, floorId, onFloor, onOpenTab, tool
           <Alert>
             <AlertDescription>{t("rest.floor.none")}</AlertDescription>
           </Alert>
+        ) : phone ? (
+          // A phone has no room for the floor drawing: the tables as big buttons, in the floor's
+          // order (top to bottom, left to right), with the same status colours.
+          <div className="grid grid-cols-3 gap-2" data-testid="floor-plan">
+            {[...(floor?.tables ?? [])]
+              .sort((a, b) => a.y - b.y || a.x - b.x)
+              .map((table) => {
+                const status = tableStatus(table.tabs);
+                const tab = table.tabs[0];
+                return (
+                  <button
+                    key={table.id}
+                    type="button"
+                    onClick={() => tapTable(table)}
+                    className={cn(
+                      "flex min-h-24 flex-col items-center justify-center gap-0.5 overflow-hidden rounded-lg border-2 p-1.5 text-center text-xs active:brightness-95",
+                      STATUS_CLASS[status],
+                    )}
+                    aria-label={t("rest.table.label", { name: table.name, status: t(`rest.table.status.${status}`) })}
+                    data-testid="floor-table"
+                    data-status={status}
+                  >
+                    <span className="text-lg leading-tight font-bold">{table.name}</span>
+                    {tab ? (
+                      <>
+                        <span className="font-semibold tabular-nums">{money(tab.due)}</span>
+                        <span className="flex max-w-full items-center gap-1 truncate">
+                          <Users className="size-3 shrink-0" /> {tab.covers}
+                          {table.tabs.length > 1 && <span>· {table.tabs.length}</span>}
+                        </span>
+                        {tab.requestedLines > 0 && <Badge variant="destructive">{t("rest.table.qr", { count: tab.requestedLines })}</Badge>}
+                      </>
+                    ) : (
+                      <span className="flex items-center gap-1 tabular-nums">
+                        <Users className="size-3" /> {table.seats}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+          </div>
         ) : (
           <div className="min-h-0 flex-1 overflow-auto rounded-md border bg-muted/30">
             <div
@@ -132,10 +175,10 @@ export function FloorPlanView({ storeId, plan, floorId, onFloor, onOpenTab, tool
             </div>
           </div>
         )}
-        <div className="flex flex-wrap gap-2">{toolbar}</div>
+        {!phone && <div className="flex flex-wrap gap-2">{toolbar}</div>}
       </section>
 
-      <aside className="flex min-h-0 flex-col gap-3 p-4">
+      <aside className={cn("flex min-h-0 flex-col gap-3 p-4", phone && "border-t p-3")}>
         <div className="grid grid-cols-2 gap-2">
           <Button variant="outline" onClick={() => setOpening({ kind: TabKind.Takeaway })}>
             <ShoppingBag className="size-4" /> {t("rest.newTakeaway")}
@@ -145,7 +188,7 @@ export function FloorPlanView({ storeId, plan, floorId, onFloor, onOpenTab, tool
           </Button>
         </div>
         <h2 className="text-sm font-semibold">{t("rest.otherTabs")}</h2>
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className={cn("min-h-0", !phone && "flex-1 overflow-y-auto")}>
           {(plan?.otherTabs ?? []).length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("rest.otherTabs.none")}</p>
           ) : (
@@ -158,6 +201,8 @@ export function FloorPlanView({ storeId, plan, floorId, onFloor, onOpenTab, tool
             </ul>
           )}
         </div>
+        {/* On a phone the till's own actions (counter sale, cash, reports) go last, out of the way. */}
+        {phone && <div className="grid grid-cols-2 gap-2 border-t pt-3 [&>button]:justify-start">{toolbar}</div>}
       </aside>
 
       {opening && (

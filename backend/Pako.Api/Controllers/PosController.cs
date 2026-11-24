@@ -551,6 +551,7 @@ public class PosController : ControllerBase
     [ProducesResponseType(typeof(SessionSummaryResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<SessionSummaryResponse>> OpenSession(Guid companyId, Guid registerId, OpenSessionRequest request)
     {
+        if (await TillPinMissingAsync(companyId) is { } noPin) return noPin;
         var register = await _db.PosRegisters.FirstOrDefaultAsync(r => r.Id == registerId && r.CompanyId == companyId);
         if (register is null) return NotFound();
         try
@@ -603,6 +604,7 @@ public class PosController : ControllerBase
     [ProducesResponseType(typeof(CashMovementResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<CashMovementResponse>> AddCashMovement(Guid companyId, Guid sessionId, CashMovementRequest request)
     {
+        if (await TillPinMissingAsync(companyId) is { } noPin) return noPin;
         // Serialized with closing (same lock), so a movement can't land on a session being posted.
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         if (transaction is not null)
@@ -629,6 +631,7 @@ public class PosController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<SessionReportResponse>> CloseSession(Guid companyId, Guid sessionId, CloseSessionRequest request)
     {
+        if (await TillPinMissingAsync(companyId) is { } noPin) return noPin;
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         if (transaction is not null)
         {
@@ -652,6 +655,12 @@ public class PosController : ControllerBase
         }
     }
 
+    // docs/POS_TILL_ACCESS.md: once the company has staff PINs, till work needs a PIN-signed-in operator.
+    private async Task<ActionResult?> TillPinMissingAsync(Guid companyId, string? fallbackToken = null) =>
+        await _operators.PinRequiredAsync(Request, companyId, fallbackToken)
+            ? StatusCode(StatusCodes.Status403Forbidden, _localizer["PosPinRequired"].Value)
+            : null;
+
     private async Task<SessionSummaryResponse> SessionSummaryAsync(PosSession s, string registerCode)
     {
         var sales = await _db.PosOrders.AsNoTracking().Where(o => o.SessionId == s.Id)
@@ -668,7 +677,9 @@ public class PosController : ControllerBase
     [ProducesResponseType(typeof(PosOrderResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<PosOrderResponse>> SubmitOrder(Guid companyId, PosOrderRequest request)
     {
-        if (request.Kind != PosOrderKind.Sale && _access.LevelFor(AccessModule.Pos) < AccessLevel.Approve) return Forbid();
+        if (await TillPinMissingAsync(companyId, request.OperatorToken) is { } noPin) return noPin;
+        // Returns and cancellations need a manager: the signed-in operator's rights, not the device's.
+        if (request.Kind != PosOrderKind.Sale && !await _operators.MayApproveAsync(Request, companyId, _access, request.OperatorToken)) return Forbid();
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         if (transaction is not null)
         {
@@ -682,7 +693,7 @@ public class PosController : ControllerBase
         try
         {
             // P3: on a shared till the order is the signed-in waiter's (PIN), not the terminal's.
-            var operatorId = await _operators.OperatorAsync(Request, companyId) ?? CurrentUserId;
+            var operatorId = await _operators.OperatorAsync(Request, companyId, request.OperatorToken) ?? CurrentUserId;
             var operatorName = operatorId == CurrentUserId ? await OperatorNameAsync(companyId) : await _operators.NameAsync(companyId, operatorId);
             var result = await _pos.SubmitOrderAsync(company, register, store, session, request, operatorId, operatorName);
             await _db.SaveChangesAsync();
@@ -724,13 +735,69 @@ public class PosController : ControllerBase
         }
     }
 
+    // User request 2026-11-24: an administrator sees who has a till PIN and gives one — typed, or
+    // generated at random — so waiters don't each have to log in to set their own. Any employee
+    // can get one, with or without a login.
+    [HttpGet("pins", Name = "ListPosStaffPins")]
+    [RequireCompanyAccess(module: AccessModule.Pos, approve: true)]
+    public async Task<ActionResult<List<PosStaffPinResponse>>> StaffPins(Guid companyId)
+    {
+        // Every employee who hasn't left (login or not), then members with a login who aren't employees.
+        var today = DateOnly.FromDateTime(PosService.LocalTime(DateTime.UtcNow));
+        var employees = await _db.Employees.AsNoTracking()
+            .Where(e => e.CompanyId == companyId && (e.TerminationDate == null || e.TerminationDate >= today)).ToListAsync();
+        var members = await _db.Memberships.AsNoTracking()
+            .Where(m => m.CompanyId == companyId && m.IsActive && m.Role != MembershipRole.ClientCustomer)
+            .Where(m => !_db.CompanyRoles.Any(r => r.Id == m.CompanyRoleId && r.BuiltInKey == PosDeviceService.RoleKey))
+            .Select(m => m.UserId).Distinct().ToListAsync();
+        var userIds = members.Concat(employees.Where(e => e.UserId != null).Select(e => e.UserId!.Value)).Distinct().ToList();
+        var emails = await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id)).ToDictionaryAsync(u => u.Id, u => u.Email);
+        var withPin = (await _db.PosPins.AsNoTracking().Where(p => p.CompanyId == companyId).Select(p => p.UserId).ToListAsync()).ToHashSet();
+
+        var rows = employees.Select(e => new PosStaffPinResponse(PosOperatorService.OperatorIdOf(e), e.Name,
+            e.UserId is { } u ? emails.GetValueOrDefault(u) : null, e.UserId != null, withPin.Contains(PosOperatorService.OperatorIdOf(e)))).ToList();
+        var employeeUsers = employees.Where(e => e.UserId != null).Select(e => e.UserId!.Value).ToHashSet();
+        foreach (var userId in members.Where(m => !employeeUsers.Contains(m)))
+        {
+            var email = emails.GetValueOrDefault(userId);
+            rows.Add(new PosStaffPinResponse(userId, await _operators.NameAsync(companyId, userId, email), email, true, withPin.Contains(userId)));
+        }
+        return Ok(rows.OrderBy(r => r.Name, StringComparer.CurrentCultureIgnoreCase).ToList());
+    }
+
+    [HttpPut("pins/{operatorId:guid}", Name = "SetPosStaffPin")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos, approve: true)]
+    public async Task<ActionResult<PosPinIssuedResponse>> SetStaffPin(Guid companyId, Guid operatorId, SetStaffPosPinRequest request)
+    {
+        try
+        {
+            var pin = await _operators.IssuePinAsync(companyId, operatorId, request.Pin);
+            await _db.SaveChangesAsync();
+            return Ok(new PosPinIssuedResponse(operatorId, await _operators.NameAsync(companyId, operatorId), pin));
+        }
+        catch (PosException ex)
+        {
+            return BadRequest(ex.Message);
+        }
+    }
+
     // A waiter signs in on a shared till with their PIN.
     [HttpPost("pins/sign-in", Name = "PosPinSignIn")]
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(Pako.Api.Auth.AuthRateLimit.Policy)]
     public async Task<ActionResult<PosOperatorResponse>> PinSignIn(Guid companyId, PosPinSignInRequest request)
     {
-        if (await _operators.SignInAsync(companyId, request.Pin) is not { } found) return BadRequest(_localizer["PosPinWrong"].Value);
-        return Ok(new PosOperatorResponse(found.UserId, await _operators.NameAsync(companyId, found.UserId), found.Token, found.ExpiresAt));
+        (Guid UserId, string Token, DateTime ExpiresAt)? found;
+        try
+        {
+            found = await _operators.SignInAsync(companyId, request.Pin, HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "");
+        }
+        catch (PosException ex)
+        {
+            return StatusCode(StatusCodes.Status429TooManyRequests, ex.Message);
+        }
+        if (found is null) return BadRequest(_localizer["PosPinWrong"].Value);
+        return Ok(new PosOperatorResponse(found.Value.UserId, await _operators.NameAsync(companyId, found.Value.UserId), found.Value.Token, found.Value.ExpiresAt));
     }
 
     [HttpGet("sessions/{sessionId:guid}/waiters", Name = "ListPosSessionWaiters")]
@@ -745,6 +812,7 @@ public class PosController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<List<WaiterSummaryResponse>>> SettleWaiter(Guid companyId, Guid sessionId, SettleWaiterRequest request)
     {
+        if (await TillPinMissingAsync(companyId) is { } noPin) return noPin;
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         if (transaction is not null)
         {

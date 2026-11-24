@@ -1093,6 +1093,46 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    connectPosDevice(body: ConnectPosDeviceRequest): Promise<AuthResponse> {
+        let url_ = this.baseUrl + "/api/auth/device-connect";
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processConnectPosDevice(_response);
+        });
+    }
+
+    protected processConnectPosDevice(response: Response): Promise<AuthResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as AuthResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<AuthResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     logout(body: LogoutRequest): Promise<void> {
         let url_ = this.baseUrl + "/api/auth/logout";
         url_ = url_.replace(/[?&]$/, "");
@@ -20431,6 +20471,91 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    listPosStaffPins(companyId: string): Promise<PosStaffPinResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/pins";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPosStaffPins(_response);
+        });
+    }
+
+    protected processListPosStaffPins(response: Response): Promise<PosStaffPinResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PosStaffPinResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PosStaffPinResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    setPosStaffPin(companyId: string, operatorId: string, body: SetStaffPosPinRequest): Promise<PosPinIssuedResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/pins/{operatorId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (operatorId === undefined || operatorId === null)
+            throw new globalThis.Error("The parameter 'operatorId' must be defined.");
+        url_ = url_.replace("{operatorId}", encodeURIComponent("" + operatorId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSetPosStaffPin(_response);
+        });
+    }
+
+    protected processSetPosStaffPin(response: Response): Promise<PosPinIssuedResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PosPinIssuedResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PosPinIssuedResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     posPinSignIn(companyId: string, body: PosPinSignInRequest): Promise<PosOperatorResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/pos/pins/sign-in";
         if (companyId === undefined || companyId === null)
@@ -20673,6 +20798,248 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<PosOrderResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    listPosDevices(companyId: string): Promise<PosDeviceResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/devices";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processListPosDevices(_response);
+        });
+    }
+
+    protected processListPosDevices(response: Response): Promise<PosDeviceResponse[]> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PosDeviceResponse[];
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PosDeviceResponse[]>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    createPosDevice(companyId: string, body: SavePosDeviceRequest): Promise<PosDeviceLinkResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/devices";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreatePosDevice(_response);
+        });
+    }
+
+    protected processCreatePosDevice(response: Response): Promise<PosDeviceLinkResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PosDeviceLinkResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PosDeviceLinkResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    renamePosDevice(companyId: string, deviceId: string, body: SavePosDeviceRequest): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/devices/{deviceId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (deviceId === undefined || deviceId === null)
+            throw new globalThis.Error("The parameter 'deviceId' must be defined.");
+        url_ = url_.replace("{deviceId}", encodeURIComponent("" + deviceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processRenamePosDevice(_response);
+        });
+    }
+
+    protected processRenamePosDevice(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    createPosDeviceLink(companyId: string, deviceId: string): Promise<PosDeviceLinkResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/devices/{deviceId}/link";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (deviceId === undefined || deviceId === null)
+            throw new globalThis.Error("The parameter 'deviceId' must be defined.");
+        url_ = url_.replace("{deviceId}", encodeURIComponent("" + deviceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processCreatePosDeviceLink(_response);
+        });
+    }
+
+    protected processCreatePosDeviceLink(response: Response): Promise<PosDeviceLinkResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PosDeviceLinkResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PosDeviceLinkResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    disconnectPosDevice(companyId: string, deviceId: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/devices/{deviceId}/disconnect";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (deviceId === undefined || deviceId === null)
+            throw new globalThis.Error("The parameter 'deviceId' must be defined.");
+        url_ = url_.replace("{deviceId}", encodeURIComponent("" + deviceId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDisconnectPosDevice(_response);
+        });
+    }
+
+    protected processDisconnectPosDevice(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    disconnectThisPosDevice(companyId: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/devices/me/disconnect";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDisconnectThisPosDevice(_response);
+        });
+    }
+
+    protected processDisconnectThisPosDevice(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
     }
 
     /**
@@ -33819,6 +34186,12 @@ export interface ConfirmSalesOrderRequest {
     [key: string]: any;
 }
 
+export interface ConnectPosDeviceRequest {
+    code: string;
+
+    [key: string]: any;
+}
+
 export interface ControlledRegisterResponse {
     itemId: string;
     itemName: string;
@@ -36159,6 +36532,8 @@ export interface MyAccountResponse {
     isPlatformAdmin: boolean;
     companyLimit: number | undefined;
     companiesCreated: number;
+    posDeviceCompanyId?: string | undefined;
+    posDeviceName?: string | undefined;
 
     [key: string]: any;
 }
@@ -37205,6 +37580,27 @@ export interface PosCatalogItemResponse {
     [key: string]: any;
 }
 
+export interface PosDeviceLinkResponse {
+    deviceId: string;
+    name: string;
+    code: string;
+    expiresAt: string;
+    pairCode?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface PosDeviceResponse {
+    id: string;
+    name: string;
+    active: boolean;
+    connected: boolean;
+    createdAt: string;
+    lastSeenAt: string | undefined;
+
+    [key: string]: any;
+}
+
 export interface PosFiscalRequest {
     couponId: number;
     verificationNo: string;
@@ -37304,6 +37700,7 @@ export interface PosOrderRequest {
     prescriptionId?: string | undefined;
     fleetCardNumber?: string | undefined;
     channelOrderId?: string | undefined;
+    operatorToken?: string | undefined;
 
     [key: string]: any;
 }
@@ -37368,6 +37765,14 @@ export interface PosPaymentResponse {
     amount: number;
     tendered: number | undefined;
     tip?: number;
+
+    [key: string]: any;
+}
+
+export interface PosPinIssuedResponse {
+    operatorId: string;
+    name: string;
+    pin: string;
 
     [key: string]: any;
 }
@@ -37457,6 +37862,16 @@ export interface PosScanResponse {
     lotNumber?: string | undefined;
     expiryDate?: string | undefined;
     serialNumber?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface PosStaffPinResponse {
+    operatorId: string;
+    name: string;
+    email: string | undefined;
+    hasLogin: boolean;
+    hasPin: boolean;
 
     [key: string]: any;
 }
@@ -39097,6 +39512,12 @@ export interface SavePayrollAdjustmentRequest {
     [key: string]: any;
 }
 
+export interface SavePosDeviceRequest {
+    name: string;
+
+    [key: string]: any;
+}
+
 export interface SavePrescriptionRequest {
     storeId: string;
     number: string;
@@ -39644,6 +40065,12 @@ export interface SetPosPinRequest {
 export interface SetSoftLockRequest {
     lockDateField: number;
     lockDate: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SetStaffPosPinRequest {
+    pin?: string | undefined;
 
     [key: string]: any;
 }

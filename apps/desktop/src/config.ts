@@ -8,6 +8,9 @@ export interface DesktopConfig {
   backupDir: string
   retentionDays: number
   apiPort?: number
+  // "Allow tills on this network": off unless the user turns it on.
+  tillNetwork: boolean
+  tillPort: number
 }
 
 export interface SafeStorageLike {
@@ -36,6 +39,8 @@ interface StoredConfig {
   backupDir: string
   retentionDays: number
   apiPort?: number
+  tillNetwork?: boolean
+  tillPort?: number
 }
 
 const realFs: ConfigFs = {
@@ -55,6 +60,9 @@ const realFs: ConfigFs = {
 }
 
 export const DEFAULT_RETENTION_DAYS = 30
+
+// A fixed port so connect links and bookmarks on the tills keep working after a restart.
+export const DEFAULT_TILL_PORT = 5300
 
 export function validRetentionDays(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 1
@@ -91,6 +99,8 @@ export async function loadOrCreateConfig(
       backupDir:
         typeof stored.backupDir === 'string' && stored.backupDir.length > 0 ? stored.backupDir : paths.backupsDefault,
       retentionDays: validRetentionDays(stored.retentionDays) ? stored.retentionDays : DEFAULT_RETENTION_DAYS,
+      tillNetwork: stored.tillNetwork === true,
+      tillPort: validPort(stored.tillPort) ? stored.tillPort : DEFAULT_TILL_PORT,
     }
     if (validPort(stored.apiPort)) config.apiPort = stored.apiPort
     return config
@@ -101,6 +111,8 @@ export async function loadOrCreateConfig(
     pgPassword: randomHex(24),
     backupDir: paths.backupsDefault,
     retentionDays: DEFAULT_RETENTION_DAYS,
+    tillNetwork: false,
+    tillPort: DEFAULT_TILL_PORT,
   }
   const stored: StoredConfig = {
     encrypted: useEncryption,
@@ -116,6 +128,10 @@ export async function loadOrCreateConfig(
 
 export function saveBackupDir(paths: DesktopPaths, backupDir: string): Promise<void> {
   return updateStored(paths, { backupDir })
+}
+
+export function saveTillNetwork(paths: DesktopPaths, tillNetwork: boolean, tillPort: number): Promise<void> {
+  return updateStored(paths, { tillNetwork, tillPort })
 }
 
 export function saveApiPort(paths: DesktopPaths, apiPort: number): Promise<void> {

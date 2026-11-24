@@ -41,6 +41,8 @@ public class CompanyMembersController : ControllerBase
 
         var memberships = await _db.Memberships.AsNoTracking()
             .Where(m => m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId))
+            // Till devices are managed in POS setup (docs/POS_TILL_ACCESS.md §7).
+            .Where(m => !_db.CompanyRoles.Any(r => r.Id == m.CompanyRoleId && r.BuiltInKey == Pako.Api.Services.PosDeviceService.RoleKey))
             .ToListAsync();
 
         return Ok(await ToResponsesAsync(memberships));

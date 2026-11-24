@@ -80,7 +80,10 @@ public record PosOrderRequest(
     // P7: the prescription dispensed, the fleet card shown, the online order fiscalised.
     Guid? PrescriptionId = null,
     string? FleetCardNumber = null,
-    Guid? ChannelOrderId = null);
+    Guid? ChannelOrderId = null,
+    // The waiter's PIN sign-in, kept with an order rung up offline so it is theirs when it syncs
+    // (the X-Pos-Operator header then belongs to whoever is signed in at that moment).
+    string? OperatorToken = null);
 
 public record PosOrderLineRequest(Guid? ItemId, string Description, decimal Quantity, decimal UnitPrice, Guid? TaxDefinitionId,
     decimal DiscountAmount = 0m, string? UnitName = null, string? LotNumber = null, Guid? OriginalLineId = null,
@@ -321,6 +324,13 @@ public record UsageVarianceRow(Guid ItemId, string Name, string Unit, decimal Th
 
 public record SetPosPinRequest(string Pin);
 public record PosPinSignInRequest(string Pin);
+// An administrator's view of who can sign in on a shared till; PINs are stored hashed and never returned.
+// OperatorId is the login for staff who have one, else the employee record (no login needed for the till).
+public record PosStaffPinResponse(Guid OperatorId, string Name, string? Email, bool HasLogin, bool HasPin);
+// No PIN: the server generates a random one, unique within the company.
+public record SetStaffPosPinRequest(string? Pin = null);
+// The PIN just set, shown once so the administrator can hand it over.
+public record PosPinIssuedResponse(Guid OperatorId, string Name, string Pin);
 // Send Token as the X-Pos-Operator header with orders and tabs.
 public record PosOperatorResponse(Guid UserId, string Name, string Token, DateTime ExpiresAt);
 
@@ -425,3 +435,10 @@ public record ScanTicketRequest(string Code);
 // Valid (now used), AlreadyUsed (when) or Invalid (unknown, cancelled or another event's).
 public record ScanTicketResponse(string Result, string? TicketType, DateTime? UsedAt);
 
+// docs/POS_TILL_ACCESS.md §7: till and kitchen devices.
+public record PosDeviceResponse(Guid Id, string Name, bool Active, bool Connected, DateTime CreatedAt, DateTime? LastSeenAt);
+public record SavePosDeviceRequest(string Name);
+// Code goes in the connect link (/device/connect?code=…); valid until ExpiresAt, once.
+// PairCode: the same link as 8 characters ("K7M4-QP2X"), typed on a till PC (desktop till mode).
+public record PosDeviceLinkResponse(Guid DeviceId, string Name, string Code, DateTime ExpiresAt, string? PairCode = null);
+public record ConnectPosDeviceRequest(string Code);

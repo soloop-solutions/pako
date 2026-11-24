@@ -51,7 +51,8 @@ public class CompanyAdminController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, adminOnly: true)]
     public async Task<ActionResult<CompanyRoleResponse>> UpdateRole(Guid companyId, Guid roleId, SaveCompanyRoleRequest request)
     {
-        var role = await _db.CompanyRoles.FirstOrDefaultAsync(r => r.Id == roleId && r.CompanyId == companyId);
+        // The till-device role is fixed (docs/POS_TILL_ACCESS.md §7).
+        var role = await _db.CompanyRoles.FirstOrDefaultAsync(r => r.Id == roleId && r.CompanyId == companyId && r.BuiltInKey != PosDeviceService.RoleKey);
         if (role is null) return NotFound();
         var result = await _admin.SaveRoleAsync(companyId, role, request, CurrentUserId);
         if (result.Value is null) return BadRequest(result.Error);

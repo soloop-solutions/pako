@@ -6,4 +6,11 @@ export const IPC = {
   chooseBackupDir: 'pako:choose-backup-dir',
   getBackupSettings: 'pako:get-backup-settings',
   openLogFolder: 'pako:open-log-folder',
+  getTillNetwork: 'pako:get-till-network',
+  setTillNetwork: 'pako:set-till-network',
+  setupChooseMain: 'pako:setup-choose-main',
+  setupDiscover: 'pako:setup-discover',
+  setupChooseTill: 'pako:setup-choose-till',
+  setupChangeServer: 'pako:setup-change-server',
+  setupRetry: 'pako:setup-retry',
 } as const

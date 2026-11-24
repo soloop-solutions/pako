@@ -7,6 +7,9 @@ import { Toaster } from "@/components/ui/sonner";
 import { ThemeProvider } from "@/context/ThemeContext";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import "@/index.css";
+import { installRandomUuid } from "@/lib/randomUuid";
+
+installRandomUuid();
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

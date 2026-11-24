@@ -23,7 +23,7 @@ const app = {
 }
 class BrowserWindow {}
 const noop = {}
-module.exports = { app, BrowserWindow, dialog: noop, ipcMain: noop, Menu: noop, safeStorage: noop, session: noop, shell: noop }
+module.exports = { app, BrowserWindow, dialog: noop, ipcMain: noop, Menu: noop, powerSaveBlocker: noop, safeStorage: noop, session: noop, shell: noop }
 `
 
 let root = ''

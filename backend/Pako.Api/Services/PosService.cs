@@ -1510,7 +1510,7 @@ public class PosService
             // over/short to the employee's receivable when the waiter is an employee.
             foreach (var w in await _db.PosWaiterSettlements.AsNoTracking().Where(w => w.SessionId == session.Id && w.Difference < 0).ToListAsync())
             {
-                var employeeId = await _db.Employees.AsNoTracking().Where(e => e.CompanyId == company.Id && e.UserId == w.WaiterUserId)
+                var employeeId = await _db.Employees.AsNoTracking().Where(e => e.CompanyId == company.Id && (e.UserId == w.WaiterUserId || e.Id == w.WaiterUserId))
                     .Select(e => (Guid?)e.Id).FirstOrDefaultAsync();
                 if (employeeId is null) continue;
                 var receivable = await _stock.AccountIdByCodeAsync(company.Id, EmployeeReceivableCode) ?? throw Fail("StockAccountCodeMissing", EmployeeReceivableCode);

@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { signInTestOperator } from "@/test/posOperator";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { todayLocal } from "@/lib/pos-services";
 import { Till } from "@/pages/pos/Till";
@@ -110,7 +111,10 @@ function renderAt(url: string, path: string, element: ReactNode) {
     </MemoryRouter>,
   );
 }
-const renderTill = (url = "/pos/till/r1") => renderAt(url, "/pos/till/:registerId", <Till />);
+const renderTill = (url = "/pos/till/r1") => {
+  signInTestOperator();
+  return renderAt(url, "/pos/till/:registerId", <Till />);
+};
 
 /** Pays the partner offer, then the rest in cash, and completes the sale. */
 async function payWithPartner(partnerText: string, cashRest: boolean) {

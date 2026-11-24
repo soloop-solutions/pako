@@ -191,8 +191,12 @@ public class PlatformAdminService
         var user = await _db.Users.AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId);
         if (user is null) return null;
         var created = await _db.Companies.CountAsync(c => c.CreatedByUserId == userId);
+        var device = await (from m in _db.Memberships.AsNoTracking()
+                            join r in _db.CompanyRoles.AsNoTracking() on m.CompanyRoleId equals r.Id
+                            where m.UserId == userId && m.IsActive && r.BuiltInKey == PosDeviceService.RoleKey
+                            select m.CompanyId).FirstOrDefaultAsync();
         return new MyAccountResponse(user.Id, user.Email!, user.FullName, user.IsPlatformAdmin,
-            user.IsPlatformAdmin ? null : user.CompanyLimit, created);
+            user.IsPlatformAdmin ? null : user.CompanyLimit, created, device, device is null ? null : user.FullName);
     }
 
     // ---- Users ----

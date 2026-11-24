@@ -240,7 +240,8 @@ def restaurant():
                                 ("Pizza Margherita", 5.50, kitchen), ("Flija me kos", 4.00, kitchen), ("Sallatë shope", 2.50, kitchen),
                                 ("Supë e ditës", 2.00, kitchen), ("Trileçe", 2.50, kitchen), ("Baklava", 2.00, kitchen)]:
         it = co.item(name, price, kind=SERVICE, vat="S18", **({"minimumAge": 18} if "Birrë" in name or "Verë" in name else {}))
-        co.put(f"/pos/items/{it['id']}/production-center", {"productionCenterId": center["id"]})
+        # The API reads the centre from the query string; a JSON body is ignored and clears it.
+        co.put(f"/pos/items/{it['id']}/production-center?centerId={center['id']}", None)
         menu[name] = it
     co.post("/pos/modifier-groups", {"name": "Ekstra", "minSelect": 0, "maxSelect": 3,
                                      "itemIds": [menu["Pizza Margherita"]["id"], menu["Qebapa (10 copë)"]["id"]],

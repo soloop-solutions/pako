@@ -9,6 +9,9 @@ files:
   - dist/main.mjs
   - dist/preload.cjs
   - dist/splash.html
+  - dist/setupPreload.cjs
+  - dist/setup.html
+  - dist/setup.js
 extraResources:
   - from: resources/api
     to: api

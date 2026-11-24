@@ -971,6 +971,174 @@ public class PosTests : IAsyncLifetime
         Assert.Equal((0.33m, -0.07m, 21.21m), (row.Theoretical, row.CountDifference, row.VariancePercent!.Value));
     }
 
+    // User request 2026-11-24: an administrator gives a waiter a PIN — a random one, or one they
+    // type — and the waiter signs in with it; PINs stay unique and are never easy runs.
+    [Fact]
+    public async Task Administrator_IssuesRandomOrTypedPins_ForStaff()
+    {
+        var c = await SeedAsync();
+        var waiter = Guid.NewGuid();
+        c.Db.Memberships.Add(new Membership { Id = Guid.NewGuid(), UserId = waiter, CompanyId = c.Id, Role = MembershipRole.ClientAdmin, IsActive = true });
+        c.Db.Employees.Add(new Pako.Domain.Payroll.Employee { Id = Guid.NewGuid(), CompanyId = c.Id, UserId = waiter, Name = "Drita Krasniqi" });
+        await c.Db.SaveChangesAsync();
+
+        Assert.False(Ok(await Pos(c).StaffPins(c.Id)).Single(r => r.OperatorId == waiter).HasPin);
+
+        var issued = Ok(await Pos(c).SetStaffPin(c.Id, waiter, new SetStaffPosPinRequest()));
+        Assert.Equal(("Drita Krasniqi", 4), (issued.Name, issued.Pin.Length));
+        Assert.True(issued.Pin.All(char.IsAsciiDigit));
+        Assert.False(PosOperatorService.IsWeakPin(issued.Pin));
+        Assert.Equal(waiter, Ok(await Pos(c).PinSignIn(c.Id, new PosPinSignInRequest(issued.Pin))).UserId);
+        Assert.True(Ok(await Pos(c).StaffPins(c.Id)).Single(r => r.OperatorId == waiter).HasPin);
+
+        // The administrator changes it: the new PIN works, the old one no longer does.
+        var typed = Ok(await Pos(c).SetStaffPin(c.Id, waiter, new SetStaffPosPinRequest("580214")));
+        Assert.Equal("580214", typed.Pin);
+        Assert.Equal(waiter, Ok(await Pos(c).PinSignIn(c.Id, new PosPinSignInRequest("580214"))).UserId);
+        Assert.IsType<BadRequestObjectResult>((await Pos(c).PinSignIn(c.Id, new PosPinSignInRequest(issued.Pin))).Result);
+
+        // Still unique, still 4–8 digits, and only for members of the company.
+        Assert.IsType<BadRequestObjectResult>((await Pos(c).SetStaffPin(c.Id, c.UserId, new SetStaffPosPinRequest("580214"))).Result);
+        Assert.IsType<BadRequestObjectResult>((await Pos(c).SetStaffPin(c.Id, waiter, new SetStaffPosPinRequest("12"))).Result);
+        Assert.IsType<BadRequestObjectResult>((await Pos(c).SetStaffPin(c.Id, Guid.NewGuid(), new SetStaffPosPinRequest())).Result);
+
+        // An employee with no login gets a PIN too: the till knows them by their employee record.
+        var cook = new Pako.Domain.Payroll.Employee { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Burim Zeka" };
+        var gone = new Pako.Domain.Payroll.Employee { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Ilir Berisha", TerminationDate = new DateOnly(2020, 1, 31) };
+        c.Db.Employees.AddRange(cook, gone);
+        await c.Db.SaveChangesAsync();
+        var list = Ok(await Pos(c).StaffPins(c.Id));
+        var cookRow = list.Single(r => r.Name == "Burim Zeka");
+        Assert.Equal((cook.Id, false, false), (cookRow.OperatorId, cookRow.HasLogin, cookRow.HasPin));
+        Assert.Single(list, r => r.OperatorId == waiter);
+        Assert.DoesNotContain(list, r => r.Name == "Ilir Berisha");
+
+        var cookPin = Ok(await Pos(c).SetStaffPin(c.Id, cook.Id, new SetStaffPosPinRequest()));
+        var cookSignedIn = Ok(await Pos(c).PinSignIn(c.Id, new PosPinSignInRequest(cookPin.Pin)));
+        Assert.Equal((cook.Id, "Burim Zeka"), (cookSignedIn.UserId, cookSignedIn.Name));
+        // Someone who has left can't be given one.
+        Assert.IsType<BadRequestObjectResult>((await Pos(c).SetStaffPin(c.Id, gone.Id, new SetStaffPosPinRequest())).Result);
+    }
+
+    [Theory]
+    [InlineData("1111", true)]
+    [InlineData("1234", true)]
+    [InlineData("9876", true)]
+    [InlineData("4821", false)]
+    [InlineData("1235", false)]
+    public void IsWeakPin_RejectsRepeatsAndRuns(string pin, bool weak) => Assert.Equal(weak, PosOperatorService.IsWeakPin(pin));
+
+    // docs/POS_TILL_ACCESS.md §7 (user request 2026-11-24): a till or kitchen screen signs in as a
+    // device — connected with a one-use link, POS only, managed in POS setup.
+    [Fact]
+    public async Task Devices_ConnectOnceWithTheirLink_AreTillOnly_AndOnlyAManagerDisconnectsThem()
+    {
+        var c = await SeedAsync();
+        var users = TestUserManagers.For(c.Db);
+        var devices = new PosDeviceService(c.Db, users, new Pako.Api.Auth.RefreshTokenService(c.Db, new Pako.Api.Auth.JwtOptions
+        {
+            Key = "test-only-signing-key-not-for-production-32chars+", Issuer = "Pako", Audience = "Pako", RefreshTokenDays = 30, RefreshReuseGraceSeconds = 30,
+        }), Protection);
+        PosDevicesController Api(Guid user, string? operatorToken = null)
+        {
+            var api = As(new PosDevicesController(devices, Operators(c), new NullStringLocalizer<ErrorMessages>()), user);
+            if (operatorToken is not null) api.ControllerContext.HttpContext.Request.Headers[PosOperatorService.Header] = operatorToken;
+            return api;
+        }
+
+        Assert.IsType<BadRequestObjectResult>((await Api(c.UserId).Create(c.Id, new SavePosDeviceRequest("  "))).Result);
+        var bar = Ok(await Api(c.UserId).Create(c.Id, new SavePosDeviceRequest("Arka e barit")));
+        var listed = Assert.Single(Ok(await Api(c.UserId).List(c.Id)));
+        Assert.Equal(("Arka e barit", true, false), (listed.Name, listed.Active, listed.Connected));
+
+        // The device's role: POS: Write and Items: Read, nothing else.
+        var role = await c.Db.CompanyRoles.AsNoTracking().SingleAsync(r => r.CompanyId == c.Id && r.BuiltInKey == PosDeviceService.RoleKey);
+        Assert.Equal((Pako.Domain.Hr.AccessLevel.Write, Pako.Domain.Hr.AccessLevel.Read, Pako.Domain.Hr.AccessLevel.None, Pako.Domain.Hr.AccessLevel.None, Pako.Domain.Hr.AccessLevel.None),
+            (role.PosAccess, role.ItemsAccess, role.AccountingAccess, role.SalesAccess, role.SettingsAccess));
+
+        // The link connects once.
+        var paired = await devices.PairAsync(bar.Code);
+        Assert.NotNull(paired);
+        Assert.Null(await devices.PairAsync(bar.Code));
+        Assert.Null(await devices.PairAsync("not-a-link"));
+        Assert.Equal(c.Id, (await devices.DeviceOfAsync(bar.DeviceId))?.CompanyId);
+        Assert.Null(await devices.DeviceOfAsync(c.UserId));
+        // A new link ends the one before it.
+        var second = Ok(await Api(c.UserId).Link(c.Id, bar.DeviceId));
+        var third = Ok(await Api(c.UserId).Link(c.Id, bar.DeviceId));
+        Assert.Null(await devices.PairAsync(second.Code));
+        Assert.NotNull(await devices.PairAsync(third.Code));
+
+        // A device is not a person: no PIN, not on the staff list.
+        Assert.IsType<BadRequestObjectResult>((await Pos(c).SetStaffPin(c.Id, bar.DeviceId, new SetStaffPosPinRequest())).Result);
+        Assert.DoesNotContain(Ok(await Pos(c).StaffPins(c.Id)), r => r.OperatorId == bar.DeviceId);
+
+        // The device can't disconnect itself without a manager's PIN; with it, it can.
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)await Api(bar.DeviceId).DisconnectSelf(c.Id)).StatusCode);
+        Ok(await Pos(c).SetStaffPin(c.Id, c.UserId, new SetStaffPosPinRequest("7291")));
+        var manager = Ok(await Pos(c).PinSignIn(c.Id, new PosPinSignInRequest("7291")));
+        Assert.IsType<NoContentResult>(await Api(bar.DeviceId, manager.Token).DisconnectSelf(c.Id));
+        Assert.False(Assert.Single(Ok(await Api(c.UserId).List(c.Id))).Active);
+        Assert.Null(await devices.DeviceOfAsync(bar.DeviceId));
+
+        // A new link switches it back on; the administrator can disconnect it again.
+        var again = Ok(await Api(c.UserId).Link(c.Id, bar.DeviceId));
+        Assert.True(Assert.Single(Ok(await Api(c.UserId).List(c.Id))).Active);
+        Assert.IsType<NoContentResult>(await Api(c.UserId).Disconnect(c.Id, bar.DeviceId));
+        Assert.Null(await devices.PairAsync(again.Code));
+        Assert.IsType<NotFoundResult>(await Api(c.UserId).Disconnect(c.Id, Guid.NewGuid()));
+    }
+
+    // docs/POS_TILL_ACCESS.md (user request 2026-11-24): without a PIN the till can't be used, and
+    // no one can borrow someone else's rights through it.
+    [Fact]
+    public async Task Till_NeedsAPin_AndManagerActionsGoByTheSignedInOperator()
+    {
+        var c = await SeedAsync();
+        var (_, register) = await SetupAsync(c);
+        // Before any PIN is issued the till works as before (a company that hasn't switched it on).
+        var session = await OpenAsync(c, register.Id);
+        var cook = new Pako.Domain.Payroll.Employee { Id = Guid.NewGuid(), CompanyId = c.Id, Name = "Burim Zeka" };
+        c.Db.Employees.Add(cook);
+        await c.Db.SaveChangesAsync();
+        Ok(await Pos(c).SetStaffPin(c.Id, cook.Id, new SetStaffPosPinRequest("5813")));
+
+        // Now the device's login alone is refused, for orders, tabs and the drawer.
+        var payCash = new List<PosPaymentRequest> { new(c.Cash, 236m) };
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)(await Pos(c).SubmitOrder(c.Id, Sale(c, session.Id, 1m, payCash))).Result!).StatusCode);
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)(await Pos(c).AddCashMovement(c.Id, session.Id,
+            new CashMovementRequest(PosCashMovementKind.FloatIn, 10m, "Kusur", c.Account("240300")))).Result!).StatusCode);
+
+        var signedIn = Ok(await Pos(c).PinSignIn(c.Id, new PosPinSignInRequest("5813")));
+        PosController AsCook(string? token = null)
+        {
+            var api = Pos(c);
+            api.ControllerContext.HttpContext.Request.Headers[PosOperatorService.Header] = token ?? signedIn.Token;
+            return api;
+        }
+        var sale = (PosOrderResponse)((ObjectResult)(await AsCook().SubmitOrder(c.Id, Sale(c, session.Id, 1m, payCash))).Result!).Value!;
+        Assert.Equal("Burim Zeka", sale.OperatorName);
+        // An order rung up offline carries its waiter's sign-in, whoever is signed in when it syncs.
+        var offline = (PosOrderResponse)((ObjectResult)(await Pos(c).SubmitOrder(c.Id, Sale(c, session.Id, 1m, payCash)
+            with { CreatedOffline = true, OperatorToken = signedIn.Token })).Result!).Value!;
+        Assert.Equal("Burim Zeka", offline.OperatorName);
+
+        // The device is logged in as the owner, but the cook can't do a return: their own rights count.
+        Assert.IsType<ForbidResult>((await AsCook().SubmitOrder(c.Id, Sale(c, session.Id, 1m, payCash) with { Kind = PosOrderKind.Return })).Result);
+        Assert.False(await Operators(c).CanApproveAsync(c.Id, cook.Id));
+        Assert.True(await Operators(c).CanApproveAsync(c.Id, c.UserId));
+
+        // A new PIN ends the sign-in made with the old one.
+        Ok(await Pos(c).SetStaffPin(c.Id, cook.Id, new SetStaffPosPinRequest("6924")));
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)(await AsCook().SubmitOrder(c.Id, Sale(c, session.Id, 1m, payCash))).Result!).StatusCode);
+
+        // Five wrong PINs lock that device for a while — even the right PIN — but not another device.
+        var operators = Operators(c);
+        for (var i = 0; i < PosOperatorService.MaxFailures; i++) Assert.Null(await operators.SignInAsync(c.Id, $"000{i}", "till-1"));
+        await Assert.ThrowsAsync<PosException>(() => operators.SignInAsync(c.Id, "6924", "till-1"));
+        Assert.NotNull(await operators.SignInAsync(c.Id, "6924", "till-2"));
+    }
+
     // P3: a waiter signs in with a PIN on the shared till — the order is theirs; a tip rides on the
     // card and is owed to staff; at the end the waiter hands over 2.00 short, which they owe.
     [Fact]
@@ -1008,24 +1176,23 @@ public class PosTests : IAsyncLifetime
         Assert.Equal(("Drita Krasniqi", 60m), (first.OperatorName, first.Change));
         Assert.IsAssignableFrom<ObjectResult>((await AsWaiter().SubmitOrder(c.Id, Sale(c, session.Id, 1m,
             new List<PosPaymentRequest> { new(c.Card, 236m, Tip: 6m) }))).Result);
-        // A forged token is just the terminal itself.
+        // A forged token is no sign-in: once the company has PINs, the terminal alone is refused.
         var forged = Pos(c);
         forged.ControllerContext.HttpContext.Request.Headers[PosOperatorService.Header] = "nope";
-        var own = (PosOrderResponse)((ObjectResult)(await forged.SubmitOrder(c.Id, Sale(c, session.Id, 1m,
-            new List<PosPaymentRequest> { new(c.Cash, 236m) }))).Result!).Value!;
-        Assert.NotEqual("Drita Krasniqi", own.OperatorName);
+        Assert.Equal(StatusCodes.Status403Forbidden, ((ObjectResult)(await forged.SubmitOrder(c.Id, Sale(c, session.Id, 1m,
+            new List<PosPaymentRequest> { new(c.Cash, 236m) }))).Result!).StatusCode);
 
         var waiters = Ok(await Pos(c).Waiters(c.Id, session.Id));
         var drita = waiters.Single(w => w.WaiterUserId == waiter);
         Assert.Equal((2, 472m, 236m, 236m, 10m, 240m), (drita.Orders, drita.NetSales, drita.Cash, drita.OtherTenders, drita.Tips, drita.CashExpected));
         // She hands over 238: 2.00 short needs a reason.
-        Assert.IsType<BadRequestObjectResult>((await Pos(c).SettleWaiter(c.Id, session.Id, new SettleWaiterRequest(waiter, 238m))).Result);
-        var settled = Ok(await Pos(c).SettleWaiter(c.Id, session.Id, new SettleWaiterRequest(waiter, 238m, "Kusur i gabuar")));
+        Assert.IsType<BadRequestObjectResult>((await AsWaiter().SettleWaiter(c.Id, session.Id, new SettleWaiterRequest(waiter, 238m))).Result);
+        var settled = Ok(await AsWaiter().SettleWaiter(c.Id, session.Id, new SettleWaiterRequest(waiter, 238m, "Kusur i gabuar")));
         Assert.Equal(-2m, settled.Single(w => w.WaiterUserId == waiter).Settlement!.Difference);
-        Assert.IsType<BadRequestObjectResult>((await Pos(c).SettleWaiter(c.Id, session.Id, new SettleWaiterRequest(waiter, 240m))).Result);
+        Assert.IsType<BadRequestObjectResult>((await AsWaiter().SettleWaiter(c.Id, session.Id, new SettleWaiterRequest(waiter, 240m))).Result);
 
-        // The drawer: 50 float + 236 + 4 tip + 236 = 526 expected; 524 counted (the waiter's 2.00).
-        var closed = (await Pos(c).CloseSession(c.Id, session.Id, new CloseSessionRequest(new List<CountedTenderRequest> { new(c.Cash, 524m, "Kamarieri") }))).Result;
+        // The drawer: 50 float + 236 + 4 tip = 290 expected (the forged sale was refused); 288 counted (the waiter's 2.00).
+        var closed = (await AsWaiter().CloseSession(c.Id, session.Id, new CloseSessionRequest(new List<CountedTenderRequest> { new(c.Cash, 288m, "Kamarieri") }))).Result;
         Assert.True(closed is OkObjectResult, (closed as BadRequestObjectResult)?.Value?.ToString());
         var entry = ((SessionReportResponse)((OkObjectResult)closed!).Value!).JournalEntryId!.Value;
         var lines = await c.Db.JournalEntryLines.AsNoTracking().Where(l => l.JournalEntryId == entry).ToListAsync();
@@ -1215,7 +1382,7 @@ public class PosTests : IAsyncLifetime
 
     private PosHotelController HotelApi(Co c) => As(new PosHotelController(c.Db, Tabs(c),
         new PriceListService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()),
-        new Pako.Api.Hubs.PosNotifier(new NoHub()), new NullStringLocalizer<ErrorMessages>()), c.UserId);
+        new Pako.Api.Hubs.PosNotifier(new NoHub()), new NullStringLocalizer<ErrorMessages>(), Operators(c)), c.UserId);
 
     // A two-night stay: the one double room can't be booked twice; check-in needs the guests; the
     // night audit and check-out post the nights and the tourist tax; a bar tab is charged to the

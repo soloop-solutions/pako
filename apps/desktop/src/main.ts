@@ -1,7 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain, Menu, safeStorage, session, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, powerSaveBlocker, safeStorage, session, shell } from 'electron'
 import type { IpcMainEvent, IpcMainInvokeEvent } from 'electron'
+import { execFile } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
 import { promises as nodeFs } from 'node:fs'
+import { networkInterfaces } from 'node:os'
 import nodePath from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { BackupInfo, BackupResult, RestoreResult } from '@pako/shared'
@@ -20,7 +22,7 @@ import {
   type PgConnection,
   type VerifyResult,
 } from './backup'
-import { loadOrCreateConfig, saveApiPort, saveBackupDir, type DesktopConfig } from './config'
+import { loadOrCreateConfig, saveApiPort, saveBackupDir, saveTillNetwork, type DesktopConfig } from './config'
 import { handleRestoreRequest, isTrustedSender } from './ipcGuard'
 import { IPC } from './ipcChannels'
 import {
@@ -40,6 +42,19 @@ import { BusyGate, SHUTDOWN_TIMEOUT_MS, ShutdownController, stopAfterCloseBackup
 import { setupSingleInstance } from './singleInstance'
 import { createLoggedSpawn } from './spawn'
 import { Supervisor } from './supervisor'
+import { ensureFirewallRule, lanAddresses, portTakenMessage, TillNetworkController, type ExecFn } from './tillNetwork'
+import {
+  discoverServers,
+  isSetupSender,
+  normalizeServer,
+  probeServer,
+  readMode,
+  resolveStartMode,
+  tillRedirect,
+  writeMode,
+  type FetchFn,
+  type StoredMode,
+} from './tillMode'
 import type { SpawnFn } from './types'
 import { decideAfterStartFailure, markVersion, NEWER_SCHEMA_DIALOG, prepareUpgrade, readInstalledVersion } from './upgrade'
 
@@ -62,6 +77,25 @@ interface BackupContext {
 const NOT_VERIFIED: VerifyResult = { ok: false, failures: [] }
 
 const backupQueue = new BackupQueue()
+
+let keepAwakeId: number | undefined
+
+// While tills depend on this PC, Windows must not put it to sleep (the screen may still turn off).
+function keepAwake(on: boolean): void {
+  if (on && keepAwakeId === undefined) keepAwakeId = powerSaveBlocker.start('prevent-app-suspension')
+  if (!on && keepAwakeId !== undefined) {
+    powerSaveBlocker.stop(keepAwakeId)
+    keepAwakeId = undefined
+  }
+}
+
+const execQuiet: ExecFn = (file, args) =>
+  new Promise((resolve) => {
+    execFile(file, args, { windowsHide: true }, (err, stdout) => {
+      const code = err ? (typeof err.code === 'number' ? err.code : 1) : 0
+      resolve({ code, stdout: String(stdout ?? '') })
+    })
+  })
 
 const errorText = (err: unknown) => (err instanceof Error ? err.message : String(err))
 
@@ -247,7 +281,7 @@ async function fetchAuditVerify(apiUrl: string, launchSecret: string): Promise<V
   return { ok: body.ok, failures: body.failures }
 }
 
-function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): void {
+function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string, tills: TillNetworkController): void {
   const apiOrigin = new URL(apiUrl).origin
   const { config } = ctx
   const trusted = (event: IpcMainEvent | IpcMainInvokeEvent) => isTrustedSender(event.senderFrame?.url, apiOrigin)
@@ -417,6 +451,21 @@ function registerIpc(ctx: BackupContext, apiUrl: string, launchSecret: string): 
     })),
   )
   ipcMain.handle(
+    IPC.getTillNetwork,
+    guarded(async () => tills.status()),
+  )
+  ipcMain.handle(IPC.setTillNetwork, async (event, settings: unknown) => {
+    if (!trusted(event)) throw new Error('Untrusted sender')
+    const s = settings as { enabled?: unknown; port?: unknown } | null
+    if (!s || typeof s.enabled !== 'boolean' || typeof s.port !== 'number') throw new Error('Invalid till network settings')
+    // set() puts the API back the way it was when a restart fails; only if that fails too is
+    // PAKO left without an API, and then it stops like any other API failure.
+    return tills.set({ enabled: s.enabled, port: s.port }).catch((err: unknown) => {
+      void shutdown.fail(`The API could not be restarted: ${errorText(err)}`)
+      return { ok: false as const, error: errorText(err) }
+    })
+  })
+  ipcMain.handle(
     IPC.openLogFolder,
     guarded(async () => {
       if (logDir) await shell.openPath(logDir)
@@ -502,9 +551,222 @@ async function refuseNewerSchema(): Promise<void> {
   app.quit()
 }
 
+// ---- Till mode: what this PC is, and a till PC's window onto the main PC ----
+
+interface SetupHandlers {
+  chooseMain?: () => Promise<void>
+  chooseTill?: (address: string) => Promise<{ ok: true } | { ok: false; error: string; server?: string }>
+  changeServer?: () => Promise<void>
+  retry?: () => Promise<void>
+}
+
+let setupHandlers: SetupHandlers = {}
+let setupIpcRegistered = false
+
+const fetchHealth: FetchFn = (url, init) => fetch(url, init)
+
+function registerSetupIpc(): void {
+  if (setupIpcRegistered) return
+  setupIpcRegistered = true
+  const guard =
+    <A extends unknown[], T>(fn: (...args: A) => Promise<T>) =>
+    async (event: IpcMainInvokeEvent, ...args: A): Promise<T> => {
+      if (!isSetupSender(event.senderFrame?.url)) throw new Error('Untrusted sender')
+      return fn(...args)
+    }
+  ipcMain.handle(IPC.setupChooseMain, guard(async () => setupHandlers.chooseMain?.()))
+  ipcMain.handle(IPC.setupDiscover, guard(async () => discoverServers({ addresses: lanAddresses(networkInterfaces()), fetch: fetchHealth })))
+  ipcMain.handle(
+    IPC.setupChooseTill,
+    guard(async (address: unknown) =>
+      typeof address === 'string' && setupHandlers.chooseTill
+        ? setupHandlers.chooseTill(address)
+        : { ok: false as const, error: 'badAddress' },
+    ),
+  )
+  ipcMain.handle(IPC.setupChangeServer, guard(async () => setupHandlers.changeServer?.()))
+  ipcMain.handle(IPC.setupRetry, guard(async () => setupHandlers.retry?.()))
+}
+
+const SETUP_PAGE = () => nodePath.join(here, 'setup.html')
+
+// Finds and checks a main PC typed or picked on the setup page.
+async function checkServer(address: string): Promise<{ ok: true; server: string } | { ok: false; error: string; server?: string }> {
+  const server = normalizeServer(address)
+  if (!server) return { ok: false, error: 'badAddress' }
+  return (await probeServer(server, fetchHealth)) ? { ok: true, server } : { ok: false, error: 'notFound', server }
+}
+
+// First start on a PC with no data: main PC or till? Null when the window is closed unanswered.
+function askMode(paths: DesktopPaths): Promise<StoredMode | null> {
+  registerSetupIpc()
+  return new Promise((resolve) => {
+    let settled = false
+    const win = new BrowserWindow({
+      width: 640,
+      height: 620,
+      resizable: false,
+      show: false,
+      title: 'PAKO',
+      autoHideMenuBar: true,
+      webPreferences: { preload: nodePath.join(here, 'setupPreload.cjs'), contextIsolation: true, nodeIntegration: false, sandbox: true },
+    })
+    const done = async (mode: StoredMode | null) => {
+      if (settled) return
+      settled = true
+      setupHandlers = {}
+      if (mode) await writeMode(paths.dataDir, mode)
+      resolve(mode)
+      if (!win.isDestroyed()) win.close()
+    }
+    setupHandlers = {
+      chooseMain: () => done({ mode: 'main' }),
+      chooseTill: async (address) => {
+        const checked = await checkServer(address)
+        if (!checked.ok) return checked
+        await done({ mode: 'till', server: checked.server })
+        return { ok: true }
+      },
+    }
+    win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+    win.webContents.on('will-navigate', (event) => event.preventDefault())
+    win.once('ready-to-show', () => win.show())
+    win.on('closed', () => void done(null))
+    void win.loadFile(SETUP_PAGE(), { query: { view: 'choose' } })
+  })
+}
+
+// A till PC: no database, no API. One window on the main PC's till, connected as a device
+// (POS setup → Devices → the short code), which starts with Windows and comes back by itself
+// when the main PC is off for a while.
+async function startTill(paths: DesktopPaths, initialServer: string): Promise<void> {
+  let server = initialServer
+  let retryTimer: NodeJS.Timeout | undefined
+  registerSetupIpc()
+  if (app.isPackaged) app.setLoginItemSettings({ openAtLogin: true })
+
+  const ses = session.defaultSession
+  ses.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
+  ses.setPermissionCheckHandler(() => false)
+  ses.setSpellCheckerEnabled(false)
+  ses.webRequest.onBeforeRequest((details, callback) => {
+    callback({ cancel: !isAllowedRequest(details.url, server) })
+  })
+
+  const win = new BrowserWindow({
+    width: 1280,
+    height: 800,
+    show: false,
+    title: 'PAKO',
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: nodePath.join(here, 'setupPreload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      devTools: !app.isPackaged,
+    },
+  })
+  mainWindow = win
+  win.once('ready-to-show', () => {
+    splashWindow?.close()
+    splashWindow = undefined
+    win.maximize()
+    win.show()
+  })
+  win.on('closed', () => {
+    mainWindow = undefined
+    if (retryTimer) clearInterval(retryTimer)
+  })
+  win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
+  win.webContents.on('will-navigate', (event, url) => {
+    if (!isAllowedNavigation(url, server)) event.preventDefault()
+  })
+  win.webContents.on('will-redirect', (event, url) => {
+    if (!isAllowedNavigation(url, server)) event.preventDefault()
+  })
+  const redirect = (_event: unknown, url: string) => {
+    const next = tillRedirect(url, server)
+    if (next) void win.loadURL(next)
+  }
+  win.webContents.on('did-navigate', redirect)
+  win.webContents.on('did-navigate-in-page', redirect)
+  win.webContents.on('did-fail-load', (_event, code, _description, url, isMainFrame) => {
+    // -3: aborted by a newer navigation, not a failure.
+    if (isMainFrame && code !== -3 && url.startsWith(server)) showOffline()
+  })
+  win.webContents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key === 'F11') {
+      event.preventDefault()
+      win.setFullScreen(!win.isFullScreen())
+    }
+  })
+
+  const stopRetry = () => {
+    if (retryTimer) clearInterval(retryTimer)
+    retryTimer = undefined
+  }
+  async function openServer(): Promise<void> {
+    if (await probeServer(server, fetchHealth)) {
+      stopRetry()
+      await win.loadURL(`${server}/device`)
+    } else showOffline()
+  }
+  function showOffline(): void {
+    if (win.isDestroyed()) return
+    void win.loadFile(SETUP_PAGE(), { query: { view: 'offline', server } })
+    if (!retryTimer)
+      retryTimer = setInterval(() => {
+        void probeServer(server, fetchHealth).then((ok) => {
+          if (ok && !win.isDestroyed()) {
+            stopRetry()
+            void win.loadURL(`${server}/device`)
+          }
+        })
+      }, 5000)
+  }
+
+  setupHandlers = {
+    retry: openServer,
+    changeServer: async () => {
+      stopRetry()
+      await win.loadFile(SETUP_PAGE(), { query: { view: 'till' } })
+    },
+    chooseTill: async (address) => {
+      const checked = await checkServer(address)
+      if (!checked.ok) return checked
+      server = checked.server
+      await writeMode(paths.dataDir, { mode: 'till', server })
+      void openServer()
+      return { ok: true }
+    },
+  }
+
+  shutdown.markStarted()
+  await openServer()
+}
+
 async function start(): Promise<void> {
   const paths = resolvePaths(devOverride('PAKO_DESKTOP_DATA_DIR') ?? app.getPath('userData'))
   logDir = paths.logDir
+
+  // Main PC or till? Asked once, on a PC with no data yet; an existing install stays the main PC.
+  const stored = await readMode(paths.dataDir)
+  let mode = resolveStartMode(stored, await pathExists(nodePath.join(paths.pgData, 'PG_VERSION')))
+  if (mode === 'ask') {
+    const chosen = await askMode(paths)
+    if (!chosen) {
+      shutdown.markStarted()
+      app.quit()
+      return
+    }
+    mode = chosen
+  } else if (!stored) await writeMode(paths.dataDir, mode)
+  if (mode.mode === 'till') {
+    splashWindow = createSplash()
+    await startTill(paths, mode.server)
+    return
+  }
   const config = await loadOrCreateConfig(paths, { safeStorage })
   const launchSecret = randomBytes(32).toString('hex')
   const appVersion = app.getVersion()
@@ -518,7 +780,16 @@ async function start(): Promise<void> {
     persist: (port) => saveApiPort(paths, port),
   })
   let pgPort = await getFreePort()
-  while (pgPort === apiPort) pgPort = await getFreePort()
+  while (pgPort === apiPort || pgPort === config.tillPort) pgPort = await getFreePort()
+
+  // "Allow tills on this network": a port another program holds must not stop PAKO from starting;
+  // the tills stay off and Settings says why.
+  let tillPort: number | undefined
+  let tillError: string | null = null
+  if (config.tillNetwork) {
+    if (config.tillPort !== apiPort && (await isPortFree(config.tillPort, '0.0.0.0'))) tillPort = config.tillPort
+    else tillError = portTakenMessage(config.tillPort)
+  }
 
   const pg = new PostgresProcess({
     binDir: pgBin,
@@ -527,17 +798,20 @@ async function start(): Promise<void> {
     password: config.pgPassword,
     spawn,
   })
-  const api = new ApiProcess({
-    exePath: apiExe,
-    port: apiPort,
-    env: buildApiEnv({
+  const apiEnv = (till: number | undefined) =>
+    buildApiEnv({
       port: apiPort,
       pgPort,
       pgPassword: config.pgPassword,
       jwtKey: config.jwtKey,
       launchSecret,
       dataDir: paths.dataDir,
-    }),
+      tillPort: till,
+    })
+  const api = new ApiProcess({
+    exePath: apiExe,
+    port: apiPort,
+    env: apiEnv(tillPort),
     spawn,
   })
   const ctx: BackupContext = {
@@ -598,7 +872,29 @@ async function start(): Promise<void> {
     throw err
   }
   await markVersion(paths.dataDir, appVersion)
-  registerIpc(ctx, apiUrl, launchSecret)
+  const tills = new TillNetworkController({
+    initial: { enabled: config.tillNetwork, port: config.tillPort },
+    startedPort: tillPort,
+    startError: tillError,
+    addresses: () => lanAddresses(networkInterfaces()),
+    isPortFree: (port) => isPortFree(port, '0.0.0.0'),
+    reservedPorts: () => [apiPort, pgPort],
+    ensureFirewall: () => ensureFirewallRule({ platform: process.platform, exec: execQuiet, apiExe }),
+    save: async (enabled, port) => {
+      await saveTillNetwork(paths, enabled, port)
+      config.tillNetwork = enabled
+      config.tillPort = port
+    },
+    restartApi: (till) =>
+      backupQueue.exclusive(async () => {
+        await supervisor!.stopApi()
+        api.setEnv(apiEnv(till))
+        await supervisor!.startApi()
+      }),
+    keepAwake,
+    isBusy: () => restoreGate.busy,
+  })
+  registerIpc(ctx, apiUrl, launchSecret, tills)
   mainWindow = await createMainWindow(apiUrl, launchSecret)
   shutdown.markStarted()
 }
