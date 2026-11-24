@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { TabButton } from "@/components/ui/tabs";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
@@ -105,13 +106,11 @@ export function ExpenseClaims() {
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <div role="tablist" className="flex gap-1 rounded-md border p-0.5">
+            <div role="tablist" className="flex gap-1 border-b">
               {[...STATES, "All"].map((s) => (
-                <button
+                <TabButton
                   key={s}
-                  type="button"
-                  role="tab"
-                  aria-selected={state === s}
+                  selected={state === s}
                   onClick={() =>
                     setSearchParams((prev) => {
                       const next = new URLSearchParams(prev);
@@ -119,10 +118,9 @@ export function ExpenseClaims() {
                       else next.set("state", s);
                       return next;
                     }, { replace: true })}
-                  className={state === s ? "rounded bg-primary px-3 py-1 text-[13px] font-medium text-primary-foreground" : "rounded px-3 py-1 text-[13px] text-muted-foreground"}
                 >
                   {intl.formatMessage({ id: `expenses.filter.${s}` })}
-                </button>
+                </TabButton>
               ))}
             </div>
           </div>

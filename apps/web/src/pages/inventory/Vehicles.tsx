@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -84,7 +85,7 @@ export function Vehicles() {
           <div className="flex flex-wrap items-center gap-3">
             <Input className="max-w-xs" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("common.search")} aria-label={t("common.search")} />
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} />
+              <Checkbox checked={includeArchived} onChange={(e) => setIncludeArchived(e.target.checked)} />
               {t("vehicle.showArchived")}
             </label>
           </div>

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { List, TreePine } from "lucide-react";
@@ -331,12 +332,10 @@ export function ChartOfAccounts() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "chartOfAccounts.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "chartOfAccounts.description" })}</p>
-        </div>
-        <div className="flex items-center gap-2">
+      <PageHeader
+        title={intl.formatMessage({ id: "chartOfAccounts.title" })}
+        description={intl.formatMessage({ id: "chartOfAccounts.description" })}
+        actions={
           <div className="flex items-center rounded-md border">
             <Button
               size="sm"
@@ -357,18 +356,17 @@ export function ChartOfAccounts() {
               {intl.formatMessage({ id: "chartOfAccounts.treeView" })}
             </Button>
           </div>
-          <Button
-            onClick={() => {
-              setFormOpen(true);
-              setEditingId(null);
-              setMutationError(null);
-              setDirty(false);
-            }}
-          >
-            {intl.formatMessage({ id: "chartOfAccounts.addAccount" })}
-          </Button>
-        </div>
-      </div>
+        }
+        newAction={{
+          label: intl.formatMessage({ id: "chartOfAccounts.addAccount" }),
+          onClick: () => {
+            setFormOpen(true);
+            setEditingId(null);
+            setMutationError(null);
+            setDirty(false);
+          },
+        }}
+      />
 
       {loadError && (
         <Alert variant="destructive">

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
@@ -141,12 +142,10 @@ export function DiscountRules() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "nav.discountRules" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "nav.discountRules.description" })}</p>
-        </div>
-        <div className="flex items-center gap-3">
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.discountRules" })}
+        description={intl.formatMessage({ id: "nav.discountRules.description" })}
+        actions={
           <label className="flex items-center gap-2 text-sm">
             <Checkbox
               checked={activeOnly}
@@ -159,19 +158,16 @@ export function DiscountRules() {
             />
             {intl.formatMessage({ id: "discountRules.activeToday" })}
           </label>
-          {!readOnly && (
-            <Button
-              onClick={() => {
-                setFormOpen((open) => !open);
-                setEditingId(null);
-                setMutationError(null);
-              }}
-            >
-              {intl.formatMessage({ id: "discountRules.new" })}
-            </Button>
-          )}
-        </div>
-      </div>
+        }
+        newAction={readOnly ? undefined : {
+          label: intl.formatMessage({ id: "discountRules.new" }),
+          onClick: () => {
+            setFormOpen((open) => !open);
+            setEditingId(null);
+            setMutationError(null);
+          },
+        }}
+      />
 
       {loadError && (
         <Alert variant="destructive">
