@@ -326,7 +326,7 @@ export function Bills() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -340,10 +340,7 @@ export function Bills() {
       />
 
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "bills.billsTable" })}</CardTitle>
-        </CardHeader>
+      <Card className="py-4">
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}

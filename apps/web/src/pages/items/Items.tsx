@@ -560,10 +560,10 @@ export function Items() {
         description={intl.formatMessage({ id: "items.description" })}
         actions={
           <>
-            <Button variant="outline" onClick={() => setAttributesOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setAttributesOpen(true)}>
               {intl.formatMessage({ id: "items.attributes.manage" })}
             </Button>
-            <Button variant="outline" onClick={() => setImportOpen(true)}>
+            <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
               {intl.formatMessage({ id: "items.import.title" })}
             </Button>
           </>

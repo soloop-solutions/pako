@@ -3,25 +3,34 @@ import { useIntl } from "react-intl";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { navCategories } from "@/config/nav";
+import { usePageHeaderMounted } from "@/components/list/pageHeaderPresence";
 import { useActiveTabTitle } from "@/context/TabsContext";
 
-interface Crumb {
+export interface Crumb {
   label: string;
   path?: string;
 }
 
-export function Breadcrumbs() {
+/** The crumbs for the current route (section › page › document › edit). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useBreadcrumbs(): Crumb[] {
   const intl = useIntl();
   const { pathname } = useLocation();
   const { id } = useParams();
-
   const documentTitle = useActiveTabTitle();
-  const crumbs = buildCrumbs(pathname, id, documentTitle, (key: string) => intl.formatMessage({ id: key }));
+  return buildCrumbs(pathname, id, documentTitle, (key: string) => intl.formatMessage({ id: key }));
+}
 
-  if (crumbs.length <= 1) return null;
+// User request 2026-11-24: a page with the shared one-line PageHeader shows its section there, so
+// this row is left out; elsewhere it is a single compact line.
+export function Breadcrumbs() {
+  const crumbs = useBreadcrumbs();
+  const pageHeader = usePageHeaderMounted();
+
+  if (crumbs.length <= 1 || pageHeader) return null;
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1 pb-4 text-xs text-muted-foreground">
+    <nav aria-label="Breadcrumb" className="flex items-center gap-1 pb-2 text-xs text-muted-foreground">
       {crumbs.map((crumb, i) => {
         const isLast = i === crumbs.length - 1;
         return (

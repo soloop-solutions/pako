@@ -220,7 +220,7 @@ export function PurchaseReturns() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -234,10 +234,7 @@ export function PurchaseReturns() {
       />
 
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "purchaseReturns.returnsTable" })}</CardTitle>
-        </CardHeader>
+      <Card className="py-4">
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}

@@ -58,10 +58,15 @@ describe("ListRibbon", () => {
     vi.setSystemTime(new Date(2026, 10, 25));
     renderRibbon("/invoicing?invoices.page=3");
 
+    // The quick periods sit in the period dropdown (user request 2026-11-24: one-line ribbon).
+    fireEvent.click(screen.getByTestId("period-filter"));
     fireEvent.click(screen.getByRole("button", { name: "Last month" }));
     expect(screen.getByTestId("search")).toHaveTextContent("invoices.from=2026-10-01&invoices.to=2026-10-31");
     expect(screen.getByTestId("search")).not.toHaveTextContent("invoices.page");
+    expect(screen.getByTestId("period-filter")).toHaveTextContent("Issue date: Last month");
+    fireEvent.click(screen.getByTestId("period-filter"));
     expect(screen.getByRole("button", { name: "Last month" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.keyDown(document.activeElement ?? document.body, { key: "Escape" });
     expect(screen.getByTestId("list-ribbon-chips")).toHaveTextContent("Issue date: Last month");
 
     fireEvent.click(screen.getByRole("button", { name: "Remove filter Issue date: Last month" }));
@@ -94,10 +99,12 @@ describe("PageHeader and shortcuts", () => {
   it("N runs the New action, but not while typing in a field", () => {
     const onNew = vi.fn();
     render(
-      <IntlProviderWrapper>
-        <PageHeader title="Invoices" newAction={{ label: "New invoice", onClick: onNew }} />
-        <input aria-label="field" />
-      </IntlProviderWrapper>,
+      <MemoryRouter>
+        <IntlProviderWrapper>
+          <PageHeader title="Invoices" newAction={{ label: "New invoice", onClick: onNew }} />
+          <input aria-label="field" />
+        </IntlProviderWrapper>
+      </MemoryRouter>,
     );
     fireEvent.keyDown(screen.getByRole("textbox", { name: "field" }), { key: "n" });
     expect(onNew).not.toHaveBeenCalled();

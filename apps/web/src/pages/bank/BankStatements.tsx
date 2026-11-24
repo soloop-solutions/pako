@@ -14,7 +14,7 @@ import { useListFilters } from "@/components/list/useListFilters";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
@@ -195,10 +195,7 @@ export function BankStatements() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">{t("bankStatements.list")}</CardTitle>
-        </CardHeader>
+      <Card className="py-4">
         <CardContent className="flex flex-col gap-3">
           <ListRibbon
             controls={ribbon}

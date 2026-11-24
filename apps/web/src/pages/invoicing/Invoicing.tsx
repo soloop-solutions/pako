@@ -436,7 +436,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -461,7 +461,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           onClick: () => navigate(isProforma ? "/proforma/new" : "/invoicing/new"),
         }}
         actions={
-          <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
+          <Button variant="outline" size="sm" onClick={() => setCustomerFormOpen(true)}>
             {intl.formatMessage({ id: "invoicing.addCustomer" })}
           </Button>
         }
@@ -476,10 +476,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         <PartnerForm companyId={activeCompany.id} role="customer" onCreated={handleCustomerCreated} />
       </FormDialog>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: isProforma ? "proforma.proformasTable" : "invoicing.invoices" })}</CardTitle>
-        </CardHeader>
+      <Card className="py-4">
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}

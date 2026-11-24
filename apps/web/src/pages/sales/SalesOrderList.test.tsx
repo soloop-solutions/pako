@@ -79,6 +79,7 @@ describe("SalesOrders list ribbon and totals", () => {
     renderList();
     await waitFor(() => expect(api.salesOrderListTotals).toHaveBeenCalled());
 
+    fireEvent.click(screen.getByTestId("period-filter"));
     fireEvent.click(screen.getByRole("button", { name: "Last month" }));
     await waitFor(() =>
       expect(api.salesOrderListTotals).toHaveBeenLastCalledWith("c1", undefined, undefined, undefined, undefined, "2026-10-01", "2026-10-31", undefined),

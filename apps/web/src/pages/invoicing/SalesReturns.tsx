@@ -219,7 +219,7 @@ export function SalesReturns() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-4">
       {error && (
         <Alert variant="destructive">
           <AlertDescription>{error}</AlertDescription>
@@ -232,10 +232,7 @@ export function SalesReturns() {
         newAction={{ label: intl.formatMessage({ id: "salesReturns.newReturn" }), onClick: () => navigate("/sales-returns/new") }}
       />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "salesReturns.returnsTable" })}</CardTitle>
-        </CardHeader>
+      <Card className="py-4">
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}

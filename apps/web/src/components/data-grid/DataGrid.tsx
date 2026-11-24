@@ -14,6 +14,7 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { formatMoney } from "@/lib/amount";
+import { registerGridToolbarSlots } from "@/components/data-grid/toolbarSlots";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Columns3, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
@@ -113,6 +114,13 @@ export function DataGrid<TData extends object>({
   const intl = useIntl();
   const navigate = useNavigate();
   const urlState = useDataGridUrlState(gridId, defaultPageSize);
+  // The list's filter ribbon renders into these (components/data-grid/toolbarSlots).
+  const [controlsSlot, setControlsSlot] = useState<HTMLDivElement | null>(null);
+  const [chipsSlot, setChipsSlot] = useState<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!controlsSlot || !chipsSlot) return;
+    return registerGridToolbarSlots(gridId, { controls: controlsSlot, chips: chipsSlot });
+  }, [gridId, controlsSlot, chipsSlot]);
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(gridId);
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [columnsPanelOpen, setColumnsPanelOpen] = useState(false);
@@ -295,6 +303,7 @@ export function DataGrid<TData extends object>({
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
+          <div ref={setControlsSlot} className="contents" />
           {enableGlobalFilter && (
             <Input
               className="h-8 max-w-xs text-sm"
@@ -420,6 +429,7 @@ export function DataGrid<TData extends object>({
         </div>
       </div>
 
+      <div ref={setChipsSlot} className="empty:hidden" />
       <div className="overflow-hidden rounded-lg border">
         <Table className="text-[13px] [font-variant-numeric:tabular-nums]">
           <TableHeader>
