@@ -83,3 +83,6 @@ public record UpdateBankStatementLineRequest(
 
 // The bank accounts a statement can be imported into (ledger accounts of sub-type Bank).
 public record BankStatementAccountResponse(Guid Id, string Code, string Name);
+
+// Client request 2026-11-24: the totals under the bank statements list (stored statement totals).
+public record BankStatementListTotalsResponse(int Count, decimal TotalIn, decimal TotalOut);

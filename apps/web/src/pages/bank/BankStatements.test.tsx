@@ -52,6 +52,8 @@ const updateMock = vi.fn(async (_c: string, _s: string, _l: string, body: Update
   return { ...detail, lines: detail.lines.map((l) => (l.id === "l3" ? { ...l, state: "Ignored", matchStatus: "Ignored" } : l)) };
 });
 
+const listMock = vi.fn(async (..._args: unknown[]) => [summary]);
+
 vi.mock("@/api/client", async () => {
   const actual = await vi.importActual<typeof import("@/api/client")>("@/api/client");
   return {
@@ -59,7 +61,8 @@ vi.mock("@/api/client", async () => {
     apiClient: {
       ...actual.apiClient,
       listBankStatementAccounts: async () => [{ id: "a1", code: "1100", name: "Raiffeisen" }],
-      listBankStatements: async () => [summary],
+      listBankStatements: (...args: unknown[]) => listMock(...args),
+      bankStatementListTotals: async () => ({ count: 1, totalIn: 830.64, totalOut: 1202.5 }),
       importBankStatement: () => importMock(),
       getBankStatement: async () => detail,
       confirmBankStatement: () => confirmMock(),
@@ -127,5 +130,18 @@ describe("Bank statements", () => {
     await waitFor(() => expect(confirmMock).toHaveBeenCalled());
     expect(window.confirm).toHaveBeenCalledWith("Record 1 payments from this statement? Lines without an invoice or bill stay open.");
     expect(await screen.findByText("Paid")).toBeInTheDocument();
+  });
+});
+
+// Client request 2026-11-24: the list ribbon filters on the server and the totals are the server's.
+describe("Bank statements list ribbon", () => {
+  it("sends the URL filters to the server and shows its totals", async () => {
+    listMock.mockClear();
+    renderAt("/bank-statements?bank-statements.state=Confirmed&bank-statements.bankAccountId=a1&bank-statements.from=2026-11-01&bank-statements.to=2026-11-30");
+    expect(await screen.findByText("nov.xlsx")).toBeInTheDocument();
+    expect(listMock).toHaveBeenCalledWith(companyId, "a1", 1, "2026-11-01", "2026-11-30");
+    const bar = await screen.findByTestId("list-totals");
+    expect(bar).toHaveTextContent("Money out1,202.50");
+    expect(bar).toHaveTextContent("Money in830.64");
   });
 });

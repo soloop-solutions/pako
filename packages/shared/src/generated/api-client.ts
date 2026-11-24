@@ -1571,13 +1571,33 @@ export class PakoApiClient {
     }
 
     /**
+     * @param bankAccountId (optional) 
+     * @param state (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
      * @return OK
      */
-    listBankStatements(companyId: string): Promise<BankStatementSummaryResponse[]> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements";
+    listBankStatements(companyId: string, bankAccountId: string | undefined, state: number | undefined, from: string | undefined, to: string | undefined): Promise<BankStatementSummaryResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
         url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (bankAccountId === null)
+            throw new globalThis.Error("The parameter 'bankAccountId' cannot be null.");
+        else if (bankAccountId !== undefined)
+            url_ += "bankAccountId=" + encodeURIComponent("" + bankAccountId) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -1607,6 +1627,65 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<BankStatementSummaryResponse[]>(null as any);
+    }
+
+    /**
+     * @param bankAccountId (optional) 
+     * @param state (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @return OK
+     */
+    bankStatementListTotals(companyId: string, bankAccountId: string | undefined, state: number | undefined, from: string | undefined, to: string | undefined): Promise<BankStatementListTotalsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bank-statements/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (bankAccountId === null)
+            throw new globalThis.Error("The parameter 'bankAccountId' cannot be null.");
+        else if (bankAccountId !== undefined)
+            url_ += "bankAccountId=" + encodeURIComponent("" + bankAccountId) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBankStatementListTotals(_response);
+        });
+    }
+
+    protected processBankStatementListTotals(response: Response): Promise<BankStatementListTotalsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as BankStatementListTotalsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<BankStatementListTotalsResponse>(null as any);
     }
 
     /**
@@ -33107,6 +33186,14 @@ export interface BankStatementLineResponse {
     paymentId?: string | undefined;
     directAccountId?: string | undefined;
     directAccountName?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface BankStatementListTotalsResponse {
+    count: number;
+    totalIn: number;
+    totalOut: number;
 
     [key: string]: any;
 }

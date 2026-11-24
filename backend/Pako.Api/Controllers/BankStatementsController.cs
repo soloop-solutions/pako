@@ -7,6 +7,7 @@ using Pako.Api.Auth;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Domain.Banking;
 using Pako.Domain.Hr;
 
 namespace Pako.Api.Controllers;
@@ -57,8 +58,18 @@ public class BankStatementsController(
 
     [HttpGet(Name = "ListBankStatements")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
-    public async Task<ActionResult<List<BankStatementSummaryResponse>>> List(Guid companyId) =>
-        Ok(await statements.ListAsync(companyId));
+    public async Task<ActionResult<List<BankStatementSummaryResponse>>> List(Guid companyId,
+        [FromQuery] Guid? bankAccountId = null, [FromQuery] BankStatementState? state = null,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null) =>
+        Ok(await statements.ListAsync(companyId, new BankStatementService.ListFilter(bankAccountId, state, from, to)));
+
+    // Client request 2026-11-24: the totals under the list, with the list's filters.
+    [HttpGet("totals", Name = "BankStatementListTotals")]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
+    public async Task<ActionResult<BankStatementListTotalsResponse>> Totals(Guid companyId,
+        [FromQuery] Guid? bankAccountId = null, [FromQuery] BankStatementState? state = null,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null) =>
+        Ok(await statements.TotalsAsync(companyId, new BankStatementService.ListFilter(bankAccountId, state, from, to)));
 
     [HttpGet("{id:guid}", Name = "GetBankStatement")]
     [RequireCompanyAccess(module: AccessModule.Accounting)]

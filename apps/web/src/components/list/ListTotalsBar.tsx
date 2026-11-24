@@ -1,6 +1,6 @@
 import { useIntl } from "react-intl";
 
-import type { JournalListTotalsResponse, ListSumResponse, ListTotalsResponse } from "@pako/shared";
+import type { BankStatementListTotalsResponse, JournalListTotalsResponse, ListSumResponse, ListTotalsResponse } from "@pako/shared";
 
 export interface ListFigure {
   labelId: string;
@@ -85,6 +85,22 @@ export function JournalTotalsBar({ totals, isLoading }: { totals: JournalListTot
         { labelId: "listTotals.entries", value: count(totals.count) },
         { labelId: "listTotals.debit", value: money(totals.debit) },
         { labelId: "listTotals.credit", value: money(totals.credit) },
+      ]}
+    />
+  );
+}
+
+/** Bank statements: how many, and the money in and out of their lines (server sums). */
+export function BankStatementTotalsBar({ totals, isLoading }: { totals: BankStatementListTotalsResponse | undefined; isLoading?: boolean }) {
+  const { money, count } = useMoney();
+  if (!totals) return null;
+  return (
+    <ListFiguresBar
+      isLoading={isLoading}
+      figures={[
+        { labelId: "listTotals.statements", value: count(totals.count) },
+        { labelId: "listTotals.moneyIn", value: money(totals.totalIn) },
+        { labelId: "listTotals.moneyOut", value: money(totals.totalOut) },
       ]}
     />
   );

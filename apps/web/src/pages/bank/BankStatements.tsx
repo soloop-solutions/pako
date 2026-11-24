@@ -7,10 +7,14 @@ import type { BankStatementImportError, BankStatementSummaryResponse } from "@pa
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { BankStatementTotalsBar } from "@/components/list/ListTotalsBar";
+import { PageHeader } from "@/components/list/PageHeader";
+import { useListFilters } from "@/components/list/useListFilters";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
@@ -22,6 +26,10 @@ import { formatAmount } from "@/lib/payroll-enums";
 
 // Bank statement import (docs/BANK_STATEMENTS.md): pick the bank account, download its Excel template,
 // upload it filled in. The upload opens the statement to check the matches and confirm.
+
+const GRID_ID = "bank-statements";
+const RIBBON_FILTERS = ["from", "to", "bankAccountId", "state"] as const;
+const STATES = ["Draft", "Confirmed"] as const;
 
 export function BankStatements() {
   const intl = useIntl();
@@ -40,9 +48,25 @@ export function BankStatements() {
     queryFn: () => apiClient.listBankStatementAccounts(companyId as string),
     enabled: !!companyId,
   });
+  // Client request 2026-11-24: the list ribbon (period, account, state), filtered on the server,
+  // with the server's totals of what it shows.
+  const ribbon = useListFilters(GRID_ID, RIBBON_FILTERS);
+  const f = ribbon.values;
+  const stateIndex = STATES.indexOf(f.state as (typeof STATES)[number]);
+  const listArgs = [
+    f.bankAccountId || undefined,
+    stateIndex >= 0 ? stateIndex : undefined,
+    f.from || undefined,
+    f.to || undefined,
+  ] as const;
   const statements = useQuery({
-    queryKey: bankStatementsQueryKey(companyId),
-    queryFn: () => apiClient.listBankStatements(companyId as string),
+    queryKey: [...bankStatementsQueryKey(companyId), "list", ...listArgs],
+    queryFn: () => apiClient.listBankStatements(companyId as string, ...listArgs),
+    enabled: !!companyId,
+  });
+  const totals = useQuery({
+    queryKey: [...bankStatementsQueryKey(companyId), "totals", ...listArgs],
+    queryFn: () => apiClient.bankStatementListTotals(companyId as string, ...listArgs),
     enabled: !!companyId,
   });
 
@@ -109,12 +133,9 @@ export function BankStatements() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("bankStatements.title")} description={t("bankStatements.description")} />
       <Card>
-        <CardHeader>
-          <CardTitle>{t("bankStatements.title")}</CardTitle>
-          <CardDescription>{t("bankStatements.description")}</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-3 pt-6">
           {accounts.isSuccess && !hasAccounts ? (
             <p className="text-sm text-muted-foreground">{t("bankStatements.noAccounts")}</p>
           ) : (
@@ -178,9 +199,27 @@ export function BankStatements() {
         <CardHeader>
           <CardTitle className="text-base">{t("bankStatements.list")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex flex-col gap-3">
+          <ListRibbon
+            controls={ribbon}
+            dateLabelId="bankStatements.col.period"
+            selects={[
+              {
+                name: "bankAccountId",
+                labelId: "bankStatements.col.account",
+                className: "w-52",
+                options: (accounts.data ?? []).map((a) => ({ value: a.id, label: `${a.code} ${a.name}` })),
+              },
+              {
+                name: "state",
+                labelId: "bankStatements.col.state",
+                className: "w-36",
+                options: STATES.map((s) => ({ value: s, label: t(`bankStatements.state.${s}`) })),
+              },
+            ]}
+          />
           <DataGrid
-            gridId="bank-statements"
+            gridId={GRID_ID}
             columns={columns}
             data={rows}
             rowCount={rows.length}
@@ -192,6 +231,7 @@ export function BankStatements() {
             manualGrouping={false}
             emptyMessage={t("bankStatements.empty")}
           />
+          <BankStatementTotalsBar totals={totals.data} isLoading={totals.isFetching} />
         </CardContent>
       </Card>
     </div>

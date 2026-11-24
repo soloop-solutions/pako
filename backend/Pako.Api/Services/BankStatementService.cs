@@ -207,11 +207,36 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
         line.MatchAmount = amount;
     }
 
-    public async Task<List<BankStatementSummaryResponse>> ListAsync(Guid companyId)
+    // Client request 2026-11-24: the list ribbon's filters. A statement matches a date range when its
+    // period overlaps it.
+    public sealed record ListFilter(Guid? BankAccountId = null, BankStatementState? State = null, DateOnly? From = null, DateOnly? To = null);
+
+    private IQueryable<BankStatement> Filtered(Guid companyId, ListFilter? filter)
     {
-        var statements = await db.BankStatements.AsNoTracking()
+        var query = db.BankStatements.AsNoTracking().Where(s => s.CompanyId == companyId);
+        if (filter is null) return query;
+        if (filter.BankAccountId is { } accountId) query = query.Where(s => s.BankAccountId == accountId);
+        if (filter.State is { } state) query = query.Where(s => s.State == state);
+        if (filter.From is { } from) query = query.Where(s => s.PeriodTo >= from);
+        if (filter.To is { } to) query = query.Where(s => s.PeriodFrom <= to);
+        return query;
+    }
+
+    /// <summary>Count and money in/out of the statements the list shows (the stored statement totals).</summary>
+    public async Task<BankStatementListTotalsResponse> TotalsAsync(Guid companyId, ListFilter? filter = null)
+    {
+        var statements = Filtered(companyId, filter);
+        var count = await statements.CountAsync();
+        var lines = statements.SelectMany(s => s.Lines);
+        var totalIn = await lines.SumAsync(l => (decimal?)l.AmountIn) ?? 0m;
+        var totalOut = await lines.SumAsync(l => (decimal?)l.AmountOut) ?? 0m;
+        return new BankStatementListTotalsResponse(count, totalIn, totalOut);
+    }
+
+    public async Task<List<BankStatementSummaryResponse>> ListAsync(Guid companyId, ListFilter? filter = null)
+    {
+        var statements = await Filtered(companyId, filter)
             .Include(s => s.Lines)
-            .Where(s => s.CompanyId == companyId)
             .OrderByDescending(s => s.PeriodFrom).ThenByDescending(s => s.CreatedAt)
             .ToListAsync();
         var names = await AccountNamesAsync(companyId);

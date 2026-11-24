@@ -260,6 +260,27 @@ public class BankStatementTests : IAsyncLifetime
 
     // The main flow: an invoice found by its number, a bill by partner + exact amount, an unknown line.
     // Confirm records two payments (the invoice and bill balances drop to zero) and leaves the third open.
+    // Client request 2026-11-24: the list ribbon filters by period, state and account; the totals
+    // under the list are the stored statement totals of what it shows.
+    [Fact]
+    public async Task List_FiltersByOverlappingPeriodAndState_AndTotalsMatch()
+    {
+        var s = await SeedAsync();
+        await ImportOkAsync(s, FilledTemplate(s.BankAccountId, 500m, 600m,
+            [new Row(new DateOnly(2026, 10, 3), "Arketim", null, null, 100m, null)], new DateOnly(2026, 10, 1), new DateOnly(2026, 10, 31)), "oct.xlsx");
+        await ImportOkAsync(s, FilledTemplate(s.BankAccountId, 600m, 570m,
+            [new Row(new DateOnly(2026, 11, 3), "Komision", null, null, null, 30m)], new DateOnly(2026, 11, 1), new DateOnly(2026, 11, 30)), "nov.xlsx");
+        var service = Service(s.Db);
+
+        var november = new BankStatementService.ListFilter(From: new DateOnly(2026, 11, 15), To: new DateOnly(2026, 12, 31));
+        Assert.Equal(["nov.xlsx"], (await service.ListAsync(s.CompanyId, november)).Select(x => x.FileName));
+        Assert.Equal(new BankStatementListTotalsResponse(1, 0m, 30m), await service.TotalsAsync(s.CompanyId, november));
+
+        Assert.Equal(new BankStatementListTotalsResponse(2, 100m, 30m), await service.TotalsAsync(s.CompanyId));
+        Assert.Empty(await service.ListAsync(s.CompanyId, new BankStatementService.ListFilter(State: BankStatementState.Confirmed)));
+        Assert.Empty(await service.ListAsync(s.CompanyId, new BankStatementService.ListFilter(BankAccountId: Guid.NewGuid())));
+    }
+
     [Fact]
     public async Task ImportAndConfirm_PaysTheMatchedInvoiceAndBill_LeavesTheRestOpen()
     {
