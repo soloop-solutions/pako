@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
@@ -553,23 +554,24 @@ export function Items() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "items.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "items.description" })}</p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setAttributesOpen(true)}>
-            {intl.formatMessage({ id: "items.attributes.manage" })}
-          </Button>
-          <Button variant="outline" onClick={() => setImportOpen(true)}>
-            {intl.formatMessage({ id: "items.import.title" })}
-          </Button>
-          <Button onClick={() => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); setWizardStep(0); }}>
-            {intl.formatMessage({ id: "items.addItem" })}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "items.title" })}
+        description={intl.formatMessage({ id: "items.description" })}
+        actions={
+          <>
+            <Button variant="outline" onClick={() => setAttributesOpen(true)}>
+              {intl.formatMessage({ id: "items.attributes.manage" })}
+            </Button>
+            <Button variant="outline" onClick={() => setImportOpen(true)}>
+              {intl.formatMessage({ id: "items.import.title" })}
+            </Button>
+          </>
+        }
+        newAction={{
+          label: intl.formatMessage({ id: "items.addItem" }),
+          onClick: () => { setCreateOpen(true); setEditingId(null); setCreateError(null); setDirty(false); setWizardStep(0); },
+        }}
+      />
       {attributesOpen && <ItemAttributesDialog onClose={() => setAttributesOpen(false)} />}
       {importOpen && <StockImportDialog open={importOpen} onOpenChange={setImportOpen} onComplete={() => refreshItems()} />}
 

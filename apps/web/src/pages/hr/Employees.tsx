@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
 import { useIntl } from "react-intl";
@@ -10,7 +11,6 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
@@ -165,15 +165,11 @@ export function Employees() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "nav.employees" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "nav.employees.description" })}</p>
-        </div>
-        {canWrite("hr") && (
-          <Button onClick={() => navigate("/employees/new")}>{intl.formatMessage({ id: "hr.employees.new" })}</Button>
-        )}
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.employees" })}
+        description={intl.formatMessage({ id: "nav.employees.description" })}
+        newAction={canWrite("hr") ? { label: intl.formatMessage({ id: "hr.employees.new" }), onClick: () => navigate("/employees/new") } : undefined}
+      />
 
       {loadError && (
         <Alert variant="destructive">

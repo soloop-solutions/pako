@@ -158,8 +158,8 @@ describe("Leave — requests tab", () => {
     // Open the Leave type popover-select and pick "ANNUAL — Annual leave"
     fireEvent.click(screen.getByLabelText("Leave type", { selector: "#leave-new-type" }));
     fireEvent.mouseDown(await screen.findByRole("option", { name: /Annual leave/ }));
-    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2026-10-19" } });
-    fireEvent.change(screen.getByLabelText("To"), { target: { value: "2026-10-23" } });
+    fireEvent.change(screen.getByLabelText("From", { selector: "#leave-new-start" }), { target: { value: "2026-10-19" } });
+    fireEvent.change(screen.getByLabelText("To", { selector: "#leave-new-end" }), { target: { value: "2026-10-23" } });
     fireEvent.click(screen.getByRole("button", { name: "Submit request" }));
 
     expect(await screen.findByText(refusal)).toBeInTheDocument();

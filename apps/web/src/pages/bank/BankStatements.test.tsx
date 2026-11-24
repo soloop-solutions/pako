@@ -52,7 +52,10 @@ const updateMock = vi.fn(async (_c: string, _s: string, _l: string, body: Update
   return { ...detail, lines: detail.lines.map((l) => (l.id === "l3" ? { ...l, state: "Ignored", matchStatus: "Ignored" } : l)) };
 });
 
-const listMock = vi.fn(async (..._args: unknown[]) => [summary]);
+const listMock = vi.fn(async (...args: unknown[]) => {
+  void args;
+  return [summary];
+});
 
 vi.mock("@/api/client", async () => {
   const actual = await vi.importActual<typeof import("@/api/client")>("@/api/client");

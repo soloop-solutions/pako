@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
@@ -345,23 +346,22 @@ export function PartnerListPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: labels.titleKey })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: labels.descriptionKey })}</p>
-        </div>
-        <Button onClick={() => {
-          if (!defaultRole) {
-            setRolePickerOpen(true);
-          } else {
-            setSelectedCreateRole(defaultRole);
-            setFormOpen(true);
-          }
-          setEditingId(null); setMutationError(null); setDirty(false);
-        }}>
-          {intl.formatMessage({ id: labels.addButtonKey })}
-        </Button>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: labels.titleKey })}
+        description={intl.formatMessage({ id: labels.descriptionKey })}
+        newAction={{
+          label: intl.formatMessage({ id: labels.addButtonKey }),
+          onClick: () => {
+            if (!defaultRole) {
+              setRolePickerOpen(true);
+            } else {
+              setSelectedCreateRole(defaultRole);
+              setFormOpen(true);
+            }
+            setEditingId(null); setMutationError(null); setDirty(false);
+          },
+        }}
+      />
 
       {loadError && (
         <Alert variant="destructive"><AlertDescription>{loadError}</AlertDescription></Alert>

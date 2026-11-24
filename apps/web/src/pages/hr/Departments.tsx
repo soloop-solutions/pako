@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { useIntl } from "react-intl";
@@ -9,7 +10,6 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
@@ -149,23 +149,18 @@ export function Departments() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "nav.departments" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "nav.departments.description" })}</p>
-        </div>
-        {!readOnly && (
-          <Button
-            onClick={() => {
-              setFormOpen((open) => !open);
-              setEditingId(null);
-              setMutationError(null);
-            }}
-          >
-            {intl.formatMessage({ id: "hr.departments.new" })}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.departments" })}
+        description={intl.formatMessage({ id: "nav.departments.description" })}
+        newAction={readOnly ? undefined : {
+          label: intl.formatMessage({ id: "hr.departments.new" }),
+          onClick: () => {
+            setFormOpen((open) => !open);
+            setEditingId(null);
+            setMutationError(null);
+          },
+        }}
+      />
 
       {loadError && (
         <Alert variant="destructive">

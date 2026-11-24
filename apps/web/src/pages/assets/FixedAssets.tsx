@@ -1,4 +1,5 @@
 import { useIntl } from "react-intl";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useSearchParams } from "react-router-dom";
 
 import { TabButton } from "@/components/ui/tabs";
@@ -26,10 +27,7 @@ export function FixedAssets() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "nav.fixedAssets" })}</h2>
-        <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "nav.fixedAssets.description" })}</p>
-      </div>
+      <PageHeader title={intl.formatMessage({ id: "nav.fixedAssets" })} description={intl.formatMessage({ id: "nav.fixedAssets.description" })} />
       <div role="tablist" aria-label={intl.formatMessage({ id: "nav.fixedAssets" })} className="flex gap-1 border-b">
         {TABS.map((id) => (
           <TabButton key={id} selected={tab === id} onClick={() => setSearchParams(id === "register" ? {} : { tab: id }, { replace: true })}>

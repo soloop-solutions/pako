@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { VehicleResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 
@@ -12,7 +12,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -74,20 +74,13 @@ export function Vehicles() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("nav.vehicles")}
+        description={t("nav.vehicles.description")}
+        newAction={canWrite("inventory") ? { label: t("vehicle.new"), onClick: () => setEditing("new") } : undefined}
+      />
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("nav.vehicles")}</CardTitle>
-            <CardDescription>{t("nav.vehicles.description")}</CardDescription>
-          </div>
-          {canWrite("inventory") && (
-            <Button size="sm" onClick={() => setEditing("new")}>
-              <Plus className="size-4" />
-              {t("vehicle.new")}
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
+        <CardContent className="flex flex-col gap-3 pt-6">
           <div className="flex flex-wrap items-center gap-3">
             <Input className="max-w-xs" value={search} onChange={(e) => setSearch(e.target.value)} placeholder={t("common.search")} aria-label={t("common.search")} />
             <label className="flex items-center gap-2 text-sm">

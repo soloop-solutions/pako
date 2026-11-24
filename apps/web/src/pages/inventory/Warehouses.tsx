@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SaveStockSettingsRequest, WarehouseResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 
@@ -59,20 +59,13 @@ export function Warehouses() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("nav.warehouses")}
+        description={t("nav.warehouses.description")}
+        newAction={canWrite("inventory") ? { label: t("stock.wh.new"), onClick: () => setEditing("new") } : undefined}
+      />
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("nav.warehouses")}</CardTitle>
-            <CardDescription>{t("nav.warehouses.description")}</CardDescription>
-          </div>
-          {canWrite("inventory") && (
-            <Button size="sm" onClick={() => setEditing("new")}>
-              <Plus className="size-4" />
-              {t("stock.wh.new")}
-            </Button>
-          )}
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <DataGrid
             gridId="warehouses"
             columns={columns}

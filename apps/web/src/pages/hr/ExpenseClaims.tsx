@@ -8,6 +8,10 @@ import type { ExpenseClaimResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { PageHeader } from "@/components/list/PageHeader";
+import { useListFilters } from "@/components/list/useListFilters";
+import { EmployeeFilter } from "@/pages/leave/LeaveRequestsTab";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +27,9 @@ const STATES = ["Submitted", "Approved", "Rejected", "Cancelled"] as const;
 
 // H13 (HR): every submitted claim. Approving drafts the purchase bill (posted from Purchases);
 // a posted one can be repaid with a month's salary instead of a bank payment.
+const GRID_ID = "expense-claims";
+const RIBBON_FILTERS = ["from", "to", "employeeId"] as const;
+
 export function ExpenseClaims() {
   const intl = useIntl();
   const { activeCompanyId: companyId } = useCompany();
@@ -35,9 +42,13 @@ export function ExpenseClaims() {
   const [month, setMonth] = useState(new Date().toISOString().slice(0, 7));
   const [error, setError] = useState<string | null>(null);
 
+  // Client request 2026-11-24: the list ribbon. The employee is filtered on the server; the submitted
+  // date range narrows the loaded claims (dates only, no amounts are added up here).
+  const ribbon = useListFilters(GRID_ID, RIBBON_FILTERS);
+  const employeeId = ribbon.values.employeeId;
   const claimsQuery = useQuery({
-    queryKey: ["expenseClaims", companyId, state],
-    queryFn: () => apiClient.listExpenseClaims(companyId as string, state === "All" ? undefined : state, undefined),
+    queryKey: ["expenseClaims", companyId, state, employeeId],
+    queryFn: () => apiClient.listExpenseClaims(companyId as string, state === "All" ? undefined : state, employeeId || undefined),
     enabled: !!companyId,
   });
 
@@ -79,17 +90,21 @@ export function ExpenseClaims() {
   );
 
   if (!companyId) return <p className="text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>;
-  const claims = claimsQuery.data ?? [];
+  const { from, to } = ribbon.values;
+  const claims = (claimsQuery.data ?? []).filter((c) => {
+    const day = (c.submittedAt ?? "").slice(0, 10);
+    return (!from || (day !== "" && day >= from)) && (!to || (day !== "" && day <= to));
+  });
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.expenseClaims" })}
+        description={intl.formatMessage({ id: "nav.expenseClaims.description" })}
+      />
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <CardTitle>{intl.formatMessage({ id: "nav.expenseClaims" })}</CardTitle>
-              <CardDescription>{intl.formatMessage({ id: "nav.expenseClaims.description" })}</CardDescription>
-            </div>
             <div role="tablist" className="flex gap-1 rounded-md border p-0.5">
               {[...STATES, "All"].map((s) => (
                 <button
@@ -97,7 +112,13 @@ export function ExpenseClaims() {
                   type="button"
                   role="tab"
                   aria-selected={state === s}
-                  onClick={() => setSearchParams(s === "Submitted" ? {} : { state: s }, { replace: true })}
+                  onClick={() =>
+                    setSearchParams((prev) => {
+                      const next = new URLSearchParams(prev);
+                      if (s === "Submitted") next.delete("state");
+                      else next.set("state", s);
+                      return next;
+                    }, { replace: true })}
                   className={state === s ? "rounded bg-primary px-3 py-1 text-[13px] font-medium text-primary-foreground" : "rounded px-3 py-1 text-[13px] text-muted-foreground"}
                 >
                   {intl.formatMessage({ id: `expenses.filter.${s}` })}
@@ -112,8 +133,11 @@ export function ExpenseClaims() {
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
+          <ListRibbon controls={ribbon} dateLabelId="expenses.submitted">
+            <EmployeeFilter companyId={companyId} value={employeeId} onChange={(v) => ribbon.set("employeeId", v)} />
+          </ListRibbon>
           <DataGrid
-            gridId="expense-claims"
+            gridId={GRID_ID}
             columns={columns}
             data={claims}
             rowCount={claims.length}

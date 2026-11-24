@@ -9,6 +9,8 @@ import type { LeaveRequestResponse } from "@pako/shared";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { EmployeePicker } from "@/components/EmployeePicker";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { useListFilters } from "@/components/list/useListFilters";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -33,6 +35,8 @@ const ALL_STATES = "all";
 
 type RowAction = "approve" | "reject" | "cancel";
 
+const RIBBON_FILTERS = ["from", "to"] as const;
+
 export function LeaveRequestsTab({ companyId }: { companyId: string }) {
   const intl = useIntl();
   const { canApprove } = useMyAccess();
@@ -44,6 +48,9 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
   const stateParam = searchParams.get("state");
   const stateFilter = stateParam === ALL_STATES ? ALL_STATES : isLeaveState(stateParam) ? stateParam : "Pending";
   const employeeFilter = searchParams.get("employee") ?? "";
+  // Client request 2026-11-24: the list ribbon's date range (requests overlapping it), sent to the
+  // server; state and employee keep their own URL keys, which other screens link to.
+  const ribbon = useListFilters(GRID_ID, RIBBON_FILTERS);
 
   const [formOpen, setFormOpen] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -52,7 +59,7 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
   const typesQuery = useLeaveTypes(companyId);
 
   const requestsQuery = useQuery({
-    queryKey: ["leave", "requests", companyId, grid.page, grid.pageSize, stateFilter, employeeFilter],
+    queryKey: ["leave", "requests", companyId, grid.page, grid.pageSize, stateFilter, employeeFilter, ribbon.values.from, ribbon.values.to],
     queryFn: () =>
       apiClient.listLeaveRequests(
         companyId,
@@ -60,8 +67,8 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
         grid.pageSize,
         stateFilter === ALL_STATES ? undefined : stateFilter,
         employeeFilter || undefined,
-        undefined,
-        undefined,
+        ribbon.values.from || undefined,
+        ribbon.values.to || undefined,
       ),
     placeholderData: keepPreviousData,
   });
@@ -218,6 +225,7 @@ export function LeaveRequestsTab({ companyId }: { companyId: string }) {
 
   return (
     <div className="space-y-4">
+      <ListRibbon controls={ribbon} dateLabelId="leave.ribbon.dates" />
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">

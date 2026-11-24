@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AccountResponse, ItemCategoryResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 
@@ -12,7 +12,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -69,20 +69,14 @@ export function ItemCategories() {
   const categories = categoriesQuery.data ?? [];
 
   return (
+    <div className="flex flex-col gap-4">
+    <PageHeader
+      title={t("nav.itemCategories")}
+      description={t("nav.itemCategories.description")}
+      newAction={canWrite("items") ? { label: t("stock.cat.new"), onClick: () => setEditing("new") } : undefined}
+    />
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>{t("nav.itemCategories")}</CardTitle>
-          <CardDescription>{t("nav.itemCategories.description")}</CardDescription>
-        </div>
-        {canWrite("items") && (
-          <Button size="sm" onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
-            {t("stock.cat.new")}
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent>
+      <CardContent className="pt-6">
         <DataGrid
           gridId="item-categories"
           columns={columns}
@@ -109,6 +103,7 @@ export function ItemCategories() {
         />
       )}
     </Card>
+    </div>
   );
 }
 

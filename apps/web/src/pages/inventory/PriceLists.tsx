@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PriceChangeSummaryResponse, PriceListItemResponse, PriceListResponse } from "@pako/shared";
@@ -59,18 +60,11 @@ export function PriceLists() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">{t("nav.priceLists")}</h2>
-          <p className="text-sm text-muted-foreground">{t("nav.priceLists.description")}</p>
-        </div>
-        {canWrite("items") && (
-          <Button size="sm" variant="outline" onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
-            {t("price.list.new")}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title={t("nav.priceLists")}
+        description={t("nav.priceLists.description")}
+        newAction={canWrite("items") ? { label: t("price.list.new"), onClick: () => setEditing("new") } : undefined}
+      />
       <div role="tablist" aria-label={t("nav.priceLists")} className="flex gap-1 border-b">
         {(["prices", "changes"] as const).map((id) => (
           <TabButton

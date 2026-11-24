@@ -2,14 +2,15 @@ import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { LeaseResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { PageHeader } from "@/components/list/PageHeader";
+import { useListFilters } from "@/components/list/useListFilters";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCompany } from "@/context/CompanyContext";
@@ -35,6 +36,9 @@ export function Leases() {
   const { canWrite } = useMyAccess();
   const [state, setState] = useUrlParam("state", "", [`${GRID_ID}.page`]);
   const [tenantId, setTenantId] = useUrlParam("tenant", "", [`${GRID_ID}.page`]);
+  // Client request 2026-11-24: the list ribbon's date range — leases running at any time in it
+  // (narrows the loaded rows; dates only, nothing is added up in the browser).
+  const ribbon = useListFilters(GRID_ID, ["from", "to"]);
   const tenants = (usePartners().data ?? []).filter((p) => p.isCustomer);
   const query = useQuery({
     queryKey: [...vxKeys.leases(activeCompanyId), state, tenantId],
@@ -67,20 +71,19 @@ export function Leases() {
   );
 
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
-  const rows = query.data ?? [];
+  const { from, to } = ribbon.values;
+  const rows = (query.data ?? []).filter((r) => (!to || r.startDate <= to) && (!from || !r.endDate || r.endDate >= from));
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>{t("vx.nav.leases")}</CardTitle>
-          <CardDescription>{t("vx.nav.leases.description")}</CardDescription>
-        </div>
-        {canWrite("sales") && (
-          <Button size="sm" onClick={() => navigate("/rentals/leases/new")}><Plus className="size-4" />{t("vx.lease.new")}</Button>
-        )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("vx.nav.leases")}
+        description={t("vx.nav.leases.description")}
+        newAction={canWrite("sales") ? { label: t("vx.lease.new"), onClick: () => navigate("/rentals/leases/new") } : undefined}
+      />
+      <Card>
+      <CardContent className="flex flex-col gap-3 pt-6">
+        <ListRibbon controls={ribbon} dateLabelId="vx.lease.startDate" />
         <div className="flex flex-wrap items-end gap-3">
           <StateFilter value={state} onChange={setState} states={LEASE_STATES} labelPrefix="vx.leaseState" label={t("vx.state")} />
           <div className="flex w-64 flex-col gap-1">
@@ -107,6 +110,7 @@ export function Leases() {
           manualGrouping={false}
         />
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

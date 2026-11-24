@@ -1,4 +1,5 @@
 import type { ColumnDef } from "@tanstack/react-table";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Download, ScrollText } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -186,16 +187,16 @@ export function AuditTrail() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "audit.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "audit.description" })}</p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
-          <Download className="size-4" />
-          {intl.formatMessage({ id: exportMutation.isPending ? "audit.exporting" : "audit.export" })}
-        </Button>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "audit.title" })}
+        description={intl.formatMessage({ id: "audit.description" })}
+        actions={
+          <Button variant="outline" size="sm" onClick={() => exportMutation.mutate()} disabled={exportMutation.isPending}>
+            <Download className="size-4" />
+            {intl.formatMessage({ id: exportMutation.isPending ? "audit.exporting" : "audit.export" })}
+          </Button>
+        }
+      />
 
       <AuditVerifyPanel companyId={activeCompanyId} onOpenEntry={setDetailId} />
 

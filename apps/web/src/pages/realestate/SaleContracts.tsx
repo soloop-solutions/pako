@@ -7,8 +7,11 @@ import { useNavigate } from "react-router-dom";
 
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { PageHeader } from "@/components/list/PageHeader";
+import { useListFilters } from "@/components/list/useListFilters";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCompany } from "@/context/CompanyContext";
@@ -31,6 +34,9 @@ export function SaleContracts() {
   const { activeCompanyId } = useCompany();
   const [state, setState] = useUrlParam("state", "", [`${GRID_ID}.page`]);
   const [buildingId, setBuildingId] = useUrlParam("building", "", [`${GRID_ID}.page`]);
+  // Client request 2026-11-24: the list ribbon's contract date range (narrows the loaded rows;
+  // dates only, nothing is added up in the browser).
+  const ribbon = useListFilters(GRID_ID, ["from", "to"]);
   const buildings = useBuildings().data ?? [];
   const query = useQuery({
     queryKey: [...vxKeys.contracts(activeCompanyId), buildingId, state],
@@ -66,15 +72,15 @@ export function SaleContracts() {
   );
 
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
-  const rows = query.data ?? [];
+  const { from, to } = ribbon.values;
+  const rows = (query.data ?? []).filter((r) => (!from || r.contractDate >= from) && (!to || r.contractDate <= to));
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("vx.nav.contracts")}</CardTitle>
-        <CardDescription>{t("vx.nav.contracts.description")}</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
+    <div className="flex flex-col gap-4">
+      <PageHeader title={t("vx.nav.contracts")} description={t("vx.nav.contracts.description")} />
+      <Card>
+      <CardContent className="flex flex-col gap-3 pt-6">
+        <ListRibbon controls={ribbon} dateLabelId="common.date" />
         <div className="flex flex-wrap items-end gap-3">
           <StateFilter value={state} onChange={setState} states={CONTRACT_STATES} labelPrefix="vx.contractState" label={t("vx.state")} />
           <div className="flex w-64 flex-col gap-1">
@@ -101,6 +107,7 @@ export function SaleContracts() {
           manualGrouping={false}
         />
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
