@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import type { Table } from "@tanstack/react-table";
 
-export function exportTableToExcel<TData>(table: Table<TData>, fileName: string): void {
+// onlySelected (client request 2026-11-24): just the ticked rows, for "Export selected".
+export function exportTableToExcel<TData>(table: Table<TData>, fileName: string, onlySelected = false): void {
   const columns = table.getVisibleLeafColumns().filter((column) => !column.id.startsWith("__"));
   const header = columns.map((column) => {
     const meta = column.columnDef.meta;
@@ -9,8 +10,7 @@ export function exportTableToExcel<TData>(table: Table<TData>, fileName: string)
     if (typeof column.columnDef.header === "string") return column.columnDef.header;
     return column.id;
   });
-  const rows = table
-    .getRowModel()
+  const rows = (onlySelected ? table.getSelectedRowModel() : table.getRowModel())
     .rows.filter((row) => !row.getIsGrouped())
     .map((row) => columns.map((column) => row.getValue(column.id)));
 

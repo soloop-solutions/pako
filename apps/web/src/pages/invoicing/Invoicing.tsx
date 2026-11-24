@@ -33,6 +33,12 @@ import { PageHeader } from "@/components/list/PageHeader";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { CircleDollarSign, ExternalLink, FileDown, Send } from "lucide-react";
+import { RowActionButton } from "@/components/list/DocumentActions";
+import { reportBulk, runEach } from "@/components/list/bulk-actions";
+import { useConfirm } from "@/components/ui/confirm-context";
+import { useMyAccess } from "@/hooks/useMyAccess";
+import { entityPath } from "@/lib/entityLinks";
 
 export type InvoiceRegisterScope = "invoice" | "proforma";
 
@@ -118,6 +124,85 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     },
   });
   const displayedInvoices = paged.items;
+
+  // Client request 2026-11-24: row and bulk actions. Post goes through the same endpoint as the
+  // invoice page, one invoice at a time; Pay opens the invoice, where the payment is recorded.
+  const confirm = useConfirm();
+  const { canApprove } = useMyAccess();
+  const mayPost = !isProforma && canApprove("sales");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const label = (invoice: InvoiceResponse) => invoice.invoiceNumber ?? intl.formatMessage({ id: "invoiceDetail.draftInvoice" });
+
+  function afterChange() {
+    void paged.query.refetch();
+    void listTotals.refetch();
+  }
+
+  function postInvoices(invoices: InvoiceResponse[], done?: () => void) {
+    const drafts = invoices.filter((i) => i.state === "Draft");
+    if (!companyId || drafts.length === 0) return;
+    confirm(intl.formatMessage({ id: "listActions.postConfirm" }, { count: drafts.length }), () => {
+      setBulkBusy(true);
+      void runEach(drafts, (i) => apiClient.post2(companyId, i.id), label, intl.formatMessage({ id: "invoiceDetail.postError" }))
+        .then((result) => {
+          reportBulk(intl, result, "listActions.posted");
+          done?.();
+          afterChange();
+        })
+        .finally(() => setBulkBusy(false));
+    });
+  }
+
+  async function pdfOf(invoices: InvoiceResponse[]) {
+    const printable = invoices.filter((i) => i.state !== "Draft");
+    if (!companyId) return;
+    if (printable.length === 0) {
+      toast.error(intl.formatMessage({ id: "listActions.nothingToPrint" }));
+      return;
+    }
+    setBulkBusy(true);
+    try {
+      const file = printable.length === 1
+        ? await apiClient.getInvoicePdf(companyId, printable[0].id)
+        : await apiClient.getInvoicesPdf(companyId, { invoiceIds: printable.map((i) => i.id) });
+      downloadFileResponse(file, printable.length === 1 ? `${label(printable[0])}.pdf` : "invoices.pdf");
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "listActions.printError" })));
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  const rowActions = (invoice: InvoiceResponse) => (
+    <>
+      <RowActionButton label={intl.formatMessage({ id: "listActions.open" })} icon={ExternalLink}
+        onClick={() => navigate(entityPath({ kind: "Invoice", id: invoice.id }) ?? "/invoicing")} />
+      {invoice.state !== "Draft" && (
+        <RowActionButton label={intl.formatMessage({ id: "listActions.pdf" })} icon={FileDown} disabled={bulkBusy} onClick={() => void pdfOf([invoice])} />
+      )}
+      {mayPost && invoice.state === "Draft" && (
+        <RowActionButton label={intl.formatMessage({ id: "listActions.post" })} icon={Send} disabled={bulkBusy} onClick={() => postInvoices([invoice])} />
+      )}
+      {!isProforma && invoice.state === "Posted" && (balances[invoice.id]?.outstanding ?? 0) > 0 && canApprove("sales") && (
+        <RowActionButton label={intl.formatMessage({ id: "listActions.pay" })} icon={CircleDollarSign}
+          onClick={() => navigate(entityPath({ kind: "Invoice", id: invoice.id }) ?? "/invoicing")} />
+      )}
+    </>
+  );
+
+  const bulkActions = (selected: InvoiceResponse[], clear: () => void) => (
+    <>
+      {mayPost && (
+        <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy || !selected.some((i) => i.state === "Draft")}
+          onClick={() => postInvoices(selected, clear)}>
+          {intl.formatMessage({ id: "listActions.postSelected" })}
+        </Button>
+      )}
+      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy} onClick={() => void pdfOf(selected)}>
+        {intl.formatMessage({ id: "listActions.printSelected" })}
+      </Button>
+    </>
+  );
 
   // The totals under the list: same filters as the grid, every page (client request 2026-11-24).
   const totalsFilters = {
@@ -412,6 +497,9 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
             isLoading={paged.query.isPending}
             getRowId={(row) => row.id}
             getRowClassName={(row) => getDocumentRowClassName(row.state)}
+            enableRowSelection
+            rowActions={rowActions}
+            bulkActions={bulkActions}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: isProforma ? "proforma.noProformas" : "invoicing.noInvoices" })}
             exportFileName={isProforma ? "proforma" : "invoices"}

@@ -138,3 +138,6 @@ public record InvoiceQuoteLineResponse(
 
 public record InvoiceQuoteResponse(
     List<InvoiceQuoteLineResponse> Lines, InvoiceAmountTotals Totals, List<InvoiceTaxBreakdownLine> TaxBreakdown, string TotalInWords);
+
+// Client request 2026-11-24: "Print selected" on the invoice list (at most 100).
+public record InvoicePdfBatchRequest(List<Guid> InvoiceIds);

@@ -5,7 +5,14 @@ import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { CircleDollarSign, ExternalLink, Send } from "lucide-react";
+import { RowActionButton } from "@/components/list/DocumentActions";
+import { reportBulk, runEach } from "@/components/list/bulk-actions";
+import { Button } from "@/components/ui/button";
+import { useConfirm } from "@/components/ui/confirm-context";
+import { useMyAccess } from "@/hooks/useMyAccess";
+import { entityPath } from "@/lib/entityLinks";
 import type { ColumnDef } from "@tanstack/react-table";
 import type {
   AccountResponse,
@@ -106,6 +113,53 @@ export function Bills() {
     },
   });
   const displayedBills = paged.items;
+
+  // Client request 2026-11-24: row and bulk actions. Post goes through the same endpoint as the bill
+  // page, one bill at a time; Pay opens the bill, where the payment is recorded. Bills have no PDF.
+  const navigate = useNavigate();
+  const confirm = useConfirm();
+  const { canApprove } = useMyAccess();
+  const mayPost = canApprove("purchases");
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const label = (bill: BillResponse) => bill.vendorReference || bill.id.slice(0, 8);
+
+  function postBills(bills: BillResponse[], done?: () => void) {
+    const drafts = bills.filter((b) => b.state === "Draft");
+    if (!companyId || drafts.length === 0) return;
+    confirm(intl.formatMessage({ id: "listActions.postConfirm" }, { count: drafts.length }), () => {
+      setBulkBusy(true);
+      void runEach(drafts, (b) => apiClient.post(companyId, b.id), label, intl.formatMessage({ id: "billDetail.postError" }))
+        .then((result) => {
+          reportBulk(intl, result, "listActions.posted");
+          done?.();
+          void paged.query.refetch();
+          void listTotals.refetch();
+        })
+        .finally(() => setBulkBusy(false));
+    });
+  }
+
+  const rowActions = (bill: BillResponse) => (
+    <>
+      <RowActionButton label={intl.formatMessage({ id: "listActions.open" })} icon={ExternalLink}
+        onClick={() => navigate(entityPath({ kind: "Bill", id: bill.id }) ?? "/bills")} />
+      {mayPost && bill.state === "Draft" && (
+        <RowActionButton label={intl.formatMessage({ id: "listActions.post" })} icon={Send} disabled={bulkBusy} onClick={() => postBills([bill])} />
+      )}
+      {bill.state === "Posted" && (balances[bill.id]?.outstanding ?? 0) > 0 && mayPost && (
+        <RowActionButton label={intl.formatMessage({ id: "listActions.pay" })} icon={CircleDollarSign}
+          onClick={() => navigate(entityPath({ kind: "Bill", id: bill.id }) ?? "/bills")} />
+      )}
+    </>
+  );
+
+  const bulkActions = (selected: BillResponse[], clear: () => void) =>
+    mayPost ? (
+      <Button type="button" size="sm" variant="outline" className="h-7 text-xs" disabled={bulkBusy || !selected.some((b) => b.state === "Draft")}
+        onClick={() => postBills(selected, clear)}>
+        {intl.formatMessage({ id: "listActions.postSelected" })}
+      </Button>
+    ) : null;
   const refetchPaged = paged.query.refetch;
 
   // The totals under the list: same filters as the grid, every page (client request 2026-11-24).
@@ -366,6 +420,9 @@ export function Bills() {
             isLoading={paged.query.isPending}
             getRowId={(row) => row.id}
             getRowClassName={(row) => getDocumentRowClassName(row.state)}
+            enableRowSelection
+            rowActions={rowActions}
+            bulkActions={bulkActions}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "bills.noBills" })}
             exportFileName="bills"

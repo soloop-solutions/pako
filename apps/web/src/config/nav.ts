@@ -191,6 +191,11 @@ export type NavItem = {
   gridId?: string;
   savedViews?: NavSavedView[];
   /**
+   * Client request 2026-11-24: where the sidebar reads the counts shown beside the built-in saved
+   * views (All / Drafts / Posted), with the same document types as the list itself.
+   */
+  savedViewCounts?: SavedViewCountSource;
+  /**
    * The vertical pack (or any of several packs) the page belongs to; hidden, and its route shows
    * "not used by this company", while the pack is off for the active company. Unset = always on.
    */
@@ -211,6 +216,12 @@ export type NavItem = {
  * with no count shown. See docs/blueprints/sidebar-states.html and the design-handoff README's
  * "Open decisions" §4.
  */
+export interface SavedViewCountSource {
+  source: "invoices" | "bills";
+  documentType?: number[];
+  excludeDocumentType?: number[];
+}
+
 export interface NavSavedView {
   id: string;
   labelKey: string;
@@ -306,6 +317,7 @@ const salesInvoicesItem: NavItem = {
   Element: Invoicing,
   gridId: "invoices",
   savedViews: invoiceSavedViews,
+  savedViewCounts: { source: "invoices", excludeDocumentType: [4, 5] },
 };
 
 const purchaseInvoicesItem: NavItem = {
@@ -316,6 +328,7 @@ const purchaseInvoicesItem: NavItem = {
   Element: Bills,
   gridId: "bills",
   savedViews: billSavedViews,
+  savedViewCounts: { source: "bills", excludeDocumentType: [2] },
 };
 
 const chartOfAccountsItem: NavItem = {
@@ -406,6 +419,7 @@ export const navCategories: NavCategory[] = [
         Element: SalesReturns,
         gridId: "salesReturns",
         savedViews: salesReturnSavedViews,
+        savedViewCounts: { source: "invoices", documentType: [4] },
       },
       {
         titleKey: "nav.proforma",
@@ -492,6 +506,7 @@ export const navCategories: NavCategory[] = [
         Element: PurchaseReturns,
         gridId: "purchaseReturns",
         savedViews: purchaseReturnSavedViews,
+        savedViewCounts: { source: "bills", documentType: [2] },
       },
     ],
   },

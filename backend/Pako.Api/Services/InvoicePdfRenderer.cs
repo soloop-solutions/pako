@@ -24,6 +24,14 @@ public static class InvoicePdfRenderer
     }
 
     public static byte[] Render(InvoiceDocument document, Func<string, string> label, CultureInfo culture) =>
+        Compose(document, label, culture).GeneratePdf();
+
+    // Client request 2026-11-24 ("Print selected"): several invoices in one PDF, each keeping its own
+    // page numbers, in the order given.
+    public static byte[] RenderMany(IReadOnlyList<InvoiceDocument> documents, Func<string, string> label, CultureInfo culture) =>
+        Document.Merge(documents.Select(d => (IDocument)Compose(d, label, culture))).UseOriginalPageNumbers().GeneratePdf();
+
+    private static Document Compose(InvoiceDocument document, Func<string, string> label, CultureInfo culture) =>
         Document.Create(container => container.Page(page =>
         {
             page.Size(PageSizes.A4);
@@ -32,7 +40,7 @@ public static class InvoicePdfRenderer
             page.Header().Element(h => Header(h, document, label));
             page.Content().PaddingVertical(12).Element(c => Body(c, document, label, culture));
             page.Footer().Element(f => Footer(f, document, label));
-        })).WithMetadata(Metadata(document, label)).GeneratePdf();
+        })).WithMetadata(Metadata(document, label));
 
     // Fixed dates (not "now"): the same invoice renders to the same bytes, so a retried email repeats
     // the same request under the same Idempotency-Key (Resend refuses a reused key with a new body).

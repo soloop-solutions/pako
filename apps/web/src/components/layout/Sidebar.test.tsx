@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -13,7 +13,11 @@ vi.mock("@/api/client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/api/client")>();
   return {
     ...actual,
-    apiClient: { ...actual.apiClient, getMyAccess: (...args: unknown[]) => getMyAccess(...args) },
+    apiClient: {
+      ...actual.apiClient,
+      getMyAccess: (...args: unknown[]) => getMyAccess(...args),
+      invoiceViewCounts: async () => ({ all: 12, draft: 3, posted: 9, overdue: 2 }),
+    },
   };
 });
 
@@ -184,5 +188,26 @@ describe("Sidebar role menu groups", () => {
     await screen.findByTestId("sidebar-my-work");
     fireEvent.change(screen.getByRole("textbox", { name: /filter|Filter|Search|search/ }), { target: { value: "Sales invoices" } });
     expect(screen.getAllByRole("link", { name: /Sales invoices/ })).toHaveLength(1);
+  });
+});
+
+// Client request 2026-11-24: the built-in saved views show how many documents each holds.
+describe("Sidebar saved view counts", () => {
+  beforeEach(() => {
+    getMyAccess.mockReset();
+    localStorage.clear();
+  });
+
+  it("shows the server's counts beside All, Drafts and Posted", async () => {
+    getMyAccess.mockResolvedValue({ isStaff: false, canWrite: true, isAdmin: true, partnerRestricted: false, assignedPartnerCount: 0, modules: FULL });
+    renderSidebar();
+    await waitFor(() => expect(getMyAccess).toHaveBeenCalled());
+
+    const invoices = screen.getAllByRole("link", { name: /Sales invoices/ })[0].closest("div")!.parentElement!;
+    fireEvent.click(within(invoices).getByRole("button", { name: /saved views/i }));
+
+    expect(await screen.findByTestId("saved-view-count-all")).toHaveTextContent("12");
+    expect(screen.getByTestId("saved-view-count-draft")).toHaveTextContent("3");
+    expect(screen.getByTestId("saved-view-count-posted")).toHaveTextContent("9");
   });
 });

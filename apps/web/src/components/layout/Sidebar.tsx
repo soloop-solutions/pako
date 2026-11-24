@@ -14,6 +14,7 @@ import { useAuth } from "@/context/AuthContext";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { MENU_GROUP_PREFIX, menuGroupCategories } from "@/config/navGroups";
+import { SavedViewCount } from "@/components/layout/SavedViewCount";
 import {
   emptyPrefs,
   getTopNavPaths,
@@ -371,6 +372,7 @@ export function Sidebar() {
                             className="flex h-6 items-center pr-3 pl-[34px] text-[12px] hover:bg-accent hover:text-accent-foreground"
                           >
                             {intl.formatMessage({ id: view.labelKey })}
+                            {item.savedViewCounts && <SavedViewCount source={item.savedViewCounts} viewId={view.id} />}
                           </Link>
                         ))}
                         {/* Views the user saved from the list ribbon (lib/list-views.ts). */}

@@ -247,6 +247,25 @@ public class EmailDeliveryTests : IAsyncLifetime
         return controller;
     }
 
+    // Client request 2026-11-24: "Print selected" — several invoices in one PDF, and no more than 100.
+    [Fact]
+    public async Task PdfBatch_PutsTheChosenInvoicesInOnePdf_AndRefusesAnEmptyOrForeignSelection()
+    {
+        var c = await SeedAsync();
+        var first = await InvoiceAsync(c, c.Customer);
+        var second = await InvoiceAsync(c, c.NoEmailCustomer);
+        var batch = new InvoicePdfBatchController(c.Db, new InvoiceDocumentService(c.Db, Tax), CompanyAccessContext.Unrestricted(c.Id, c.UserId), L);
+
+        var file = Assert.IsType<FileContentResult>(await batch.Pdf(c.Id, new InvoicePdfBatchRequest([first.Id, second.Id])));
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.Equal("%PDF", Encoding.ASCII.GetString(file.FileContents, 0, 4));
+        var single = Assert.IsType<FileContentResult>(await Delivery(c).Pdf(c.Id, first.Id));
+        Assert.True(file.FileContents.Length > single.FileContents.Length);
+
+        Assert.IsType<BadRequestObjectResult>(await batch.Pdf(c.Id, new InvoicePdfBatchRequest([])));
+        Assert.IsType<NotFoundResult>(await batch.Pdf(c.Id, new InvoicePdfBatchRequest([first.Id, Guid.NewGuid()])));
+    }
+
     private async Task<Co> SeedAsync()
     {
         var db = await PostgresTestDatabase.CreateAsync();

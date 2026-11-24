@@ -2057,4 +2057,6 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="Export_Payroll_Payslip" xml:space="preserve"><value>Fletëpagesa</value></data>
   <data name="Export_Payroll_Payslips" xml:space="preserve"><value>Fletëpagesat</value></data>
   <data name="Export_Payroll_EmployeesList" xml:space="preserve"><value>Lista e punonjësve</value></data>
+  <data name="InvoicePdfBatchEmpty" xml:space="preserve"><value>Zgjidhni të paktën një faturë për ta printuar.</value></data>
+  <data name="InvoicePdfBatchTooMany" xml:space="preserve"><value>Mund të printohen të shumtën {0} fatura njëherësh. Zgjidhni më pak dhe provoni përsëri.</value></data>
 </root>

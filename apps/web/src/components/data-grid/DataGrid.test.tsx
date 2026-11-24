@@ -107,3 +107,43 @@ describe("DataGrid footerRow", () => {
     localStorage.clear();
   });
 });
+
+// Client request 2026-11-24: row actions and bulk actions on selected rows.
+describe("DataGrid row and bulk actions", () => {
+  it("renders each row's actions without following the row link", () => {
+    const opened: string[] = [];
+    renderGrid({
+      getRowLink: (row) => `/accounts/${row.id}`,
+      rowActions: (row) => (
+        <button type="button" onClick={() => opened.push(row.id)}>
+          {`Act ${row.code}`}
+        </button>
+      ),
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Act 1200" }));
+    expect(opened).toEqual(["2"]);
+  });
+
+  it("shows the bulk actions for the ticked rows only, and clears them", async () => {
+    const seen: string[][] = [];
+    renderGrid({
+      enableRowSelection: true,
+      bulkActions: (rows, clear) => (
+        <button type="button" onClick={() => { seen.push(rows.map((r) => r.id)); clear(); }}>
+          Bulk
+        </button>
+      ),
+    });
+
+    expect(screen.queryByRole("button", { name: "Bulk" })).not.toBeInTheDocument();
+    const rowBoxes = screen.getAllByRole("checkbox", { name: "Select row" });
+    fireEvent.click(rowBoxes[0]);
+    fireEvent.click(rowBoxes[2]);
+    expect(screen.getByRole("button", { name: "Export selected" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Bulk" }));
+
+    expect(seen).toEqual([["1", "3"]]);
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Bulk" })).not.toBeInTheDocument());
+  });
+});

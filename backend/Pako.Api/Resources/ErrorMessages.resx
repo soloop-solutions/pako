@@ -2057,4 +2057,6 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="Export_Payroll_Payslip" xml:space="preserve"><value>Payslip</value></data>
   <data name="Export_Payroll_Payslips" xml:space="preserve"><value>Payslips</value></data>
   <data name="Export_Payroll_EmployeesList" xml:space="preserve"><value>Employees List</value></data>
+  <data name="InvoicePdfBatchEmpty" xml:space="preserve"><value>Select at least one invoice to print.</value></data>
+  <data name="InvoicePdfBatchTooMany" xml:space="preserve"><value>At most {0} invoices can be printed at once. Select fewer and try again.</value></data>
 </root>

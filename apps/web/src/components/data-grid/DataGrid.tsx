@@ -31,6 +31,7 @@ import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState"
 
 const SELECT_COLUMN_ID = "__select";
 const ORDINAL_COLUMN_ID = "__ordinal";
+const ACTIONS_COLUMN_ID = "__actions";
 const ROW_HEIGHT_CLASS = "h-[30px]";
 const SEARCH_DEBOUNCE_MS = 300;
 
@@ -63,6 +64,13 @@ export interface DataGridProps<TData extends object> {
   manualSorting?: boolean;
   manualGrouping?: boolean;
   footerRow?: { label: string; cells: Record<string, ReactNode> };
+  /** Client request 2026-11-24: small buttons at the end of each row (open, PDF, post, pay…). */
+  rowActions?: (row: TData) => ReactNode;
+  /**
+   * Buttons shown beside "N selected" while rows are selected (needs enableRowSelection).
+   * `clear` unticks every row, e.g. after the action ran.
+   */
+  bulkActions?: (rows: TData[], clear: () => void) => ReactNode;
 }
 
 function columnLabel<TData>(column: Column<TData, unknown>): string {
@@ -95,6 +103,8 @@ export function DataGrid<TData extends object>({
   manualSorting = true,
   manualGrouping = true,
   footerRow,
+  rowActions,
+  bulkActions,
 }: DataGridProps<TData>) {
   const intl = useIntl();
   const navigate = useNavigate();
@@ -158,7 +168,18 @@ export function DataGrid<TData extends object>({
         </span>
       ),
     };
-    if (!enableRowSelection) return [ordinalColumn, ...columns];
+    const actionsColumn: ColumnDef<TData>[] = rowActions
+      ? [{
+          id: ACTIONS_COLUMN_ID,
+          header: "",
+          enableSorting: false,
+          enableColumnFilter: false,
+          enableGrouping: false,
+          enableHiding: false,
+          cell: ({ row }) => <div className="flex justify-end gap-0.5 whitespace-nowrap" data-row-actions="">{rowActions(row.original)}</div>,
+        }]
+      : [];
+    if (!enableRowSelection) return [ordinalColumn, ...columns, ...actionsColumn];
     const selectionColumn: ColumnDef<TData> = {
       id: SELECT_COLUMN_ID,
       enableSorting: false,
@@ -183,8 +204,8 @@ export function DataGrid<TData extends object>({
         />
       ),
     };
-    return [ordinalColumn, selectionColumn, ...columns];
-  }, [columns, enableRowSelection, intl, urlState.page, urlState.pageSize]);
+    return [ordinalColumn, selectionColumn, ...columns, ...actionsColumn];
+  }, [columns, enableRowSelection, intl, urlState.page, urlState.pageSize, rowActions]);
 
   const sorting: SortingState = useMemo(
     () => (urlState.sort ? [{ id: urlState.sort.id, desc: urlState.sort.desc }] : []),
@@ -281,9 +302,28 @@ export function DataGrid<TData extends object>({
             />
           )}
           {enableRowSelection && selectedCount > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {intl.formatMessage({ id: "dataGrid.selectedCount" }, { count: selectedCount })}
-            </span>
+            <div className="flex flex-wrap items-center gap-2" data-testid="grid-bulk-actions">
+              <span className="text-xs text-muted-foreground">
+                {intl.formatMessage({ id: "dataGrid.selectedCount" }, { count: selectedCount })}
+              </span>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={() =>
+                  void import("@/components/data-grid/exportToExcel").then(({ exportTableToExcel }) =>
+                    exportTableToExcel(table, exportFileName ?? gridId, true),
+                  )
+                }
+              >
+                {intl.formatMessage({ id: "dataGrid.exportSelected" })}
+              </Button>
+              {bulkActions?.(table.getSelectedRowModel().rows.map((r) => r.original), () => {
+                setRowSelection({});
+                onSelectedRowsChange?.([]);
+              })}
+            </div>
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
