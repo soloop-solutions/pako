@@ -30,7 +30,7 @@ public class PartnerStatementService
             join a in _db.Accounts.AsNoTracking() on l.AccountId equals a.Id
             where e.CompanyId == companyId && e.State != JournalEntryState.Draft && l.PartnerId == partnerId &&
                 (a.AccountType == AccountType.Receivable || a.AccountType == AccountType.Payable)
-            select new { e.Date, e.Reference, e.SequenceNumber, l.Description, a.Code, l.Debit, l.Credit, e.PostedAtUtc };
+            select new { EntryId = e.Id, e.Date, e.Reference, e.SequenceNumber, l.Description, a.Code, l.Debit, l.Credit, e.PostedAtUtc };
 
         var opening = await movements.Where(m => m.Date < from).SumAsync(m => m.Debit - m.Credit);
         var rows = await movements.Where(m => m.Date >= from && m.Date <= to)
@@ -38,12 +38,14 @@ public class PartnerStatementService
             .Take(5000)
             .ToListAsync();
 
+        var sources = await new ReportSourceResolver(_db).ResolveEntriesAsync(companyId, rows.Select(r => r.EntryId));
         var balance = opening;
         var lines = new List<PartnerStatementLine>(rows.Count);
         foreach (var row in rows)
         {
             balance += row.Debit - row.Credit;
-            lines.Add(new PartnerStatementLine(row.Date, row.Reference ?? row.SequenceNumber, row.Description, row.Code, row.Debit, row.Credit, balance));
+            lines.Add(new PartnerStatementLine(row.Date, row.Reference ?? row.SequenceNumber, row.Description, row.Code, row.Debit, row.Credit, balance,
+                sources.TryGetValue(row.EntryId, out var source) ? source.Kind : null, source?.Id));
         }
 
         return new PartnerStatementResponse(partner.Id, partner.Name, from, to, opening,

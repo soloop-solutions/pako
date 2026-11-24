@@ -474,6 +474,10 @@ public class PartnerScopingTests : IAsyncLifetime
         Assert.Equal(600m, statement.ClosingBalance);
         Assert.Equal(600m, statement.Lines[^1].Balance);
 
+        Assert.All(statement.Lines, line => Assert.NotNull(line.SourceKind));
+        Assert.Contains(statement.Lines, line => line.SourceKind == "Invoice" && line.SourceId is not null);
+        Assert.Contains(statement.Lines, line => line.SourceKind == "Bill" && line.SourceId is not null);
+
         Assert.IsType<NotFoundResult>((await controller.Statement(s.CompanyId, s.PartnerB, from, to, statements)).Result);
 
         // Opening balance carries everything before the period.

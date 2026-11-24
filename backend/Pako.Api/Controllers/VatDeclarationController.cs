@@ -35,9 +35,10 @@ public class VatDeclarationController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<ActionResult<VatDeclarationResponse>> Declaration(
         Guid companyId, [FromQuery] int year, [FromQuery] int month,
-        [FromQuery] decimal? carriedCredit = null, [FromQuery] decimal? refundRequested = null)
+        [FromQuery] decimal? carriedCredit = null, [FromQuery] decimal? refundRequested = null,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
     {
-        var (response, _, error) = await BuildAsync(companyId, year, month, carriedCredit, refundRequested);
+        var (response, _, error) = await BuildAsync(companyId, year, month, carriedCredit, refundRequested, from, to);
         return error is not null ? error : Ok(response);
     }
 
@@ -47,9 +48,10 @@ public class VatDeclarationController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Reports)]
     public async Task<IActionResult> Export(
         Guid companyId, [FromQuery] int year, [FromQuery] int month,
-        [FromQuery] decimal? carriedCredit = null, [FromQuery] decimal? refundRequested = null)
+        [FromQuery] decimal? carriedCredit = null, [FromQuery] decimal? refundRequested = null,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null)
     {
-        var (response, company, error) = await BuildAsync(companyId, year, month, carriedCredit, refundRequested);
+        var (response, company, error) = await BuildAsync(companyId, year, month, carriedCredit, refundRequested, from, to);
         if (error is not null)
         {
             return error;
@@ -61,7 +63,7 @@ public class VatDeclarationController : ControllerBase
     }
 
     private async Task<(VatDeclarationResponse? Response, Pako.Domain.Companies.Company? Company, ObjectResult? Error)> BuildAsync(
-        Guid companyId, int year, int month, decimal? carriedCredit, decimal? refundRequested)
+        Guid companyId, int year, int month, decimal? carriedCredit, decimal? refundRequested, DateOnly? from = null, DateOnly? to = null)
     {
         if (_access.IsPartnerRestricted)
         {
@@ -79,6 +81,16 @@ public class VatDeclarationController : ControllerBase
             return (null, null, BadRequest(new { error = _localizer["VatDeclarationPeriodInvalid"].Value }));
         }
 
+        if (from is not null || to is not null)
+        {
+            var monthStart = new DateOnly(year, month, 1);
+            var monthEnd = monthStart.AddMonths(1).AddDays(-1);
+            if ((from is { } f && (f < monthStart || f > monthEnd)) || (to is { } t && (t < monthStart || t > monthEnd)) || (from is { } f2 && to is { } t2 && f2 > t2))
+            {
+                return (null, null, BadRequest(new { error = _localizer["VatDeclarationDayRangeInvalid"].Value }));
+            }
+        }
+
         if (carriedCredit is < 0m)
         {
             return (null, null, BadRequest(new { error = _localizer["VatDeclarationCarriedCreditInvalid"].Value }));
@@ -90,7 +102,7 @@ public class VatDeclarationController : ControllerBase
             return (null, null, BadRequest(new { error = _localizer["VatDeclarationRefundNegative"].Value }));
         }
 
-        var result = await new VatDeclarationService(_db, _access).ComputeAsync(companyId, year, month, carriedCredit, refund);
+        var result = await new VatDeclarationService(_db, _access).ComputeAsync(companyId, year, month, carriedCredit, refund, from, to);
 
         if (refund > result.RemainingCredit)
         {

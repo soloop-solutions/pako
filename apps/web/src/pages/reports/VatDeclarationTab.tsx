@@ -148,6 +148,14 @@ export function VatDeclarationTab({ report, companyName, taxLockDate }: { report
             <Label htmlFor="vat-decl-month">{intl.formatMessage({ id: "reports.month" })}</Label>
             <Input id="vat-decl-month" type="number" min={1} max={12} className="w-24" value={monthDraft} onChange={(event) => changeMonth(event.target.value)} />
           </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="vat-decl-from-day">{intl.formatMessage({ id: "reports.vatFromDay" })}</Label>
+            <Input id="vat-decl-from-day" type="number" min={1} max={report.monthLength} className="w-24" value={report.fromDay} onChange={(event) => report.setFromDay(event.target.value)} />
+          </div>
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="vat-decl-to-day">{intl.formatMessage({ id: "reports.vatToDay" })}</Label>
+            <Input id="vat-decl-to-day" type="number" min={1} max={report.monthLength} className="w-24" value={report.toDay} onChange={(event) => report.setToDay(event.target.value)} />
+          </div>
           <AmountInput id="vat-decl-carried" label={intl.formatMessage({ id: "reports.vatDeclCarriedCredit" })} value={report.carriedCredit} onCommit={report.setCarriedCredit} />
           <AmountInput id="vat-decl-refund" label={intl.formatMessage({ id: "reports.vatDeclRefund" })} value={report.refundRequested} onCommit={report.setRefundRequested} />
           <ExportButton onClick={report.exportFile} loading={report.exporting} />

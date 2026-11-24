@@ -5,6 +5,7 @@ import { useIntl } from "react-intl";
 import type { AccountResponse, PartnerResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { partnerFormError, type PartnerFormError } from "@/pages/partners/partnerError";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ export function Partners() {
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [selectedCreateRole, setSelectedCreateRole] = useState<"customer" | "vendor" | undefined>(undefined);
   const [editingId, setEditingId] = useOpenParam();
-  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<PartnerFormError | null>(null);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
   const paged = usePagedGrid<PartnerResponse>({
@@ -102,7 +103,7 @@ export function Partners() {
       setFormOpen(false);
       await refresh();
     },
-    onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "partners.createError" }))),
+    onError: (err: unknown) => setMutationError(partnerFormError(err, intl.formatMessage({ id: "partners.createError" }))),
   });
 
   const updateMutation = useMutation({
@@ -132,7 +133,7 @@ export function Partners() {
       setEditingId(null);
       await refresh();
     },
-    onError: (err: unknown) => setMutationError(getApiErrorMessage(err, intl.formatMessage({ id: "partners.saveError" }))),
+    onError: (err: unknown) => setMutationError(partnerFormError(err, intl.formatMessage({ id: "partners.saveError" }))),
   });
 
   const columns = useMemo<ColumnDef<PartnerResponse>[]>(
@@ -289,7 +290,8 @@ export function Partners() {
               mode="create"
               accounts={accounts}
               submitting={createMutation.isPending}
-              error={mutationError}
+              error={mutationError?.message ?? null}
+          errorOnTaxNumber={mutationError?.taxNumber ?? false}
               defaultRole={selectedCreateRole}
               onSubmit={(fields) => createMutation.mutate(fields)}
               onCancel={() => {
@@ -313,7 +315,8 @@ export function Partners() {
               accounts={accounts}
               initial={editingPartner}
               submitting={updateMutation.isPending}
-              error={mutationError}
+              error={mutationError?.message ?? null}
+          errorOnTaxNumber={mutationError?.taxNumber ?? false}
               onSubmit={(fields) => updateMutation.mutate({ id: editingPartner.id, fields })}
               onCancel={() => {
                 setEditingId(null);

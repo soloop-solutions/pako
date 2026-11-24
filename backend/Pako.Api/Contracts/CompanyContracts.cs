@@ -8,7 +8,7 @@ namespace Pako.Api.Contracts;
 // for why a genuinely-empty "no tax" choice is only ever valid once this is false.
 public record CreateCompanyRequest(string Name, Guid? FirmId = null, CompanyProfile? EnabledProfiles = null, bool? IsVatRegistered = null,
     // docs/COMPANY_TYPES.md: the kind of business; picks its packs and starting modules (null = General).
-    BusinessType? BusinessType = null);
+    BusinessType? BusinessType = null, string? BusinessNumber = null, string? FiscalNumber = null);
 
 // docs/COMPANY_TYPES.md: changing the type resets the packs to the type's own.
 public record UpdateBusinessTypeRequest(BusinessType BusinessType);

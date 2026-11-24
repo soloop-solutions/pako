@@ -12,8 +12,8 @@ using Pako.Infrastructure;
 namespace Pako.Infrastructure.Migrations
 {
     [DbContext(typeof(PakoDbContext))]
-    [Migration("20261123194615_AddPartnerLineDefaultsAndVatNumber")]
-    partial class AddPartnerLineDefaultsAndVatNumber
+    [Migration("20261123214230_UniqueCompanyBusinessAndFiscalNumber")]
+    partial class UniqueCompanyBusinessAndFiscalNumber
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -964,7 +964,15 @@ namespace Pako.Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("BusinessNumber")
+                        .IsUnique()
+                        .HasFilter("\"BusinessNumber\" IS NOT NULL");
+
                     b.HasIndex("FirmId");
+
+                    b.HasIndex("FiscalNumber")
+                        .IsUnique()
+                        .HasFilter("\"FiscalNumber\" IS NOT NULL");
 
                     b.ToTable("companies", (string)null);
                 });
@@ -1708,18 +1716,6 @@ namespace Pako.Infrastructure.Migrations
                     b.Property<decimal?>("CreditLimit")
                         .HasColumnType("numeric(18,2)");
 
-                    b.Property<Guid?>("DefaultExpenseAccountId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("DefaultPurchaseTaxDefinitionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("DefaultRevenueAccountId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid?>("DefaultSaleTaxDefinitionId")
-                        .HasColumnType("uuid");
-
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
@@ -1784,10 +1780,6 @@ namespace Pako.Infrastructure.Migrations
                         .HasColumnType("character varying(512)");
 
                     b.Property<string>("TaxNumber")
-                        .HasMaxLength(64)
-                        .HasColumnType("character varying(64)");
-
-                    b.Property<string>("VatNumber")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
 

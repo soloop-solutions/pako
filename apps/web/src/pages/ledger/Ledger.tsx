@@ -173,7 +173,7 @@ export function Ledger() {
             )}
           </div>
           <JournalEntriesTable companyId={activeCompany.id} journals={journals} fromDate={fromDate} toDate={toDate} sortOrder={sortOrder === "oldest" ? "oldest" : "newest"} onPosted={refresh} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
-          <JournalEntryDialog entry={openEntry} accounts={accounts} journals={journals} onClose={() => setOpenEntryId(null)} />
+          <JournalEntryDialog companyId={activeCompany.id} entry={openEntry} accounts={accounts} journals={journals} onClose={() => setOpenEntryId(null)} />
         </CardContent>
       </Card>
 

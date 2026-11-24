@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, CreditExposureResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, ResolvedPriceResponse, TaxDefinitionResponse } from "@pako/shared";
 import { toast } from "sonner";
@@ -223,6 +224,7 @@ export function InvoiceForm({
   const [paymentTermDays, setPaymentTermDays] = useState(editingInvoice ? "" : (selectedCustomer?.paymentTermDays != null ? String(selectedCustomer.paymentTermDays) : ""));
   const [graceDays, setGraceDays] = useState("");
   const [takePaymentNow, setTakePaymentNow] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethodId, setPaymentMethodId] = useState("");
   const [lines, setLines] = useState<Line[]>(
@@ -345,7 +347,7 @@ export function InvoiceForm({
     }
     let cancelled = false;
     apiClient
-      .previewGET(companyId, documentTypeName, undefined)
+      .preview(companyId, documentTypeName, undefined)
       .then((result) => {
         if (!cancelled) setInvoiceNumber(result.number);
       })
@@ -527,8 +529,43 @@ export function InvoiceForm({
     }
   }
 
+  function validateBeforePayment(): boolean {
+    const errors: Record<string, string> = {};
+    if (!partnerId) errors.partnerId = intl.formatMessage({ id: "invoiceForm.selectCustomerError" });
+    setFieldErrors(errors);
+    if (!lines.some((line) => line.description.trim())) {
+      setApiError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
+      return false;
+    }
+    setApiError(null);
+    return Object.keys(errors).length === 0;
+  }
+
+  const invoiceDraft = useFormDraft({
+    kind: "invoice",
+    title: intl.formatMessage({ id: "drafts.invoice" }),
+    enabled: !editingInvoice && !prefill && fixedDocumentType === undefined,
+    dirty: !!partnerId || lines.some((l) => l.description.trim() !== "" || l.itemId !== ""),
+    getState: () => ({ partnerId, documentType, issueDate, dueDate, internalNotes, warehouseId, projectId, priceMode, paymentTermDays, graceDays, lines }),
+    restore: (d) => {
+      setPartnerId(d.partnerId);
+      setDocumentType(d.documentType);
+      setIssueDate(d.issueDate);
+      setDueDate(d.dueDate);
+      setInternalNotes(d.internalNotes);
+      setWarehouseId(d.warehouseId);
+      setProjectId(d.projectId);
+      setPriceMode(d.priceMode);
+      setPaymentTermDays(d.paymentTermDays);
+      setGraceDays(d.graceDays);
+      setLines(d.lines);
+    },
+  });
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    const paying = takePaymentNow;
+    setTakePaymentNow(false);
     setApiError(null);
     setFieldErrors({});
 
@@ -542,7 +579,7 @@ export function InvoiceForm({
       return;
     }
 
-    if (takePaymentNow) {
+    if (paying) {
       const parsedPaymentAmount = parseFloat(paymentAmount);
       if (!parsedPaymentAmount || parsedPaymentAmount <= 0) {
         errors.paymentAmount = intl.formatMessage({ id: "invoiceForm.paymentAmountError" });
@@ -612,7 +649,7 @@ export function InvoiceForm({
           warehouseId: warehouseId || undefined,
           projectId: projectId || undefined,
           invoiceNumber: invoiceNumber.trim() || undefined,
-          payment: takePaymentNow
+          payment: paying
             ? { amount: parseFloat(paymentAmount), paymentMethodId, date: issueDate }
             : undefined,
         });
@@ -626,10 +663,10 @@ export function InvoiceForm({
         setLines([emptyLine(defaultTaxId)]);
         setInternalNotes("");
         setInvoiceNumber("");
-        setTakePaymentNow(false);
         setPaymentAmount("");
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.invoiceCreated" }));
+        invoiceDraft.markDone();
         onCreated({ keepOpen: keepOpenRef.current, invoice: created });
       }
     } catch (err) {
@@ -683,7 +720,7 @@ export function InvoiceForm({
   const td = "px-1 py-1 align-top";
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form ref={formRef} className="flex flex-col gap-4" onSubmit={handleSubmit}>
       {apiError && (
         <Alert variant="destructive">
           <AlertDescription>{apiError}</AlertDescription>
@@ -1047,6 +1084,7 @@ export function InvoiceForm({
             variant="secondary"
             disabled={submitting}
             onClick={() => {
+              if (!validateBeforePayment()) return;
               const gross = quote?.totals.grossAmount;
               setPaymentAmount(gross != null && gross > 0 ? gross.toFixed(2) : "");
               setShowPaymentDialog(true);
@@ -1101,10 +1139,7 @@ export function InvoiceForm({
                 setTakePaymentNow(true);
                 setShowPaymentDialog(false);
                 // Submit the form programmatically after state updates
-                requestAnimationFrame(() => {
-                  const form = document.querySelector<HTMLFormElement>("form");
-                  form?.requestSubmit();
-                });
+                requestAnimationFrame(() => formRef.current?.requestSubmit());
               }}
             >
               {submitting ? intl.formatMessage({ id: "invoiceForm.creating" }) : intl.formatMessage({ id: "invoiceForm.confirmAndPay" })}

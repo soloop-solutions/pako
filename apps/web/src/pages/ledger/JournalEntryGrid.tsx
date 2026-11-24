@@ -26,6 +26,7 @@ import { commitCellValue, getCellText } from "@/pages/ledger/journal-grid/lineFi
 import { PickerCell } from "@/pages/ledger/journal-grid/PickerCell";
 import { optionLabel, type PickerOption } from "@/pages/ledger/journal-grid/pickerMatch";
 import { emptyLine, GRID_COLUMNS, type CellPosition, type GridColumn, type GridLine } from "@/pages/ledger/journal-grid/types";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { useMyAccess } from "@/hooks/useMyAccess";
 
 type JournalEntryGridProps = {
@@ -79,6 +80,22 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   // (see DistributionEditor.tsx's header), so this only needs to close itself when the grid's
   // logical focus moves to a DIFFERENT cell (see the [focus]-keyed effect below).
   const [openDistributionRow, setOpenDistributionRow] = useState<number | null>(null);
+
+  const journalDraft = useFormDraft({
+    kind: "journalEntry",
+    title: intl.formatMessage({ id: "drafts.journalEntry" }),
+    dirty: !!description || !!reference || !!remarks || lines.some((l) => l.accountId !== "" || l.debit !== "" || l.credit !== ""),
+    getState: () => ({ journalId, date, description, reference, remarks, lines }),
+    restore: (d) => {
+      setJournalId(d.journalId);
+      setDate(d.date);
+      setDescription(d.description);
+      setReference(d.reference);
+      setRemarks(d.remarks);
+      setLines(d.lines.map((l) => ({ ...l, id: nextId() })));
+      setFocus({ row: 0, col: 0 });
+    },
+  });
 
   const inputRefs = useRef<Map<string, HTMLInputElement | HTMLButtonElement>>(new Map());
 
@@ -408,6 +425,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
           };
         }),
       });
+      journalDraft.markDone();
       // The number was reserved on create: move the preview on to the next one.
       setSavedCount((count) => count + 1);
 

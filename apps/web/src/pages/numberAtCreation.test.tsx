@@ -9,7 +9,7 @@ import { PriceChangeDetail } from "@/pages/inventory/PriceChangeDetail";
 import { StockDocumentDetail } from "@/pages/inventory/StockDocumentDetail";
 
 const m = vi.hoisted(() => ({
-  previewGET: vi.fn(),
+  preview: vi.fn(),
   getStockDocument: vi.fn(),
   getPurchaseOrder: vi.fn(),
   getPriceChange: vi.fn(),
@@ -49,7 +49,7 @@ function renderAt(path: string, route: string, element: React.ReactElement) {
 
 beforeEach(() => {
   Object.values(m).forEach((fn) => fn.mockReset());
-  m.previewGET.mockResolvedValue({ number: "PREVIEW-9999", isProvisional: true });
+  m.preview.mockResolvedValue({ number: "PREVIEW-9999", isProvisional: true });
   m.listWarehouses.mockResolvedValue([]);
   m.listPriceLists.mockResolvedValue([]);
   m.partnersAll.mockResolvedValue([]);
@@ -62,21 +62,21 @@ describe("a saved draft shows its own number, the preview is for new documents o
     m.getStockDocument.mockResolvedValue({ id: ID, type: 0, state: 0, number: "HAP-0007/2026", date: "2026-11-08", warehouseId: ID, warehouseName: "Main", notes: undefined, totalValue: 0, vatRepaymentDue: false, lines: [] });
     renderAt(`/stock-documents/${ID}`, "/stock-documents/:id", <StockDocumentDetail />);
     expect(await screen.findByText(/HAP-0007\/2026/)).toBeInTheDocument();
-    expect(m.previewGET).not.toHaveBeenCalled();
+    expect(m.preview).not.toHaveBeenCalled();
     expect(screen.queryByText("PREVIEW-9999")).not.toBeInTheDocument();
   });
 
   it("stock document new shows the preview", async () => {
     renderAt("/stock-documents/new", "/stock-documents/:id", <StockDocumentDetail />);
     expect(await screen.findByText("PREVIEW-9999")).toBeInTheDocument();
-    await waitFor(() => expect(m.previewGET).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(m.preview).toHaveBeenCalledTimes(1));
   });
 
   it("purchase order draft", async () => {
     m.getPurchaseOrder.mockResolvedValue({ id: ID, partnerId: ID, partnerName: "Vendor", number: "PO-0003/2026", date: "2026-11-08", state: 0, progress: "", lines: [], bills: [] });
     renderAt(`/purchase-orders/${ID}`, "/purchase-orders/:id", <PurchaseOrderDetail />);
     expect(await screen.findByText(/PO-0003\/2026/)).toBeInTheDocument();
-    expect(m.previewGET).not.toHaveBeenCalled();
+    expect(m.preview).not.toHaveBeenCalled();
     expect(screen.queryByText("PREVIEW-9999")).not.toBeInTheDocument();
   });
 
@@ -89,7 +89,7 @@ describe("a saved draft shows its own number, the preview is for new documents o
     m.getPriceChange.mockResolvedValue({ id: ID, priceListId: ID, priceListName: "Retail", state: 0, number: "NIV-0004/2026", date: "2026-11-08", totalDifference: 0, lines: [] });
     renderAt(`/price-changes/${ID}`, "/price-changes/:id", <PriceChangeDetail />);
     expect(await screen.findByText(/NIV-0004\/2026/)).toBeInTheDocument();
-    expect(m.previewGET).not.toHaveBeenCalled();
+    expect(m.preview).not.toHaveBeenCalled();
   });
 
   it("price change new shows the preview", async () => {

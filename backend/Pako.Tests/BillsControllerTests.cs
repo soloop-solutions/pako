@@ -536,7 +536,7 @@ public class BillsControllerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Update_PostedBill_Rejected()
+    public async Task Update_PostedBill_ReversesOldEntryAndRepostsWithNewData()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
         var controller = NewController(db);
@@ -544,14 +544,20 @@ public class BillsControllerTests : IAsyncLifetime
         var created = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m));
         var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
         await controller.Post(companyId, bill.Id);
+        var originalEntryId = (await db.Bills.AsNoTracking().SingleAsync(b => b.Id == bill.Id)).JournalEntryId;
+        var entriesBefore = await db.JournalEntries.CountAsync();
 
         var result = await controller.Update(companyId, bill.Id, new UpdateBillRequest(
             partnerId, "VEND-001", new DateOnly(2026, 8, 26), new DateOnly(2026, 12, 1),
-            new List<CreateBillLineRequest> { new("Supplies", 1m, 100m, null, null) },
+            new List<CreateBillLineRequest> { new("Supplies", 1m, 250m, null, null) },
             DocumentType.Bill, null, null));
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("due date and internal notes", badRequest.Value!.ToString());
+        var updated = Assert.IsType<BillResponse>(Assert.IsType<OkObjectResult>(result.Result).Value);
+        Assert.Equal("Posted", updated.State);
+        Assert.Equal(new DateOnly(2026, 12, 1), updated.DueDate);
+        Assert.NotNull(updated.JournalEntryId);
+        Assert.NotEqual(originalEntryId, updated.JournalEntryId);
+        Assert.Equal(entriesBefore + 2, await db.JournalEntries.CountAsync());
     }
 
     [Fact]

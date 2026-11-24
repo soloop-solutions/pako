@@ -30,6 +30,8 @@ public record BalanceSheetResponse(
 
 public record VatReturnLine(Guid TaxDefinitionId, string Name, decimal Rate, decimal Amount);
 
+public record ReportMonthResponse(int Year, int Month);
+
 public record VatReturnResponse(
     DateOnly From,
     DateOnly To,

@@ -6,6 +6,7 @@ import type { AccountResponse, PartnerResponse } from "@pako/shared";
 import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
+import { partnerFormError, type PartnerFormError } from "@/pages/partners/partnerError";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { EntityHistory } from "@/components/shared/EntityHistory";
 import { useCompany } from "@/context/CompanyContext";
 import { useOpenParam } from "@/hooks/useOpenParam";
+import { PartnerDocuments } from "@/pages/partners/PartnerDocuments";
 import { PartnerRegisterForm, type PartnerRegisterFormFields } from "@/pages/partners/PartnerRegisterForm";
 import { PartnerPortalAccess } from "@/pages/partners/PartnerPortalAccess";
 
@@ -70,7 +72,7 @@ export function PartnerListPage({
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
   const [selectedCreateRole, setSelectedCreateRole] = useState<"customer" | "vendor" | undefined>(defaultRole);
   const [editingId, setEditingId] = useOpenParam();
-  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [mutationError, setMutationError] = useState<PartnerFormError | null>(null);
   const [dirty, setDirty] = useState(false);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
@@ -160,9 +162,7 @@ export function PartnerListPage({
       await refresh();
     },
     onError: (err: unknown) =>
-      setMutationError(
-        getApiErrorMessage(err, intl.formatMessage({ id: labels.createErrorKey })),
-      ),
+      setMutationError(partnerFormError(err, intl.formatMessage({ id: labels.createErrorKey }))),
   });
 
   const updateMutation = useMutation({
@@ -202,9 +202,7 @@ export function PartnerListPage({
       await refresh();
     },
     onError: (err: unknown) =>
-      setMutationError(
-        getApiErrorMessage(err, intl.formatMessage({ id: labels.saveErrorKey })),
-      ),
+      setMutationError(partnerFormError(err, intl.formatMessage({ id: labels.saveErrorKey }))),
   });
 
   /* eslint-disable react-hooks/exhaustive-deps */
@@ -398,7 +396,8 @@ export function PartnerListPage({
           mode="create"
           accounts={accounts}
           submitting={createMutation.isPending}
-          error={mutationError}
+          error={mutationError?.message ?? null}
+          errorOnTaxNumber={mutationError?.taxNumber ?? false}
           onSubmit={(fields) => createMutation.mutate(fields)}
           onCancel={() => { setFormOpen(false); setMutationError(null); setDirty(false); }}
           defaultRole={selectedCreateRole}
@@ -423,11 +422,15 @@ export function PartnerListPage({
             initial={editingPartner}
             role={defaultRole}
             submitting={updateMutation.isPending}
-            error={mutationError}
+            error={mutationError?.message ?? null}
+          errorOnTaxNumber={mutationError?.taxNumber ?? false}
             onSubmit={(fields) => updateMutation.mutate({ id: editingPartner.id, fields })}
             onCancel={() => { setEditingId(null); setMutationError(null); setDirty(false); }}
             onDirtyChange={setDirty}
           />
+        )}
+        {editingPartner && activeCompanyId && (editingPartner.isCustomer || editingPartner.isVendor) && (
+          <PartnerDocuments companyId={activeCompanyId} partnerId={editingPartner.id} showSales={editingPartner.isCustomer} showPurchases={editingPartner.isVendor} />
         )}
         {editingPartner?.isCustomer && activeCompanyId && <PartnerPortalAccess companyId={activeCompanyId} partnerId={editingPartner.id} />}
         {editingPartner && <div className="mt-4"><EntityHistory entityType="Partner" entityId={editingPartner.id} /></div>}

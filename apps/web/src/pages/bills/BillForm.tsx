@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, BillResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
 import { toast } from "sonner";
@@ -10,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
@@ -328,6 +330,26 @@ export function BillForm({
     setLines((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const billDraft = useFormDraft({
+    kind: "bill",
+    title: intl.formatMessage({ id: "drafts.bill" }),
+    enabled: !editingBill && fixedDocumentType === undefined,
+    dirty: !!partnerId || !!vendorReference || lines.some((l) => l.description.trim() !== "" || l.itemId !== ""),
+    getState: () => ({ partnerId, documentType, vendorReference, issueDate, dueDate, internalNotes, warehouseId, projectId, priceMode, lines }),
+    restore: (d) => {
+      setPartnerId(d.partnerId);
+      setDocumentType(d.documentType);
+      setVendorReference(d.vendorReference);
+      setIssueDate(d.issueDate);
+      setDueDate(d.dueDate);
+      setInternalNotes(d.internalNotes);
+      setWarehouseId(d.warehouseId);
+      setProjectId(d.projectId);
+      setPriceMode(d.priceMode);
+      setLines(d.lines);
+    },
+  });
+
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
     setApiError(null);
@@ -423,6 +445,7 @@ export function BillForm({
         setPaymentAmount("");
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.billCreated" }));
+        billDraft.markDone();
         onCreated({ keepOpen: keepOpenRef.current });
       }
     } catch (err) {
@@ -513,8 +536,8 @@ export function BillForm({
       </div>
 
       {editingBill && (
-        <FormField label={intl.formatMessage({ id: "billForm.internalNotes" })} htmlFor="bill-internal-notes" className="sm:w-1/2">
-          <Input id="bill-internal-notes" value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+        <FormField label={intl.formatMessage({ id: "billForm.internalNotes" })} htmlFor="bill-internal-notes">
+          <Textarea id="bill-internal-notes" rows={3} value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
         </FormField>
       )}
 

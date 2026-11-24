@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useOptionalDrafts } from "@/context/DraftsContext";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -55,6 +56,11 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
       navigate(`/invoicing/new?${searchParams.toString()}`, { replace: true });
     }
   }, [isProforma, searchParams, navigate]);
+  // A resumed invoice draft (DraftsRibbon) opens on the invoice page, where the form restores it.
+  const resumeRequest = useOptionalDrafts()?.resumeRequest ?? null;
+  useEffect(() => {
+    if (!isProforma && resumeRequest?.kind === "invoice") navigate("/invoicing/new");
+  }, [isProforma, resumeRequest, navigate]);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
