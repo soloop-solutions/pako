@@ -170,13 +170,16 @@ public class InvoiceDocumentService
 
     private static string TaxLabel(TaxDefinition tax) => $"{tax.Rate * 100:0.##}%";
 
-    // The abbreviation printed after a company's name; forms without a customary one print nothing.
+    // The abbreviation printed after a company's name (the official ARBK forms, see LegalFormType);
+    // forms without a customary one, and individual businesses, print nothing.
     public static string? LegalFormAbbreviation(LegalFormType? form) => form switch
     {
         LegalFormType.Shpk => "SH.P.K.",
         LegalFormType.Sha => "SH.A.",
-        LegalFormType.Shk => "SH.K.",
-        LegalFormType.Oe => "O.E.",
+        LegalFormType.OrtakeriPergjithshme => "O.P.",
+        LegalFormType.OrtakeriKufizuar => "O.K.",
+        LegalFormType.ShoqeriaHuajTregtare => "D.K.",
+        LegalFormType.ZyraPerfaqesise => "Z.P.K.",
         _ => null,
     };
 

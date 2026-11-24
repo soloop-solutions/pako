@@ -52,6 +52,8 @@ public class BankStatementLineConfiguration : IEntityTypeConfiguration<BankState
         builder.HasOne<Bill>().WithMany().HasForeignKey(l => l.BillId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<JournalEntry>().WithMany().HasForeignKey(l => l.JournalEntryId).OnDelete(DeleteBehavior.Restrict);
         builder.HasOne<Pako.Domain.Reconciliation.Reconciliation>().WithMany().HasForeignKey(l => l.ReconciliationId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Pako.Domain.Payments.Payment>().WithMany().HasForeignKey(l => l.PaymentId).OnDelete(DeleteBehavior.Restrict);
+        builder.HasOne<Account>().WithMany().HasForeignKey(l => l.DirectAccountId).OnDelete(DeleteBehavior.Restrict);
         builder.Ignore(l => l.IsIncoming);
         builder.Ignore(l => l.Amount);
         builder.Ignore(l => l.HasMatch);

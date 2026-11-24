@@ -41,6 +41,10 @@ public class Employee
 
     // Past pension age or otherwise exempt from Trusti contributions — both shares are zero.
     public bool PensionExempt { get; set; }
+
+    // Exempt from personal income tax (PIT). When true, payroll sets PitAmount = 0.
+    public bool TaxExempt { get; set; }
+
     public bool IsActive { get; set; } = true;
 
     // E7: email each posted payslip (PDF attached) to Email. Opt-in — payslips are personal data.

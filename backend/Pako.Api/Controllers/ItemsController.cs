@@ -71,6 +71,9 @@ public class ItemsController : ControllerBase
         query = sortField?.ToLowerInvariant() switch
         {
             "name" => descending ? query.OrderByDescending(i => i.Name) : query.OrderBy(i => i.Name),
+            "defaultunitprice" => descending ? query.OrderByDescending(i => i.DefaultUnitPrice) : query.OrderBy(i => i.DefaultUnitPrice),
+            "unit" => descending ? query.OrderByDescending(i => i.Unit) : query.OrderBy(i => i.Unit),
+            "type" => descending ? query.OrderByDescending(i => i.Type) : query.OrderBy(i => i.Type),
             _ => descending ? query.OrderByDescending(i => i.Code) : query.OrderBy(i => i.Code)
         };
 

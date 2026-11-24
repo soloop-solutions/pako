@@ -185,7 +185,7 @@ export function PayrollRunDetail() {
     if (!companyId || !id || !run) return;
     setActionError(null);
     try {
-      downloadFileResponse(await apiClient.payslipPdf(companyId, id, line.id), `payslip-${run.periodStart.slice(0, 7)}.pdf`);
+      downloadFileResponse(await apiClient.payslipPdf(companyId, id, line.id), `${run.periodStart.slice(0, 7)}-Payslip-${line.employeeName}.pdf`);
     } catch (err) {
       setActionError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.exportError" })));
     }
@@ -197,12 +197,13 @@ export function PayrollRunDetail() {
     setActionError(null);
     try {
       const month = run.periodStart.slice(0, 7);
+      const name = activeCompany?.name ?? "";
       if (kind === "zip") {
-        downloadFileResponse(await apiClient.payslipsZip(companyId, id), `payslips-${month}.zip`);
+        downloadFileResponse(await apiClient.payslipsZip(companyId, id), `${month}-Payslips-${name}.zip`);
         return;
       }
       const file = kind === "register" ? await apiClient.payrollRegisterExport(companyId, id) : await apiClient.payrollEdiExport(companyId, id);
-      downloadFileResponse(file, kind === "register" ? `payroll-register-${month}.xlsx` : `payroll-edi-${month}.xlsx`);
+      downloadFileResponse(file, kind === "register" ? `${month}-Payroll Register-${name}.xlsx` : `${month}-EDI-${name}.xlsx`);
     } catch (err) {
       setActionError(getApiErrorMessage(err, intl.formatMessage({ id: "payroll.exportError" })));
     } finally {
@@ -304,6 +305,18 @@ export function PayrollRunDetail() {
         accessorFn: (row) =>
           intl.formatMessage({ id: row.isPrimaryEmployer ? "payroll.payslip.primaryShort" : "payroll.payslip.secondaryShort" }),
         cell: ({ row, getValue }) => <Badge variant={row.original.isPrimaryEmployer ? "outline" : "warning"}>{getValue() as string}</Badge>,
+      },
+      {
+        id: "hasContributions",
+        header: intl.formatMessage({ id: "payroll.payslip.hasContributions" }),
+        accessorFn: (row) => !row.pensionExempt,
+        cell: ({ getValue }) => (getValue() as boolean) ? intl.formatMessage({ id: "common.yes" }) : intl.formatMessage({ id: "common.no" }),
+      },
+      {
+        id: "hasTax",
+        header: intl.formatMessage({ id: "payroll.payslip.hasTax" }),
+        accessorFn: (row) => !row.taxExempt,
+        cell: ({ getValue }) => (getValue() as boolean) ? intl.formatMessage({ id: "common.yes" }) : intl.formatMessage({ id: "common.no" }),
       },
       {
         id: "actions",

@@ -21,10 +21,11 @@ import { employeeWarningLabel } from "@/lib/hr-enums";
 import { EmployeeAnnualStatement } from "@/pages/hr/EmployeeAnnualStatement";
 import { EmployeeContracts } from "@/pages/hr/EmployeeContracts";
 import { EmployeePartnerAccess } from "@/pages/hr/EmployeePartnerAccess";
+import { EmployeeHistory } from "@/pages/hr/EmployeeHistory";
 import { EmployeeLoansPanel } from "@/pages/payroll/EmployeeLoans";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const SECTIONS = ["personal", "employment", "pay", "contracts", "partners", "loans", "statement"] as const;
+const SECTIONS = ["personal", "employment", "pay", "contracts", "partners", "loans", "statement", "history"] as const;
 type Section = (typeof SECTIONS)[number];
 /** Sections edited through the one employee form (and its single Save button). */
 const FORM_SECTIONS: Section[] = ["personal", "employment", "pay"];
@@ -111,6 +112,7 @@ interface FormState {
   isActive: boolean;
   isPrimaryEmployer: boolean;
   pensionExempt: boolean;
+  taxExempt: boolean;
   receivePayslipsByEmail: boolean;
   preferredLanguage: string;
   commissionPlanId: string;
@@ -137,6 +139,7 @@ function initialState(employee: EmployeeDetailResponse | null): FormState {
     isActive: employee?.isActive ?? true,
     isPrimaryEmployer: employee?.isPrimaryEmployer ?? true,
     pensionExempt: employee?.pensionExempt ?? false,
+    taxExempt: employee?.taxExempt ?? false,
     receivePayslipsByEmail: employee?.receivePayslipsByEmail ?? false,
     preferredLanguage: employee?.preferredLanguage ?? "sq",
     commissionPlanId: employee?.commissionPlanId ?? "",
@@ -245,6 +248,7 @@ function EmployeeEditor({
       monthlyGrossSalary: Number(form.monthlyGrossSalary),
       isPrimaryEmployer: form.isPrimaryEmployer,
       pensionExempt: form.pensionExempt,
+      taxExempt: form.taxExempt,
       isActive: form.isActive,
       receivePayslipsByEmail: form.receivePayslipsByEmail,
       preferredLanguage: form.preferredLanguage,
@@ -418,21 +422,27 @@ function EmployeeEditor({
                     <Input id="emp-login" readOnly disabled value={employee?.userEmail ?? intl.formatMessage({ id: "hr.employee.noLogin" })} />
                   </Field>
                 </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Field id="emp-employer-type" label={intl.formatMessage({ id: "hr.employee.employerType" })}>
+                    <Select
+                      id="emp-employer-type"
+                      disabled={readOnly}
+                      value={form.isPrimaryEmployer ? "primary" : "secondary"}
+                      onValueChange={(v) => set("isPrimaryEmployer", v === "primary")}
+                      options={[
+                        { value: "primary", label: intl.formatMessage({ id: "hr.employee.employerType.primary" }) },
+                        { value: "secondary", label: intl.formatMessage({ id: "hr.employee.employerType.secondary" }) },
+                      ]}
+                    />
+                  </Field>
+                </div>
                 <div className="flex flex-wrap items-center gap-4">
                   <label className="flex items-center gap-2 text-sm">
                     <Checkbox disabled={readOnly} checked={form.isActive} onChange={(e) => set("isActive", e.target.checked)} />
                     {intl.formatMessage({ id: "common.active" })}
                   </label>
                   <label className="flex items-center gap-2 text-sm">
-                    <Checkbox
-                      disabled={readOnly}
-                      checked={form.isPrimaryEmployer}
-                      onChange={(e) => set("isPrimaryEmployer", e.target.checked)}
-                    />
-                    {intl.formatMessage({ id: "hr.employee.primaryEmployer" })}
-                  </label>
-                  <label className="flex items-center gap-2 text-sm">
-                    <Checkbox disabled={readOnly} checked={form.pensionExempt} onChange={(e) => set("pensionExempt", e.target.checked)} />
+                    <Checkbox disabled={readOnly} checked={!form.pensionExempt} onChange={(e) => set("pensionExempt", !e.target.checked)} />
                     {intl.formatMessage({ id: "hr.employee.pensionExempt" })}
                   </label>
                   <label className="flex items-center gap-2 text-sm">
@@ -448,7 +458,7 @@ function EmployeeEditor({
                     <Select disabled={readOnly} value={form.preferredLanguage} onValueChange={(v) => set("preferredLanguage", v)} options={[{ value: "sq", label: "Shqip" }, { value: "en", label: "English" }]} />
                   </label>
                 </div>
-                <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.primaryEmployerHint" })}</p>
+                <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.employerTypeHint" })}</p>
               </div>
             )}
 
@@ -457,35 +467,44 @@ function EmployeeEditor({
             )}
 
             {section === "pay" && !employee?.payDataHidden && (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Field
-                  id="emp-salary"
-                  label={intl.formatMessage({ id: "hr.employee.monthlyGrossSalary" })}
-                  hint={intl.formatMessage({ id: "hr.employee.monthlyGrossSalaryHint" })}
-                >
-                  <Input
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <Field
                     id="emp-salary"
-                    type="number"
-                    min="0.01"
-                    step="0.01"
-                    required
-                    className="text-right tabular-nums"
-                    disabled={readOnly}
-                    value={form.monthlyGrossSalary}
-                    onChange={(e) => set("monthlyGrossSalary", e.target.value)}
-                    placeholder="0.00"
-                  />
-                </Field>
-                <Field id="emp-iban" label={intl.formatMessage({ id: "hr.employee.iban" })} hint={intl.formatMessage({ id: "hr.employee.ibanHint" })}>
-                  <Input id="emp-iban" className="font-mono" disabled={readOnly} value={form.iban} onChange={(e) => set("iban", e.target.value.toUpperCase())} />
-                </Field>
-                <Field id="emp-bank" label={intl.formatMessage({ id: "hr.employee.bankName" })}>
-                  <Input id="emp-bank" disabled={readOnly} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
-                </Field>
-                <Field id="emp-commission" label={intl.formatMessage({ id: "hr.employee.commissionPlan" })} hint={intl.formatMessage({ id: "hr.employee.commissionPlanHint" })}>
-                  <Select id="emp-commission" disabled={readOnly} value={form.commissionPlanId} onValueChange={(v) => set("commissionPlanId", v)} options={[{ value: "", label: intl.formatMessage({ id: "hr.employee.noCommission" }) }, ...(commissionPlansQuery.data ?? [])
-                      .filter((p) => p.isActive || p.id === form.commissionPlanId).map((p) => ({ value: p.id, label: p.name }))]} />
-                </Field>
+                    label={intl.formatMessage({ id: "hr.employee.monthlyGrossSalary" })}
+                    hint={intl.formatMessage({ id: "hr.employee.monthlyGrossSalaryHint" })}
+                  >
+                    <Input
+                      id="emp-salary"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      required
+                      className="text-right tabular-nums"
+                      disabled={readOnly}
+                      value={form.monthlyGrossSalary}
+                      onChange={(e) => set("monthlyGrossSalary", e.target.value)}
+                      placeholder="0.00"
+                    />
+                  </Field>
+                  <Field id="emp-iban" label={intl.formatMessage({ id: "hr.employee.iban" })} hint={intl.formatMessage({ id: "hr.employee.ibanHint" })}>
+                    <Input id="emp-iban" className="font-mono" disabled={readOnly} value={form.iban} onChange={(e) => set("iban", e.target.value.toUpperCase())} />
+                  </Field>
+                  <Field id="emp-bank" label={intl.formatMessage({ id: "hr.employee.bankName" })}>
+                    <Input id="emp-bank" disabled={readOnly} value={form.bankName} onChange={(e) => set("bankName", e.target.value)} />
+                  </Field>
+                  <Field id="emp-commission" label={intl.formatMessage({ id: "hr.employee.commissionPlan" })} hint={intl.formatMessage({ id: "hr.employee.commissionPlanHint" })}>
+                    <Select id="emp-commission" disabled={readOnly} value={form.commissionPlanId} onValueChange={(v) => set("commissionPlanId", v)} options={[{ value: "", label: intl.formatMessage({ id: "hr.employee.noCommission" }) }, ...(commissionPlansQuery.data ?? [])
+                        .filter((p) => p.isActive || p.id === form.commissionPlanId).map((p) => ({ value: p.id, label: p.name }))]} />
+                  </Field>
+                </div>
+                <div className="flex flex-wrap items-center gap-4">
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox disabled={readOnly} checked={!form.taxExempt} onChange={(e) => set("taxExempt", !e.target.checked)} />
+                    {intl.formatMessage({ id: "hr.employee.taxApplied" })}
+                  </label>
+                </div>
+                <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.taxAppliedHint" })}</p>
               </div>
             )}
 
@@ -519,6 +538,7 @@ function EmployeeEditor({
         )}
         {employee && section === "loans" && <EmployeeLoansPanel companyId={companyId} employeeId={employee.id} />}
         {employee && section === "statement" && <EmployeeAnnualStatement companyId={companyId} employeeId={employee.id} />}
+        {employee && section === "history" && <EmployeeHistory companyId={companyId} employeeId={employee.id} />}
       </CardContent>
     </Card>
   );

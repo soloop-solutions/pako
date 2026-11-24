@@ -55,7 +55,10 @@ public record BankStatementLineResponse(
     string? DocumentNumber,
     decimal? DocumentOutstanding,
     decimal? MatchAmount,
-    Guid? JournalEntryId);
+    Guid? JournalEntryId,
+    Guid? PaymentId = null,
+    Guid? DirectAccountId = null,
+    string? DirectAccountName = null);
 
 public record BankStatementDetailResponse(
     BankStatementSummaryResponse Summary,
@@ -71,8 +74,12 @@ public record BankStatementCandidateResponse(
     string Kind, Guid Id, string Number, Guid PartnerId, string PartnerName, DateOnly IssueDate, decimal Outstanding);
 
 // Ignore = true: the line is not a customer or supplier payment. InvoiceId/BillId (+ Amount, default
-// the smaller of the line amount and what is open): pay that document. Nothing: clear back to Open.
-public record UpdateBankStatementLineRequest(Guid? InvoiceId = null, Guid? BillId = null, decimal? Amount = null, bool? Ignore = null);
+// the smaller of the line amount and what is open): pay that document. PaymentId: match to an
+// outstanding payment (2-step clearing). DirectAccountId (+ optional DirectPartnerId): create a
+// direct entry against an expense/revenue account. Nothing: clear back to Open.
+public record UpdateBankStatementLineRequest(
+    Guid? InvoiceId = null, Guid? BillId = null, decimal? Amount = null, bool? Ignore = null,
+    Guid? PaymentId = null, Guid? DirectAccountId = null, Guid? DirectPartnerId = null);
 
 // The bank accounts a statement can be imported into (ledger accounts of sub-type Bank).
 public record BankStatementAccountResponse(Guid Id, string Code, string Name);

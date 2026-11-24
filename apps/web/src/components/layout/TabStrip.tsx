@@ -52,7 +52,7 @@ function SortableTab({
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
 
   const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null),
     transition,
     zIndex: isDragging ? 20 : undefined,
     opacity: isDragging ? 0.8 : 1,

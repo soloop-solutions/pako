@@ -91,15 +91,27 @@ public class BankStatementLine
     public Guid? JournalEntryId { get; set; }
     public Guid? ReconciliationId { get; set; }
 
+    // Two-step payments: when matched to an outstanding Payment (instead of a document directly).
+    public Guid? PaymentId { get; set; }
+
+    // Direct entry: when no invoice/bill/payment matches, user assigns an account directly.
+    // The confirm/post step creates a 2-line JE (Dr/Cr Account <-> Bank).
+    public Guid? DirectAccountId { get; set; }
+
     public bool IsIncoming => AmountIn > 0;
     public decimal Amount => AmountIn > 0 ? AmountIn : AmountOut;
-    public bool HasMatch => (InvoiceId is not null || BillId is not null) && MatchAmount > 0;
+    public bool HasMatch =>
+        ((InvoiceId is not null || BillId is not null) && MatchAmount > 0)
+        || PaymentId is not null
+        || DirectAccountId is not null;
 
     public void ClearMatch()
     {
         InvoiceId = null;
         BillId = null;
         MatchAmount = null;
+        PaymentId = null;
+        DirectAccountId = null;
     }
 
     public static string FingerprintOf(Guid bankAccountId, DateOnly date, decimal amountIn, decimal amountOut, string? reference, int occurrence)

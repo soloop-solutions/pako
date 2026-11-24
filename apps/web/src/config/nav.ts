@@ -9,6 +9,7 @@ import {
   Undo2,
   RotateCcw,
   FileClock,
+  CreditCard,
   GitMerge,
   Landmark,
   BarChart3,
@@ -106,6 +107,7 @@ const MyPayslips = lazy(() => import("@/pages/me/MyPayslips").then(m => ({ defau
 const MyProfile = lazy(() => import("@/pages/me/MyProfile").then(m => ({ default: m.MyProfile })));
 const Reconciliation = lazy(() => import("@/pages/reconciliation/Reconciliation").then(m => ({ default: m.Reconciliation })));
 const BankStatements = lazy(() => import("@/pages/bank/BankStatements").then(m => ({ default: m.BankStatements })));
+const PaymentsPage = lazy(() => import("@/pages/bank/PaymentsPage").then(m => ({ default: m.PaymentsPage })));
 const Reports = lazy(() => import("@/pages/Reports").then(m => ({ default: m.Reports })));
 const Items = lazy(() => import("@/pages/items/Items").then(m => ({ default: m.Items })));
 const ItemCategories = lazy(() => import("@/pages/inventory/ItemCategories").then(m => ({ default: m.ItemCategories })));
@@ -504,6 +506,14 @@ export const navCategories: NavCategory[] = [
         icon: Landmark,
         descriptionKey: "nav.bankStatements.description",
         Element: BankStatements,
+        module: "accounting",
+      },
+      {
+        titleKey: "nav.payments",
+        path: "/payments",
+        icon: CreditCard,
+        descriptionKey: "nav.payments.description",
+        Element: PaymentsPage,
         module: "accounting",
       },
       {

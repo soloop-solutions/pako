@@ -167,7 +167,9 @@ public class CompaniesController : ControllerBase
             ExpenseAccountId = accountIdsByCode["661200"],
             CustomerDepositsAccountId = accountIdsByCode["240300"],
             ReverseChargeInputVatAccountId = accountIdsByCode["113300"],
-            ReverseChargeOutputVatAccountId = accountIdsByCode["210300"]
+            ReverseChargeOutputVatAccountId = accountIdsByCode["210300"],
+            OutstandingPaymentsAccountId = accountIdsByCode.GetValueOrDefault("100400") is var outPay && outPay != Guid.Empty ? outPay : null,
+            OutstandingReceiptsAccountId = accountIdsByCode.GetValueOrDefault("100500") is var outRec && outRec != Guid.Empty ? outRec : null
         };
 
         if (company.EnabledProfiles.HasFlag(CompanyProfile.Payroll))
@@ -194,7 +196,9 @@ public class CompaniesController : ControllerBase
             new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Sale, Code = "SAL", Name = "Sales", SequencePrefix = "SAL", SequenceNextNumber = 1, SequencePadding = 4 },
             new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Purchase, Code = "PUR", Name = "Purchases", SequencePrefix = "PUR", SequenceNextNumber = 1, SequencePadding = 4 },
             new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Cash, Code = "CSH", Name = "Cash", SequencePrefix = "CSH", SequenceNextNumber = 1, SequencePadding = 4 },
-            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Bank, Code = "BNK", Name = "Bank", SequencePrefix = "BNK", SequenceNextNumber = 1, SequencePadding = 4 });
+            new Journal { Id = Guid.NewGuid(), CompanyId = company.Id, Type = JournalType.Bank, Code = "BNK", Name = "Bank", SequencePrefix = "BNK", SequenceNextNumber = 1, SequencePadding = 4,
+                OutstandingPaymentsAccountId = accountDefaults.OutstandingPaymentsAccountId,
+                OutstandingReceiptsAccountId = accountDefaults.OutstandingReceiptsAccountId });
 
         // Track C4: two starter payment methods so the record-payment/pay-at-creation pickers
         // aren't empty out of the box — "100100 Arka kryesore"/"101003 Banka ProCredit" are both

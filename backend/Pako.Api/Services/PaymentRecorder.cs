@@ -5,15 +5,25 @@ using Pako.Domain.Bills;
 using Pako.Domain.Companies;
 using Pako.Domain.Invoicing;
 using Pako.Domain.Ledger;
+using Pako.Domain.Payments;
 using Pako.Domain.Reconciliation;
 using Pako.Infrastructure;
 
 namespace Pako.Api.Services;
 
-// "Record a payment" against one posted invoice or bill: the settlement entry (Cash/Bank against the
-// partner's AR/AP control line), posted, then reconciled against the document. Shared by the invoice
-// and bill record-payment endpoints (and their inline-payment-on-create branch) and the bank statement
-// import, so a payment from a statement is posted exactly like one entered by hand.
+// "Record a payment" against one posted invoice or bill: the settlement entry (Outstanding or
+// Cash/Bank against the partner's AR/AP control line), posted, then reconciled against the document.
+// Shared by the invoice and bill record-payment endpoints (and their inline-payment-on-create branch)
+// and the bank statement import, so a payment from a statement is posted exactly like one entered
+// by hand.
+//
+// Two-step mode (Odoo-style): when the journal has OutstandingReceiptsAccountId /
+// OutstandingPaymentsAccountId set, the settlement entry hits the Outstanding account instead of
+// the bank account directly. A Payment record is created to track the clearing. Bank reconciliation
+// later clears Outstanding to Bank via PaymentClearingService.
+//
+// One-step mode (legacy): when the journal's outstanding accounts are null (Cash journals, or older
+// companies), the settlement entry hits the bank/cash account directly, same as before.
 //
 // The caller owns the transaction and the final SaveChanges. This does one intermediate SaveChanges
 // after the settlement entry, because ReconciliationCreator reads the settlement line back from the
@@ -21,12 +31,12 @@ namespace Pako.Api.Services;
 // the previous ones saved.
 public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMessages> localizer)
 {
-    public readonly record struct Outcome(Reconciliation? Reconciliation, JournalEntry? Entry, string? Error, bool NotFound = false)
+    public readonly record struct Outcome(Reconciliation? Reconciliation, JournalEntry? Entry, Payment? Payment, string? Error, bool NotFound = false)
     {
         public bool Succeeded => Reconciliation is not null;
     }
 
-    private static Outcome Failed(string error) => new(null, null, error);
+    private static Outcome Failed(string error) => new(null, null, null, error);
 
     // auditUserId: when given, stages the semantic "Payment"/"Refund" audit event on the invoice (the
     // invoice endpoints always did; bills never did, and that is kept as it was).
@@ -44,8 +54,9 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
         // reverse: cash IN (Debit Cash), receivable cleared (Credit AR).
         var isCreditDocument = invoice.DocumentType is Pako.Domain.Invoicing.DocumentType.CreditNote or Pako.Domain.Invoicing.DocumentType.SalesReturn;
         var reference = isCreditDocument ? $"Refund for {invoice.InvoiceNumber}" : $"Payment for {invoice.InvoiceNumber}";
+        var direction = isCreditDocument ? PaymentDirection.Outbound : PaymentDirection.Inbound;
         var outcome = await PostAndReconcileAsync(company, cashOrBankAccountId, receivableAccountId, invoice.PartnerId,
-            controlIsDebit: isCreditDocument, amount, date, reference, invoice.Id, null);
+            controlIsDebit: isCreditDocument, amount, date, reference, invoice.Id, null, direction, auditUserId);
 
         if (outcome.Succeeded && auditUserId is not null)
         {
@@ -58,7 +69,7 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
     }
 
     public async Task<Outcome> ForBillAsync(
-        Company company, Bill bill, decimal amount, Guid cashOrBankAccountId, DateOnly date)
+        Company company, Bill bill, decimal amount, Guid cashOrBankAccountId, DateOnly date, string? createdByUserId = null)
     {
         var payableAccountId = await PayableAccountIdAsync(company.Id, bill.PartnerId);
         if (payableAccountId == Guid.Empty)
@@ -71,13 +82,15 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
         // bills are the reverse: cash OUT (Credit Cash), payable cleared (Debit AP).
         var isCreditDocument = bill.DocumentType is Pako.Domain.Bills.DocumentType.CreditNote or Pako.Domain.Bills.DocumentType.PurchaseReturn;
         var reference = isCreditDocument ? $"Refund for {bill.VendorReference}" : $"Payment for {bill.VendorReference}";
+        var direction = isCreditDocument ? PaymentDirection.Inbound : PaymentDirection.Outbound;
         return await PostAndReconcileAsync(company, cashOrBankAccountId, payableAccountId, bill.PartnerId,
-            controlIsDebit: !isCreditDocument, amount, date, reference, null, bill.Id);
+            controlIsDebit: !isCreditDocument, amount, date, reference, null, bill.Id, direction, createdByUserId);
     }
 
     private async Task<Outcome> PostAndReconcileAsync(
         Company company, Guid cashOrBankAccountId, Guid controlAccountId, Guid partnerId, bool controlIsDebit,
-        decimal amount, DateOnly date, string reference, Guid? invoiceId, Guid? billId)
+        decimal amount, DateOnly date, string reference, Guid? invoiceId, Guid? billId,
+        PaymentDirection direction, string? createdByUserId)
     {
         // B9: the Cash or Bank journal, whichever matches the account the money actually moved through.
         var subType = await db.Accounts.AsNoTracking()
@@ -87,6 +100,16 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
         {
             return Failed(localizer["NoJournalToPost"].Value);
         }
+
+        // Two-step mode: use the outstanding account if the journal has one configured.
+        // Inbound (customer pays us) → OutstandingReceiptsAccountId
+        // Outbound (we pay vendor) → OutstandingPaymentsAccountId
+        var outstandingAccountId = direction == PaymentDirection.Inbound
+            ? journal.OutstandingReceiptsAccountId
+            : journal.OutstandingPaymentsAccountId;
+
+        // The counter-account: Outstanding if 2-step, or the actual Cash/Bank if 1-step.
+        var counterAccountId = outstandingAccountId ?? cashOrBankAccountId;
 
         var entry = new JournalEntry
         {
@@ -102,22 +125,22 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
             Debit = controlIsDebit ? amount : 0m,
             Credit = controlIsDebit ? 0m : amount,
         };
-        var cashLine = new JournalEntryLine
+        var counterLine = new JournalEntryLine
         {
-            Id = Guid.NewGuid(), AccountId = cashOrBankAccountId,
+            Id = Guid.NewGuid(), AccountId = counterAccountId,
             Debit = controlIsDebit ? 0m : amount,
             Credit = controlIsDebit ? amount : 0m,
         };
-        // Same line order as before the extraction: cash first for invoices, control first for bills.
+        // Same line order as before the extraction: counter first for invoices, control first for bills.
         if (invoiceId is not null)
         {
-            entry.Lines.Add(cashLine);
+            entry.Lines.Add(counterLine);
             entry.Lines.Add(controlLine);
         }
         else
         {
             entry.Lines.Add(controlLine);
-            entry.Lines.Add(cashLine);
+            entry.Lines.Add(counterLine);
         }
 
         try
@@ -138,11 +161,36 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
         await db.SaveChangesAsync();
 
         var result = await ReconciliationCreator.TryCreateAsync(db, company.Id, invoiceId, billId, controlLine.Id, amount);
+
+        // Create Payment record if 2-step mode
+        Payment? payment = null;
+        if (outstandingAccountId is not null)
+        {
+            payment = new Payment
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = company.Id,
+                Direction = direction,
+                PartnerId = partnerId,
+                Amount = amount,
+                Date = date,
+                Reference = reference,
+                JournalEntryId = entry.Id,
+                DestinationAccountId = cashOrBankAccountId,
+                OutstandingAccountId = outstandingAccountId.Value,
+                InvoiceId = invoiceId,
+                BillId = billId,
+                State = PaymentState.Posted,
+                CreatedByUserId = createdByUserId,
+            };
+            db.Payments.Add(payment);
+        }
+
         return result.Status switch
         {
-            ReconciliationCreationStatus.NotFound => new Outcome(null, null, null, NotFound: true),
+            ReconciliationCreationStatus.NotFound => new Outcome(null, null, null, null, NotFound: true),
             ReconciliationCreationStatus.ValidationFailed => Failed(result.Error ?? ""),
-            _ => new Outcome(result.Reconciliation, entry, null),
+            _ => new Outcome(result.Reconciliation, entry, payment, null),
         };
     }
 

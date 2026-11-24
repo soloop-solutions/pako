@@ -1022,7 +1022,12 @@ public class BillsController : ControllerBase
             ? reconciledViaControlLine + reconciledViaDocument
             : reconciledViaDocument;
 
-        return new DocumentBalanceResponse(total, reconciled, total - reconciled);
+        // InPayment: sum of outstanding Payment records (2-step, awaiting bank rec) for this bill
+        var inPayment = await _db.Payments.AsNoTracking()
+            .Where(p => p.BillId == billId && p.State == Domain.Payments.PaymentState.Posted)
+            .SumAsync(p => p.Amount);
+
+        return new DocumentBalanceResponse(total, reconciled, total - reconciled, inPayment);
     }
 
     private static ReconciliationResponse ToReconciliationResponse(Reconciliation r) =>

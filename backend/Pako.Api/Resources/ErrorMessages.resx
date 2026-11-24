@@ -2029,4 +2029,32 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="CompanyFiscalNumberAlreadyRegistered" xml:space="preserve">
     <value>This fiscal number ({0}) is already registered to another company on PAKO. A company cannot be registered twice; contact the firm or administrator that manages it.</value>
   </data>
+  <data name="PaymentNotFound" xml:space="preserve"><value>Payment not found or already reconciled.</value></data>
+  <data name="PaymentNotOutstanding" xml:space="preserve"><value>Payment is not in outstanding state.</value></data>
+  <data name="PaymentAlreadyCancelled" xml:space="preserve"><value>This payment has already been cancelled.</value></data>
+  <data name="BankStmtDirectAccountNotPostable" xml:space="preserve"><value>This account cannot be used for direct entries.</value></data>
+  <data name="BankStmtDirectAccountIsControl" xml:space="preserve"><value>Control accounts (AR/AP) cannot be used. Record a bill or invoice instead.</value></data>
+  <data name="Export_Common_Yes" xml:space="preserve"><value>Yes</value></data>
+  <data name="Export_Common_No" xml:space="preserve"><value>No</value></data>
+  <data name="Export_Payroll_Employee" xml:space="preserve"><value>Employee</value></data>
+  <data name="Export_Payroll_PersonalNumber" xml:space="preserve"><value>Personal number</value></data>
+  <data name="Export_Payroll_Department" xml:space="preserve"><value>Department</value></data>
+  <data name="Export_Payroll_WorkingDays" xml:space="preserve"><value>Working days</value></data>
+  <data name="Export_Payroll_PaidDays" xml:space="preserve"><value>Paid days</value></data>
+  <data name="Export_Payroll_BaseSalary" xml:space="preserve"><value>Base salary</value></data>
+  <data name="Export_Payroll_Bonuses" xml:space="preserve"><value>Bonuses</value></data>
+  <data name="Export_Payroll_OtherAdditions" xml:space="preserve"><value>Other additions</value></data>
+  <data name="Export_Payroll_Gross" xml:space="preserve"><value>Gross</value></data>
+  <data name="Export_Payroll_EmployeePension" xml:space="preserve"><value>Employee pension</value></data>
+  <data name="Export_Payroll_EmployerPension" xml:space="preserve"><value>Employer pension</value></data>
+  <data name="Export_Payroll_Pit" xml:space="preserve"><value>PIT</value></data>
+  <data name="Export_Payroll_Deductions" xml:space="preserve"><value>Deductions</value></data>
+  <data name="Export_Payroll_NetPay" xml:space="preserve"><value>Net pay</value></data>
+  <data name="Export_Payroll_PrimaryEmployer" xml:space="preserve"><value>Primary employer</value></data>
+  <data name="Export_Payroll_HasContributions" xml:space="preserve"><value>Has contributions</value></data>
+  <data name="Export_Payroll_HasTax" xml:space="preserve"><value>Has tax</value></data>
+  <data name="Export_Payroll_Register" xml:space="preserve"><value>Payroll Register</value></data>
+  <data name="Export_Payroll_Payslip" xml:space="preserve"><value>Payslip</value></data>
+  <data name="Export_Payroll_Payslips" xml:space="preserve"><value>Payslips</value></data>
+  <data name="Export_Payroll_EmployeesList" xml:space="preserve"><value>Employees List</value></data>
 </root>

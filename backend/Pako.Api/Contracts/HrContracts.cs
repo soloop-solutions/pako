@@ -58,6 +58,7 @@ public record SaveEmployeeRequest(
     decimal MonthlyGrossSalary,
     bool IsPrimaryEmployer = true,
     bool PensionExempt = false,
+    bool TaxExempt = false,
     bool IsActive = true,
     // E7. Null keeps the stored value, so older clients don't silently switch these off.
     bool? ReceivePayslipsByEmail = null,
@@ -90,6 +91,7 @@ public record EmployeeDetailResponse(
     decimal CurrentSalary,
     bool IsPrimaryEmployer,
     bool PensionExempt,
+    bool TaxExempt,
     bool IsActive,
     int AssignedPartnerCount,
     List<string> Warnings,
@@ -188,7 +190,10 @@ public record PayslipDetailResponse(
     // G10/H13: the loan-repayment part of DeductionsAmount, and untaxed expense reimbursements
     // included in NetPay.
     decimal LoanRepaymentAmount = 0m,
-    decimal ReimbursementAmount = 0m);
+    decimal ReimbursementAmount = 0m,
+    // Snapshots of the employee's exemption flags at the time the slip was computed.
+    bool PensionExempt = false,
+    bool TaxExempt = false);
 
 public record PayrollRunTotals(
     decimal Gross,

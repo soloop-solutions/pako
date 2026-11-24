@@ -37,5 +37,9 @@ public class PayslipLine
     public decimal NetPay { get; set; }
     public bool IsPrimaryEmployer { get; set; } = true;
 
+    // Snapshots of the employee's exemption flags at the time the slip was computed.
+    public bool PensionExempt { get; set; }
+    public bool TaxExempt { get; set; }
+
     public PayrollRun? PayrollRun { get; set; }
 }

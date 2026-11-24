@@ -31,16 +31,17 @@ export function StockDocuments() {
   const grid = useDataGridUrlState(GRID_ID, 50);
   const [type, setType] = useUrlParam("type", "", [`${GRID_ID}.page`]);
 
+  const sort = grid.sort ? `${grid.sort.desc ? "-" : ""}${grid.sort.id}` : undefined;
   const query = useQuery({
-    queryKey: ["stockDocuments", activeCompanyId, type, grid.page, grid.pageSize, grid.globalFilter],
+    queryKey: ["stockDocuments", activeCompanyId, type, grid.page, grid.pageSize, grid.globalFilter, sort],
     queryFn: () => apiClient.listStockDocuments(activeCompanyId as string, type === "" ? undefined : Number(type),
-      grid.globalFilter || undefined, grid.page, grid.pageSize, undefined),
+      grid.globalFilter || undefined, grid.page, grid.pageSize, undefined, sort),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
 
   const columns = useMemo<ColumnDef<StockDocumentSummaryResponse>[]>(
-    () => [
+    () => ([
       { accessorKey: "date", header: t("stock.card.date"), cell: ({ getValue }) => intl.formatDate(new Date(`${getValue() as string}T00:00`), { dateStyle: "medium" }) },
       { accessorKey: "number", header: t("stock.doc.number"), cell: ({ getValue }) => (getValue() as string | undefined) ?? t("stock.doc.draftNumber") },
       { accessorKey: "type", header: t("stock.doc.type"), cell: ({ getValue }) => t(`stock.doc.type.${stockDocumentTypeKey(getValue() as number)}`) },
@@ -58,7 +59,7 @@ export function StockDocuments() {
           ? <Badge variant="success">{t("stock.doc.posted")}</Badge>
           : <Badge variant="outline" className="italic">{t("stock.doc.draft")}</Badge>,
       },
-    ],
+    ] as ColumnDef<StockDocumentSummaryResponse>[]).map((col) => ({ ...col, enableColumnFilter: false })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [intl],
   );

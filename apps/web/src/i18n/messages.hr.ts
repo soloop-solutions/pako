@@ -78,13 +78,20 @@ export const hrEn: Record<string, string> = {
   "hr.employee.linkedLoginHint": "To give this employee a login, add them as Staff in Settings → Members.",
   "hr.employee.noLogin": "No login",
   "hr.employee.primaryEmployer": "Primary employer",
-  "hr.employee.pensionExempt": "Exempt from pension contributions",
+  "hr.employee.employerType": "Employer type",
+  "hr.employee.employerType.primary": "Primary employer",
+  "hr.employee.employerType.secondary": "Secondary employer",
+  "hr.employee.employerTypeHint": "Secondary employer: flat 10% PIT, no 0% bracket.",
+  "hr.employee.pensionExempt": "Contributions included",
+  "hr.employee.pensionExemptHint": "Untick if the employee is past pension age or otherwise exempt from contributions.",
   "hr.employee.primaryEmployerHint":
     "Untick primary employer if this is the employee's second job (taxed at a flat 10%). Pension exemption applies to employees past pension age.",
+  "hr.employee.taxApplied": "Tax applied",
+  "hr.employee.taxAppliedHint": "Untick if the employee is exempt from personal income tax.",
   "hr.employee.monthlyGrossSalary": "Monthly gross salary",
   "hr.employee.monthlyGrossSalaryHint": "Used when no contract covers the payroll month.",
   "hr.employee.currentSalary": "Current salary",
-  "hr.employee.iban": "IBAN",
+  "hr.employee.iban": "Bank account (IBAN)",
   "hr.employee.ibanHint": "Salaries must be paid through a bank account.",
   "hr.employee.bankName": "Bank",
   "hr.employee.status": "Status",
@@ -188,6 +195,21 @@ export const hrEn: Record<string, string> = {
   "hr.employee.receivePayslipsByEmail": "Email payslips (PDF) when payroll is posted",
   "hr.employee.preferredLanguage": "Language for emails and documents",
   "hr.contract.probationEndDate": "Probation ends",
+
+  // History
+  "hr.employee.section.history": "History",
+  "hr.employee.history.empty": "No changes recorded.",
+  "hr.employee.history.loadError": "Could not load change history.",
+  "hr.employee.history.loadMore": "Load more",
+  "hr.employee.history.created": "Created",
+  "hr.employee.history.updated": "Updated",
+
+  // Payroll grid boolean columns
+  "payroll.payslip.isPrimary": "Primary",
+  "payroll.payslip.hasContributions": "Has contributions",
+  "payroll.payslip.hasTax": "Has tax",
+  "common.yes": "Yes",
+  "common.no": "No",
 };
 
 export const hrSq: Record<string, string> = {
@@ -267,13 +289,20 @@ export const hrSq: Record<string, string> = {
   "hr.employee.linkedLoginHint": "Për t'i dhënë qasje këtij punonjësi, shtoje si Staf te Cilësimet → Anëtarët.",
   "hr.employee.noLogin": "Pa qasje",
   "hr.employee.primaryEmployer": "Punëdhënës primar",
-  "hr.employee.pensionExempt": "I liruar nga kontributet pensionale",
+  "hr.employee.employerType": "Lloji i punëdhënësit",
+  "hr.employee.employerType.primary": "Punëdhënës primar",
+  "hr.employee.employerType.secondary": "Punëdhënës sekondar",
+  "hr.employee.employerTypeHint": "Punëdhënës sekondar: tatim i sheshtë 10%, pa fashën 0%.",
+  "hr.employee.pensionExempt": "Përfshihen kontributet",
+  "hr.employee.pensionExemptHint": "Hiqe nëse punonjësi ka kaluar moshën e pensionit ose është i liruar nga kontributet.",
   "hr.employee.primaryEmployerHint":
     "Hiqe punëdhënësin primar nëse kjo është puna e dytë e punonjësit (tatohet me 10% të sheshtë). Lirimi nga pensioni vlen për punonjësit mbi moshën e pensionit.",
+  "hr.employee.taxApplied": "Aplikohet tatimi",
+  "hr.employee.taxAppliedHint": "Hiqe nëse punonjësi është i liruar nga tatimi në të ardhura personale.",
   "hr.employee.monthlyGrossSalary": "Paga bruto mujore",
   "hr.employee.monthlyGrossSalaryHint": "Përdoret kur asnjë kontratë nuk e mbulon muajin e pagave.",
   "hr.employee.currentSalary": "Paga aktuale",
-  "hr.employee.iban": "IBAN",
+  "hr.employee.iban": "Llogaria bankare (IBAN)",
   "hr.employee.ibanHint": "Pagat duhet të paguhen përmes llogarisë bankare.",
   "hr.employee.bankName": "Banka",
   "hr.employee.status": "Statusi",
@@ -377,4 +406,19 @@ export const hrSq: Record<string, string> = {
   "hr.employee.receivePayslipsByEmail": "Dërgo fletëpagesat me email (PDF) kur postohet paga",
   "hr.employee.preferredLanguage": "Gjuha për email-e dhe dokumente",
   "hr.contract.probationEndDate": "Puna provuese përfundon",
+
+  // History
+  "hr.employee.section.history": "Historiku",
+  "hr.employee.history.empty": "Nuk ka ndryshime të regjistruara.",
+  "hr.employee.history.loadError": "Historiku i ndryshimeve nuk u ngarkua.",
+  "hr.employee.history.loadMore": "Ngarko më shumë",
+  "hr.employee.history.created": "U krijua",
+  "hr.employee.history.updated": "U ndryshua",
+
+  // Payroll grid boolean columns
+  "payroll.payslip.isPrimary": "Primare",
+  "payroll.payslip.hasContributions": "Ka kontribute",
+  "payroll.payslip.hasTax": "Ka tatim",
+  "common.yes": "PO",
+  "common.no": "JO",
 };

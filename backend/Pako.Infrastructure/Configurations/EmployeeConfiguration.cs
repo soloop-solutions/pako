@@ -25,6 +25,7 @@ public class EmployeeConfiguration : IEntityTypeConfiguration<Employee>
         builder.Property(e => e.MonthlyGrossSalary).HasColumnType("numeric(18,2)");
         builder.Property(e => e.IsPrimaryEmployer).HasDefaultValue(true);
         builder.Property(e => e.PensionExempt).HasDefaultValue(false);
+        builder.Property(e => e.TaxExempt).HasDefaultValue(false);
         builder.HasIndex(e => e.CompanyId);
         builder.HasIndex(e => e.DepartmentId);
         builder.HasIndex(e => new { e.CompanyId, e.UserId }).IsUnique().HasFilter("\"UserId\" IS NOT NULL");
