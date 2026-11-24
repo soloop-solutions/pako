@@ -99,7 +99,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
   }
 
   const pages = draft ? pagesFor(draft.levels) : [];
-  const ledgerBlocked = draft?.partnerScope === PartnerScope.Assigned && (draft.levels.accounting ?? 0) > AccessLevel.None;
+  const accountingLocked = draft?.partnerScope === PartnerScope.Assigned;
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
@@ -181,25 +181,32 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                     </tr>
                   </thead>
                   <tbody>
-                    {ACCESS_AREAS.map((area) => (
-                      <tr key={area} className="border-t">
-                        <td className="px-3 py-1">
-                          <div className="font-medium">{areaLabel(area, intl)}</div>
-                          <div className="text-xs text-muted-foreground">{intl.formatMessage({ id: `admin.area.${area}.hint` })}</div>
-                        </td>
-                        {ACCESS_LEVELS.map((level) => (
-                          <td key={level} className="px-2 py-1 text-center">
-                            <input
-                              type="radio"
-                              name={`level-${area}`}
-                              aria-label={`${areaLabel(area, intl)}: ${levelLabel(level, intl)}`}
-                              checked={(draft.levels[area] ?? 0) === level}
-                              onChange={() => setLevel(area, level)}
-                            />
+                    {ACCESS_AREAS.map((area) => {
+                      const areaDisabled = area === "accounting" && accountingLocked;
+                      return (
+                        <tr key={area} className={cn("border-t", areaDisabled && "opacity-50")}>
+                          <td className="px-3 py-1">
+                            <div className="font-medium">{areaLabel(area, intl)}</div>
+                            <div className="text-xs text-muted-foreground">{intl.formatMessage({ id: `admin.area.${area}.hint` })}</div>
+                            {areaDisabled && (
+                              <div className="text-xs text-warning-foreground">{intl.formatMessage({ id: "admin.roles.accountingLockedHint" })}</div>
+                            )}
                           </td>
-                        ))}
-                      </tr>
-                    ))}
+                          {ACCESS_LEVELS.map((level) => (
+                            <td key={level} className="px-2 py-1 text-center">
+                              <input
+                                type="radio"
+                                name={`level-${area}`}
+                                aria-label={`${areaLabel(area, intl)}: ${levelLabel(level, intl)}`}
+                                checked={areaDisabled ? level === AccessLevel.None : (draft.levels[area] ?? 0) === level}
+                                disabled={areaDisabled}
+                                onChange={() => setLevel(area, level)}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -209,18 +216,20 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                 <Checkbox
                   className="mt-0.5"
                   checked={draft.partnerScope === PartnerScope.Assigned}
-                  onChange={(e) => setDraft({ ...draft, partnerScope: e.target.checked ? PartnerScope.Assigned : PartnerScope.All })}
+                  onChange={(e) => {
+                    const scope = e.target.checked ? PartnerScope.Assigned : PartnerScope.All;
+                    setDraft({
+                      ...draft,
+                      partnerScope: scope,
+                      levels: scope === PartnerScope.Assigned ? { ...draft.levels, accounting: AccessLevel.None } : draft.levels,
+                    });
+                  }}
                 />
                 <span>
                   {intl.formatMessage({ id: "admin.roles.assignedOnly" })}
                   <span className="block text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.roles.assignedOnlyHint" })}</span>
                 </span>
               </label>
-              {ledgerBlocked && (
-                <Alert>
-                  <AlertDescription>{intl.formatMessage({ id: "admin.roles.ledgerBlocked" })}</AlertDescription>
-                </Alert>
-              )}
             </fieldset>
 
             <div className="rounded-md bg-muted/40 p-3">
