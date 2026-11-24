@@ -105,7 +105,7 @@ export function Sidebar({
   function isAllowed(path: string): boolean {
     const module = moduleByPath.get(path);
     const feature = featureByPath.get(path);
-    return (!module || module === "pos" || canSee(module)) && (!feature || hasFeature(feature));
+    return (!module || canSee(module)) && (!feature || hasFeature(feature));
   }
 
   const settingsSections: SettingsMenuSection[] = [

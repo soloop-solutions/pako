@@ -11,6 +11,9 @@ node_modules/
 # E7: emails written by Email:Mode=Log in development
 backend/Pako.Api/dev-mail/
 
+# Local secrets (Email API keys, etc.) — never committed
+backend/Pako.Api/appsettings.*.local.json
+
 # Desktop packaging: downloaded Postgres and staged resources
 .cache/
 apps/desktop/resources/
