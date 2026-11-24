@@ -24,6 +24,11 @@ public record DocumentLineAmounts(decimal AmountBeforeDiscount, decimal Discount
             all.Sum(l => l.AmountBeforeDiscount), all.Sum(l => l.DiscountAmount), all.Sum(l => l.NetAmount),
             all.Sum(l => l.TaxAmount), all.Sum(l => l.GrossAmount));
     }
+
+    // A credit note or return counts against the list it sits in (client request 2026-11-24: list
+    // totals), so its amounts are summed with the opposite sign.
+    public DocumentLineAmounts Negated() =>
+        new(-AmountBeforeDiscount, -DiscountAmount, -NetAmount, -TaxAmount, -GrossAmount, UnitPriceNet, UnitPriceGross);
 }
 
 // S0.2: the gross -> discount -> VAT -> net block was duplicated inside Invoice.Post()'s and

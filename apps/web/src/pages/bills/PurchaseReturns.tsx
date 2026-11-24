@@ -7,10 +7,15 @@ import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMet
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
+import { DocumentFilterBar } from "@/components/data-grid/DocumentFilterBar";
+import { useDocumentFilters } from "@/components/data-grid/useDocumentFilters";
+import { PageHeader } from "@/components/list/PageHeader";
+import { ListTotalsBar } from "@/components/list/ListTotalsBar";
+import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
@@ -58,10 +63,11 @@ export function PurchaseReturns() {
 
   const vendors = partners.filter((p) => p.isVendor);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
+  const docFilters = useDocumentFilters(GRID_ID);
   const paged = usePagedGrid<BillResponse>({
     gridId: GRID_ID,
     enabled: !!companyId,
-    queryKey: ["purchase-returns-paged", companyId],
+    queryKey: ["purchase-returns-paged", companyId, docFilters.filters],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort, filters }) => {
       const result = await apiClient.paged(
@@ -73,14 +79,42 @@ export function PurchaseReturns() {
         undefined,
         filters.state || undefined,
         sort,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
         undefined,
-        undefined,
-        undefined,
-        undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
       );
       return { items: result.items, total: result.total };
     },
   });
+  // The totals under the list: same filters as the grid, every page (client request 2026-11-24).
+  const totalsFilters = {
+    search: paged.urlState.globalFilter.trim() || undefined,
+    state: paged.urlState.columnFilters.state || undefined,
+    ...docFilters.filters,
+  };
+  const listTotals = useQuery({
+    queryKey: ["purchaseReturns-totals", companyId, totalsFilters],
+    enabled: !!companyId,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiClient.billListTotals(
+        companyId as string,
+        totalsFilters.search,
+        [BillDocumentType.PurchaseReturn],
+        undefined,
+        totalsFilters.state,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
+        undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
+      ),
+  });
+  const ribbonOptions = useListRibbonOptions();
   const returns = useMemo(
     () => [...paged.items],
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -212,15 +246,11 @@ export function PurchaseReturns() {
         </Alert>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "purchaseReturns.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "purchaseReturns.description" })}</p>
-        </div>
-        <Button onClick={() => setFormOpen(true)}>
-          {intl.formatMessage({ id: "purchaseReturns.newReturn" })}
-        </Button>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "purchaseReturns.title" })}
+        description={intl.formatMessage({ id: "purchaseReturns.description" })}
+        newAction={{ label: intl.formatMessage({ id: "purchaseReturns.newReturn" }), onClick: () => setFormOpen(true) }}
+      />
 
       <FormDialog
         open={formOpen}
@@ -246,6 +276,14 @@ export function PurchaseReturns() {
           <CardTitle>{intl.formatMessage({ id: "purchaseReturns.returnsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
+          <DocumentFilterBar
+            controls={docFilters}
+            partners={vendors}
+            partnerLabelId="docFilters.vendor"
+            showPaymentStatus={false}
+            warehouses={ribbonOptions.warehouses}
+            users={ribbonOptions.users}
+          />
           <DataGrid
             gridId={GRID_ID}
             columns={visibleColumns}
@@ -260,6 +298,7 @@ export function PurchaseReturns() {
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />
+          <ListTotalsBar totals={listTotals.data} isLoading={listTotals.isFetching} showOutstanding={false} />
         </CardContent>
       </Card>
     </div>

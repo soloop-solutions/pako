@@ -25,12 +25,12 @@ export function PartnerDocuments({ companyId, partnerId, showSales, showPurchase
 
   const invoicesQuery = useQuery({
     queryKey: ["partnerDocuments", "invoices", companyId, partnerId],
-    queryFn: () => apiClient.paged2(companyId, 1, PAGE_SIZE, undefined, undefined, undefined, undefined, "-issueDate", partnerId, undefined, undefined, undefined),
+    queryFn: () => apiClient.paged2(companyId, 1, PAGE_SIZE, undefined, undefined, undefined, undefined, "-issueDate", partnerId, undefined, undefined, undefined, undefined, undefined),
     enabled: showSales,
   });
   const billsQuery = useQuery({
     queryKey: ["partnerDocuments", "bills", companyId, partnerId],
-    queryFn: () => apiClient.paged(companyId, 1, PAGE_SIZE, undefined, undefined, undefined, undefined, "-issueDate", partnerId, undefined, undefined, undefined),
+    queryFn: () => apiClient.paged(companyId, 1, PAGE_SIZE, undefined, undefined, undefined, undefined, "-issueDate", partnerId, undefined, undefined, undefined, undefined, undefined),
     enabled: showPurchases,
   });
 

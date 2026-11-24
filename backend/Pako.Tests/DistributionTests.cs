@@ -137,6 +137,26 @@ public class DistributionTests : IAsyncLifetime
     // Quote and order are numbered on their own series; the delivery takes the goods out with cost
     // of goods sold; the invoice made from the delivery posts revenue only, can't bill more than was
     // delivered, and the order reads its progress back from both.
+    // Client request 2026-11-24: the order list's date filter and the totals under it (all pages,
+    // VAT from the order's own tax, the gross equal to the orders' totals).
+    [Fact]
+    public async Task OrderList_FiltersByDate_AndTotalsMatchTheOrders()
+    {
+        var c = await SeedAsync();
+        var first = await OrderAsync(c, 6m, 236m);
+        var second = await OrderAsync(c, 1m, 118m);
+
+        var totals = (ListTotalsResponse)Assert.IsType<OkObjectResult>((await Orders(c).ListTotals(c.Id)).Result).Value!;
+        Assert.Equal((2, first.Total + second.Total), (totals.Count, totals.GrossAmount));
+        Assert.Equal(totals.GrossAmount, totals.NetAmount + totals.TaxAmount);
+        Assert.True(totals.TaxAmount > 0);
+
+        var none = (PaginatedResponse<SalesOrderSummaryResponse>)Assert.IsType<OkObjectResult>((await Orders(c).List(c.Id, from: Today.AddDays(1))).Result).Value!;
+        Assert.Equal(0, none.Total);
+        var today = (PaginatedResponse<SalesOrderSummaryResponse>)Assert.IsType<OkObjectResult>((await Orders(c).List(c.Id, from: Today, to: Today)).Result).Value!;
+        Assert.Equal(2, today.Total);
+    }
+
     [Fact]
     public async Task Orders_QuoteConfirmDeliverAndInvoice_TheGoodsLeaveOnce()
     {

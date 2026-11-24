@@ -2,7 +2,6 @@ import { useMemo } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SalesOrderSummaryResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
@@ -10,11 +9,15 @@ import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCompany } from "@/context/CompanyContext";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { ListTotalsBar } from "@/components/list/ListTotalsBar";
+import { PageHeader } from "@/components/list/PageHeader";
+import { useListFilters } from "@/components/list/useListFilters";
+import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { usePartners } from "@/hooks/useDistribution";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { useUrlParam } from "@/hooks/useUrlParam";
@@ -25,6 +28,7 @@ import { SalesOrderStateBadge, SalesProgressBadge } from "@/pages/sales/SalesOrd
 
 const GRID_ID = "sales-orders";
 const SALES_ORDER_SOURCE_PORTAL = 1;
+const RIBBON_FILTERS = ["from", "to", "warehouseId"] as const;
 
 // docs/POS_PLAN.md P6 — quotes and B2B sales orders, and how much of each is delivered and invoiced.
 export function SalesOrders() {
@@ -39,11 +43,31 @@ export function SalesOrders() {
   // Client feedback phase 5: orders placed by customers in the portal ("1") or by staff ("0").
   const [source, setSource] = useUrlParam("source", "", [`${GRID_ID}.page`]);
   const customers = (usePartners().data ?? []).filter((p) => p.isCustomer);
+  // Client request 2026-11-24: the list ribbon's order date and warehouse (state, source and
+  // customer keep their own URL keys, which other screens link to).
+  const ribbon = useListFilters(GRID_ID, RIBBON_FILTERS);
+  const ribbonOptions = useListRibbonOptions();
+  const filters = {
+    state: state === "" ? undefined : Number(state),
+    partnerId: partnerId || undefined,
+    search: grid.globalFilter || undefined,
+    source: source === "" ? undefined : Number(source),
+    from: ribbon.values.from || undefined,
+    to: ribbon.values.to || undefined,
+    warehouseId: ribbon.values.warehouseId || undefined,
+  };
 
   const query = useQuery({
-    queryKey: ["salesOrders", activeCompanyId, state, partnerId, source, grid.globalFilter, grid.page, grid.pageSize],
-    queryFn: () => apiClient.listSalesOrders(activeCompanyId as string, state === "" ? undefined : Number(state), partnerId || undefined,
-      grid.globalFilter || undefined, grid.page, grid.pageSize, source === "" ? undefined : Number(source)),
+    queryKey: ["salesOrders", activeCompanyId, filters, grid.page, grid.pageSize],
+    queryFn: () => apiClient.listSalesOrders(activeCompanyId as string, filters.state, filters.partnerId,
+      filters.search, grid.page, grid.pageSize, filters.source, filters.from, filters.to, filters.warehouseId),
+    enabled: !!activeCompanyId,
+    placeholderData: keepPreviousData,
+  });
+  const totals = useQuery({
+    queryKey: ["salesOrders-totals", activeCompanyId, filters],
+    queryFn: () => apiClient.salesOrderListTotals(activeCompanyId as string, filters.state, filters.partnerId, filters.search,
+      filters.source, filters.from, filters.to, filters.warehouseId),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
@@ -84,76 +108,78 @@ export function SalesOrders() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>{t("nav.salesOrders")}</CardTitle>
-          <CardDescription>{t("nav.salesOrders.description")}</CardDescription>
-        </div>
-        {canWrite("sales") && (
-          <Button size="sm" onClick={() => navigate("/sales-orders/new")}>
-            <Plus className="size-4" />
-            {t("so.new")}
-          </Button>
-        )}
-      </CardHeader>
-      <CardContent className="flex flex-col gap-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="inline-flex w-fit flex-wrap rounded-md border bg-card p-0.5" role="radiogroup" aria-label={t("so.col.state")}>
-            {["", ...SALES_ORDER_STATES.map(String)].map((value) => (
-              <button
-                key={value || "all"}
-                type="button"
-                role="radio"
-                aria-checked={state === value}
-                onClick={() => setState(value)}
-                className={cn(
-                  "h-7 rounded-[5px] px-3 text-[12.5px] font-medium",
-                  state === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {value === "" ? t("stock.doc.allTypes") : t(`so.state.${value}`)}
-              </button>
-            ))}
-          </div>
-          <div className="inline-flex w-fit rounded-md border bg-card p-0.5" role="radiogroup" aria-label={t("so.source.label")}>
-            {["", "0", "1"].map((value) => (
-              <button
-                key={value || "all"}
-                type="button"
-                role="radio"
-                aria-checked={source === value}
-                onClick={() => setSource(value)}
-                className={cn(
-                  "h-7 rounded-[5px] px-3 text-[12.5px] font-medium",
-                  source === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                )}
-              >
-                {t(value === "" ? "so.source.all" : value === "1" ? "so.source.portal" : "so.source.staff")}
-              </button>
-            ))}
-          </div>
-          <div className="flex w-64 flex-col gap-1">
-            <Label htmlFor="so-filter-customer">{t("so.col.customer")}</Label>
-            <SearchableSelect id="so-filter-customer" value={partnerId} onChange={setPartnerId}
-              placeholder={t("so.allCustomers")} emptyOptionLabel={t("so.allCustomers")} searchPlaceholder={t("common.search")}
-              noResultsText={t("common.noResults")} options={customers.map((c) => ({ value: c.id, label: c.name }))} />
-          </div>
-        </div>
-        <DataGrid
-          gridId={GRID_ID}
-          columns={columns}
-          data={query.data?.items ?? []}
-          rowCount={query.data?.total ?? 0}
-          isLoading={query.isPending}
-          getRowId={(r) => r.id}
-          getRowClassName={(r) => cn(r.state === SalesOrderState.Draft && "text-muted-foreground", r.state === SalesOrderState.Cancelled && "line-through text-muted-foreground")}
-          onRowClick={(r) => navigate(`/sales-orders/${r.id}`)}
-          enableGlobalFilter
-          globalFilterPlaceholder={t("so.search")}
-          emptyMessage={t("so.empty")}
-        />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("nav.salesOrders")}
+        description={t("nav.salesOrders.description")}
+        newAction={canWrite("sales") ? { label: t("so.new"), onClick: () => navigate("/sales-orders/new") } : undefined}
+      />
+      <Card>
+        <CardContent className="flex flex-col gap-3 pt-6">
+          <ListRibbon
+            controls={ribbon}
+            dateLabelId="so.col.date"
+            selects={ribbonOptions.warehouses.length > 1
+              ? [{ name: "warehouseId", labelId: "listRibbon.warehouse", className: "w-44", options: ribbonOptions.warehouses.map((w) => ({ value: w.id, label: w.name })) }]
+              : []}
+          >
+              <div className="inline-flex w-fit flex-wrap rounded-md border bg-card p-0.5" role="radiogroup" aria-label={t("so.col.state")}>
+                {["", ...SALES_ORDER_STATES.map(String)].map((value) => (
+                  <button
+                    key={value || "all"}
+                    type="button"
+                    role="radio"
+                    aria-checked={state === value}
+                    onClick={() => setState(value)}
+                    className={cn(
+                      "h-7 rounded-[5px] px-3 text-[12.5px] font-medium",
+                      state === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    {value === "" ? t("stock.doc.allTypes") : t(`so.state.${value}`)}
+                  </button>
+                ))}
+              </div>
+              <div className="inline-flex w-fit rounded-md border bg-card p-0.5" role="radiogroup" aria-label={t("so.source.label")}>
+                {["", "0", "1"].map((value) => (
+                  <button
+                    key={value || "all"}
+                    type="button"
+                    role="radio"
+                    aria-checked={source === value}
+                    onClick={() => setSource(value)}
+                    className={cn(
+                      "h-7 rounded-[5px] px-3 text-[12.5px] font-medium",
+                      source === value ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    {t(value === "" ? "so.source.all" : value === "1" ? "so.source.portal" : "so.source.staff")}
+                  </button>
+                ))}
+              </div>
+              <div className="flex w-64 flex-col gap-1">
+                <Label htmlFor="so-filter-customer">{t("so.col.customer")}</Label>
+                <SearchableSelect id="so-filter-customer" value={partnerId} onChange={setPartnerId}
+                  placeholder={t("so.allCustomers")} emptyOptionLabel={t("so.allCustomers")} searchPlaceholder={t("common.search")}
+                  noResultsText={t("common.noResults")} options={customers.map((c) => ({ value: c.id, label: c.name }))} />
+              </div>
+          </ListRibbon>
+          <DataGrid
+            gridId={GRID_ID}
+            columns={columns}
+            data={query.data?.items ?? []}
+            rowCount={query.data?.total ?? 0}
+            isLoading={query.isPending}
+            getRowId={(r) => r.id}
+            getRowClassName={(r) => cn(r.state === SalesOrderState.Draft && "text-muted-foreground", r.state === SalesOrderState.Cancelled && "line-through text-muted-foreground")}
+            onRowClick={(r) => navigate(`/sales-orders/${r.id}`)}
+            enableGlobalFilter
+            globalFilterPlaceholder={t("so.search")}
+            emptyMessage={t("so.empty")}
+          />
+          <ListTotalsBar totals={totals.data} isLoading={totals.isFetching} showOutstanding={false} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

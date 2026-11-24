@@ -53,22 +53,12 @@ public class SalesOrdersController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Sales)]
     public async Task<ActionResult<PaginatedResponse<SalesOrderSummaryResponse>>> List(Guid companyId,
         [FromQuery] SalesOrderState? state = null, [FromQuery] Guid? partnerId = null, [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] SalesOrderSource? source = null)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] SalesOrderSource? source = null,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] Guid? warehouseId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var query = Visible(companyId);
-        if (state is { } s) query = query.Where(o => o.State == s);
-        if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
-        if (source is { } from) query = query.Where(o => o.Source == from);
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var pattern = LikePattern.Contains(search);
-            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar))
-                || (o.QuoteNumber != null && EF.Functions.ILike(o.QuoteNumber, pattern, LikePattern.EscapeChar))
-                || (o.CustomerReference != null && EF.Functions.ILike(o.CustomerReference, pattern, LikePattern.EscapeChar))
-                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern, LikePattern.EscapeChar)));
-        }
+        var query = Filtered(companyId, state, partnerId, search, source, from, to, warehouseId);
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.Date).ThenByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).Include(o => o.Lines).AsNoTracking().ToListAsync();
@@ -81,6 +71,41 @@ public class SalesOrdersController : ControllerBase
             o.PartnerId, partners.GetValueOrDefault(o.PartnerId) ?? "?", o.Date, o.DeliveryDate, o.State, o.Lines.Sum(l => l.Gross),
             Progress(o.Lines, l => tracked.Contains(l.ItemId) ? delivered.GetValueOrDefault(l.Id) : invoiced.GetValueOrDefault(l.Id).Posted),
             Progress(o.Lines, l => invoiced.GetValueOrDefault(l.Id).Posted), o.Lines.Count, o.Source)).ToList(), total, page, pageSize));
+    }
+
+    // Client request 2026-11-24: the totals under the list, for every order the filters select.
+    [HttpGet("totals", Name = "SalesOrderListTotals")]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
+    public async Task<ActionResult<ListTotalsResponse>> ListTotals(Guid companyId,
+        [FromQuery] SalesOrderState? state = null, [FromQuery] Guid? partnerId = null, [FromQuery] string? search = null,
+        [FromQuery] SalesOrderSource? source = null, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null,
+        [FromQuery] Guid? warehouseId = null)
+    {
+        var orders = await Filtered(companyId, state, partnerId, search, source, from, to, warehouseId)
+            .Include(o => o.Lines).AsNoTracking().ToListAsync();
+        var sum = await new DocumentListTotalsService(_db, _tax).SalesOrdersAsync(companyId, orders);
+        return Ok(new ListTotalsResponse(orders.Count, sum.AmountBeforeDiscount, sum.DiscountAmount, sum.NetAmount, sum.TaxAmount, sum.GrossAmount));
+    }
+
+    private IQueryable<SalesOrder> Filtered(Guid companyId, SalesOrderState? state, Guid? partnerId, string? search,
+        SalesOrderSource? source, DateOnly? from, DateOnly? to, Guid? warehouseId)
+    {
+        var query = Visible(companyId);
+        if (state is { } s) query = query.Where(o => o.State == s);
+        if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
+        if (source is { } origin) query = query.Where(o => o.Source == origin);
+        if (from is { } fromDate) query = query.Where(o => o.Date >= fromDate);
+        if (to is { } toDate) query = query.Where(o => o.Date <= toDate);
+        if (warehouseId is { } wid) query = query.Where(o => o.WarehouseId == wid);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar))
+                || (o.QuoteNumber != null && EF.Functions.ILike(o.QuoteNumber, pattern, LikePattern.EscapeChar))
+                || (o.CustomerReference != null && EF.Functions.ILike(o.CustomerReference, pattern, LikePattern.EscapeChar))
+                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern, LikePattern.EscapeChar)));
+        }
+        return query;
     }
 
     [HttpGet("{id:guid}", Name = "GetSalesOrder")]

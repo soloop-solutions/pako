@@ -30,6 +30,9 @@ import {
 } from "@/lib/document-types";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 import { PageHeader } from "@/components/list/PageHeader";
+import { ListTotalsBar } from "@/components/list/ListTotalsBar";
+import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 export type InvoiceRegisterScope = "invoice" | "proforma";
 
@@ -108,11 +111,40 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         docFilters.filters.from || undefined,
         docFilters.filters.to || undefined,
         isProforma ? undefined : docFilters.filters.paymentStatus || undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
       );
       return { items: result.items, total: result.total };
     },
   });
   const displayedInvoices = paged.items;
+
+  // The totals under the list: same filters as the grid, every page (client request 2026-11-24).
+  const totalsFilters = {
+    search: paged.urlState.globalFilter.trim() || undefined,
+    state: paged.urlState.columnFilters.state || undefined,
+    ...docFilters.filters,
+  };
+  const listTotals = useQuery({
+    queryKey: ["invoices-totals", companyId, scope, totalsFilters],
+    enabled: !!companyId,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiClient.invoiceListTotals(
+        companyId as string,
+        totalsFilters.search,
+        documentScopeFilter.documentType,
+        documentScopeFilter.excludeDocumentType,
+        totalsFilters.state,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
+        isProforma ? undefined : docFilters.filters.paymentStatus || undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
+      ),
+  });
+  const ribbonOptions = useListRibbonOptions();
 
   useEffect(() => {
     if (!companyId || isProforma) return;
@@ -167,6 +199,8 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         docFilters.filters.from || undefined,
         docFilters.filters.to || undefined,
         isProforma ? undefined : docFilters.filters.paymentStatus || undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
       );
       downloadFileResponse(file, "invoices.xlsx");
     } catch (err) {
@@ -361,7 +395,14 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
           <CardTitle>{intl.formatMessage({ id: isProforma ? "proforma.proformasTable" : "invoicing.invoices" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <DocumentFilterBar controls={docFilters} partners={customers} partnerLabelId="docFilters.customer" showPaymentStatus={!isProforma} />
+          <DocumentFilterBar
+            controls={docFilters}
+            partners={customers}
+            partnerLabelId="docFilters.customer"
+            showPaymentStatus={!isProforma}
+            warehouses={ribbonOptions.warehouses}
+            users={ribbonOptions.users}
+          />
           <DataGrid
             onExportAll={exportAll}
             gridId={GRID_ID}
@@ -377,6 +418,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />
+          <ListTotalsBar totals={listTotals.data} isLoading={listTotals.isFetching} showOutstanding={!isProforma} />
         </CardContent>
       </Card>
     </div>

@@ -223,6 +223,31 @@ public class BillsControllerTests : IAsyncLifetime
         Assert.IsType<ObjectResult>(result.Result);
     }
 
+    // Client request 2026-11-24: the totals under the purchase invoice list.
+    [Fact]
+    public async Task ListTotals_SumTheFilteredBills_CreditNotesNegative_WithOpenBalance()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var controller = NewController(db);
+        async Task<BillResponse> CreateAsync(CreateBillRequest request, bool post)
+        {
+            var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId, request)).Result).Value);
+            if (post) await controller.Post(companyId, bill.Id);
+            return bill;
+        }
+
+        var open = await CreateAsync(RequestWithLine(partnerId, 2m, 150m), post: true);
+        await controller.RecordPayment(companyId, open.Id, new RecordPaymentRequest(100m, cashAccountId, new DateOnly(2026, 8, 27)));
+        await CreateAsync(RequestWithLine(partnerId, 1m, 80m), post: false);
+        await CreateAsync(CreditNoteRequestWithLine(partnerId, 1m, 30m), post: false);
+
+        var all = (ListTotalsResponse)Assert.IsType<OkObjectResult>((await controller.ListTotals(companyId)).Result).Value!;
+        Assert.Equal((3, 300m + 80m - 30m, 200m), (all.Count, all.GrossAmount, all.Outstanding!.Value));
+
+        var counts = (ViewCountsResponse)Assert.IsType<OkObjectResult>((await controller.ViewCounts(companyId)).Result).Value!;
+        Assert.Equal((3, 2, 1), (counts.All, counts.Draft, counts.Posted));
+    }
+
     [Fact]
     public async Task RecordPayment_FullAmount_CreatesReconciliationAndZeroesOutstandingBalance()
     {

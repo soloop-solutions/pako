@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOptionalDrafts } from "@/context/DraftsContext";
 import { PageHeader } from "@/components/list/PageHeader";
+import { ListTotalsBar } from "@/components/list/ListTotalsBar";
+import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -97,12 +100,40 @@ export function Bills() {
     queryKey: ["bills-paged", companyId, docFilters.filters],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort, filters }) => {
-      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort, docFilters.filters.partnerId || undefined, docFilters.filters.from || undefined, docFilters.filters.to || undefined, docFilters.filters.paymentStatus || undefined);
+      const result = await apiClient.paged(companyId as string, page, pageSize, search, undefined, [BillDocumentType.PurchaseReturn], filters.state || undefined, sort, docFilters.filters.partnerId || undefined, docFilters.filters.from || undefined, docFilters.filters.to || undefined, docFilters.filters.paymentStatus || undefined,
+        docFilters.filters.warehouseId || undefined, docFilters.filters.createdById || undefined);
       return { items: result.items, total: result.total };
     },
   });
   const displayedBills = paged.items;
   const refetchPaged = paged.query.refetch;
+
+  // The totals under the list: same filters as the grid, every page (client request 2026-11-24).
+  const totalsFilters = {
+    search: paged.urlState.globalFilter.trim() || undefined,
+    state: paged.urlState.columnFilters.state || undefined,
+    ...docFilters.filters,
+  };
+  const listTotals = useQuery({
+    queryKey: ["bills-totals", companyId, totalsFilters],
+    enabled: !!companyId,
+    placeholderData: keepPreviousData,
+    queryFn: () =>
+      apiClient.billListTotals(
+        companyId as string,
+        totalsFilters.search,
+        undefined,
+        [BillDocumentType.PurchaseReturn],
+        totalsFilters.state,
+        docFilters.filters.partnerId || undefined,
+        docFilters.filters.from || undefined,
+        docFilters.filters.to || undefined,
+        docFilters.filters.paymentStatus || undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
+      ),
+  });
+  const ribbonOptions = useListRibbonOptions();
 
   useEffect(() => {
     if (!companyId) return;
@@ -138,6 +169,8 @@ export function Bills() {
         docFilters.filters.from || undefined,
         docFilters.filters.to || undefined,
         docFilters.filters.paymentStatus || undefined,
+        docFilters.filters.warehouseId || undefined,
+        docFilters.filters.createdById || undefined,
       );
       downloadFileResponse(file, "bills.xlsx");
     } catch (err) {
@@ -316,7 +349,14 @@ export function Bills() {
           <CardTitle>{intl.formatMessage({ id: "bills.billsTable" })}</CardTitle>
         </CardHeader>
         <CardContent>
-          <DocumentFilterBar controls={docFilters} partners={vendors} partnerLabelId="docFilters.vendor" showPaymentStatus />
+          <DocumentFilterBar
+            controls={docFilters}
+            partners={vendors}
+            partnerLabelId="docFilters.vendor"
+            showPaymentStatus
+            warehouses={ribbonOptions.warehouses}
+            users={ribbonOptions.users}
+          />
           <DataGrid
             onExportAll={exportAll}
             gridId={GRID_ID}
@@ -332,6 +372,7 @@ export function Bills() {
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}
           />
+          <ListTotalsBar totals={listTotals.data} isLoading={listTotals.isFetching} />
         </CardContent>
       </Card>
     </div>

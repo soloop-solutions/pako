@@ -1970,9 +1970,11 @@ export class PakoApiClient {
      * @param from (optional) 
      * @param to (optional) 
      * @param paymentStatus (optional) 
+     * @param warehouseId (optional) 
+     * @param createdById (optional) 
      * @return OK
      */
-    paged(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined): Promise<PaginatedResponseOfBillResponse> {
+    paged(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined, warehouseId: string | undefined, createdById: string | undefined): Promise<PaginatedResponseOfBillResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/bills/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -2021,6 +2023,14 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'paymentStatus' cannot be null.");
         else if (paymentStatus !== undefined)
             url_ += "paymentStatus=" + encodeURIComponent("" + paymentStatus) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (createdById === null)
+            throw new globalThis.Error("The parameter 'createdById' cannot be null.");
+        else if (createdById !== undefined)
+            url_ += "createdById=" + encodeURIComponent("" + createdById) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -2057,14 +2067,154 @@ export class PakoApiClient {
      * @param documentType (optional) 
      * @param excludeDocumentType (optional) 
      * @param state (optional) 
+     * @param partnerId (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param paymentStatus (optional) 
+     * @param warehouseId (optional) 
+     * @param createdById (optional) 
+     * @return OK
+     */
+    billListTotals(companyId: string, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined, warehouseId: string | undefined, createdById: string | undefined): Promise<ListTotalsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bills/paged/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            documentType && documentType.forEach(item => { url_ += "documentType=" + encodeURIComponent("" + item) + "&"; });
+        if (excludeDocumentType === null)
+            throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
+        else if (excludeDocumentType !== undefined)
+            excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' cannot be null.");
+        else if (partnerId !== undefined)
+            url_ += "partnerId=" + encodeURIComponent("" + partnerId) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (paymentStatus === null)
+            throw new globalThis.Error("The parameter 'paymentStatus' cannot be null.");
+        else if (paymentStatus !== undefined)
+            url_ += "paymentStatus=" + encodeURIComponent("" + paymentStatus) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (createdById === null)
+            throw new globalThis.Error("The parameter 'createdById' cannot be null.");
+        else if (createdById !== undefined)
+            url_ += "createdById=" + encodeURIComponent("" + createdById) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBillListTotals(_response);
+        });
+    }
+
+    protected processBillListTotals(response: Response): Promise<ListTotalsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ListTotalsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ListTotalsResponse>(null as any);
+    }
+
+    /**
+     * @param documentType (optional) 
+     * @param excludeDocumentType (optional) 
+     * @return OK
+     */
+    billViewCounts(companyId: string, documentType: number[] | undefined, excludeDocumentType: number[] | undefined): Promise<ViewCountsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/bills/view-counts?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            documentType && documentType.forEach(item => { url_ += "documentType=" + encodeURIComponent("" + item) + "&"; });
+        if (excludeDocumentType === null)
+            throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
+        else if (excludeDocumentType !== undefined)
+            excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processBillViewCounts(_response);
+        });
+    }
+
+    protected processBillViewCounts(response: Response): Promise<ViewCountsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ViewCountsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ViewCountsResponse>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @param documentType (optional) 
+     * @param excludeDocumentType (optional) 
+     * @param state (optional) 
      * @param sort (optional) 
      * @param partnerId (optional) 
      * @param from (optional) 
      * @param to (optional) 
      * @param paymentStatus (optional) 
+     * @param warehouseId (optional) 
+     * @param createdById (optional) 
      * @return OK
      */
-    billsExport(companyId: string, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined): Promise<FileResponse> {
+    billsExport(companyId: string, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined, warehouseId: string | undefined, createdById: string | undefined): Promise<FileResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/bills/export?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -2105,6 +2255,14 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'paymentStatus' cannot be null.");
         else if (paymentStatus !== undefined)
             url_ += "paymentStatus=" + encodeURIComponent("" + paymentStatus) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (createdById === null)
+            throw new globalThis.Error("The parameter 'createdById' cannot be null.");
+        else if (createdById !== undefined)
+            url_ += "createdById=" + encodeURIComponent("" + createdById) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -9862,9 +10020,11 @@ export class PakoApiClient {
      * @param from (optional) 
      * @param to (optional) 
      * @param paymentStatus (optional) 
+     * @param warehouseId (optional) 
+     * @param createdById (optional) 
      * @return OK
      */
-    paged2(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined): Promise<PaginatedResponseOfInvoiceResponse> {
+    paged2(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined, warehouseId: string | undefined, createdById: string | undefined): Promise<PaginatedResponseOfInvoiceResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -9913,6 +10073,14 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'paymentStatus' cannot be null.");
         else if (paymentStatus !== undefined)
             url_ += "paymentStatus=" + encodeURIComponent("" + paymentStatus) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (createdById === null)
+            throw new globalThis.Error("The parameter 'createdById' cannot be null.");
+        else if (createdById !== undefined)
+            url_ += "createdById=" + encodeURIComponent("" + createdById) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -9949,14 +10117,154 @@ export class PakoApiClient {
      * @param documentType (optional) 
      * @param excludeDocumentType (optional) 
      * @param state (optional) 
+     * @param partnerId (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param paymentStatus (optional) 
+     * @param warehouseId (optional) 
+     * @param createdById (optional) 
+     * @return OK
+     */
+    invoiceListTotals(companyId: string, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined, warehouseId: string | undefined, createdById: string | undefined): Promise<ListTotalsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/paged/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            documentType && documentType.forEach(item => { url_ += "documentType=" + encodeURIComponent("" + item) + "&"; });
+        if (excludeDocumentType === null)
+            throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
+        else if (excludeDocumentType !== undefined)
+            excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' cannot be null.");
+        else if (partnerId !== undefined)
+            url_ += "partnerId=" + encodeURIComponent("" + partnerId) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (paymentStatus === null)
+            throw new globalThis.Error("The parameter 'paymentStatus' cannot be null.");
+        else if (paymentStatus !== undefined)
+            url_ += "paymentStatus=" + encodeURIComponent("" + paymentStatus) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (createdById === null)
+            throw new globalThis.Error("The parameter 'createdById' cannot be null.");
+        else if (createdById !== undefined)
+            url_ += "createdById=" + encodeURIComponent("" + createdById) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processInvoiceListTotals(_response);
+        });
+    }
+
+    protected processInvoiceListTotals(response: Response): Promise<ListTotalsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ListTotalsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ListTotalsResponse>(null as any);
+    }
+
+    /**
+     * @param documentType (optional) 
+     * @param excludeDocumentType (optional) 
+     * @return OK
+     */
+    invoiceViewCounts(companyId: string, documentType: number[] | undefined, excludeDocumentType: number[] | undefined): Promise<ViewCountsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/view-counts?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (documentType === null)
+            throw new globalThis.Error("The parameter 'documentType' cannot be null.");
+        else if (documentType !== undefined)
+            documentType && documentType.forEach(item => { url_ += "documentType=" + encodeURIComponent("" + item) + "&"; });
+        if (excludeDocumentType === null)
+            throw new globalThis.Error("The parameter 'excludeDocumentType' cannot be null.");
+        else if (excludeDocumentType !== undefined)
+            excludeDocumentType && excludeDocumentType.forEach(item => { url_ += "excludeDocumentType=" + encodeURIComponent("" + item) + "&"; });
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processInvoiceViewCounts(_response);
+        });
+    }
+
+    protected processInvoiceViewCounts(response: Response): Promise<ViewCountsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ViewCountsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ViewCountsResponse>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @param documentType (optional) 
+     * @param excludeDocumentType (optional) 
+     * @param state (optional) 
      * @param sort (optional) 
      * @param partnerId (optional) 
      * @param from (optional) 
      * @param to (optional) 
      * @param paymentStatus (optional) 
+     * @param warehouseId (optional) 
+     * @param createdById (optional) 
      * @return OK
      */
-    invoicesExport(companyId: string, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined): Promise<FileResponse> {
+    invoicesExport(companyId: string, search: string | undefined, documentType: number[] | undefined, excludeDocumentType: number[] | undefined, state: string | undefined, sort: string | undefined, partnerId: string | undefined, from: string | undefined, to: string | undefined, paymentStatus: string | undefined, warehouseId: string | undefined, createdById: string | undefined): Promise<FileResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/export?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -9997,6 +10305,14 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'paymentStatus' cannot be null.");
         else if (paymentStatus !== undefined)
             url_ += "paymentStatus=" + encodeURIComponent("" + paymentStatus) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (createdById === null)
+            throw new globalThis.Error("The parameter 'createdById' cannot be null.");
+        else if (createdById !== undefined)
+            url_ += "createdById=" + encodeURIComponent("" + createdById) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -26247,9 +26563,12 @@ export class PakoApiClient {
      * @param search (optional) 
      * @param page (optional) 
      * @param pageSize (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param warehouseId (optional) 
      * @return OK
      */
-    listPurchaseOrders(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPurchaseOrderSummaryResponse> {
+    listPurchaseOrders(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, from: string | undefined, to: string | undefined, warehouseId: string | undefined): Promise<PaginatedResponseOfPurchaseOrderSummaryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/purchase-orders?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -26274,6 +26593,18 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
         else if (pageSize !== undefined)
             url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -26346,6 +26677,75 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<PurchaseOrderResponse>(null as any);
+    }
+
+    /**
+     * @param state (optional) 
+     * @param partnerId (optional) 
+     * @param search (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param warehouseId (optional) 
+     * @return OK
+     */
+    purchaseOrderListTotals(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, from: string | undefined, to: string | undefined, warehouseId: string | undefined): Promise<ListTotalsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/purchase-orders/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' cannot be null.");
+        else if (partnerId !== undefined)
+            url_ += "partnerId=" + encodeURIComponent("" + partnerId) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPurchaseOrderListTotals(_response);
+        });
+    }
+
+    protected processPurchaseOrderListTotals(response: Response): Promise<ListTotalsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ListTotalsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ListTotalsResponse>(null as any);
     }
 
     /**
@@ -28528,9 +28928,12 @@ export class PakoApiClient {
      * @param page (optional) 
      * @param pageSize (optional) 
      * @param source (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param warehouseId (optional) 
      * @return OK
      */
-    listSalesOrders(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, source: number | undefined): Promise<PaginatedResponseOfSalesOrderSummaryResponse> {
+    listSalesOrders(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, source: number | undefined, from: string | undefined, to: string | undefined, warehouseId: string | undefined): Promise<PaginatedResponseOfSalesOrderSummaryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/sales-orders?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -28559,6 +28962,18 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'source' cannot be null.");
         else if (source !== undefined)
             url_ += "source=" + encodeURIComponent("" + source) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -28631,6 +29046,80 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<SalesOrderResponse>(null as any);
+    }
+
+    /**
+     * @param state (optional) 
+     * @param partnerId (optional) 
+     * @param search (optional) 
+     * @param source (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param warehouseId (optional) 
+     * @return OK
+     */
+    salesOrderListTotals(companyId: string, state: number | undefined, partnerId: string | undefined, search: string | undefined, source: number | undefined, from: string | undefined, to: string | undefined, warehouseId: string | undefined): Promise<ListTotalsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/sales-orders/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' cannot be null.");
+        else if (partnerId !== undefined)
+            url_ += "partnerId=" + encodeURIComponent("" + partnerId) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (source === null)
+            throw new globalThis.Error("The parameter 'source' cannot be null.");
+        else if (source !== undefined)
+            url_ += "source=" + encodeURIComponent("" + source) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSalesOrderListTotals(_response);
+        });
+    }
+
+    protected processSalesOrderListTotals(response: Response): Promise<ListTotalsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ListTotalsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ListTotalsResponse>(null as any);
     }
 
     /**
@@ -34541,6 +35030,18 @@ export interface LeaveTypeResponse {
     [key: string]: any;
 }
 
+export interface ListTotalsResponse {
+    count: number;
+    amountBeforeDiscount: number;
+    discountAmount: number;
+    netAmount: number;
+    taxAmount: number;
+    grossAmount: number;
+    outstanding?: number | undefined;
+
+    [key: string]: any;
+}
+
 export interface LoanRepaymentResponse {
     adjustmentId: string;
     payrollRunId: string;
@@ -39381,6 +39882,15 @@ export interface VenueResponse {
 
 export interface VerifyPasswordRequest {
     password: string;
+
+    [key: string]: any;
+}
+
+export interface ViewCountsResponse {
+    all: number;
+    draft: number;
+    posted: number;
+    overdue?: number | undefined;
 
     [key: string]: any;
 }

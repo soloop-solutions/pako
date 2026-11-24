@@ -5,6 +5,8 @@ export interface DocumentFilters {
   to: string;
   paymentStatus: string;
   partnerId: string;
+  warehouseId: string;
+  createdById: string;
 }
 
 export interface DocumentFilterControls {
@@ -17,14 +19,17 @@ export interface DocumentFilterControls {
   list: ListFilterControls;
 }
 
-const NAMES = ["from", "to", "paymentStatus", "partnerId"] as const;
+const NAMES = ["from", "to", "paymentStatus", "partnerId", "warehouseId", "createdById"] as const;
 
 // The invoice and bill lists' filters, now a fixed set over useListFilters (same URL keys).
 export function useDocumentFilters(gridId: string): DocumentFilterControls {
   const list = useListFilters(gridId, NAMES);
   const { values } = list;
   return {
-    filters: { from: values.from, to: values.to, paymentStatus: values.paymentStatus, partnerId: values.partnerId },
+    filters: {
+      from: values.from, to: values.to, paymentStatus: values.paymentStatus, partnerId: values.partnerId,
+      warehouseId: values.warehouseId, createdById: values.createdById,
+    },
     setFilter: list.set,
     setRange: (from, to) => list.setMany({ from, to }),
     clear: list.clear,

@@ -372,6 +372,98 @@ public class InvoicesControllerTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>((await controller.ListPaged(companyId, paymentStatus: "nonsense")).Result);
     }
 
+    // Client request 2026-11-24: the totals under the list cover every filtered document (all pages)
+    // and equal the sum of each document's own GET totals; credit notes count negative.
+    [Fact]
+    public async Task ListTotals_SumTheFilteredDocumentsLikeTheirOwnTotals_CreditNotesNegative()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var controller = NewController(db);
+
+        async Task<InvoiceResponse> CreateAsync(CreateInvoiceRequest request, bool post)
+        {
+            var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId, request)).Result).Value);
+            if (post) await controller.Post(companyId, invoice.Id);
+            return invoice;
+        }
+
+        var paidPart = await CreateAsync(RequestWithLine(partnerId, 3m, 100m), post: true);
+        await controller.RecordPayment(companyId, paidPart.Id, new RecordPaymentRequest(120m, cashAccountId, new DateOnly(2026, 8, 27)));
+        var draft = await CreateAsync(RequestWithLine(partnerId, 2m, 45.5m) with { Lines = new List<CreateInvoiceLineRequest>
+        {
+            RequestWithLine(partnerId, 2m, 45.5m).Lines[0] with { DiscountPercent = 10m },
+        } }, post: false);
+        var credit = await CreateAsync(CreditNoteRequestWithLine(partnerId, 1m, 50m), post: false);
+
+        var result = (ListTotalsResponse)Assert.IsType<OkObjectResult>((await controller.ListTotals(companyId)).Result).Value!;
+
+        async Task<InvoiceAmountTotals> TotalsOf(Guid id) =>
+            ((InvoiceResponse)Assert.IsType<OkObjectResult>((await controller.Get(companyId, id)).Result).Value!).Totals!;
+        var (a, b, cn) = (await TotalsOf(paidPart.Id), await TotalsOf(draft.Id), await TotalsOf(credit.Id));
+
+        Assert.Equal(3, result.Count);
+        Assert.Equal(a.GrossAmount + b.GrossAmount - cn.GrossAmount, result.GrossAmount);
+        Assert.Equal(a.NetAmount + b.NetAmount - cn.NetAmount, result.NetAmount);
+        Assert.Equal(a.DiscountAmount + b.DiscountAmount - cn.DiscountAmount, result.DiscountAmount);
+        Assert.True(b.DiscountAmount > 0);
+        // Only the posted invoice is open: 300 billed, 120 paid.
+        Assert.Equal(180m, result.Outstanding);
+
+        // Same filters as the grid: drafts only.
+        var drafts = (ListTotalsResponse)Assert.IsType<OkObjectResult>((await controller.ListTotals(companyId, state: "Draft")).Result).Value!;
+        Assert.Equal((2, b.GrossAmount - cn.GrossAmount, 0m), (drafts.Count, drafts.GrossAmount, drafts.Outstanding!.Value));
+    }
+
+    [Fact]
+    public async Task ListPaged_FiltersByWarehouseAndCreator()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+        var warehouse = new Pako.Domain.Inventory.Warehouse { Id = Guid.NewGuid(), CompanyId = companyId, Code = "W1", Name = "Main" };
+        db.Warehouses.Add(warehouse);
+        var (alice, bob) = (Guid.NewGuid(), Guid.NewGuid());
+        var date = new DateOnly(2026, 10, 5);
+        Invoice Make(Guid? warehouseId, Guid creator) => new()
+        {
+            Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = partnerId, IssueDate = date, DueDate = date, WarehouseId = warehouseId, CreatedByUserId = creator,
+        };
+        var inWarehouse = Make(warehouse.Id, alice);
+        db.Invoices.AddRange(inWarehouse, Make(null, alice), Make(null, bob));
+        await db.SaveChangesAsync();
+
+        List<Guid> Ids(ActionResult<PaginatedResponse<InvoiceResponse>> r) =>
+            ((PaginatedResponse<InvoiceResponse>)Assert.IsType<OkObjectResult>(r.Result).Value!).Items.Select(i => i.Id).ToList();
+
+        Assert.Equal(new[] { inWarehouse.Id }, Ids(await controller.ListPaged(companyId, warehouseId: warehouse.Id)));
+        Assert.Equal(2, Ids(await controller.ListPaged(companyId, createdById: alice)).Count);
+        Assert.Equal(new[] { inWarehouse.Id }, Ids(await controller.ListPaged(companyId, warehouseId: warehouse.Id, createdById: alice)));
+        Assert.Empty(Ids(await controller.ListPaged(companyId, warehouseId: warehouse.Id, createdById: bob)));
+        var totals = (ListTotalsResponse)Assert.IsType<OkObjectResult>((await controller.ListTotals(companyId, createdById: bob)).Result).Value!;
+        Assert.Equal(1, totals.Count);
+    }
+
+    [Fact]
+    public async Task ViewCounts_CountDraftsPostedAndOverdue()
+    {
+        var (db, companyId, partnerId, cashAccountId) = await SeedAsync();
+        var controller = NewController(db);
+        async Task<Guid> CreateAsync(DateOnly due, bool post)
+        {
+            var invoice = Assert.IsType<InvoiceResponse>(Assert.IsType<ObjectResult>((await controller.Create(companyId, RequestWithLine(partnerId, 1m, 100m) with { DueDate = due })).Result).Value);
+            if (post) await controller.Post(companyId, invoice.Id);
+            return invoice.Id;
+        }
+
+        await CreateAsync(new DateOnly(2030, 1, 1), post: false);
+        await CreateAsync(new DateOnly(2030, 1, 1), post: true);
+        await CreateAsync(new DateOnly(2020, 1, 1), post: true);
+        var settledLate = await CreateAsync(new DateOnly(2020, 1, 1), post: true);
+        await controller.RecordPayment(companyId, settledLate, new RecordPaymentRequest(100m, cashAccountId, new DateOnly(2026, 8, 27)));
+
+        var counts = (ViewCountsResponse)Assert.IsType<OkObjectResult>((await controller.ViewCounts(companyId)).Result).Value!;
+        Assert.Equal(new ViewCountsResponse(4, 1, 3, 1), counts);
+    }
+
     [Fact]
     public async Task RecordPayment_FullAmount_CreatesReconciliationAndZeroesOutstandingBalance()
     {

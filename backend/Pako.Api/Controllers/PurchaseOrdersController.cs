@@ -46,19 +46,12 @@ public class PurchaseOrdersController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Purchases)]
     public async Task<ActionResult<PaginatedResponse<PurchaseOrderSummaryResponse>>> List(Guid companyId,
         [FromQuery] PurchaseOrderState? state = null, [FromQuery] Guid? partnerId = null, [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] Guid? warehouseId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var query = Visible(companyId);
-        if (state is { } s) query = query.Where(o => o.State == s);
-        if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var pattern = LikePattern.Contains(search);
-            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar))
-                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern, LikePattern.EscapeChar)));
-        }
+        var query = Filtered(companyId, state, partnerId, search, from, to, warehouseId);
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.Date).ThenByDescending(o => o.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize).Include(o => o.Lines).AsNoTracking().ToListAsync();
@@ -67,6 +60,37 @@ public class PurchaseOrdersController : ControllerBase
         return Ok(new PaginatedResponse<PurchaseOrderSummaryResponse>(orders.Select(o => new PurchaseOrderSummaryResponse(o.Id, o.Number,
             o.PartnerId, partners.GetValueOrDefault(o.PartnerId) ?? "?", o.Date, o.ExpectedDate, o.State, Progress(o, billed), o.Lines.Count)).ToList(),
             total, page, pageSize));
+    }
+
+    // Client request 2026-11-24: the totals under the list, for every order the filters select.
+    [HttpGet("totals", Name = "PurchaseOrderListTotals")]
+    [RequireCompanyAccess(module: AccessModule.Purchases)]
+    public async Task<ActionResult<ListTotalsResponse>> ListTotals(Guid companyId,
+        [FromQuery] PurchaseOrderState? state = null, [FromQuery] Guid? partnerId = null, [FromQuery] string? search = null,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] Guid? warehouseId = null)
+    {
+        var orders = await Filtered(companyId, state, partnerId, search, from, to, warehouseId)
+            .Include(o => o.Lines).AsNoTracking().ToListAsync();
+        var sum = await new DocumentListTotalsService(_db, _tax).PurchaseOrdersAsync(companyId, orders);
+        return Ok(new ListTotalsResponse(orders.Count, sum.AmountBeforeDiscount, sum.DiscountAmount, sum.NetAmount, sum.TaxAmount, sum.GrossAmount));
+    }
+
+    private IQueryable<PurchaseOrder> Filtered(Guid companyId, PurchaseOrderState? state, Guid? partnerId, string? search,
+        DateOnly? from, DateOnly? to, Guid? warehouseId)
+    {
+        var query = Visible(companyId);
+        if (state is { } s) query = query.Where(o => o.State == s);
+        if (partnerId is { } p) query = query.Where(o => o.PartnerId == p);
+        if (from is { } fromDate) query = query.Where(o => o.Date >= fromDate);
+        if (to is { } toDate) query = query.Where(o => o.Date <= toDate);
+        if (warehouseId is { } wid) query = query.Where(o => o.WarehouseId == wid);
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(o => (o.Number != null && EF.Functions.ILike(o.Number, pattern, LikePattern.EscapeChar))
+                || _db.Partners.Any(x => x.Id == o.PartnerId && EF.Functions.ILike(x.Name, pattern, LikePattern.EscapeChar)));
+        }
+        return query;
     }
 
     [HttpGet("{id:guid}", Name = "GetPurchaseOrder")]

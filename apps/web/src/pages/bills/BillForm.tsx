@@ -305,7 +305,7 @@ export function BillForm({
     }
     let cancelled = false;
     void apiClient
-      .paged(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId, undefined, undefined, undefined)
+      .paged(companyId, 1, 200, undefined, undefined, undefined, "Posted", "-issuedate", partnerId, undefined, undefined, undefined, undefined, undefined)
       .then((result) => {
         if (!cancelled) setOriginalBillCandidates(result.items);
       })

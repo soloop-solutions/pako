@@ -73,12 +73,14 @@ public class BillsController : ControllerBase
         [FromQuery] Guid? partnerId = null,
         [FromQuery(Name = "from")] DateOnly? issuedFrom = null,
         [FromQuery(Name = "to")] DateOnly? issuedTo = null,
-        [FromQuery] string? paymentStatus = null)
+        [FromQuery] string? paymentStatus = null,
+        [FromQuery] Guid? warehouseId = null,
+        [FromQuery] Guid? createdById = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus);
+        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus, warehouseId, createdById);
         if (query is null) return BadRequest(error);
         query = Sorted(query, sort);
 
@@ -88,6 +90,77 @@ public class BillsController : ControllerBase
         var partnerNames = await PartnerNamesAsync(companyId, bills.Select(b => b.PartnerId));
         var userNames = await UserNamesAsync(bills.Select(b => b.CreatedByUserId));
         return Ok(new PaginatedResponse<BillResponse>(bills.Select(b => ToResponse(b, partnerNames, userNames)).ToList(), total, page, pageSize));
+    }
+
+    // Client request 2026-11-24: the totals under the list — every document the filters select,
+    // across all pages (credit notes and returns negative), plus the posted documents' open balance.
+    [HttpGet("paged/totals", Name = "BillListTotals")]
+    [RequireCompanyAccess(module: AccessModule.Purchases)]
+    public async Task<ActionResult<ListTotalsResponse>> ListTotals(
+        Guid companyId,
+        [FromQuery] string? search = null,
+        [FromQuery] DocumentType[]? documentType = null,
+        [FromQuery] DocumentType[]? excludeDocumentType = null,
+        [FromQuery] string? state = null,
+        [FromQuery] Guid? partnerId = null,
+        [FromQuery(Name = "from")] DateOnly? issuedFrom = null,
+        [FromQuery(Name = "to")] DateOnly? issuedTo = null,
+        [FromQuery] string? paymentStatus = null,
+        [FromQuery] Guid? warehouseId = null,
+        [FromQuery] Guid? createdById = null)
+    {
+        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus, warehouseId, createdById);
+        if (query is null) return BadRequest(error);
+        var documents = await query.ToListAsync();
+        var sum = await new DocumentListTotalsService(_db, _taxComputationService).BillsAsync(companyId, documents);
+
+        decimal? outstanding = null;
+        var posted = documents.Where(b => b.State == BillState.Posted).ToList();
+        if (posted.Count <= ListTotalsLimits.OutstandingCheckLimit)
+        {
+            outstanding = 0m;
+            foreach (var doc in posted)
+            {
+                var balance = await ComputeBalanceAsync(companyId, doc.Id, doc.JournalEntryId, doc.DocumentType, doc.PartnerId);
+                outstanding += doc.DocumentType is DocumentType.CreditNote or DocumentType.PurchaseReturn ? -balance.Outstanding : balance.Outstanding;
+            }
+        }
+
+        return Ok(new ListTotalsResponse(documents.Count, sum.AmountBeforeDiscount, sum.DiscountAmount, sum.NetAmount, sum.TaxAmount, sum.GrossAmount, outstanding));
+    }
+
+    // The counts next to this list's saved views in the sidebar (all, drafts, posted, overdue).
+    [HttpGet("view-counts", Name = "BillViewCounts")]
+    [RequireCompanyAccess(module: AccessModule.Purchases)]
+    public async Task<ActionResult<ViewCountsResponse>> ViewCounts(
+        Guid companyId,
+        [FromQuery] DocumentType[]? documentType = null,
+        [FromQuery] DocumentType[]? excludeDocumentType = null)
+    {
+        var query = _db.Bills.AsNoTracking().VisibleTo(_access).Where(b => b.CompanyId == companyId);
+        if (documentType is { Length: > 0 }) query = query.Where(b => documentType.Contains(b.DocumentType));
+        if (excludeDocumentType is { Length: > 0 }) query = query.Where(b => !excludeDocumentType.Contains(b.DocumentType));
+
+        var byState = await query.GroupBy(b => b.State).Select(g => new { g.Key, Count = g.Count() }).ToListAsync();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var pastDue = await query
+            .Where(b => b.State == BillState.Posted && b.DueDate < today && b.DocumentType != DocumentType.CreditNote)
+            .Select(b => new { b.Id, b.JournalEntryId, b.DocumentType, b.PartnerId })
+            .Take(ListTotalsLimits.OutstandingCheckLimit + 1)
+            .ToListAsync();
+        int? overdue = null;
+        if (pastDue.Count <= ListTotalsLimits.OutstandingCheckLimit)
+        {
+            overdue = 0;
+            foreach (var doc in pastDue)
+                if ((await ComputeBalanceAsync(companyId, doc.Id, doc.JournalEntryId, doc.DocumentType, doc.PartnerId)).Outstanding > 0) overdue++;
+        }
+
+        return Ok(new ViewCountsResponse(
+            byState.Sum(x => x.Count),
+            byState.Where(x => x.Key == BillState.Draft).Sum(x => x.Count),
+            byState.Where(x => x.Key == BillState.Posted).Sum(x => x.Count),
+            overdue));
     }
 
     [ProducesXlsx]
@@ -104,9 +177,11 @@ public class BillsController : ControllerBase
         [FromQuery] Guid? partnerId = null,
         [FromQuery(Name = "from")] DateOnly? issuedFrom = null,
         [FromQuery(Name = "to")] DateOnly? issuedTo = null,
-        [FromQuery] string? paymentStatus = null)
+        [FromQuery] string? paymentStatus = null,
+        [FromQuery] Guid? warehouseId = null,
+        [FromQuery] Guid? createdById = null)
     {
-        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus);
+        var (query, error) = await FilteredAsync(companyId, search, documentType, excludeDocumentType, state, partnerId, issuedFrom, issuedTo, paymentStatus, warehouseId, createdById);
         if (query is null) return BadRequest(new { error });
 
         const int maxRows = 10000;
@@ -153,7 +228,7 @@ public class BillsController : ControllerBase
 
     private async Task<(IQueryable<Bill>? Query, string? Error)> FilteredAsync(
         Guid companyId, string? search, DocumentType[]? documentType, DocumentType[]? excludeDocumentType, string? state,
-        Guid? partnerId, DateOnly? issuedFrom, DateOnly? issuedTo, string? paymentStatus)
+        Guid? partnerId, DateOnly? issuedFrom, DateOnly? issuedTo, string? paymentStatus, Guid? warehouseId = null, Guid? createdById = null)
     {
         var query = _db.Bills.AsNoTracking().VisibleTo(_access)
             .Include(b => b.Lines)
@@ -166,6 +241,9 @@ public class BillsController : ControllerBase
         }
 
         if (partnerId is { } pid) query = query.Where(b => b.PartnerId == pid);
+        // Client request 2026-11-24: the list ribbon's warehouse and "created by" filters.
+        if (warehouseId is { } wid) query = query.Where(b => b.WarehouseId == wid);
+        if (createdById is { } uid) query = query.Where(b => b.CreatedByUserId == uid);
 
         if (issuedFrom is { } fromDate) query = query.Where(b => b.IssueDate >= fromDate);
         if (issuedTo is { } toDate) query = query.Where(b => b.IssueDate <= toDate);
