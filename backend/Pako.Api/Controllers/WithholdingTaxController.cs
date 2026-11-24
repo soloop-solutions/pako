@@ -167,6 +167,8 @@ public class WithholdingTaxController : ControllerBase
         if (string.IsNullOrWhiteSpace(r.Name)) return "WithholdingTaxNameRequired";
         if (r.PersonalNumber.Trim().Length > 50) return "WithholdingTaxPersonalNumberTooLong";
         if (r.Name.Trim().Length > 256) return "WithholdingTaxNameTooLong";
+        var personalNumber = r.PersonalNumber.Trim();
+        if (personalNumber.Length is < 9 or > 10 || !personalNumber.All(char.IsAsciiDigit)) return "WithholdingTaxPersonalNumberInvalid";
 
         var amounts = new[]
         {

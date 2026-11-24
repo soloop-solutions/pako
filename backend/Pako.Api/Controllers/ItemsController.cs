@@ -475,6 +475,10 @@ public class ItemsController : ControllerBase
     // §12 P7: an alternative unit needs a name different from the base unit and a factor above zero.
     private string? ValidateUnits(string baseUnit, string? purchaseUnit, decimal? purchaseFactor, string? salesUnit, decimal? salesFactor)
     {
+        if (baseUnit.Trim().All(char.IsAsciiDigit))
+        {
+            return _localizer["ItemUnitNumeric"].Value;
+        }
         foreach (var (name, factor) in new[] { (purchaseUnit, purchaseFactor), (salesUnit, salesFactor) })
         {
             if (Blank(name) is not { } unit) continue;

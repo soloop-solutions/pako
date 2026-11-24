@@ -157,6 +157,18 @@ public class WithholdingTaxTests : IAsyncLifetime
         Assert.IsType<BadRequestObjectResult>((await controller.Create(companyId, Request(personalNumber: ""))).Result);
     }
 
+    [Theory]
+    [InlineData("12345678")]
+    [InlineData("12345678901")]
+    [InlineData("81012345A")]
+    public async Task Create_PersonalNumberNotNineOrTenDigits_Rejected(string personalNumber)
+    {
+        var (db, companyId) = await SeedCompanyAsync();
+        var controller = NewController(db);
+
+        Assert.IsType<BadRequestObjectResult>((await controller.Create(companyId, Request(personalNumber: personalNumber, interest: 1m))).Result);
+    }
+
     [Fact]
     public async Task Create_UnknownCountry_Rejected()
     {

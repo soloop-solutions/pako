@@ -121,6 +121,10 @@
 
   <!-- Partnerët (B8) -->
   <data name="PartnerNameRequired" xml:space="preserve"><value>Emri i partnerit është i detyrueshëm.</value></data>
+  <data name="PartnerTaxNumberInvalid" xml:space="preserve"><value>NUI duhet të ketë saktësisht 9 shifra.</value></data>
+  <data name="PartnerFiscalNumberInvalid" xml:space="preserve"><value>Numri fiskal ose personal duhet të ketë 9 ose 10 shifra.</value></data>
+  <data name="PartnerVatNumberInvalid" xml:space="preserve"><value>Numri i TVSH-së duhet të ketë saktësisht 9 shifra.</value></data>
+  <data name="PartnerInUse" xml:space="preserve"><value>Ky partner ka dokumente ose regjistrime të tjera dhe nuk mund të fshihet. Arkivojeni në vend të kësaj.</value></data>
   <data name="PartnerFiscalNumberTooLong" xml:space="preserve"><value>Numri fiskal duhet të jetë 64 karaktere ose më pak.</value></data>
   <data name="PartnerControlAccountNotBelongToCompany" xml:space="preserve"><value>Llogaria e zgjedhur e kontrollit nuk i përket kësaj kompanie.</value></data>
   <data name="PartnerTaxNumberAlreadyExists" xml:space="preserve"><value>Ekziston tashmë një partner me këtë NUI në këtë kompani.</value></data>
@@ -168,6 +172,7 @@
   <data name="WithholdingTaxYearInvalid" xml:space="preserve"><value>Viti i deklarimit duhet të jetë mes 2000 dhe 2100.</value></data>
   <data name="WithholdingTaxPersonalNumberRequired" xml:space="preserve"><value>NUI / numri fiskal / numri personal është i detyrueshëm.</value></data>
   <data name="WithholdingTaxNameRequired" xml:space="preserve"><value>Emri i biznesit ose i personit është i detyrueshëm.</value></data>
+  <data name="WithholdingTaxPersonalNumberInvalid" xml:space="preserve"><value>NUI, numri fiskal ose personal duhet të ketë 9 ose 10 shifra.</value></data>
   <data name="WithholdingTaxPersonalNumberTooLong" xml:space="preserve"><value>NUI / numri fiskal / numri personal duhet të ketë maksimumi 50 karaktere.</value></data>
   <data name="WithholdingTaxNameTooLong" xml:space="preserve"><value>Emri i biznesit ose i personit duhet të ketë maksimumi 256 karaktere.</value></data>
   <data name="WithholdingTaxAmountsMustBeNonNegative" xml:space="preserve"><value>Shumat dhe të dhënat e qirasë nuk mund të jenë negative.</value></data>
@@ -1158,6 +1163,7 @@ Nëse nuk ishit ju, injorojeni këtë email — fjalëkalimi mbetet i njëjtë.<
   <data name="LineUnitUnknown" xml:space="preserve">
     <value>"{0}" nuk është njësi e këtij artikulli. Përdorni njësinë bazë ose njësinë e blerjes/shitjes të caktuar te artikulli.</value>
   </data>
+  <data name="ItemUnitNumeric" xml:space="preserve"><value>Njësia duhet të jetë një emër si copë ose kg, jo një numër.</value></data>
   <data name="ItemUnitInvalid" xml:space="preserve">
     <value>Njësia e blerjes ose e shitjes ka nevojë për emrin e vet (jo njësinë bazë) dhe sa njësi bazë përmban (më shumë se 0).</value>
   </data>

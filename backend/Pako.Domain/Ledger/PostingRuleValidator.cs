@@ -46,11 +46,9 @@ public static class PostingRuleValidator
         }
     }
 
-    // R07: any line whose VAT code isn't NA needs a counterparty with a real identifier. B8 wires
-    // Partner.IsVatRegistered to pick WHICH identifier that is — a VAT-registered counterparty
-    // (a business) is identified by its TaxNumber; a non-VAT-registered one (typically a natural
-    // person) has no TaxNumber to give, so FiscalNumber stands in for it instead. This is the
-    // "with/without-VAT distinction on documents" the task asks for.
+    // R07: any line whose VAT code isn't NA needs a counterparty. A VAT-registered counterparty
+    // (a business) must carry its TaxNumber (NUI). A non-VAT-registered one (typically a natural
+    // person) needs no identifier at all — a private person may have no fiscal number.
     public static void ValidateVatCounterpartyTaxNumber(string vatCode, Guid? partnerId, bool partnerIsVatRegistered, string? partnerTaxNumber, string? partnerFiscalNumber)
     {
         if (vatCode == "NA")
@@ -63,11 +61,7 @@ public static class PostingRuleValidator
             throw new MissingCounterpartyTaxNumberException(vatCode);
         }
 
-        var hasRequiredIdentifier = partnerIsVatRegistered
-            ? !string.IsNullOrWhiteSpace(partnerTaxNumber)
-            : !string.IsNullOrWhiteSpace(partnerFiscalNumber);
-
-        if (!hasRequiredIdentifier)
+        if (partnerIsVatRegistered && string.IsNullOrWhiteSpace(partnerTaxNumber))
         {
             throw new MissingCounterpartyTaxNumberException(vatCode);
         }

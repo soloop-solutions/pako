@@ -169,6 +169,8 @@ public static class WithholdingTaxExportService
 
     private static void WriteAmount(IXLCell cell, decimal amount)
     {
-        if (amount != 0m) cell.Value = amount;
+        if (amount == 0m) return;
+        cell.Value = Math.Round(amount, 2, MidpointRounding.AwayFromZero);
+        cell.Style.NumberFormat.Format = "#,##0.00";
     }
 }

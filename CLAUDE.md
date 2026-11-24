@@ -74,6 +74,7 @@ pnpm --filter web build
 - `Company.AccountingLockDate` / `TaxLockDate` — enforced on invoices, bills, journal entries and
   payroll. **No endpoint sets them**; `CompaniesController` has one write method.
 - `Account` carries ~20 fields; `AccountResponse` returns 7.
+- **Partner archive and delete**: `Partner.IsActive`, `POST partners/{id}/archive` and `/unarchive`, `DELETE partners/{id}` (refused with 409 `PartnerInUse` when any invoice, bill, journal line, payment, order or stock document points at it, or it belongs to an employee). `partnersAll` returns everyone unless `activeOnly=true`; the paged list hides archived unless `includeArchived=true`. Document pickers on the bill, invoice and return pages filter archived partners client-side; other pickers (POS, stock, purchase orders, item form) still list them.
 - **Audit trail**: `PakoDbContext.SaveChanges` writes hash-chained `audit_entries` rows for `[Audited]` entities in the same transaction (opt-in attribute, admin-only `api/companies/{id}/audit` list/paged/detail/verify/export). `AuditController.Stage` is for semantic events only. Reference: `docs/AUDIT_TRAIL.md`.
 - **Report suite** under `api/companies/{companyId}/reports` (most with an Excel `/export`): general
   ledger, monthly P&L, comparative balance sheet, cash flow, equity statement, expense book, VAT
