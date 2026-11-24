@@ -86,3 +86,46 @@ export function PageHeader({
     </div>
   );
 }
+
+/**
+ * The same control-panel row for one section of a page that holds several lists (e.g. stores,
+ * registers and barcode rules on POS setup): compact New first, then the section title (and its
+ * description behind an info icon), secondary buttons on the right. No breadcrumb, no N hotkey.
+ */
+export function SectionHeader({
+  title,
+  description,
+  newAction,
+  actions,
+}: {
+  title: string;
+  description?: string;
+  newAction?: PageHeaderAction;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="flex min-h-7 flex-wrap items-center justify-between gap-x-3 gap-y-2" data-testid="section-header">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {newAction && (
+          <Button
+            size="sm"
+            className="h-7 shrink-0 gap-1 rounded-md px-2.5 text-xs font-semibold shadow-none"
+            onClick={newAction.onClick}
+            disabled={newAction.disabled}
+          >
+            <Plus className="size-3.5" />
+            {newAction.label}
+          </Button>
+        )}
+        <h3 className="truncate text-sm font-semibold">{title}</h3>
+        {description && (
+          <span className="inline-flex shrink-0 text-muted-foreground" title={description}>
+            <Info className="size-3.5" aria-hidden />
+            <span className="sr-only">{description}</span>
+          </span>
+        )}
+      </div>
+      {actions && <div className="flex flex-wrap items-center gap-2 [&_button]:h-7 [&_button]:text-xs">{actions}</div>}
+    </div>
+  );
+}
