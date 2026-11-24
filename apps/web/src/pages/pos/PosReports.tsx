@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PosSalesReportRow } from "@pako/shared";
@@ -7,7 +8,7 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -84,11 +85,11 @@ export function PosReports() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("nav.posReports")}</CardTitle>
-        <CardDescription>{t("nav.posReports.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("nav.posReports")} description={t("nav.posReports.description")}
+      />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
@@ -151,6 +152,7 @@ export function PosReports() {
           manualGrouping={false}
         />
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

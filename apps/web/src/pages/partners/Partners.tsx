@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
@@ -240,22 +241,19 @@ export function Partners() {
   const loadError = partnersQuery.isError ? getApiErrorMessage(partnersQuery.error, intl.formatMessage({ id: "partners.loadError" })) : null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-start gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "partners.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "partners.description" })}</p>
-        </div>
-        <Button
-          onClick={() => {
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={intl.formatMessage({ id: "partners.title" })}
+        description={intl.formatMessage({ id: "partners.description" })}
+        newAction={{
+          label: intl.formatMessage({ id: "partners.addPartner" }),
+          onClick: () => {
             setRolePickerOpen(true);
             setEditingId(null);
             setMutationError(null);
-          }}
-        >
-          {intl.formatMessage({ id: "partners.addPartner" })}
-        </Button>
-      </div>
+          },
+        }}
+      />
 
       {loadError && (
         <Alert variant="destructive">

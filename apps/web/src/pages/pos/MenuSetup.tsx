@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ComboSlotResponse, ModifierGroupResponse, ProductionCenterResponse, SaveModifierGroupRequest } from "@pako/shared";
@@ -141,18 +142,13 @@ export function MenuSetup() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("pos.setup3.nav.menu")} description={t("pos.setup3.nav.menu.description")} />
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("pos.setup3.centers")}</CardTitle>
-            <CardDescription>{t("pos.setup3.centers.description")}</CardDescription>
-          </div>
-          {canEdit && (
-            <Button size="sm" onClick={() => setEditingCenter("new")}>
-              <Plus className="size-4" />
-              {t("pos.setup3.center.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("pos.setup3.centers")} description={t("pos.setup3.centers.description")}
+            newAction={canEdit ? { label: t("pos.setup3.center.new"), onClick: () => setEditingCenter("new") } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -173,17 +169,11 @@ export function MenuSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("pos.setup3.groups")}</CardTitle>
-            <CardDescription>{t("pos.setup3.groups.description")}</CardDescription>
-          </div>
-          {canEdit && (
-            <Button size="sm" onClick={() => setEditingGroup("new")}>
-              <Plus className="size-4" />
-              {t("pos.setup3.group.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("pos.setup3.groups")} description={t("pos.setup3.groups.description")}
+            newAction={canEdit ? { label: t("pos.setup3.group.new"), onClick: () => setEditingGroup("new") } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid

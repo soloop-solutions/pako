@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -11,7 +12,7 @@ import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -256,14 +257,16 @@ export function EmployeeLoans() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{intl.formatMessage({ id: "common.selectCompanyFirst" })}</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{intl.formatMessage({ id: "nav.employeeLoans" })}</CardTitle>
-        <CardDescription>{intl.formatMessage({ id: "nav.employeeLoans.description" })}</CardDescription>
-      </CardHeader>
-      <CardContent>
-        <EmployeeLoansPanel companyId={activeCompanyId} />
-      </CardContent>
-    </Card>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.employeeLoans" })}
+        description={intl.formatMessage({ id: "nav.employeeLoans.description" })}
+      />
+      <Card className={LIST_SURFACE}>
+        <CardContent>
+          <EmployeeLoansPanel companyId={activeCompanyId} />
+        </CardContent>
+      </Card>
+    </div>
   );
 }

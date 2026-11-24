@@ -2,16 +2,17 @@ import { forwardRef, useMemo, useRef, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { EventBookingResponse, SaveEventBookingRequest, TabResponse, VenueResponse } from "@pako/shared";
-import { CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Pencil, Plus, Printer, Users, Wallet, X } from "lucide-react";
+import { CheckCircle2, ChevronLeft, ChevronRight, CreditCard, Pencil, Printer, Users, Wallet, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { LIST_SURFACE, PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -122,18 +123,12 @@ export function Events() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("hotel.nav.events")}</CardTitle>
-            <CardDescription>{t("hotel.nav.events.description")}</CardDescription>
-          </div>
-          {canWrite("pos") && venues.some((v) => v.isActive) && (
-            <Button size="sm" onClick={() => setEditing("new")}>
-              <Plus className="size-4" /> {t("hotel.event.new")}
-            </Button>
-          )}
-        </CardHeader>
+      <PageHeader
+        title={t("hotel.nav.events")}
+        description={t("hotel.nav.events.description")}
+        newAction={canWrite("pos") && venues.some((v) => v.isActive) ? { label: t("hotel.event.new"), onClick: () => setEditing("new") } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
@@ -178,16 +173,12 @@ export function Events() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("hotel.venues")}</CardTitle>
-            <CardDescription>{t("hotel.venues.description")}</CardDescription>
-          </div>
-          {canApprove("pos") && stores.length > 0 && (
-            <Button size="sm" variant="outline" onClick={() => setAddingVenue(true)}>
-              <Plus className="size-4" /> {t("hotel.venue.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("hotel.venues")}
+            description={t("hotel.venues.description")}
+            newAction={canApprove("pos") && stores.length > 0 ? { label: t("hotel.venue.new"), onClick: () => setAddingVenue(true) } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid

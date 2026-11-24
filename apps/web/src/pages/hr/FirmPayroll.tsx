@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -9,7 +10,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
@@ -93,21 +94,18 @@ export function FirmPayroll() {
 
   const rows = overviewQuery.data?.companies ?? [];
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <CardTitle>
-              {intl.formatMessage({ id: "nav.firmPayroll" })} · {overviewQuery.data?.firmName ?? ""}
-            </CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "firmPayroll.description" }, { month: formatPayrollMonth(month, intl) })}</CardDescription>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="firm-payroll-month">{intl.formatMessage({ id: "payroll.month" })}</Label>
-            <Input id="firm-payroll-month" type="month" className="w-44" value={month} onChange={(e) => e.target.value && setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("month", e.target.value); return next; }, { replace: true })} />
-          </div>
+    <div className="flex flex-col gap-4">
+    <PageHeader
+      title={`${intl.formatMessage({ id: "nav.firmPayroll" })} · ${overviewQuery.data?.firmName ?? ""}`}
+      description={intl.formatMessage({ id: "firmPayroll.description" }, { month: formatPayrollMonth(month, intl) })}
+      actions={
+        <div className="flex items-center gap-2">
+          <Label htmlFor="firm-payroll-month" className="text-xs text-muted-foreground">{intl.formatMessage({ id: "payroll.month" })}</Label>
+          <Input id="firm-payroll-month" type="month" className="h-8 w-44" value={month} onChange={(e) => e.target.value && setSearchParams((prev) => { const next = new URLSearchParams(prev); next.set("month", e.target.value); return next; }, { replace: true })} />
         </div>
-      </CardHeader>
+      }
+    />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         {overviewQuery.isError && (
           <Alert variant="destructive">
@@ -135,5 +133,6 @@ export function FirmPayroll() {
         />
       </CardContent>
     </Card>
+    </div>
   );
 }

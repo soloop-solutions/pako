@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { StockLevelResponse } from "@pako/shared";
@@ -13,7 +14,7 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
 import { useCompany } from "@/context/CompanyContext";
@@ -132,11 +133,9 @@ export function StockLevels() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("nav.stockLevels")}</CardTitle>
-        <CardDescription>{t("nav.stockLevels.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader title={t("nav.stockLevels")} description={t("nav.stockLevels.description")} />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap items-end gap-3">
           {warehouses.length > 1 && (
@@ -193,6 +192,7 @@ export function StockLevels() {
         />
       </CardContent>
       {cardItem && <ItemCardDialog itemId={cardItem.itemId} title={`${cardItem.itemCode} · ${cardItem.itemName}`} onClose={() => setCardItem(null)} />}
-    </Card>
+      </Card>
+    </div>
   );
 }

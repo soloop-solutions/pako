@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
@@ -180,10 +181,27 @@ export function Payroll() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "payroll.title" })}</h2>
-          <p className="text-sm text-muted-foreground">
+      <PageHeader
+        title={intl.formatMessage({ id: "payroll.title" })}
+        actions={
+          <div className="flex gap-2" role="tablist">
+              {(["runs", "adjustments"] as const).map((key) => (
+                <Button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={view === key}
+                  variant={view === key ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setParam("view", key === "runs" ? null : key)}
+                >
+                  {intl.formatMessage({ id: key === "runs" ? "payroll.payrollRuns" : "payroll.adjustments.tab" })}
+                </Button>
+              ))}
+            </div>
+        }
+      />
+      <p className="-mt-2 text-xs text-muted-foreground">
             {intl.formatMessage(
               { id: "payroll.employeesLiveUnder" },
               {
@@ -195,23 +213,6 @@ export function Payroll() {
               },
             )}
           </p>
-        </div>
-        <div className="flex gap-2" role="tablist">
-          {(["runs", "adjustments"] as const).map((key) => (
-            <Button
-              key={key}
-              type="button"
-              role="tab"
-              aria-selected={view === key}
-              variant={view === key ? "default" : "outline"}
-              size="sm"
-              onClick={() => setParam("view", key === "runs" ? null : key)}
-            >
-              {intl.formatMessage({ id: key === "runs" ? "payroll.payrollRuns" : "payroll.adjustments.tab" })}
-            </Button>
-          ))}
-        </div>
-      </div>
 
       {loadError && (
         <Alert variant="destructive">

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import { toast } from "sonner";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
@@ -76,24 +77,23 @@ export function CostCenters() {
     : null;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-start gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "nav.costCenters" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "nav.costCenters.description" })}</p>
-        </div>
-        {!readOnly && (
-          <Button
-            onClick={() => {
-              setFormOpen((open) => !open);
-              setEditingId(null);
-              setMutationError(null);
-            }}
-          >
-            {intl.formatMessage({ id: "costCenters.new" })}
-          </Button>
-        )}
-      </div>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.costCenters" })}
+        description={intl.formatMessage({ id: "nav.costCenters.description" })}
+        newAction={
+          !readOnly
+            ? {
+                label: intl.formatMessage({ id: "costCenters.new" }),
+                onClick: () => {
+                  setFormOpen((open) => !open);
+                  setEditingId(null);
+                  setMutationError(null);
+                },
+              }
+            : undefined
+        }
+      />
 
       {loadError && (
         <Alert variant="destructive">

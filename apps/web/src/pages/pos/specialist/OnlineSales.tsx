@@ -2,12 +2,13 @@ import { useMemo, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ChannelOrderResponse, CodCourierRow, SalesChannelResponse } from "@pako/shared";
-import { Copy, Plus, RefreshCw, ShoppingBag, Truck } from "lucide-react";
+import { Copy, RefreshCw, ShoppingBag, Truck } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage, publicApiBase } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
@@ -50,6 +51,7 @@ export function OnlineSales() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("spec.nav.online")} description={t("spec.nav.online.description")} />
       <TabBar label={t("spec.nav.online")} value={tab} onChange={setTab} tabs={TABS.map((id) => ({ id, label: t(`spec.online.tab.${id}`) }))} />
       {tab === "orders" && <OrdersTab />}
       {tab === "cod" && <CodTab />}
@@ -371,16 +373,18 @@ function CodTab() {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("spec.cod.orders.title")}</CardTitle>
-            <CardDescription>{t("spec.cod.orders.description")}</CardDescription>
-          </div>
-          {canApprove("pos") && (
-            <Button size="sm" disabled={selected.length === 0} onClick={() => setRemitting(true)}>
-              {t("spec.cod.remit", { count: selected.length })}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("spec.cod.orders.title")}
+            description={t("spec.cod.orders.description")}
+            actions={
+              canApprove("pos") && (
+                <Button size="sm" disabled={selected.length === 0} onClick={() => setRemitting(true)}>
+                  {t("spec.cod.remit", { count: selected.length })}
+                </Button>
+              )
+            }
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -483,16 +487,12 @@ function ChannelsTab() {
   const current = opened && opened !== "new" ? rows.find((c) => c.id === opened.id) ?? opened : opened;
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("spec.online.tab.channels")}</CardTitle>
-          <CardDescription>{t("spec.channel.description")}</CardDescription>
-        </div>
-        {canApprove("pos") && (
-          <Button size="sm" onClick={() => setOpened("new")}>
-            <Plus className="size-4" /> {t("spec.channel.new")}
-          </Button>
-        )}
+      <CardHeader>
+        <SectionHeader
+          title={t("spec.online.tab.channels")}
+          description={t("spec.channel.description")}
+          newAction={canApprove("pos") ? { label: t("spec.channel.new"), onClick: () => setOpened("new") } : undefined}
+        />
       </CardHeader>
       <CardContent>
         {!canApprove("pos") ? (

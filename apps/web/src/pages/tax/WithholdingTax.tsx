@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Download } from "lucide-react";
@@ -236,21 +237,27 @@ export function WithholdingTax() {
   const percent = (rate: number | undefined) => intl.formatNumber(rate ?? 0, { style: "percent", maximumFractionDigits: 2 });
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "withholdingTax.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "withholdingTax.description" })}</p>
-        </div>
-        <div className="flex flex-wrap items-end gap-2">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="wht-year">{intl.formatMessage({ id: "withholdingTax.year" })}</Label>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={intl.formatMessage({ id: "withholdingTax.title" })}
+        description={intl.formatMessage({ id: "withholdingTax.description" })}
+        newAction={{
+          label: intl.formatMessage({ id: "withholdingTax.addEntry" }),
+          onClick: () => {
+            setFormOpen((open) => !open);
+            setEditingId(null);
+            setFormError(null);
+          },
+        }}
+        actions={
+          <>
+            <Label htmlFor="wht-year" className="text-xs text-muted-foreground">{intl.formatMessage({ id: "withholdingTax.year" })}</Label>
             <Input
               id="wht-year"
               type="number"
               min={2000}
               max={2100}
-              className="w-24 tabular-nums"
+              className="h-8 w-24 tabular-nums"
               value={yearDraft}
               onChange={(e) => {
                 setYearDraft(e.target.value);
@@ -258,22 +265,13 @@ export function WithholdingTax() {
               }}
               onBlur={() => setYearDraft(String(year))}
             />
-          </div>
-          <Button variant="outline" onClick={exportYear} disabled={exporting || total === 0}>
+            <Button variant="outline" size="sm" onClick={exportYear} disabled={exporting || total === 0}>
             <Download className="size-4" />
             {intl.formatMessage({ id: exporting ? "withholdingTax.exporting" : "withholdingTax.export" })}
           </Button>
-          <Button
-            onClick={() => {
-              setFormOpen((open) => !open);
-              setEditingId(null);
-              setFormError(null);
-            }}
-          >
-            {intl.formatMessage({ id: "withholdingTax.addEntry" })}
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+      />
 
       {listQuery.data && (
         <p className="text-xs text-muted-foreground">

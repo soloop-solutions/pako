@@ -1,9 +1,10 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ProgramResponse, SaveProgramRequest, StoreResponse } from "@pako/shared";
-import { Plus, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useIntl, type IntlShape } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -12,7 +13,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -140,19 +141,12 @@ export function PosPrograms() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("nav.posPrograms")}</CardTitle>
-            <CardDescription>{t("nav.posPrograms.description")}</CardDescription>
-          </div>
-          {canEdit && (
-            <Button size="sm" onClick={() => setEditing("new")}>
-              <Plus className="size-4" />
-              {t("pos.program.new")}
-            </Button>
-          )}
-        </CardHeader>
+      <PageHeader
+        title={t("nav.posPrograms")}
+        description={t("nav.posPrograms.description")}
+        newAction={canEdit ? { label: t("pos.program.new"), onClick: () => setEditing("new") } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent>
           <DataGrid
             gridId="pos-programs"

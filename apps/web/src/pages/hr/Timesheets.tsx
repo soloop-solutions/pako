@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
@@ -12,7 +13,7 @@ import { EmployeePicker } from "@/components/EmployeePicker";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
@@ -178,21 +179,16 @@ export function Timesheets() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
-              <CardTitle>{intl.formatMessage({ id: "nav.timesheets" })}</CardTitle>
-              <CardDescription>{intl.formatMessage({ id: "timesheets.description" }, { month: formatPayrollMonth(month, intl) })}</CardDescription>
-            </div>
-            <div className="flex flex-wrap items-end gap-2">
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="timesheet-month">{intl.formatMessage({ id: "payroll.month" })}</Label>
-                <Input id="timesheet-month" type="month" className="w-44" value={month} onChange={(e) => e.target.value && setSearchParams({ month: e.target.value }, { replace: true })} />
-              </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.timesheets" })}
+        description={intl.formatMessage({ id: "timesheets.description" }, { month: formatPayrollMonth(month, intl) })}
+        actions={
+          <>
+            <Label htmlFor="timesheet-month" className="text-xs text-muted-foreground">{intl.formatMessage({ id: "payroll.month" })}</Label>
+            <Input id="timesheet-month" type="month" className="h-8 w-44" value={month} onChange={(e) => e.target.value && setSearchParams({ month: e.target.value }, { replace: true })} />
               {canWrite("hr") && (
                 <>
-                  <label className="inline-flex h-9 cursor-pointer items-center rounded-md border px-3 text-sm">
+                  <label className="inline-flex h-7 cursor-pointer items-center rounded-md border px-3 text-xs">
                     {intl.formatMessage({ id: "timesheets.import" })}
                     <input
                       type="file"
@@ -216,9 +212,10 @@ export function Timesheets() {
                   </Button>
                 </>
               )}
-            </div>
-          </div>
-        </CardHeader>
+          </>
+        }
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent className="flex flex-col gap-3">
           {error && (
             <Alert variant="destructive">

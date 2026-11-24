@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { InvoiceResponse, RentRunResponse } from "@pako/shared";
@@ -69,11 +70,8 @@ export function RentRun() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{t("vx.nav.rentRun")}</CardTitle>
-          <CardDescription>{t("vx.nav.rentRun.description")}</CardDescription>
-        </CardHeader>
+      <PageHeader title={t("vx.nav.rentRun")} description={t("vx.nav.rentRun.description")} />
+      <Card className="py-4">
         <CardContent className="flex flex-col gap-3">
           <ErrorAlert error={error} />
           <form className="flex flex-wrap items-end gap-3" onSubmit={(e) => { e.preventDefault(); setError(null); setResult(null); run.mutate(); }}>

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { formatMoney, formatMoneyOr } from "@/lib/amount";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
@@ -169,10 +170,11 @@ export function Reconciliation() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <CardDescription className="text-sm text-muted-foreground">
-        {intl.formatMessage({ id: "reconciliation.outstandingInfo" })}
-      </CardDescription>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={intl.formatMessage({ id: "reconciliation.title" })}
+        description={intl.formatMessage({ id: "reconciliation.outstandingInfo" })}
+      />
 
       {error && (
         <Alert variant="destructive">

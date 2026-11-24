@@ -7,7 +7,8 @@ import { useIntl } from "react-intl";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
@@ -78,11 +79,9 @@ export function UsageVariance() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("pos.setup3.nav.variance")}</CardTitle>
-        <CardDescription>{t("pos.setup3.nav.variance.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+    <PageHeader title={t("pos.setup3.nav.variance")} description={t("pos.setup3.nav.variance.description")} />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
@@ -116,5 +115,6 @@ export function UsageVariance() {
         />
       </CardContent>
     </Card>
+    </div>
   );
 }

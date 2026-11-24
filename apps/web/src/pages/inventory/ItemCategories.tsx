@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { PageHeader } from "@/components/list/PageHeader";
+import { PageHeader, LIST_SURFACE } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { AccountResponse, ItemCategoryResponse } from "@pako/shared";
@@ -75,8 +75,8 @@ export function ItemCategories() {
       description={t("nav.itemCategories.description")}
       newAction={canWrite("items") ? { label: t("stock.cat.new"), onClick: () => setEditing("new") } : undefined}
     />
-    <Card>
-      <CardContent className="pt-6">
+    <Card className={LIST_SURFACE}>
+      <CardContent>
         <DataGrid
           gridId="item-categories"
           columns={columns}

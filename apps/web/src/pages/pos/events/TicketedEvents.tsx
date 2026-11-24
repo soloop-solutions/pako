@@ -11,7 +11,8 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -103,23 +104,18 @@ export function TicketedEvents() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("hotel.nav.tickets")}</CardTitle>
-          <CardDescription>{t("hotel.nav.tickets.description")}</CardDescription>
-        </div>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={() => navigate("/pos/scan")}>
-            <ScanLine className="size-4" /> {t("hotel.scan.title")}
-          </Button>
-          {canEdit && stores.length > 0 && (
-            <Button size="sm" onClick={() => setEditing("new")}>
-              <Plus className="size-4" /> {t("hotel.ticketed.new")}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+    <PageHeader
+      title={t("hotel.nav.tickets")}
+      description={t("hotel.nav.tickets.description")}
+      newAction={canEdit && stores.length > 0 ? { label: t("hotel.ticketed.new"), onClick: () => setEditing("new") } : undefined}
+      actions={
+        <Button size="sm" variant="outline" onClick={() => navigate("/pos/scan")}>
+          <ScanLine className="size-4" /> {t("hotel.scan.title")}
+        </Button>
+      }
+    />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         {eventsQuery.error && <ErrorAlert message={getApiErrorMessage(eventsQuery.error, t("pos.saveError"))} />}
         <DataGrid
@@ -148,6 +144,7 @@ export function TicketedEvents() {
         />
       )}
     </Card>
+    </div>
   );
 }
 

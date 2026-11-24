@@ -12,7 +12,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import { ListRibbon } from "@/components/list/ListRibbon";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
-import { PageHeader } from "@/components/list/PageHeader";
+import { PageHeader, LIST_SURFACE } from "@/components/list/PageHeader";
 import { useListFilters } from "@/components/list/useListFilters";
 import { usePartners } from "@/hooks/useDistribution";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
@@ -95,8 +95,8 @@ export function PurchaseOrders() {
         description={t("nav.purchaseOrders.description")}
         newAction={canWrite("purchases") ? { label: t("po.new"), onClick: () => navigate("/purchase-orders/new") } : undefined}
       />
-      <Card>
-        <CardContent className="flex flex-col gap-3 pt-6">
+      <Card className={LIST_SURFACE}>
+        <CardContent className="flex flex-col gap-3">
           <ListRibbon
             controls={ribbon}
             dateLabelId="po.col.date"

@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { GrniRowResponse, LotStockResponse, MarginRowResponse, StockValuationAccountResponse, StockValuationRowResponse } from "@pako/shared";
@@ -38,10 +39,7 @@ export function StockReports() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h2 className="text-xl font-semibold">{t("nav.stockReports")}</h2>
-        <p className="text-sm text-muted-foreground">{t("nav.stockReports.description")}</p>
-      </div>
+      <PageHeader title={t("nav.stockReports")} description={t("nav.stockReports.description")} />
       <div role="tablist" aria-label={t("nav.stockReports")} className="flex gap-1 border-b">
         {TABS.map((id) => (
           <TabButton

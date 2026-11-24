@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { ListRibbon } from "@/components/list/ListRibbon";
-import { PageHeader } from "@/components/list/PageHeader";
+import { PageHeader, LIST_SURFACE } from "@/components/list/PageHeader";
 import { useListFilters } from "@/components/list/useListFilters";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -78,8 +78,8 @@ export function SaleContracts() {
   return (
     <div className="flex flex-col gap-4">
       <PageHeader title={t("vx.nav.contracts")} description={t("vx.nav.contracts.description")} />
-      <Card>
-      <CardContent className="flex flex-col gap-3 pt-6">
+      <Card className={LIST_SURFACE}>
+      <CardContent className="flex flex-col gap-3">
         <ListRibbon controls={ribbon} dateLabelId="common.date" />
         <div className="flex flex-wrap items-end gap-3">
           <StateFilter value={state} onChange={setState} states={CONTRACT_STATES} labelPrefix="vx.contractState" label={t("vx.state")} />

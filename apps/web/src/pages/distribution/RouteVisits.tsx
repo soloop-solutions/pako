@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RouteVisitResponse } from "@pako/shared";
@@ -99,11 +100,8 @@ export function RouteVisits() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-semibold">{t("nav.routeVisits")}</h2>
-          <p className="text-sm text-muted-foreground">{t("nav.routeVisits.description")}</p>
-        </div>
+      <PageHeader title={t("nav.routeVisits")} description={t("nav.routeVisits.description")} />
+      <div className="flex flex-wrap items-end gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
             <Label htmlFor="visits-date">{t("dist.date")}</Label>

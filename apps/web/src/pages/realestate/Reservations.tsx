@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ReservationResponse } from "@pako/shared";
@@ -8,7 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { useUrlParam } from "@/hooks/useUrlParam";
@@ -78,11 +79,9 @@ export function Reservations() {
   const sellingUnit = selling ? units.find((u) => u.id === selling.unitId) : undefined;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("vx.nav.reservations")}</CardTitle>
-        <CardDescription>{t("vx.nav.reservations.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader title={t("vx.nav.reservations")} description={t("vx.nav.reservations.description")} />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <ErrorAlert error={error} />
         <StateFilter value={state} onChange={setState} states={RESERVATION_STATES} labelPrefix="vx.reservationState" label={t("vx.state")} />
@@ -106,6 +105,7 @@ export function Reservations() {
         <SaleContractDialog unit={sellingUnit} reservation={{ id: selling.id, partnerId: selling.partnerId, partnerName: selling.partnerName }}
           onClose={() => setSelling(null)} onSaved={(c) => navigate(`/real-estate/contracts/${c.id}`)} />
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }

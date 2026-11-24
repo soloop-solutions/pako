@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
@@ -6,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PaymentResponse } from "@pako/shared";
 import { toast } from "sonner";
-import { CreditCard, Plus } from "lucide-react";
+import { CreditCard } from "lucide-react";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
@@ -174,16 +175,11 @@ export function PaymentsPage() {
   };
 
   return (
-    <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-start gap-2">
-        <h1 className="text-lg font-semibold">{t("payments.title")}</h1>
-        {mayRecord && (
-          <Button onClick={() => setNewOpen(true)} disabled={!companyId}>
-            <Plus className="size-4" />
-            {t("directPayment.new")}
-          </Button>
-        )}
-      </div>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("payments.title")}
+        newAction={mayRecord ? { label: t("directPayment.new"), onClick: () => setNewOpen(true), disabled: !companyId } : undefined}
+      />
       <div className="flex gap-2">
         <TabButton selected={tab === "all"} onClick={() => setTab("all")}>{t("payments.all")}</TabButton>
         <TabButton selected={tab === "outstanding"} onClick={() => setTab("outstanding")}>{t("payments.outstanding")}</TabButton>

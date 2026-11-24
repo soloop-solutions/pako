@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
@@ -174,12 +175,11 @@ export function MyLeave() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "me.leave.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "me.leave.description" }, { year })}</p>
-        </div>
-        {access?.isTeamManager && (
+      <PageHeader
+        title={intl.formatMessage({ id: "me.leave.title" })}
+        description={intl.formatMessage({ id: "me.leave.description" }, { year })}
+        actions={
+          access?.isTeamManager ? (
           <div role="tablist" className="flex gap-1 rounded-md border p-0.5">
             {(["mine", "team"] as const).map((id) => (
               <button
@@ -194,8 +194,9 @@ export function MyLeave() {
               </button>
             ))}
           </div>
-        )}
-      </div>
+          ) : undefined
+        }
+      />
 
       {(error || loadError) && (
         <Alert variant="destructive">

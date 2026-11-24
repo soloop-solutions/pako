@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
@@ -8,7 +9,7 @@ import type { PartnerStatementLine } from "@pako/shared";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -76,11 +77,12 @@ export function PartnerStatement() {
   const lines = statement?.lines ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{intl.formatMessage({ id: "nav.partnerStatement" })}</CardTitle>
-        <CardDescription>{intl.formatMessage({ id: "nav.partnerStatement.description" })}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+    <PageHeader
+      title={intl.formatMessage({ id: "nav.partnerStatement" })}
+      description={intl.formatMessage({ id: "nav.partnerStatement.description" })}
+    />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-4 sm:items-end">
           <div className="flex flex-col gap-1 sm:col-span-2">
@@ -146,5 +148,6 @@ export function PartnerStatement() {
         )}
       </CardContent>
     </Card>
+    </div>
   );
 }

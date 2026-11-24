@@ -4,11 +4,11 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type {
   FleetCardResponse, ForecourtGradeRow, ForecourtNozzleRow, ForecourtReconciliationResponse, NozzleResponse, TankResponse,
 } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +72,7 @@ export function Forecourt() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("spec.nav.forecourt")} description={t("spec.nav.forecourt.description")} />
       <TabBar label={t("spec.nav.forecourt")} value={tab} onChange={setTab} tabs={TABS.map((id) => ({ id, label: t(`spec.fuel.tab.${id}`) }))} />
       {tab !== "fleet" && <StoreSelect value={storeId} onChange={setStoreId} />}
       {tab === "readings" && storeId && <ReadingsTab storeId={storeId} />}
@@ -420,16 +421,12 @@ function SetupTab({ storeId }: { storeId: string }) {
     <div className="flex flex-col gap-4">
       {!canApprove("pos") && <p className="text-sm text-muted-foreground">{t("spec.approveOnly")}</p>}
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("spec.fuel.tanks")}</CardTitle>
-            <CardDescription>{t("spec.fuel.tanks.description")}</CardDescription>
-          </div>
-          {canApprove("pos") && (
-            <Button size="sm" onClick={() => setTankOpen("new")}>
-              <Plus className="size-4" /> {t("spec.fuel.tank.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("spec.fuel.tanks")}
+            description={t("spec.fuel.tanks.description")}
+            newAction={canApprove("pos") ? { label: t("spec.fuel.tank.new"), onClick: () => setTankOpen("new") } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -446,16 +443,12 @@ function SetupTab({ storeId }: { storeId: string }) {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("spec.fuel.nozzles")}</CardTitle>
-            <CardDescription>{t("spec.fuel.nozzles.description")}</CardDescription>
-          </div>
-          {canApprove("pos") && (
-            <Button size="sm" disabled={tankRows.length === 0} onClick={() => setNozzleOpen("new")}>
-              <Plus className="size-4" /> {t("spec.fuel.nozzle.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("spec.fuel.nozzles")}
+            description={t("spec.fuel.nozzles.description")}
+            newAction={canApprove("pos") ? { label: t("spec.fuel.nozzle.new"), onClick: () => setNozzleOpen("new"), disabled: tankRows.length === 0 } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -662,16 +655,12 @@ function FleetCardsTab() {
   const rows = cards.data ?? [];
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("spec.fuel.tab.fleet")}</CardTitle>
-          <CardDescription>{t("spec.fleet.description")}</CardDescription>
-        </div>
-        {canApprove("pos") && (
-          <Button size="sm" onClick={() => setOpened("new")}>
-            <Plus className="size-4" /> {t("spec.fleet.new")}
-          </Button>
-        )}
+      <CardHeader>
+        <SectionHeader
+          title={t("spec.fuel.tab.fleet")}
+          description={t("spec.fleet.description")}
+          newAction={canApprove("pos") ? { label: t("spec.fleet.new"), onClick: () => setOpened("new") } : undefined}
+        />
       </CardHeader>
       <CardContent>
         <DataGrid

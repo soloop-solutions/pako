@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, type ReactNode, type Ref } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { VanLoadLineResponse, VanSettlementLineResponse, VanSettlementResponse } from "@pako/shared";
@@ -11,7 +12,7 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { PrintButton } from "@/components/shared/PrintButton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -111,11 +112,9 @@ export function VanLoad() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("nav.vanLoad")}</CardTitle>
-        <CardDescription>{t("nav.vanLoad.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader title={t("nav.vanLoad")} description={t("nav.vanLoad.description")} />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         {state.vans.length === 0 && <Alert><AlertDescription>{t("dist.van.none")}</AlertDescription></Alert>}
         <VanAndDate state={state}>
@@ -147,7 +146,8 @@ export function VanLoad() {
           manualGrouping={false}
         />
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }
 
@@ -189,14 +189,13 @@ export function VanSettlement() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>{t("nav.vanSettlement")}</CardTitle>
-          <CardDescription>{t("nav.vanSettlement.description")}</CardDescription>
-        </div>
-        {settlement && <PrintButton contentRef={printRef} size="sm" landscape />}
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("nav.vanSettlement")}
+        description={t("nav.vanSettlement.description")}
+        actions={settlement ? <PrintButton contentRef={printRef} size="sm" landscape /> : undefined}
+      />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         {state.vans.length === 0 && <Alert><AlertDescription>{t("dist.van.none")}</AlertDescription></Alert>}
         <VanAndDate state={state} />
@@ -222,7 +221,8 @@ export function VanSettlement() {
           <SettlementPrint ref={printRef} settlement={settlement} companyName={activeCompany?.name ?? ""} />
         </div>
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }
 

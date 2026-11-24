@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ListRibbon } from "@/components/list/ListRibbon";
 import { ListSumBar } from "@/components/list/ListTotalsBar";
-import { PageHeader } from "@/components/list/PageHeader";
+import { PageHeader, LIST_SURFACE } from "@/components/list/PageHeader";
 import { useListFilters } from "@/components/list/useListFilters";
 import { usePartners } from "@/hooks/useDistribution";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
@@ -107,8 +107,8 @@ export function StockDocuments() {
           </Button>
         ))}
       />
-      <Card>
-        <CardContent className="flex flex-col gap-3 pt-6">
+      <Card className={LIST_SURFACE}>
+        <CardContent className="flex flex-col gap-3">
           <ListRibbon
             controls={ribbon}
             dateLabelId="stock.card.date"

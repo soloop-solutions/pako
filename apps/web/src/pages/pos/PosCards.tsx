@@ -1,9 +1,9 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { GiftCardResponse, LoyaltyCardResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -13,7 +13,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
@@ -112,18 +112,13 @@ export function PosCards() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("nav.posCards")} description={t("nav.posCards.description")} />
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("pos.loyalty.title")}</CardTitle>
-            <CardDescription>{t("nav.posCards.description")}</CardDescription>
-          </div>
-          {canWrite("pos") && (
-            <Button size="sm" onClick={() => setEditing("new")}>
-              <Plus className="size-4" />
-              {t("pos.loyalty.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("pos.loyalty.title")}
+            newAction={canWrite("pos") ? { label: t("pos.loyalty.new"), onClick: () => setEditing("new") } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -144,7 +139,7 @@ export function PosCards() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("pos.giftCard.title")}</CardTitle>
+          <SectionHeader title={t("pos.giftCard.title")} />
         </CardHeader>
         <CardContent>
           <DataGrid

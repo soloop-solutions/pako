@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -9,7 +10,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -119,20 +120,13 @@ export function CommissionPlans() {
   const plans = plansQuery.data ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-end justify-start gap-2">
-          <div>
-            <CardTitle>{intl.formatMessage({ id: "nav.commissionPlans" })}</CardTitle>
-            <CardDescription>{intl.formatMessage({ id: "nav.commissionPlans.description" })}</CardDescription>
-          </div>
-          {canWrite("payroll") && !editing && (
-            <Button size="sm" onClick={() => open("new")}>
-              {intl.formatMessage({ id: "commission.plan.new" })}
-            </Button>
-          )}
-        </div>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+    <PageHeader
+      title={intl.formatMessage({ id: "nav.commissionPlans" })}
+      description={intl.formatMessage({ id: "nav.commissionPlans.description" })}
+      newAction={canWrite("payroll") && !editing ? { label: intl.formatMessage({ id: "commission.plan.new" }), onClick: () => open("new") } : undefined}
+    />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         {error && (
           <Alert variant="destructive">
@@ -196,5 +190,6 @@ export function CommissionPlans() {
         />
       </CardContent>
     </Card>
+    </div>
   );
 }

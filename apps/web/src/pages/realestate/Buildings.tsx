@@ -1,8 +1,8 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { BuildingResponse } from "@pako/shared";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
@@ -10,7 +10,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
@@ -48,18 +48,13 @@ export function Buildings() {
   const rows = query.data ?? [];
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("vx.nav.buildings")}</CardTitle>
-          <CardDescription>{t("vx.nav.buildings.description")}</CardDescription>
-        </div>
-        {canWrite("sales") && (
-          <Button size="sm" onClick={() => setCreating(true)}>
-            <Plus className="size-4" />{t("vx.building.new")}
-          </Button>
-        )}
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("vx.nav.buildings")}
+        description={t("vx.nav.buildings.description")}
+        newAction={canWrite("sales") ? { label: t("vx.building.new"), onClick: () => setCreating(true) } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
       <CardContent>
         <DataGrid
           gridId="buildings"
@@ -78,7 +73,8 @@ export function Buildings() {
         />
       </CardContent>
       {creating && <BuildingDialog onClose={() => setCreating(false)} onSaved={(b) => navigate(`/real-estate/buildings/${b.id}`)} />}
-    </Card>
+      </Card>
+    </div>
   );
 }
 

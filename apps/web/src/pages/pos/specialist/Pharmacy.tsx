@@ -2,16 +2,17 @@ import { forwardRef, useMemo, useRef, useState, type FormEvent } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ControlledRegisterResponse, ControlledRegisterRow, PayerResponse, PrescriptionResponse } from "@pako/shared";
-import { Plus, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
@@ -46,6 +47,7 @@ export function Pharmacy() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("spec.nav.pharmacy")} description={t("spec.nav.pharmacy.description")} />
       <TabBar
         label={t("spec.nav.pharmacy")}
         value={tab}
@@ -112,16 +114,12 @@ function PrescriptionsTab() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("spec.pharmacy.tab.prescriptions")}</CardTitle>
-          <CardDescription>{t("spec.rx.description")}</CardDescription>
-        </div>
-        {canWrite("pos") && (
-          <Button size="sm" onClick={() => setOpened("new")}>
-            <Plus className="size-4" /> {t("spec.rx.new")}
-          </Button>
-        )}
+      <CardHeader>
+        <SectionHeader
+          title={t("spec.pharmacy.tab.prescriptions")}
+          description={t("spec.rx.description")}
+          newAction={canWrite("pos") ? { label: t("spec.rx.new"), onClick: () => setOpened("new") } : undefined}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         <div className="flex flex-wrap gap-3">
@@ -301,16 +299,12 @@ function PayersTab() {
   const rows = payers.data ?? [];
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("spec.pharmacy.tab.payers")}</CardTitle>
-          <CardDescription>{t("spec.payer.description")}</CardDescription>
-        </div>
-        {canApprove("pos") && (
-          <Button size="sm" onClick={() => setOpened("new")}>
-            <Plus className="size-4" /> {t("spec.payer.new")}
-          </Button>
-        )}
+      <CardHeader>
+        <SectionHeader
+          title={t("spec.pharmacy.tab.payers")}
+          description={t("spec.payer.description")}
+          newAction={canApprove("pos") ? { label: t("spec.payer.new"), onClick: () => setOpened("new") } : undefined}
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {!canApprove("pos") && <p className="text-sm text-muted-foreground">{t("spec.approveOnly")}</p>}
@@ -444,16 +438,18 @@ function ControlledRegisterTab() {
   const data = report.data;
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-        <div>
-          <CardTitle>{t("spec.pharmacy.tab.controlled")}</CardTitle>
-          <CardDescription>{t("spec.ctrl.description")}</CardDescription>
-        </div>
-        {data && (
-          <Button size="sm" variant="outline" onClick={() => printRef.current && printElement(printRef.current)}>
-            <Printer className="size-4" /> {t("common.print")}
-          </Button>
-        )}
+      <CardHeader>
+        <SectionHeader
+          title={t("spec.pharmacy.tab.controlled")}
+          description={t("spec.ctrl.description")}
+          actions={
+            data && (
+              <Button size="sm" variant="outline" onClick={() => printRef.current && printElement(printRef.current)}>
+                <Printer className="size-4" /> {t("common.print")}
+              </Button>
+            )
+          }
+        />
       </CardHeader>
       <CardContent className="flex flex-col gap-3">
         {!canApprove("pos") ? (

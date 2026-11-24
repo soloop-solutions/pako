@@ -1,4 +1,5 @@
 import { forwardRef, useMemo, useRef, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -14,7 +15,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -83,19 +84,12 @@ export function Repairs() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("svc.nav.repairs")}</CardTitle>
-          <CardDescription>{t("svc.nav.repairs.description")}</CardDescription>
-        </div>
-        {canWrite("pos") && (
-          <Button size="sm" onClick={() => setOpened("new")}>
-            <Plus className="size-4" />
-            {t("svc.repair.new")}
-          </Button>
-        )}
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("svc.nav.repairs")} description={t("svc.nav.repairs.description")}
+        newAction={canWrite("pos") ? { label: t("svc.repair.new"), onClick: () => setOpened("new") } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex w-56 flex-col gap-1">
           <Label htmlFor="repair-state-filter">{t("svc.status")}</Label>
@@ -131,7 +125,8 @@ export function Repairs() {
           onChanged={() => queryClient.invalidateQueries({ queryKey: ["posRepairs", activeCompanyId] })}
         />
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }
 

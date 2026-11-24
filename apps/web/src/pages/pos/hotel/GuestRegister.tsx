@@ -6,7 +6,8 @@ import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -61,11 +62,9 @@ export function GuestRegister() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("hotel.nav.guests")}</CardTitle>
-        <CardDescription>{t("hotel.nav.guests.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+    <PageHeader title={t("hotel.nav.guests")} description={t("hotel.nav.guests.description")} />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="flex w-56 flex-col gap-1">
@@ -102,5 +101,6 @@ export function GuestRegister() {
         />
       </CardContent>
     </Card>
+    </div>
   );
 }

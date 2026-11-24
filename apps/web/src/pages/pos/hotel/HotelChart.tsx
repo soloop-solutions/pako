@@ -2,16 +2,17 @@ import { useMemo, useState } from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { HotelBookingResponse, HotelCalendarRoomResponse } from "@pako/shared";
-import { ChevronLeft, ChevronRight, IdCard, Plus, Settings2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, IdCard, Settings2 } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { LIST_SURFACE, PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -105,13 +106,12 @@ export function HotelChart() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("hotel.nav.chart")}</CardTitle>
-            <CardDescription>{t("hotel.nav.chart.description")}</CardDescription>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <PageHeader
+        title={t("hotel.nav.chart")}
+        description={t("hotel.nav.chart.description")}
+        newAction={writable && storeId ? { label: t("hotel.booking.new"), onClick: () => setCreating({}) } : undefined}
+        actions={
+          <>
             <Button size="sm" variant="outline" onClick={() => navigate(`/pos/hotel/guests${storeId ? `?store=${storeId}` : ""}`)}>
               <IdCard className="size-4" /> {t("hotel.nav.guests")}
             </Button>
@@ -120,13 +120,10 @@ export function HotelChart() {
                 <Settings2 className="size-4" /> {t("hotel.nav.setup")}
               </Button>
             )}
-            {writable && storeId && (
-              <Button size="sm" onClick={() => setCreating({})}>
-                <Plus className="size-4" /> {t("hotel.booking.new")}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
+          </>
+        }
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent className="flex flex-col gap-3">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex w-56 flex-col gap-1">
@@ -241,8 +238,7 @@ export function HotelChart() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("hotel.unassigned")}</CardTitle>
-          <CardDescription>{t("hotel.unassigned.description")}</CardDescription>
+          <SectionHeader title={t("hotel.unassigned")} description={t("hotel.unassigned.description")} />
         </CardHeader>
         <CardContent>
           <DataGrid

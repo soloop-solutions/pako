@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useQuery } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -10,7 +11,7 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { downloadFileResponse } from "@/lib/download";
@@ -111,11 +112,11 @@ export function MyPayslips() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>{intl.formatMessage({ id: "me.payslips.title" })}</CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "me.payslips.description" })}</CardDescription>
-        </CardHeader>
+      <PageHeader
+        title={intl.formatMessage({ id: "me.payslips.title" })}
+        description={intl.formatMessage({ id: "me.payslips.description" })}
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent className="flex flex-col gap-3">
           {(error || payslipsQuery.isError) && (
             <Alert variant="destructive">

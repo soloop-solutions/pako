@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -13,7 +14,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -122,19 +123,12 @@ export function CustomerOrders() {
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("nav.posCustomerOrders")}</CardTitle>
-          <CardDescription>{t("nav.posCustomerOrders.description")}</CardDescription>
-        </div>
-        {canWrite("pos") && (
-          <Button size="sm" onClick={() => setEditing("new")}>
-            <Plus className="size-4" />
-            {t("pos.customerOrder.new")}
-          </Button>
-        )}
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("nav.posCustomerOrders")} description={t("nav.posCustomerOrders.description")}
+        newAction={canWrite("pos") ? { label: t("pos.customerOrder.new"), onClick: () => setEditing("new") } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <div className="flex w-48 flex-col gap-1">
           <Label htmlFor="co-state-filter">{t("pos.customerOrder.state")}</Label>
@@ -190,7 +184,8 @@ export function CustomerOrders() {
           }}
         />
       )}
-    </Card>
+      </Card>
+    </div>
   );
 }
 

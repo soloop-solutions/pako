@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -12,7 +13,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -137,11 +138,11 @@ export function Memberships() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("svc.nav.memberships")} description={t("svc.nav.memberships.description")} />
       <CheckMemberCard />
       <Card>
         <CardHeader>
-          <CardTitle>{t("svc.memberships")}</CardTitle>
-          <CardDescription>{t("svc.memberships.description")}</CardDescription>
+          <SectionHeader title={t("svc.memberships")} description={t("svc.memberships.description")} />
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
           {error && (
@@ -167,8 +168,7 @@ export function Memberships() {
       </Card>
       <Card>
         <CardHeader>
-          <CardTitle>{t("svc.packages")}</CardTitle>
-          <CardDescription>{t("svc.packages.description")}</CardDescription>
+          <SectionHeader title={t("svc.packages")} description={t("svc.packages.description")} />
         </CardHeader>
         <CardContent>
           <DataGrid

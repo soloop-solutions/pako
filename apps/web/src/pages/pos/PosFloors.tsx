@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { FloorResponse, SaveTableRequest, TableResponse } from "@pako/shared";
@@ -113,32 +114,25 @@ export function PosFloors() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
-          <div>
-            <CardTitle>{t("pos.setup3.floors")}</CardTitle>
-            <CardDescription>{t("pos.setup3.floors.description")}</CardDescription>
+      <PageHeader
+        title={t("pos.setup3.floors")}
+        description={t("pos.setup3.floors.description")}
+        newAction={canEdit && storeId ? { label: t("pos.setup3.floor.new"), onClick: () => setEditingFloor("new") } : undefined}
+        actions={
+          <div className="w-56">
+            <Select
+              aria-label={t("pos.register.store")}
+              value={storeId}
+              onValueChange={(v) => {
+                setStoreParam(v);
+                setFloorParam("");
+              }}
+              options={stores.map((s) => ({ value: s.id, label: `${s.code} · ${s.name}` }))}
+            />
           </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="w-56">
-              <Select
-                aria-label={t("pos.register.store")}
-                value={storeId}
-                onValueChange={(v) => {
-                  setStoreParam(v);
-                  setFloorParam("");
-                }}
-                options={stores.map((s) => ({ value: s.id, label: `${s.code} · ${s.name}` }))}
-              />
-            </div>
-            {canEdit && storeId && (
-              <Button size="sm" onClick={() => setEditingFloor("new")}>
-                <Plus className="size-4" />
-                {t("pos.setup3.floor.new")}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
+        }
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent>
           {stores.length === 0 && !storesQuery.isPending ? (
             <p className="text-sm text-muted-foreground">{t("pos.setup3.floors.noStore")}</p>

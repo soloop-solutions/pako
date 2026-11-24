@@ -9,7 +9,8 @@ import { getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import { useWarehouses } from "@/hooks/useStock";
@@ -127,11 +128,9 @@ export function PartsSearch() {
   const rows = results.data ?? [];
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{t("spec.nav.parts")}</CardTitle>
-        <CardDescription>{t("spec.nav.parts.description")}</CardDescription>
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+    <PageHeader title={t("spec.nav.parts")} description={t("spec.nav.parts.description")} />
+    <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <PartsSearchFields key={params.toString()} initial={query} onSearch={search} />
         <ErrorAlert message={results.error ? getApiErrorMessage(results.error, t("spec.loadError")) : null} />
@@ -149,5 +148,6 @@ export function PartsSearch() {
         />
       </CardContent>
     </Card>
+    </div>
   );
 }

@@ -1,13 +1,12 @@
 import { useMemo } from "react";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { SiteSummaryResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 import { useNavigate } from "react-router-dom";
 
 import { DataGrid } from "@/components/data-grid/DataGrid";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { useUrlParam } from "@/hooks/useUrlParam";
@@ -49,19 +48,13 @@ export function ConstructionSites() {
   const rows = query.data ?? [];
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-        <div>
-          <CardTitle>{t("vx.nav.sites")}</CardTitle>
-          <CardDescription>{t("vx.nav.sites.description")}</CardDescription>
-        </div>
-        {canWrite("sales") && (
-          <Button size="sm" onClick={() => navigate("/construction/new")}>
-            <Plus className="size-4" />
-            {t("vx.site.new")}
-          </Button>
-        )}
-      </CardHeader>
+    <div className="flex flex-col gap-4">
+      <PageHeader
+        title={t("vx.nav.sites")}
+        description={t("vx.nav.sites.description")}
+        newAction={canWrite("sales") ? { label: t("vx.site.new"), onClick: () => navigate("/construction/new") } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
       <CardContent className="flex flex-col gap-3">
         <StateFilter value={state} onChange={setState} states={SITE_STATES} labelPrefix="vx.siteState" label={t("vx.state")} />
         <DataGrid
@@ -81,6 +74,7 @@ export function ConstructionSites() {
           manualGrouping={false}
         />
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

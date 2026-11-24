@@ -2,16 +2,16 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RoomResponse, RoomTypeResponse } from "@pako/shared";
-import { Plus } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { LIST_SURFACE, PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -100,25 +100,17 @@ export function HotelSetup() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("hotel.nav.setup")}</CardTitle>
-            <CardDescription>{t("hotel.nav.setup.description")}</CardDescription>
-          </div>
-          <div className="flex flex-wrap items-end gap-2">
-            <div className="flex w-56 flex-col gap-1">
-              <Label htmlFor="hotel-setup-store">{t("pos.register.store")}</Label>
-              <Select id="hotel-setup-store" value={storeId} onValueChange={setStoreParam} options={stores.map((s) => ({ value: s.id, label: s.name }))} />
-            </div>
-            {canEdit && storeId && (
-              <Button size="sm" onClick={() => setEditingType("new")}>
-                <Plus className="size-4" /> {t("hotel.roomType.new")}
-              </Button>
-            )}
-          </div>
-        </CardHeader>
+      <PageHeader
+        title={t("hotel.nav.setup")}
+        description={t("hotel.nav.setup.description")}
+        newAction={canEdit && storeId ? { label: t("hotel.roomType.new"), onClick: () => setEditingType("new") } : undefined}
+      />
+      <Card className={LIST_SURFACE}>
         <CardContent className="flex flex-col gap-3">
+          <div className="flex w-56 flex-col gap-1">
+            <Label htmlFor="hotel-setup-store">{t("pos.register.store")}</Label>
+            <Select id="hotel-setup-store" value={storeId} onValueChange={setStoreParam} options={stores.map((s) => ({ value: s.id, label: s.name }))} />
+          </div>
           {!canEdit && (
             <Alert>
               <AlertDescription>{t("hotel.setup.readOnly")}</AlertDescription>
@@ -143,16 +135,12 @@ export function HotelSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("hotel.rooms")}</CardTitle>
-            <CardDescription>{t("hotel.rooms.description")}</CardDescription>
-          </div>
-          {canEdit && types.length > 0 && (
-            <Button size="sm" onClick={() => setAddingRoom(true)}>
-              <Plus className="size-4" /> {t("hotel.room.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("hotel.rooms")}
+            description={t("hotel.rooms.description")}
+            newAction={canEdit && types.length > 0 ? { label: t("hotel.room.new"), onClick: () => setAddingRoom(true) } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid

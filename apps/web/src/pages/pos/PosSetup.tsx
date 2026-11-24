@@ -1,8 +1,9 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { BarcodeRuleResponse, RegisterResponse, StoreResponse } from "@pako/shared";
-import { Copy, Plus } from "lucide-react";
+import { Copy } from "lucide-react";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -11,7 +12,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
@@ -140,18 +141,13 @@ export function PosSetup() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("nav.posSetup")} description={t("nav.posSetup.description")} />
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("pos.stores")}</CardTitle>
-            <CardDescription>{t("nav.posSetup.description")}</CardDescription>
-          </div>
-          {canEdit && (
-            <Button size="sm" onClick={() => setEditingStore("new")}>
-              <Plus className="size-4" />
-              {t("pos.store.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("pos.stores")}
+            newAction={canEdit ? { label: t("pos.store.new"), onClick: () => setEditingStore("new") } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -172,14 +168,11 @@ export function PosSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <CardTitle>{t("pos.registers")}</CardTitle>
-          {canEdit && stores.length > 0 && (
-            <Button size="sm" onClick={() => setEditingRegister("new")}>
-              <Plus className="size-4" />
-              {t("pos.register.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("pos.registers")}
+            newAction={canEdit && stores.length > 0 ? { label: t("pos.register.new"), onClick: () => setEditingRegister("new") } : undefined}
+          />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -200,17 +193,11 @@ export function PosSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
-          <div>
-            <CardTitle>{t("pos.barcodeRules")}</CardTitle>
-            <CardDescription>{t("pos.barcodeRules.description")}</CardDescription>
-          </div>
-          {canEdit && (
-            <Button size="sm" onClick={() => setEditingRule("new")}>
-              <Plus className="size-4" />
-              {t("pos.barcodeRule.new")}
-            </Button>
-          )}
+        <CardHeader>
+          <SectionHeader
+            title={t("pos.barcodeRules")} description={t("pos.barcodeRules.description")}
+            newAction={canEdit ? { label: t("pos.barcodeRule.new"), onClick: () => setEditingRule("new") } : undefined}
+          />
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
           <p className="text-xs text-muted-foreground">{t("pos.barcodeRules.defaults")}</p>

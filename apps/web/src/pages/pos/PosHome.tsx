@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { PageHeader, SectionHeader } from "@/components/list/PageHeader";
 import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -13,7 +14,7 @@ import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState"
 import { FormDialog } from "@/components/shared/FormDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { useCompany } from "@/context/CompanyContext";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
@@ -138,11 +139,8 @@ export function PosHome() {
 
   return (
     <div className="flex flex-col gap-4">
+      <PageHeader title={t("nav.pos")} description={t("nav.pos.description")} />
       <Card>
-        <CardHeader>
-          <CardTitle>{t("nav.pos")}</CardTitle>
-          <CardDescription>{t("nav.pos.description")}</CardDescription>
-        </CardHeader>
         <CardContent>
           {registers.length === 0 ? (
             <p className="text-sm text-muted-foreground">{t("pos.register.empty")}</p>
@@ -184,7 +182,7 @@ export function PosHome() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("pos.sessions")}</CardTitle>
+          <SectionHeader title={t("pos.sessions")} />
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -202,7 +200,7 @@ export function PosHome() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("pos.orders")}</CardTitle>
+          <SectionHeader title={t("pos.orders")} />
         </CardHeader>
         <CardContent>
           <ListRibbon

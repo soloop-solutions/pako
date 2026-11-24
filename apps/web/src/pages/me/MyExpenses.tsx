@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, type FormEvent } from "react";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
@@ -257,36 +258,31 @@ export function MyExpenses() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "nav.myExpenses" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "nav.myExpenses.description" })}</p>
-        </div>
-        <div className="flex gap-2">
-          {access?.isTeamManager && (
-            <div role="tablist" className="flex gap-1 rounded-md border p-0.5">
-              {(["mine", "team"] as const).map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={tab === id}
-                  onClick={() => setSearchParams(id === "team" ? { tab: "team" } : {}, { replace: true })}
-                  className={cn("rounded px-3 py-1 text-[13px] font-medium", tab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
-                >
-                  {intl.formatMessage({ id: `me.leave.tab.${id}` }, { count: teamQuery.data?.length ?? 0 })}
-                </button>
-              ))}
-            </div>
-          )}
-          {tab === "mine" && !editing && (
-            <Button size="sm" onClick={() => open("new")}>
-              <Plus className="size-4" />
-              {intl.formatMessage({ id: "expenses.new" })}
-            </Button>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "nav.myExpenses" })}
+        description={intl.formatMessage({ id: "nav.myExpenses.description" })}
+        newAction={tab === "mine" && !editing ? { label: intl.formatMessage({ id: "expenses.new" }), onClick: () => open("new") } : undefined}
+        actions={
+          access?.isTeamManager ? (
+            <>
+              <div role="tablist" className="flex gap-1 rounded-md border p-0.5">
+                {(["mine", "team"] as const).map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === id}
+                    onClick={() => setSearchParams(id === "team" ? { tab: "team" } : {}, { replace: true })}
+                    className={cn("rounded px-3 py-1 text-[13px] font-medium", tab === id ? "bg-primary text-primary-foreground" : "text-muted-foreground")}
+                  >
+                    {intl.formatMessage({ id: `me.leave.tab.${id}` }, { count: teamQuery.data?.length ?? 0 })}
+                  </button>
+                ))}
+              </div>
+            </>
+          ) : undefined
+        }
+      />
 
       {error && (
         <Alert variant="destructive">

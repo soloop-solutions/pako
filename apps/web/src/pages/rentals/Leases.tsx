@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { apiClient } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { ListRibbon } from "@/components/list/ListRibbon";
-import { PageHeader } from "@/components/list/PageHeader";
+import { PageHeader, LIST_SURFACE } from "@/components/list/PageHeader";
 import { useListFilters } from "@/components/list/useListFilters";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -81,8 +81,8 @@ export function Leases() {
         description={t("vx.nav.leases.description")}
         newAction={canWrite("sales") ? { label: t("vx.lease.new"), onClick: () => navigate("/rentals/leases/new") } : undefined}
       />
-      <Card>
-      <CardContent className="flex flex-col gap-3 pt-6">
+      <Card className={LIST_SURFACE}>
+      <CardContent className="flex flex-col gap-3">
         <ListRibbon controls={ribbon} dateLabelId="vx.lease.startDate" />
         <div className="flex flex-wrap items-end gap-3">
           <StateFilter value={state} onChange={setState} states={LEASE_STATES} labelPrefix="vx.leaseState" label={t("vx.state")} />
