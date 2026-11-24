@@ -306,7 +306,7 @@ export function DataGrid<TData extends object>({
           <div ref={setControlsSlot} className="contents" />
           {enableGlobalFilter && (
             <Input
-              className="h-8 max-w-xs text-sm"
+              className="h-8 w-56 text-xs"
               data-grid-search=""
               aria-label={globalFilterPlaceholder ?? intl.formatMessage({ id: "dataGrid.search" })}
               placeholder={globalFilterPlaceholder ?? intl.formatMessage({ id: "dataGrid.search" })}

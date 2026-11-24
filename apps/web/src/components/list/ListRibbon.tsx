@@ -223,7 +223,7 @@ function PeriodFilter({
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={4} className="z-50 w-64 rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
+        <Popover.Content align="start" sideOffset={4} className="z-50 w-80 rounded-md border bg-popover p-1 text-popover-foreground shadow-md">
           <div role="group" aria-label={t("listRibbon.periods")} className="flex flex-col">
             {DATE_PRESET_IDS.map((id) => (
               <button
