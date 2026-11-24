@@ -165,6 +165,9 @@ public class PlatformAdminTests : IAsyncLifetime
         var myAccess = (MyAccessResponse)Assert.IsType<OkObjectResult>((await new MyAccessController(seed.Db, general).Get(company.Id)).Result).Value!;
         Assert.Null(myAccess.LinkedEmployeeId);
         Assert.Equal(AccessLevel.None, myAccess.Modules.Hr);
+        // Client request 2026-11-24: the owner (an administrator) gets the manager's and the
+        // accountant's menu groups.
+        Assert.Equal(new[] { MenuGroups.Accountant, MenuGroups.Manager }, myAccess.MenuGroups);
     }
 
     [Fact]

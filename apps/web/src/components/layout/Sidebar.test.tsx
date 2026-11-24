@@ -133,3 +133,56 @@ describe("Sidebar module access", () => {
     expect(screen.queryByText("Guest register")).not.toBeInTheDocument();
   });
 });
+
+// Client request 2026-11-24: role menu groups ("My work") first, made of the usual pages.
+describe("Sidebar role menu groups", () => {
+  beforeEach(() => {
+    getMyAccess.mockReset();
+    localStorage.clear();
+  });
+
+  it("lists the user's groups under My work, above the usual sections", async () => {
+    getMyAccess.mockResolvedValue({
+      isStaff: true, canWrite: true, isAdmin: false, partnerRestricted: false, assignedPartnerCount: 0,
+      modules: { ...FULL, inventory: 2, pos: 2 }, menuGroups: ["sales", "warehouse"],
+    });
+    renderSidebar();
+
+    expect(await screen.findByTestId("sidebar-my-work")).toHaveTextContent("My work");
+    const sales = screen.getByRole("button", { name: "Collapse Sales team" });
+    const warehouse = screen.getByRole("button", { name: "Collapse Warehouse" });
+    // In the server's order, and before the first usual section.
+    expect(sales.compareDocumentPosition(warehouse) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const firstUsual = screen.getAllByRole("button", { name: /^Collapse / }).find((b) => !/Sales team|Warehouse|sections/.test(b.getAttribute("aria-label") ?? b.textContent ?? ""))!;
+    expect(warehouse.compareDocumentPosition(firstUsual) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    // A page in a group is still in its usual section too.
+    expect(screen.getAllByRole("link", { name: /Sales invoices/ }).length).toBeGreaterThanOrEqual(2);
+  });
+
+  it("drops a group's pages the user's access does not allow, and shows no My work without groups", async () => {
+    getMyAccess.mockResolvedValue({
+      isStaff: true, canWrite: true, isAdmin: false, partnerRestricted: false, assignedPartnerCount: 0,
+      modules: { sales: 0, purchases: 0, partners: 0, accounting: 2, reports: 0, hr: 0 }, menuGroups: ["accountant"],
+    });
+    const { unmount } = renderSidebar();
+    expect(await screen.findByTestId("sidebar-my-work")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Sales invoices/ })).not.toBeInTheDocument();
+    unmount();
+
+    getMyAccess.mockResolvedValue({ isStaff: false, canWrite: true, isAdmin: true, partnerRestricted: false, assignedPartnerCount: 0, modules: FULL });
+    renderSidebar();
+    await waitFor(() => expect(getMyAccess).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId("sidebar-my-work")).not.toBeInTheDocument();
+  });
+
+  it("search lists a page once even when it sits in several groups", async () => {
+    getMyAccess.mockResolvedValue({
+      isStaff: false, canWrite: true, isAdmin: true, partnerRestricted: false, assignedPartnerCount: 0,
+      modules: FULL, menuGroups: ["accountant", "manager"],
+    });
+    renderSidebar();
+    await screen.findByTestId("sidebar-my-work");
+    fireEvent.change(screen.getByRole("textbox", { name: /filter|Filter|Search|search/ }), { target: { value: "Sales invoices" } });
+    expect(screen.getAllByRole("link", { name: /Sales invoices/ })).toHaveLength(1);
+  });
+});

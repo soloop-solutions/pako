@@ -13,6 +13,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useAuth } from "@/context/AuthContext";
 import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { MENU_GROUP_PREFIX, menuGroupCategories } from "@/config/navGroups";
 import {
   emptyPrefs,
   getTopNavPaths,
@@ -65,7 +66,12 @@ export function Sidebar() {
   const isFirmClient = !!activeCompany?.firmId;
   const layout = useMemo(() => navLayoutFor(businessType, isFirmClient), [businessType, isFirmClient]);
   const layoutScope = navLayoutScope(businessType, isFirmClient);
-  const navCategories = useMemo(() => applyNavLayout(defaultNavCategories, layout), [layout]);
+  const layoutCategories = useMemo(() => applyNavLayout(defaultNavCategories, layout), [layout]);
+  // Client request 2026-11-24: the user's role menu groups ("My work") come first, made of the
+  // same pages; the usual sections follow unchanged.
+  const menuGroups = access?.menuGroups;
+  const groupCategories = useMemo(() => menuGroupCategories(menuGroups, allItemsByPath), [menuGroups]);
+  const navCategories = useMemo(() => [...groupCategories, ...layoutCategories], [groupCategories, layoutCategories]);
   const layoutTopItems = useMemo(
     () => (layout.topPaths ?? []).map((path) => allItemsByPath.get(path)).filter((item): item is NavItem => !!item),
     [layout],
@@ -167,9 +173,15 @@ export function Sidebar() {
     setPrefs((prev) => ({ ...prev, collapsed: [] }));
   }
 
+  // A section that arrived after the prefs were loaded (a role group) starts from its defaults.
+  function categoryPrefs(prev: SidebarPrefs, categoryId: string): CategoryPrefs | undefined {
+    const category = navCategories.find((c) => c.id === categoryId);
+    return prev.categories[categoryId] ?? (category ? { order: category.items.map((i) => i.path), hidden: [] } : undefined);
+  }
+
   function toggleHidden(categoryId: string, path: string) {
     setPrefs((prev) => {
-      const cat = prev.categories[categoryId];
+      const cat = categoryPrefs(prev, categoryId);
       if (!cat) return prev;
       const hidden = cat.hidden.includes(path) ? cat.hidden.filter((id) => id !== path) : [...cat.hidden, path];
       return { ...prev, categories: { ...prev.categories, [categoryId]: { ...cat, hidden } } };
@@ -178,7 +190,7 @@ export function Sidebar() {
 
   function moveItem(categoryId: string, path: string, direction: -1 | 1) {
     setPrefs((prev) => {
-      const cat = prev.categories[categoryId];
+      const cat = categoryPrefs(prev, categoryId);
       if (!cat) return prev;
       // Pages added to the section after its order was saved join the end before moving.
       const allPaths = navCategories.find((c) => c.id === categoryId)?.items.map((i) => i.path) ?? [];
@@ -264,9 +276,11 @@ export function Sidebar() {
             <FavouritesSection prefs={prefs} intl={intl} isActive={isActive} isAllowed={isAllowed} onUnstar={toggleFavourite} onPin={toggleFavourite} userId={userId} />
           )}
 
-          {navCategories.map((category) => {
+          {navCategories.map((category, index) => {
             const allowedItems = category.items.filter((i) => isAllowed(i.path));
             if (allowedItems.length === 0) return null;
+            const firstGroup = index === 0 && category.id.startsWith(MENU_GROUP_PREFIX);
+            const firstSection = groupCategories.length > 0 && index === groupCategories.length;
             const catPrefs: CategoryPrefs = prefs.categories[category.id] ?? { order: category.items.map((i) => i.path), hidden: [] };
             const itemsById = new Map(allowedItems.map((i) => [i.path, i]));
             // Saved order first; pages added to the section since it was saved follow, so a customised
@@ -283,6 +297,13 @@ export function Sidebar() {
 
             return (
               <div key={category.id}>
+                {/* Role groups sit under a "My work" heading, apart from the usual sections. */}
+                {firstGroup && (
+                  <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold tracking-[0.09em] text-primary uppercase" data-testid="sidebar-my-work">
+                    {intl.formatMessage({ id: "sidebar.myWork" })}
+                  </p>
+                )}
+                {firstSection && <div className="mt-1.5 border-t-2" />}
                 <div className="border-t" />
                 <div className="relative flex h-[22px] items-center px-3">
                   <button

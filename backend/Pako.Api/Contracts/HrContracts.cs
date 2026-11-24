@@ -339,4 +339,7 @@ public record MyAccessResponse(
     // docs/COMPANY_TYPES.md: the company's kind of business and the vertical packs it uses (the web
     // hides the pages of packs that are off).
     Pako.Domain.Companies.BusinessType BusinessType = Pako.Domain.Companies.BusinessType.General,
-    List<string>? Features = null);
+    List<string>? Features = null,
+    // Client request 2026-11-24: the menu groups (Pako.Domain.Companies.MenuGroups keys) the web
+    // lists first in the sidebar, chosen from this user's role. Display only.
+    List<string>? MenuGroups = null);

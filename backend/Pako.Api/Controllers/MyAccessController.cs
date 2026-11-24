@@ -76,7 +76,8 @@ public class MyAccessController : ControllerBase
                 IsTeamManager: isManager,
                 RoleName: role.Name,
                 CanManageUsers: role.CanManageUsers,
-                BusinessType: company.BusinessType, Features: features));
+                BusinessType: company.BusinessType, Features: features,
+                MenuGroups: MenuGroups.ForRole(role.BuiltInKey, role.LevelFor, role.CanManageUsers).ToList()));
         }
 
         var isAdmin = _access.Roles.Any(r => r is MembershipRole.FirmAdmin or MembershipRole.ClientAdmin);
@@ -94,6 +95,7 @@ public class MyAccessController : ControllerBase
             IsTeamManager: isManager,
             RoleName: roleName,
             CanManageUsers: isAdmin,
-                BusinessType: company.BusinessType, Features: features));
+            BusinessType: company.BusinessType, Features: features,
+            MenuGroups: MenuGroups.ForMembership(_access.Roles).ToList()));
     }
 }

@@ -35844,6 +35844,7 @@ export interface MyAccessResponse {
     canManageUsers?: boolean;
     businessType?: number;
     features?: string[] | undefined;
+    menuGroups?: string[] | undefined;
 
     [key: string]: any;
 }
