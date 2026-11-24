@@ -1392,61 +1392,8 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    private async Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid invoiceId, Guid? journalEntryId, DocumentType documentType, Guid? partnerId = null)
-    {
-        // A1 (v2 release): SalesReturn posts through the same isCreditNote mechanics as
-        // CreditNote (its own AR control line is Credit-sided, not Debit-sided like a normal
-        // invoice/DebitNote/DownPayment) — same "own total, computed from its own control line"
-        // fix this method already applies to CreditNote/DownPayment.
-        var isSourceDocument = documentType is DocumentType.CreditNote or DocumentType.DownPayment or DocumentType.SalesReturn;
-        var creditSidedControlLine = documentType is DocumentType.CreditNote or DocumentType.SalesReturn;
-
-        var total = 0m;
-        Guid? controlLineId = null;
-        if (journalEntryId is { } jeId)
-        {
-            var receivableAccountId = await GetReceivableAccountIdAsync(companyId, partnerId);
-
-            if (isSourceDocument)
-            {
-                var controlLine = await _db.JournalEntryLines.AsNoTracking()
-                    .Where(l => l.JournalEntryId == jeId && l.AccountId == receivableAccountId)
-                    .Select(l => new { l.Id, l.Debit, l.Credit })
-                    .FirstOrDefaultAsync();
-                if (controlLine is not null)
-                {
-                    controlLineId = controlLine.Id;
-                    total = creditSidedControlLine ? controlLine.Credit : controlLine.Debit;
-                }
-            }
-            else
-            {
-                total = await _db.JournalEntryLines.AsNoTracking()
-                    .Where(l => l.JournalEntryId == jeId && l.AccountId == receivableAccountId)
-                    .SumAsync(l => l.Debit);
-            }
-        }
-
-        // Source documents (CreditNote/SalesReturn/DownPayment) can be reconciled two ways:
-        // (a) their control line used as a settlement line against another invoice (ApplyCreditNote)
-        // (b) a cash refund reconciled directly against this document (RecordPayment)
-        // Sum both patterns to get the full reconciled amount.
-        var reconciledViaControlLine = isSourceDocument && controlLineId is { } lineId
-            ? await ReconciliationCreator.SumReconciledForLineAsync(_db, lineId)
-            : 0m;
-        var reconciledViaDocument = await _db.Reconciliations.AsNoTracking()
-            .Where(r => r.InvoiceId == invoiceId).SumAsync(r => r.Amount);
-        var reconciled = isSourceDocument
-            ? reconciledViaControlLine + reconciledViaDocument
-            : reconciledViaDocument;
-
-        // InPayment: sum of outstanding Payment records (2-step, awaiting bank rec) for this invoice
-        var inPayment = await _db.Payments.AsNoTracking()
-            .Where(p => p.InvoiceId == invoiceId && p.State == Domain.Payments.PaymentState.Posted)
-            .SumAsync(p => p.Amount);
-
-        return new DocumentBalanceResponse(total, reconciled, total - reconciled, inPayment);
-    }
+    private Task<DocumentBalanceResponse> ComputeBalanceAsync(Guid companyId, Guid invoiceId, Guid? journalEntryId, DocumentType documentType, Guid? partnerId = null) =>
+        DocumentBalances.ForInvoiceAsync(_db, _localizer, companyId, invoiceId, journalEntryId, documentType, partnerId);
 
     private static ReconciliationResponse ToReconciliationResponse(Reconciliation r) =>
         new(r.Id, r.InvoiceId, r.BillId, r.JournalEntryLineId, r.Amount, r.ReconciledAt);

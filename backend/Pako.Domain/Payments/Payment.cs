@@ -44,6 +44,12 @@ public class Payment
     public Guid? BankStatementLineId { get; set; }
 
     public PaymentState State { get; set; } = PaymentState.Posted;
+
+    // A direct payment (no document) recorded through a journal with no outstanding accounts (cash,
+    // or an older company): the money went straight to DestinationAccountId, so the payment was
+    // created Reconciled with no clearing entry and OutstandingAccountId equal to it. Not stored.
+    [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+    public bool IsDirectToCash => OutstandingAccountId == DestinationAccountId && ClearingJournalEntryId is null;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public string? CreatedByUserId { get; set; }
 }
