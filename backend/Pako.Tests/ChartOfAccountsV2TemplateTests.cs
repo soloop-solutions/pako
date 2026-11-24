@@ -12,9 +12,9 @@ namespace Pako.Tests;
 public class ChartOfAccountsV2TemplateTests
 {
     [Fact]
-    public void Entries_HasExactly233Rows()
+    public void Entries_HasExactly235Rows()
     {
-        Assert.Equal(233, ChartOfAccountsV2Template.Entries.Count);
+        Assert.Equal(235, ChartOfAccountsV2Template.Entries.Count);
     }
 
     [Fact]
@@ -83,13 +83,13 @@ public class ChartOfAccountsV2TemplateTests
     }
 
     [Theory]
-    [InlineData(CompanyProfile.Core, 167)]
-    [InlineData(CompanyProfile.Import, 167 + 22)]
-    [InlineData(CompanyProfile.Mfg, 167 + 5)]
-    [InlineData(CompanyProfile.Serv, 167 + 8)]
-    [InlineData(CompanyProfile.Payroll, 167 + 13)]
-    [InlineData(CompanyProfile.IfrsPlus, 167 + 18)]
-    [InlineData(CompanyProfile.Import | CompanyProfile.Payroll, 167 + 22 + 13)]
+    [InlineData(CompanyProfile.Core, 169)]
+    [InlineData(CompanyProfile.Import, 169 + 22)]
+    [InlineData(CompanyProfile.Mfg, 169 + 5)]
+    [InlineData(CompanyProfile.Serv, 169 + 8)]
+    [InlineData(CompanyProfile.Payroll, 169 + 13)]
+    [InlineData(CompanyProfile.IfrsPlus, 169 + 18)]
+    [InlineData(CompanyProfile.Import | CompanyProfile.Payroll, 169 + 22 + 13)]
     public void ForProfiles_MatchesThe50ProfilesRowCounts(CompanyProfile profiles, int expectedCount)
     {
         Assert.Equal(expectedCount, ChartOfAccountsV2Template.ForProfiles(profiles).Count());
@@ -101,7 +101,7 @@ public class ChartOfAccountsV2TemplateTests
         var all = CompanyProfile.Core | CompanyProfile.Import | CompanyProfile.Mfg |
                    CompanyProfile.Serv | CompanyProfile.Payroll | CompanyProfile.IfrsPlus;
 
-        Assert.Equal(233, ChartOfAccountsV2Template.ForProfiles(all).Count());
+        Assert.Equal(235, ChartOfAccountsV2Template.ForProfiles(all).Count());
     }
 
     // B13: one AccountType per (Class, Group) — see AccountTypeDerivation.DeriveAccountType's own
