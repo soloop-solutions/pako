@@ -147,3 +147,12 @@ describe("DataGrid row and bulk actions", () => {
     await waitFor(() => expect(screen.queryByRole("button", { name: "Bulk" })).not.toBeInTheDocument());
   });
 });
+
+// UI/UX round 2026-11-24: an empty list can offer its next step.
+describe("DataGrid empty action", () => {
+  it("shows the action under the empty message", () => {
+    renderGrid({ data: [], rowCount: 0, emptyMessage: "No invoices yet.", emptyAction: <button type="button">New invoice</button> });
+    expect(screen.getByText("No invoices yet.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "New invoice" })).toBeInTheDocument();
+  });
+});

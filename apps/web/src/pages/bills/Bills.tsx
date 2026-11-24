@@ -118,7 +118,7 @@ export function Bills() {
   // page, one bill at a time; Pay opens the bill, where the payment is recorded. Bills have no PDF.
   const navigate = useNavigate();
   const confirm = useConfirm();
-  const { canApprove } = useMyAccess();
+  const { canApprove, canWrite } = useMyAccess();
   const mayPost = canApprove("purchases");
   const [bulkBusy, setBulkBusy] = useState(false);
   const label = (bill: BillResponse) => bill.vendorReference || bill.id.slice(0, 8);
@@ -431,6 +431,11 @@ export function Bills() {
             bulkActions={bulkActions}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "bills.noBills" })}
+            emptyAction={canWrite("purchases") && docFilters.activeCount === 0 && !paged.urlState.globalFilter.trim() ? (
+              <Button type="button" size="sm" onClick={() => setBillFormOpen(true)}>
+                {intl.formatMessage({ id: "bills.newBill" })}
+              </Button>
+            ) : undefined}
             exportFileName="bills"
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}

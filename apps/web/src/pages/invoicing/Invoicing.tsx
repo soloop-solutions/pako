@@ -502,6 +502,11 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
             bulkActions={bulkActions}
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: isProforma ? "proforma.noProformas" : "invoicing.noInvoices" })}
+            emptyAction={docFilters.activeCount === 0 && !paged.urlState.globalFilter.trim() ? (
+              <Button type="button" size="sm" onClick={() => navigate(isProforma ? "/proforma/new" : "/invoicing/new")}>
+                {intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
+              </Button>
+            ) : undefined}
             exportFileName={isProforma ? "proforma" : "invoices"}
             defaultPageSize={100}
             pageSizeOptions={[50, 100, 200]}

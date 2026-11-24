@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useIntl, type IntlShape } from "react-intl";
 import { BarChart3, Table2 } from "lucide-react";
 import type { DashboardPoint, DashboardRankItem, DashboardResponse, DashboardWidgetConfig } from "@pako/shared";
@@ -20,6 +21,36 @@ function rankName(intl: IntlShape, item: DashboardRankItem) {
 }
 
 const formatFor = (f: Formatters, kind: KpiFormat): Format => (kind === "percent" ? f.percent : kind === "count" ? f.count : f.money);
+
+// UI/UX round 2026-11-24: a KPI tile opens the list or report behind its figure, filtered the
+// same way (the lists read these URL keys), so the dashboard leads to the work.
+function kpiLink(key: string, data: DashboardResponse): string | undefined {
+  const period = `from=${data.from}&to=${data.to}`;
+  switch (key) {
+    case "kpi.overdueReceivables":
+      return "/invoicing?invoices.paymentStatus=overdue";
+    case "kpi.overduePayables":
+      return "/bills?bills.paymentStatus=overdue";
+    case "kpi.receivables":
+      return "/reports?tab=debt";
+    case "kpi.payables":
+      return "/reports?tab=payables-aging";
+    case "kpi.revenue":
+    case "kpi.salesNet":
+    case "kpi.invoiceCount":
+    case "kpi.averageInvoice":
+      return `/invoicing?invoices.from=${data.from}&invoices.to=${data.to}`;
+    case "kpi.expenses":
+    case "kpi.netProfit":
+    case "kpi.grossProfit":
+      return `/reports?tab=pnl&${period}`;
+    case "kpi.lowStock":
+    case "kpi.stockValue":
+      return "/stock";
+    default:
+      return undefined;
+  }
+}
 
 export function WidgetCard({
   widget,
@@ -73,14 +104,25 @@ export function WidgetCard({
         }
       />
     );
-    return (
-      <Card className={cn("gap-2 py-4 transition-opacity", span, dimmed && "opacity-60")} data-widget={widget.key}>
+    const card = (linked: boolean) => (
+      <Card
+        className={cn("gap-2 py-4 transition-opacity", linked ? "h-full transition-colors group-hover:border-primary/50" : span, dimmed && "opacity-60")}
+        data-widget={widget.key}
+      >
         <CardHeader className="px-4">
           <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
           <CardDescription className="text-xs">{subtitle}</CardDescription>
         </CardHeader>
         <CardContent className="px-4">{body}</CardContent>
       </Card>
+    );
+    const href = kpiLink(widget.key, data);
+    if (!href) return card(false);
+    return (
+      <Link to={href} className={cn("group block rounded-xl focus-visible:outline-2 focus-visible:outline-ring", span)}
+        aria-label={intl.formatMessage({ id: "dashboard.openList" }, { title })}>
+        {card(true)}
+      </Link>
     );
   }
 

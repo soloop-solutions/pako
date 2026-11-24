@@ -53,6 +53,8 @@ export interface DataGridProps<TData extends object> {
   enableGlobalFilter?: boolean;
   globalFilterPlaceholder?: string;
   emptyMessage?: string;
+  /** UI/UX round 2026-11-24: the next step shown under the empty message (e.g. a "New invoice" button). */
+  emptyAction?: ReactNode;
   exportFileName?: string;
   onExportAll?: () => void | Promise<unknown>;
   // manualFiltering/manualSorting/manualGrouping default true: column filters, header-click sort,
@@ -97,6 +99,7 @@ export function DataGrid<TData extends object>({
   enableGlobalFilter = false,
   globalFilterPlaceholder,
   emptyMessage,
+  emptyAction,
   exportFileName,
   onExportAll,
   manualFiltering = true,
@@ -489,6 +492,7 @@ export function DataGrid<TData extends object>({
               <TableRow className={ROW_HEIGHT_CLASS}>
                 <TableCell colSpan={visibleColumnCount} className="py-4 text-center text-muted-foreground">
                   {emptyMessage ?? intl.formatMessage({ id: "dataGrid.noResults" })}
+                  {emptyAction && <div className="mt-2 flex justify-center gap-2" data-testid="grid-empty-action">{emptyAction}</div>}
                 </TableCell>
               </TableRow>
             ) : (

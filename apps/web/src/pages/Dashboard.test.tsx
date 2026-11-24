@@ -121,6 +121,16 @@ describe("Dashboard", () => {
     );
   });
 
+  // UI/UX round 2026-11-24: a KPI tile opens the list behind its figure.
+  it("links the overdue receivables tile to the overdue invoices and revenue to the period's invoices", async () => {
+    renderDashboard();
+    await screen.findByText("Revenue", { selector: "[data-widget='kpi.revenue'] *" });
+    const tileLink = (key: string) => document.querySelector(`[data-widget='${key}']`)?.closest("a");
+    expect(tileLink("kpi.revenue")).toHaveAttribute("href", "/invoicing?invoices.from=2026-10-01&invoices.to=2026-10-31");
+    const overdue = tileLink("kpi.overdueReceivables");
+    if (overdue) expect(overdue).toHaveAttribute("href", "/invoicing?invoices.paymentStatus=overdue");
+  });
+
   it("every chart has a table view", async () => {
     renderDashboard();
     const card = (await screen.findByText("Revenue vs expenses")).closest("[data-widget]") as HTMLElement;
