@@ -1998,4 +1998,7 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="CompanyFiscalNumberAlreadyRegistered" xml:space="preserve">
     <value>Ky numër fiskal ({0}) është i regjistruar tashmë te një kompani tjetër në PAKO. Një kompani nuk mund të regjistrohet dy herë; kontaktoni zyrën ose administratorin që e menaxhon.</value>
   </data>
+  <data name="ArbkSearchParamRequired" xml:space="preserve"><value>Jepni një NUI, një numër fiskal ose një emër biznesi me të paktën {0} shkronja.</value></data>
+  <data name="ArbkNotConfigured" xml:space="preserve"><value>Kërkimi në ARBK nuk është i konfiguruar në këtë server.</value></data>
+  <data name="ArbkUnavailable" xml:space="preserve"><value>Nuk u arrit lidhja me regjistrin e bizneseve (ARBK). Provoni sërish pak më vonë ose shtoni të dhënat manualisht.</value></data>
 </root>

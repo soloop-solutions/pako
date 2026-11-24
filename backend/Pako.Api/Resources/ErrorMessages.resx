@@ -1998,4 +1998,7 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="CompanyFiscalNumberAlreadyRegistered" xml:space="preserve">
     <value>This fiscal number ({0}) is already registered to another company on PAKO. A company cannot be registered twice; contact the firm or administrator that manages it.</value>
   </data>
+  <data name="ArbkSearchParamRequired" xml:space="preserve"><value>Provide a NUI, a fiscal number, or a business name of at least {0} characters.</value></data>
+  <data name="ArbkNotConfigured" xml:space="preserve"><value>ARBK lookup is not configured on this server.</value></data>
+  <data name="ArbkUnavailable" xml:space="preserve"><value>The business registry (ARBK) could not be reached. Try again shortly or enter the details manually.</value></data>
 </root>

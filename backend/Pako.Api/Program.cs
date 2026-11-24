@@ -161,6 +161,18 @@ builder.Services.AddHttpClient<Pako.Fiscal.Xk.AtkFiscalClient>(client =>
     client.BaseAddress = new Uri(url);
     client.Timeout = TimeSpan.FromSeconds(10);
 });
+builder.Services.Configure<Pako.Api.Services.Arbk.ArbkOptions>(builder.Configuration.GetSection(Pako.Api.Services.Arbk.ArbkOptions.Section));
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient<Pako.Api.Services.Arbk.ITurnstileSolver, Pako.Api.Services.Arbk.TwoCaptchaTurnstileSolver>((sp, client) =>
+{
+    client.BaseAddress = new Uri(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Pako.Api.Services.Arbk.ArbkOptions>>().Value.TwoCaptchaBaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
+builder.Services.AddHttpClient<Pako.Api.Services.Arbk.IArbkRegistry, Pako.Api.Services.Arbk.ArbkRegistryClient>((sp, client) =>
+{
+    client.BaseAddress = new Uri(sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<Pako.Api.Services.Arbk.ArbkOptions>>().Value.BaseUrl);
+    client.Timeout = TimeSpan.FromSeconds(20);
+});
 builder.Services.AddScoped<Pako.Api.Services.PosReportService>();
 builder.Services.AddScoped<Pako.Api.Services.TabService>();
 builder.Services.AddScoped<Pako.Api.Services.PosOperatorService>();
