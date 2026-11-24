@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -6,7 +7,6 @@ import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMet
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
@@ -18,7 +18,7 @@ import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
-import { BillDocumentType, documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
+import { BillDocumentType, getDocumentRowClassName } from "@/lib/document-types";
 import { taxesForPurchase } from "@/lib/tax-enums";
 import { BillForm } from "@/pages/bills/BillForm";
 
@@ -180,7 +180,7 @@ export function PurchaseReturns() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
+          return <DocumentStateBadge state={state} />;
         },
       },
       {

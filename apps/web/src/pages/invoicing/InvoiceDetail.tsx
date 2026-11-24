@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
+import { formatDisplayDate } from "@/lib/dates";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -25,7 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
-import { documentStateBadgeVariant, invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
+import { invoiceDocumentTypeLabel, InvoiceDocumentType } from "@/lib/document-types";
 import { isCompanyAdminRole } from "@/lib/membership-enums";
 import { PriceMode } from "@/lib/tax-enums";
 import { cn } from "@/lib/utils";
@@ -297,7 +299,7 @@ export function InvoiceDetail() {
                 <CardTitle>{invoice.invoiceNumber ?? intl.formatMessage({ id: "invoiceDetail.draftInvoice" })}</CardTitle>
                 <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType, intl)}</Badge>
               </div>
-              <CardDescription>{partner?.name ?? invoice.partnerId}</CardDescription>
+              <CardDescription>{partner?.name ?? invoice.partnerName ?? "—"}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               {(invoice.state === "Draft" || (invoice.state === "Posted" && !isMonthLocked)) && (
@@ -318,17 +320,17 @@ export function InvoiceDetail() {
                   load={() => apiClient.getInvoicePdf(activeCompany.id, invoice.id)}
                 />
               )}
-              <Badge variant={documentStateBadgeVariant(invoice.state)}>{invoice.state}</Badge>
+              <DocumentStateBadge state={invoice.state} />
             </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
-              <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.issueDate" })}</span> {invoice.issueDate}
+              <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.issueDate" })}</span> {formatDisplayDate(invoice.issueDate)}
             </p>
             <p>
-              <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.dueDate" })}</span> {invoice.dueDate}
+              <span className="text-muted-foreground">{intl.formatMessage({ id: "invoiceDetail.dueDate" })}</span> {invoice.dueDate ? formatDisplayDate(invoice.dueDate) : "—"}
             </p>
             {invoice.internalNotes && (
               <p className="sm:col-span-2">

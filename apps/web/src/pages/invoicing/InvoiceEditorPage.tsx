@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import type {
@@ -18,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
-import { documentStateBadgeVariant, InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
+import { InvoiceDocumentType, invoiceDocumentTypeLabel } from "@/lib/document-types";
 import { taxesForSale } from "@/lib/tax-enums";
 import { InvoiceForm } from "@/pages/invoicing/InvoiceForm";
 import { useInvoicePrefill } from "@/pages/invoicing/invoicePrefill";
@@ -130,7 +131,7 @@ export function InvoiceEditorPage({ kind }: { kind: InvoiceEditorKind }) {
         {invoice && (
           <>
             <Badge variant="outline">{invoiceDocumentTypeLabel(invoice.documentType, intl)}</Badge>
-            <Badge variant={documentStateBadgeVariant(invoice.state)}>{invoice.state}</Badge>
+            <DocumentStateBadge state={invoice.state} />
           </>
         )}
       </div>

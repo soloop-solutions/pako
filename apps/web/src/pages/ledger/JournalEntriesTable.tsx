@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { JournalEntryResponse, JournalResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
-import { documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
+import { getDocumentRowClassName } from "@/lib/document-types";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { JournalTotalsBar } from "@/components/list/ListTotalsBar";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -114,7 +114,7 @@ export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sta
         header: intl.formatMessage({ id: "journalEntries.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
+          return <DocumentStateBadge state={state} />;
         },
       },
       {

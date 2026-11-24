@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatDisplayDate } from "@/lib/dates";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import { Link, useParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -26,7 +28,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
-import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant } from "@/lib/document-types";
+import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { PriceMode } from "@/lib/tax-enums";
 import { cn } from "@/lib/utils";
 import { ActivityTimeline } from "@/components/shared/ActivityTimeline";
@@ -272,7 +274,7 @@ export function BillDetail() {
                 </Button>
               )}
               {!editing && <PrintButton contentRef={billPrintRef} size="sm" />}
-              <Badge variant={documentStateBadgeVariant(bill.state)}>{bill.state}</Badge>
+              <DocumentStateBadge state={bill.state} />
             </div>
           </div>
         </CardHeader>
@@ -297,10 +299,10 @@ export function BillDetail() {
             <>
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
-              <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.issueDate" })}</span> {bill.issueDate}
+              <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.issueDate" })}</span> {formatDisplayDate(bill.issueDate)}
             </p>
             <p>
-              <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.dueDate" })}</span> {bill.dueDate}
+              <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.dueDate" })}</span> {bill.dueDate ? formatDisplayDate(bill.dueDate) : "—"}
             </p>
             {bill.internalNotes && (
               <p className="sm:col-span-2">

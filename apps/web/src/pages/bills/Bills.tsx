@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useOptionalDrafts } from "@/context/DraftsContext";
 import { PageHeader } from "@/components/list/PageHeader";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
@@ -41,7 +42,6 @@ import { dateToIso } from "@/lib/dates";
 import {
   BillDocumentType,
   billDocumentTypeLabel,
-  documentStateBadgeVariant,
   getDocumentRowClassName,
   paymentStatus,
   paymentStatusBadgeVariant,
@@ -266,7 +266,7 @@ export function Bills() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
+          return <DocumentStateBadge state={state} />;
         },
       },
       {

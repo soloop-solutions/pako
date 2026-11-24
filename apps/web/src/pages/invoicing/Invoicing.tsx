@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useOptionalDrafts } from "@/context/DraftsContext";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
@@ -20,7 +21,6 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { dateToIso } from "@/lib/dates";
 import {
-  documentStateBadgeVariant,
   getDocumentRowClassName,
   InvoiceDocumentType,
   invoiceDocumentTypeLabel,
@@ -327,7 +327,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
+          return <DocumentStateBadge state={state} />;
         },
       },
       {

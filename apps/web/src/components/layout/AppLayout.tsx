@@ -128,6 +128,7 @@ function AppShell() {
               <button
                 type="button"
                 className="absolute top-3 right-3 rounded-md bg-card p-1.5 text-muted-foreground shadow-sm hover:text-foreground"
+                aria-label={intl.formatMessage({ id: "common.close" })}
                 onClick={() => setSidebarOpen(false)}
               >
                 <X className="size-4" />

@@ -182,11 +182,11 @@ export function PeriodClosing() {
 
       {/* Year selector */}
       <div className="flex items-center gap-3">
-        <Button variant="outline" size="icon" onClick={() => setYear((y) => y - 1)}>
+        <Button variant="outline" size="icon" aria-label={intl.formatMessage({ id: "periodClosing.previousYear" })} onClick={() => setYear((y) => y - 1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
         <span className="min-w-[4rem] text-center text-lg font-medium tabular-nums">{year}</span>
-        <Button variant="outline" size="icon" onClick={() => setYear((y) => y + 1)}>
+        <Button variant="outline" size="icon" aria-label={intl.formatMessage({ id: "periodClosing.nextYear" })} onClick={() => setYear((y) => y + 1)}>
           <ChevronRight className="h-4 w-4" />
         </Button>
         <div className="flex-1" />

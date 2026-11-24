@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { formatDisplayDate } from "@/lib/dates";
 import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
 import type { AccountResponse, JournalEntryResponse, JournalResponse } from "@pako/shared";
@@ -49,7 +50,7 @@ export function JournalEntryDialog({ companyId, entry, accounts, journals, onClo
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm sm:grid-cols-4">
             <div>
               <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalEntries.date" })}</dt>
-              <dd>{entry.date}</dd>
+              <dd>{formatDisplayDate(entry.date)}</dd>
             </div>
             <div>
               <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: "journalEntries.journal" })}</dt>

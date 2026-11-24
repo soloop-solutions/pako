@@ -9,6 +9,8 @@ import { CreditCard } from "lucide-react";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
+import { serverSideColumns } from "@/components/data-grid/usePagedGrid";
+import { useDataGridUrlState } from "@/components/data-grid/useDataGridUrlState";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -37,15 +39,17 @@ export function PaymentsPage() {
   const confirm = useConfirm();
 
   const tab = (searchParams.get("state") as Tab) || "all";
-  const page = Number(searchParams.get("page")) || 1;
-  const pageSize = Number(searchParams.get("pageSize")) || 50;
-  const sort = searchParams.get("sort") ?? "-date";
+  // UI/UX round 2026-11-24: page, size and sort live where the DataGrid writes them
+  // (`payments.page`, …); they used to be read from other keys and never reached the API.
+  const grid = useDataGridUrlState("payments", 50);
+  const { page, pageSize } = grid;
+  const sort = grid.sort ? `${grid.sort.desc ? "-" : ""}${grid.sort.id}` : "-date";
 
   const setTab = (t: Tab) => {
     const params = new URLSearchParams(searchParams);
     if (t === "all") params.delete("state");
     else params.set("state", t);
-    params.set("page", "1");
+    params.delete("payments.page");
     setSearchParams(params);
   };
 
@@ -59,10 +63,10 @@ export function PaymentsPage() {
   const cancelMutation = useMutation({
     mutationFn: (paymentId: string) => apiClient.cancel(companyId, paymentId),
     onSuccess: () => {
-      toast.success(t("payments.cancel"));
+      toast.success(t("payments.cancelDone"));
       queryClient.invalidateQueries({ queryKey: ["payments", companyId] });
     },
-    onError: (err) => toast.error(getApiErrorMessage(err, "Error")),
+    onError: (err) => toast.error(getApiErrorMessage(err, t("payments.cancelError"))),
   });
 
   const handleCancel = (payment: PaymentResponse) => {
@@ -133,6 +137,8 @@ export function PaymentsPage() {
       size: 140,
     },
   ], [intl]);
+  // Only date and amount sort on the server.
+  const serverColumns = useMemo(() => serverSideColumns(columns, ["date", "amount"]), [columns]);
 
   const getRowLink = (row: PaymentResponse) => {
     if (row.invoiceId) return entityPath({ kind: "Invoice", id: row.invoiceId });
@@ -154,7 +160,7 @@ export function PaymentsPage() {
       ) : (
         <DataGrid
           gridId="payments"
-          columns={columns}
+          columns={serverColumns}
           data={data?.items ?? []}
           rowCount={data?.total ?? 0}
           isLoading={isLoading}

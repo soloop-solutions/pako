@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import { Link, useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -6,7 +7,6 @@ import type { DocumentBalanceResponse, InvoiceResponse, PartnerResponse } from "
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
@@ -17,7 +17,7 @@ import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useCompany } from "@/context/CompanyContext";
-import { documentStateBadgeVariant, getDocumentRowClassName, InvoiceDocumentType } from "@/lib/document-types";
+import { getDocumentRowClassName, InvoiceDocumentType } from "@/lib/document-types";
 
 const GRID_ID = "salesReturns";
 
@@ -166,7 +166,7 @@ export function SalesReturns() {
         header: intl.formatMessage({ id: "invoicing.state" }),
         cell: ({ getValue }) => {
           const state = getValue() as string;
-          return <Badge variant={documentStateBadgeVariant(state)}>{state}</Badge>;
+          return <DocumentStateBadge state={state} />;
         },
       },
       {
