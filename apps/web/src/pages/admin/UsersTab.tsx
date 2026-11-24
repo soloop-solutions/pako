@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Copy, UserPlus } from "lucide-react";
+import { Copy, UserPlus, X } from "lucide-react";
 import type { CompanyUserResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -270,15 +270,25 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
       </div>
 
       {error && !dialog && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+          <AlertDescription className="flex items-start justify-between gap-2">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)} className="shrink-0 rounded-sm p-0.5 opacity-70 hover:opacity-100" aria-label={intl.formatMessage({ id: "common.close" })}>
+              <X className="size-3.5" />
+            </button>
+          </AlertDescription>
         </Alert>
       )}
 
       {link && (
-        <Alert>
+        <Alert className="border-success/50 bg-success/10">
           <AlertDescription className="flex flex-col gap-2">
-            <span>{link.title}</span>
+            <span className="flex items-start justify-between gap-2">
+              <span className="font-medium text-success-foreground">{link.title}</span>
+              <button type="button" onClick={() => setLink(null)} className="shrink-0 rounded-sm p-0.5 opacity-70 hover:opacity-100" aria-label={intl.formatMessage({ id: "common.close" })}>
+                <X className="size-3.5" />
+              </button>
+            </span>
             {/* The API returns the link only while email isn't really sent; otherwise it went by email. */}
             {link.url && (
             <span className="flex items-center gap-2">
