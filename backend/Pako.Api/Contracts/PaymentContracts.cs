@@ -19,7 +19,9 @@ public record PaymentResponse(
     // Direct payments (2026-11-24): what is not yet applied to an invoice/bill, and to how many
     // documents it has been applied.
     decimal? Unapplied = null,
-    int? AppliedCount = null);
+    int? AppliedCount = null,
+    // Outstanding, or a direct cash payment (created reconciled, nothing cleared by a statement).
+    bool? CanCancel = null);
 
 public record PaymentListResponse(List<PaymentResponse> Items, int Total, int Page, int PageSize);
 

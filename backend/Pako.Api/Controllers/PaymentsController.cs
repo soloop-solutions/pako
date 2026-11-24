@@ -270,7 +270,8 @@ public class PaymentsController(PakoDbContext db, IStringLocalizer<ErrorMessages
                 p.InvoiceId, p.BillId, docNumber,
                 p.DestinationAccountId, accountNames.GetValueOrDefault(p.DestinationAccountId),
                 p.BankStatementLineId, p.CreatedAt,
-                unapplied.GetValueOrDefault(p.Id).Unapplied, unapplied.GetValueOrDefault(p.Id).AppliedCount);
+                unapplied.GetValueOrDefault(p.Id).Unapplied, unapplied.GetValueOrDefault(p.Id).AppliedCount,
+                p.State == PaymentState.Posted || (p.State == PaymentState.Reconciled && p.IsDirectToCash));
         }).ToList();
     }
 }

@@ -222,6 +222,7 @@ public class DirectPaymentsTests : IAsyncLifetime
 
         Assert.Equal("Reconciled", payment.State);
         Assert.Equal(40m, payment.Unapplied);
+        Assert.True(payment.CanCancel);
         var stored = await s.Db.Payments.AsNoTracking().SingleAsync();
         Assert.True(stored.IsDirectToCash);
         var lines = await s.Db.JournalEntryLines.AsNoTracking().Where(l => l.JournalEntryId == stored.JournalEntryId).ToListAsync();

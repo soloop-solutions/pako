@@ -35856,6 +35856,7 @@ export interface PaymentResponse {
     createdAt: string;
     unapplied?: number | undefined;
     appliedCount?: number | undefined;
+    canCancel?: boolean | undefined;
 
     [key: string]: any;
 }
