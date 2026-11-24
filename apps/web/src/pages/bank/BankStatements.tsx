@@ -9,7 +9,7 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { ListRibbon } from "@/components/list/ListRibbon";
 import { BankStatementTotalsBar } from "@/components/list/ListTotalsBar";
-import { PageHeader } from "@/components/list/PageHeader";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { useListFilters } from "@/components/list/useListFilters";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -195,7 +195,7 @@ export function BankStatements() {
         </CardContent>
       </Card>
 
-      <Card className="py-4">
+      <Card className={LIST_SURFACE}>
         <CardContent className="flex flex-col gap-3">
           <ListRibbon
             controls={ribbon}

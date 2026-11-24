@@ -7,6 +7,12 @@ import { useRegisterPageHeader } from "@/components/list/pageHeaderPresence";
 import { Button } from "@/components/ui/button";
 import { useHotkey } from "@/hooks/useHotkey";
 
+/**
+ * A list page's grid card without its box, so the header, filters and grid read as one view
+ * (user request 2026-11-24).
+ */
+export const LIST_SURFACE = "gap-3 rounded-none border-0 bg-transparent py-0 shadow-none [&>[data-slot=card-content]]:px-0";
+
 export interface PageHeaderAction {
   label: string;
   onClick: () => void;
@@ -36,38 +42,47 @@ export function PageHeader({
   const crumbs = useBreadcrumbs().slice(0, -1);
 
   return (
-    <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2" data-testid="page-header">
-      <div className="flex min-w-0 items-center gap-1.5">
-        {crumbs.length > 0 && (
-          <nav aria-label="Breadcrumb" className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
-            {crumbs.map((crumb, index) => (
-              <Fragment key={index}>
-                {crumb.path ? (
-                  <Link to={crumb.path} className="hover:text-foreground">{crumb.label}</Link>
-                ) : (
-                  <span>{crumb.label}</span>
-                )}
-                <ChevronRight className="size-3.5" />
-              </Fragment>
-            ))}
-          </nav>
-        )}
-        <h2 className="truncate text-base font-semibold">{title}</h2>
-        {description && (
-          <span className="inline-flex shrink-0 text-muted-foreground" title={description}>
-            <Info className="size-3.5" aria-hidden />
-            <span className="sr-only">{description}</span>
-          </span>
-        )}
-        {/* User request 2026-11-24: the "New …" button sits on the left, right after the title. */}
+    <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b pb-2.5" data-testid="page-header">
+      <div className="flex min-w-0 items-center gap-2.5">
+        {/* User request 2026-11-24: "New …" opens the row, as in Odoo's control panel — a compact
+            button that reads as part of the page, then where you are. */}
         {newAction && (
-          <Button size="sm" className="ml-2 shrink-0" onClick={newAction.onClick} disabled={newAction.disabled} title={`${newAction.label} (N)`}>
-            <Plus className="size-4" />
+          <Button
+            size="sm"
+            className="h-7 shrink-0 gap-1 rounded-md px-2.5 text-xs font-semibold shadow-none"
+            onClick={newAction.onClick}
+            disabled={newAction.disabled}
+            title={`${newAction.label} (N)`}
+          >
+            <Plus className="size-3.5" />
             {newAction.label}
           </Button>
         )}
+        <div className="flex min-w-0 items-center gap-1.5">
+          {crumbs.length > 0 && (
+            <nav aria-label="Breadcrumb" className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
+              {crumbs.map((crumb, index) => (
+                <Fragment key={index}>
+                  {crumb.path ? (
+                    <Link to={crumb.path} className="hover:text-foreground">{crumb.label}</Link>
+                  ) : (
+                    <span>{crumb.label}</span>
+                  )}
+                  <ChevronRight className="size-3.5" />
+                </Fragment>
+              ))}
+            </nav>
+          )}
+          <h2 className="truncate text-base font-semibold">{title}</h2>
+          {description && (
+            <span className="inline-flex shrink-0 text-muted-foreground" title={description}>
+              <Info className="size-3.5" aria-hidden />
+              <span className="sr-only">{description}</span>
+            </span>
+          )}
+        </div>
       </div>
-      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      {actions && <div className="flex flex-wrap items-center gap-2 [&_button]:h-7 [&_button]:text-xs">{actions}</div>}
     </div>
   );
 }

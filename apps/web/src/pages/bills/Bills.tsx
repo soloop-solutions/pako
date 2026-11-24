@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyOr } from "@/lib/amount";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useOptionalDrafts } from "@/context/DraftsContext";
-import { PageHeader } from "@/components/list/PageHeader";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -340,7 +340,7 @@ export function Bills() {
       />
 
 
-      <Card className="py-4">
+      <Card className={LIST_SURFACE}>
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}

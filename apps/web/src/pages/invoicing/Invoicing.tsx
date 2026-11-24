@@ -30,7 +30,7 @@ import {
   type PaymentStatus,
 } from "@/lib/document-types";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
-import { PageHeader } from "@/components/list/PageHeader";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -476,7 +476,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         <PartnerForm companyId={activeCompany.id} role="customer" onCreated={handleCustomerCreated} />
       </FormDialog>
 
-      <Card className="py-4">
+      <Card className={LIST_SURFACE}>
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}

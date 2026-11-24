@@ -13,7 +13,7 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { DocumentFilterBar } from "@/components/data-grid/DocumentFilterBar";
 import { useDocumentFilters } from "@/components/data-grid/useDocumentFilters";
-import { PageHeader } from "@/components/list/PageHeader";
+import { LIST_SURFACE, PageHeader } from "@/components/list/PageHeader";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -232,7 +232,7 @@ export function SalesReturns() {
         newAction={{ label: intl.formatMessage({ id: "salesReturns.newReturn" }), onClick: () => navigate("/sales-returns/new") }}
       />
 
-      <Card className="py-4">
+      <Card className={LIST_SURFACE}>
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}
