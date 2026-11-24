@@ -68,6 +68,13 @@ public class DashboardController : ControllerBase
         new("expenseBreakdown", "bar", 2, true),
         new("receivablesAging", "column", 2, false),
         new("payablesAging", "column", 2, false),
+        new("kpi.payrollCost", "sparkline", 1, true),
+        new("kpi.headcount", "sparkline", 1, true),
+        new("payrollTrend", "column", 2, true),
+        new("headcountByDepartment", "bar", 2, true),
+        new("kpi.stockValue", "sparkline", 1, true),
+        new("kpi.lowStock", "tile", 1, false),
+        new("stockByItem", "bar", 2, true),
     ];
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
