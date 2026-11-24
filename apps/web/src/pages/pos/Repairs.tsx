@@ -84,7 +84,7 @@ export function Repairs() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("svc.nav.repairs")}</CardTitle>
           <CardDescription>{t("svc.nav.repairs.description")}</CardDescription>

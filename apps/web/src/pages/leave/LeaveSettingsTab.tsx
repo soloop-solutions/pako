@@ -117,7 +117,7 @@ function LeaveTypesSection({ companyId }: { companyId: string }) {
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-start gap-2">
         <div>
           <h3 className="text-base font-semibold">{intl.formatMessage({ id: "leave.types.title" })}</h3>
           <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "leave.types.description" })}</p>

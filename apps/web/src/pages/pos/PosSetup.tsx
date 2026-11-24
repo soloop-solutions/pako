@@ -141,7 +141,7 @@ export function PosSetup() {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("pos.stores")}</CardTitle>
             <CardDescription>{t("nav.posSetup.description")}</CardDescription>
@@ -172,7 +172,7 @@ export function PosSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <CardTitle>{t("pos.registers")}</CardTitle>
           {canEdit && stores.length > 0 && (
             <Button size="sm" onClick={() => setEditingRegister("new")}>
@@ -200,7 +200,7 @@ export function PosSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("pos.barcodeRules")}</CardTitle>
             <CardDescription>{t("pos.barcodeRules.description")}</CardDescription>

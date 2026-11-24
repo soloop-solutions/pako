@@ -175,7 +175,7 @@ export function PaymentsPage() {
 
   return (
     <div className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-start gap-2">
         <h1 className="text-lg font-semibold">{t("payments.title")}</h1>
         {mayRecord && (
           <Button onClick={() => setNewOpen(true)} disabled={!companyId}>

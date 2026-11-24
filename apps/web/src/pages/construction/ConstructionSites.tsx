@@ -50,7 +50,7 @@ export function ConstructionSites() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("vx.nav.sites")}</CardTitle>
           <CardDescription>{t("vx.nav.sites.description")}</CardDescription>

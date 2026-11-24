@@ -420,7 +420,7 @@ function SetupTab({ storeId }: { storeId: string }) {
     <div className="flex flex-col gap-4">
       {!canApprove("pos") && <p className="text-sm text-muted-foreground">{t("spec.approveOnly")}</p>}
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("spec.fuel.tanks")}</CardTitle>
             <CardDescription>{t("spec.fuel.tanks.description")}</CardDescription>
@@ -446,7 +446,7 @@ function SetupTab({ storeId }: { storeId: string }) {
         </CardContent>
       </Card>
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("spec.fuel.nozzles")}</CardTitle>
             <CardDescription>{t("spec.fuel.nozzles.description")}</CardDescription>
@@ -662,7 +662,7 @@ function FleetCardsTab() {
   const rows = cards.data ?? [];
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("spec.fuel.tab.fleet")}</CardTitle>
           <CardDescription>{t("spec.fleet.description")}</CardDescription>

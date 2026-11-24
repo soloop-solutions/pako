@@ -132,7 +132,7 @@ export function Appointments() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("svc.nav.appointments")}</CardTitle>
           <CardDescription>{t("svc.nav.appointments.description")}</CardDescription>

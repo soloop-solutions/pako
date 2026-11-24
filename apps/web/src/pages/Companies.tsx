@@ -83,7 +83,7 @@ export function Companies() {
 
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-start gap-3">
             <div>
               <CardTitle>{intl.formatMessage({ id: "companies.firmsTitle" })}</CardTitle>
               <CardDescription>{intl.formatMessage({ id: "companies.firmsDescription" })}</CardDescription>

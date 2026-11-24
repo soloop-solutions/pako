@@ -130,7 +130,7 @@ export function ItemRecipePanel({ itemId }: { itemId: string }) {
         })}
       </fieldset>
       {canEdit && (
-        <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center justify-start gap-2">
           <Button type="button" size="sm" variant="outline"
             onClick={() => edit((all) => [...all, { key: nextKey(), ingredientItemId: "", quantity: "", wastePercent: "0" }])}>
             <Plus className="size-4" />

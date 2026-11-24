@@ -142,7 +142,7 @@ export function MenuSetup() {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("pos.setup3.centers")}</CardTitle>
             <CardDescription>{t("pos.setup3.centers.description")}</CardDescription>
@@ -173,7 +173,7 @@ export function MenuSetup() {
       </Card>
 
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("pos.setup3.groups")}</CardTitle>
             <CardDescription>{t("pos.setup3.groups.description")}</CardDescription>

@@ -241,7 +241,7 @@ export function Partners() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-start gap-2">
         <div>
           <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "partners.title" })}</h2>
           <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "partners.description" })}</p>

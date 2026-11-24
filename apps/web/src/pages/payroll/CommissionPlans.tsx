@@ -121,7 +121,7 @@ export function CommissionPlans() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex flex-wrap items-end justify-between gap-2">
+        <div className="flex flex-wrap items-end justify-start gap-2">
           <div>
             <CardTitle>{intl.formatMessage({ id: "nav.commissionPlans" })}</CardTitle>
             <CardDescription>{intl.formatMessage({ id: "nav.commissionPlans.description" })}</CardDescription>

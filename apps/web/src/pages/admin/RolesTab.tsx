@@ -87,7 +87,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
       <Card className="h-fit">
-        <CardHeader className="flex-row items-center justify-between">
+        <CardHeader className="flex-row items-center justify-start gap-3">
           <CardTitle className="text-base">{intl.formatMessage({ id: "admin.roles.title" })}</CardTitle>
           {canManage && (
             <Button size="xs" variant="outline" onClick={() => setDraft(toDraft(null))}>

@@ -165,7 +165,7 @@ export function EmployeeLoansPanel({ companyId, employeeId }: { companyId: strin
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-start gap-2">
         <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "loans.hint" })}</p>
         {canApprove("payroll") && (
           <Button size="sm" variant="outline" onClick={() => setFormOpen((open) => !open)}>

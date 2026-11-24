@@ -14,7 +14,7 @@ export interface PageHeaderAction {
 }
 
 // Client request 2026-11-24: one header for every list page, with the page's buttons on the right
-// (secondary actions, then the primary "New …", which the N key also triggers).
+// (secondary actions; the primary "New …", which the N key also triggers, is on the left).
 // User request 2026-11-24 (later): one line — the section as a small prefix of the title (in place
 // of the breadcrumb row), the description behind an ⓘ.
 export function PageHeader({
@@ -59,16 +59,15 @@ export function PageHeader({
             <span className="sr-only">{description}</span>
           </span>
         )}
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        {actions}
+        {/* User request 2026-11-24: the "New …" button sits on the left, right after the title. */}
         {newAction && (
-          <Button size="sm" onClick={newAction.onClick} disabled={newAction.disabled} title={`${newAction.label} (N)`}>
+          <Button size="sm" className="ml-2 shrink-0" onClick={newAction.onClick} disabled={newAction.disabled} title={`${newAction.label} (N)`}>
             <Plus className="size-4" />
             {newAction.label}
           </Button>
         )}
       </div>
+      {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
     </div>
   );
 }

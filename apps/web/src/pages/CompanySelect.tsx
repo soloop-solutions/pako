@@ -179,7 +179,7 @@ export function CompanySelect() {
       </header>
 
       <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-10">
-        <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div className="mb-6 flex flex-wrap items-end justify-start gap-4">
           <div>
             <h1 className="text-2xl font-semibold">{t("lobby.title")}</h1>
             <p className="mt-1 text-sm text-muted-foreground">{t("lobby.subtitle")}</p>

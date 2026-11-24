@@ -141,7 +141,7 @@ export function PosPrograms() {
   return (
     <div className="flex flex-col gap-4">
       <Card>
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+        <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
           <div>
             <CardTitle>{t("nav.posPrograms")}</CardTitle>
             <CardDescription>{t("nav.posPrograms.description")}</CardDescription>

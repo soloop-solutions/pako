@@ -112,7 +112,7 @@ function PrescriptionsTab() {
 
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("spec.pharmacy.tab.prescriptions")}</CardTitle>
           <CardDescription>{t("spec.rx.description")}</CardDescription>
@@ -301,7 +301,7 @@ function PayersTab() {
   const rows = payers.data ?? [];
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("spec.pharmacy.tab.payers")}</CardTitle>
           <CardDescription>{t("spec.payer.description")}</CardDescription>

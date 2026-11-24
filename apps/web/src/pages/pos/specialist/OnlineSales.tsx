@@ -483,7 +483,7 @@ function ChannelsTab() {
   const current = opened && opened !== "new" ? rows.find((c) => c.id === opened.id) ?? opened : opened;
   return (
     <Card>
-      <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3">
+      <CardHeader className="flex flex-row flex-wrap items-start justify-start gap-3">
         <div>
           <CardTitle>{t("spec.online.tab.channels")}</CardTitle>
           <CardDescription>{t("spec.channel.description")}</CardDescription>

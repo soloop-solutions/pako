@@ -167,7 +167,7 @@ export function EmployeeContracts({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-start gap-2">
         <p className="text-sm text-muted-foreground">
           {intl.formatMessage({ id: "hr.contracts.hint" }, { salary: `${formatMoney(employee.currentSalary)} €` })}
         </p>

@@ -67,7 +67,7 @@ export function ItemAttributesDialog({ onClose }: { onClose: () => void }) {
   return (
     <FormDialog open onOpenChange={(open) => !open && onClose()} title={t("items.attributes.title")} size="lg">
       <div className="flex flex-col gap-3">
-        <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start justify-start gap-3">
           <p className="text-sm text-muted-foreground">{t("items.attributes.description")}</p>
           {canWrite("items") && (
             <Button size="sm" onClick={() => setEditing("new")}>
