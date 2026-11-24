@@ -173,7 +173,7 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
         accessorFn: (row) => row.lastLoginAt ?? row.invitedAt,
         cell: ({ row }) =>
           row.original.lastLoginAt
-            ? intl.formatDate(row.original.lastLoginAt, { dateStyle: "medium" })
+            ? intl.formatDate(row.original.lastLoginAt, { dateStyle: "medium", timeStyle: "short", hour12: false })
             : row.original.invitedAt
               ? intl.formatMessage({ id: "admin.users.invitedOn" }, { date: intl.formatDate(row.original.invitedAt, { dateStyle: "medium" }) })
               : "—",
