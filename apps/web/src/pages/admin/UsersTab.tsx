@@ -246,7 +246,14 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
     else updateMutation.mutate(dialog.user.membershipId!);
   }
 
-  const users = usersQuery.data ?? [];
+  const users = useMemo(() => {
+    const list = usersQuery.data ?? [];
+    return [...list].sort((a, b) => {
+      const da = a.invitedAt ?? a.lastLoginAt ?? "";
+      const db = b.invitedAt ?? b.lastLoginAt ?? "";
+      return db.localeCompare(da);
+    });
+  }, [usersQuery.data]);
   const selectedRole = roles.find((r) => r.id === form.roleId);
   const desktop = getDesktopBridge() !== null;
 
