@@ -25,6 +25,14 @@ import { useFeatures } from "@/hooks/useFeatures";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { cn } from "@/lib/utils";
 
+/* ────────────── Tab context menu (right-click) ────────────── */
+
+interface TabContextMenuState {
+  tabId: string;
+  x: number;
+  y: number;
+}
+
 function tabTitle(tab: ResolvedTab, intl: ReturnType<typeof useIntl>): string {
   if (tab.titleOverride) return tab.titleOverride;
   if (tab.kind === "instance" && tab.fallbackTitleKey) return intl.formatMessage({ id: tab.fallbackTitleKey });
@@ -41,6 +49,7 @@ function SortableTab({
   intl,
   onFocus,
   onClose,
+  onContextMenu,
 }: {
   tab: ResolvedTab;
   isActive: boolean;
@@ -48,6 +57,7 @@ function SortableTab({
   intl: ReturnType<typeof useIntl>;
   onFocus: () => void;
   onClose: () => void;
+  onContextMenu: (e: React.MouseEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: tab.id });
 
@@ -77,6 +87,7 @@ function SortableTab({
           onClose();
         }
       }}
+      onContextMenu={onContextMenu}
       className={cn(
         "group flex h-9 max-w-52 min-w-32 shrink-0 cursor-grab items-center gap-1.5 border-r px-2.5 text-[12.5px] select-none",
         isDragging && "cursor-grabbing shadow-lg",
@@ -145,7 +156,8 @@ export function TabStrip() {
   const intl = useIntl();
   const navigate = useNavigate();
   const location = useLocation();
-  const { tabs, activeTabId, closeTab, focusTab, reorderTab } = useTabs();
+  const { tabs, activeTabId, closeTab, closeOtherTabs, closeTabsToRight, closeTabsToLeft, focusTab, reorderTab } = useTabs();
+  const [ctxMenu, setCtxMenu] = useState<TabContextMenuState | null>(null);
   const { hasFeature } = useFeatures();
   const { canSee } = useMyAccess();
 
@@ -290,6 +302,19 @@ export function TabStrip() {
     return () => window.removeEventListener("pointermove", tick);
   }, [isDragActive]);
 
+  // Close the context menu on click anywhere or Escape
+  useEffect(() => {
+    if (!ctxMenu) return;
+    function dismiss() { setCtxMenu(null); }
+    function onKey(e: KeyboardEvent) { if (e.key === "Escape") setCtxMenu(null); }
+    document.addEventListener("mousedown", dismiss);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", dismiss);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [ctxMenu]);
+
   if (tabs.length === 0 && !quickOpen) return null;
 
   const tabIds = tabs.map((t) => t.id);
@@ -320,6 +345,10 @@ export function TabStrip() {
                   intl={intl}
                   onFocus={() => focusTab(tab.id)}
                   onClose={() => closeTab(tab.id)}
+                  onContextMenu={(e) => {
+                    e.preventDefault();
+                    setCtxMenu({ tabId: tab.id, x: e.clientX, y: e.clientY });
+                  }}
                 />
               ))}
             </div>
@@ -383,6 +412,42 @@ export function TabStrip() {
           </div>
         )}
       </div>
+
+      {/* Right-click context menu */}
+      {ctxMenu && (() => {
+        const idx = tabs.findIndex((t) => t.id === ctxMenu.tabId);
+        const hasLeft = idx > 0;
+        const hasRight = idx < tabs.length - 1;
+        const hasOthers = tabs.length > 1;
+        const t = (id: string) => intl.formatMessage({ id });
+        const run = (action: () => void) => { action(); setCtxMenu(null); };
+        return (
+          <div
+            style={{ position: "fixed", top: ctxMenu.y, left: ctxMenu.x, zIndex: 50 }}
+            className="min-w-44 rounded-md border bg-popover p-1 text-popover-foreground shadow-lg"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <button type="button" className="flex h-7 w-full items-center rounded px-2.5 text-[12.5px] hover:bg-accent hover:text-accent-foreground" onClick={() => run(() => closeTab(ctxMenu.tabId))}>
+              {t("shell.tabs.close")}
+            </button>
+            {hasOthers && (
+              <button type="button" className="flex h-7 w-full items-center rounded px-2.5 text-[12.5px] hover:bg-accent hover:text-accent-foreground" onClick={() => run(() => closeOtherTabs(ctxMenu.tabId))}>
+                {t("shell.tabs.closeOthers")}
+              </button>
+            )}
+            {hasRight && (
+              <button type="button" className="flex h-7 w-full items-center rounded px-2.5 text-[12.5px] hover:bg-accent hover:text-accent-foreground" onClick={() => run(() => closeTabsToRight(ctxMenu.tabId))}>
+                {t("shell.tabs.closeToRight")}
+              </button>
+            )}
+            {hasLeft && (
+              <button type="button" className="flex h-7 w-full items-center rounded px-2.5 text-[12.5px] hover:bg-accent hover:text-accent-foreground" onClick={() => run(() => closeTabsToLeft(ctxMenu.tabId))}>
+                {t("shell.tabs.closeToLeft")}
+              </button>
+            )}
+          </div>
+        );
+      })()}
     </div>
   );
 }

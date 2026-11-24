@@ -1837,6 +1837,9 @@ export const en: Record<string, string> = {
   // Task 8 — app shell: tab strip
   "shell.tabs.unsaved": "Unsaved changes",
   "shell.tabs.close": "Close tab",
+  "shell.tabs.closeOthers": "Close other tabs",
+  "shell.tabs.closeToRight": "Close tabs to the right",
+  "shell.tabs.closeToLeft": "Close tabs to the left",
   "shell.tabs.new": "Open a destination",
 
   // Task 8 — app shell: sidebar
@@ -4103,6 +4106,9 @@ export const sq: Record<string, string> = {
   // Task 8 — app shell: tab strip
   "shell.tabs.unsaved": "Ndryshime të paruajtura",
   "shell.tabs.close": "Mbyll skedën",
+  "shell.tabs.closeOthers": "Mbyll skedat e tjera",
+  "shell.tabs.closeToRight": "Mbyll skedat në të djathtë",
+  "shell.tabs.closeToLeft": "Mbyll skedat në të majtë",
   "shell.tabs.new": "Hap një destinacion",
 
   // Task 8 — app shell: sidebar

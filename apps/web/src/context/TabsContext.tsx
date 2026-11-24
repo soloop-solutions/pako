@@ -22,6 +22,9 @@ interface TabsContextValue {
   tabs: ResolvedTab[];
   activeTabId: string | null;
   closeTab: (id: string) => void;
+  closeOtherTabs: (id: string) => void;
+  closeTabsToRight: (id: string) => void;
+  closeTabsToLeft: (id: string) => void;
   focusTab: (id: string) => void;
   cycleTab: (direction: 1 | -1) => void;
   reorderTab: (fromIndex: number, toIndex: number) => void;
@@ -145,6 +148,55 @@ export function TabsProvider({ children }: { children: ReactNode }) {
     [activeTabId, navigate],
   );
 
+  const closeOtherTabs = useCallback(
+    (id: string) => {
+      setTabsState((prev) => {
+        const kept = prev.tabs.filter((t) => t.id === id);
+        if (kept.length === prev.tabs.length) return prev;
+        return { ...prev, tabs: kept };
+      });
+      const tab = storedTabs.find((t) => t.id === id);
+      if (tab && id !== activeTabId) navigate(tab.path);
+    },
+    [storedTabs, activeTabId, navigate],
+  );
+
+  const closeTabsToRight = useCallback(
+    (id: string) => {
+      setTabsState((prev) => {
+        const idx = prev.tabs.findIndex((t) => t.id === id);
+        if (idx === -1 || idx === prev.tabs.length - 1) return prev;
+        return { ...prev, tabs: prev.tabs.slice(0, idx + 1) };
+      });
+      // If the active tab was to the right, navigate to the clicked tab
+      const idx = storedTabs.findIndex((t) => t.id === id);
+      const activeIdx = storedTabs.findIndex((t) => t.id === activeTabId);
+      if (activeIdx > idx) {
+        const tab = storedTabs[idx];
+        if (tab) navigate(tab.path);
+      }
+    },
+    [storedTabs, activeTabId, navigate],
+  );
+
+  const closeTabsToLeft = useCallback(
+    (id: string) => {
+      setTabsState((prev) => {
+        const idx = prev.tabs.findIndex((t) => t.id === id);
+        if (idx <= 0) return prev;
+        return { ...prev, tabs: prev.tabs.slice(idx) };
+      });
+      // If the active tab was to the left, navigate to the clicked tab
+      const idx = storedTabs.findIndex((t) => t.id === id);
+      const activeIdx = storedTabs.findIndex((t) => t.id === activeTabId);
+      if (activeIdx < idx) {
+        const tab = storedTabs[idx];
+        if (tab) navigate(tab.path);
+      }
+    },
+    [storedTabs, activeTabId, navigate],
+  );
+
   const focusTab = useCallback(
     (id: string) => {
       const tab = storedTabs.find((t) => t.id === id);
@@ -222,8 +274,8 @@ export function TabsProvider({ children }: { children: ReactNode }) {
   }, [cycleTab, closeTab, activeTabId]);
 
   const value = useMemo(
-    () => ({ tabs, activeTabId, closeTab, focusTab, cycleTab, reorderTab, setTabDirty, setTabTitleOverride }),
-    [tabs, activeTabId, closeTab, focusTab, cycleTab, reorderTab, setTabDirty, setTabTitleOverride],
+    () => ({ tabs, activeTabId, closeTab, closeOtherTabs, closeTabsToRight, closeTabsToLeft, focusTab, cycleTab, reorderTab, setTabDirty, setTabTitleOverride }),
+    [tabs, activeTabId, closeTab, closeOtherTabs, closeTabsToRight, closeTabsToLeft, focusTab, cycleTab, reorderTab, setTabDirty, setTabTitleOverride],
   );
 
   return <TabsContext.Provider value={value}>{children}</TabsContext.Provider>;
