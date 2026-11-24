@@ -1,0 +1,87 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'self'" />
+    <title>PAKO</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { height: 100%; margin: 0; }
+      body {
+        display: flex; align-items: center; justify-content: center; padding: 24px;
+        font-family: Inter, system-ui, sans-serif; background: #f3f4f6; color: #111827; font-size: 14px;
+      }
+      .card { width: 100%; max-width: 560px; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 28px; box-shadow: 0 1px 2px rgba(0,0,0,.05); }
+      .brand { font-weight: 700; letter-spacing: .2em; color: #140f5a; margin-bottom: 12px; }
+      h1 { font-size: 20px; margin: 0 0 6px; }
+      p { margin: 0 0 16px; color: #4b5563; line-height: 1.5; }
+      .choices { display: grid; gap: 12px; }
+      .choice { text-align: left; border: 1px solid #d1d5db; background: #fff; border-radius: 10px; padding: 16px; cursor: pointer; font: inherit; }
+      .choice:hover, .choice:focus-visible { border-color: #2563eb; outline: none; background: #eff6ff; }
+      .choice strong { display: block; font-size: 15px; margin-bottom: 4px; color: #111827; }
+      .choice span { color: #4b5563; }
+      .list { display: grid; gap: 8px; margin: 0 0 16px; }
+      .found { display: flex; justify-content: space-between; align-items: center; }
+      .found small { color: #6b7280; font-family: ui-monospace, monospace; }
+      label { display: block; font-weight: 600; margin-bottom: 6px; }
+      .row { display: flex; gap: 8px; }
+      input { flex: 1; height: 40px; border: 1px solid #d1d5db; border-radius: 8px; padding: 0 12px; font: inherit; }
+      input:focus { outline: 2px solid #93c5fd; border-color: #2563eb; }
+      button.primary, button.secondary { height: 40px; padding: 0 16px; border-radius: 8px; font: inherit; font-weight: 600; cursor: pointer; }
+      button.primary { background: #2563eb; color: #fff; border: 0; }
+      button.primary:disabled { opacity: .5; cursor: default; }
+      button.secondary { background: #fff; border: 1px solid #d1d5db; color: #111827; }
+      .muted { color: #6b7280; }
+      .error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
+      .actions { display: flex; justify-content: space-between; margin-top: 20px; }
+      .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #bfdbfe; border-top-color: #2563eb; border-radius: 50%; animation: spin 1s linear infinite; vertical-align: -1px; margin-right: 6px; }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      [hidden] { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <div class="brand">PAKO</div>
+
+      <section id="choose" hidden>
+        <h1 data-t="chooseTitle"></h1>
+        <p data-t="chooseText"></p>
+        <div class="choices">
+          <button class="choice" id="pick-main" type="button"><strong data-t="mainTitle"></strong><span data-t="mainText"></span></button>
+          <button class="choice" id="pick-till" type="button"><strong data-t="tillTitle"></strong><span data-t="tillText"></span></button>
+        </div>
+      </section>
+
+      <section id="till" hidden>
+        <h1 data-t="findTitle"></h1>
+        <p data-t="findText"></p>
+        <p id="searching" class="muted"><span class="spinner"></span><span data-t="searching"></span></p>
+        <p id="none" class="muted" hidden data-t="none"></p>
+        <div class="list" id="found"></div>
+        <div id="till-error" class="error" hidden></div>
+        <form id="manual">
+          <label for="address" data-t="addressLabel"></label>
+          <div class="row">
+            <input id="address" autocomplete="off" spellcheck="false" placeholder="192.168.1.10" />
+            <button class="primary" type="submit" id="connect" data-t="connect"></button>
+          </div>
+        </form>
+        <div class="actions">
+          <button class="secondary" type="button" id="back" data-t="back"></button>
+          <button class="secondary" type="button" id="rescan" data-t="rescan"></button>
+        </div>
+      </section>
+
+      <section id="offline" hidden>
+        <h1 data-t="offlineTitle"></h1>
+        <p id="offline-text"></p>
+        <p class="muted"><span class="spinner"></span><span data-t="retrying"></span></p>
+        <div class="actions">
+          <button class="secondary" type="button" id="change" data-t="change"></button>
+          <button class="primary" type="button" id="retry" data-t="retry"></button>
+        </div>
+      </section>
+    </div>
+    <script src="setup.js"></script>
+  </body>
+</html>

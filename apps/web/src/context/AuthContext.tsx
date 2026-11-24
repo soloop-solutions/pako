@@ -10,6 +10,8 @@ type AuthContextValue = {
   register: (email: string, password: string) => Promise<void>;
   // docs/USER_ACCESS_PLAN.md: accepting an invitation signs the person in.
   acceptInvitation: (token: string, fullName: string | undefined, password: string) => Promise<void>;
+  // docs/POS_TILL_ACCESS.md §7: a till or kitchen screen connects with its one-use link.
+  connectDevice: (code: string) => Promise<void>;
   logout: () => void;
 };
 
@@ -60,6 +62,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setAuth(next);
   }
 
+  async function connectDevice(code: string) {
+    const response = await apiClient.connectPosDevice({ code });
+    const next = { token: response.token, userId: response.userId, email: response.email, refreshToken: response.refreshToken };
+    clearActionTokens();
+    setStoredAuth(next);
+    setAuth(next);
+  }
+
   function logout() {
     const refreshToken = getStoredAuth()?.refreshToken;
     if (refreshToken) void apiClient.logout({ refreshToken }).catch(() => undefined);
@@ -69,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ auth, login, register, acceptInvitation, logout }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ auth, login, register, acceptInvitation, connectDevice, logout }}>{children}</AuthContext.Provider>
   );
 }
 

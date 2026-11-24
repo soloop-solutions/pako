@@ -1,5 +1,6 @@
 import { useMemo, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Copy, UserPlus, X } from "lucide-react";
@@ -260,7 +261,11 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "admin.users.hint" })}</p>
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "admin.users.hint" })}</p>
+          {/* docs/POS_TILL_ACCESS.md §7: till screens are devices, managed with the POS. */}
+          <Link to="/pos/setup" className="text-xs text-primary hover:underline">{intl.formatMessage({ id: "admin.users.devicesNote" })}</Link>
+        </div>
         {canManage && (
           <Button size="sm" onClick={openInvite}>
             <UserPlus className="size-4" />

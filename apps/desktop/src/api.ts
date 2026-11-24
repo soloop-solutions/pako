@@ -19,16 +19,21 @@ export interface ApiEnvInput {
   jwtKey: string
   launchSecret: string
   dataDir: string
+  // "Allow tills on this network": also listen on all interfaces on this port.
+  tillPort?: number
 }
 
 export function buildApiEnv(input: ApiEnvInput): Record<string, string> {
+  const urls = [`http://127.0.0.1:${input.port}`]
+  if (input.tillPort !== undefined) urls.push(`http://0.0.0.0:${input.tillPort}`)
   return {
     Desktop__Enabled: 'true',
     ConnectionStrings__Default: `Host=127.0.0.1;Port=${input.pgPort};Database=pako;Username=postgres;Password=${input.pgPassword}`,
     Jwt__Key: input.jwtKey,
     Desktop__LaunchSecret: input.launchSecret,
     Desktop__DataDirectory: input.dataDir,
-    ASPNETCORE_URLS: `http://127.0.0.1:${input.port}`,
+    ASPNETCORE_URLS: urls.join(';'),
+    Desktop__TillPort: String(input.tillPort ?? 0),
     ASPNETCORE_ENVIRONMENT: 'Production',
     Email__Mode: 'Log',
     Email__AppBaseUrl: `http://127.0.0.1:${input.port}`,
@@ -49,6 +54,11 @@ export class ApiProcess {
     this.fetchFn = opts.fetch ?? ((url) => fetch(url))
     this.now = opts.now ?? Date.now
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)))
+  }
+
+  // The next start() uses these (turning tills on or off restarts the API with a new env).
+  setEnv(env: Record<string, string>): void {
+    this.opts.env = env
   }
 
   get url(): string {

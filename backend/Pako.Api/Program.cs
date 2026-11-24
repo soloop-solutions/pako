@@ -78,6 +78,9 @@ builder.Services.AddCors(options =>
                 "http://localhost:5174",
                 "http://127.0.0.1:5174",
                 "https://pakoerp.netlify.app")
+            // Extra origins from config (Cors:ExtraOrigins), e.g. the dev web app on the shop LAN
+            // so a till tablet can open it: http://192.168.0.21:5174.
+            .WithOrigins(builder.Configuration.GetSection("Cors:ExtraOrigins").Get<string[]>() ?? [])
             .AllowAnyHeader()
             .AllowAnyMethod());
 });
@@ -164,6 +167,7 @@ builder.Services.AddHttpClient<Pako.Fiscal.Xk.AtkFiscalClient>(client =>
 builder.Services.AddScoped<Pako.Api.Services.PosReportService>();
 builder.Services.AddScoped<Pako.Api.Services.TabService>();
 builder.Services.AddScoped<Pako.Api.Services.PosOperatorService>();
+builder.Services.AddScoped<Pako.Api.Services.PosDeviceService>();
 builder.Services.AddScoped<Pako.Api.Services.AppointmentService>();
 builder.Services.AddScoped<Pako.Api.Services.SalesCreditService>();
 builder.Services.AddScoped<Pako.Api.Services.PortalService>();
@@ -318,6 +322,10 @@ if (!desktop.Enabled)
 
 app.UseRateLimiter();
 app.UseAuthentication();
+if (desktop.Enabled && desktop.TillPort > 0)
+{
+    app.UseMiddleware<Pako.Api.Desktop.TillNetworkMiddleware>();
+}
 app.UseAuthorization();
 
 app.MapControllers();
@@ -325,10 +333,14 @@ app.MapHub<Pako.Api.Hubs.PosHub>("/hubs/pos");
 
 if (desktop.Enabled)
 {
-    app.MapGet("/healthz", async (PakoDbContext db) =>
+    app.MapGet("/healthz", async (PakoDbContext db, HttpContext context) =>
     {
         var applied = await db.Database.GetAppliedMigrationsAsync();
-        return Results.Ok(new { status = "ok", schemaVersion = applied.LastOrDefault() ?? string.Empty });
+        // On the till port it also says what it is, so a till PC looking for the main PC on
+        // the shop network can find it and show its name (desktop till mode).
+        return desktop.IsTillRequest(context)
+            ? Results.Ok(new { status = "ok", schemaVersion = applied.LastOrDefault() ?? string.Empty, app = "pako", machine = Environment.MachineName })
+            : Results.Ok(new { status = "ok", schemaVersion = applied.LastOrDefault() ?? string.Empty });
     });
     app.MapFallbackToFile("{*path:regex(^(?!api(/|$)|hubs(/|$))(?!.*[.][^/]*$).*$)}", "index.html");
 }

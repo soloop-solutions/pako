@@ -58,7 +58,8 @@ import { ChannelFulfilment, ChannelPayment, channelFulfilmentKey, channelPayment
 import { SelfCheckoutBody } from "@/pages/pos/specialist/SelfCheckout";
 import { isPast } from "@/pages/pos/specialist/specialist-utils";
 import { FleetCardDialog, LitresPrompt, NozzlePanel, SubstitutesDialog, TillPartsDialog, TillPrescriptionDialog } from "@/pages/pos/specialist/TillSpecialist";
-import { WaiterControl } from "@/pages/pos/restaurant/WaiterControl";
+import { getPosOperator, setPosOperator, usePosOperator, useTillIdleLock } from "@/lib/pos-operator";
+import { TillLock, WaiterControl } from "@/pages/pos/restaurant/WaiterControl";
 import { WaiterHandover } from "@/pages/pos/restaurant/WaiterHandover";
 import { useOnlineStatus } from "@/hooks/useOnlineStatus";
 import { computeLocalQuote } from "@/pages/pos/offlineQuote";
@@ -198,6 +199,15 @@ export function Till() {
   const { activeCompanyId } = useCompany();
   const companyId = activeCompanyId as string;
   const { canWrite } = useMyAccess();
+  // docs/POS_TILL_ACCESS.md: the till shows only to someone signed in with their PIN, and locks
+  // itself when left idle.
+  const operator = usePosOperator();
+  const unlocked = !!operator && operator.companyId === activeCompanyId;
+  useTillIdleLock(unlocked);
+  const exit = () => {
+    setPosOperator(null);
+    navigate("/pos");
+  };
 
   const bootstrap = useQuery({
     queryKey: ["posBootstrap", companyId, registerId],
@@ -219,7 +229,7 @@ export function Till() {
           <Alert variant="destructive">
             <AlertDescription>{getApiErrorMessage(bootstrap.error, t("till.saleError"))}</AlertDescription>
           </Alert>
-          <Button className="mt-4" variant="outline" onClick={() => navigate("/pos")}>{t("till.exit")}</Button>
+          <Button className="mt-4" variant="outline" onClick={exit}>{t("till.exit")}</Button>
         </div>
       </TillShell>
     );
@@ -227,7 +237,7 @@ export function Till() {
   const boot = bootstrap.data;
   return (
     <TillShell>
-      <TillHeader boot={boot} onExit={() => navigate("/pos")} />
+      <TillHeader boot={boot} unlocked={unlocked} onExit={exit} />
       {boot.register.fiscalMode === FiscalMode.Pef ? (
         <div className="p-6">
           <Alert>
@@ -241,6 +251,8 @@ export function Till() {
             <AlertDescription>{t("till.noAccess")}</AlertDescription>
           </Alert>
         </div>
+      ) : !unlocked ? (
+        <TillLock />
       ) : !boot.session ? (
         <OpenSessionPanel boot={boot} />
       ) : boot.register.profile === RegisterProfile.SelfCheckout ? (
@@ -265,20 +277,21 @@ function TillShell({ children }: { children: React.ReactNode }) {
   return <div className="flex h-dvh flex-col bg-background text-foreground">{children}</div>;
 }
 
-function TillHeader({ boot, onExit }: { boot: PosBootstrapResponse; onExit: () => void }) {
+function TillHeader({ boot, unlocked, onExit }: { boot: PosBootstrapResponse; unlocked: boolean; onExit: () => void }) {
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
   const training = boot.register.fiscalMode === FiscalMode.Training;
   return (
     <>
-      <header className="flex items-center gap-3 border-b px-4 py-2">
-        <Button size="sm" variant="ghost" onClick={onExit} aria-label={t("till.exit")}>
+      {/* On a phone: one line — back, the till's name, the waiter. The company and session wait for a bigger screen. */}
+      <header className="flex min-w-0 items-center gap-2 border-b px-2 py-1.5 sm:gap-3 sm:px-4 sm:py-2">
+        <Button size="sm" variant="ghost" className="shrink-0" onClick={onExit} aria-label={t("till.exit")}>
           <ArrowLeft className="size-4" />
         </Button>
-        <h1 className="font-semibold">{t("till.title", { register: boot.register.name, store: boot.store.name })}</h1>
-        <span className="text-sm text-muted-foreground">{boot.companyName}</span>
-        {boot.session && <Badge variant="secondary">{t("pos.session.number")} {boot.session.number}</Badge>}
-        {boot.session && <WaiterControl className="ml-auto" />}
+        <h1 className="min-w-0 truncate text-sm font-semibold sm:text-base">{t("till.title", { register: boot.register.name, store: boot.store.name })}</h1>
+        <span className="hidden shrink-0 text-sm text-muted-foreground md:inline">{boot.companyName}</span>
+        {boot.session && <Badge variant="secondary" className="hidden shrink-0 sm:inline-flex">{t("pos.session.number")} {boot.session.number}</Badge>}
+        {boot.session && unlocked && <WaiterControl className="ml-auto shrink-0" />}
       </header>
       {training && (
         <div className="bg-amber-400 px-4 py-1 text-center text-sm font-bold text-black" role="status">
@@ -2060,7 +2073,8 @@ export function PaymentDialog({
         return await apiClient.submitPosOrder(companyId, orderRequest);
       } catch (err) {
         if (!navigator.onLine) {
-          enqueueOfflineOrder(companyId, orderRequest);
+          // The waiter's sign-in goes with it: whoever is signed in when it syncs didn't ring it up.
+          enqueueOfflineOrder(companyId, { ...orderRequest, operatorToken: getPosOperator()?.token });
           return null; // signal offline success
         }
         throw err;

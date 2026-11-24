@@ -11,6 +11,17 @@ public sealed class LaunchSecretMiddleware(RequestDelegate next, DesktopOptions 
 
     public Task InvokeAsync(HttpContext context)
     {
+        if (options.IsTillRequest(context))
+        {
+            // Tills on the shop network never get the launch cookie: TillNetworkMiddleware lets
+            // till devices through after authentication. Uploaded files (attachments, documents)
+            // stay on the PC.
+            if (!context.Request.Path.StartsWithSegments(Pako.Api.Services.UploadStorage.RequestPath))
+                return next(context);
+            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+            return Task.CompletedTask;
+        }
+
         if (!IsGuarded(context.Request.Path) || HasValidCookie(context))
             return next(context);
 

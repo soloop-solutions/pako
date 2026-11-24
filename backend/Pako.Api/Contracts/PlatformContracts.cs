@@ -7,7 +7,9 @@ public record AccountRequestRequest(
     int RequestedCompanies, string? Message);
 
 public record MyAccountResponse(
-    Guid UserId, string Email, string? FullName, bool IsPlatformAdmin, int? CompanyLimit, int CompaniesCreated);
+    Guid UserId, string Email, string? FullName, bool IsPlatformAdmin, int? CompanyLimit, int CompaniesCreated,
+    // docs/POS_TILL_ACCESS.md §7: set when this login is a till/kitchen device — the app then shows only the till and kitchen screens.
+    Guid? PosDeviceCompanyId = null, string? PosDeviceName = null);
 
 public record AccountRequestResponse(
     Guid Id, string FullName, string Email, string? Phone, string? FirmName, string? BusinessNumber, string? City,

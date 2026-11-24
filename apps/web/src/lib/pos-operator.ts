@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 
 // docs/POS_PLAN.md P3: the waiter signed in on a shared till with their PIN. The till's own
 // account stays signed in; the server gives the waiter a short-lived operator token that goes out
@@ -77,4 +77,25 @@ export function posOperatorTokenFor(url: string): string | null {
 /** The signed-in waiter, re-rendering on sign-in and sign-out. */
 export function usePosOperator(): PosOperator | null {
   return useSyncExternalStore(subscribePosOperator, getPosOperator, getPosOperator);
+}
+
+// Signs the operator out after a stretch with no taps or keys on the till, so a till left
+// unattended locks itself (docs/POS_TILL_ACCESS.md).
+export const TILL_IDLE_LOCK_MS = 5 * 60_000;
+
+export function useTillIdleLock(active: boolean, ms = TILL_IDLE_LOCK_MS) {
+  useEffect(() => {
+    if (!active) return;
+    let timer = window.setTimeout(() => setPosOperator(null), ms);
+    const reset = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => setPosOperator(null), ms);
+    };
+    const events = ["pointerdown", "keydown", "wheel", "touchstart"] as const;
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    return () => {
+      window.clearTimeout(timer);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+  }, [active, ms]);
 }

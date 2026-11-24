@@ -1,10 +1,12 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { asPhone } from "@/test/phoneScreen";
+import { signInTestOperator } from "@/test/posOperator";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
-import { setPosOperator } from "@/lib/pos-operator";
+import { getPosOperator, setPosOperator, TILL_IDLE_LOCK_MS } from "@/lib/pos-operator";
 import { Till } from "@/pages/pos/Till";
 
 // docs/POS_PLAN.md P3 — the restaurant till (floor plan, tabs, paying a tab, waiter PIN) against a
@@ -122,7 +124,8 @@ const MENU = {
   combos: {}, productionCenters: {}, centers: [],
 };
 
-function renderTill(url = "/pos/till/r1") {
+function renderTill(url = "/pos/till/r1", signedIn = true) {
+  if (signedIn) signInTestOperator();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter initialEntries={[url]}>
@@ -191,6 +194,60 @@ describe("Till — restaurant (P3)", () => {
     fireEvent.click(add);
     await waitFor(() => expect(api.addPosTabLines).toHaveBeenCalledWith("c1", "tab1", { lines: [{ itemId: "i1", quantity: 1, course: 1, modifierIds: ["m1"] }] }));
     expect(await screen.findByTestId("line-modifiers")).toHaveTextContent("Rare");
+  });
+
+  describe("on a waiter's phone", () => {
+    let undo: () => void;
+    beforeEach(() => {
+      undo = asPhone();
+    });
+    afterEach(() => undo());
+
+    it("lists the tables as big buttons with their status, instead of the floor drawing", async () => {
+      renderTill();
+      const tables = await screen.findAllByTestId("floor-table");
+      expect(tables.map((t) => t.textContent)).toEqual([expect.stringContaining("T1"), expect.stringContaining("T2")]);
+      expect(tables[1]).toHaveAttribute("data-status", "open");
+      expect(within(tables[1]).getByText("10.00")).toBeInTheDocument();
+      // The floor-designer canvas (absolute positions) is not there.
+      expect(tables[0].style.left).toBe("");
+      // The till's own actions are still reachable, at the bottom.
+      expect(screen.getByRole("button", { name: /Counter sale/ })).toBeInTheDocument();
+    });
+
+    it("adds from the menu and sends from the bar at the bottom, without leaving the menu", async () => {
+      api.getPosTab.mockResolvedValue(tab({ lines: [], total: 0, due: 0, taxes: [] }));
+      api.addPosTabLines.mockResolvedValue(tab({ lines: [line({ itemId: "i2", description: "Cola", state: 0, quantity: 1, gross: 1.5, remaining: 1, remainingGross: 1.5 })], total: 1.5, due: 1.5 }));
+      api.sendPosTab.mockResolvedValue(tab({ lines: [line({ itemId: "i2", description: "Cola", quantity: 1, gross: 1.5 })], total: 1.5, due: 1.5 }));
+      renderTill("/pos/till/r1?tab=tab1");
+
+      // A new table opens on the menu; the order is one tap away.
+      expect(await screen.findByRole("tab", { name: "Menu" })).toHaveAttribute("aria-selected", "true");
+      fireEvent.click(within(screen.getByTestId("menu-tiles")).getByText("Cola"));
+      await waitFor(() => expect(api.addPosTabLines).toHaveBeenCalledWith("c1", "tab1", { lines: [{ itemId: "i2", quantity: 1, course: 1 }] }));
+      expect(await screen.findByText("Added: Cola")).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: "Order (1)" })).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole("button", { name: "Send 1 item" }));
+      await waitFor(() => expect(api.sendPosTab).toHaveBeenCalledWith("c1", "tab1", undefined));
+    });
+
+    it("opens a table that has an order on the order, with the rarer actions folded away", async () => {
+      api.getPosTab.mockResolvedValue(tab());
+      renderTill("/pos/till/r1?tab=tab1");
+
+      expect(await screen.findByRole("tab", { name: "Order (1)" })).toHaveAttribute("aria-selected", "true");
+      expect(screen.queryByTestId("menu-tiles")).toBeNull();
+      expect(screen.getByRole("button", { name: /Pay/ })).toBeInTheDocument();
+      const more = screen.getByRole("button", { name: /More actions/ });
+      expect(more).toHaveAttribute("aria-expanded", "false");
+      fireEvent.click(more);
+      expect(more).toHaveAttribute("aria-expanded", "true");
+      expect(screen.getByRole("button", { name: /Transfer/ })).toBeVisible();
+
+      fireEvent.click(screen.getByRole("tab", { name: "Menu" }));
+      expect(await screen.findByTestId("menu-tiles")).toBeInTheDocument();
+    });
   });
 
   it("sends the pending lines to the kitchen", async () => {
@@ -291,11 +348,13 @@ describe("Till — restaurant (P3)", () => {
 
   it("signs a waiter in with a PIN, and the till's POS requests then carry the operator header", async () => {
     api.posPinSignIn.mockResolvedValue({ userId: "u7", name: "Blerta", token: "op-token-7", expiresAt: "2099-01-01T00:00:00Z" });
-    renderTill();
-    fireEvent.click(await screen.findByRole("button", { name: "Waiter" }));
-    const dialog = await screen.findByRole("dialog");
-    fireEvent.change(within(dialog).getByLabelText("PIN"), { target: { value: "1234" } });
-    fireEvent.click(within(dialog).getByRole("button", { name: "Waiter sign-in" }));
+    renderTill("/pos/till/r1", false);
+    // docs/POS_TILL_ACCESS.md: without a PIN only the lock screen shows — no floor plan, no tabs.
+    const lock = await screen.findByTestId("till-lock");
+    expect(screen.queryByText("T1")).not.toBeInTheDocument();
+    expect(api.listOpenPosTabs).not.toHaveBeenCalled();
+    fireEvent.change(within(lock).getByLabelText("PIN"), { target: { value: "1234" } });
+    fireEvent.click(within(lock).getByRole("button", { name: "Waiter sign-in" }));
     await waitFor(() => expect(api.posPinSignIn).toHaveBeenCalledWith("c1", { pin: "1234" }));
     expect(await screen.findByTestId("pos-operator")).toHaveTextContent("Waiter: Blerta");
 
@@ -311,7 +370,27 @@ describe("Till — restaurant (P3)", () => {
     await realClient.listItemCategories("c1").catch(() => undefined);
     expect(new Headers(calls[1][1].headers).get("X-Pos-Operator")).toBeNull();
 
+    // Signing out locks the till again.
     fireEvent.click(screen.getByRole("button", { name: /Sign out/ }));
-    expect(await screen.findByRole("button", { name: "Waiter" })).toBeInTheDocument();
+    expect(await screen.findByTestId("till-lock")).toBeInTheDocument();
+  });
+
+  it("locks itself after five idle minutes and signs the waiter out on Exit", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderTill();
+      expect(await screen.findByTestId("pos-operator")).toBeInTheDocument();
+      await act(async () => {
+        vi.advanceTimersByTime(TILL_IDLE_LOCK_MS + 1000);
+      });
+      expect(await screen.findByTestId("till-lock")).toBeInTheDocument();
+      expect(getPosOperator()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+    signInTestOperator();
+    fireEvent.click(screen.getByRole("button", { name: "Leave the till" }));
+    expect(await screen.findByText("home")).toBeInTheDocument();
+    expect(getPosOperator()).toBeNull();
   });
 });

@@ -18,12 +18,12 @@ export function getFreePort(): Promise<number> {
   })
 }
 
-export function isPortFree(port: number): Promise<boolean> {
+export function isPortFree(port: number, host = '127.0.0.1'): Promise<boolean> {
   return new Promise((resolve) => {
     const server = net.createServer()
     server.unref()
     server.once('error', () => resolve(false))
-    server.listen({ port, host: '127.0.0.1', exclusive: true }, () => server.close(() => resolve(true)))
+    server.listen({ port, host, exclusive: true }, () => server.close(() => resolve(true)))
   })
 }
 

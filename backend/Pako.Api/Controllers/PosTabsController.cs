@@ -168,6 +168,7 @@ public class PosTabsController : ControllerBase
     [ProducesResponseType(typeof(TabResponse), StatusCodes.Status201Created)]
     public async Task<ActionResult<TabResponse>> Open(Guid companyId, OpenTabRequest request)
     {
+        if (await TillPinMissingAsync(companyId) is { } noPin) return noPin;
         var store = await _db.PosStores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == request.StoreId && s.CompanyId == companyId);
         if (store is null) return BadRequest(_localizer["PosStoreNotFound"].Value);
         return await RunAsync(store.Id, async () =>
@@ -241,7 +242,7 @@ public class PosTabsController : ControllerBase
         WithTabAsync(companyId, tabId, async tab =>
         {
             var line = tab.Lines.FirstOrDefault(l => l.Id == lineId) ?? throw new PosException(_localizer["PosTabLineNotFound"].Value);
-            if (line.State == TabLineState.Sent && _access.LevelFor(AccessModule.Pos) < AccessLevel.Approve)
+            if (line.State == TabLineState.Sent && !await _operators.MayApproveAsync(Request, companyId, _access))
             {
                 throw new PosException(_localizer["PosVoidNeedsManager"].Value);
             }
@@ -374,6 +375,11 @@ public class PosTabsController : ControllerBase
 
     private bool _ticketsChanged;
 
+    private async Task<ActionResult?> TillPinMissingAsync(Guid companyId) =>
+        await _operators.PinRequiredAsync(Request, companyId)
+            ? StatusCode(StatusCodes.Status403Forbidden, _localizer["PosPinRequired"].Value)
+            : null;
+
     private async Task<Tab?> LockedTabAsync(Guid companyId, Guid tabId)
     {
         if (_db.Database.SupportsRowLocking() && _db.Database.CurrentTransaction is not null)
@@ -386,6 +392,8 @@ public class PosTabsController : ControllerBase
     // Runs a change on a tab under its row lock, saves, tells the store's screens, answers the tab.
     private async Task<ActionResult<TabResponse>> WithTabAsync(Guid companyId, Guid tabId, Func<Tab, Task> change)
     {
+        // Every change to a tab is till work (docs/POS_TILL_ACCESS.md).
+        if (await TillPinMissingAsync(companyId) is { } noPin) return noPin;
         await using var transaction = _db.Database.SupportsRowLocking() ? await _db.Database.BeginTransactionAsync() : null;
         var tab = await LockedTabAsync(companyId, tabId);
         if (tab is null) return NotFound();

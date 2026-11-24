@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { signInTestOperator } from "@/test/posOperator";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { ItemAttributesDialog } from "@/pages/items/ItemVariants";
 import { PosReports } from "@/pages/pos/PosReports";
@@ -87,6 +88,7 @@ const recorded = (body: { clientUuid: string }) => ({
 });
 
 function renderTill() {
+  signInTestOperator();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter initialEntries={["/pos/till/r1"]}>

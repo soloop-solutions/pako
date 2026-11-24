@@ -69,7 +69,8 @@ public class UserAdminService
     public async Task<List<CompanyRoleResponse>> RolesAsync(Guid companyId)
     {
         await EnsureBuiltInRolesAsync(companyId);
-        var roles = await _db.CompanyRoles.AsNoTracking().Where(r => r.CompanyId == companyId).OrderBy(r => r.Name).ToListAsync();
+        // Till devices have their own built-in role, managed in POS setup, never here (docs/POS_TILL_ACCESS.md §7).
+        var roles = await _db.CompanyRoles.AsNoTracking().Where(r => r.CompanyId == companyId && r.BuiltInKey != PosDeviceService.RoleKey).OrderBy(r => r.Name).ToListAsync();
         var counts = await _db.Memberships.AsNoTracking()
             .Where(m => m.CompanyId == companyId && m.CompanyRoleId != null)
             .GroupBy(m => m.CompanyRoleId!.Value)
@@ -128,7 +129,7 @@ public class UserAdminService
 
     public async Task<string?> DeleteRoleAsync(Guid companyId, Guid roleId, Guid actor)
     {
-        var role = await _db.CompanyRoles.FirstOrDefaultAsync(r => r.Id == roleId && r.CompanyId == companyId);
+        var role = await _db.CompanyRoles.FirstOrDefaultAsync(r => r.Id == roleId && r.CompanyId == companyId && r.BuiltInKey != PosDeviceService.RoleKey);
         if (role is null) return _localizer["RoleNotFound"].Value;
         if (await _db.Memberships.AnyAsync(m => m.CompanyRoleId == roleId))
         {
@@ -146,8 +147,11 @@ public class UserAdminService
     public async Task<List<CompanyUserResponse>> UsersAsync(Guid companyId, Guid currentUserId)
     {
         var company = await _db.Companies.AsNoTracking().FirstAsync(c => c.Id == companyId);
+        var deviceRole = await _db.CompanyRoles.AsNoTracking().Where(r => r.CompanyId == companyId && r.BuiltInKey == PosDeviceService.RoleKey)
+            .Select(r => (Guid?)r.Id).FirstOrDefaultAsync();
         var memberships = await _db.Memberships.AsNoTracking()
             .Where(m => m.CompanyId == companyId || (company.FirmId != null && m.FirmId == company.FirmId))
+            .Where(m => deviceRole == null || m.CompanyRoleId != deviceRole)
             .ToListAsync();
         var userIds = memberships.Select(m => m.UserId).Distinct().ToList();
         var users = await _db.Users.AsNoTracking().Where(u => userIds.Contains(u.Id))
@@ -468,7 +472,7 @@ public class UserAdminService
     {
         if (!administrator)
         {
-            if (roleId is not { } id || !await _db.CompanyRoles.AnyAsync(r => r.Id == id && r.CompanyId == companyId))
+            if (roleId is not { } id || !await _db.CompanyRoles.AnyAsync(r => r.Id == id && r.CompanyId == companyId && r.BuiltInKey != PosDeviceService.RoleKey))
             {
                 return _localizer["RoleRequired"].Value;
             }

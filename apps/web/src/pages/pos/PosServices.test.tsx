@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { signInTestOperator } from "@/test/posOperator";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { BookingDialog } from "@/pages/pos/Appointments";
 import { PublicBooking } from "@/pages/pos/PublicBooking";
@@ -171,6 +172,7 @@ describe("Booking an appointment (P4)", () => {
 describe("Till — services (P4)", () => {
   it("checks out ?appointment=: its service for whoever performed it, the appointment id and its deposit as a tender", async () => {
     api.listPosAppointments.mockResolvedValue([APPOINTMENT]);
+    signInTestOperator();
     renderAt("/pos/till/r1?appointment=a1&on=2026-11-02", "/pos/till/:registerId", <Till />);
 
     await waitFor(() => expect(lastQuote()?.lines).toHaveLength(1));
@@ -209,6 +211,7 @@ describe("Till — services (P4)", () => {
       id: "pk1", number: "PK-00001", serviceItemId: "svc1", serviceName: "Prerje flokësh", holderName: "Blerta", phone: undefined,
       sessionsTotal: 10, sessionsUsed: 3, sessionsLeft: 7, unitValue: 12, expiresOn: undefined, isActive: true,
     }]);
+    signInTestOperator();
     renderAt("/pos/till/r1", "/pos/till/:registerId", <Till />);
     fireEvent.click(await screen.findByRole("button", { name: "Package" }));
     const dialog = await screen.findByRole("dialog");
@@ -277,6 +280,7 @@ describe("Repair intake (P4)", () => {
       lines: [{ id: "l1", itemId: "svc1", description: "Ndërrim ekrani", quantity: 1, unitPrice: 80, amount: 80 }], estimateTotal: 80,
       createdAt: "2026-11-01T09:00:00Z", approvedAt: undefined, readyAt: undefined, collectedOrderId: undefined,
     });
+    signInTestOperator();
     renderAt("/pos/till/r1?repair=rp1", "/pos/till/:registerId", <Till />);
     await waitFor(() => expect(lastQuote()?.lines).toHaveLength(1));
     expect(lastQuote().lines[0]).toMatchObject({ itemId: "svc1", quantity: 1, unitPrice: 80 });

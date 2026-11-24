@@ -33,8 +33,12 @@ public class PosHotelController : ControllerBase
     private readonly PosNotifier _notify;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public PosHotelController(PakoDbContext db, TabService tabs, PriceListService prices, PosNotifier notify, IStringLocalizer<ErrorMessages> localizer)
+    private readonly PosOperatorService _operators;
+
+    public PosHotelController(PakoDbContext db, TabService tabs, PriceListService prices, PosNotifier notify, IStringLocalizer<ErrorMessages> localizer,
+        PosOperatorService operators)
     {
+        _operators = operators;
         _db = db;
         _tabs = tabs;
         _prices = prices;
@@ -316,6 +320,8 @@ public class PosHotelController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Pos)]
     public async Task<ActionResult<TabResponse>> ChargeToRoom(Guid companyId, Guid tabId, [FromQuery] Guid bookingId)
     {
+        // Till work: a PIN-signed-in operator once the company has staff PINs (docs/POS_TILL_ACCESS.md).
+        if (await _operators.PinRequiredAsync(Request, companyId)) return StatusCode(StatusCodes.Status403Forbidden, _localizer["PosPinRequired"].Value);
         await using var transaction = await LockAsync(companyId);
         var booking = await _db.PosHotelBookings.FirstOrDefaultAsync(b => b.Id == bookingId && b.CompanyId == companyId);
         if (booking is null || booking.State != HotelBookingState.CheckedIn || booking.FolioTabId is null) return BadRequest(_localizer["PosBookingClosed"].Value);

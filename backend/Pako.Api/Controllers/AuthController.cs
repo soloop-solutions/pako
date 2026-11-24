@@ -132,6 +132,20 @@ public class AuthController : ControllerBase
         return Ok(new AuthResponse(_tokenService.GenerateToken(user), user.Id, user.Email!, result.NewToken));
     }
 
+    // docs/POS_TILL_ACCESS.md §7: a till or kitchen screen connects with the one-use link an
+    // administrator made for it, and is signed in as that device.
+    [HttpPost("device-connect", Name = "ConnectPosDevice")]
+    [EnableRateLimiting(AuthRateLimit.Policy)]
+    public async Task<ActionResult<AuthResponse>> ConnectDevice(ConnectPosDeviceRequest request, [FromServices] PosDeviceService devices)
+    {
+        if (await devices.PairAsync(request.Code) is not { } paired)
+        {
+            return BadRequest(_localizer["PosDeviceLinkInvalid"].Value);
+        }
+        _logger.LogInformation("AuthEvent: Device {Device} connected from {IP}", paired.User.Id, HttpContext?.Connection.RemoteIpAddress);
+        return Ok(await BuildAuthAsync(paired.User));
+    }
+
     [HttpPost("logout", Name = "Logout")]
     public async Task<IActionResult> Logout(LogoutRequest request)
     {

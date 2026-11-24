@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { signInTestOperator } from "@/test/posOperator";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { PosPrograms } from "@/pages/pos/PosPrograms";
 import { PosSetup } from "@/pages/pos/PosSetup";
@@ -72,6 +73,7 @@ const MILK = {
 };
 
 function renderTill() {
+  signInTestOperator();
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <MemoryRouter initialEntries={["/pos/till/r1"]}>

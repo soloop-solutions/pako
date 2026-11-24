@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { formatMoney } from "@/lib/amount";
 import type {
   FloorPlanResponse,
@@ -13,7 +13,7 @@ import type {
 } from "@pako/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  ArrowLeft, ArrowRightLeft, Ban, BedDouble, Check, ChefHat, Combine, FileText, MoveRight, Pencil, Send, Wallet, X,
+  ArrowLeft, ArrowRightLeft, Ban, BedDouble, Check, ChefHat, ChevronDown, ChevronRight, Combine, FileText, MoveRight, Pencil, Send, Wallet, X,
 } from "lucide-react";
 import { useIntl } from "react-intl";
 
@@ -25,6 +25,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
+import { useIsPhone } from "@/hooks/useIsPhone";
 import { useMyAccess } from "@/hooks/useMyAccess";
 import { TabKind, TabLineState, TabState, tabLineStateKey } from "@/lib/pos-enums";
 import { cn } from "@/lib/utils";
@@ -97,6 +98,23 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
   const [done, setDone] = useState<PosOrderResponse | null>(null);
   // One ClientUuid per payment (D11): kept across a failed attempt, renewed once it is recorded.
   const uuids = useRef<Record<string, string>>({});
+  // A phone shows one thing at a time: the menu to add from, or the order (lines, send, pay).
+  const phone = useIsPhone();
+  const [pane, setPane] = useState<"menu" | "order">("menu");
+  const [moreActions, setMoreActions] = useState(false);
+  const [added, setAdded] = useState<string | null>(null);
+  const paneChosen = useRef(false);
+  useEffect(() => {
+    // A table that already has an order opens on it; a new one opens on the menu.
+    if (paneChosen.current || !tab) return;
+    paneChosen.current = true;
+    if (tab.lines.length > 0) setPane("order");
+  }, [tab]);
+  useEffect(() => {
+    if (!added) return;
+    const timer = setTimeout(() => setAdded(null), 1800);
+    return () => clearTimeout(timer);
+  }, [added]);
 
   function applied(next: TabResponse) {
     queryClient.setQueryData(tabKey, next);
@@ -150,7 +168,7 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
     else if (slotsFor(item).length > 0 && request.comboChoices == null) setAdding({ step: "combo", request: { ...request, ageVerified: checked || undefined } });
     else {
       setAdding(null);
-      addLine.mutate({ ...request, ageVerified: checked || undefined });
+      addLine.mutate({ ...request, ageVerified: checked || undefined }, { onSuccess: () => setAdded(item.name) });
     }
   }
 
@@ -172,14 +190,104 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
   const hasPayable = tab.lines.some((l) => (l.state === TabLineState.Pending || l.state === TabLineState.Sent) && l.remaining > 0);
   const busy = addLine.isPending || send.isPending || answer.isPending || preBill.isPending;
   const seats = Math.max(tab.covers, 4);
+  const pick = phone ? "h-9 min-w-9 text-sm" : undefined;
+  const courseAndSeat = (
+    <div className={cn("flex items-center gap-1 text-xs", phone ? "-mx-3 overflow-x-auto px-3 pb-0.5" : "flex-wrap")} data-testid="course-seat">
+      <span className="shrink-0 text-muted-foreground">{t("rest.course")}</span>
+      {[1, 2, 3, 4].map((c) => (
+        <Button key={c} size="xs" className={cn("shrink-0", pick)} variant={course === c ? "default" : "outline"} onClick={() => setCourse(c)} aria-label={t("rest.courseN", { course: c })}>
+          {c}
+        </Button>
+      ))}
+      <span className="ml-2 shrink-0 text-muted-foreground">{t("rest.seat")}</span>
+      <Button size="xs" className={cn("shrink-0", pick)} variant={seat == null ? "default" : "outline"} onClick={() => setSeat(null)}>—</Button>
+      {Array.from({ length: seats }, (_, i) => i + 1).map((s) => (
+        <Button key={s} size="xs" className={cn("shrink-0", pick)} variant={seat === s ? "default" : "outline"} onClick={() => setSeat(s)} aria-label={t("rest.seatN", { seat: s })}>
+          {s}
+        </Button>
+      ))}
+    </div>
+  );
+  const title = (
+    <>
+      {tab.number}
+      {tab.tableName ? ` · ${tab.tableName}` : ""}
+      {tab.name ? ` · ${tab.name}` : ""}
+    </>
+  );
+  const activeLines = tab.lines.filter((l) => l.state !== TabLineState.Voided).length;
+  const sendButton = (
+    <Button className={cn(phone && "h-12 flex-1 text-base")} disabled={!open || pending.length === 0 || busy} onClick={() => send.mutate(undefined)}>
+      <Send className="size-4" /> {phone && pending.length > 0 ? t("rest.phone.sendCount", { count: pending.length }) : t("rest.send")}
+    </Button>
+  );
+  // Phone: the tab's name, back to the floor, and the switch between the menu and the order.
+  const phoneTop = phone && (
+    <div className="flex flex-col gap-2 border-b px-3 py-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <Button size="sm" variant="ghost" className="-ml-2 shrink-0" onClick={onBack} aria-label={t("rest.floorPlan")}>
+          <ArrowLeft className="size-5" />
+        </Button>
+        <span className="min-w-0 truncate font-semibold" data-testid="tab-title">{title}</span>
+        {tab.state === TabState.PreBilled && <Badge variant="warning">{t("rest.state.preBilled")}</Badge>}
+        <span className="ml-auto shrink-0 text-lg font-bold tabular-nums" aria-label={t("rest.due")}>{money(tab.due)}</span>
+      </div>
+      <div className="grid grid-cols-2 rounded-lg bg-muted p-1" role="tablist">
+        {(["menu", "order"] as const).map((p) => (
+          <button
+            key={p}
+            type="button"
+            role="tab"
+            aria-selected={pane === p}
+            onClick={() => setPane(p)}
+            className={cn("h-9 rounded-md text-sm font-medium", pane === p ? "bg-background shadow-xs" : "text-muted-foreground")}
+          >
+            {p === "menu" ? t("rest.phone.menu") : t("rest.phone.order", { count: activeLines })}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 
   return (
-    <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_30rem]">
-      <MenuPanel catalog={catalog} onPick={(item) => proceed({ item })} disabled={!open || busy} />
+    <div className={cn("grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[1fr_30rem]", phone && "grid-rows-[auto_minmax(0,1fr)]")}>
+      {phoneTop}
+      {(!phone || pane === "menu") && (
+        <MenuPanel
+          catalog={catalog}
+          onPick={(item) => proceed({ item })}
+          disabled={!open || busy}
+          phone={phone}
+          top={phone ? courseAndSeat : undefined}
+          bottom={
+            phone ? (
+              <div className="flex flex-col gap-2 border-t bg-background p-3">
+                {notice && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{notice}</AlertDescription>
+                  </Alert>
+                )}
+                {added && (
+                  <p className="truncate text-center text-sm font-medium text-success-foreground" role="status">
+                    {t("rest.phone.added", { item: added })}
+                  </p>
+                )}
+                <div className="flex gap-2">
+                  {sendButton}
+                  <Button variant="outline" className="h-12 shrink-0" onClick={() => setPane("order")}>
+                    {t("rest.phone.viewOrder")} <ChevronRight className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ) : undefined
+          }
+        />
+      )}
 
+      {(!phone || pane === "order") && (
       <section className="flex min-h-0 flex-col">
-        <div className="flex flex-col gap-1 border-b px-3 py-2">
-          <div className="flex items-center gap-2">
+        <div className={cn("flex flex-col gap-1 border-b px-3 py-2", phone && "gap-2")}>
+          <div className={cn("flex items-center gap-2", phone && "hidden")}>
             <Button size="sm" variant="ghost" onClick={onBack} aria-label={t("rest.floorPlan")}>
               <ArrowLeft className="size-4" />
             </Button>
@@ -197,21 +305,7 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
             {tab.deliveryPhone && <span>{tab.deliveryPhone}</span>}
             {tab.deliveryAddress && <span>{tab.deliveryAddress}</span>}
           </div>
-          <div className="flex flex-wrap items-center gap-1 text-xs">
-            <span className="text-muted-foreground">{t("rest.course")}</span>
-            {[1, 2, 3, 4].map((c) => (
-              <Button key={c} size="xs" variant={course === c ? "default" : "outline"} onClick={() => setCourse(c)} aria-label={t("rest.courseN", { course: c })}>
-                {c}
-              </Button>
-            ))}
-            <span className="ml-2 text-muted-foreground">{t("rest.seat")}</span>
-            <Button size="xs" variant={seat == null ? "default" : "outline"} onClick={() => setSeat(null)}>—</Button>
-            {Array.from({ length: seats }, (_, i) => i + 1).map((s) => (
-              <Button key={s} size="xs" variant={seat === s ? "default" : "outline"} onClick={() => setSeat(s)} aria-label={t("rest.seatN", { seat: s })}>
-                {s}
-              </Button>
-            ))}
-          </div>
+          {!phone && courseAndSeat}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -233,17 +327,20 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
         </div>
 
         <div className="flex flex-col gap-2 border-t p-3">
-          {tab.taxes.map((x) => (
+          {/* On a phone the due amount is in the top bar; VAT and the total wait for the pre-bill. */}
+          {!phone && tab.taxes.map((x) => (
             <div key={x.taxLetter} className="flex justify-between text-xs text-muted-foreground tabular-nums">
               <span>{t("till.vat")} {x.taxLetter} {intl.formatNumber(x.taxRate, { style: "percent", maximumFractionDigits: 2 })}</span>
               <span>{money(x.tax)}</span>
             </div>
           ))}
-          <div className="flex justify-between text-sm tabular-nums">
-            <span>{t("till.total")} {money(tab.total)}</span>
-            {tab.paid !== 0 && <span>{t("rest.paid")} {money(tab.paid)}</span>}
-          </div>
-          <div className="flex items-baseline justify-between">
+          {(!phone || tab.paid !== 0) && (
+            <div className="flex justify-between text-sm tabular-nums">
+              <span>{t("till.total")} {money(tab.total)}</span>
+              {tab.paid !== 0 && <span>{t("rest.paid")} {money(tab.paid)}</span>}
+            </div>
+          )}
+          <div className={cn("flex items-baseline justify-between", phone && "hidden")}>
             <span className="text-lg font-semibold">{t("rest.due")}</span>
             <span className="text-3xl font-bold tabular-nums" data-testid="tab-view-due">{money(tab.due)}</span>
           </div>
@@ -259,9 +356,7 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
             </div>
           )}
           <div className="flex flex-wrap gap-2">
-            <Button disabled={!open || pending.length === 0 || busy} onClick={() => send.mutate(undefined)}>
-              <Send className="size-4" /> {t("rest.send")}
-            </Button>
+            {sendButton}
             {pendingCourses.length > 1 &&
               pendingCourses.map((c) => (
                 <Button key={c} variant="outline" disabled={busy} onClick={() => send.mutate(c)}>
@@ -269,7 +364,12 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
                 </Button>
               ))}
           </div>
-          <div className="flex flex-wrap gap-2">
+          {phone && (
+            <Button variant="ghost" size="sm" className="justify-between" aria-expanded={moreActions} onClick={() => setMoreActions((m) => !m)}>
+              {t("rest.phone.moreActions")} <ChevronDown className={cn("size-4 transition-transform", moreActions && "rotate-180")} />
+            </Button>
+          )}
+          <div className={cn("flex flex-wrap gap-2", phone && (moreActions ? "grid grid-cols-2 [&>button]:justify-start" : "hidden"))}>
             <Button size="sm" variant="outline" disabled={!open} onClick={() => setDialog("transfer")}>
               <ArrowRightLeft className="size-4" /> {t("rest.transfer")}
             </Button>
@@ -297,6 +397,7 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
           </Button>
         </div>
       </section>
+      )}
 
       {adding?.step === "age" && (
         <AgePrompt item={adding.request.item} onYes={() => proceed({ ...adding.request, ageVerified: true })} onNo={() => setAdding(null)} />
@@ -441,7 +542,14 @@ export function TabView({ boot, sessionId, tabId, catalog, menu, plan, onBack }:
 
 // ---- The menu ----
 
-function MenuPanel({ catalog, onPick, disabled }: { catalog: PosCatalogItemResponse[]; onPick: (item: PosCatalogItemResponse) => void; disabled: boolean }) {
+function MenuPanel({ catalog, onPick, disabled, phone = false, top, bottom }: {
+  catalog: PosCatalogItemResponse[];
+  onPick: (item: PosCatalogItemResponse) => void;
+  disabled: boolean;
+  phone?: boolean;
+  top?: ReactNode;
+  bottom?: ReactNode;
+}) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
   const { activeCompanyId } = useCompany();
@@ -468,26 +576,39 @@ function MenuPanel({ catalog, onPick, disabled }: { catalog: PosCatalogItemRespo
   }, [sellable, term, category]);
 
   return (
-    <section className="flex min-h-0 flex-col gap-3 border-r p-4">
-      <Input value={term} onChange={(e) => setTerm(e.target.value)} placeholder={t("rest.menu.search")} aria-label={t("rest.menu.search")} className="h-11 text-lg" />
+    <section className={cn("flex min-h-0 flex-col", phone ? "gap-0" : "gap-3 border-r p-4")}>
+      <div className={cn("flex flex-col gap-3", phone && "gap-2 px-3 pt-2")}>
+      {top}
+      <Input
+        type="search"
+        value={term}
+        onChange={(e) => setTerm(e.target.value)}
+        placeholder={t("rest.menu.search")}
+        aria-label={t("rest.menu.search")}
+        className={cn("h-11 text-lg", phone && "text-base")}
+      />
       {shown.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          <Button size="sm" variant={category == null ? "default" : "outline"} onClick={() => setCategory(null)}>{t("rest.menu.all")}</Button>
+        <div className={cn("flex gap-1", phone ? "-mx-3 overflow-x-auto px-3 pb-1" : "flex-wrap")}>
+          <Button size="sm" className={cn("shrink-0", phone && "h-9")} variant={category == null ? "default" : "outline"} onClick={() => setCategory(null)}>{t("rest.menu.all")}</Button>
           {shown.map((c) => (
-            <Button key={c.id} size="sm" variant={category === c.id ? "default" : "outline"} onClick={() => setCategory(c.id)}>
+            <Button key={c.id} size="sm" className={cn("shrink-0", phone && "h-9")} variant={category === c.id ? "default" : "outline"} onClick={() => setCategory(c.id)}>
               {c.name}
             </Button>
           ))}
         </div>
       )}
-      <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 xl:grid-cols-4" data-testid="menu-tiles">
+      </div>
+      <div className={cn("grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3 xl:grid-cols-4", phone && "p-3")} data-testid="menu-tiles">
         {items.map((item) => (
           <button
             key={item.id}
             type="button"
             disabled={disabled}
             onClick={() => onPick(item)}
-            className="flex min-h-20 flex-col justify-between rounded-md border p-2 text-left hover:bg-accent focus-visible:outline-2 disabled:opacity-50"
+            className={cn(
+              "flex min-h-20 flex-col justify-between rounded-md border p-2 text-left hover:bg-accent focus-visible:outline-2 disabled:opacity-50",
+              phone && "min-h-[4.5rem] bg-background active:bg-accent",
+            )}
           >
             <span className="line-clamp-2 text-sm font-medium">{item.name}</span>
             <span className="flex justify-between text-xs text-muted-foreground tabular-nums">
@@ -497,6 +618,7 @@ function MenuPanel({ catalog, onPick, disabled }: { catalog: PosCatalogItemRespo
           </button>
         ))}
       </div>
+      {bottom}
     </section>
   );
 }

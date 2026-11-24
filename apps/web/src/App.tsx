@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 
 import { createAppQueryClient } from "@/api/queryClient";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { DeviceGuard } from "@/components/DeviceGuard";
 import { RequireAuth } from "@/components/RequireAuth";
 import { RequireCompany } from "@/components/RequireCompany";
 import { FeatureGate } from "@/components/FeatureGate";
@@ -45,6 +46,8 @@ const PurchaseOrderDetail = lazy(() => import("@/pages/bills/PurchaseOrderDetail
 const PlatformAdmin = lazy(() => import("@/pages/platform/PlatformAdmin").then(m => ({ default: m.PlatformAdmin })));
 const Till = lazy(() => import("@/pages/pos/Till").then(m => ({ default: m.Till })));
 const Kds = lazy(() => import("@/pages/pos/Kds").then(m => ({ default: m.Kds })));
+const DeviceConnect = lazy(() => import("@/pages/pos/device/DeviceConnect").then(m => ({ default: m.DeviceConnect })));
+const DeviceHome = lazy(() => import("@/pages/pos/device/DeviceHome").then(m => ({ default: m.DeviceHome })));
 const PublicMenu = lazy(() => import("@/pages/pos/PublicMenu").then(m => ({ default: m.PublicMenu })));
 const PublicBooking = lazy(() => import("@/pages/pos/PublicBooking").then(m => ({ default: m.PublicBooking })));
 const TicketScanner = lazy(() => import("@/pages/pos/events/TicketScanner").then(m => ({ default: m.TicketScanner })));
@@ -102,7 +105,10 @@ export function App() {
                 <Route path="/menu/:token" element={<PublicMenu />} />
                 {/* P4: online booking through a store's link — anonymous too. */}
                 <Route path="/book/:token" element={<PublicBooking />} />
+                {/* docs/POS_TILL_ACCESS.md §7: a till or kitchen screen connects with its one-use link. */}
+                <Route path="/device/connect" element={<DeviceConnect />} />
                 <Route element={<RequireAuth />}>
+                <Route element={<DeviceGuard />}>
                   <Route path="/select-company" element={<CompanySelect />} />
                   <Route path="/platform" element={<PlatformAdmin />} />
                   <Route path="/portal" element={<PortalLayout />}>
@@ -114,6 +120,8 @@ export function App() {
                     <Route path="invoices/:id" element={<PortalInvoiceDetail />} />
                   </Route>
                   <Route element={<RequireCompany />}>
+                    {/* §7: a device's home — its tills and kitchen screens, nothing else. */}
+                    <Route path="/device" element={<ModuleGate module="pos"><DeviceHome /></ModuleGate>} />
                     {/* docs/POS_PLAN.md: the till is full screen, outside the app shell. */}
                     <Route path="/pos/till/:registerId" element={<ModuleGate module="pos"><Till /></ModuleGate>} />
                     {/* P3: the kitchen display, full screen too (?store=…&center=…). */}
@@ -162,6 +170,7 @@ export function App() {
                       <Route path="/rentals/leases/:id" element={<ModuleGate module="sales"><FeatureGate feature="rentals"><InstanceRoute Component={LeaseDetail} /></FeatureGate></ModuleGate>} />
                     </Route>
                   </Route>
+                </Route>
                 </Route>
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>

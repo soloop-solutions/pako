@@ -1357,6 +1357,7 @@ If it wasn't you, ignore this email — your password stays the same.</value></d
   <data name="PosPinInvalid" xml:space="preserve"><value>A PIN is 4 to 8 digits.</value></data>
   <data name="PosPinTaken" xml:space="preserve"><value>Someone else already uses this PIN: choose another.</value></data>
   <data name="PosPinWrong" xml:space="preserve"><value>Wrong PIN.</value></data>
+  <data name="PosStaffNotFound" xml:space="preserve"><value>This person is not a member of the company.</value></data>
   <data name="PosTips" xml:space="preserve"><value>Tips</value></data>
   <data name="PosWaiterNotFound" xml:space="preserve"><value>This waiter has no orders in the session.</value></data>
   <data name="PosWaiterSettled" xml:space="preserve"><value>This waiter has already handed over their cash.</value></data>
@@ -2070,6 +2071,11 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="PaymentAllocationWrongDocument" xml:space="preserve"><value>The payment can only be applied to this partner's posted invoices (payment received) or bills (payment made).</value></data>
   <data name="PaymentAllocationExceedsUnapplied" xml:space="preserve"><value>The amounts to apply are more than the payment has left ({0}). Lower them and try again.</value></data>
   <data name="PaymentAllocationExceedsOutstanding" xml:space="preserve"><value>{0} has only {1} left to pay. Lower the amount applied to it.</value></data>
+  <data name="PosPinLocked" xml:space="preserve"><value>Too many wrong PINs on this till. Wait 5 minutes, then try again, or ask a manager.</value></data>
+  <data name="PosPinRequired" xml:space="preserve"><value>Sign in with your PIN on the till first.</value></data>
+  <data name="PosDeviceNameRequired" xml:space="preserve"><value>Give the device a name (up to 80 characters), e.g. "Bar till" or "Kitchen screen".</value></data>
+  <data name="PosDeviceLinkInvalid" xml:space="preserve"><value>This connect link is not valid any more: it was used already, it expired, or the device was disconnected. Ask an administrator for a new link (POS setup → Devices).</value></data>
+  <data name="PosDeviceNeedsManager" xml:space="preserve"><value>A manager must confirm with their PIN to disconnect this device.</value></data>
   <data name="EmployeeHasPayrollHistory" xml:space="preserve"><value>This employee cannot be deleted because they have payroll or accounting history. Deactivate them instead.</value></data>
   <data name="PayrollZeroSalary" xml:space="preserve"><value>Cannot create payroll run: {0} have no salary set. Ask someone with Payroll access to set their salary first.</value></data>
   <data name="Email_EmployeeCreatedNeedsSalary_Subject" xml:space="preserve"><value>{employee} was added — salary not set</value></data>

@@ -12,6 +12,7 @@ import { BusinessTypeSettings } from "@/pages/settings/BusinessTypeSettings";
 import { DesktopLicensePanel } from "@/pages/settings/DesktopLicensePanel";
 import { DesktopRecoveryCodePanel } from "@/pages/settings/DesktopRecoveryCodePanel";
 import { DesktopSettingsPanel } from "@/pages/settings/DesktopSettingsPanel";
+import { DesktopTillNetworkPanel } from "@/pages/settings/DesktopTillNetworkPanel";
 import { NegativeNumberStyleSettings } from "@/pages/settings/NegativeNumberStyleSettings";
 import { LockDatesSettings } from "@/pages/settings/LockDatesSettings";
 import { NotificationSettings } from "@/pages/settings/NotificationSettings";
@@ -77,6 +78,8 @@ export function Settings() {
       </Card>
 
       <DesktopSettingsPanel canManage={hasSettingsAccess} />
+
+      <DesktopTillNetworkPanel canManage={hasSettingsAccess} />
 
       <DesktopLicensePanel />
 

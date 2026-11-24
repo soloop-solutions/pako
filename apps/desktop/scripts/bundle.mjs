@@ -29,4 +29,17 @@ await build({
   external: ['electron'],
 })
 
+await build({
+  entryPoints: ['src/setupPreload.ts'],
+  outfile: nodePath.join(outDir, 'setupPreload.cjs'),
+  bundle: true,
+  platform: 'node',
+  format: 'cjs',
+  target: 'node22',
+  external: ['electron'],
+})
+
 copyFileSync('src/splash.html', nodePath.join(outDir, 'splash.html'))
+// Till mode: what this PC is, finding the main PC, and "can't reach the main PC".
+copyFileSync('src/setup.html', nodePath.join(outDir, 'setup.html'))
+copyFileSync('src/setup.js', nodePath.join(outDir, 'setup.js'))
