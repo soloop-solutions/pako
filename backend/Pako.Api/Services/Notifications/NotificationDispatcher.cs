@@ -37,7 +37,7 @@ public class NotificationRenderer
 
         var subject = Fill(Text($"Email_{notification.Template}_Subject", notification.Culture), payload);
         var body = Fill(Text($"Email_{notification.Template}_Body", notification.Culture), payload);
-        var footer = Text("Email_Footer", notification.Culture);
+        var footer = Fill(Text("Email_Footer", notification.Culture), payload);
         var text = $"{body}\n\n—\n{footer}";
 
         var html = BuildHtml(body, footer);
