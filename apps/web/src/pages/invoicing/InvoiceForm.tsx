@@ -35,6 +35,7 @@ import { BillProjectField } from "@/pages/construction/BillProjectFields";
 import { FormDialog } from "@/components/shared/FormDialog";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 import { QuickItemForm } from "@/pages/shared/QuickItemForm";
+import { useHotkey } from "@/hooks/useHotkey";
 
 type Line = {
   description: string;
@@ -257,6 +258,11 @@ export function InvoiceForm({
   const [submitting, setSubmitting] = useState(false);
   // Set by the "Save and add new" button just before the form submits.
   const keepOpenRef = useRef(false);
+  // Ctrl+S / ⌘S saves, like the Save button (client request 2026-11-24).
+  useHotkey("mod+s", () => {
+    keepOpenRef.current = false;
+    formRef.current?.requestSubmit();
+  }, !submitting);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
 

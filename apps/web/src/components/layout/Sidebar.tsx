@@ -5,6 +5,7 @@ import { Link, useLocation } from "react-router-dom";
 
 import { navSearchTerms } from "@/config/navSearchTerms";
 import { matchesSearch } from "@/lib/searchMatch";
+import { useAllSavedListViews } from "@/lib/list-views";
 
 import { bottomNavItems, favouriteActions, navCategories as defaultNavCategories, topNavItems, type NavItem, type NavModule } from "@/config/nav";
 import { applyNavLayout, navLayoutFor, navLayoutScope } from "@/config/navLayout";
@@ -54,6 +55,7 @@ function buildSavedViewHref(item: NavItem, filters: Record<string, string>): str
 
 export function Sidebar() {
   const intl = useIntl();
+  const userViews = useAllSavedListViews();
   const location = useLocation();
   const { auth } = useAuth();
   const userId = auth?.userId ?? null;
@@ -334,13 +336,13 @@ export function Sidebar() {
                       item={item}
                       label={label(item)}
                       active={isActive(item.path)}
-                      hasSavedViews={!!item.savedViews?.length}
+                      hasSavedViews={!!item.savedViews?.length || !!(item.gridId && userViews.views[item.gridId]?.length)}
                       savedViewsOpen={openSavedViewFor === item.path}
                       onToggleSavedViews={() => setOpenSavedViewFor(openSavedViewFor === item.path ? null : item.path)}
                     />
-                    {openSavedViewFor === item.path && item.savedViews && (
+                    {openSavedViewFor === item.path && (
                       <div className="border-t border-b bg-secondary/40 py-0.5">
-                        {item.savedViews.map((view) => (
+                        {(item.savedViews ?? []).map((view) => (
                           <Link
                             key={view.id}
                             to={buildSavedViewHref(item, view.filters)}
@@ -349,6 +351,26 @@ export function Sidebar() {
                           >
                             {intl.formatMessage({ id: view.labelKey })}
                           </Link>
+                        ))}
+                        {/* Views the user saved from the list ribbon (lib/list-views.ts). */}
+                        {item.gridId && (userViews.views[item.gridId] ?? []).map((view) => (
+                          <div key={view.id} className="group flex h-6 items-center pr-1 pl-[34px] text-[12px] hover:bg-accent">
+                            <Link
+                              to={`${item.path}?${view.query}`}
+                              onClick={() => setOpenSavedViewFor(null)}
+                              className="flex-1 truncate hover:text-accent-foreground"
+                            >
+                              {view.name}
+                            </Link>
+                            <button
+                              type="button"
+                              aria-label={intl.formatMessage({ id: "listRibbon.deleteView" }, { name: view.name })}
+                              onClick={() => userViews.remove(item.gridId as string, view.id)}
+                              className="invisible rounded p-0.5 text-muted-foreground group-hover:visible hover:text-foreground"
+                            >
+                              <X className="size-3" />
+                            </button>
+                          </div>
                         ))}
                       </div>
                     )}

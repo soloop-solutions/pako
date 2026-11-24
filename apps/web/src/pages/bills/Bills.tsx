@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useOptionalDrafts } from "@/context/DraftsContext";
+import { PageHeader } from "@/components/list/PageHeader";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -17,7 +18,6 @@ import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, API_BASE_URL, authorizedFetch, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { downloadFileResponse } from "@/pages/reports/helpers";
@@ -283,17 +283,11 @@ export function Bills() {
         </Alert>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: "bills.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "bills.description" })}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setBillFormOpen(true)}>
-            {intl.formatMessage({ id: "bills.newBill" })}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: "bills.title" })}
+        description={intl.formatMessage({ id: "bills.description" })}
+        newAction={{ label: intl.formatMessage({ id: "bills.newBill" }), onClick: () => setBillFormOpen(true) }}
+      />
 
       <FormDialog
         open={billFormOpen}

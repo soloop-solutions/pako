@@ -273,6 +273,8 @@ export function DataGrid<TData extends object>({
           {enableGlobalFilter && (
             <Input
               className="h-8 max-w-xs text-sm"
+              data-grid-search=""
+              aria-label={globalFilterPlaceholder ?? intl.formatMessage({ id: "dataGrid.search" })}
               placeholder={globalFilterPlaceholder ?? intl.formatMessage({ id: "dataGrid.search" })}
               value={searchDraft}
               onChange={(event) => setSearchDraft(event.target.value)}

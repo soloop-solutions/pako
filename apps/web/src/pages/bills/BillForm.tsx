@@ -33,6 +33,7 @@ import { BillProjectField, CostCodeSelect } from "@/pages/construction/BillProje
 import { FormDialog } from "@/components/shared/FormDialog";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
 import { QuickItemForm } from "@/pages/shared/QuickItemForm";
+import { useHotkey } from "@/hooks/useHotkey";
 
 type Line = {
   description: string;
@@ -221,6 +222,12 @@ export function BillForm({
   const [submitting, setSubmitting] = useState(false);
   // Set by the "Save and add new" button just before the form submits.
   const keepOpenRef = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  // Ctrl+S / ⌘S saves, like the Save button (client request 2026-11-24).
+  useHotkey("mod+s", () => {
+    keepOpenRef.current = false;
+    formRef.current?.requestSubmit();
+  }, !submitting);
   const [newPartnerOpen, setNewPartnerOpen] = useState(false);
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
@@ -459,7 +466,7 @@ export function BillForm({
   }
 
   return (
-    <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+    <form ref={formRef} className="flex flex-col gap-4" onSubmit={handleSubmit}>
       {apiError && (
         <Alert variant="destructive">
           <AlertDescription>{apiError}</AlertDescription>

@@ -12,6 +12,7 @@ import { AccountMenu } from "@/components/layout/AccountMenu";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { DraftsRibbon } from "@/components/layout/DraftsRibbon";
 import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { KeyboardShortcuts } from "@/components/layout/KeyboardShortcuts";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TabStrip } from "@/components/layout/TabStrip";
 import { Button } from "@/components/ui/button";
@@ -198,6 +199,7 @@ function AppShell() {
         </div>
       </div>
       <GlobalSearch />
+      <KeyboardShortcuts />
 
       {showUnsavedWarning && (
         <UnsavedChangesWarning onDiscard={exitToLobby} onStay={() => setShowUnsavedWarning(false)} />

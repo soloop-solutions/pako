@@ -29,6 +29,7 @@ import {
   type PaymentStatus,
 } from "@/lib/document-types";
 import { PartnerForm } from "@/pages/shared/PartnerForm";
+import { PageHeader } from "@/components/list/PageHeader";
 
 export type InvoiceRegisterScope = "invoice" | "proforma";
 
@@ -332,18 +333,19 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
         </Alert>
       )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={() => navigate(isProforma ? "/proforma/new" : "/invoicing/new")}>
-          {intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" })}
-        </Button>
-        <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
-          {intl.formatMessage({ id: "invoicing.addCustomer" })}
-        </Button>
-        <div className="ml-auto">
-          <h2 className="text-xl font-semibold">{intl.formatMessage({ id: isProforma ? "proforma.title" : "invoicing.title" })}</h2>
-          <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: isProforma ? "proforma.description" : "invoicing.description" })}</p>
-        </div>
-      </div>
+      <PageHeader
+        title={intl.formatMessage({ id: isProforma ? "proforma.title" : "invoicing.title" })}
+        description={intl.formatMessage({ id: isProforma ? "proforma.description" : "invoicing.description" })}
+        newAction={{
+          label: intl.formatMessage({ id: isProforma ? "proforma.newProforma" : "invoicing.newInvoice" }),
+          onClick: () => navigate(isProforma ? "/proforma/new" : "/invoicing/new"),
+        }}
+        actions={
+          <Button variant="outline" onClick={() => setCustomerFormOpen(true)}>
+            {intl.formatMessage({ id: "invoicing.addCustomer" })}
+          </Button>
+        }
+      />
 
       <FormDialog
         open={customerFormOpen}
