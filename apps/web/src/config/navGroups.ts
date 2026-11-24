@@ -1,3 +1,4 @@
+import { Banknote, Calculator, ChartLine, ShoppingBag, ShoppingCart, Warehouse, type LucideIcon } from "lucide-react";
 import type { NavCategory, NavItem } from "@/config/nav";
 
 // Client request 2026-11-24: menu groups by kind of work. Each lists the paths of existing pages
@@ -23,6 +24,15 @@ export const MENU_GROUP_PATHS: Record<string, string[]> = {
 
 export const MENU_GROUP_PREFIX = "group:";
 
+const MENU_GROUP_ICONS: Record<string, LucideIcon> = {
+  sales: ShoppingBag,
+  warehouse: Warehouse,
+  cashier: Banknote,
+  purchasing: ShoppingCart,
+  accountant: Calculator,
+  manager: ChartLine,
+};
+
 /** The sidebar sections for the user's groups, in the server's order, built from the nav items. */
 export function menuGroupCategories(groups: readonly string[] | undefined, itemsByPath: ReadonlyMap<string, NavItem>): NavCategory[] {
   return (groups ?? [])
@@ -30,6 +40,7 @@ export function menuGroupCategories(groups: readonly string[] | undefined, items
     .map((group) => ({
       id: `${MENU_GROUP_PREFIX}${group}`,
       labelKey: `menuGroup.${group}`,
+      icon: MENU_GROUP_ICONS[group],
       items: MENU_GROUP_PATHS[group].map((path) => itemsByPath.get(path)).filter((item): item is NavItem => !!item),
       visibleCount: 6,
     }))

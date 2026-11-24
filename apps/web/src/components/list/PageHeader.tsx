@@ -1,10 +1,11 @@
 import { Fragment, type ReactNode } from "react";
 import { ChevronRight, Info, Plus } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { useBreadcrumbs } from "@/components/layout/Breadcrumbs";
 import { useRegisterPageHeader } from "@/components/list/pageHeaderPresence";
 import { Button } from "@/components/ui/button";
+import { navItemForPath } from "@/config/nav";
 import { useHotkey } from "@/hooks/useHotkey";
 
 /**
@@ -40,6 +41,7 @@ export function PageHeader({
   useRegisterPageHeader();
   // Everything before the page itself: the section, and the list when this is a document.
   const crumbs = useBreadcrumbs().slice(0, -1);
+  const PageIcon = navItemForPath(useLocation().pathname)?.icon;
 
   return (
     <div className="flex min-h-8 flex-wrap items-center justify-between gap-x-3 gap-y-2 border-b pb-2.5" data-testid="page-header">
@@ -59,6 +61,11 @@ export function PageHeader({
           </Button>
         )}
         <div className="flex min-w-0 items-center gap-1.5">
+          {PageIcon && (
+            <span className="inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-brand text-brand-foreground" aria-hidden>
+              <PageIcon className="size-3.5" />
+            </span>
+          )}
           {crumbs.length > 0 && (
             <nav aria-label="Breadcrumb" className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground">
               {crumbs.map((crumb, index) => (

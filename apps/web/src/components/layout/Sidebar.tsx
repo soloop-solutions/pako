@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Building2, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, PanelLeftClose, Search, Star, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, ChevronUp, MoreHorizontal, PanelLeftClose, Search, Star, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Link, useLocation } from "react-router-dom";
 
@@ -284,8 +284,8 @@ export function Sidebar({
       </div>
 
 
-      <div className="px-2.5 pt-2.5 pb-1.5">
-        <div className="relative">
+      <div className="flex items-center gap-1 px-2.5 pt-2.5 pb-2">
+        <div className="relative min-w-0 flex-1">
           <Search className="pointer-events-none absolute top-1/2 left-2 size-3 -translate-y-1/2 text-muted-foreground" />
           <input
             value={query}
@@ -295,6 +295,16 @@ export function Sidebar({
             className="h-7 w-full rounded-md border bg-background pl-6 pr-2 text-[12px] outline-none placeholder:text-muted-foreground focus-visible:ring-1 focus-visible:ring-ring"
           />
         </div>
+        {/* Focus mode: only the section of the open page stays expanded. */}
+        <button
+          type="button"
+          onClick={() => setFocus(!focus)}
+          aria-label={intl.formatMessage({ id: focus ? "sidebar.expandAll" : "sidebar.collapseAll" })}
+          title={intl.formatMessage({ id: focus ? "sidebar.expandAll" : "sidebar.collapseAll" })}
+          className="inline-flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          {focus ? <ChevronsUpDown className="size-3.5" /> : <ChevronsDownUp className="size-3.5" />}
+        </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto scrollbar-brand">
@@ -310,22 +320,10 @@ export function Sidebar({
         </div>
       ) : (
         <>
-          <div className="flex flex-col pb-1">
+          <div className="flex flex-col">
             {[...topNavItems, ...layoutTopItems].filter((item) => isAllowed(item.path)).map((item) => (
               <SidebarLink key={item.path} item={item} label={label(item)} active={isActive(item.path)} />
             ))}
-          </div>
-
-          <div className="border-t" />
-
-          <div className="flex justify-end px-3 py-0.5">
-            <button
-              type="button"
-              onClick={() => setFocus(!focus)}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              {intl.formatMessage({ id: focus ? "sidebar.expandAll" : "sidebar.collapseAll" })}
-            </button>
           </div>
 
           {/* TASK-018: hide Favourites/Suggested when the sidebar has fewer than 10 accessible items. */}
@@ -356,24 +354,23 @@ export function Sidebar({
               <div key={category.id}>
                 {/* Role groups sit under a "My work" heading, apart from the usual sections. */}
                 {firstGroup && (
-                  <p className="px-3 pt-1.5 pb-0.5 text-[10px] font-semibold tracking-[0.09em] text-primary uppercase" data-testid="sidebar-my-work">
+                  <p className="px-4 pt-3 text-[10.5px] font-semibold tracking-[0.08em] text-nav-active-foreground uppercase" data-testid="sidebar-my-work">
                     {intl.formatMessage({ id: "sidebar.myWork" })}
                   </p>
                 )}
-                {firstSection && <div className="mt-1.5 border-t-2" />}
-                <div className="border-t" />
-                <div className="relative flex h-[22px] items-center px-3">
+                {firstSection && <div className="mx-4 mt-3 border-t" />}
+                <div className="group/section relative mt-3 mb-0.5 flex h-6 items-center pr-2 pl-4">
                   <button
                     type="button"
                     aria-expanded={!folded}
                     aria-label={intl.formatMessage({ id: folded ? "sidebar.expandSection" : "sidebar.collapseSection" }, { category: intl.formatMessage({ id: category.labelKey }) })}
                     onClick={() => (focus ? setManuallyOpen((prev) => ({ ...prev, [category.id]: !prev[category.id] })) : toggleCollapsed(category.id))}
-                    className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+                    className="flex min-w-0 flex-1 items-center gap-1 text-muted-foreground hover:text-foreground"
                   >
-                    {folded ? <ChevronRight className="size-3" /> : <ChevronDown className="size-3" />}
-                    <span className="text-[10.5px] font-bold tracking-[0.09em] uppercase">
+                    <span className="truncate text-[10.5px] font-semibold tracking-[0.08em] uppercase">
                       {intl.formatMessage({ id: category.labelKey })}
                     </span>
+                    {folded ? <ChevronRight className="size-3 shrink-0 opacity-60" /> : <ChevronDown className="size-3 shrink-0 opacity-60" />}
                   </button>
                   <button
                     type="button"
@@ -387,7 +384,7 @@ export function Sidebar({
                       setCustomizeAnchor(event.currentTarget.getBoundingClientRect());
                       setCustomizeCategoryId(category.id);
                     }}
-                    className="ml-auto text-muted-foreground hover:text-foreground"
+                    className="ml-auto rounded p-0.5 text-muted-foreground opacity-0 group-hover/section:opacity-100 hover:bg-secondary hover:text-foreground focus-visible:opacity-100"
                   >
                     <MoreHorizontal className="size-3.5" />
                   </button>
@@ -419,13 +416,13 @@ export function Sidebar({
                       onToggleSavedViews={() => setOpenSavedViewFor(openSavedViewFor === item.path ? null : item.path)}
                     />
                     {openSavedViewFor === item.path && (
-                      <div className="border-t border-b bg-secondary/40 py-0.5">
+                      <div className="mx-2 my-0.5 ml-[30px] border-l py-0.5">
                         {(item.savedViews ?? []).map((view) => (
                           <Link
                             key={view.id}
                             to={buildSavedViewHref(item, view.filters)}
                             onClick={() => setOpenSavedViewFor(null)}
-                            className="flex h-6 items-center pr-3 pl-[34px] text-[12px] hover:bg-accent hover:text-accent-foreground"
+                            className="flex h-6 items-center rounded-r-md pr-2 pl-3 text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground"
                           >
                             {intl.formatMessage({ id: view.labelKey })}
                             {item.savedViewCounts && <SavedViewCount source={item.savedViewCounts} viewId={view.id} />}
@@ -433,7 +430,7 @@ export function Sidebar({
                         ))}
                         {/* Views the user saved from the list ribbon (lib/list-views.ts). */}
                         {item.gridId && (userViews.views[item.gridId] ?? []).map((view) => (
-                          <div key={view.id} className="group flex h-6 items-center pr-1 pl-[34px] text-[12px] hover:bg-accent">
+                          <div key={view.id} className="group flex h-6 items-center rounded-r-md pr-1 pl-3 text-[12px] text-muted-foreground hover:bg-secondary">
                             <Link
                               to={`${item.path}?${view.query}`}
                               onClick={() => setOpenSavedViewFor(null)}
@@ -460,7 +457,7 @@ export function Sidebar({
                   <button
                     type="button"
                     onClick={() => setExpandedCategories((prev) => ({ ...prev, [category.id]: !expanded }))}
-                    className="flex h-6 w-full items-center pr-3 pl-5 text-left text-[11.5px] text-muted-foreground hover:text-foreground"
+                    className="mx-2 flex h-6 w-[calc(100%-1rem)] items-center rounded-md pr-2 pl-[38px] text-left text-[12px] text-muted-foreground hover:bg-secondary hover:text-foreground"
                   >
                     {expanded
                       ? intl.formatMessage({ id: "sidebar.showLess" })
@@ -524,10 +521,10 @@ function SidebarLink({
   return (
     <div
       className={cn(
-        "flex h-[26px] items-center pr-3 pl-5 text-[12.5px]",
+        "mx-2 flex h-7 items-center rounded-md pr-2 pl-3 text-[13px]",
         active
-          ? "bg-row-selected font-semibold text-accent-foreground shadow-[inset_2px_0_0_var(--primary)]"
-          : "text-foreground hover:bg-accent hover:text-accent-foreground",
+          ? "bg-nav-active font-semibold text-nav-active-foreground shadow-[inset_2px_0_0_var(--brand)]"
+          : "text-secondary-foreground hover:bg-secondary hover:text-foreground",
       )}
     >
       <Link
@@ -537,16 +534,20 @@ function SidebarLink({
         onClick={(event) => {
           if (location.pathname === item.path) event.preventDefault();
         }}
-        className="min-w-0 flex-1 truncate"
+        className="flex min-w-0 flex-1 items-center gap-2.5"
       >
-        {label}
+        <item.icon className={cn("size-4 shrink-0", active ? "text-nav-active-foreground" : "text-muted-foreground")} aria-hidden="true" />
+        <span className="truncate">{label}</span>
       </Link>
       {hasSavedViews && (
         <button
           type="button"
           onClick={onToggleSavedViews}
           aria-label={intl.formatMessage({ id: savedViewsOpen ? "sidebar.savedViews.collapse" : "sidebar.savedViews.expand" })}
-          className="ml-1 shrink-0 text-muted-foreground hover:text-foreground"
+          className={cn(
+            "ml-1 shrink-0",
+            active ? "text-nav-active-foreground/70 hover:text-nav-active-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
         >
           {savedViewsOpen ? <ChevronUp className="size-2.5" /> : <ChevronDown className="size-2.5" />}
         </button>
@@ -591,9 +592,9 @@ function FavouritesSection({
 
   return (
     <div>
-      <div className="flex h-[22px] items-center gap-1 px-3">
-        <Star className="size-2.5 fill-warning-foreground text-warning-foreground" />
-        <span className="text-[10.5px] font-bold tracking-[0.09em] text-muted-foreground uppercase">
+      <div className="mt-3 mb-0.5 flex h-6 items-center gap-1.5 px-4">
+        <Star className="size-3 fill-warning-foreground text-warning-foreground" />
+        <span className="text-[10.5px] font-semibold tracking-[0.08em] text-muted-foreground uppercase">
           {intl.formatMessage({ id: "sidebar.category.favourites" })}
         </span>
       </div>
@@ -601,19 +602,21 @@ function FavouritesSection({
         <Link
           key={action.id}
           to={action.path}
-          className="flex h-[26px] items-center pr-3 pl-5 text-[12.5px] font-semibold text-primary hover:bg-accent"
+          className="mx-2 flex h-7 items-center rounded-md pr-2 pl-3 text-[13px] font-medium text-primary hover:bg-accent"
         >
-          {intl.formatMessage({ id: action.labelKey })}
+          <action.icon className="mr-2.5 size-4 shrink-0" aria-hidden="true" />
+          {/* The icon carries the "+", so the label drops it (the original keys stay for other uses). */}
+          {intl.formatMessage({ id: `${action.labelKey}.short` })}
         </Link>
       ))}
       {starredItems.map((item) => (
         <div
           key={item.path}
           className={cn(
-            "group flex h-[26px] items-center pr-1 pl-5 text-[12.5px]",
+            "group mx-2 flex h-7 items-center rounded-md pr-1 pl-3 text-[13px]",
             isActive(item.path)
-              ? "bg-row-selected font-semibold text-accent-foreground shadow-[inset_2px_0_0_var(--primary)]"
-              : "text-foreground hover:bg-accent hover:text-accent-foreground",
+              ? "bg-nav-active font-semibold text-nav-active-foreground shadow-[inset_2px_0_0_var(--brand)]"
+              : "text-secondary-foreground hover:bg-secondary hover:text-foreground",
           )}
         >
           <Link
@@ -621,15 +624,21 @@ function FavouritesSection({
             onClick={(event) => {
               if (location.pathname === item.path) event.preventDefault();
             }}
-            className="min-w-0 flex-1 truncate"
+            className="flex min-w-0 flex-1 items-center gap-2.5"
           >
-            {intl.formatMessage({ id: item.titleKey })}
+            <item.icon className={cn("size-4 shrink-0", isActive(item.path) ? "text-nav-active-foreground" : "text-muted-foreground")} aria-hidden="true" />
+            <span className="truncate">{intl.formatMessage({ id: item.titleKey })}</span>
           </Link>
           <button
             type="button"
             onClick={() => onUnstar(item.path)}
             aria-label={intl.formatMessage({ id: "sidebar.removeFavourite" })}
-            className="shrink-0 rounded p-0.5 text-muted-foreground opacity-0 hover:bg-accent hover:text-accent-foreground group-hover:opacity-100"
+            className={cn(
+              "shrink-0 rounded p-0.5 opacity-0 group-hover:opacity-100",
+              isActive(item.path)
+                ? "text-nav-active-foreground/70 hover:bg-brand/10 hover:text-nav-active-foreground"
+                : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+            )}
           >
             <X className="size-3" />
           </button>
@@ -638,8 +647,8 @@ function FavouritesSection({
 
       {suggestions.length > 0 && (
         <>
-          <div className="flex h-[20px] items-center px-3 mt-0.5">
-            <span className="text-[10px] font-medium tracking-[0.06em] text-muted-foreground/70 uppercase">
+          <div className="mt-1.5 flex h-5 items-center px-4">
+            <span className="text-[10px] font-medium text-muted-foreground/70">
               {intl.formatMessage({ id: "sidebar.suggested" })}
             </span>
           </div>
@@ -647,10 +656,10 @@ function FavouritesSection({
             <div
               key={item.path}
               className={cn(
-                "group flex h-[26px] items-center pr-1 pl-5 text-[12.5px]",
+                "group mx-2 flex h-7 items-center rounded-md pr-1 pl-3 text-[13px]",
                 isActive(item.path)
-                  ? "bg-row-selected font-semibold text-accent-foreground shadow-[inset_2px_0_0_var(--primary)]"
-                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                  ? "bg-nav-active font-semibold text-nav-active-foreground shadow-[inset_2px_0_0_var(--brand)]"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
               )}
             >
               <Link
@@ -658,9 +667,10 @@ function FavouritesSection({
                 onClick={(event) => {
                   if (location.pathname === item.path) event.preventDefault();
                 }}
-                className="min-w-0 flex-1 truncate"
+                className="flex min-w-0 flex-1 items-center gap-2.5"
               >
-                {intl.formatMessage({ id: item.titleKey })}
+                <item.icon className={cn("size-4 shrink-0", isActive(item.path) ? "text-nav-active-foreground" : "text-muted-foreground")} aria-hidden="true" />
+                <span className="truncate">{intl.formatMessage({ id: item.titleKey })}</span>
               </Link>
               <button
                 type="button"

@@ -2,76 +2,85 @@
 @import "tw-animate-css";
 
 /* Self-hosted, no CDN: PAKO is open eight hours a day, often on a bad line.
-   pnpm add @fontsource/public-sans @fontsource/jetbrains-mono
-   Both ship the latin-ext subset, which is what carries ë and ç. */
-@import "@fontsource/public-sans/400.css";
-@import "@fontsource/public-sans/500.css";
-@import "@fontsource/public-sans/600.css";
-@import "@fontsource/public-sans/700.css";
+   Inter (the Kudofatura panel face) ships the latin-ext subset, which carries ë and ç. */
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/inter/800.css";
 @import "@fontsource/jetbrains-mono/400.css";
 @import "@fontsource/jetbrains-mono/500.css";
 @import "@fontsource/jetbrains-mono/600.css";
 
 @custom-variant dark (&:is(.dark *));
 
+/* Palette follows the Kudofatura panel: cool gray neutrals (Tailwind gray/slate), blue-600 for
+   actions, navy #140f5a as the brand (active navigation, auth panel). */
 :root {
-  /* 6px. shadcn derives sm 2 / md 4 / lg 6 / xl 10 from this — controls land on md. */
-  --radius: 0.375rem;
+  /* 8px. shadcn derives sm 4 / md 6 / lg 8 / xl 12 from this — cards land on xl like Kudofatura. */
+  --radius: 0.5rem;
 
-  --background: oklch(0.965 0.005 75);
-  --foreground: oklch(0.195 0.010 70);
-  --card: oklch(0.990 0.003 75);
-  --card-foreground: oklch(0.195 0.010 70);
-  --popover: oklch(0.995 0.002 75);
-  --popover-foreground: oklch(0.195 0.010 70);
-  --primary: oklch(0.46 0.10 195);
-  --primary-foreground: oklch(0.985 0.006 195);
-  --secondary: oklch(0.938 0.006 75);
-  --secondary-foreground: oklch(0.345 0.010 70);
-  --muted: oklch(0.955 0.005 75);
-  --muted-foreground: oklch(0.465 0.008 70);
-  --accent: oklch(0.945 0.020 195);
-  --accent-foreground: oklch(0.285 0.045 195);
-  --destructive: oklch(0.545 0.155 27);
-  --destructive-foreground: oklch(0.985 0.010 27);
-  --border: oklch(0.890 0.006 72);
-  --input: oklch(0.785 0.008 72);
-  --ring: oklch(0.50 0.09 195);
+  --background: oklch(0.984 0.003 248);          /* #f8fafc */
+  --foreground: oklch(0.210 0.034 265);          /* #111827 */
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.210 0.034 265);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.210 0.034 265);
+  --primary: oklch(0.546 0.215 263);             /* #2563eb */
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.967 0.003 265);           /* #f3f4f6 */
+  --secondary-foreground: oklch(0.373 0.031 260);/* #374151 */
+  --muted: oklch(0.967 0.003 265);
+  --muted-foreground: oklch(0.551 0.023 264);    /* #6b7280 */
+  --accent: oklch(0.970 0.014 255);              /* #eff6ff */
+  --accent-foreground: oklch(0.488 0.217 264);   /* #1d4ed8 */
+  --destructive: oklch(0.577 0.215 27);          /* #dc2626 */
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.928 0.006 265);              /* #e5e7eb */
+  --input: oklch(0.872 0.010 258);               /* #d1d5db */
+  --ring: oklch(0.623 0.188 260);                /* #3b82f6 */
 
-  /* Document state. Each pair also carries a border, because 1a's pills are
+  /* Brand navy. Active sidebar item, company switcher highlight, auth panel. */
+  --brand: oklch(0.245 0.135 278);               /* #140f5a */
+  --brand-foreground: oklch(1 0 0);
+  /* Selected sidebar item: a soft brand tint, not the full navy (user request 2026-11-24). */
+  --nav-active: oklch(0.950 0.022 278);
+  --nav-active-foreground: oklch(0.300 0.140 278);
+
+  /* Document state. Each pair also carries a border, because the pills are
      filled AND bordered, and each state owns a non-colour cue in markup:
      success = fill + border · warning = 3px left bar · info = 2px bottom rule
      draft   = dashed + italic · neutral = strikethrough                      */
-  --success: oklch(0.920 0.038 155);
-  --success-foreground: oklch(0.375 0.070 155);
-  --success-border: oklch(0.805 0.052 155);
-  --warning: oklch(0.945 0.050 80);
-  --warning-foreground: oklch(0.430 0.090 60);
-  --warning-border: oklch(0.860 0.065 78);
-  --info: oklch(0.900 0.030 220);
-  --info-foreground: oklch(0.395 0.065 225);
-  --info-border: oklch(0.805 0.042 220);
-  --neutral-state: oklch(0.930 0.004 75);
-  --neutral-state-foreground: oklch(0.42 0.006 75);
-  --neutral-state-border: oklch(0.87 0.005 75);
+  --success: oklch(0.962 0.044 157);             /* #dcfce7 */
+  --success-foreground: oklch(0.393 0.095 152);  /* #166534 */
+  --success-border: oklch(0.925 0.084 156);      /* #bbf7d0 */
+  --warning: oklch(0.962 0.059 95);              /* #fef3c7 */
+  --warning-foreground: oklch(0.473 0.137 46);   /* #92400e */
+  --warning-border: oklch(0.924 0.120 96);       /* #fde68a */
+  --info: oklch(0.932 0.032 256);                /* #dbeafe */
+  --info-foreground: oklch(0.424 0.181 266);     /* #1e40af */
+  --info-border: oklch(0.882 0.057 254);         /* #bfdbfe */
+  --neutral-state: oklch(0.967 0.003 265);
+  --neutral-state-foreground: oklch(0.373 0.031 260);
+  --neutral-state-border: oklch(0.928 0.006 265);
 
   /* Column tints. Deliberately near-achromatic: they must read as "this column
      is a debit column", never as "this number is wrong". */
-  --debit: oklch(0.975 0.008 220);
-  --credit: oklch(0.975 0.010 75);
+  --debit: oklch(0.975 0.008 250);
+  --credit: oklch(0.976 0.010 75);
 
   /* Register + grid. shadcn has no names for these and every list in PAKO needs them. */
-  --zebra: oklch(0.968 0.005 75);
-  --row-hover: oklch(0.955 0.015 195);
-  --row-selected: oklch(0.945 0.025 195);
-  --row-selected-border: oklch(0.88 0.025 195);
-  --grid-rule: oklch(0.915 0.005 72);
-  --grid-header: oklch(0.938 0.006 74);
-  --grid-header-foreground: oklch(0.345 0.010 70);
-  --grid-header-border: oklch(0.80 0.007 72);
-  --cell-active: oklch(0.46 0.10 195);
-  --totals: oklch(0.955 0.018 75);
-  --totals-foreground: oklch(0.220 0.012 70);
+  --zebra: oklch(0.985 0.002 248);               /* #f9fafb */
+  --row-hover: oklch(0.970 0.014 255);           /* #eff6ff */
+  --row-selected: oklch(0.950 0.025 256);
+  --row-selected-border: oklch(0.882 0.057 254);
+  --grid-rule: oklch(0.950 0.004 265);
+  --grid-header: oklch(0.985 0.002 248);
+  --grid-header-foreground: oklch(0.446 0.026 257); /* #4b5563 */
+  --grid-header-border: oklch(0.928 0.006 265);
+  --cell-active: oklch(0.546 0.215 263);
+  --totals: oklch(0.968 0.007 248);              /* #f1f5f9 */
+  --totals-foreground: oklch(0.208 0.042 266);   /* #0f172a */
   /* Charts (dashboard). Categorical slots in fixed order, validated against the card surface
      with the dataviz validator: slot 1 = the selected period, slot 2 = the comparison period.
      Aging uses one-hue ordinal steps (not due → 90+ days). Chart chrome stays recessive. */
@@ -87,33 +96,38 @@
   --chart-ord-3: #0e8e96;
   --chart-ord-4: #0a6e76;
   --chart-ord-5: #064e56;
-  --chart-grid: #e1e0d9;
-  --chart-axis: #c3c2b7;
-  --chart-muted: #898781;
+  --chart-grid: #e5e7eb;
+  --chart-axis: #d1d5db;
+  --chart-muted: #6b7280;
   --chart-delta-good: #006300;
   --chart-delta-bad: #d03b3b;
 }
 
 .dark {
-  --background: oklch(0.200 0.006 72);
-  --foreground: oklch(0.948 0.004 75);
-  --card: oklch(0.240 0.006 72);
-  --card-foreground: oklch(0.948 0.004 75);
-  --popover: oklch(0.260 0.006 72);
-  --popover-foreground: oklch(0.948 0.004 75);
-  --primary: oklch(0.68 0.10 195);
-  --primary-foreground: oklch(0.175 0.030 195);
-  --secondary: oklch(0.280 0.006 72);
-  --secondary-foreground: oklch(0.928 0.004 75);
-  --muted: oklch(0.280 0.005 72);
-  --muted-foreground: oklch(0.725 0.006 75);
-  --accent: oklch(0.290 0.035 195);
-  --accent-foreground: oklch(0.948 0.012 195);
-  --destructive: oklch(0.665 0.165 25);
+  --background: oklch(0.170 0.020 265);
+  --foreground: oklch(0.955 0.005 265);
+  --card: oklch(0.210 0.022 265);
+  --card-foreground: oklch(0.955 0.005 265);
+  --popover: oklch(0.230 0.022 265);
+  --popover-foreground: oklch(0.955 0.005 265);
+  --primary: oklch(0.707 0.140 255);             /* ~#60a5fa */
+  --primary-foreground: oklch(0.180 0.030 265);
+  --secondary: oklch(0.270 0.020 265);
+  --secondary-foreground: oklch(0.920 0.006 265);
+  --muted: oklch(0.270 0.020 265);
+  --muted-foreground: oklch(0.720 0.020 264);
+  --accent: oklch(0.290 0.050 262);
+  --accent-foreground: oklch(0.930 0.030 255);
+  --destructive: oklch(0.665 0.190 25);
   --destructive-foreground: oklch(0.985 0.010 25);
-  --border: oklch(0.360 0.005 72);
-  --input: oklch(0.405 0.005 72);
-  --ring: oklch(0.68 0.10 195);
+  --border: oklch(0.320 0.020 265);
+  --input: oklch(0.380 0.020 265);
+  --ring: oklch(0.707 0.140 255);
+
+  --brand: oklch(0.420 0.170 278);
+  --brand-foreground: oklch(1 0 0);
+  --nav-active: oklch(0.280 0.050 278);
+  --nav-active-foreground: oklch(0.900 0.050 278);
 
   --success: oklch(0.31 0.045 155);
   --success-foreground: oklch(0.845 0.090 155);
@@ -121,27 +135,27 @@
   --warning: oklch(0.335 0.055 70);
   --warning-foreground: oklch(0.875 0.100 82);
   --warning-border: oklch(0.44 0.070 72);
-  --info: oklch(0.30 0.045 220);
-  --info-foreground: oklch(0.835 0.075 220);
-  --info-border: oklch(0.41 0.060 220);
-  --neutral-state: oklch(0.30 0.005 75);
-  --neutral-state-foreground: oklch(0.755 0.006 75);
-  --neutral-state-border: oklch(0.40 0.005 75);
+  --info: oklch(0.30 0.060 260);
+  --info-foreground: oklch(0.835 0.080 255);
+  --info-border: oklch(0.41 0.080 260);
+  --neutral-state: oklch(0.280 0.020 265);
+  --neutral-state-foreground: oklch(0.755 0.015 265);
+  --neutral-state-border: oklch(0.380 0.020 265);
 
-  --debit: oklch(0.265 0.012 220);
-  --credit: oklch(0.265 0.014 75);
+  --debit: oklch(0.240 0.020 250);
+  --credit: oklch(0.245 0.014 75);
 
-  --zebra: oklch(0.240 0.006 72);
-  --row-hover: oklch(0.285 0.025 195);
-  --row-selected: oklch(0.305 0.045 195);
-  --row-selected-border: oklch(0.385 0.045 195);
-  --grid-rule: oklch(0.355 0.005 72);
-  --grid-header: oklch(0.275 0.006 72);
-  --grid-header-foreground: oklch(0.82 0.006 75);
-  --grid-header-border: oklch(0.42 0.005 72);
-  --cell-active: oklch(0.68 0.10 195);
-  --totals: oklch(0.275 0.012 75);
-  --totals-foreground: oklch(0.955 0.004 75);
+  --zebra: oklch(0.200 0.020 265);
+  --row-hover: oklch(0.260 0.040 260);
+  --row-selected: oklch(0.290 0.060 260);
+  --row-selected-border: oklch(0.380 0.070 260);
+  --grid-rule: oklch(0.300 0.020 265);
+  --grid-header: oklch(0.240 0.020 265);
+  --grid-header-foreground: oklch(0.820 0.015 265);
+  --grid-header-border: oklch(0.380 0.020 265);
+  --cell-active: oklch(0.707 0.140 255);
+  --totals: oklch(0.250 0.020 265);
+  --totals-foreground: oklch(0.960 0.005 265);
   --chart-1: #1aabb5;
   --chart-2: #d95926;
   --chart-3: #199e70;
@@ -154,9 +168,9 @@
   --chart-ord-3: #1aabb5;
   --chart-ord-4: #5ccad2;
   --chart-ord-5: #9ee0e6;
-  --chart-grid: #2c2c2a;
-  --chart-axis: #383835;
-  --chart-muted: #898781;
+  --chart-grid: #273042;
+  --chart-axis: #364152;
+  --chart-muted: #8b93a1;
   --chart-delta-good: #0ca30c;
   --chart-delta-bad: #e66767;
 }
@@ -181,6 +195,10 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-nav-active: var(--nav-active);
+  --color-nav-active-foreground: var(--nav-active-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -214,7 +232,7 @@
   --color-totals: var(--totals);
   --color-totals-foreground: var(--totals-foreground);
 
-  --font-sans: "Public Sans", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Arial, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
 }
 
@@ -254,8 +272,10 @@
   body {
     @apply bg-background text-foreground font-sans;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
-  /* Every figure in the product is tabular. Public Sans ships true tnum, so the
+  /* Every figure in the product is tabular. Inter ships true tnum, so the
      money columns stay in the sans face and give the width back to Partneri. */
   .tnum,
   input[type="number"],
@@ -289,15 +309,15 @@
 }
 
 :root {
-  --auth-panel: oklch(0.32 0.07 195);
-  --auth-panel-deep: oklch(0.22 0.06 200);
-  --auth-panel-foreground: oklch(0.975 0.006 195);
-  --auth-panel-muted: oklch(0.82 0.03 195);
+  --auth-panel: oklch(0.285 0.140 278);
+  --auth-panel-deep: oklch(0.190 0.100 280);
+  --auth-panel-foreground: oklch(0.975 0.006 278);
+  --auth-panel-muted: oklch(0.820 0.040 278);
 }
 
 .dark {
-  --auth-panel: oklch(0.25 0.06 195);
-  --auth-panel-deep: oklch(0.19 0.05 200);
+  --auth-panel: oklch(0.240 0.110 278);
+  --auth-panel-deep: oklch(0.160 0.080 280);
 }
 
 @layer components {

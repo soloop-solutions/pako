@@ -22,7 +22,6 @@ import {
   ListTree,
   BookUser,
   CalendarRange,
-  Plus,
   BadgePercent,
   UserRound,
   Network,
@@ -59,6 +58,17 @@ import {
   Hotel as HotelIcon,
   PartyPopper,
   TicketCheck,
+  Factory,
+  TrendingUp,
+  CircleUserRound,
+  FilePlus,
+  NotebookPen,
+  Users,
+  ShoppingBag,
+  ShoppingCart,
+  BriefcaseBusiness,
+  ChartPie,
+  Handshake,
 } from "lucide-react";
 import { BadgeCheck, CalendarClock, FolderArchive, LockKeyhole, UsersRound, Wrench } from "lucide-react";
 // docs/POS_PLAN.md P6 distribution.
@@ -232,6 +242,8 @@ export interface NavSavedView {
 export interface NavCategory {
   id: string;
   labelKey: string;
+  /** Section icon shown beside the heading in the sidebar. */
+  icon?: LucideIcon;
   /** Default NavModule for every item in the category. */
   module?: NavModule;
   items: NavItem[];
@@ -351,6 +363,7 @@ export const bottomNavItems: NavItem[] = [companyProfileItem, companiesItem, set
 export const navCategories: NavCategory[] = [
   {
     id: "items",
+    icon: Package,
     labelKey: "sidebar.category.itemsStock",
     items: [
       {
@@ -377,6 +390,7 @@ export const navCategories: NavCategory[] = [
     // Client request 2026-11-23: Customers and Suppliers sit side by side (they are separate lists
     // since then). Suppliers keep the purchases module gate they had under Purchases.
     id: "customers",
+    icon: Users,
     labelKey: "sidebar.category.customersAndSuppliers",
     items: [
       {
@@ -390,7 +404,7 @@ export const navCategories: NavCategory[] = [
       {
         titleKey: "nav.vendors",
         path: "/vendors",
-        icon: Truck,
+        icon: Handshake,
         descriptionKey: "nav.vendors.description",
         Element: Vendors,
         module: "purchases",
@@ -407,6 +421,7 @@ export const navCategories: NavCategory[] = [
   },
   {
     id: "sales",
+    icon: ShoppingBag,
     labelKey: "sidebar.category.sales",
     module: "sales",
     items: [
@@ -442,6 +457,7 @@ export const navCategories: NavCategory[] = [
   {
     // docs/POS_PLAN.md: the point of sale, after Sales.
     id: "pos",
+    icon: MonitorSmartphone,
     labelKey: "sidebar.category.pos",
     module: "pos",
     items: [
@@ -452,7 +468,7 @@ export const navCategories: NavCategory[] = [
       { titleKey: "nav.posCards", path: "/pos/cards", icon: Gift, descriptionKey: "nav.posCards.description", Element: PosCards },
       // P2: layaways and special orders; store reporting.
       { titleKey: "nav.posCustomerOrders", path: "/pos/customer-orders", icon: ClipboardCheck, descriptionKey: "nav.posCustomerOrders.description", Element: CustomerOrders, gridId: "pos-customer-orders" },
-      { titleKey: "nav.posReports", path: "/pos/reports", icon: BarChart3, descriptionKey: "nav.posReports.description", Element: PosReports, gridId: "pos-sales-report" },
+      { titleKey: "nav.posReports", path: "/pos/reports", icon: TrendingUp, descriptionKey: "nav.posReports.description", Element: PosReports, gridId: "pos-sales-report" },
       // P3 restaurant back office: floors and tables (QR menu codes), menu setup, usage variance.
       { titleKey: "pos.setup3.nav.floors", path: "/pos/floors", feature: "hospitality", icon: LayoutGrid, descriptionKey: "pos.setup3.nav.floors.description", Element: PosFloors, gridId: "pos-floors" },
       { titleKey: "pos.setup3.nav.menu", path: "/pos/menu-setup", feature: "hospitality", icon: UtensilsCrossed, descriptionKey: "pos.setup3.nav.menu.description", Element: MenuSetup },
@@ -479,6 +495,7 @@ export const navCategories: NavCategory[] = [
     // docs/ERP_VERTICALS_PLAN.md (POS plan P8): projects — construction sites, buildings for sale and
     // rentals, all behind the Sales access area.
     id: "projects",
+    icon: HardHat,
     labelKey: "vx.sidebar.projects",
     module: "sales",
     items: [
@@ -492,6 +509,7 @@ export const navCategories: NavCategory[] = [
   },
   {
     id: "purchases",
+    icon: ShoppingCart,
     labelKey: "sidebar.category.purchases",
     module: "purchases",
     items: [
@@ -513,6 +531,7 @@ export const navCategories: NavCategory[] = [
   {
     // Banka & Arka: bank and cash work — bank statement import (docs/BANK_STATEMENTS.md) and reconciliation.
     id: "bankCash",
+    icon: Wallet,
     labelKey: "sidebar.category.bankCash",
     items: [
       {
@@ -543,6 +562,7 @@ export const navCategories: NavCategory[] = [
   },
   {
     id: "accounting",
+    icon: Calculator,
     labelKey: "sidebar.category.accounting",
     module: "accounting",
     items: [
@@ -564,7 +584,7 @@ export const navCategories: NavCategory[] = [
       {
         titleKey: "nav.fixedAssets",
         path: "/fixed-assets",
-        icon: Building2,
+        icon: Factory,
         descriptionKey: "nav.fixedAssets.description",
         Element: FixedAssets,
       },
@@ -587,6 +607,7 @@ export const navCategories: NavCategory[] = [
   },
   {
     id: "hr",
+    icon: BriefcaseBusiness,
     labelKey: "sidebar.category.hr",
     module: "hr",
     items: [
@@ -662,6 +683,7 @@ export const navCategories: NavCategory[] = [
   {
     // F9 self-service: shown to anyone whose login is linked to an employee of the company.
     id: "myHr",
+    icon: UserRound,
     labelKey: "sidebar.category.myHr",
     module: "self",
     items: [
@@ -689,7 +711,7 @@ export const navCategories: NavCategory[] = [
       {
         titleKey: "nav.myProfile",
         path: "/my/profile",
-        icon: IdCard,
+        icon: CircleUserRound,
         descriptionKey: "nav.myProfile.description",
         Element: MyProfile,
       },
@@ -697,6 +719,7 @@ export const navCategories: NavCategory[] = [
   },
   {
     id: "reports",
+    icon: ChartPie,
     labelKey: "sidebar.category.reports",
     module: "reports",
     items: [
@@ -717,7 +740,7 @@ export const navCategories: NavCategory[] = [
       {
         titleKey: "nav.withholdingTax",
         path: "/withholding-tax",
-        icon: BadgePercent,
+        icon: Percent,
         descriptionKey: "nav.withholdingTax.description",
         Element: WithholdingTax,
       },
@@ -726,6 +749,7 @@ export const navCategories: NavCategory[] = [
   {
     // docs/USER_ACCESS_PLAN.md: the administration dashboard.
     id: "administration",
+    icon: ShieldCheck,
     labelKey: "sidebar.category.administration",
     module: "users",
     items: [
@@ -755,8 +779,8 @@ export const navCategories: NavCategory[] = [
  * the correct destination without inventing new routes.
  */
 export const favouriteActions: FavouriteAction[] = [
-  { id: "action:newInvoice", labelKey: "sidebar.action.newInvoice", path: "/invoicing/new", icon: Plus },
-  { id: "action:newJournalEntry", labelKey: "sidebar.action.newJournalEntry", path: "/ledger", icon: Plus },
+  { id: "action:newInvoice", labelKey: "sidebar.action.newInvoice", path: "/invoicing/new", icon: FilePlus },
+  { id: "action:newJournalEntry", labelKey: "sidebar.action.newJournalEntry", path: "/ledger", icon: NotebookPen },
 ];
 
 /** Routes kept alive but hidden from the sidebar (reachable via URL). */
@@ -806,4 +830,17 @@ const navModuleByPath = new Map<string, NavModule>(
 
 export function navModuleForPath(path: string): NavModule | undefined {
   return navModuleByPath.get(path);
+}
+
+/**
+ * The nav item a location belongs to: an exact match, else the longest item path the location
+ * sits under (`/invoicing/123` belongs to Sales invoices). Used for the page-header icon.
+ */
+export function navItemForPath(pathname: string): NavItem | undefined {
+  let best: NavItem | undefined;
+  for (const item of navItems) {
+    if (item.path === pathname) return item;
+    if (pathname.startsWith(`${item.path}/`) && (!best || item.path.length > best.path.length)) best = item;
+  }
+  return best;
 }
