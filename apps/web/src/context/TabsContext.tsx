@@ -236,6 +236,15 @@ export function useTabs() {
   return ctx;
 }
 
+// UI/UX round 2026-11-24: the active tab's page-reported title (document number), or null outside a
+// TabsProvider — the breadcrumbs use it as their last crumb.
+// eslint-disable-next-line react-refresh/only-export-components
+export function useActiveTabTitle(): string | null {
+  const ctx = useContext(TabsContext);
+  if (!ctx?.activeTabId) return null;
+  return ctx.tabs.find((t) => t.id === ctx.activeTabId)?.titleOverride ?? null;
+}
+
 // Lets a document page (InvoiceDetail, BillDetail, ...) report its real title and unsaved-changes
 // state once it has loaded, overriding the generic fallback title used when the tab was opened.
 // eslint-disable-next-line react-refresh/only-export-components

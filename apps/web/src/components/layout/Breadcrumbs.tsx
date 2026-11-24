@@ -3,6 +3,7 @@ import { useIntl } from "react-intl";
 import { Link, useLocation, useParams } from "react-router-dom";
 
 import { navCategories } from "@/config/nav";
+import { useActiveTabTitle } from "@/context/TabsContext";
 
 interface Crumb {
   label: string;
@@ -14,7 +15,8 @@ export function Breadcrumbs() {
   const { pathname } = useLocation();
   const { id } = useParams();
 
-  const crumbs = buildCrumbs(pathname, id, (key: string) => intl.formatMessage({ id: key }));
+  const documentTitle = useActiveTabTitle();
+  const crumbs = buildCrumbs(pathname, id, documentTitle, (key: string) => intl.formatMessage({ id: key }));
 
   if (crumbs.length <= 1) return null;
 
@@ -39,7 +41,9 @@ export function Breadcrumbs() {
   );
 }
 
-function buildCrumbs(pathname: string, id: string | undefined, t: (key: string) => string): Crumb[] {
+// UI/UX round 2026-11-24: a document's crumb is its number (the title the page reports through
+// useTabMeta), never a UUID fragment; `/<list>/<id>/edit` gets crumbs too.
+function buildCrumbs(pathname: string, id: string | undefined, documentTitle: string | null, t: (key: string) => string): Crumb[] {
   // Strip trailing slash
   const path = pathname.replace(/\/$/, "") || "/";
 
@@ -58,7 +62,16 @@ function buildCrumbs(pathname: string, id: string | undefined, t: (key: string) 
         return [
           { label: t(category.labelKey), path: undefined },
           { label: t(item.titleKey), path: item.path },
-          { label: id.substring(0, 8) + "…" },
+          ...(documentTitle ? [{ label: documentTitle }] : []),
+        ];
+      }
+
+      if (id && path === `${item.path}/${id}/edit`) {
+        return [
+          { label: t(category.labelKey), path: undefined },
+          { label: t(item.titleKey), path: item.path },
+          ...(documentTitle ? [{ label: documentTitle, path: `${item.path}/${id}` }] : []),
+          { label: t("common.edit") },
         ];
       }
     }
