@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
-import { Copy, Plus, Trash2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import type { CompanyRoleResponse, ModuleAccessResponse } from "@pako/shared";
+import type { CompanyRoleResponse, CompanyUserResponse, ModuleAccessResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -103,6 +103,18 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
 
   const pages = draft ? pagesFor(draft.levels) : [];
   const accountingLocked = draft?.partnerScope === PartnerScope.Assigned;
+
+  // Users assigned to the selected role, with client-side pagination
+  const USERS_PER_PAGE = 5;
+  const [usersPage, setUsersPage] = useState(0);
+  const roleUsers = useMemo(() => {
+    if (!draft?.id) return [];
+    return users.filter((u: CompanyUserResponse) => u.roleId === draft.id);
+  }, [users, draft?.id]);
+  const totalUserPages = Math.max(1, Math.ceil(roleUsers.length / USERS_PER_PAGE));
+  const pagedUsers = roleUsers.slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE);
+  // Reset page when switching roles
+  useEffect(() => { setUsersPage(0); }, [draft?.id]);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
@@ -250,6 +262,44 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
               )}
               <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.roles.previewSelf" })}</p>
             </div>
+
+            {draft.id && (
+              <div className="rounded-md bg-muted/40 p-3">
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  {intl.formatMessage({ id: "admin.roles.assignedUsers" })} ({roleUsers.length})
+                </p>
+                {roleUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "admin.roles.noAssignedUsers" })}</p>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      {pagedUsers.map((u) => (
+                        <div key={u.membershipId ?? u.email} className="flex items-center justify-between rounded border px-2.5 py-1.5 text-sm">
+                          <div className="min-w-0">
+                            <span className="font-medium">{u.fullName ?? u.email}</span>
+                            {u.fullName && <span className="ml-2 text-xs text-muted-foreground">{u.email}</span>}
+                          </div>
+                          <Badge variant={u.status === "Active" ? "success" : u.status === "Deactivated" ? "cancelled" : "outline"}>
+                            {intl.formatMessage({ id: `admin.status.${u.status}` })}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                    {totalUserPages > 1 && (
+                      <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                        <button type="button" disabled={usersPage === 0} onClick={() => setUsersPage((p) => p - 1)} className="rounded p-0.5 hover:bg-accent disabled:opacity-30">
+                          <ChevronLeft className="size-3.5" />
+                        </button>
+                        <span>{usersPage + 1} / {totalUserPages}</span>
+                        <button type="button" disabled={usersPage >= totalUserPages - 1} onClick={() => setUsersPage((p) => p + 1)} className="rounded p-0.5 hover:bg-accent disabled:opacity-30">
+                          <ChevronRight className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
 
             {canManage && (
               <div className="flex flex-wrap gap-2">
