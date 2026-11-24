@@ -297,12 +297,14 @@ function EmployeeEditor({
         <div className="flex flex-wrap gap-2">
           {SECTIONS.filter((s) => canSeePay || !PAY_SECTIONS.includes(s)).map((s) => {
             const unavailable = isNew && !FORM_SECTIONS.includes(s);
+            const needsAttention = isNew && s === "pay" && !form.monthlyGrossSalary && section !== s;
             return (
               <Button
                 key={s}
                 type="button"
                 size="sm"
                 variant={section === s ? "default" : "outline"}
+                className={needsAttention ? "border-warning text-warning-foreground" : undefined}
                 disabled={unavailable}
                 title={unavailable ? intl.formatMessage({ id: "hr.employee.saveFirst" }) : undefined}
                 onClick={() => setSection(s)}
