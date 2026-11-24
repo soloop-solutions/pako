@@ -95,9 +95,14 @@ function fetchWithTimeout(url: RequestInfo, init?: RequestInit): Promise<Respons
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+const COMPANY_SCOPED_PATH = /\/api\/companies\/[^/]+\//;
+
 export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
   const auth = getStoredAuth();
   const response = await fetchWithTimeout(url, { ...init, headers: buildHeaders(url, init, auth?.token ?? null) });
+  if (response.status === 403 && COMPANY_SCOPED_PATH.test(urlOf(url))) {
+    window.dispatchEvent(new Event("pako:company-access-lost"));
+  }
   if (response.status !== 401 || !auth || ANONYMOUS_AUTH_PATH.test(urlOf(url))) return response;
 
   const fresh = await refreshAccessToken(auth.token);

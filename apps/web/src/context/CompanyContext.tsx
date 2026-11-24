@@ -133,6 +133,19 @@ export function CompanyProvider({ children }: { children: ReactNode }) {
     }
   }, [activeCompanyId, companies, loaded]);
 
+  // When a company-scoped API call returns 403 (membership deactivated or removed), re-fetch
+  // the company list and clear the active company so the user lands on the company selector.
+  useEffect(() => {
+    function handleAccessLost() {
+      setActiveCompanyIdState(null);
+      sessionStorage.removeItem(ACTIVE_COMPANY_KEY);
+      queryClient.clear();
+      void refresh();
+    }
+    window.addEventListener("pako:company-access-lost", handleAccessLost);
+    return () => window.removeEventListener("pako:company-access-lost", handleAccessLost);
+  }, [queryClient, refresh]);
+
   function setActiveCompanyId(id: string) {
     setActiveCompanyIdState(id);
     setReplacedBy(null);
