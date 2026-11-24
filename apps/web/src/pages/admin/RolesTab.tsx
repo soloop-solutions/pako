@@ -53,6 +53,9 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
   const roles = rolesQuery.data ?? [];
   const selected = draft?.id ? roles.find((r) => r.id === draft.id) ?? null : null;
 
+  const usersQuery = useQuery({ queryKey: ["admin", "users", companyId], queryFn: () => apiClient.listCompanyUsers(companyId) });
+  const users = usersQuery.data ?? [];
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey });
     void queryClient.invalidateQueries({ queryKey: ["admin", "users", companyId] });
@@ -265,7 +268,14 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                     className="text-destructive"
                     disabled={deleteMutation.isPending}
                     onClick={() => {
-                      confirm(intl.formatMessage({ id: "admin.roles.deleteConfirm" }, { name: selected.name }), () => deleteMutation.mutate(selected.id));
+                      const assignedUsers = users.filter((u) => u.roleId === selected.id);
+                      const message = assignedUsers.length > 0
+                        ? intl.formatMessage(
+                            { id: "admin.roles.deleteConfirmWithUsers" },
+                            { name: selected.name, users: assignedUsers.map((u) => u.fullName || u.email).join(", "), count: assignedUsers.length },
+                          )
+                        : intl.formatMessage({ id: "admin.roles.deleteConfirm" }, { name: selected.name });
+                      confirm(message, () => deleteMutation.mutate(selected.id));
                     }}
                   >
                     <Trash2 className="size-4" />
