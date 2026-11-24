@@ -50,6 +50,7 @@ const CUSTOMER_ONLY = {
   isVendor: false,
   fiscalNumber: undefined,
   isVatRegistered: true,
+  vatNumber: "330000001",
   receivableAccountId: "acc-ar",
   payableAccountId: undefined,
   paymentTermDays: 30,
@@ -78,6 +79,7 @@ const DUAL_ROLE = {
   isVendor: true,
   fiscalNumber: "F123",
   isVatRegistered: true,
+  vatNumber: "330000001",
   receivableAccountId: "acc-ar",
   payableAccountId: "acc-ap",
   paymentTermDays: 45,
@@ -194,7 +196,44 @@ describe("Vendors", () => {
     expect(screen.getByLabelText(/^NUI/)).toBeInTheDocument();
     expect(screen.queryByLabelText("Receivable account")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Credit limit")).not.toBeInTheDocument();
-    expect(screen.getByText("This vendor is also a customer")).toBeInTheDocument();
+    // Client request 2026-11-23: customers and suppliers are separate — no "also a customer" box.
+    expect(screen.queryByText("This vendor is also a customer")).not.toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /also a customer/i })).not.toBeInTheDocument();
+  });
+
+  it("a partner saved with both roles must pick one before it can be saved", async () => {
+    partnersUpdate.mockResolvedValue({ ...DUAL_ROLE, isCustomer: false });
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Both Inc")).toBeInTheDocument());
+    const row = screen.getByText("Both Inc").closest("tr");
+    if (!row) throw new Error("row not found");
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+
+    expect(await screen.findByText(/saved as both customer and supplier/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("radio", { name: "Vendor" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "Save" }));
+
+    await waitFor(() => expect(partnersUpdate).toHaveBeenCalledWith(
+      "11111111-1111-1111-1111-111111111111",
+      "partner-3",
+      expect.objectContaining({ isCustomer: false, isVendor: true, vatNumber: "330000001" }),
+    ));
+  });
+
+  it("requires the VAT number once the partner is marked VAT registered", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Vendor LLC")).toBeInTheDocument());
+    const row = screen.getByText("Vendor LLC").closest("tr");
+    if (!row) throw new Error("row not found");
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+
+    fireEvent.click(await screen.findByRole("checkbox", { name: "VAT registered" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/^VAT number/), { target: { value: "330999999" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 
   it("sends contact and address fields on save", async () => {

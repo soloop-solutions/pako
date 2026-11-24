@@ -183,8 +183,8 @@ export function PurchaseReturns() {
     [columns],
   );
 
-  const handleCreated = useCallback(async () => {
-    setFormOpen(false);
+  const handleCreated = useCallback(async (options?: { keepOpen?: boolean }) => {
+    if (!options?.keepOpen) setFormOpen(false);
     setFormKey((k) => k + 1);
     await refresh();
     await refetchPaged();
@@ -226,7 +226,7 @@ export function PurchaseReturns() {
         open={formOpen}
         onOpenChange={(open) => { if (!open) setFormOpen(false); }}
         title={intl.formatMessage({ id: "purchaseReturns.newReturn" })}
-        description={intl.formatMessage({ id: "purchaseReturns.newReturnDescription" })}
+        description={intl.formatMessage({ id: "purchaseReturns.newReturnDescriptionOptional" })}
         size="full"
       >
         <BillForm

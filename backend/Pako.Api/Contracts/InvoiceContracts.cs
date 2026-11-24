@@ -22,7 +22,8 @@ public record CreateInvoiceLineRequest(
 public record CreateInvoiceRequest(
     Guid PartnerId,
     DateOnly IssueDate,
-    DateOnly DueDate,
+    // Empty = the issue date.
+    DateOnly? DueDate,
     List<CreateInvoiceLineRequest> Lines,
     DocumentType DocumentType = DocumentType.Invoice,
     Guid? OriginalInvoiceId = null,
@@ -50,7 +51,8 @@ public record CreateInvoicePaymentRequest(decimal Amount, Guid PaymentMethodId, 
 public record UpdateInvoiceRequest(
     Guid PartnerId,
     DateOnly IssueDate,
-    DateOnly DueDate,
+    // Empty = the issue date.
+    DateOnly? DueDate,
     List<CreateInvoiceLineRequest> Lines,
     DocumentType DocumentType,
     Guid? OriginalInvoiceId,
@@ -85,7 +87,12 @@ public record InvoiceLineResponse(
     decimal? DiscountAmount = null,
     decimal? NetAmount = null,
     decimal? TaxAmount = null,
-    decimal? GrossAmount = null);
+    decimal? GrossAmount = null,
+    // Client request 2026-11-23 (print redesign): the item's code and the entered unit price on both
+    // bases (DocumentLineAmounts.UnitPriceNet/Gross). Set on the single-invoice GET; null in lists.
+    string? ItemCode = null,
+    decimal? UnitPriceNet = null,
+    decimal? UnitPriceGross = null);
 
 public record InvoiceResponse(
     Guid Id,
@@ -110,8 +117,24 @@ public record InvoiceResponse(
     // Document totals and the VAT breakdown per tax code for the printed invoice, from the same
     // server-computed line amounts. Set on the single-invoice GET; null in lists.
     InvoiceAmountTotals? Totals = null,
-    List<InvoiceTaxBreakdownLine>? TaxBreakdown = null);
+    List<InvoiceTaxBreakdownLine>? TaxBreakdown = null,
+    // Client request 2026-11-23: the grand total in words, in the request's language. Single GET only.
+    string? TotalInWords = null);
 
 public record InvoiceAmountTotals(decimal AmountBeforeDiscount, decimal DiscountAmount, decimal NetAmount, decimal TaxAmount, decimal GrossAmount);
 
-public record InvoiceTaxBreakdownLine(Guid TaxDefinitionId, decimal NetAmount, decimal TaxAmount);
+// GrossAmount (client request 2026-11-23): the rate's total for the printed VAT table.
+public record InvoiceTaxBreakdownLine(Guid TaxDefinitionId, decimal NetAmount, decimal TaxAmount, decimal? GrossAmount = null);
+
+// Client request 2026-11-23: prices an unsaved invoice with the posting calculator so the creation
+// screen shows server figures (it never computes money itself). Lines come back in request order.
+public record InvoiceQuoteRequest(PriceMode PriceMode, List<InvoiceQuoteLineRequest> Lines);
+
+public record InvoiceQuoteLineRequest(decimal Quantity, decimal UnitPrice, decimal DiscountPercent, Guid? TaxDefinitionId);
+
+public record InvoiceQuoteLineResponse(
+    decimal AmountBeforeDiscount, decimal DiscountAmount, decimal NetAmount, decimal TaxAmount, decimal GrossAmount,
+    decimal UnitPriceNet, decimal UnitPriceGross);
+
+public record InvoiceQuoteResponse(
+    List<InvoiceQuoteLineResponse> Lines, InvoiceAmountTotals Totals, List<InvoiceTaxBreakdownLine> TaxBreakdown, string TotalInWords);

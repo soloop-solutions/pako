@@ -199,6 +199,24 @@ public class StockTests : IAsyncLifetime
         Assert.Equal(0m, (await ValuationAsync(c, D3)).Difference);
     }
 
+    // Client request 2026-11-23: a sales return with no original invoice has no sale to take a cost
+    // from, so it comes back at the item's current average.
+    [Fact]
+    public async Task ASalesReturnWithoutAnOriginalInvoice_ComesBackAtTheCurrentAverage()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);   // 10 @ 100
+        await BillAsync(c, D2, 10, 236m);   // 10 @ 200 → 20 @ 150
+
+        var (error, returned) = await InvoiceAsync(c, D3, 2, 236m, InvoiceDocumentType.SalesReturn, null);
+        Assert.Null(error);
+        var lines = await LinesAsync(c, returned!.Id);
+        Assert.Equal(300m, lines.Where(l => l.AccountId == c.Account("120100")).Sum(l => l.Debit));
+        Assert.Equal(300m, lines.Where(l => l.AccountId == c.Account("500100")).Sum(l => l.Credit));
+        Assert.Equal((22m, 3300m), ((await CostAsync(c)).Quantity, (await CostAsync(c)).Value));
+        Assert.Equal(0m, (await ValuationAsync(c, D3)).Difference);
+    }
+
     [Fact]
     public async Task ABackDatedBill_ReplaysLaterSales_AndPostsTheDifferenceOnce()
     {

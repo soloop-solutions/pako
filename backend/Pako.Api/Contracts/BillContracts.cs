@@ -25,7 +25,8 @@ public record CreateBillRequest(
     Guid PartnerId,
     string? VendorReference,
     DateOnly IssueDate,
-    DateOnly DueDate,
+    // Empty = the issue date (client request 2026-11-23).
+    DateOnly? DueDate,
     List<CreateBillLineRequest> Lines,
     DocumentType DocumentType = DocumentType.Bill,
     Guid? OriginalBillId = null,
@@ -46,7 +47,8 @@ public record UpdateBillRequest(
     Guid PartnerId,
     string? VendorReference,
     DateOnly IssueDate,
-    DateOnly DueDate,
+    // Empty = the issue date (client request 2026-11-23).
+    DateOnly? DueDate,
     List<CreateBillLineRequest> Lines,
     DocumentType DocumentType,
     Guid? OriginalBillId,
@@ -71,7 +73,14 @@ public record BillLineResponse(
     decimal UnitFactor = 1m,
     string? LotNumber = null,
     DateOnly? ExpiryDate = null,
-    Guid? CostCodeId = null);
+    Guid? CostCodeId = null,
+    // Server-computed line amounts (DocumentLineCalculator.Amounts), as on InvoiceLineResponse. Set
+    // on the single-bill GET; null in lists.
+    decimal? AmountBeforeDiscount = null,
+    decimal? DiscountAmount = null,
+    decimal? NetAmount = null,
+    decimal? TaxAmount = null,
+    decimal? GrossAmount = null);
 
 public record BillResponse(
     Guid Id,
@@ -90,7 +99,11 @@ public record BillResponse(
     Guid? WarehouseId = null,
     Guid? ProjectId = null,
     Guid? CreatedByUserId = null,
-    string? CreatedByName = null);
+    string? CreatedByName = null,
+    // Document totals and the VAT breakdown per tax code, from the same line amounts. Set on the
+    // single-bill GET; null in lists.
+    InvoiceAmountTotals? Totals = null,
+    List<InvoiceTaxBreakdownLine>? TaxBreakdown = null);
 
 // ---- Purchase orders (docs/INVENTORY_PLAN.md §12 P5) ----
 

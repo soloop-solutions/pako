@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -250,8 +251,34 @@ public class InvoicesController : ControllerBase
         // The printed invoice shows per-line discount, net, VAT and total: computed with the posting
         // calculator, by the same loader the invoice PDF and email use, so the print never does its own
         // money math and the three always agree.
-        var lineAmounts = await new InvoiceDocumentService(_db, _taxComputationService).LineAmountsAsync(invoice);
-        return Ok(ToResponse(invoice, lineAmounts: lineAmounts));
+        var documents = new InvoiceDocumentService(_db, _taxComputationService);
+        var lineAmounts = await documents.LineAmountsAsync(invoice);
+        var itemCodes = await documents.ItemCodesAsync(companyId, invoice.Lines.Select(l => l.ItemId));
+        var currency = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.FunctionalCurrency).FirstAsync();
+        return Ok(ToResponse(invoice, lineAmounts: lineAmounts, itemCodes: itemCodes, currency: currency));
+    }
+
+    // Client request 2026-11-23: prices an unsaved invoice (the creation screen's line amounts, totals,
+    // VAT per rate and total in words) with the same calculator that posts it. Writes nothing.
+    [HttpPost("quote", Name = "QuoteInvoice")]
+    [RequireCompanyAccess(module: AccessModule.Sales)]
+    public async Task<ActionResult<InvoiceQuoteResponse>> Quote(Guid companyId, InvoiceQuoteRequest request)
+    {
+        if (request.Lines.Any(l => l.DiscountPercent < 0 || l.DiscountPercent > 100))
+            return BadRequest(_localizer["LineDiscountOutOfRange"].Value);
+
+        var quote = await new InvoiceDocumentService(_db, _taxComputationService).QuoteAsync(companyId, request.PriceMode,
+            request.Lines.Select(l => new InvoiceQuoteLine(l.Quantity, l.UnitPrice, l.DiscountPercent, l.TaxDefinitionId)).ToList());
+        if (quote is null) return BadRequest(_localizer["TaxCodeRequired"].Value);
+
+        var currency = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.FunctionalCurrency).FirstAsync();
+        var t = quote.Totals;
+        return Ok(new InvoiceQuoteResponse(
+            quote.Lines.Select(a => new InvoiceQuoteLineResponse(
+                a.AmountBeforeDiscount, a.DiscountAmount, a.NetAmount, a.TaxAmount, a.GrossAmount, a.UnitPriceNet, a.UnitPriceGross)).ToList(),
+            new InvoiceAmountTotals(t.AmountBeforeDiscount, t.DiscountAmount, t.NetAmount, t.TaxAmount, t.GrossAmount),
+            quote.TaxBreakdown.Select(b => new InvoiceTaxBreakdownLine(b.TaxDefinitionId, b.NetAmount, b.TaxAmount, b.GrossAmount)).ToList(),
+            AmountInWords.ToWords(t.GrossAmount, currency, CultureInfo.CurrentUICulture)));
     }
 
     // A4 (v2 release): there is deliberately no DELETE route on this controller — a posted
@@ -285,7 +312,7 @@ public class InvoicesController : ControllerBase
     // existing tests, re-run after this refactor to confirm). Returns either the built lines +
     // total, or a ready-to-return ActionResult (BadRequest) the caller should return immediately.
     private async Task<(List<InvoiceLine>? Lines, decimal Total, ActionResult? Error)> BuildAndValidateLinesAsync(
-        Guid companyId, List<CreateInvoiceLineRequest> requestLines, DocumentType documentType, bool isVatRegistered)
+        Guid companyId, List<CreateInvoiceLineRequest> requestLines, DocumentType documentType, bool isVatRegistered, Guid? partnerId = null)
     {
         if (requestLines.Count == 0)
         {
@@ -304,6 +331,14 @@ public class InvoicesController : ControllerBase
         }
 
         var defaultRevenueAccountId = defaults.RevenueAccountId;
+        // Client request 2026-11-23: the customer's own line defaults, used after the line's and
+        // the item's (and the item category's) and before the company's.
+        var partnerDefaults = partnerId is { } customerId
+            ? await _db.Partners.AsNoTracking()
+                .Where(p => p.Id == customerId && p.CompanyId == companyId)
+                .Select(p => new { p.DefaultSaleTaxDefinitionId, p.DefaultRevenueAccountId })
+                .FirstOrDefaultAsync()
+            : null;
 
         // A down-payment invoice must credit a liability account (deposits aren't earned revenue
         // yet), not the normal Revenue account — forced here regardless of any RevenueAccountId
@@ -349,7 +384,7 @@ public class InvoicesController : ControllerBase
 
             // B6: an explicit line tax code wins; otherwise the referenced item's own default,
             // if it has one and set one.
-            var taxDefinitionId = line.TaxDefinitionId ?? item?.DefaultTaxDefinitionId;
+            var taxDefinitionId = line.TaxDefinitionId ?? item?.DefaultTaxDefinitionId ?? partnerDefaults?.DefaultSaleTaxDefinitionId;
 
             // C2: a VAT-registered company must tag every line with a real tax code — the old
             // empty "no tax" option silently posted with no VAT code at all, invisible to the
@@ -380,6 +415,7 @@ public class InvoicesController : ControllerBase
                 ? depositsAccountId
                 : line.RevenueAccountId ?? item?.DefaultRevenueAccountId
                     ?? (item?.CategoryId is { } categoryId ? categoriesById.GetValueOrDefault(categoryId)?.RevenueAccountId : null)
+                    ?? partnerDefaults?.DefaultRevenueAccountId
                     ?? defaultRevenueAccountId;
             if (!validAccountIds.Contains(revenueAccountId))
             {
@@ -389,6 +425,17 @@ public class InvoicesController : ControllerBase
             if (StockService.ResolveUnit(item, line.UnitName) is not { } unit)
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["LineUnitUnknown"].Value, line.UnitName)));
+            }
+            // A line with no item keeps whatever unit the user typed (kg, orë, …) at factor 1: it
+            // moves no stock, the unit is only printed.
+            if (item is null && !string.IsNullOrWhiteSpace(line.UnitName))
+            {
+                var freeUnit = line.UnitName.Trim();
+                if (freeUnit.Length > 32)
+                {
+                    return (null, 0m, BadRequest(_localizer["LineUnitTooLong"].Value));
+                }
+                unit = (freeUnit, 1m);
             }
 
             total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
@@ -475,16 +522,11 @@ public class InvoicesController : ControllerBase
         }
     }
 
-    // Track A (v2 release): a SalesReturn is a correction of a specific prior invoice, unlike
-    // CreditNote/DebitNote/DownPayment where OriginalInvoiceId stays optional. Extracted
-    // alongside BuildAndValidateLinesAsync for the same reason — Update()'s Draft path reuses it.
+    // The original invoice is optional for every document type, SalesReturn included (client
+    // request 2026-11-23: a return need not be linked to an invoice). When one is given it must
+    // belong to the company. Update()'s Draft path reuses this.
     private async Task<ActionResult?> ValidateOriginalInvoiceAsync(Guid companyId, DocumentType documentType, Guid? originalInvoiceId)
     {
-        if (documentType == DocumentType.SalesReturn && originalInvoiceId is null)
-        {
-            return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
-        }
-
         if (originalInvoiceId is { } id)
         {
             var originalExists = await _db.Invoices.AsNoTracking().VisibleTo(_access)
@@ -521,7 +563,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvalidCustomerPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType, company.IsVatRegistered);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType, company.IsVatRegistered, request.PartnerId);
         if (linesError is not null)
         {
             return linesError;
@@ -548,7 +590,7 @@ public class InvoicesController : ControllerBase
             CompanyId = companyId,
             PartnerId = request.PartnerId,
             IssueDate = request.IssueDate,
-            DueDate = request.DueDate,
+            DueDate = request.DueDate ?? request.IssueDate,
             DocumentType = request.DocumentType,
             OriginalInvoiceId = request.OriginalInvoiceId,
             PriceMode = request.PriceMode,
@@ -742,7 +784,7 @@ public class InvoicesController : ControllerBase
             return BadRequest(_localizer["InvalidCustomerPartner"].Value);
         }
 
-        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType, company.IsVatRegistered);
+        var (lines, _, linesError) = await BuildAndValidateLinesAsync(companyId, request.Lines, request.DocumentType, company.IsVatRegistered, request.PartnerId);
         if (linesError is not null)
         {
             return linesError;
@@ -777,7 +819,7 @@ public class InvoicesController : ControllerBase
 
         invoice.PartnerId = request.PartnerId;
         invoice.IssueDate = request.IssueDate;
-        invoice.DueDate = request.DueDate;
+        invoice.DueDate = request.DueDate ?? request.IssueDate;
         invoice.DocumentType = request.DocumentType;
         invoice.OriginalInvoiceId = request.OriginalInvoiceId;
         invoice.InternalNotes = request.InternalNotes;
@@ -1664,13 +1706,9 @@ public class InvoicesController : ControllerBase
         // original invoice still has un-returned. Checked here, after invoice.Post() already
         // succeeded, before numbering/SaveChangesAsync — nothing is persisted if this fails,
         // same "deferred to post time" discipline as tax-definition validity and lock dates.
-        if (invoice.DocumentType == DocumentType.SalesReturn)
+        // A return with no original invoice has no cap: there is nothing to measure it against.
+        if (invoice.DocumentType == DocumentType.SalesReturn && invoice.OriginalInvoiceId is { } originalInvoiceId)
         {
-            if (invoice.OriginalInvoiceId is not { } originalInvoiceId)
-            {
-                return BadRequest(_localizer["OriginalInvoiceRequiredForSalesReturn"].Value);
-            }
-
             if (_db.Database.SupportsRowLocking())
             {
                 await _db.Database.ExecuteSqlInterpolatedAsync(
@@ -1932,14 +1970,15 @@ public class InvoicesController : ControllerBase
             .ToDictionaryAsync(u => u.Id, u => u.FullName ?? u.Email ?? string.Empty);
     }
 
-    private static InvoiceLineResponse LineResponse(InvoiceLine l, DocumentLineAmounts? amounts) => new(
+    private static InvoiceLineResponse LineResponse(InvoiceLine l, DocumentLineAmounts? amounts, Dictionary<Guid, string>? itemCodes = null) => new(
         l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.RevenueAccountId, l.DiscountPercent, l.ItemId, l.UnitName, l.UnitFactor, l.LotNumber,
         l.SalesOrderLineId, l.DeliveryLineId,
-        amounts?.AmountBeforeDiscount, amounts?.DiscountAmount, amounts?.NetAmount, amounts?.TaxAmount, amounts?.GrossAmount);
+        amounts?.AmountBeforeDiscount, amounts?.DiscountAmount, amounts?.NetAmount, amounts?.TaxAmount, amounts?.GrossAmount,
+        l.ItemId is { } itemId ? itemCodes?.GetValueOrDefault(itemId) : null, amounts?.UnitPriceNet, amounts?.UnitPriceGross);
 
     private static InvoiceResponse ToResponse(
         Invoice i, Dictionary<Guid, string>? partnerNames = null, Func<InvoiceLine, DocumentLineAmounts>? lineAmounts = null,
-        Dictionary<Guid, string>? userNames = null)
+        Dictionary<Guid, string>? userNames = null, Dictionary<Guid, string>? itemCodes = null, string? currency = null)
     {
         var amounts = lineAmounts is null ? null : i.Lines.ToDictionary(l => l.Id, lineAmounts);
         InvoiceAmountTotals? totals = null;
@@ -1951,7 +1990,7 @@ public class InvoicesController : ControllerBase
             breakdown = i.Lines
                 .Where(l => l.TaxDefinitionId != null)
                 .GroupBy(l => l.TaxDefinitionId!.Value)
-                .Select(g => new InvoiceTaxBreakdownLine(g.Key, g.Sum(l => amounts[l.Id].NetAmount), g.Sum(l => amounts[l.Id].TaxAmount)))
+                .Select(g => new InvoiceTaxBreakdownLine(g.Key, g.Sum(l => amounts[l.Id].NetAmount), g.Sum(l => amounts[l.Id].TaxAmount), g.Sum(l => amounts[l.Id].GrossAmount)))
                 .ToList();
         }
 
@@ -1966,7 +2005,7 @@ public class InvoicesController : ControllerBase
             i.DocumentType,
             i.OriginalInvoiceId,
             i.JournalEntryId,
-            i.Lines.Select(l => LineResponse(l, amounts?.GetValueOrDefault(l.Id))).ToList(),
+            i.Lines.Select(l => LineResponse(l, amounts?.GetValueOrDefault(l.Id), itemCodes)).ToList(),
             i.InternalNotes,
             i.PriceMode,
             i.PaymentTermDays,
@@ -1976,6 +2015,7 @@ public class InvoicesController : ControllerBase
             i.CreatedByUserId,
             i.CreatedByUserId is { } creator ? userNames?.GetValueOrDefault(creator) : null,
             totals,
-            breakdown);
+            breakdown,
+            totals is not null && currency is not null ? AmountInWords.ToWords(totals.GrossAmount, currency, CultureInfo.CurrentUICulture) : null);
     }
 }

@@ -34,6 +34,7 @@ const ForgotPassword = lazy(() => import("@/pages/PasswordReset").then(m => ({ d
 const ResetPassword = lazy(() => import("@/pages/PasswordReset").then(m => ({ default: m.ResetPassword })));
 const BillDetail = lazy(() => import("@/pages/bills/BillDetail").then(m => ({ default: m.BillDetail })));
 const InvoiceDetail = lazy(() => import("@/pages/invoicing/InvoiceDetail").then(m => ({ default: m.InvoiceDetail })));
+const InvoiceEditorPage = lazy(() => import("@/pages/invoicing/InvoiceEditorPage").then(m => ({ default: m.InvoiceEditorPage })));
 const BankStatementDetail = lazy(() => import("@/pages/bank/BankStatementDetail").then(m => ({ default: m.BankStatementDetail })));
 const PayrollRunDetail = lazy(() => import("@/pages/payroll/PayrollRunDetail").then(m => ({ default: m.PayrollRunDetail })));
 const EmployeeDetail = lazy(() => import("@/pages/hr/EmployeeDetail").then(m => ({ default: m.EmployeeDetail })));
@@ -61,6 +62,12 @@ const LeaseDetail = lazy(() => import("@/pages/rentals/LeaseDetail").then(m => (
 function InstanceRoute({ Component }: { Component: ComponentType }) {
   const { id } = useParams();
   return <Component key={id} />;
+}
+
+// The invoice editor, remounted per invoice like InstanceRoute.
+function InvoiceEditorRoute({ kind }: { kind: "invoice" | "salesReturn" }) {
+  const { id } = useParams();
+  return <InvoiceEditorPage key={id} kind={kind} />;
 }
 
 const queryClient = createAppQueryClient();
@@ -122,6 +129,11 @@ export function App() {
                           }
                         />
                       ))}
+                      <Route path="/invoicing/new" element={<ModuleGate module="sales"><InvoiceEditorPage kind="invoice" /></ModuleGate>} />
+                      <Route path="/proforma/new" element={<ModuleGate module="sales"><InvoiceEditorPage kind="proforma" /></ModuleGate>} />
+                      <Route path="/sales-returns/new" element={<ModuleGate module="sales"><InvoiceEditorPage kind="salesReturn" /></ModuleGate>} />
+                      <Route path="/invoicing/:id/edit" element={<ModuleGate module="sales"><InvoiceEditorRoute kind="invoice" /></ModuleGate>} />
+                      <Route path="/sales-returns/:id/edit" element={<ModuleGate module="sales"><InvoiceEditorRoute kind="salesReturn" /></ModuleGate>} />
                       <Route path="/invoicing/:id" element={<ModuleGate module="sales"><InstanceRoute Component={InvoiceDetail} /></ModuleGate>} />
                       <Route path="/bank-statements/:id" element={<ModuleGate module="accounting"><InstanceRoute Component={BankStatementDetail} /></ModuleGate>} />
                       <Route path="/sales-returns/:id" element={<ModuleGate module="sales"><InstanceRoute Component={InvoiceDetail} /></ModuleGate>} />

@@ -25,7 +25,7 @@ export const NAV_LAYOUT_BY_BUSINESS_TYPE: Record<BusinessTypeValue, NavLayout> =
     lead: {
       pos: ["/pos", "/pos/floors", "/pos/menu-setup", "/pos/customer-orders", "/pos/usage-variance", "/pos/reports"],
       items: ["/items", "/stock", "/stock-documents", "/warehouses"],
-      purchases: ["/purchase-orders", "/bills", "/vendors"],
+      purchases: ["/purchase-orders", "/bills"],
     },
     visible: { pos: 6 },
   },
@@ -79,7 +79,7 @@ export const NAV_LAYOUT_BY_BUSINESS_TYPE: Record<BusinessTypeValue, NavLayout> =
     categories: ["projects", "purchases", "sales", "items", "customers"],
     lead: {
       projects: ["/construction"],
-      purchases: ["/bills", "/purchase-orders", "/vendors"],
+      purchases: ["/bills", "/purchase-orders"],
     },
   },
 

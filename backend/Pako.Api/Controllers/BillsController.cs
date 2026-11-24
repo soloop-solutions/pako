@@ -236,7 +236,18 @@ public class BillsController : ControllerBase
             return NotFound();
         }
 
-        return Ok(ToResponse(bill));
+        // Line and document amounts from the posting calculator, so the bill page shows the same
+        // net / VAT / total the ledger gets and never computes money itself.
+        var taxIds = bill.Lines.Where(l => l.TaxDefinitionId != null).Select(l => l.TaxDefinitionId!.Value).Distinct().ToList();
+        var taxes = await _db.TaxDefinitions.AsNoTracking().Include(t => t.RepartitionLines)
+            .Where(t => t.CompanyId == companyId && taxIds.Contains(t.Id))
+            .ToDictionaryAsync(t => t.Id);
+        DocumentLineAmounts LineAmounts(BillLine line) => DocumentLineCalculator.Amounts(
+            line.Quantity, line.UnitPrice, line.DiscountPercent,
+            line.TaxDefinitionId is { } taxId ? taxes.GetValueOrDefault(taxId) : null,
+            _taxComputationService, bill.PriceMode);
+
+        return Ok(ToResponse(bill, lineAmounts: LineAmounts));
     }
 
     // A4 (v2 release): mirror of InvoicesController.Discard — no DELETE route exists on this
@@ -302,6 +313,12 @@ public class BillsController : ControllerBase
         }
 
         var defaultExpenseAccountId = defaults.ExpenseAccountId;
+        // Client request 2026-11-23: the vendor's own line defaults, used after the line's and the
+        // item's (and the item category's) and before the company's.
+        var partnerDefaults = await _db.Partners.AsNoTracking()
+            .Where(p => p.Id == partnerId && p.CompanyId == companyId)
+            .Select(p => new { p.DefaultPurchaseTaxDefinitionId, p.DefaultExpenseAccountId })
+            .FirstOrDefaultAsync();
 
         // B6: an item with no default of its own falls back to the company's default — see
         // InvoicesController.BuildAndValidateLinesAsync's identical comment for the reasoning.
@@ -343,7 +360,7 @@ public class BillsController : ControllerBase
                 return (null, 0m, BadRequest(_localizer["LineDiscountOutOfRange"].Value));
             }
 
-            var taxDefinitionId = line.TaxDefinitionId ?? item?.DefaultTaxDefinitionId;
+            var taxDefinitionId = line.TaxDefinitionId ?? item?.DefaultTaxDefinitionId ?? partnerDefaults?.DefaultPurchaseTaxDefinitionId;
 
             // C2: same rule as InvoicesController.Create — see its comment.
             if (isVatRegistered && taxDefinitionId is null)
@@ -367,7 +384,8 @@ public class BillsController : ControllerBase
             // A stock-tracked item's line goes to its stock account (it's forced there at posting too).
             var expenseAccountId = item is not null && stockAccounts.TryGetValue(item.Id, out var stockAccount)
                 ? stockAccount.InventoryAccountId
-                : line.ExpenseAccountId ?? item?.DefaultExpenseAccountId ?? category?.ExpenseAccountId ?? defaultExpenseAccountId;
+                : line.ExpenseAccountId ?? item?.DefaultExpenseAccountId ?? category?.ExpenseAccountId
+                    ?? partnerDefaults?.DefaultExpenseAccountId ?? defaultExpenseAccountId;
             if (!validAccountIds.Contains(expenseAccountId))
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["ExpenseAccountNotBelongToCompany"], expenseAccountId)));
@@ -381,6 +399,17 @@ public class BillsController : ControllerBase
             if (StockService.ResolveUnit(item, line.UnitName) is not { } unit)
             {
                 return (null, 0m, BadRequest(string.Format(_localizer["LineUnitUnknown"].Value, line.UnitName)));
+            }
+            // A line with no item keeps whatever unit the user typed (kg, orë, …) at factor 1: it
+            // moves no stock, the unit is only printed.
+            if (item is null && !string.IsNullOrWhiteSpace(line.UnitName))
+            {
+                var freeUnit = line.UnitName.Trim();
+                if (freeUnit.Length > 32)
+                {
+                    return (null, 0m, BadRequest(_localizer["LineUnitTooLong"].Value));
+                }
+                unit = (freeUnit, 1m);
             }
 
             total += line.Quantity * line.UnitPrice * (1 - discountPercent / 100m);
@@ -412,21 +441,24 @@ public class BillsController : ControllerBase
         return (lines, total, null);
     }
 
-    // Track A (v2 release): mirror of InvoicesController.ValidateOriginalInvoiceAsync.
-    private async Task<ActionResult?> ValidateOriginalBillAsync(Guid companyId, DocumentType documentType, Guid? originalBillId)
+    // Mirror of InvoicesController.ValidateOriginalInvoiceAsync: the original is optional, a
+    // PurchaseReturn included. When one is given it must belong to the company and be a Bill from
+    // the same vendor (a return against a credit note or another vendor's bill cannot post).
+    private async Task<ActionResult?> ValidateOriginalBillAsync(Guid companyId, DocumentType documentType, Guid? originalBillId, Guid partnerId)
     {
-        if (documentType == DocumentType.PurchaseReturn && originalBillId is null)
-        {
-            return BadRequest(_localizer["OriginalBillRequiredForPurchaseReturn"].Value);
-        }
-
         if (originalBillId is { } id)
         {
-            var originalExists = await _db.Bills.AsNoTracking().VisibleTo(_access)
-                .AnyAsync(b => b.Id == id && b.CompanyId == companyId);
-            if (!originalExists)
+            var original = await _db.Bills.AsNoTracking().VisibleTo(_access)
+                .Where(b => b.Id == id && b.CompanyId == companyId)
+                .Select(b => new { b.PartnerId, b.DocumentType })
+                .FirstOrDefaultAsync();
+            if (original is null)
             {
                 return BadRequest(_localizer["OriginalBillNotBelongToCompany"].Value);
+            }
+            if (original.PartnerId != partnerId || original.DocumentType != DocumentType.Bill)
+            {
+                return BadRequest(_localizer["OriginalBillMustMatchVendorAndType"].Value);
             }
         }
 
@@ -462,7 +494,7 @@ public class BillsController : ControllerBase
             return linesError;
         }
 
-        var originalBillError = await ValidateOriginalBillAsync(companyId, request.DocumentType, request.OriginalBillId);
+        var originalBillError = await ValidateOriginalBillAsync(companyId, request.DocumentType, request.OriginalBillId, request.PartnerId);
         if (originalBillError is not null)
         {
             return originalBillError;
@@ -480,7 +512,7 @@ public class BillsController : ControllerBase
             PartnerId = request.PartnerId,
             VendorReference = request.VendorReference,
             IssueDate = request.IssueDate,
-            DueDate = request.DueDate,
+            DueDate = request.DueDate ?? request.IssueDate,
             DocumentType = request.DocumentType,
             OriginalBillId = request.OriginalBillId,
             PriceMode = request.PriceMode,
@@ -616,7 +648,7 @@ public class BillsController : ControllerBase
             return linesError;
         }
 
-        var originalBillError = await ValidateOriginalBillAsync(companyId, request.DocumentType, request.OriginalBillId);
+        var originalBillError = await ValidateOriginalBillAsync(companyId, request.DocumentType, request.OriginalBillId, request.PartnerId);
         if (originalBillError is not null)
         {
             return originalBillError;
@@ -640,7 +672,7 @@ public class BillsController : ControllerBase
         bill.PartnerId = request.PartnerId;
         bill.VendorReference = request.VendorReference;
         bill.IssueDate = request.IssueDate;
-        bill.DueDate = request.DueDate;
+        bill.DueDate = request.DueDate ?? request.IssueDate;
         bill.DocumentType = request.DocumentType;
         bill.OriginalBillId = request.OriginalBillId;
         bill.InternalNotes = request.InternalNotes;
@@ -1238,13 +1270,9 @@ public class BillsController : ControllerBase
         // A2 (v2 release): mirror of InvoicesController.PostDraftInvoiceAsync's SalesReturn check —
         // goods returned to a supplier must not exceed what the original bill still has
         // un-returned. Checked after bill.Post() succeeded, before numbering/SaveChangesAsync.
-        if (bill.DocumentType == DocumentType.PurchaseReturn)
+        // A return with no original bill has no cap: there is nothing to measure it against.
+        if (bill.DocumentType == DocumentType.PurchaseReturn && bill.OriginalBillId is { } originalBillId)
         {
-            if (bill.OriginalBillId is not { } originalBillId)
-            {
-                return BadRequest(_localizer["OriginalBillRequiredForPurchaseReturn"].Value);
-            }
-
             if (_db.Database.SupportsRowLocking())
             {
                 await _db.Database.ExecuteSqlInterpolatedAsync(
@@ -1465,7 +1493,28 @@ public class BillsController : ControllerBase
             .ToDictionaryAsync(u => u.Id, u => u.FullName ?? u.Email ?? string.Empty);
     }
 
-    private static BillResponse ToResponse(Bill b, Dictionary<Guid, string>? partnerNames = null, Dictionary<Guid, string>? userNames = null) => new(
+    private static BillResponse ToResponse(Bill b, Dictionary<Guid, string>? partnerNames = null, Dictionary<Guid, string>? userNames = null,
+        Func<BillLine, DocumentLineAmounts>? lineAmounts = null)
+    {
+        var amounts = lineAmounts is null ? null : b.Lines.ToDictionary(l => l.Id, lineAmounts);
+        InvoiceAmountTotals? totals = null;
+        List<InvoiceTaxBreakdownLine>? breakdown = null;
+        if (amounts is not null)
+        {
+            var sum = DocumentLineAmounts.Sum(amounts.Values);
+            totals = new InvoiceAmountTotals(sum.AmountBeforeDiscount, sum.DiscountAmount, sum.NetAmount, sum.TaxAmount, sum.GrossAmount);
+            breakdown = b.Lines
+                .Where(l => l.TaxDefinitionId != null)
+                .GroupBy(l => l.TaxDefinitionId!.Value)
+                .Select(g => new InvoiceTaxBreakdownLine(g.Key, g.Sum(l => amounts[l.Id].NetAmount), g.Sum(l => amounts[l.Id].TaxAmount)))
+                .ToList();
+        }
+
+        return ToResponseCore(b, partnerNames, userNames, amounts, totals, breakdown);
+    }
+
+    private static BillResponse ToResponseCore(Bill b, Dictionary<Guid, string>? partnerNames, Dictionary<Guid, string>? userNames,
+        Dictionary<Guid, DocumentLineAmounts>? amounts, InvoiceAmountTotals? totals, List<InvoiceTaxBreakdownLine>? breakdown) => new(
         b.Id,
         b.PartnerId,
         partnerNames?.GetValueOrDefault(b.PartnerId),
@@ -1476,11 +1525,18 @@ public class BillsController : ControllerBase
         b.DocumentType,
         b.OriginalBillId,
         b.JournalEntryId,
-        b.Lines.Select(l => new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId, l.PurchaseOrderLineId, l.UnitName, l.UnitFactor, l.LotNumber, l.ExpiryDate, l.CostCodeId)).ToList(),
+        b.Lines.Select(l =>
+        {
+            var a = amounts?.GetValueOrDefault(l.Id);
+            return new BillLineResponse(l.Id, l.Description, l.Quantity, l.UnitPrice, l.TaxDefinitionId, l.ExpenseAccountId, l.DiscountPercent, l.ItemId, l.PurchaseOrderLineId, l.UnitName, l.UnitFactor, l.LotNumber, l.ExpiryDate, l.CostCodeId,
+                a?.AmountBeforeDiscount, a?.DiscountAmount, a?.NetAmount, a?.TaxAmount, a?.GrossAmount);
+        }).ToList(),
         b.InternalNotes,
         b.PriceMode,
         b.WarehouseId,
         b.ProjectId,
         b.CreatedByUserId,
-        b.CreatedByUserId is { } creator ? userNames?.GetValueOrDefault(creator) : null);
+        b.CreatedByUserId is { } creator ? userNames?.GetValueOrDefault(creator) : null,
+        totals,
+        breakdown);
 }

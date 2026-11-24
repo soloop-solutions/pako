@@ -27,7 +27,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
 import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { BillDocumentType, billDocumentTypeLabel, documentStateBadgeVariant } from "@/lib/document-types";
-import { computeLine } from "@/lib/tax-enums";
+import { PriceMode } from "@/lib/tax-enums";
 import { cn } from "@/lib/utils";
 import { ActivityTimeline } from "@/components/shared/ActivityTimeline";
 import { EntityHistory } from "@/components/shared/EntityHistory";
@@ -218,16 +218,10 @@ export function BillDetail() {
     }
   }
 
-  let total = 0;
-  let estimatedNet = 0;
-  let estimatedTax = 0;
-  for (const line of bill.lines) {
-    const enteredAmount = line.quantity * line.unitPrice * (1 - (line.discountPercent ?? 0) / 100);
-    const { net, tax, gross } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), bill.priceMode);
-    total += gross;
-    estimatedNet += net;
-    estimatedTax += tax;
-  }
+  // Every amount comes from the server (DocumentLineCalculator), never computed here.
+  const totals = bill.totals;
+  const money = (value: number | undefined) => (value ?? 0).toFixed(2);
+  const priceHeaderId = bill.priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat";
 
   return (
     <div className="flex flex-col gap-6">
@@ -320,38 +314,34 @@ export function BillDetail() {
               <TableRow>
                 <TableHead>{intl.formatMessage({ id: "billForm.description" })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "billForm.qty" })}</TableHead>
-                <TableHead className="text-right">{intl.formatMessage({ id: "billForm.priceInclVat" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: priceHeaderId })}</TableHead>
                 <TableHead className="text-right">{intl.formatMessage({ id: "billForm.discountPercent" })}</TableHead>
+                <TableHead className="text-right">{intl.formatMessage({ id: "documentLine.netValue" })}</TableHead>
                 {activeCompany.isVatRegistered && <TableHead>{intl.formatMessage({ id: "billForm.tax" })}</TableHead>}
-                {activeCompany.isVatRegistered && <TableHead className="text-right">{intl.formatMessage({ id: "billForm.net" })}</TableHead>}
                 {activeCompany.isVatRegistered && <TableHead className="text-right">{intl.formatMessage({ id: "billForm.vat" })}</TableHead>}
                 <TableHead className="text-right">{intl.formatMessage({ id: "common.total" })}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {bill.lines.map((line) => {
-                const enteredAmount = line.quantity * line.unitPrice * (1 - line.discountPercent / 100);
-                const { net, tax, gross } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), bill.priceMode);
-                return (
-                  <TableRow key={line.id}>
-                    <TableCell>{line.description}</TableCell>
-                    <TableCell className="text-right">{line.quantity}</TableCell>
-                    <TableCell className="text-right">{line.unitPrice.toFixed(2)}</TableCell>
-                    <TableCell className="text-right">{line.discountPercent.toFixed(2)}</TableCell>
-                    {activeCompany.isVatRegistered && <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>}
-                    {activeCompany.isVatRegistered && <TableCell className="text-right">{net.toFixed(2)}</TableCell>}
-                    {activeCompany.isVatRegistered && <TableCell className="text-right">{tax.toFixed(2)}</TableCell>}
-                    <TableCell className="text-right">{gross.toFixed(2)}</TableCell>
-                  </TableRow>
-                );
-              })}
+              {bill.lines.map((line) => (
+                <TableRow key={line.id}>
+                  <TableCell>{line.description}</TableCell>
+                  <TableCell className="text-right tabular-nums">{line.unitName ? `${line.quantity} ${line.unitName}` : line.quantity}</TableCell>
+                  <TableCell className="text-right tabular-nums">{line.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{line.discountPercent.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{money(line.netAmount)}</TableCell>
+                  {activeCompany.isVatRegistered && <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>}
+                  {activeCompany.isVatRegistered && <TableCell className="text-right tabular-nums">{money(line.taxAmount)}</TableCell>}
+                  <TableCell className="text-right tabular-nums">{money(line.grossAmount)}</TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
 
           <div className="flex flex-col items-end gap-1 text-sm">
-            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "billDetail.netExclVat" }, { amount: estimatedNet.toFixed(2) })}</p>}
-            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "billDetail.vatAmount" }, { amount: estimatedTax.toFixed(2) })}</p>}
-            <p className="font-medium">{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: total.toFixed(2) })}</p>
+            <p>{intl.formatMessage({ id: "billDetail.netExclVat" }, { amount: money(totals?.netAmount) })}</p>
+            {activeCompany.isVatRegistered && <p>{intl.formatMessage({ id: "billDetail.vatAmount" }, { amount: money(totals?.taxAmount) })}</p>}
+            <p className="font-medium">{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: money(totals?.grossAmount) })}</p>
           </div>
 
           {bill.state === "Draft" && canApprove("purchases") && (

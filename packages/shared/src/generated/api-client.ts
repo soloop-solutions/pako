@@ -10170,6 +10170,49 @@ export class PakoApiClient {
     /**
      * @return OK
      */
+    quoteInvoice(companyId: string, body: InvoiceQuoteRequest): Promise<InvoiceQuoteResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/quote";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processQuoteInvoice(_response);
+        });
+    }
+
+    protected processQuoteInvoice(response: Response): Promise<InvoiceQuoteResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as InvoiceQuoteResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<InvoiceQuoteResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
     discard2(companyId: string, id: string): Promise<void> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/invoices/{id}/discard";
         if (companyId === undefined || companyId === null)
@@ -32063,6 +32106,11 @@ export interface BillLineResponse {
     lotNumber?: string | undefined;
     expiryDate?: string | undefined;
     costCodeId?: string | undefined;
+    amountBeforeDiscount?: number | undefined;
+    discountAmount?: number | undefined;
+    netAmount?: number | undefined;
+    taxAmount?: number | undefined;
+    grossAmount?: number | undefined;
 
     [key: string]: any;
 }
@@ -32085,6 +32133,8 @@ export interface BillResponse {
     projectId?: string | undefined;
     createdByUserId?: string | undefined;
     createdByName?: string | undefined;
+    totals?: InvoiceAmountTotals | undefined;
+    taxBreakdown?: InvoiceTaxBreakdownLine[] | undefined;
 
     [key: string]: any;
 }
@@ -32614,7 +32664,7 @@ export interface CreateBillRequest {
     partnerId: string;
     vendorReference: string | undefined;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateBillLineRequest[];
     documentType?: number;
     originalBillId?: string | undefined;
@@ -32694,7 +32744,7 @@ export interface CreateInvoicePaymentRequest {
 export interface CreateInvoiceRequest {
     partnerId: string;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateInvoiceLineRequest[];
     documentType?: number;
     originalInvoiceId?: string | undefined;
@@ -32826,6 +32876,11 @@ export interface CreatePartnerRequest {
     postalCode?: string | undefined;
     country?: string | undefined;
     priceTier?: number | undefined;
+    defaultSaleTaxDefinitionId?: string | undefined;
+    defaultPurchaseTaxDefinitionId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    vatNumber?: string | undefined;
 
     [key: string]: any;
 }
@@ -34041,6 +34096,46 @@ export interface InvoiceLineResponse {
     netAmount?: number | undefined;
     taxAmount?: number | undefined;
     grossAmount?: number | undefined;
+    itemCode?: string | undefined;
+    unitPriceNet?: number | undefined;
+    unitPriceGross?: number | undefined;
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteLineRequest {
+    quantity: number;
+    unitPrice: number;
+    discountPercent: number;
+    taxDefinitionId: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteLineResponse {
+    amountBeforeDiscount: number;
+    discountAmount: number;
+    netAmount: number;
+    taxAmount: number;
+    grossAmount: number;
+    unitPriceNet: number;
+    unitPriceGross: number;
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteRequest {
+    priceMode: number;
+    lines: InvoiceQuoteLineRequest[];
+
+    [key: string]: any;
+}
+
+export interface InvoiceQuoteResponse {
+    lines: InvoiceQuoteLineResponse[];
+    totals: InvoiceAmountTotals;
+    taxBreakdown: InvoiceTaxBreakdownLine[];
+    totalInWords: string;
 
     [key: string]: any;
 }
@@ -34067,6 +34162,7 @@ export interface InvoiceResponse {
     createdByName?: string | undefined;
     totals?: InvoiceAmountTotals | undefined;
     taxBreakdown?: InvoiceTaxBreakdownLine[] | undefined;
+    totalInWords?: string | undefined;
 
     [key: string]: any;
 }
@@ -34075,6 +34171,7 @@ export interface InvoiceTaxBreakdownLine {
     taxDefinitionId: string;
     netAmount: number;
     taxAmount: number;
+    grossAmount?: number | undefined;
 
     [key: string]: any;
 }
@@ -35188,6 +35285,11 @@ export interface PartnerResponse {
     postalCode?: string | undefined;
     country?: string | undefined;
     priceTier?: number | undefined;
+    defaultSaleTaxDefinitionId?: string | undefined;
+    defaultPurchaseTaxDefinitionId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    vatNumber?: string | undefined;
 
     [key: string]: any;
 }
@@ -38851,7 +38953,7 @@ export interface UpdateBillRequest {
     partnerId: string;
     vendorReference: string | undefined;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateBillLineRequest[];
     documentType: number;
     originalBillId: string | undefined;
@@ -38930,7 +39032,7 @@ export interface UpdateCompanyUserRequest {
 export interface UpdateInvoiceRequest {
     partnerId: string;
     issueDate: string;
-    dueDate: string;
+    dueDate: string | undefined;
     lines: CreateInvoiceLineRequest[];
     documentType: number;
     originalInvoiceId: string | undefined;
@@ -39036,6 +39138,11 @@ export interface UpdatePartnerRequest {
     postalCode?: string | undefined;
     country?: string | undefined;
     priceTier?: number | undefined;
+    defaultSaleTaxDefinitionId?: string | undefined;
+    defaultPurchaseTaxDefinitionId?: string | undefined;
+    defaultExpenseAccountId?: string | undefined;
+    defaultRevenueAccountId?: string | undefined;
+    vatNumber?: string | undefined;
 
     [key: string]: any;
 }

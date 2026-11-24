@@ -24,7 +24,14 @@ public record CreatePartnerRequest(
     string? PostalCode = null,
     string? Country = null,
     // Client feedback 2026-11: retail or wholesale item prices (null on a request = Retail).
-    PriceTier? PriceTier = null);
+    PriceTier? PriceTier = null,
+    // Client request 2026-11-23: line defaults (VAT code, expense account, revenue account).
+    Guid? DefaultSaleTaxDefinitionId = null,
+    Guid? DefaultPurchaseTaxDefinitionId = null,
+    Guid? DefaultExpenseAccountId = null,
+    Guid? DefaultRevenueAccountId = null,
+    // Client request 2026-11-23: VAT number, required when IsVatRegistered.
+    string? VatNumber = null);
 
 public record UpdatePartnerRequest(
     string Name,
@@ -48,7 +55,14 @@ public record UpdatePartnerRequest(
     string? PostalCode = null,
     string? Country = null,
     // Client feedback 2026-11: retail or wholesale item prices (null on a request = Retail).
-    PriceTier? PriceTier = null);
+    PriceTier? PriceTier = null,
+    // Client request 2026-11-23: line defaults (VAT code, expense account, revenue account).
+    Guid? DefaultSaleTaxDefinitionId = null,
+    Guid? DefaultPurchaseTaxDefinitionId = null,
+    Guid? DefaultExpenseAccountId = null,
+    Guid? DefaultRevenueAccountId = null,
+    // Client request 2026-11-23: VAT number, required when IsVatRegistered.
+    string? VatNumber = null);
 
 public record PartnerResponse(
     Guid Id,
@@ -72,7 +86,14 @@ public record PartnerResponse(
     string? PostalCode = null,
     string? Country = null,
     // Client feedback 2026-11: retail or wholesale item prices (null on a request = Retail).
-    PriceTier? PriceTier = null);
+    PriceTier? PriceTier = null,
+    // Client request 2026-11-23: line defaults (VAT code, expense account, revenue account).
+    Guid? DefaultSaleTaxDefinitionId = null,
+    Guid? DefaultPurchaseTaxDefinitionId = null,
+    Guid? DefaultExpenseAccountId = null,
+    Guid? DefaultRevenueAccountId = null,
+    // Client request 2026-11-23: VAT number, required when IsVatRegistered.
+    string? VatNumber = null);
 
 public record CreditExposureResponse(
     decimal? CreditLimit,

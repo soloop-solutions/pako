@@ -1992,6 +1992,37 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="StockImportVatCodeNotFound" xml:space="preserve"><value>VAT code "{0}" not found.</value></data>
   <data name="StockImportNoFile" xml:space="preserve"><value>No file was uploaded.</value></data>
   <data name="StockImportInvalidFormat" xml:space="preserve"><value>Only .xlsx files are accepted.</value></data>
+  <data name="OriginalBillMustMatchVendorAndType" xml:space="preserve"><value>The original document must be a bill from the same vendor.</value></data>
+  <data name="LineUnitTooLong" xml:space="preserve"><value>A line unit can be at most 32 characters.</value></data>
+  <data name="PartnerDefaultTaxInvalid" xml:space="preserve"><value>The default VAT code must be an active sale (customer) or purchase (vendor) tax code of this company.</value></data>
+  <data name="PartnerDefaultAccountInvalid" xml:space="preserve"><value>The default account must be an active account of this company and not a control account.</value></data>
+  <data name="Pdf_Invoice_Col_Net" xml:space="preserve"><value>Value excl. VAT</value></data>
+  <data name="Pdf_Invoice_Col_UnitPriceInclVat" xml:space="preserve"><value>Price incl. VAT</value></data>
+  <data name="Pdf_Invoice_Col_UnitPriceExclVat" xml:space="preserve"><value>Price excl. VAT</value></data>
+  <data name="Pdf_Invoice_AccountHolder" xml:space="preserve"><value>Account holder</value></data>
+  <data name="Pdf_Invoice_Swift" xml:space="preserve"><value>SWIFT/BIC</value></data>
+  <data name="Pdf_Invoice_StampAndSignature" xml:space="preserve"><value>Stamp and signature</value></data>
+  <data name="PartnerSingleRoleRequired" xml:space="preserve"><value>A partner is either a customer or a supplier, not both. Create a separate supplier record for this business.</value></data>
+  <data name="PartnerVatNumberRequired" xml:space="preserve"><value>The partner is VAT registered: enter its VAT number.</value></data>
+  <data name="PartnerVatNumberTooLong" xml:space="preserve"><value>The VAT number can be at most 64 characters.</value></data>
+  <data name="Pdf_Invoice_Nui" xml:space="preserve"><value>NUI</value></data>
+  <data name="Pdf_Invoice_Col_No" xml:space="preserve"><value>No.</value></data>
+  <data name="Pdf_Invoice_Col_Code" xml:space="preserve"><value>Code</value></data>
+  <data name="Pdf_Invoice_Col_Unit" xml:space="preserve"><value>Unit</value></data>
+  <data name="Pdf_Invoice_Col_DiscountPercent" xml:space="preserve"><value>Disc. %</value></data>
+  <data name="Pdf_Invoice_Col_DiscountAmount" xml:space="preserve"><value>Discount</value></data>
+  <data name="Pdf_Invoice_Col_VatRate" xml:space="preserve"><value>VAT %</value></data>
+  <data name="Pdf_Invoice_Col_VatValue" xml:space="preserve"><value>VAT</value></data>
+  <data name="Pdf_Invoice_Buyer" xml:space="preserve"><value>Buyer</value></data>
+  <data name="Pdf_Invoice_ContactPerson" xml:space="preserve"><value>Contact</value></data>
+  <data name="Pdf_Invoice_Phone" xml:space="preserve"><value>Tel.</value></data>
+  <data name="Pdf_Invoice_VatTable_Rate" xml:space="preserve"><value>VAT rate</value></data>
+  <data name="Pdf_Invoice_VatTable_Base" xml:space="preserve"><value>Taxable base</value></data>
+  <data name="Pdf_Invoice_VatTable_Vat" xml:space="preserve"><value>VAT</value></data>
+  <data name="Pdf_Invoice_VatTable_Total" xml:space="preserve"><value>Total</value></data>
+  <data name="Pdf_Invoice_InWords" xml:space="preserve"><value>In words</value></data>
+  <data name="Pdf_Invoice_DeliveredBy" xml:space="preserve"><value>Delivered by</value></data>
+  <data name="Pdf_Invoice_ReceivedBy" xml:space="preserve"><value>Received by</value></data>
   <data name="CompanyBusinessNumberAlreadyRegistered" xml:space="preserve">
     <value>This business number ({0}) is already registered to another company on PAKO. A company cannot be registered twice; contact the firm or administrator that manages it.</value>
   </data>

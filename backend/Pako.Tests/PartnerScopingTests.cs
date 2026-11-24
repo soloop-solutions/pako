@@ -75,9 +75,17 @@ public class PartnerScopingTests : IAsyncLifetime
             (await companies.Create(new CreateCompanyRequest("Scoped Co"))).Result).Value);
 
         var partners = new PartnersController(db, Localizer, unrestricted);
-        async Task<Guid> CreatePartner(string name, string taxNumber) =>
-            Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>((await partners.Create(company.Id,
-                new CreatePartnerRequest(name, taxNumber, IsCustomer: true, IsVendor: true, IsVatRegistered: true))).Result).Value).Id;
+        async Task<Guid> CreatePartner(string name, string taxNumber)
+        {
+            var id = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>((await partners.Create(company.Id,
+                new CreatePartnerRequest(name, taxNumber, IsCustomer: true, IsVendor: false, IsVatRegistered: true, VatNumber: "33" + taxNumber))).Result).Value).Id;
+            // A legacy partner that is both customer and supplier (created before 2026-11-23, when the
+            // two roles were split) — the scoping rules must still hold for both document kinds.
+            var created = await db.Partners.SingleAsync(x => x.Id == id);
+            created.IsVendor = true;
+            await db.SaveChangesAsync();
+            return id;
+        }
         var partnerA = await CreatePartner("Partner A", "810111111");
         var partnerB = await CreatePartner("Partner B", "810222222");
 
@@ -276,7 +284,7 @@ public class PartnerScopingTests : IAsyncLifetime
         var access = ScopedTo(s, Guid.NewGuid(), s.PartnerA);
 
         var result = await new PartnersController(s.Db, Localizer, access).Update(s.CompanyId, s.PartnerB,
-            new UpdatePartnerRequest("Renamed", null, IsCustomer: true, IsVendor: true));
+            new UpdatePartnerRequest("Renamed", null, IsCustomer: true, IsVendor: false));
 
         Assert.IsType<NotFoundResult>(result.Result);
     }

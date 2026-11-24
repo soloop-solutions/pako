@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, BillResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
@@ -17,12 +17,13 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
 import { useEntityFavorites } from "@/hooks/useEntityFavorites";
-import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
+import { applyItemDefaultsToLine, overriddenItemLineFields, reapplyPartnerDefaults, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 import { isExpenseAccountType } from "@/lib/ledger-enums";
 import { partnerOptionLabel } from "@/lib/partners";
 import { PaymentMethodKind } from "@/lib/payment-method-enums";
 import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
+import { FreeUnitInput } from "@/components/shared/FreeUnitInput";
 import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
@@ -53,8 +54,8 @@ type Line = {
   costCodeId?: string;
 };
 
-function emptyLine(defaultTaxId: string): Line {
-  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", expenseAccountId: "" };
+function emptyLine(defaultTaxId: string, defaultAccountId = ""): Line {
+  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", expenseAccountId: defaultAccountId };
 }
 
 function today() {
@@ -83,12 +84,13 @@ function itemDefaultsSource(item: ItemResponse): ItemDefaultsSource {
   };
 }
 
-function applyItemDefaults(line: Line, item: ItemResponse | undefined, baselineTaxId: string): Line {
+function applyItemDefaults(line: Line, item: ItemResponse | undefined, baselineTaxId: string, baselineAccountId = ""): Line {
   if (!item) return { ...line, itemId: "" };
   const applied = applyItemDefaultsToLine(
     { description: line.description, unitPrice: line.unitPrice, taxDefinitionId: line.taxDefinitionId, accountId: line.expenseAccountId },
     itemDefaultsSource(item),
     baselineTaxId,
+    baselineAccountId,
   );
   return {
     ...line,
@@ -117,7 +119,8 @@ type BillFormProps = {
   // PurchaseReturns.tsx keeps compiling unchanged until it's wired up too.
   items?: ItemResponse[];
   accounts?: AccountResponse[];
-  onCreated: () => void;
+  /** `keepOpen` is true for "Save and add new": the parent refreshes but keeps the dialog open. */
+  onCreated: (options?: { keepOpen?: boolean }) => void;
   // A6 (v2 release): see InvoiceForm.tsx's identical prop for the full rationale — used by the
   // Purchase returns page to fix this form to PurchaseReturn with no type selector shown.
   fixedDocumentType?: number;
@@ -166,15 +169,21 @@ export function BillForm({
   // actually changed anything. A non-VAT-registered vendor, or none selected yet, keeps the
   // exempt baseline.
   const selectedVendor = vendors.find((v) => v.id === partnerId);
+  // Client request 2026-11-23: the vendor's own default VAT code and expense account come first.
   const partnerDrivenTaxId =
-    isVatRegistered && selectedVendor?.isVatRegistered
+    (selectedVendor?.defaultPurchaseTaxDefinitionId && taxes.some((t) => t.id === selectedVendor.defaultPurchaseTaxDefinitionId)
+      ? selectedVendor.defaultPurchaseTaxDefinitionId
+      : undefined) ??
+    (isVatRegistered && selectedVendor?.isVatRegistered
       ? (findTaxByCode(taxes, "B18")?.id ?? defaultTaxId)
-      : defaultTaxId;
+      : defaultTaxId);
+  const partnerDrivenAccountId = selectedVendor?.defaultExpenseAccountId ?? "";
   const [documentType, setDocumentType] = useState<number>(editingBill?.documentType ?? fixedDocumentType ?? BillDocumentType.Bill);
   const [originalBillId, setOriginalBillId] = useState(editingBill?.originalBillId ?? "");
   const [vendorReference, setVendorReference] = useState(editingBill?.vendorReference ?? "");
   const [issueDate, setIssueDate] = useState(editingBill?.issueDate ?? today);
-  const [dueDate, setDueDate] = useState(editingBill?.dueDate ?? today);
+  // Empty = the issue date; the server fills it in (client request 2026-11-23).
+  const [dueDate, setDueDate] = useState(editingBill?.dueDate ?? "");
   const [internalNotes, setInternalNotes] = useState(editingBill?.internalNotes ?? "");
   // docs/INVENTORY_PLAN.md §6: the warehouse stock-tracked lines arrive in ("" = the default one).
   const [warehouseId, setWarehouseId] = useState(editingBill?.warehouseId ?? "");
@@ -210,11 +219,30 @@ export function BillForm({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const clearFieldError = (field: string) => setFieldErrors(prev => { if (!prev[field]) return prev; const next = { ...prev }; delete next[field]; return next; });
   const [submitting, setSubmitting] = useState(false);
+  // Set by the "Save and add new" button just before the form submits.
+  const keepOpenRef = useRef(false);
   const [newPartnerOpen, setNewPartnerOpen] = useState(false);
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
+
+  // A different vendor (or none) re-applies its VAT code and expense account to every line still
+  // showing the previous vendor's — the first line included; lines the user changed, and fields the
+  // line's item sets, stay as they are.
+  const lastPartnerDefaults = useRef({ taxDefinitionId: partnerDrivenTaxId, accountId: partnerDrivenAccountId });
+  useEffect(() => {
+    const previous = lastPartnerDefaults.current;
+    const next = { taxDefinitionId: partnerDrivenTaxId, accountId: partnerDrivenAccountId };
+    if (previous.taxDefinitionId === next.taxDefinitionId && previous.accountId === next.accountId) return;
+    lastPartnerDefaults.current = next;
+    setLines((prev) => prev.map((line) => {
+      const item = items.find((i) => i.id === line.itemId);
+      return reapplyPartnerDefaults(line, (l) => l.expenseAccountId, (l, id) => ({ ...l, expenseAccountId: id }),
+        item ? itemDefaultsSource(item) : undefined, previous, next);
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the vendor's defaults
+  }, [partnerDrivenTaxId, partnerDrivenAccountId]);
 
   // Auto-populate lines from the original bill when creating a Purchase Return. Only fires when:
   // 1. This form is fixed to PurchaseReturn (fixedDocumentType === 2)
@@ -259,10 +287,9 @@ export function BillForm({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only react to originalBillId changes
   }, [originalBillId]);
 
-  // A2 (v2 release): PurchaseReturn joins CreditNote in needing an original-bill picker, but
-  // unlike CreditNote it's REQUIRED, not optional — see requiresOriginalBill below.
+  // PurchaseReturn joins CreditNote in offering an original-bill picker. It is optional for both
+  // (client request 2026-11-23: a return need not be linked to a bill).
   const needsOriginalBill = documentType === BillDocumentType.CreditNote || documentType === BillDocumentType.PurchaseReturn;
-  const requiresOriginalBill = documentType === BillDocumentType.PurchaseReturn;
   const [originalBillCandidates, setOriginalBillCandidates] = useState<BillResponse[]>([]);
   useEffect(() => {
     if (!needsOriginalBill || !partnerId) {
@@ -291,12 +318,12 @@ export function BillForm({
     const item = items.find((i) => i.id === itemId);
     // Another item is no longer the purchase-order line this one billed.
     setLines((prev) => prev.map((line, i) => (i === index
-      ? { ...applyItemDefaults(line, item, partnerDrivenTaxId), unitName: undefined, purchaseOrderLineId: line.itemId === itemId ? line.purchaseOrderLineId : undefined }
+      ? { ...applyItemDefaults(line, item, partnerDrivenTaxId, partnerDrivenAccountId), unitName: undefined, purchaseOrderLineId: line.itemId === itemId ? line.purchaseOrderLineId : undefined }
       : line)));
   }
 
   function addLine() {
-    setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId)]);
+    setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId, partnerDrivenAccountId)]);
   }
 
   function removeLine(index: number) {
@@ -331,9 +358,6 @@ export function BillForm({
     const errors: Record<string, string> = {};
     if (!partnerId) {
       errors.partnerId = intl.formatMessage({ id: "billForm.selectVendorError" });
-    }
-    if (requiresOriginalBill && !originalBillId) {
-      errors.originalBillId = intl.formatMessage({ id: "billForm.originalBillRequiredError" });
     }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
@@ -384,7 +408,7 @@ export function BillForm({
           partnerId,
           vendorReference: vendorReference.trim() || undefined,
           issueDate,
-          dueDate,
+          dueDate: dueDate || undefined,
           documentType,
           originalBillId: originalBillId || undefined,
           lines: lineRequests,
@@ -399,7 +423,7 @@ export function BillForm({
           partnerId,
           vendorReference: vendorReference.trim() || undefined,
           issueDate,
-          dueDate,
+          dueDate: dueDate || undefined,
           documentType,
           originalBillId: originalBillId || undefined,
           priceMode,
@@ -422,13 +446,14 @@ export function BillForm({
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.billCreated" }));
         billDraft.markDone();
-        onCreated();
+        onCreated({ keepOpen: keepOpenRef.current });
       }
     } catch (err) {
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingBill ? "billForm.saveError" : "billForm.createError" }));
       setApiError(msg);
       toast.error(msg);
     } finally {
+      keepOpenRef.current = false;
       setSubmitting(false);
     }
   }
@@ -503,8 +528,8 @@ export function BillForm({
             required
           />
         </FormField>
-        <FormField label={intl.formatMessage({ id: "billForm.dueDate" })} htmlFor="bill-due-date">
-          <Input id="bill-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
+        <FormField label={intl.formatMessage({ id: "billForm.dueDate" })} htmlFor="bill-due-date" hint={dueDate ? undefined : intl.formatMessage({ id: "documentLine.dueDateEmptyHint" })}>
+          <Input id="bill-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
         </FormField>
         <WarehouseField id="bill-warehouse" value={warehouseId} onChange={setWarehouseId} />
         <BillProjectField id="bill-project" value={projectId} onChange={setProjectId} />
@@ -532,7 +557,7 @@ export function BillForm({
 
       {needsOriginalBill && (
         <FormField
-          label={intl.formatMessage({ id: requiresOriginalBill ? "billForm.originalBillRequired" : "billForm.originalBill" })}
+          label={intl.formatMessage({ id: "billForm.originalBill" })}
           htmlFor="bill-original"
           error={fieldErrors.originalBillId}
           className="sm:w-1/2"
@@ -541,10 +566,10 @@ export function BillForm({
             id="bill-original"
             value={originalBillId}
             onChange={(v) => { setOriginalBillId(v); clearFieldError("originalBillId"); }}
-            placeholder={intl.formatMessage({ id: requiresOriginalBill ? "billForm.selectOriginalBill" : "billForm.noOriginalBill" })}
+            placeholder={intl.formatMessage({ id: "billForm.noOriginalBill" })}
             searchPlaceholder={intl.formatMessage({ id: "common.search" })}
             noResultsText={intl.formatMessage({ id: "common.noResults" })}
-            emptyOptionLabel={requiresOriginalBill ? undefined : intl.formatMessage({ id: "billForm.noOriginalBill" })}
+            emptyOptionLabel={intl.formatMessage({ id: "billForm.noOriginalBill" })}
             options={originalBillCandidates.map((bill) => ({
               value: bill.id,
               label: bill.vendorReference ?? bill.id,
@@ -634,7 +659,9 @@ export function BillForm({
                 value={line.quantity}
                 onChange={(event) => updateLine(index, { quantity: event.target.value })}
               />
-              <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
+              {selectedItem
+                ? <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
+                : <FreeUnitInput value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />}
               {selectedItem?.trackLots && (
                 <div className="flex gap-1">
                   <Input className="h-7 text-xs" placeholder={intl.formatMessage({ id: "stock.lot.number" })} aria-label={intl.formatMessage({ id: "stock.lot.number" })}
@@ -761,15 +788,22 @@ export function BillForm({
         </div>
       )}
 
-      <Button type="submit" className="w-fit" disabled={submitting}>
-        {editingBill
-          ? submitting
-            ? intl.formatMessage({ id: "billForm.saving" })
-            : intl.formatMessage({ id: "billForm.saveChanges" })
-          : submitting
-            ? intl.formatMessage({ id: "billForm.creating" })
-            : intl.formatMessage({ id: "billForm.createBill" })}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" className="w-fit" disabled={submitting} onClick={() => { keepOpenRef.current = false; }}>
+          {editingBill
+            ? submitting
+              ? intl.formatMessage({ id: "billForm.saving" })
+              : intl.formatMessage({ id: "billForm.saveChanges" })
+            : submitting
+              ? intl.formatMessage({ id: "billForm.creating" })
+              : intl.formatMessage({ id: "billForm.createBill" })}
+        </Button>
+        {!editingBill && (
+          <Button type="submit" variant="outline" className="w-fit" disabled={submitting} onClick={() => { keepOpenRef.current = true; }}>
+            {intl.formatMessage({ id: "common.saveAndAddNew" })}
+          </Button>
+        )}
+      </div>
 
       {/* Inline vendor creation dialog */}
       <FormDialog

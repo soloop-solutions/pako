@@ -319,6 +319,49 @@ public class EmailDeliveryTests : IAsyncLifetime
         Assert.Null(await new InvoiceDocumentService(c.Db, Tax).LoadAsync(Guid.NewGuid(), invoice.Id));
     }
 
+    // Client request 2026-11-23 (print redesign): the buyer block carries the partner's full address
+    // and contact, the line its unit price on both bases, the VAT table its base and total.
+    [Fact]
+    public async Task InvoiceDocument_CarriesTheBuyersAddressAndContact_AndUnitPricesOnBothBases()
+    {
+        var c = await SeedAsync();
+        var customer = await c.Db.Partners.SingleAsync(p => p.Id == c.Customer);
+        (customer.City, customer.PostalCode, customer.Country, customer.Phone, customer.ContactPerson) = ("Prishtinë", "10000", "Kosovë", "+383 44 111 222", "Arben");
+        await c.Db.SaveChangesAsync();
+        var invoice = await InvoiceAsync(c, c.Customer);
+
+        var document = (await new InvoiceDocumentService(c.Db, Tax).LoadAsync(c.Id, invoice.Id))!;
+
+        Assert.Equal(("Prishtinë", "10000", "Kosovë", "+383 44 111 222", "Arben"),
+            (document.Customer.City, document.Customer.PostalCode, document.Customer.Country, document.Customer.Phone, document.Customer.ContactPerson));
+        var line = Assert.Single(document.Lines);
+        Assert.True(line.Amounts.UnitPriceGross > line.Amounts.UnitPriceNet);
+        var vat = Assert.Single(document.Taxes);
+        Assert.Equal(document.Totals.GrossAmount, vat.Gross);
+    }
+
+    [Fact]
+    public void InvoicePdf_ALongInvoiceWithFullPartyData_RendersOverSeveralPages()
+    {
+        var amounts = new DocumentLineAmounts(118m, 11.8m, 90m, 16.2m, 106.2m, 100m, 118m);
+        var lines = Enumerable.Range(1, 60).Select(i => new InvoiceDocumentLine(
+            $"Artikull me përshkrim të gjatë numër {i} që thyhet në dy rreshta", 1.5m, "copë", 118m, 10m, "18%", amounts, (1000 + i).ToString())).ToList();
+        var total = DocumentLineAmounts.Sum(lines.Select(l => l.Amounts));
+        var document = new InvoiceDocument(Guid.NewGuid(), Guid.NewGuid(), DocumentType.Invoice, InvoiceState.Posted, "INV-0042",
+            new DateOnly(2026, 11, 23), new DateOnly(2026, 12, 23), 30, "EUR", null, "Faleminderit",
+            new InvoiceDocumentCompany("Coffee Wholesale", "330000001", "811000001", "70000001", "Rr. Nëna Terezë 1", "Prishtinë", "Kosovë",
+                "+383 44 000 000", "info@coffee.test", "TEB", "XK05 1212 0123 4567 8906", null, "Faleminderit për bashkëpunimin", null,
+                LegalName: "Coffee Wholesale Group", LegalForm: "SH.P.K.", PostalCode: "10000", Website: "coffee.test"),
+            new InvoiceDocumentCustomer(Guid.NewGuid(), "Bar Prishtina", "811000101", null, "Rr. Agim Ramadani 5", "books@bar.test", "330000002",
+                "Prishtinë", "10000", "Kosovë", "+383 44 111 222", "Arben Krasniqi", true),
+            lines, total, new[] { new InvoiceDocumentTax("TVSH 18%", 0.18m, total.NetAmount, total.TaxAmount, total.GrossAmount) });
+
+        var pdf = InvoicePdfRenderer.Render(document, key => NotificationRenderer.Text(key, "sq"), System.Globalization.CultureInfo.GetCultureInfo("sq"));
+
+        Assert.Equal("%PDF", Encoding.ASCII.GetString(pdf, 0, 4));
+        if (Environment.GetEnvironmentVariable("PAKO_PDF_SAMPLE") is { Length: > 0 } path) File.WriteAllBytes(path, pdf);
+    }
+
     [Fact]
     public async Task InvoicePdf_DownloadsAsAPdfNamedByItsNumber()
     {

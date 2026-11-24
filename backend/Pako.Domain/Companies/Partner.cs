@@ -17,6 +17,9 @@ public class Partner
     // partner's (a natural person, typically) is FiscalNumber.
     public string? FiscalNumber { get; set; }
     public bool IsVatRegistered { get; set; }
+    // Client request 2026-11-23: the partner's VAT number (Nr. i TVSH), distinct from the NUI
+    // (TaxNumber). Required when the partner is VAT registered.
+    public string? VatNumber { get; set; }
 
     // H13: set on the partner auto-created for an employee, which expense-claim bills are issued
     // to. Unique per company.
@@ -37,6 +40,16 @@ public class Partner
     // required, independently-supplied field; nothing yet derives it from PaymentTermDays, per
     // Invoice.cs's own "feeds Track C6's aging report" comment).
     public int? PaymentTermDays { get; set; }
+
+    // Client request 2026-11-23: what a document line takes when neither the line nor its item
+    // (nor the item's category) says otherwise — the VAT code and revenue account on a customer's
+    // invoices, the VAT code and expense account on a vendor's bills. Two VAT codes, because a
+    // partner can be both and sale and purchase codes differ (S18 vs B18). Null = no partner default
+    // (the company's own default applies).
+    public Guid? DefaultSaleTaxDefinitionId { get; set; }
+    public Guid? DefaultPurchaseTaxDefinitionId { get; set; }
+    public Guid? DefaultExpenseAccountId { get; set; }
+    public Guid? DefaultRevenueAccountId { get; set; }
 
     // B8: stored, inert data — same "field exists, feature doesn't yet" posture as
     // Item.DefaultInventoryAccountId. No document flow reads or enforces this yet; whether it's a

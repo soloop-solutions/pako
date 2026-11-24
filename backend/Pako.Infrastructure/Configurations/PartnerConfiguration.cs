@@ -13,6 +13,7 @@ public class PartnerConfiguration : IEntityTypeConfiguration<Partner>
         builder.Property(p => p.Name).IsRequired().HasMaxLength(256);
         builder.Property(p => p.TaxNumber).HasMaxLength(64);
         builder.Property(p => p.FiscalNumber).HasMaxLength(64);
+        builder.Property(p => p.VatNumber).HasMaxLength(64);
         builder.Property(p => p.Email).HasMaxLength(256);
         builder.Property(p => p.Phone).HasMaxLength(50);
         builder.Property(p => p.ContactPerson).HasMaxLength(256);

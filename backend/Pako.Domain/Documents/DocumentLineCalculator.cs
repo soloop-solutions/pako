@@ -9,7 +9,13 @@ public record DocumentLineResult(decimal Gross, decimal NetAmount, IReadOnlyList
 // What a printed line shows: the entered amount before and after the line discount (both on the
 // document's own price basis, VAT-inclusive under GrossInclusive), then net, VAT and total exactly as
 // posting computes them.
-public record DocumentLineAmounts(decimal AmountBeforeDiscount, decimal DiscountAmount, decimal NetAmount, decimal TaxAmount, decimal GrossAmount)
+//
+// UnitPriceNet / UnitPriceGross (client request 2026-11-23): the entered unit price (before the line
+// discount) on both bases, for the printed invoice's "price without VAT / with VAT" columns. They are
+// the line's own tax computation run on one unit, so they are informational: the line totals above
+// are what posts, and total ÷ quantity may differ from them by a cent.
+public record DocumentLineAmounts(decimal AmountBeforeDiscount, decimal DiscountAmount, decimal NetAmount, decimal TaxAmount, decimal GrossAmount,
+    decimal UnitPriceNet = 0m, decimal UnitPriceGross = 0m)
 {
     public static DocumentLineAmounts Sum(IEnumerable<DocumentLineAmounts> lines)
     {
@@ -47,13 +53,26 @@ public static class DocumentLineCalculator
         var discount = beforeDiscount - enteredAmount;
         if (taxDefinition is null)
         {
-            return new DocumentLineAmounts(beforeDiscount, discount, enteredAmount, 0m, enteredAmount);
+            return new DocumentLineAmounts(beforeDiscount, discount, enteredAmount, 0m, enteredAmount, unitPrice, unitPrice);
         }
 
         var computation = priceMode == PriceMode.NetExclusive
             ? taxComputationService.Compute(enteredAmount, taxDefinition)
             : taxComputationService.ComputeFromGross(enteredAmount, taxDefinition);
-        return new DocumentLineAmounts(beforeDiscount, discount, computation.NetAmount, computation.TaxAmount, computation.TotalAmount);
+        var (unitNet, unitGross) = UnitPrices(unitPrice, taxDefinition, taxComputationService, priceMode);
+        return new DocumentLineAmounts(beforeDiscount, discount, computation.NetAmount, computation.TaxAmount, computation.TotalAmount, unitNet, unitGross);
+    }
+
+    // The entered unit price on both bases. The side the user typed is kept exactly as entered; the
+    // other side is the same tax computation the line uses, on one unit. A reverse-charge line carries
+    // no VAT for the customer, so both sides are the entered price.
+    private static (decimal Net, decimal Gross) UnitPrices(
+        decimal unitPrice, TaxDefinition taxDefinition, ITaxComputationService taxComputationService, PriceMode priceMode)
+    {
+        if (taxDefinition.IsReverseCharge) return (unitPrice, unitPrice);
+        return priceMode == PriceMode.NetExclusive
+            ? (unitPrice, taxComputationService.Compute(unitPrice, taxDefinition).TotalAmount)
+            : (taxComputationService.ComputeFromGross(unitPrice, taxDefinition).NetAmount, unitPrice);
     }
 
     public static DocumentLineResult Calculate(

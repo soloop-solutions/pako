@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, CreditExposureResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, ResolvedPriceResponse, TaxDefinitionResponse } from "@pako/shared";
@@ -11,20 +11,23 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { useCompanyBankAccounts } from "@/hooks/useCompanyBankAccounts";
 import { buildDocumentDataFromForm } from "@/lib/invoice-document-data";
 import { InvoicePreviewDialog } from "@/components/shared/InvoicePreviewDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { INVOICE_DOCUMENT_TYPE_OPTION_KEYS, InvoiceDocumentType, invoiceDocumentTypeName } from "@/lib/document-types";
 import { useEntityFavorites } from "@/hooks/useEntityFavorites";
-import { applyItemDefaultsToLine, overriddenItemLineFields, type ItemDefaultsSource } from "@/lib/item-line-defaults";
+import { applyItemDefaultsToLine, overriddenItemLineFields, reapplyPartnerDefaults, type ItemDefaultsSource } from "@/lib/item-line-defaults";
 import { isIncomeAccountType } from "@/lib/ledger-enums";
-import { partnerOptionLabel } from "@/lib/partners";
-import { computeLine, findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
+import { findTaxByCode, PriceMode, taxRatePercentLabel } from "@/lib/tax-enums";
+import { CustomerPanel } from "@/pages/invoicing/editor/CustomerPanel";
+import { InvoiceTotalsPanel } from "@/pages/invoicing/editor/InvoiceTotalsPanel";
+import { useInvoiceQuote } from "@/pages/invoicing/editor/useInvoiceQuote";
 import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
+import { FreeUnitInput } from "@/components/shared/FreeUnitInput";
 import { LineUnitSelect, OnHandHint, WarehouseField } from "@/pages/inventory/StockFields";
 import { baseQuantity } from "@/lib/item-units";
 import { useStockOnHand } from "@/hooks/useStock";
@@ -43,6 +46,9 @@ type Line = {
   revenueAccountId: string;
   // §12 P7: the item unit the quantity is in (undefined = the base unit).
   unitName?: string;
+  // A sales return of a lot-tracked item without an original invoice names the lot it comes back
+  // into (with an original, the server takes the original sale's lot).
+  lotNumber?: string;
   // docs/POS_PLAN.md P6: the sales order line this invoice line bills and, when the goods already
   // left on a delivery note, that delivery line (then the invoice moves no stock for it). Kept on
   // every save so the order's invoiced quantities stay right.
@@ -64,8 +70,8 @@ export interface InvoicePrefill {
 }
 export type InvoicePrefillLine = Line;
 
-function emptyLine(defaultTaxId: string): Line {
-  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", revenueAccountId: "" };
+function emptyLine(defaultTaxId: string, defaultAccountId = ""): Line {
+  return { description: "", quantity: "1", unitPrice: "", discountPercent: "0", taxDefinitionId: defaultTaxId, itemId: "", revenueAccountId: defaultAccountId };
 }
 
 // F5 — thin adapters onto the shared, unit-tested item-defaults/override logic in
@@ -82,12 +88,13 @@ function itemDefaultsSource(item: ItemResponse): ItemDefaultsSource {
   };
 }
 
-function applyItemDefaults(line: Line, item: ItemResponse | undefined, baselineTaxId: string): Line {
+function applyItemDefaults(line: Line, item: ItemResponse | undefined, baselineTaxId: string, baselineAccountId = ""): Line {
   if (!item) return { ...line, itemId: "" };
   const applied = applyItemDefaultsToLine(
     { description: line.description, unitPrice: line.unitPrice, taxDefinitionId: line.taxDefinitionId, accountId: line.revenueAccountId },
     itemDefaultsSource(item),
     baselineTaxId,
+    baselineAccountId,
   );
   return {
     ...line,
@@ -116,14 +123,6 @@ function addDays(dateString: string, days: number): string {
   return date.toISOString().slice(0, 10);
 }
 
-// Price is either gross (VAT-inclusive) or net (VAT-exclusive), per the document's own PriceMode.
-function lineEnteredAmount(line: Line): number {
-  const quantity = parseFloat(line.quantity) || 0;
-  const unitPrice = parseFloat(line.unitPrice) || 0;
-  const discountPercent = parseFloat(line.discountPercent) || 0;
-  return quantity * unitPrice * (1 - discountPercent / 100);
-}
-
 type InvoiceFormProps = {
   companyId: string;
   customers: PartnerResponse[];
@@ -135,7 +134,11 @@ type InvoiceFormProps = {
   // (Proforma.tsx, SalesReturns.tsx) keep compiling unchanged until they're wired up too.
   items?: ItemResponse[];
   accounts?: AccountResponse[];
-  onCreated: () => void;
+  /** `keepOpen` is true for "Save and add new": the form clears itself and stays; otherwise the page
+   * moves on to `invoice`, the created document. */
+  onCreated: (options?: { keepOpen?: boolean; invoice?: InvoiceResponse }) => void;
+  /** The page's Cancel button. */
+  onCancel?: () => void;
   // A6 (v2 release): when set, this form is dedicated to a single document type (Sales returns,
   // Proforma) — the type selector is hidden entirely and every reset returns to this value,
   // rather than the free <Select> Sales/Purchase invoices still uses (INVOICE_DOCUMENT_TYPE_OPTION_KEYS
@@ -170,8 +173,10 @@ export function InvoiceForm({
   prefill,
   onPartnerCreated,
   onItemCreated,
+  onCancel,
 }: InvoiceFormProps) {
   const intl = useIntl();
+  const bankAccounts = useCompanyBankAccounts();
   const activeCompany = useCompany().activeCompany;
   const partnerFavs = useEntityFavorites("Partner");
   const accountFavs = useEntityFavorites("Account");
@@ -192,10 +197,15 @@ export function InvoiceForm({
   // customer, or no customer selected yet, keeps the exempt baseline. Only new lines pick this up
   // (addLine/selectLineItem below); it never rewrites a line the accountant already set explicitly.
   const selectedCustomer = customers.find((c) => c.id === partnerId);
+  // Client request 2026-11-23: the customer's own default VAT code and revenue account come first.
   const partnerDrivenTaxId =
-    isVatRegistered && selectedCustomer?.isVatRegistered
+    (selectedCustomer?.defaultSaleTaxDefinitionId && taxes.some((t) => t.id === selectedCustomer.defaultSaleTaxDefinitionId)
+      ? selectedCustomer.defaultSaleTaxDefinitionId
+      : undefined) ??
+    (isVatRegistered && selectedCustomer?.isVatRegistered
       ? (findTaxByCode(taxes, "S18")?.id ?? defaultTaxId)
-      : defaultTaxId;
+      : defaultTaxId);
+  const partnerDrivenAccountId = selectedCustomer?.defaultRevenueAccountId ?? "";
   const [documentType, setDocumentType] = useState<number>(editingInvoice?.documentType ?? fixedDocumentType ?? InvoiceDocumentType.Invoice);
   const [originalInvoiceId, setOriginalInvoiceId] = useState(editingInvoice?.originalInvoiceId ?? "");
   const [issueDate, setIssueDate] = useState(editingInvoice?.issueDate ?? today);
@@ -245,8 +255,27 @@ export function InvoiceForm({
       return next;
     });
   const [submitting, setSubmitting] = useState(false);
+  // Set by the "Save and add new" button just before the form submits.
+  const keepOpenRef = useRef(false);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
+
+  // A different customer (or none) re-applies its VAT code and revenue account to every line still
+  // showing the previous customer's — the first line included; lines the user changed, and fields
+  // the line's item sets, stay as they are.
+  const lastPartnerDefaults = useRef({ taxDefinitionId: partnerDrivenTaxId, accountId: partnerDrivenAccountId });
+  useEffect(() => {
+    const previous = lastPartnerDefaults.current;
+    const next = { taxDefinitionId: partnerDrivenTaxId, accountId: partnerDrivenAccountId };
+    if (previous.taxDefinitionId === next.taxDefinitionId && previous.accountId === next.accountId) return;
+    lastPartnerDefaults.current = next;
+    setLines((prev) => prev.map((line) => {
+      const item = items.find((i) => i.id === line.itemId);
+      return reapplyPartnerDefaults(line, (l) => l.revenueAccountId, (l, id) => ({ ...l, revenueAccountId: id }),
+        item ? itemDefaultsSource(item) : undefined, previous, next);
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only react to the customer's defaults
+  }, [partnerDrivenTaxId, partnerDrivenAccountId]);
   const [showPreview, setShowPreview] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const [newPartnerOpen, setNewPartnerOpen] = useState(false);
@@ -351,21 +380,19 @@ export function InvoiceForm({
     };
   }, [companyId, partnerId]);
 
-  // Compute current invoice total for the "would exceed" warning. This is a display-only estimate
-  // using the entered amounts — the backend enforces the real total on posting. In NetExclusive
-  // mode the entered amount is net, so we add VAT to get the gross total for the credit check.
-  const invoiceEnteredTotal = lines.reduce((sum, line) => {
-    const entered = lineEnteredAmount(line);
-    return sum + computeLine(entered, taxes.find((t) => t.id === line.taxDefinitionId), priceMode).gross;
-  }, 0);
+  // Client request 2026-11-23: every amount on this screen is the server's (POST invoices/quote), one
+  // quote line per form line.
+  const { quote, isStale: quoteIsStale } = useInvoiceQuote(companyId, priceMode, lines);
+  const currency = activeCompany?.functionalCurrency ?? "EUR";
 
-  // A1 (v2 release): SalesReturn joins CreditNote/DebitNote in needing an original-invoice
-  // picker, but unlike those two, it's REQUIRED, not optional — see requiresOriginalInvoice below.
+  // SalesReturn joins CreditNote/DebitNote in offering an original-invoice picker. It is optional
+  // for all three (client request 2026-11-23: a return need not be linked to an invoice).
   const needsOriginalInvoice =
     documentType === InvoiceDocumentType.CreditNote ||
     documentType === InvoiceDocumentType.DebitNote ||
     documentType === InvoiceDocumentType.SalesReturn;
-  const requiresOriginalInvoice = documentType === InvoiceDocumentType.SalesReturn;
+  // A return linked to an invoice keeps that invoice's prices; one without takes list prices.
+  const keepsOriginalPrices = isSalesReturn && !!originalInvoiceId;
   const [originalInvoiceCandidates, setOriginalInvoiceCandidates] = useState<InvoiceResponse[]>([]);
   useEffect(() => {
     if (!needsOriginalInvoice || !partnerId) {
@@ -395,7 +422,7 @@ export function InvoiceForm({
     // Another item no longer bills the sales order / delivery line this one was linked to.
     setLines((prev) => prev.map((line, i) => (i === index
       ? {
-          ...applyItemDefaults(line, item, partnerDrivenTaxId),
+          ...applyItemDefaults(line, item, partnerDrivenTaxId, partnerDrivenAccountId),
           unitName: undefined,
           priceEdited: false,
           discountEdited: false,
@@ -408,7 +435,7 @@ export function InvoiceForm({
     // are VAT-inclusive, so they only fill a gross-priced invoice; on a net one the item's own
     // price stays rather than a gross figure being taken as net. The resolve result also carries
     // the period discount rule (rabat) for this customer and item, which fills the line's discount.
-    if (item && !isSalesReturn) {
+    if (item && !keepsOriginalPrices) {
       // docs/POS_PLAN.md P6: the customer's own price list and volume tiers count too.
       const quantity = parseFloat(lines[index]?.quantity ?? "") || 1;
       void apiClient.resolvePrices(companyId, [item.id], warehouseId || undefined, issueDate, partnerId || undefined, [quantity]).then((prices) => {
@@ -443,7 +470,7 @@ export function InvoiceForm({
   useEffect(() => {
     if (lastRepriceKey.current === repriceKey) return;
     lastRepriceKey.current = repriceKey;
-    if (isSalesReturn || !partnerId) return;
+    if (keepsOriginalPrices || !partnerId) return;
     const targets = lines
       .map((line, index) => ({ line, index }))
       .filter(({ line }) => line.itemId && !line.salesOrderLineId && !(line.priceEdited && line.discountEdited));
@@ -471,7 +498,7 @@ export function InvoiceForm({
     const line = lines[index];
     updateLine(index, { unitName });
     const itemId = line?.itemId;
-    if (!itemId || isSalesReturn) return;
+    if (!itemId || keepsOriginalPrices) return;
     const quantity = baseQuantity(items.find((i) => i.id === itemId), unitName, parseFloat(line.quantity) || 1);
     void apiClient.resolvePrices(companyId, [itemId], warehouseId || undefined, issueDate, partnerId || undefined, [quantity]).then((prices) => {
       const resolved = prices.find((p) => p.itemId === itemId);
@@ -487,7 +514,7 @@ export function InvoiceForm({
   }
 
   function addLine() {
-    setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId)]);
+    setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId, partnerDrivenAccountId)]);
   }
 
   function removeLine(index: number) {
@@ -505,7 +532,6 @@ export function InvoiceForm({
   function validateBeforePayment(): boolean {
     const errors: Record<string, string> = {};
     if (!partnerId) errors.partnerId = intl.formatMessage({ id: "invoiceForm.selectCustomerError" });
-    if (requiresOriginalInvoice && !originalInvoiceId) errors.originalInvoiceId = intl.formatMessage({ id: "invoiceForm.originalInvoiceRequiredError" });
     setFieldErrors(errors);
     if (!lines.some((line) => line.description.trim())) {
       setApiError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
@@ -547,9 +573,6 @@ export function InvoiceForm({
     if (!partnerId) {
       errors.partnerId = intl.formatMessage({ id: "invoiceForm.selectCustomerError" });
     }
-    if (requiresOriginalInvoice && !originalInvoiceId) {
-      errors.originalInvoiceId = intl.formatMessage({ id: "invoiceForm.originalInvoiceRequiredError" });
-    }
     const validLines = lines.filter((line) => line.description.trim());
     if (validLines.length === 0) {
       setApiError(intl.formatMessage({ id: "invoiceForm.atLeastOneLine" }));
@@ -582,6 +605,7 @@ export function InvoiceForm({
         revenueAccountId: line.revenueAccountId || undefined,
         itemId: line.itemId || undefined,
         unitName: line.unitName || undefined,
+        lotNumber: isSalesReturn ? line.lotNumber?.trim() || undefined : undefined,
         salesOrderLineId: line.salesOrderLineId || undefined,
         deliveryLineId: line.deliveryLineId || undefined,
       }));
@@ -611,7 +635,7 @@ export function InvoiceForm({
         recordFavorites();
         onSaved?.();
       } else {
-        await apiClient.invoicesPOST(companyId, {
+        const created = await apiClient.invoicesPOST(companyId, {
           partnerId,
           issueDate,
           dueDate,
@@ -643,417 +667,433 @@ export function InvoiceForm({
         setPaymentMethodId("");
         toast.success(intl.formatMessage({ id: "toast.invoiceCreated" }));
         invoiceDraft.markDone();
-        onCreated();
+        onCreated({ keepOpen: keepOpenRef.current, invoice: created });
       }
     } catch (err) {
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: editingInvoice ? "invoiceForm.saveError" : "invoiceForm.createError" }));
       setApiError(msg);
       toast.error(msg);
     } finally {
+      keepOpenRef.current = false;
       setSubmitting(false);
     }
   }
 
-  // Totals for display — computed per-line using the same tax logic as the backend.
-  // These are display-only estimates; the backend enforces the real totals on posting.
-  const lineTotals = lines.map((line) => {
-    const entered = lineEnteredAmount(line);
-    return computeLine(entered, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
-  });
-  const totalNet = lineTotals.reduce((sum, l) => sum + l.net, 0);
-  const totalTax = lineTotals.reduce((sum, l) => sum + l.tax, 0);
-  const totalGross = lineTotals.reduce((sum, l) => sum + l.gross, 0);
-
-  // Helper: build item label with barcode if available
+  // Item option: "code · name [barcode]", so the code printed on the invoice is the one picked here.
   function itemOptionLabel(item: ItemResponse): string {
     const barcode = item.barcodes?.[0]?.barcode;
-    return barcode ? `${item.name} [${barcode}]` : item.name;
+    return `${item.code} · ${item.name}${barcode ? ` [${barcode}]` : ""}`;
   }
 
+  // Keyboard model of the line table (frontend rule: Excel-like editable grids): Enter or ↓ moves to
+  // the same column on the next line — Enter on the last line adds one — and ↑ to the line above.
+  // Enter never submits the form from a line cell.
+  function handleLineKeyDown(event: KeyboardEvent<HTMLTableSectionElement>) {
+    const target = event.target as HTMLElement;
+    if (target.tagName !== "INPUT") return;
+    const cell = target.closest<HTMLElement>("[data-line-cell]");
+    if (!cell) return;
+    const row = Number(cell.dataset.row);
+    const column = cell.dataset.lineCell;
+    let nextRow: number | null = null;
+    if (event.key === "Enter" || event.key === "ArrowDown") nextRow = row + 1;
+    else if (event.key === "ArrowUp") nextRow = row - 1;
+    if (nextRow == null) return;
+    event.preventDefault();
+    if (nextRow < 0) return;
+    const focus = () =>
+      document.querySelector<HTMLInputElement>(`[data-line-cell="${column}"][data-row="${nextRow}"] input`)?.focus();
+    if (nextRow >= lines.length) {
+      if (event.key !== "Enter") return;
+      addLine();
+      requestAnimationFrame(focus);
+    } else {
+      focus();
+    }
+  }
+
+  const priceLabelId = priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat";
+  const otherBasisLabelId = priceMode === PriceMode.NetExclusive ? "invoiceEditor.inclVatShort" : "invoiceEditor.exclVatShort";
+  const money = (value: number | undefined) => (value == null ? "—" : value.toFixed(2));
+  const th = "px-1.5 py-1.5 text-left text-xs font-medium text-muted-foreground whitespace-nowrap";
+  const thNum = `${th} text-right`;
+  const td = "px-1 py-1 align-top";
+
   return (
-    <form ref={formRef} className="flex flex-col gap-5" onSubmit={handleSubmit}>
+    <form ref={formRef} className="flex flex-col gap-4" onSubmit={handleSubmit}>
       {apiError && (
         <Alert variant="destructive">
           <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-6">
-        <FormField label={intl.formatMessage({ id: "invoiceForm.invoiceNumber" })} htmlFor="invoice-number">
-          <Input
-            id="invoice-number"
-            value={invoiceNumber}
-            onChange={(event) => setInvoiceNumber(event.target.value)}
-            placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
-          />
-        </FormField>
-        <FormField label={intl.formatMessage({ id: "invoiceForm.customer" })} htmlFor="invoice-customer" error={fieldErrors.partnerId} required className="sm:col-span-2">
-          <SearchableSelect
-            id="invoice-customer"
-            value={partnerId}
-            onChange={(v) => { setPartnerId(v); clearFieldError("partnerId"); }}
-            placeholder={intl.formatMessage({ id: "invoiceForm.selectCustomer" })}
-            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-            noResultsText={intl.formatMessage({ id: "common.noResults" })}
-            emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.selectCustomer" })}
-            aria-invalid={!!fieldErrors.partnerId}
-            options={customers.map((customer) => ({
-              value: customer.id,
-              label: partnerOptionLabel(customer, intl),
-              description: customer.taxNumber ?? undefined,
-            }))}
-            favorites={{
-              pinnedIds: partnerFavs.pinnedIds,
-              autoIds: partnerFavs.autoIds,
-              onPin: partnerFavs.pin,
-              onUnpin: partnerFavs.unpin,
-              pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
-              frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
-            }}
-            createAction={{
-              label: intl.formatMessage({ id: "invoicing.addCustomer" }),
-              onClick: () => setNewPartnerOpen(true),
-            }}
-          />
-        </FormField>
-        {fixedDocumentType === undefined && (
-          <FormField label={intl.formatMessage({ id: "invoiceForm.documentType" })} htmlFor="invoice-document-type">
-            <Select
-              id="invoice-document-type"
-              value={String(documentType)}
-              onValueChange={(v) => {
-                setDocumentType(Number(v));
-                setOriginalInvoiceId("");
-              }}
-              options={INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => ({
-                value: String(option.value),
-                label: intl.formatMessage({ id: option.labelKey }),
-              }))}
-            />
-          </FormField>
-        )}
-        <FormField label={intl.formatMessage({ id: "invoiceForm.issueDate" })} htmlFor="invoice-issue-date" required>
-          <Input
-            id="invoice-issue-date"
-            type="date"
-            value={issueDate}
-            onChange={(event) => {
-              setIssueDate(event.target.value);
-              const days = parseInt(paymentTermDays, 10);
-              if (Number.isFinite(days) && days >= 0) {
-                setDueDate(addDays(event.target.value, days));
-              }
-            }}
-            required
-          />
-        </FormField>
-        <FormField label={intl.formatMessage({ id: "invoiceForm.dueDate" })} htmlFor="invoice-due-date" required>
-          <Input
-            id="invoice-due-date"
-            type="date"
-            value={dueDate}
-            onChange={(event) => setDueDate(event.target.value)}
-            required
-          />
-        </FormField>
+      {/* CUSTOMER + DOCUMENT */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CustomerPanel
+          customers={customers}
+          partnerId={partnerId}
+          onChange={(v) => { setPartnerId(v); clearFieldError("partnerId"); }}
+          error={fieldErrors.partnerId}
+          favorites={{
+            pinnedIds: partnerFavs.pinnedIds,
+            autoIds: partnerFavs.autoIds,
+            onPin: partnerFavs.pin,
+            onUnpin: partnerFavs.unpin,
+            pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+            frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+          }}
+          onCreateCustomer={() => setNewPartnerOpen(true)}
+          creditExposure={creditExposure}
+          documentGross={quote?.totals.grossAmount}
+          currency={currency}
+        />
+
+        <section className="flex flex-col gap-3 rounded-lg border bg-card p-4" aria-labelledby="invoice-document-heading">
+          <h3 id="invoice-document-heading" className="text-sm font-semibold">{intl.formatMessage({ id: "invoiceEditor.documentSection" })}</h3>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <FormField label={intl.formatMessage({ id: "invoiceForm.invoiceNumber" })} htmlFor="invoice-number">
+              <Input
+                id="invoice-number"
+                value={invoiceNumber}
+                onChange={(event) => setInvoiceNumber(event.target.value)}
+                placeholder={intl.formatMessage({ id: "invoiceForm.invoiceNumberPlaceholder" })}
+              />
+            </FormField>
+            {fixedDocumentType === undefined ? (
+              <FormField label={intl.formatMessage({ id: "invoiceForm.documentType" })} htmlFor="invoice-document-type">
+                <Select
+                  id="invoice-document-type"
+                  value={String(documentType)}
+                  onValueChange={(v) => {
+                    setDocumentType(Number(v));
+                    setOriginalInvoiceId("");
+                  }}
+                  options={INVOICE_DOCUMENT_TYPE_OPTION_KEYS.map((option) => ({
+                    value: String(option.value),
+                    label: intl.formatMessage({ id: option.labelKey }),
+                  }))}
+                />
+              </FormField>
+            ) : <div />}
+            <FormField label={intl.formatMessage({ id: "invoiceForm.issueDate" })} htmlFor="invoice-issue-date" required>
+              <Input
+                id="invoice-issue-date"
+                type="date"
+                value={issueDate}
+                onChange={(event) => {
+                  setIssueDate(event.target.value);
+                  const days = parseInt(paymentTermDays, 10);
+                  if (Number.isFinite(days) && days >= 0) {
+                    setDueDate(addDays(event.target.value, days));
+                  }
+                }}
+                required
+              />
+            </FormField>
+            <FormField label={intl.formatMessage({ id: "invoiceForm.dueDate" })} htmlFor="invoice-due-date" required>
+              <Input id="invoice-due-date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
+            </FormField>
+            {!editingInvoice ? (
+              <>
+                <FormField label={intl.formatMessage({ id: "invoiceForm.priceMode" })} htmlFor="invoice-price-mode">
+                  <Select
+                    id="invoice-price-mode"
+                    value={String(priceMode)}
+                    onValueChange={(v) => setPriceMode(Number(v))}
+                    options={[
+                      { value: String(PriceMode.GrossInclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeGross" }) },
+                      { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
+                    ]}
+                  />
+                </FormField>
+                <div className="grid grid-cols-2 gap-3">
+                  <FormField label={intl.formatMessage({ id: "invoiceForm.paymentTermDays" })} htmlFor="invoice-payment-term-days">
+                    <Input id="invoice-payment-term-days" type="number" step="1" min="0" value={paymentTermDays}
+                      onChange={(event) => handlePaymentTermDaysChange(event.target.value)} />
+                  </FormField>
+                  <FormField label={intl.formatMessage({ id: "invoiceForm.graceDays" })} htmlFor="invoice-grace-days">
+                    <Input id="invoice-grace-days" type="number" step="1" min="0" value={graceDays}
+                      onChange={(event) => setGraceDays(event.target.value)} />
+                  </FormField>
+                </div>
+              </>
+            ) : (
+              <p className="self-end pb-2 text-sm text-muted-foreground sm:col-span-2">
+                {intl.formatMessage({ id: "invoiceForm.priceMode" })}:{" "}
+                {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceModeNet" : "invoiceForm.priceModeGross" })}
+              </p>
+            )}
+            <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
+            <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
+            {needsOriginalInvoice && (
+              <FormField
+                label={intl.formatMessage({ id: "invoiceForm.originalInvoice" })}
+                htmlFor="invoice-original"
+                error={fieldErrors.originalInvoiceId}
+                className="sm:col-span-2"
+              >
+                <SearchableSelect
+                  id="invoice-original"
+                  value={originalInvoiceId}
+                  onChange={(v) => { setOriginalInvoiceId(v); clearFieldError("originalInvoiceId"); }}
+                  placeholder={intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}
+                  searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                  noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                  emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}
+                  aria-invalid={!!fieldErrors.originalInvoiceId}
+                  options={originalInvoiceCandidates.map((invoice) => ({
+                    value: invoice.id,
+                    label: invoice.invoiceNumber ?? invoice.id,
+                  }))}
+                />
+              </FormField>
+            )}
+          </div>
+        </section>
       </div>
 
-      {!editingInvoice && (
-        <div className="grid gap-4 sm:grid-cols-4">
-          <FormField label={intl.formatMessage({ id: "invoiceForm.priceMode" })} htmlFor="invoice-price-mode">
-            <Select
-              id="invoice-price-mode"
-              value={String(priceMode)}
-              onValueChange={(v) => setPriceMode(Number(v))}
-              options={[
-                { value: String(PriceMode.GrossInclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeGross" }) },
-                { value: String(PriceMode.NetExclusive), label: intl.formatMessage({ id: "invoiceForm.priceModeNet" }) },
-              ]}
-            />
-          </FormField>
-          <FormField label={intl.formatMessage({ id: "invoiceForm.paymentTermDays" })} htmlFor="invoice-payment-term-days">
-            <Input
-              id="invoice-payment-term-days"
-              type="number"
-              step="1"
-              min="0"
-              value={paymentTermDays}
-              onChange={(event) => handlePaymentTermDaysChange(event.target.value)}
-            />
-          </FormField>
-          <FormField label={intl.formatMessage({ id: "invoiceForm.graceDays" })} htmlFor="invoice-grace-days">
-            <Input
-              id="invoice-grace-days"
-              type="number"
-              step="1"
-              min="0"
-              value={graceDays}
-              onChange={(event) => setGraceDays(event.target.value)}
-            />
-          </FormField>
-          <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
-          <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
+      {/* LINES */}
+      <section className="flex flex-col gap-2 rounded-lg border bg-card p-4" aria-labelledby="invoice-lines-heading">
+        <h3 id="invoice-lines-heading" className="text-sm font-semibold">{intl.formatMessage({ id: "invoiceEditor.linesSection" })}</h3>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[1180px] border-collapse text-sm">
+            <thead>
+              <tr className="border-b">
+                <th className={`${th} w-8`}>#</th>
+                <th className={`${th} w-56`}>{intl.formatMessage({ id: "invoiceForm.item" })}</th>
+                <th className={th}>{intl.formatMessage({ id: "invoiceForm.description" })}</th>
+                <th className={`${th} w-44`}>{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</th>
+                <th className={`${thNum} w-24`}>{intl.formatMessage({ id: "invoiceForm.qty" })}</th>
+                <th className={`${th} w-24`}>{intl.formatMessage({ id: "invoiceDoc.col.unit" })}</th>
+                <th className={`${thNum} w-28`}>{intl.formatMessage({ id: priceLabelId })}</th>
+                <th className={`${thNum} w-20`}>{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</th>
+                <th className={`${thNum} w-24`}>{intl.formatMessage({ id: "invoiceDoc.col.net" })}</th>
+                <th className={`${th} w-32`}>{intl.formatMessage({ id: "invoiceForm.tax" })}</th>
+                <th className={`${thNum} w-20`}>{intl.formatMessage({ id: "invoiceForm.vat" })}</th>
+                <th className={`${thNum} w-24`}>{intl.formatMessage({ id: "invoiceForm.totalGross" })}</th>
+                <th className="w-8" />
+              </tr>
+            </thead>
+            <tbody onKeyDown={handleLineKeyDown}>
+              {lines.map((line, index) => {
+                const selectedItem = items.find((i) => i.id === line.itemId);
+                const overridden = overriddenFields(line, selectedItem);
+                const amounts = quote?.lines[index];
+                const dim = quoteIsStale ? "text-muted-foreground" : "";
+                return (
+                  <tr key={index} className="border-b last:border-b-0" data-testid={`invoice-line-${index}`}>
+                    <td className={`${td} pt-2.5 text-xs tabular-nums text-muted-foreground`}>{index + 1}</td>
+                    <td className={td}>
+                      <SearchableSelect
+                        aria-label={intl.formatMessage({ id: "invoiceForm.item" })}
+                        value={line.itemId}
+                        onChange={(val) => selectLineItem(index, val)}
+                        placeholder={intl.formatMessage({ id: "invoiceForm.noItem" })}
+                        searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                        noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                        emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.noItem" })}
+                        options={items.map((item) => ({
+                          value: item.id,
+                          label: itemOptionLabel(item),
+                          description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
+                        }))}
+                        favorites={{
+                          pinnedIds: itemFavs.pinnedIds,
+                          autoIds: itemFavs.autoIds,
+                          onPin: itemFavs.pin,
+                          onUnpin: itemFavs.unpin,
+                          pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+                          frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                        }}
+                        createAction={{
+                          label: intl.formatMessage({ id: "items.createItem" }),
+                          onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
+                        }}
+                      />
+                    </td>
+                    <td className={td} data-line-cell="description" data-row={index}>
+                      <Input
+                        aria-label={intl.formatMessage({ id: "invoiceForm.description" })}
+                        value={line.description}
+                        onChange={(event) => updateLine(index, { description: event.target.value })}
+                      />
+                      {(line.salesOrderLineId || line.deliveryLineId) && (
+                        <span className="text-[11px] text-muted-foreground" data-testid={`invoice-line-link-${index}`}>
+                          {line.linkLabel ?? intl.formatMessage({ id: line.deliveryLineId ? "dist.invoice.fromDelivery" : "dist.invoice.fromOrder" })}
+                        </span>
+                      )}
+                    </td>
+                    <td className={td}>
+                      <SearchableSelect
+                        aria-label={intl.formatMessage({ id: "invoiceForm.revenueAccount" })}
+                        value={line.revenueAccountId}
+                        onChange={(val) => updateLine(index, { revenueAccountId: val })}
+                        placeholder={intl.formatMessage({ id: "common.companyDefault" })}
+                        searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                        noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                        emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
+                        options={revenueAccounts.map((account) => ({ value: account.id, label: `${account.code} · ${account.name}` }))}
+                        favorites={{
+                          pinnedIds: accountFavs.pinnedIds,
+                          autoIds: accountFavs.autoIds,
+                          onPin: accountFavs.pin,
+                          onUnpin: accountFavs.unpin,
+                          pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
+                          frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
+                        }}
+                      />
+                      {overridden.account && (
+                        <Badge variant="outline" className="mt-0.5 w-fit text-[10px] text-warning-foreground">
+                          {intl.formatMessage({ id: "common.modified" })}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className={td} data-line-cell="quantity" data-row={index}>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="text-right tabular-nums"
+                        aria-label={intl.formatMessage({ id: "invoiceForm.qty" })}
+                        value={line.quantity}
+                        onChange={(event) => updateLine(index, { quantity: event.target.value })}
+                      />
+                      {isSalesReturn && selectedItem?.trackLots && (
+                        <Input className="mt-0.5 h-7 text-xs" placeholder={intl.formatMessage({ id: "stock.lot.number" })} aria-label={intl.formatMessage({ id: "stock.lot.number" })}
+                          value={line.lotNumber ?? ""} onChange={(event) => updateLine(index, { lotNumber: event.target.value })} />
+                      )}
+                      {selectedItem?.trackInventory && (
+                        <OnHandHint
+                          className="mt-0.5 block whitespace-nowrap text-right"
+                          onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
+                          requested={baseQuantity(selectedItem, line.unitName, parseFloat(line.quantity) || 0)}
+                          warnWhenShort={documentType === InvoiceDocumentType.Invoice}
+                        />
+                      )}
+                    </td>
+                    <td className={td}>
+                      {selectedItem
+                        ? <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => changeLineUnit(index, v || undefined)} />
+                        : <FreeUnitInput value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />}
+                    </td>
+                    <td className={td} data-line-cell="price" data-row={index}>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="text-right tabular-nums"
+                        aria-label={intl.formatMessage({ id: priceLabelId })}
+                        value={line.unitPrice}
+                        onChange={(event) => updateLine(index, { unitPrice: event.target.value, priceEdited: true })}
+                      />
+                      {amounts && (
+                        <span className={`block text-right text-[11px] tabular-nums text-muted-foreground`} data-testid={`invoice-line-other-price-${index}`}>
+                          {intl.formatMessage({ id: otherBasisLabelId })}{" "}
+                          {money(priceMode === PriceMode.NetExclusive ? amounts.unitPriceGross : amounts.unitPriceNet)}
+                        </span>
+                      )}
+                      {overridden.price && (
+                        <Badge variant="outline" className="mt-0.5 w-fit text-[10px] text-warning-foreground">
+                          {intl.formatMessage({ id: "common.modified" })}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className={td} data-line-cell="discount" data-row={index}>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        className="text-right tabular-nums"
+                        aria-label={intl.formatMessage({ id: "invoiceForm.discountPercent" })}
+                        value={line.discountPercent}
+                        onChange={(event) => updateLine(index, { discountPercent: event.target.value, discountEdited: true })}
+                      />
+                      {amounts && amounts.discountAmount !== 0 && (
+                        <span className="block text-right text-[11px] tabular-nums text-muted-foreground">-{money(amounts.discountAmount)}</span>
+                      )}
+                    </td>
+                    <td className={`${td} pt-2.5 text-right tabular-nums ${dim}`}>{money(amounts?.netAmount)}</td>
+                    <td className={td}>
+                      <SearchableSelect
+                        aria-label={intl.formatMessage({ id: "invoiceForm.tax" })}
+                        value={line.taxDefinitionId}
+                        onChange={(val) => updateLine(index, { taxDefinitionId: val })}
+                        placeholder={intl.formatMessage({ id: "invoiceForm.noTax" })}
+                        searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                        noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                        emptyOptionLabel={!isVatRegistered ? intl.formatMessage({ id: "invoiceForm.noTax" }) : undefined}
+                        options={taxes.map((tax) => ({ value: tax.id, label: taxRatePercentLabel(tax), description: tax.code ?? undefined }))}
+                      />
+                      {overridden.tax && (
+                        <Badge variant="outline" className="mt-0.5 w-fit text-[10px] text-warning-foreground">
+                          {intl.formatMessage({ id: "common.modified" })}
+                        </Badge>
+                      )}
+                    </td>
+                    <td className={`${td} pt-2.5 text-right tabular-nums ${dim}`}>{money(amounts?.taxAmount)}</td>
+                    <td className={`${td} pt-2.5 text-right font-medium tabular-nums ${dim}`}>{money(amounts?.grossAmount)}</td>
+                    <td className={td}>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}
+                        aria-label={intl.formatMessage({ id: "invoiceForm.remove" })} title={intl.formatMessage({ id: "invoiceForm.remove" })}>
+                        ×
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
-      )}
-
-      {editingInvoice && (
-        <div className="grid gap-4 sm:grid-cols-4">
-          <WarehouseField id="invoice-warehouse" value={warehouseId} onChange={setWarehouseId} />
-          <BillProjectField id="invoice-project" value={projectId} onChange={setProjectId} />
-        </div>
-      )}
-
-      <FormField label={intl.formatMessage({ id: "invoiceForm.internalNotes" })} htmlFor="invoice-internal-notes">
-        <Textarea id="invoice-internal-notes" rows={3} value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
-      </FormField>
-
-      {creditExposure && creditExposure.creditLimit != null && (() => {
-        const isOverLimit = creditExposure.available != null && creditExposure.available < 0;
-        const wouldExceed =
-          !isOverLimit &&
-          creditExposure.available != null &&
-          invoiceEnteredTotal > 0 &&
-          invoiceEnteredTotal > creditExposure.available;
-        const fmt = (n: number) => n.toFixed(2) + " EUR";
-        return (
-          <div
-            className={
-              isOverLimit
-                ? "rounded-md border border-red-300 bg-destructive/10 px-2 py-1.5 text-sm text-destructive"
-                : wouldExceed
-                  ? "rounded-md border border-yellow-300 bg-yellow-50 px-2 py-1.5 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-300"
-                  : "rounded-md border px-2 py-1.5 text-sm text-muted-foreground"
-            }
-          >
-            {isOverLimit ? (
-              <p className="font-medium">
-                {intl.formatMessage(
-                  { id: "invoicing.creditLimit.overLimit" },
-                  { amount: fmt(Math.abs(creditExposure.available!)) },
-                )}
-              </p>
-            ) : wouldExceed ? (
-              <p className="font-medium">{intl.formatMessage({ id: "invoicing.creditLimit.wouldExceed" })}</p>
-            ) : null}
-            <p>
-              {intl.formatMessage(
-                { id: "invoicing.creditLimit.info" },
-                {
-                  available: fmt(creditExposure.available ?? 0),
-                  limit: fmt(creditExposure.creditLimit),
-                  outstanding: fmt(creditExposure.outstanding),
-                },
-              )}
-            </p>
-          </div>
-        );
-      })()}
-
-      {needsOriginalInvoice && (
-        <FormField
-          label={intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.originalInvoiceRequired" : "invoiceForm.originalInvoice" })}
-          htmlFor="invoice-original"
-          error={fieldErrors.originalInvoiceId}
-          required={requiresOriginalInvoice}
-          className="sm:w-1/3"
-        >
-          <SearchableSelect
-            id="invoice-original"
-            value={originalInvoiceId}
-            onChange={(v) => { setOriginalInvoiceId(v); clearFieldError("originalInvoiceId"); }}
-            placeholder={intl.formatMessage({ id: requiresOriginalInvoice ? "invoiceForm.selectOriginalInvoice" : "invoiceForm.noOriginalInvoice" })}
-            searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-            noResultsText={intl.formatMessage({ id: "common.noResults" })}
-            emptyOptionLabel={requiresOriginalInvoice ? undefined : intl.formatMessage({ id: "invoiceForm.noOriginalInvoice" })}
-            aria-invalid={!!fieldErrors.originalInvoiceId}
-            options={originalInvoiceCandidates.map((invoice) => ({
-              value: invoice.id,
-              label: invoice.invoiceNumber ?? invoice.id,
-            }))}
-          />
-        </FormField>
-      )}
-
-      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-4" : "flex flex-col gap-1.5"}>
-        {lines.map((line, index) => {
-          const selectedItem = items.find((i) => i.id === line.itemId);
-          const overridden = overriddenFields(line, selectedItem);
-          return (
-          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-1.5">
-            <div className="flex flex-col gap-0.5">
-              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.item" })}</Label>}
-              <SearchableSelect
-                aria-label={intl.formatMessage({ id: "invoiceForm.item" })}
-                value={line.itemId}
-                onChange={(val) => selectLineItem(index, val)}
-                placeholder={intl.formatMessage({ id: "invoiceForm.noItem" })}
-                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-                noResultsText={intl.formatMessage({ id: "common.noResults" })}
-                emptyOptionLabel={intl.formatMessage({ id: "invoiceForm.noItem" })}
-                options={items.map((item) => ({
-                  value: item.id,
-                  label: itemOptionLabel(item),
-                  description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
-                }))}
-                favorites={{
-                  pinnedIds: itemFavs.pinnedIds,
-                  autoIds: itemFavs.autoIds,
-                  onPin: itemFavs.pin,
-                  onUnpin: itemFavs.unpin,
-                  pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
-                  frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
-                }}
-                createAction={{
-                  label: intl.formatMessage({ id: "items.createItem" }),
-                  onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
-                }}
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.revenueAccount" })}</Label>}
-              <SearchableSelect
-                value={line.revenueAccountId}
-                onChange={(val) => updateLine(index, { revenueAccountId: val })}
-                placeholder={intl.formatMessage({ id: "common.companyDefault" })}
-                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-                noResultsText={intl.formatMessage({ id: "common.noResults" })}
-                emptyOptionLabel={intl.formatMessage({ id: "common.companyDefault" })}
-                options={revenueAccounts.map((account) => ({
-                  value: account.id,
-                  label: `${account.code} · ${account.name}`,
-                }))}
-                favorites={{
-                  pinnedIds: accountFavs.pinnedIds,
-                  autoIds: accountFavs.autoIds,
-                  onPin: accountFavs.pin,
-                  onUnpin: accountFavs.unpin,
-                  pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
-                  frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
-                }}
-              />
-              {overridden.account && (
-                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.description" })}</Label>}
-              <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
-              {(line.salesOrderLineId || line.deliveryLineId) && (
-                <span className="text-[11px] text-muted-foreground" data-testid={`invoice-line-link-${index}`}>
-                  {line.linkLabel ?? intl.formatMessage({ id: line.deliveryLineId ? "dist.invoice.fromDelivery" : "dist.invoice.fromOrder" })}
-                </span>
-              )}
-            </div>
-            <div className="relative flex flex-col gap-0.5">
-              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.qty" })}</Label>}
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={line.quantity}
-                onChange={(event) => updateLine(index, { quantity: event.target.value })}
-              />
-              <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => changeLineUnit(index, v || undefined)} />
-              {selectedItem?.trackInventory && (
-                <OnHandHint
-                  className="absolute -bottom-4 right-0 whitespace-nowrap"
-                  onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
-                  requested={baseQuantity(selectedItem, line.unitName, parseFloat(line.quantity) || 0)}
-                  warnWhenShort={documentType === InvoiceDocumentType.Invoice}
-                />
-              )}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {index === 0 && (
-                <Label className="text-xs">
-                  {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat" })}
-                </Label>
-              )}
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                aria-label={intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat" })}
-                value={line.unitPrice}
-                onChange={(event) => updateLine(index, { unitPrice: event.target.value, priceEdited: true })}
-              />
-              {overridden.price && (
-                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.discountPercent" })}</Label>}
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                aria-label={intl.formatMessage({ id: "invoiceForm.discountPercent" })}
-                value={line.discountPercent}
-                onChange={(event) => updateLine(index, { discountPercent: event.target.value, discountEdited: true })}
-              />
-            </div>
-            <div className="flex flex-col gap-0.5">
-              {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.tax" })}</Label>}
-              <SearchableSelect
-                value={line.taxDefinitionId}
-                onChange={(val) => updateLine(index, { taxDefinitionId: val })}
-                placeholder={intl.formatMessage({ id: "invoiceForm.noTax" })}
-                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-                noResultsText={intl.formatMessage({ id: "common.noResults" })}
-                emptyOptionLabel={!isVatRegistered ? intl.formatMessage({ id: "invoiceForm.noTax" }) : undefined}
-                options={taxes.map((tax) => ({
-                  value: tax.id,
-                  label: taxRatePercentLabel(tax),
-                  description: tax.code ?? undefined,
-                }))}
-              />
-              {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
-              )}
-            </div>
-            {isVatRegistered && (
-              <div className="flex flex-col gap-0.5">
-                {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.net" })}</Label>}
-                <p className="px-2 py-1.5 text-sm tabular-nums text-muted-foreground">{lineTotals[index].net.toFixed(2)}</p>
-              </div>
-            )}
-            {isVatRegistered && (
-              <div className="flex flex-col gap-0.5">
-                {index === 0 && <Label className="text-xs">{intl.formatMessage({ id: "invoiceForm.vat" })}</Label>}
-                <p className="px-2 py-1.5 text-sm tabular-nums text-muted-foreground">{lineTotals[index].tax.toFixed(2)}</p>
-              </div>
-            )}
-            <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
-              {intl.formatMessage({ id: "invoiceForm.remove" })}
-            </Button>
-          </div>
-          );
-        })}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <Button type="button" variant="outline" size="sm" className="w-fit" onClick={addLine}>
             {intl.formatMessage({ id: "invoiceForm.addLine" })}
           </Button>
-          <div className="flex items-center gap-4 text-sm font-medium tabular-nums">
-            {isVatRegistered && (
-              <>
-                <span>{intl.formatMessage({ id: "invoiceForm.totalNet" })}: {totalNet.toFixed(2)}</span>
-                <span>{intl.formatMessage({ id: "invoiceForm.totalVat" })}: {totalTax.toFixed(2)}</span>
-              </>
-            )}
-            <span className="text-base font-semibold">{intl.formatMessage({ id: "invoiceForm.totalGross" })}: {totalGross.toFixed(2)} EUR</span>
-          </div>
+          <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "invoiceEditor.keyboardHint" })}</p>
         </div>
+      </section>
+
+      {/* NOTES + TOTALS */}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_24rem]">
+        <section className="flex flex-col gap-2 rounded-lg border bg-card p-4">
+          <FormField label={intl.formatMessage({ id: "invoiceForm.internalNotes" })} htmlFor="invoice-internal-notes">
+            <Textarea id="invoice-internal-notes" rows={4} value={internalNotes} onChange={(event) => setInternalNotes(event.target.value)} />
+          </FormField>
+        </section>
+        <InvoiceTotalsPanel quote={quote} isStale={quoteIsStale} taxes={taxes} currency={currency} />
       </div>
 
-      <div className="flex items-center gap-2">
-        <Button type="submit" className="w-fit" disabled={submitting}>
+      {/* ACTIONS — kept in view at the bottom of the page */}
+      <div className="sticky bottom-0 z-10 -mx-1 flex flex-wrap items-center justify-end gap-2 border-t bg-background/95 px-1 py-3 backdrop-blur">
+        {onCancel && (
+          <Button type="button" variant="ghost" className="mr-auto" onClick={onCancel} disabled={submitting}>
+            {intl.formatMessage({ id: "common.cancel" })}
+          </Button>
+        )}
+        <Button type="button" variant="outline" onClick={() => setShowPreview(true)}>
+          {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
+        </Button>
+        {!editingInvoice && (
+          <Button type="submit" variant="outline" disabled={submitting} onClick={() => { keepOpenRef.current = true; }}>
+            {intl.formatMessage({ id: "common.saveAndAddNew" })}
+          </Button>
+        )}
+        {!editingInvoice && (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={submitting}
+            onClick={() => {
+              if (!validateBeforePayment()) return;
+              const gross = quote?.totals.grossAmount;
+              setPaymentAmount(gross != null && gross > 0 ? gross.toFixed(2) : "");
+              setShowPaymentDialog(true);
+            }}
+          >
+            {intl.formatMessage({ id: "invoiceForm.saveAndPay" })}
+          </Button>
+        )}
+        <Button type="submit" disabled={submitting} onClick={() => { keepOpenRef.current = false; }}>
           {editingInvoice
             ? submitting
               ? intl.formatMessage({ id: "invoiceForm.saving" })
@@ -1061,24 +1101,6 @@ export function InvoiceForm({
             : submitting
               ? intl.formatMessage({ id: "invoiceForm.creating" })
               : intl.formatMessage({ id: "invoiceForm.createInvoice" })}
-        </Button>
-        {!editingInvoice && (
-          <Button
-            type="button"
-            variant="secondary"
-            className="w-fit"
-            disabled={submitting}
-            onClick={() => {
-              if (!validateBeforePayment()) return;
-              setPaymentAmount(totalGross > 0 ? totalGross.toFixed(2) : "");
-              setShowPaymentDialog(true);
-            }}
-          >
-            {intl.formatMessage({ id: "invoiceForm.saveAndPay" })}
-          </Button>
-        )}
-        <Button type="button" variant="outline" className="w-fit" onClick={() => setShowPreview(true)}>
-          {intl.formatMessage({ id: "invoicePreview.previewInvoice" })}
         </Button>
       </div>
 
@@ -1167,16 +1189,24 @@ export function InvoiceForm({
       {showPreview && (
         <InvoicePreviewDialog
           data={buildDocumentDataFromForm({
-            company: activeCompany ?? { name: "" },
-            customer: selectedCustomer ? { name: selectedCustomer.name, taxNumber: selectedCustomer.taxNumber ?? undefined, fiscalNumber: selectedCustomer.fiscalNumber ?? undefined, isVatRegistered: selectedCustomer.isVatRegistered } : undefined,
-            lines,
+            company: { ...(activeCompany ?? { name: "" }), bankAccounts: bankAccounts.data },
+            customer: customers.find((c) => c.id === partnerId),
+            lines: lines.map((line) => ({
+              description: line.description,
+              quantity: parseFloat(line.quantity) || 0,
+              discountPercent: parseFloat(line.discountPercent) || 0,
+              taxDefinitionId: line.taxDefinitionId || undefined,
+              unitName: line.unitName,
+              itemCode: items.find((i) => i.id === line.itemId)?.code?.toString(),
+            })),
+            quote,
             taxes,
             documentType,
             issueDate,
             dueDate,
             priceMode,
             internalNotes: internalNotes || undefined,
-            paymentTermDays,
+            paymentTermDays: paymentTermDays ? parseInt(paymentTermDays, 10) : undefined,
             originalDocumentNumber: originalInvoiceId ? (originalInvoiceCandidates.find((i) => i.id === originalInvoiceId)?.invoiceNumber ?? undefined) : undefined,
           })}
           onClose={() => setShowPreview(false)}

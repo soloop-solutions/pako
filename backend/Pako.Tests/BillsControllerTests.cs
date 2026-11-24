@@ -94,6 +94,41 @@ public class BillsControllerTests : IAsyncLifetime
             new List<CreateBillLineRequest> { new("Returned goods", quantity, unitPrice, null, null) },
             DocumentType.PurchaseReturn, originalBillId);
 
+    // Client request 2026-11-23: a vendor's default expense account fills a line that names none
+    // (and has no item), ahead of the company default.
+    [Fact]
+    public async Task Create_LineWithoutAccount_TakesTheVendorsDefaultExpenseAccount()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var vendorExpenseId = Guid.NewGuid();
+        db.Accounts.Add(new Account { Id = vendorExpenseId, CompanyId = companyId, Code = "6100", Name = "Rent", AccountType = AccountType.Expense });
+        var vendor = await db.Partners.SingleAsync(p => p.Id == partnerId);
+        vendor.DefaultExpenseAccountId = vendorExpenseId;
+        await db.SaveChangesAsync();
+
+        var created = await NewController(db).Create(companyId, RequestWithLine(partnerId, 1m, 100m));
+
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        Assert.Equal(vendorExpenseId, Assert.Single(bill.Lines).ExpenseAccountId);
+    }
+
+    // Client request 2026-11-23: an empty due date is the issue date; a free-text line keeps its unit.
+    [Fact]
+    public async Task Create_WithoutDueDate_UsesIssueDate_AndKeepsAFreeLineUnit()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var request = new CreateBillRequest(partnerId, "VEND-002", new DateOnly(2026, 8, 26), null,
+            new List<CreateBillLineRequest> { new("Fuel", 40m, 1.5m, null, null, UnitName: " l ") });
+
+        var created = await NewController(db).Create(companyId, request);
+
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        Assert.Equal(new DateOnly(2026, 8, 26), bill.DueDate);
+        var line = Assert.Single(bill.Lines);
+        Assert.Equal("l", line.UnitName);
+        Assert.Equal(1m, line.UnitFactor);
+    }
+
     // B9: a bill posts to the Purchase journal, not "the first journal for this company" —
     // SeedAsync now seeds General/Purchase/Cash/Bank together, so this only passes if the routing
     // is actually explicit.
@@ -322,16 +357,44 @@ public class BillsControllerTests : IAsyncLifetime
 
     // A2 (v2 release): AP mirror of InvoicesControllerTests' SalesReturn coverage — goods
     // returned to a supplier reduce the payable, the mirror image of the sales-return journal.
+    // Client request 2026-11-23: a return need not be linked to a bill. It posts with no cap.
     [Fact]
-    public async Task Create_PurchaseReturn_WithoutOriginalBillId_Rejected()
+    public async Task PurchaseReturn_WithoutOriginalBill_CreatesAndPosts()
     {
         var (db, companyId, partnerId, _) = await SeedAsync();
         var controller = NewController(db);
 
-        var result = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 400m, null));
+        var created = await controller.Create(companyId, PurchaseReturnRequestWithLine(partnerId, 1m, 400m, null));
+        var purchaseReturn = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(created.Result).Value);
+        Assert.Null(purchaseReturn.OriginalBillId);
 
-        var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("originalBillId", badRequest.Value!.ToString());
+        var result = await controller.Post(companyId, purchaseReturn.Id);
+        Assert.Equal(200, ((ObjectResult)result.Result!).StatusCode);
+
+        var payableAccountId = (await db.CompanyAccountDefaults.AsNoTracking()
+            .SingleAsync(d => d.CompanyId == companyId)).PayableAccountId;
+        var payableDebit = await db.JournalEntryLines.AsNoTracking()
+            .Where(l => l.AccountId == payableAccountId && l.JournalEntry!.CompanyId == companyId && l.JournalEntry.State == JournalEntryState.Posted)
+            .SumAsync(l => l.Debit - l.Credit);
+        Assert.Equal(400m, payableDebit);
+    }
+
+    [Fact]
+    public async Task Create_PurchaseReturn_AgainstAnotherVendorsBill_Rejected()
+    {
+        var (db, companyId, partnerId, _) = await SeedAsync();
+        var controller = NewController(db);
+
+        var billCreated = await controller.Create(companyId, RequestWithLine(partnerId, 1m, 400m));
+        var bill = Assert.IsType<BillResponse>(Assert.IsType<ObjectResult>(billCreated.Result).Value);
+
+        var otherVendor = new Partner { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Other vendor", IsVendor = true };
+        db.Partners.Add(otherVendor);
+        await db.SaveChangesAsync();
+
+        var result = await controller.Create(companyId, PurchaseReturnRequestWithLine(otherVendor.Id, 1m, 400m, bill.Id));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
     }
 
     [Fact]
