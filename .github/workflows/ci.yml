@@ -8,7 +8,11 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
       - name: Start Postgres
@@ -19,7 +23,19 @@ jobs:
         with:
           dotnet-version: '10.0.x'
       - run: dotnet build backend/Pako.Tests/Pako.Tests.csproj
-      - run: dotnet test backend/Pako.Tests/Pako.Tests.csproj --no-build --blame-hang-timeout 5m --blame-hang-dump-type none --logger "console;verbosity=normal"
+      - name: Test shard ${{ matrix.shard }} of 4
+        run: |
+          filter=""
+          i=0
+          for f in $(grep -rlE "\[(Fact|Theory)" backend/Pako.Tests --include=*.cs | sort); do
+            if [ $((i % 4)) -eq ${{ matrix.shard }} ]; then
+              for c in $(grep -hoE "class [A-Za-z0-9_]+" "$f" | awk '{print $2}'); do
+                filter="$filter|FullyQualifiedName~.$c."
+              done
+            fi
+            i=$((i + 1))
+          done
+          dotnet test backend/Pako.Tests/Pako.Tests.csproj --no-build --filter "${filter#|}" --blame-hang-timeout 5m --blame-hang-dump-type none --logger "console;verbosity=normal"
         env:
           PAKO_TEST_POSTGRES_CONNECTION: "Host=localhost;Port=5433;Database=pako_dev;Username=postgres;Password=postgres"
 
