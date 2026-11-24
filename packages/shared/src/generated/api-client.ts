@@ -7223,6 +7223,9 @@ export class PakoApiClient {
         return Promise.resolve<EmployeeDetailResponse>(null as any);
     }
 
+    /**
+     * @return OK
+     */
     deleteEmployee(companyId: string, id: string): Promise<void> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/employees/{id}";
         if (companyId === undefined || companyId === null)
@@ -7235,7 +7238,8 @@ export class PakoApiClient {
 
         let options_: RequestInit = {
             method: "DELETE",
-            headers: {}
+            headers: {
+            }
         };
 
         return this.http.fetch(url_, options_).then((_response: Response) => {
@@ -7246,7 +7250,7 @@ export class PakoApiClient {
     protected processDeleteEmployee(response: Response): Promise<void> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
-        if (status === 204) {
+        if (status === 200) {
             return response.text().then((_responseText) => {
             return;
             });
@@ -7258,6 +7262,9 @@ export class PakoApiClient {
         return Promise.resolve<void>(null as any);
     }
 
+    /**
+     * @return OK
+     */
     setEmployeeActive(companyId: string, id: string, body: SetEmployeeActiveRequest): Promise<EmployeeDetailResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/employees/{id}/active";
         if (companyId === undefined || companyId === null)
@@ -7302,8 +7309,8 @@ export class PakoApiClient {
     }
 
     /**
-     * @param page (optional)
-     * @param pageSize (optional)
+     * @param page (optional) 
+     * @param pageSize (optional) 
      * @return OK
      */
     employeeHistory(companyId: string, id: string, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfAuditEntryResponse> {
@@ -39469,12 +39476,6 @@ export interface SaveEmployeeRequest {
     [key: string]: any;
 }
 
-export interface SetEmployeeActiveRequest {
-    isActive: boolean;
-
-    [key: string]: any;
-}
-
 export interface SaveEventBookingRequest {
     storeId: string;
     venueId: string;
@@ -40257,6 +40258,12 @@ export interface SessionSummaryResponse {
     closedAt: string | undefined;
     netSales: number;
     journalEntryId: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SetEmployeeActiveRequest {
+    isActive: boolean;
 
     [key: string]: any;
 }
