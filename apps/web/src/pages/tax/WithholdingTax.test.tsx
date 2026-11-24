@@ -86,6 +86,7 @@ describe("WithholdingTax", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[0]);
     fireEvent.change(screen.getByLabelText(/^NUI \/ Fiscal no\. \/ Personal no\.( \*)?$/), { target: { value: "810123456" } });
     fireEvent.change(screen.getByLabelText(/^Business name \/ Person name( \*)?$/), { target: { value: "Acme LLC" } });
+    fireEvent.click(screen.getByRole("button", { name: "Interest" }));
     fireEvent.change(screen.getByLabelText("Gross interest paid (4)"), { target: { value: "200" } });
     fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[1]);
 
@@ -100,21 +101,34 @@ describe("WithholdingTax", () => {
     });
   });
 
-  it("requires rental area and monthly rent once gross rent is entered", async () => {
+  it("fills the monthly rent from the gross rent and only asks for the area", async () => {
     renderPage();
     await screen.findByText("Ljubica Azemi");
 
     fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[0]);
     fireEvent.change(screen.getByLabelText(/^NUI \/ Fiscal no\. \/ Personal no\.( \*)?$/), { target: { value: "810123456" } });
     fireEvent.change(screen.getByLabelText(/^Business name \/ Person name( \*)?$/), { target: { value: "Landlord" } });
+    expect(screen.queryByLabelText("Gross interest paid (4)")).toBeNull();
     fireEvent.change(screen.getByLabelText("Gross rent paid, excl. VAT (8)"), { target: { value: "500" } });
 
+    expect((screen.getByLabelText("Gross monthly rent, excl. VAT (14)") as HTMLInputElement).value).toBe("500");
     expect(screen.getAllByRole("button", { name: "Add entry" })[1]).toBeDisabled();
 
     fireEvent.change(screen.getByLabelText("Rented area, m2 (13)"), { target: { value: "40" } });
-    fireEvent.change(screen.getByLabelText("Gross monthly rent, excl. VAT (14)"), { target: { value: "500" } });
 
     expect(screen.getAllByRole("button", { name: "Add entry" })[1]).toBeEnabled();
+  });
+
+  it("refuses a personal number that is not 9 or 10 digits", async () => {
+    renderPage();
+    await screen.findByText("Ljubica Azemi");
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Add entry" })[0]);
+    fireEvent.change(screen.getByLabelText(/^NUI \/ Fiscal no\. \/ Personal no\.( \*)?$/), { target: { value: "8101" } });
+    fireEvent.change(screen.getByLabelText(/^Business name \/ Person name( \*)?$/), { target: { value: "Acme LLC" } });
+
+    expect(screen.getByText("Enter 9 or 10 digits.")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: "Add entry" })[1]).toBeDisabled();
   });
 
   it("lets the year be typed and updates the URL and the query once it is a valid year", async () => {

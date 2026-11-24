@@ -3,6 +3,7 @@ using System.Net;
 using System.Resources;
 using System.Text;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using Pako.Domain.Notifications;
@@ -36,17 +37,95 @@ public class NotificationRenderer
 
         var subject = Fill(Text($"Email_{notification.Template}_Subject", notification.Culture), payload);
         var body = Fill(Text($"Email_{notification.Template}_Body", notification.Culture), payload);
-        var footer = Text("Email_Footer", notification.Culture);
+        var footer = Fill(Text("Email_Footer", notification.Culture), payload);
         var text = $"{body}\n\n—\n{footer}";
 
-        var html = new StringBuilder("<div style=\"font-family:Arial,sans-serif;font-size:14px;line-height:1.5;color:#1f2937\">");
+        var html = BuildHtml(body, footer);
+        return (subject, text, html);
+    }
+
+    // Matches http/https URLs in the body text so they can be rendered as action buttons.
+    private static readonly Regex UrlPattern = new(@"https?://\S+", RegexOptions.Compiled);
+
+    private static string BuildHtml(string body, string footer)
+    {
+        var html = new StringBuilder();
+
+        // Outer wrapper — centered, light background (works in Gmail, Outlook, Apple Mail)
+        html.Append("""
+            <div style="margin:0;padding:0;background-color:#f3f4f6;width:100%">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background-color:#f3f4f6">
+            <tr><td align="center" style="padding:32px 16px">
+            <table role="presentation" cellpadding="0" cellspacing="0" width="560" style="max-width:560px;width:100%">
+            """);
+
+        // Header — brand bar
+        html.Append("""
+            <tr><td style="background-color:#140f5a;border-radius:12px 12px 0 0;padding:24px 32px;text-align:center">
+            <span style="color:#ffffff;font-family:Inter,Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:1px">PAKO</span>
+            </td></tr>
+            """);
+
+        // Body card
+        html.Append("""
+            <tr><td style="background-color:#ffffff;padding:32px;font-family:Inter,Arial,sans-serif;font-size:14px;line-height:1.6;color:#1f2937">
+            """);
+
         foreach (var paragraph in body.Split("\n\n"))
         {
-            html.Append("<p>").Append(WebUtility.HtmlEncode(paragraph).Replace("\n", "<br>")).Append("</p>");
+            var encoded = WebUtility.HtmlEncode(paragraph).Replace("\n", "<br>");
+
+            // If the paragraph contains a URL, extract it and render an action button instead
+            var match = UrlPattern.Match(paragraph);
+            if (match.Success)
+            {
+                var url = match.Value;
+                // Text before the URL (the label, e.g. "Accept the invitation and set your password:")
+                var label = paragraph[..match.Index].TrimEnd(' ', ':').Trim();
+                // Text after the URL
+                var after = paragraph[(match.Index + match.Length)..].Trim();
+
+                if (!string.IsNullOrEmpty(label))
+                    html.Append("<p style=\"margin:0 0 8px\">").Append(WebUtility.HtmlEncode(label)).Append("</p>");
+
+                // Action button — centered, brand color
+                html.Append("""
+                    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:16px 0">
+                    <tr><td align="center">
+                    """);
+                html.Append("<a href=\"").Append(WebUtility.HtmlEncode(url)).Append("\" target=\"_blank\" style=\"")
+                    .Append("display:inline-block;background-color:#2563eb;color:#ffffff;")
+                    .Append("font-family:Inter,Arial,sans-serif;font-size:14px;font-weight:600;")
+                    .Append("text-decoration:none;padding:12px 32px;border-radius:8px\">");
+                // Use the label text as button text, or a sensible fallback
+                html.Append(WebUtility.HtmlEncode(!string.IsNullOrEmpty(label) ? label : url));
+                html.Append("</a>");
+                html.Append("</td></tr></table>");
+
+                // Fallback link for clients that hide buttons
+                html.Append("<p style=\"margin:4px 0 12px;font-size:12px;color:#6b7280;word-break:break-all\">")
+                    .Append("<a href=\"").Append(WebUtility.HtmlEncode(url)).Append("\" style=\"color:#2563eb\">")
+                    .Append(WebUtility.HtmlEncode(url)).Append("</a></p>");
+
+                if (!string.IsNullOrEmpty(after))
+                    html.Append("<p style=\"margin:0 0 12px\">").Append(WebUtility.HtmlEncode(after)).Append("</p>");
+            }
+            else
+            {
+                html.Append("<p style=\"margin:0 0 12px\">").Append(encoded).Append("</p>");
+            }
         }
 
-        html.Append("<p style=\"color:#6b7280;font-size:12px\">").Append(WebUtility.HtmlEncode(footer)).Append("</p></div>");
-        return (subject, text, html.ToString());
+        html.Append("</td></tr>");
+
+        // Footer
+        html.Append("<tr><td style=\"background-color:#f9fafb;border-radius:0 0 12px 12px;padding:20px 32px;text-align:center;")
+            .Append("font-family:Inter,Arial,sans-serif;font-size:12px;line-height:1.5;color:#6b7280;border-top:1px solid #e5e7eb\">")
+            .Append(WebUtility.HtmlEncode(footer))
+            .Append("</td></tr>");
+
+        html.Append("</table></td></tr></table></div>");
+        return html.ToString();
     }
 
     private static string Fill(string template, IReadOnlyDictionary<string, string> payload)

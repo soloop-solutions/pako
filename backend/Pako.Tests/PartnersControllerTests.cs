@@ -152,11 +152,52 @@ public class PartnersControllerTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Create_VatRegisteredWithoutVatNumber_Rejected()
+    public async Task Create_VatRegisteredWithoutVatNumber_Accepted()
     {
         var (db, companyId, _) = await SeedCompanyWithAccountAsync();
 
         var result = await NewController(db).Create(companyId, new CreatePartnerRequest("Acme LLC", "811234567", true, false, IsVatRegistered: true, VatNumber: "  "));
+
+        var created = Assert.IsType<PartnerResponse>(((ObjectResult)result.Result!).Value);
+        Assert.True(created.IsVatRegistered);
+        Assert.Null(created.VatNumber);
+    }
+
+    [Theory]
+    [InlineData("81123456")]
+    [InlineData("8112345678")]
+    [InlineData("81123456A")]
+    public async Task Create_NuiNotNineDigits_Rejected(string nui)
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest("Acme LLC", nui, true, false));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Theory]
+    [InlineData("33012345")]
+    [InlineData("3301234567")]
+    [InlineData("33012345X")]
+    public async Task Create_VatNumberNotNineDigits_Rejected(string vat)
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest("Acme LLC", "811234567", true, false, IsVatRegistered: true, VatNumber: vat));
+
+        Assert.IsType<BadRequestObjectResult>(result.Result);
+    }
+
+    [Theory]
+    [InlineData("12345678")]
+    [InlineData("12345678901")]
+    [InlineData("12345abcd")]
+    public async Task Create_FiscalNumberNotNineOrTenDigits_Rejected(string fiscal)
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+
+        var result = await NewController(db).Create(companyId, new CreatePartnerRequest("Ardit Krasniqi", null, true, false, FiscalNumber: fiscal));
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -174,6 +215,59 @@ public class PartnersControllerTests : IAsyncLifetime
         var updated = Assert.IsType<PartnerResponse>(Assert.IsType<OkObjectResult>((await controller.Update(companyId, vat.Id,
             new UpdatePartnerRequest("Acme LLC", "811234567", true, false, IsVatRegistered: false, VatNumber: "330123456"))).Result).Value);
         Assert.Null(updated.VatNumber);
+    }
+
+    [Fact]
+    public async Task Archive_HidesPartnerFromActiveOnlyList_AndUnarchiveRestoresIt()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<PartnerResponse>(((ObjectResult)(await controller.Create(companyId, new CreatePartnerRequest("Acme LLC", "811234567", false, true))).Result!).Value);
+
+        var archived = Assert.IsType<PartnerResponse>(Assert.IsType<OkObjectResult>((await controller.Archive(companyId, created.Id)).Result).Value);
+        Assert.False(archived.IsActive);
+        var activeOnly = Assert.IsType<List<PartnerResponse>>(Assert.IsType<OkObjectResult>((await controller.List(companyId, activeOnly: true)).Result).Value);
+        Assert.DoesNotContain(activeOnly, p => p.Id == created.Id);
+        var everyone = Assert.IsType<List<PartnerResponse>>(Assert.IsType<OkObjectResult>((await controller.List(companyId)).Result).Value);
+        Assert.Contains(everyone, p => p.Id == created.Id);
+
+        var restored = Assert.IsType<PartnerResponse>(Assert.IsType<OkObjectResult>((await controller.Unarchive(companyId, created.Id)).Result).Value);
+        Assert.True(restored.IsActive);
+    }
+
+    [Fact]
+    public async Task Delete_UnusedPartner_Removes()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<PartnerResponse>(((ObjectResult)(await controller.Create(companyId, new CreatePartnerRequest("Acme LLC", "811234567", false, true))).Result!).Value);
+
+        Assert.IsType<NoContentResult>(await controller.Delete(companyId, created.Id));
+        Assert.False(await db.Partners.AnyAsync(p => p.Id == created.Id));
+    }
+
+    [Fact]
+    public async Task Delete_PartnerWithABill_RefusedAndKept()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var controller = NewController(db);
+        var created = Assert.IsType<PartnerResponse>(((ObjectResult)(await controller.Create(companyId, new CreatePartnerRequest("Acme LLC", "811234567", false, true))).Result!).Value);
+        db.Bills.Add(new Pako.Domain.Bills.Bill { Id = Guid.NewGuid(), CompanyId = companyId, PartnerId = created.Id, IssueDate = new DateOnly(2026, 11, 1), DueDate = new DateOnly(2026, 11, 30) });
+        await db.SaveChangesAsync();
+
+        Assert.IsType<ConflictObjectResult>(await controller.Delete(companyId, created.Id));
+        Assert.True(await db.Partners.AnyAsync(p => p.Id == created.Id));
+    }
+
+    [Fact]
+    public async Task Delete_EmployeePartner_Refused()
+    {
+        var (db, companyId, _) = await SeedCompanyWithAccountAsync();
+        var partner = new Partner { Id = Guid.NewGuid(), CompanyId = companyId, Name = "Employee", IsVendor = true, EmployeeId = Guid.NewGuid() };
+        db.Partners.Add(partner);
+        await db.SaveChangesAsync();
+
+        Assert.IsType<ConflictObjectResult>(await NewController(db).Delete(companyId, partner.Id));
     }
 
     // Client request 2026-11-23: partner line defaults.

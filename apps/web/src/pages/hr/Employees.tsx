@@ -2,7 +2,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { formatMoney } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { EmployeeDetailResponse } from "@pako/shared";
@@ -35,6 +35,15 @@ export function Employees() {
 
   const departmentId = searchParams.get(DEPARTMENT_PARAM) ?? "";
   const includeInactive = searchParams.get(INACTIVE_PARAM) === "1";
+  const [highlightId, setHighlightId] = useState(() => searchParams.get("highlight"));
+
+  useEffect(() => {
+    if (!highlightId) return;
+    // Clear the URL param without navigation
+    setSearchParams((prev) => { const p = new URLSearchParams(prev); p.delete("highlight"); return p; }, { replace: true });
+    const timer = setTimeout(() => setHighlightId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [highlightId, setSearchParams]);
   const sort = urlState.sort && SORTABLE.has(urlState.sort.id) ? `${urlState.sort.desc ? "-" : ""}${urlState.sort.id}` : undefined;
 
   function setParam(key: string, value: string | null) {
@@ -210,7 +219,11 @@ export function Employees() {
         rowCount={employeesQuery.data?.total ?? 0}
         isLoading={employeesQuery.isPending}
         getRowId={(row) => row.id}
-        getRowClassName={(row) => (row.isActive ? undefined : "text-muted-foreground")}
+        getRowClassName={(row) =>
+          row.id === highlightId
+            ? "animate-pulse border-primary bg-primary/10"
+            : row.isActive ? undefined : "text-muted-foreground"
+        }
         onRowClick={(row) => navigate(`/employees/${row.id}`)}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: "hr.employees.searchPlaceholder" })}

@@ -107,6 +107,8 @@ public record SetEmployeePartnersRequest(List<Guid> PartnerIds, DateOnly? Effect
 
 public record EmployeePartnerResponse(Guid PartnerId, string Name, bool IsCustomer, bool IsVendor);
 
+public record SetEmployeeActiveRequest(bool IsActive);
+
 // ---- Contracts (salary history) ----
 
 public record SaveEmployeeContractRequest(

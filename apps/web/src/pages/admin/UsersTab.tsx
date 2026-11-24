@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useIntl } from "react-intl";
 import type { ColumnDef } from "@tanstack/react-table";
-import { Copy, UserPlus } from "lucide-react";
+import { Copy, UserPlus, X } from "lucide-react";
 import type { CompanyUserResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -174,7 +174,7 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
         accessorFn: (row) => row.lastLoginAt ?? row.invitedAt,
         cell: ({ row }) =>
           row.original.lastLoginAt
-            ? intl.formatDate(row.original.lastLoginAt, { dateStyle: "medium" })
+            ? intl.formatDate(row.original.lastLoginAt, { dateStyle: "medium", timeStyle: "short", hour12: false })
             : row.original.invitedAt
               ? intl.formatMessage({ id: "admin.users.invitedOn" }, { date: intl.formatDate(row.original.invitedAt, { dateStyle: "medium" }) })
               : "—",
@@ -247,7 +247,14 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
     else updateMutation.mutate(dialog.user.membershipId!);
   }
 
-  const users = usersQuery.data ?? [];
+  const users = useMemo(() => {
+    const list = usersQuery.data ?? [];
+    return [...list].sort((a, b) => {
+      const da = a.invitedAt ?? a.lastLoginAt ?? "";
+      const db = b.invitedAt ?? b.lastLoginAt ?? "";
+      return db.localeCompare(da);
+    });
+  }, [usersQuery.data]);
   const selectedRole = roles.find((r) => r.id === form.roleId);
   const desktop = getDesktopBridge() !== null;
 
@@ -268,15 +275,25 @@ export function UsersTab({ companyId, canManage }: { companyId: string; canManag
       </div>
 
       {error && !dialog && (
-        <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+        <Alert variant="destructive" className="border-destructive/50 bg-destructive/10">
+          <AlertDescription className="flex items-start justify-between gap-2">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError(null)} className="shrink-0 rounded-sm p-0.5 opacity-70 hover:opacity-100" aria-label={intl.formatMessage({ id: "common.close" })}>
+              <X className="size-3.5" />
+            </button>
+          </AlertDescription>
         </Alert>
       )}
 
       {link && (
-        <Alert>
+        <Alert className="border-success/50 bg-success/10">
           <AlertDescription className="flex flex-col gap-2">
-            <span>{link.title}</span>
+            <span className="flex items-start justify-between gap-2">
+              <span className="font-medium text-success-foreground">{link.title}</span>
+              <button type="button" onClick={() => setLink(null)} className="shrink-0 rounded-sm p-0.5 opacity-70 hover:opacity-100" aria-label={intl.formatMessage({ id: "common.close" })}>
+                <X className="size-3.5" />
+              </button>
+            </span>
             {/* The API returns the link only while email isn't really sent; otherwise it went by email. */}
             {link.url && (
             <span className="flex items-center gap-2">

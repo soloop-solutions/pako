@@ -26,6 +26,7 @@ export function PartnerForm({ companyId, role, onCreated, initialName }: Partner
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault();
+    event.stopPropagation();
     setError(null);
 
     const nextErrors: Record<string, string | null> = {};

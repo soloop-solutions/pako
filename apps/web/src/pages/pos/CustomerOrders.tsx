@@ -204,7 +204,7 @@ function CustomerOrderDialog({ order, onClose, onSaved }: { order: CustomerOrder
   const stores = (usePosStores().data ?? []).filter((s) => s.isActive || s.id === order?.storeId);
   const customers = (useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
   }).data ?? []).filter((p) => p.isCustomer || p.id === order?.customerId);
   const itemSearch = useItemSearch();

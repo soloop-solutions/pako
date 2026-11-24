@@ -264,13 +264,14 @@ public static class AtkTaxBookWorkbook
                 sheet.Cell(r, column).FormulaA1 = template.Replace("{r}", r.ToString());
             }
 
+            sheet.Range(r, spec.IsVat ? 7 : 6, r, spec.LastColumn).Style.NumberFormat.Format = "#,##0.00";
+
             if (!spec.IsVat)
             {
                 var dataRow = sheet.Range(r, 1, r, spec.LastColumn);
                 dataRow.Style.Border.OutsideBorder = XLBorderStyleValues.Thin;
                 dataRow.Style.Border.InsideBorder = XLBorderStyleValues.Thin;
                 dataRow.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                sheet.Range(r, 6, r, spec.LastColumn).Style.NumberFormat.Format = "#,##0.00";
             }
         }
 

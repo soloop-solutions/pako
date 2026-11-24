@@ -45,7 +45,7 @@ export function Partners() {
     queryKey: [...partnersQueryKey, "paged"],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort }) => {
-      const result = await apiClient.paged4(activeCompanyId as string, page, pageSize, search, undefined, sort);
+      const result = await apiClient.paged4(activeCompanyId as string, page, pageSize, search, undefined, sort, undefined);
       return { items: result.items, total: result.total };
     },
   });

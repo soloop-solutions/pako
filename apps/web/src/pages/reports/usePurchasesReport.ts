@@ -47,7 +47,7 @@ export function usePurchasesReport(companyId: string | null, enabled: boolean) {
 
   const partners = useQuery({
     queryKey: ["reports", "partners", companyId] as const,
-    queryFn: () => apiClient.partnersAll(companyId as string),
+    queryFn: () => apiClient.partnersAll(companyId as string, undefined),
     enabled: active && view === "transactions",
   });
 

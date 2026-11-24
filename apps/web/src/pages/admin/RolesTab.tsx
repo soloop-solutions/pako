@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
-import { Copy, Plus, Trash2 } from "lucide-react";
-import type { CompanyRoleResponse, ModuleAccessResponse } from "@pako/shared";
+import { ChevronLeft, ChevronRight, Copy, Plus, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import type { CompanyRoleResponse, CompanyUserResponse, ModuleAccessResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -44,25 +45,43 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
   const queryClient = useQueryClient();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [justCreatedId, setJustCreatedId] = useState<string | null>(null);
+  const justCreatedRef = useRef<HTMLButtonElement>(null);
   const queryKey = ["admin", "roles", companyId] as const;
 
   const rolesQuery = useQuery({ queryKey, queryFn: () => apiClient.listCompanyRoles(companyId) });
   const roles = rolesQuery.data ?? [];
   const selected = draft?.id ? roles.find((r) => r.id === draft.id) ?? null : null;
 
+  const usersQuery = useQuery({ queryKey: ["admin", "users", companyId], queryFn: () => apiClient.listCompanyUsers(companyId) });
+  const users = usersQuery.data ?? [];
+
   const refresh = () => {
     void queryClient.invalidateQueries({ queryKey });
     void queryClient.invalidateQueries({ queryKey: ["admin", "users", companyId] });
   };
+
+  // Scroll the newly created role into view and clear the highlight after the animation
+  useEffect(() => {
+    if (!justCreatedId) return;
+    justCreatedRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const timer = setTimeout(() => setJustCreatedId(null), 2000);
+    return () => clearTimeout(timer);
+  }, [justCreatedId, roles]);
 
   const saveMutation = useMutation({
     mutationFn: (d: Draft) => {
       const body = { name: d.name.trim(), description: d.description.trim() || undefined, levels: d.levels, partnerScope: d.partnerScope };
       return d.id ? apiClient.updateCompanyRole(companyId, d.id, body) : apiClient.createCompanyRole(companyId, body);
     },
-    onSuccess: (saved) => {
+    onSuccess: (saved, submitted) => {
+      const isNew = !submitted.id;
       setError(null);
-      setDraft(toDraft(saved));
+      setJustCreatedId(isNew ? saved.id : null);
+      setDraft(isNew
+        ? { id: null, name: "", description: "", levels: emptyLevels(), partnerScope: PartnerScope.All }
+        : toDraft(saved));
+      toast.success(intl.formatMessage({ id: isNew ? "admin.roles.created" : "admin.roles.updated" }, { name: saved.name }));
       refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "admin.roles.saveError" }))),
@@ -72,6 +91,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
     mutationFn: (id: string) => apiClient.deleteCompanyRole(companyId, id),
     onSuccess: () => {
       setDraft(null);
+      toast.success(intl.formatMessage({ id: "admin.roles.deleted" }));
       refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "admin.roles.deleteError" }))),
@@ -82,7 +102,19 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
   }
 
   const pages = draft ? pagesFor(draft.levels) : [];
-  const ledgerBlocked = draft?.partnerScope === PartnerScope.Assigned && (draft.levels.accounting ?? 0) > AccessLevel.None;
+  const accountingLocked = draft?.partnerScope === PartnerScope.Assigned;
+
+  // Users assigned to the selected role, with client-side pagination
+  const USERS_PER_PAGE = 5;
+  const [usersPage, setUsersPage] = useState(0);
+  const roleUsers = useMemo(() => {
+    if (!draft?.id) return [];
+    return users.filter((u: CompanyUserResponse) => u.roleId === draft.id);
+  }, [users, draft?.id]);
+  const totalUserPages = Math.max(1, Math.ceil(roleUsers.length / USERS_PER_PAGE));
+  const pagedUsers = roleUsers.slice(usersPage * USERS_PER_PAGE, (usersPage + 1) * USERS_PER_PAGE);
+  // Reset page when switching roles
+  useEffect(() => { setUsersPage(0); }, [draft?.id]);
 
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[280px_1fr]">
@@ -104,14 +136,17 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
           {roles.map((role) => (
             <button
               key={role.id}
+              ref={role.id === justCreatedId ? justCreatedRef : undefined}
               type="button"
               onClick={() => {
                 setError(null);
+                setJustCreatedId(null);
                 setDraft(toDraft(role));
               }}
               className={cn(
-                "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm hover:bg-muted/50",
+                "flex items-center justify-between rounded-md border px-3 py-2 text-left text-sm transition-colors hover:bg-muted/50",
                 draft?.id === role.id && "border-primary bg-muted/50",
+                role.id === justCreatedId && "animate-pulse border-primary bg-primary/10",
               )}
             >
               <span className="font-medium">{role.name}</span>
@@ -161,25 +196,32 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                     </tr>
                   </thead>
                   <tbody>
-                    {ACCESS_AREAS.map((area) => (
-                      <tr key={area} className="border-t">
-                        <td className="px-3 py-1">
-                          <div className="font-medium">{areaLabel(area, intl)}</div>
-                          <div className="text-xs text-muted-foreground">{intl.formatMessage({ id: `admin.area.${area}.hint` })}</div>
-                        </td>
-                        {ACCESS_LEVELS.map((level) => (
-                          <td key={level} className="px-2 py-1 text-center">
-                            <input
-                              type="radio"
-                              name={`level-${area}`}
-                              aria-label={`${areaLabel(area, intl)}: ${levelLabel(level, intl)}`}
-                              checked={(draft.levels[area] ?? 0) === level}
-                              onChange={() => setLevel(area, level)}
-                            />
+                    {ACCESS_AREAS.map((area) => {
+                      const areaDisabled = area === "accounting" && accountingLocked;
+                      return (
+                        <tr key={area} className={cn("border-t", areaDisabled && "opacity-50")}>
+                          <td className="px-3 py-1">
+                            <div className="font-medium">{areaLabel(area, intl)}</div>
+                            <div className="text-xs text-muted-foreground">{intl.formatMessage({ id: `admin.area.${area}.hint` })}</div>
+                            {areaDisabled && (
+                              <div className="text-xs text-warning-foreground">{intl.formatMessage({ id: "admin.roles.accountingLockedHint" })}</div>
+                            )}
                           </td>
-                        ))}
-                      </tr>
-                    ))}
+                          {ACCESS_LEVELS.map((level) => (
+                            <td key={level} className="px-2 py-1 text-center">
+                              <input
+                                type="radio"
+                                name={`level-${area}`}
+                                aria-label={`${areaLabel(area, intl)}: ${levelLabel(level, intl)}`}
+                                checked={areaDisabled ? level === AccessLevel.None : (draft.levels[area] ?? 0) === level}
+                                disabled={areaDisabled}
+                                onChange={() => setLevel(area, level)}
+                              />
+                            </td>
+                          ))}
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -189,18 +231,20 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                 <Checkbox
                   className="mt-0.5"
                   checked={draft.partnerScope === PartnerScope.Assigned}
-                  onChange={(e) => setDraft({ ...draft, partnerScope: e.target.checked ? PartnerScope.Assigned : PartnerScope.All })}
+                  onChange={(e) => {
+                    const scope = e.target.checked ? PartnerScope.Assigned : PartnerScope.All;
+                    setDraft({
+                      ...draft,
+                      partnerScope: scope,
+                      levels: scope === PartnerScope.Assigned ? { ...draft.levels, accounting: AccessLevel.None } : draft.levels,
+                    });
+                  }}
                 />
                 <span>
                   {intl.formatMessage({ id: "admin.roles.assignedOnly" })}
                   <span className="block text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.roles.assignedOnlyHint" })}</span>
                 </span>
               </label>
-              {ledgerBlocked && (
-                <Alert>
-                  <AlertDescription>{intl.formatMessage({ id: "admin.roles.ledgerBlocked" })}</AlertDescription>
-                </Alert>
-              )}
             </fieldset>
 
             <div className="rounded-md bg-muted/40 p-3">
@@ -219,6 +263,44 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
               <p className="mt-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "admin.roles.previewSelf" })}</p>
             </div>
 
+            {draft.id && (
+              <div className="rounded-md bg-muted/40 p-3">
+                <p className="mb-1 text-xs font-medium text-muted-foreground">
+                  {intl.formatMessage({ id: "admin.roles.assignedUsers" })} ({roleUsers.length})
+                </p>
+                {roleUsers.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "admin.roles.noAssignedUsers" })}</p>
+                ) : (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      {pagedUsers.map((u) => (
+                        <div key={u.membershipId ?? u.email} className="flex items-center justify-between rounded border px-2.5 py-1.5 text-sm">
+                          <div className="min-w-0">
+                            <span className="font-medium">{u.fullName ?? u.email}</span>
+                            {u.fullName && <span className="ml-2 text-xs text-muted-foreground">{u.email}</span>}
+                          </div>
+                          <Badge variant={u.status === "Active" ? "success" : u.status === "Deactivated" ? "cancelled" : "outline"}>
+                            {intl.formatMessage({ id: `admin.status.${u.status}` })}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                    {totalUserPages > 1 && (
+                      <div className="mt-2 flex items-center justify-end gap-2 text-xs text-muted-foreground">
+                        <button type="button" disabled={usersPage === 0} onClick={() => setUsersPage((p) => p - 1)} className="rounded p-0.5 hover:bg-accent disabled:opacity-30">
+                          <ChevronLeft className="size-3.5" />
+                        </button>
+                        <span>{usersPage + 1} / {totalUserPages}</span>
+                        <button type="button" disabled={usersPage >= totalUserPages - 1} onClick={() => setUsersPage((p) => p + 1)} className="rounded p-0.5 hover:bg-accent disabled:opacity-30">
+                          <ChevronRight className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
             {canManage && (
               <div className="flex flex-wrap gap-2">
                 <Button disabled={saveMutation.isPending || !draft.name.trim()} onClick={() => saveMutation.mutate(draft)}>
@@ -236,7 +318,14 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
                     className="text-destructive"
                     disabled={deleteMutation.isPending}
                     onClick={() => {
-                      confirm(intl.formatMessage({ id: "admin.roles.deleteConfirm" }, { name: selected.name }), () => deleteMutation.mutate(selected.id));
+                      const assignedUsers = users.filter((u) => u.roleId === selected.id);
+                      const message = assignedUsers.length > 0
+                        ? intl.formatMessage(
+                            { id: "admin.roles.deleteConfirmWithUsers" },
+                            { name: selected.name, users: assignedUsers.map((u) => u.fullName || u.email).join(", "), count: assignedUsers.length },
+                          )
+                        : intl.formatMessage({ id: "admin.roles.deleteConfirm" }, { name: selected.name });
+                      confirm(message, () => deleteMutation.mutate(selected.id));
                     }}
                   >
                     <Trash2 className="size-4" />

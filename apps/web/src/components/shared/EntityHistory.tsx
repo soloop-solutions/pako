@@ -89,7 +89,7 @@ export function EntityHistory({ entityType, entityId, defaultOpen = false }: Ent
           )}
         </div>
       )}
-      <AuditDetailDialog companyId={activeCompanyId} entryId={detailId} onClose={() => setDetailId(null)} />
+      <AuditDetailDialog companyId={activeCompanyId} entryId={detailId} onClose={() => setDetailId(null)} hideRecordLink />
     </section>
   );
 }

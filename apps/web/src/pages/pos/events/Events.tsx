@@ -288,7 +288,7 @@ function EventFormDialog({ venues, booking, defaultVenueId, onClose, onSaved }: 
   const { activeCompanyId } = useCompany();
   const customers = (useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
   }).data ?? []).filter((p) => p.isCustomer || p.id === booking?.customerId);
   const active = venues.filter((v) => v.isActive || v.id === booking?.venueId);

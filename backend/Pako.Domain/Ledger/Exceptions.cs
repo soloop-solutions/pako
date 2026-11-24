@@ -9,7 +9,7 @@ public class UnbalancedJournalEntryException : Exception
     public decimal TotalCredit { get; }
 
     public UnbalancedJournalEntryException(Guid journalEntryId, decimal totalDebit, decimal totalCredit)
-        : base($"Journal entry {journalEntryId} is unbalanced: debit {totalDebit} != credit {totalCredit}.")
+        : base($"Cannot post: the entry is unbalanced — total debit {totalDebit:N2} does not equal total credit {totalCredit:N2}.")
     {
         JournalEntryId = journalEntryId;
         TotalDebit = totalDebit;
@@ -24,7 +24,7 @@ public class AccountingLockDateViolationException : Exception
     public DateOnly LockDate { get; }
 
     public AccountingLockDateViolationException(Guid journalEntryId, DateOnly entryDate, DateOnly lockDate)
-        : base($"Journal entry {journalEntryId} dated {entryDate} is on or before the company's accounting lock date {lockDate}.")
+        : base($"Cannot post: the date {entryDate:dd.MM.yyyy} is on or before the accounting lock date ({lockDate:dd.MM.yyyy}). Ask an administrator to move the lock date.")
     {
         JournalEntryId = journalEntryId;
         EntryDate = entryDate;
@@ -39,7 +39,7 @@ public class TaxLockDateViolationException : Exception
     public DateOnly LockDate { get; }
 
     public TaxLockDateViolationException(Guid journalEntryId, DateOnly entryDate, DateOnly lockDate)
-        : base($"Journal entry {journalEntryId} dated {entryDate} is on or before the company's tax lock date {lockDate}.")
+        : base($"Cannot post: the date {entryDate:dd.MM.yyyy} is on or before the tax lock date ({lockDate:dd.MM.yyyy}). Ask an administrator to move the lock date.")
     {
         JournalEntryId = journalEntryId;
         EntryDate = entryDate;
@@ -56,7 +56,7 @@ public class HardLockDateViolationException : Exception
     public DateOnly LockDate { get; }
 
     public HardLockDateViolationException(Guid journalEntryId, DateOnly entryDate, DateOnly lockDate)
-        : base($"Journal entry {journalEntryId} dated {entryDate} is on or before the company's hard lock date {lockDate}, which cannot be exempted.")
+        : base($"Cannot post: the date {entryDate:dd.MM.yyyy} is on or before the hard lock date ({lockDate:dd.MM.yyyy}). This lock cannot be exempted.")
     {
         JournalEntryId = journalEntryId;
         EntryDate = entryDate;
@@ -73,7 +73,7 @@ public class SaleLockDateViolationException : Exception
     public DateOnly LockDate { get; }
 
     public SaleLockDateViolationException(Guid invoiceId, DateOnly issueDate, DateOnly lockDate)
-        : base($"Invoice {invoiceId} issued {issueDate} is on or before the company's sale lock date {lockDate}.")
+        : base($"Cannot post: the issue date {issueDate:dd.MM.yyyy} is on or before the sales lock date ({lockDate:dd.MM.yyyy}). Ask an administrator to move the lock date.")
     {
         InvoiceId = invoiceId;
         IssueDate = issueDate;
@@ -90,7 +90,7 @@ public class PurchaseLockDateViolationException : Exception
     public DateOnly LockDate { get; }
 
     public PurchaseLockDateViolationException(Guid billId, DateOnly issueDate, DateOnly lockDate)
-        : base($"Bill {billId} issued {issueDate} is on or before the company's purchase lock date {lockDate}.")
+        : base($"Cannot post: the issue date {issueDate:dd.MM.yyyy} is on or before the purchases lock date ({lockDate:dd.MM.yyyy}). Ask an administrator to move the lock date.")
     {
         BillId = billId;
         IssueDate = issueDate;
@@ -105,7 +105,7 @@ public class MonthLockViolationException : Exception
     public int Month { get; }
 
     public MonthLockViolationException(int year, int month)
-        : base($"Cannot post: {year}-{month:D2} is closed.")
+        : base($"Cannot post: the period {month:D2}.{year} is closed.")
     {
         Year = year;
         Month = month;

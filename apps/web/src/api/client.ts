@@ -95,9 +95,34 @@ function fetchWithTimeout(url: RequestInfo, init?: RequestInit): Promise<Respons
   return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
+const COMPANY_SCOPED_PATH = /\/api\/companies\/([^/]+)\//;
+const MY_ACCESS_PATH = /\/my-access$/;
+
+// On a company-scoped 403, check whether the user's membership was revoked (vs. a normal
+// permission denial on one endpoint). A verification call to /my-access that also 403s means
+// the membership is gone; a 200 means the user is still active but just lacks this module.
+let accessCheckInFlight: Promise<void> | null = null;
+
+function checkMembershipOnForbidden(url: string): void {
+  // Don't re-check if one is already in flight, and don't check the check itself.
+  if (accessCheckInFlight || MY_ACCESS_PATH.test(url)) return;
+  const match = COMPANY_SCOPED_PATH.exec(url);
+  if (!match) return;
+  const companyId = match[1];
+  accessCheckInFlight = fetch(`${API_BASE_URL}/api/companies/${companyId}/my-access`, {
+    headers: buildHeaders(url, undefined, getStoredAuth()?.token ?? null),
+  })
+    .then((r) => {
+      if (r.status === 403) window.dispatchEvent(new Event("pako:company-access-lost"));
+    })
+    .catch(() => {})
+    .finally(() => { accessCheckInFlight = null; });
+}
+
 export async function authorizedFetch(url: RequestInfo, init?: RequestInit): Promise<Response> {
   const auth = getStoredAuth();
   const response = await fetchWithTimeout(url, { ...init, headers: buildHeaders(url, init, auth?.token ?? null) });
+  if (response.status === 403) checkMembershipOnForbidden(urlOf(url));
   if (response.status !== 401 || !auth || ANONYMOUS_AUTH_PATH.test(urlOf(url))) return response;
 
   const fresh = await refreshAccessToken(auth.token);

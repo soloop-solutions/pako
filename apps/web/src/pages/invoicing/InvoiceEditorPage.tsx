@@ -61,7 +61,7 @@ export function InvoiceEditorPage({ kind }: { kind: InvoiceEditorKind }) {
     setError(null);
     try {
       const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult, invoiceResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
+        apiClient.partnersAll(companyId, undefined),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
         fetchAllItems(companyId),
@@ -157,7 +157,7 @@ export function InvoiceEditorPage({ kind }: { kind: InvoiceEditorKind }) {
         <InvoiceForm
           key={`${formKey}${prefill.prefill ? "-prefill" : ""}`}
           companyId={activeCompany.id}
-          customers={partners.filter((p) => p.isCustomer)}
+          customers={partners.filter((p) => p.isCustomer && (p.isActive !== false || p.id === invoice?.partnerId))}
           taxes={taxesForSale(taxes)}
           paymentMethods={paymentMethods}
           items={items}

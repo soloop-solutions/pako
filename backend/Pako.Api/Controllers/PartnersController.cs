@@ -36,10 +36,10 @@ public class PartnersController : ControllerBase
     // it is kept for dropdown/select pickers but should eventually be retired or capped.
     [HttpGet]
     [RequireCompanyAccess]
-    public async Task<ActionResult<List<PartnerResponse>>> List(Guid companyId)
+    public async Task<ActionResult<List<PartnerResponse>>> List(Guid companyId, [FromQuery] bool activeOnly = false)
     {
         var partners = await _db.Partners.AsNoTracking().VisibleTo(_access)
-            .Where(p => p.CompanyId == companyId)
+            .Where(p => p.CompanyId == companyId && (!activeOnly || p.IsActive))
             .OrderBy(p => p.Name)
             .ToListAsync();
 
@@ -54,13 +54,14 @@ public class PartnersController : ControllerBase
         [FromQuery] int pageSize = 50,
         [FromQuery] string? search = null,
         [FromQuery] string? role = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] bool includeArchived = false)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
         var query = _db.Partners.AsNoTracking().VisibleTo(_access)
-            .Where(p => p.CompanyId == companyId);
+            .Where(p => p.CompanyId == companyId && (includeArchived || p.IsActive));
 
         if (string.Equals(role, "customer", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.IsCustomer);
         else if (string.Equals(role, "vendor", StringComparison.OrdinalIgnoreCase)) query = query.Where(p => p.IsVendor);
@@ -109,6 +110,7 @@ public class PartnersController : ControllerBase
     public async Task<ActionResult<PartnerResponse>> Create(Guid companyId, CreatePartnerRequest request)
     {
         var validationError = ValidateRolesAndVat(request.IsCustomer, request.IsVendor, request.IsVatRegistered, request.VatNumber)
+            ?? ValidateIdentifiers(request.TaxNumber, request.FiscalNumber)
             ?? await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit)
             ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
             ?? await ValidateLineDefaultsAsync(companyId, request.DefaultSaleTaxDefinitionId, request.DefaultPurchaseTaxDefinitionId, request.DefaultExpenseAccountId, request.DefaultRevenueAccountId)
@@ -125,7 +127,7 @@ public class PartnersController : ControllerBase
             IsVendor = request.IsVendor,
             FiscalNumber = request.FiscalNumber,
             IsVatRegistered = request.IsVatRegistered,
-            VatNumber = request.IsVatRegistered ? request.VatNumber?.Trim() : null,
+            VatNumber = request.IsVatRegistered ? (string.IsNullOrWhiteSpace(request.VatNumber) ? null : request.VatNumber.Trim()) : null,
             ReceivableAccountId = request.ReceivableAccountId,
             PayableAccountId = request.PayableAccountId,
             PaymentTermDays = request.PaymentTermDays,
@@ -181,6 +183,7 @@ public class PartnersController : ControllerBase
         if (partner is null) return NotFound();
 
         var validationError = ValidateRolesAndVat(request.IsCustomer, request.IsVendor, request.IsVatRegistered, request.VatNumber)
+            ?? ValidateIdentifiers(request.TaxNumber, request.FiscalNumber)
             ?? await ValidateAsync(companyId, request.Name, request.TaxNumber, request.FiscalNumber, request.ReceivableAccountId, request.PayableAccountId, request.CreditLimit, partnerId)
             ?? await ValidateSalesTermsAsync(companyId, request.PriceListId, request.OverdueBlockDays)
             ?? await ValidateLineDefaultsAsync(companyId, request.DefaultSaleTaxDefinitionId, request.DefaultPurchaseTaxDefinitionId, request.DefaultExpenseAccountId, request.DefaultRevenueAccountId)
@@ -193,7 +196,7 @@ public class PartnersController : ControllerBase
         partner.IsVendor = request.IsVendor;
         partner.FiscalNumber = request.FiscalNumber;
         partner.IsVatRegistered = request.IsVatRegistered;
-        partner.VatNumber = request.IsVatRegistered ? request.VatNumber?.Trim() : null;
+        partner.VatNumber = request.IsVatRegistered ? (string.IsNullOrWhiteSpace(request.VatNumber) ? null : request.VatNumber.Trim()) : null;
         partner.ReceivableAccountId = request.ReceivableAccountId;
         partner.PayableAccountId = request.PayableAccountId;
         partner.PaymentTermDays = request.PaymentTermDays;
@@ -223,6 +226,59 @@ public class PartnersController : ControllerBase
         }
         return Ok(ToResponse(partner));
     }
+
+    [HttpPost("{partnerId:guid}/archive", Name = "ArchivePartner")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Partners)]
+    public async Task<ActionResult<PartnerResponse>> Archive(Guid companyId, Guid partnerId)
+    {
+        var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
+        if (partner is null) return NotFound();
+        partner.IsActive = false;
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(partner));
+    }
+
+    [HttpPost("{partnerId:guid}/unarchive", Name = "UnarchivePartner")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Partners)]
+    public async Task<ActionResult<PartnerResponse>> Unarchive(Guid companyId, Guid partnerId)
+    {
+        var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
+        if (partner is null) return NotFound();
+        partner.IsActive = true;
+        await _db.SaveChangesAsync();
+        return Ok(ToResponse(partner));
+    }
+
+    [HttpDelete("{partnerId:guid}", Name = "DeletePartner")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Partners)]
+    public async Task<ActionResult> Delete(Guid companyId, Guid partnerId)
+    {
+        var partner = await _db.Partners.VisibleTo(_access).FirstOrDefaultAsync(p => p.Id == partnerId && p.CompanyId == companyId);
+        if (partner is null) return NotFound();
+
+        if (partner.EmployeeId is not null || await IsInUseAsync(companyId, partnerId))
+            return Conflict(_localizer["PartnerInUse"].Value);
+
+        _db.Partners.Remove(partner);
+        try
+        {
+            await _db.SaveChangesAsync();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is PostgresException { SqlState: PostgresErrorCodes.ForeignKeyViolation })
+        {
+            return Conflict(_localizer["PartnerInUse"].Value);
+        }
+        return NoContent();
+    }
+
+    private async Task<bool> IsInUseAsync(Guid companyId, Guid partnerId) =>
+        await _db.Invoices.AnyAsync(i => i.CompanyId == companyId && i.PartnerId == partnerId)
+        || await _db.Bills.AnyAsync(b => b.CompanyId == companyId && b.PartnerId == partnerId)
+        || await _db.JournalEntryLines.AnyAsync(l => l.PartnerId == partnerId && l.JournalEntry!.CompanyId == companyId)
+        || await _db.Payments.AnyAsync(p => p.CompanyId == companyId && p.PartnerId == partnerId)
+        || await _db.SalesOrders.AnyAsync(o => o.CompanyId == companyId && o.PartnerId == partnerId)
+        || await _db.PurchaseOrders.AnyAsync(o => o.CompanyId == companyId && o.PartnerId == partnerId)
+        || await _db.StockDocuments.AnyAsync(d => d.CompanyId == companyId && d.PartnerId == partnerId);
 
     [HttpGet("{partnerId:guid}/credit-exposure")]
     [RequireCompanyAccess]
@@ -348,7 +404,7 @@ public class PartnersController : ControllerBase
         p.ReceivableAccountId, p.PayableAccountId, p.PaymentTermDays, p.CreditLimit, p.PriceListId, p.OverdueBlockDays,
         p.Email, p.Phone, p.ContactPerson, p.StreetAddress, p.City, p.PostalCode, p.Country, p.PriceTier,
         p.DefaultSaleTaxDefinitionId, p.DefaultPurchaseTaxDefinitionId, p.DefaultExpenseAccountId, p.DefaultRevenueAccountId,
-        p.VatNumber);
+        p.VatNumber, p.IsActive);
 
     // Client request 2026-11-23: customers and suppliers are separate records — a partner is one or
     // the other, never both — and a VAT-registered partner must carry its VAT number.
@@ -356,12 +412,22 @@ public class PartnersController : ControllerBase
     {
         if (isCustomer && isVendor)
             return BadRequest(_localizer["PartnerSingleRoleRequired"].Value);
-        if (isVatRegistered && string.IsNullOrWhiteSpace(vatNumber))
-            return BadRequest(_localizer["PartnerVatNumberRequired"].Value);
-        if (vatNumber is not null && vatNumber.Trim().Length > 64)
-            return BadRequest(_localizer["PartnerVatNumberTooLong"].Value);
+        if (isVatRegistered && !string.IsNullOrWhiteSpace(vatNumber) && !IsDigits(vatNumber.Trim(), 9))
+            return BadRequest(_localizer["PartnerVatNumberInvalid"].Value);
         return null;
     }
+
+    private ActionResult? ValidateIdentifiers(string? taxNumber, string? fiscalNumber)
+    {
+        if (!string.IsNullOrWhiteSpace(taxNumber) && !IsDigits(taxNumber.Trim(), 9))
+            return BadRequest(_localizer["PartnerTaxNumberInvalid"].Value);
+        if (!string.IsNullOrWhiteSpace(fiscalNumber) && !IsDigits(fiscalNumber.Trim(), 9, 10))
+            return BadRequest(_localizer["PartnerFiscalNumberInvalid"].Value);
+        return null;
+    }
+
+    private static bool IsDigits(string value, params int[] lengths) =>
+        lengths.Contains(value.Length) && value.All(char.IsAsciiDigit);
 
     // J15: the partner's account statement. Readable by anyone who can see the partner — including
     // partner-restricted staff for their assigned partners, who get 404 for any other partner.

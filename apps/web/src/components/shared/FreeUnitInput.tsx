@@ -3,17 +3,17 @@ import { useIntl } from "react-intl";
 
 import { Input } from "@/components/ui/input";
 
-// Units offered for a document line that has no item. The user may type any other unit; the
-// server keeps it as typed (at most 32 characters) and only prints it.
-const COMMON_UNITS = ["copë", "kg", "g", "l", "m", "m²", "m³", "orë", "ditë", "pako", "kuti", "set"];
-
-export function FreeUnitInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+// Units offered for a document line that has no item (the list is a message, so it follows the
+// language). The user may type any other unit; the server keeps it as typed (at most 32
+// characters) and only prints it.
+export function FreeUnitInput({ value, onChange, className = "h-7 text-xs" }: { value: string; onChange: (value: string) => void; className?: string }) {
   const intl = useIntl();
   const listId = useId();
+  const commonUnits = intl.formatMessage({ id: "documentLine.commonUnits" }).split(",");
   return (
     <>
       <Input
-        className="h-7 text-xs"
+        className={className}
         list={listId}
         maxLength={32}
         value={value}
@@ -22,7 +22,7 @@ export function FreeUnitInput({ value, onChange }: { value: string; onChange: (v
         aria-label={intl.formatMessage({ id: "items.lineUnit" })}
       />
       <datalist id={listId}>
-        {COMMON_UNITS.map((unit) => (
+        {commonUnits.map((unit) => (
           <option key={unit} value={unit} />
         ))}
       </datalist>

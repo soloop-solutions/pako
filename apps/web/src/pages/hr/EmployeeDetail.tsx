@@ -12,6 +12,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useConfirm } from "@/components/ui/confirm-context";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
@@ -163,6 +164,7 @@ function EmployeeEditor({
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
+  const confirm = useConfirm();
   const { canWrite, canSee, isStaff } = useMyAccess();
   const canSeePay = canSee("payroll");
   const isNew = employee === null;
@@ -212,7 +214,7 @@ function EmployeeEditor({
       await queryClient.invalidateQueries({ queryKey: ["departments", companyId] });
       if (isNew) {
         toast.success(intl.formatMessage({ id: "toast.employeeCreated" }));
-        navigate(`/employees/${result.id}`);
+        navigate(`/employees?highlight=${result.id}`);
         return;
       }
       toast.success(intl.formatMessage({ id: "toast.employeeSaved" }));
@@ -221,6 +223,28 @@ function EmployeeEditor({
       setSaved(true);
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "hr.employee.saveError" }))),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: () => apiClient.deleteEmployee(companyId, employee!.id),
+    onSuccess: async () => {
+      toast.success(intl.formatMessage({ id: "toast.employeeDeleted" }));
+      await queryClient.invalidateQueries({ queryKey: ["employees", companyId] });
+      navigate("/employees");
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "hr.employee.deleteError" }))),
+  });
+
+  const toggleActiveMutation = useMutation({
+    mutationFn: (isActive: boolean) => apiClient.setEmployeeActive(companyId, employee!.id, { isActive }),
+    onSuccess: async (result) => {
+      setError(null);
+      toast.success(intl.formatMessage({ id: result.isActive ? "toast.employeeActivated" : "toast.employeeDeactivated" }));
+      queryClient.setQueryData(["employee", companyId, result.id], result);
+      await queryClient.invalidateQueries({ queryKey: ["employees", companyId] });
+      setForm(initialState(result));
+    },
+    onError: (err: unknown) => setError(getApiErrorMessage(err)),
   });
 
   function handleSubmit(e: FormEvent) {
@@ -286,23 +310,50 @@ function EmployeeEditor({
             )}
           </div>
           {employee && (
-            <div className="text-right">
-              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.currentSalary" })}</p>
-              <p className="text-lg font-semibold tabular-nums">{formatMoney(employee.currentSalary)} €</p>
+            <div className="flex items-start gap-4">
+              {!readOnly && (
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={toggleActiveMutation.isPending}
+                    onClick={() => toggleActiveMutation.mutate(!employee.isActive)}
+                  >
+                    {intl.formatMessage({ id: employee.isActive ? "admin.users.deactivate" : "admin.users.activate" })}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-destructive"
+                    disabled={deleteMutation.isPending}
+                    onClick={() =>
+                      confirm(intl.formatMessage({ id: "hr.employee.deleteConfirm" }, { name: employee.name }), () => deleteMutation.mutate())
+                    }
+                  >
+                    {intl.formatMessage({ id: "common.delete" })}
+                  </Button>
+                </div>
+              )}
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.currentSalary" })}</p>
+                <p className="text-lg font-semibold tabular-nums">{formatMoney(employee.currentSalary)} €</p>
+              </div>
             </div>
           )}
         </div>
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
-          {SECTIONS.filter((s) => canSeePay || !PAY_SECTIONS.includes(s)).map((s) => {
+          {SECTIONS.filter((s) => s === "pay" || canSeePay || !PAY_SECTIONS.includes(s)).map((s) => {
             const unavailable = isNew && !FORM_SECTIONS.includes(s);
+            const needsAttention = isNew && s === "pay" && !form.monthlyGrossSalary && section !== s;
             return (
               <Button
                 key={s}
                 type="button"
                 size="sm"
                 variant={section === s ? "default" : "outline"}
+                className={needsAttention ? "border-warning text-warning-foreground" : undefined}
                 disabled={unavailable}
                 title={unavailable ? intl.formatMessage({ id: "hr.employee.saveFirst" }) : undefined}
                 onClick={() => setSection(s)}
@@ -467,7 +518,13 @@ function EmployeeEditor({
               <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "hr.employee.payDataHidden" })}</p>
             )}
 
-            {section === "pay" && !employee?.payDataHidden && (
+            {section === "pay" && !canSeePay && (
+              <Alert>
+                <AlertDescription>{intl.formatMessage({ id: "hr.employee.payManagedByPayroll" })}</AlertDescription>
+              </Alert>
+            )}
+
+            {section === "pay" && !employee?.payDataHidden && canSeePay && (
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <Field
@@ -481,7 +538,7 @@ function EmployeeEditor({
                       min="0.01"
                       step="0.01"
                       required
-                      className="text-right tabular-nums"
+                      className="tabular-nums"
                       disabled={readOnly}
                       value={form.monthlyGrossSalary}
                       onChange={(e) => set("monthlyGrossSalary", e.target.value)}

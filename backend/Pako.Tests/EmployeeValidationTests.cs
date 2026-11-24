@@ -4,6 +4,7 @@ using Pako.Api;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Controllers;
+using Pako.Api.Services.Notifications;
 using Pako.Domain.Companies;
 using Pako.Infrastructure;
 
@@ -28,7 +29,7 @@ public class EmployeeValidationTests : IAsyncLifetime
     }
 
     private static EmployeesController NewController(PakoDbContext db) =>
-        new(db, CompanyAccessContext.Unrestricted(), new NullStringLocalizer<ErrorMessages>());
+        new(db, CompanyAccessContext.Unrestricted(), new NotificationOutbox(db), new NullStringLocalizer<ErrorMessages>());
 
     private static SaveEmployeeRequest Req(string name, decimal salary) =>
         new(FirstName: name, LastName: null, Name: null, PersonalNumber: null,

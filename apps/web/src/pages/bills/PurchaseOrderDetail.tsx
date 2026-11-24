@@ -59,7 +59,7 @@ export function PurchaseOrderDetail() {
   });
   const vendors = (useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
   }).data ?? []).filter((p) => p.isVendor);
   const taxes = (useQuery({

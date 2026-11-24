@@ -42,7 +42,7 @@ export function EmployeePartnerAccess({
   });
   const partnersQuery = useQuery({
     queryKey: ["partners", companyId],
-    queryFn: () => apiClient.partnersAll(companyId),
+    queryFn: () => apiClient.partnersAll(companyId, undefined),
   });
 
   const assignedIds = useMemo(() => new Set((assignedQuery.data ?? []).map((p) => p.partnerId)), [assignedQuery.data]);

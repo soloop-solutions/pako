@@ -21,9 +21,10 @@ interface AuditDetailDialogProps {
   companyId: string;
   entryId: string | null;
   onClose: () => void;
+  hideRecordLink?: boolean;
 }
 
-export function AuditDetailDialog({ companyId, entryId, onClose }: AuditDetailDialogProps) {
+export function AuditDetailDialog({ companyId, entryId, onClose, hideRecordLink = false }: AuditDetailDialogProps) {
   const intl = useIntl();
   const query = useQuery({
     queryKey: ["audit", companyId, "detail", entryId],
@@ -33,7 +34,7 @@ export function AuditDetailDialog({ companyId, entryId, onClose }: AuditDetailDi
   const detail = query.data;
   const entry = detail?.entry;
   const none = intl.formatMessage({ id: "audit.detail.none" });
-  const recordPath = entry ? auditEntityPath(entry.entityType, entry.entityId) : null;
+  const recordPath = entry && !hideRecordLink ? auditEntityPath(entry.entityType, entry.entityId) : null;
   const sourcePath = entry ? entityPath({ kind: entry.sourceKind, id: entry.sourceDocumentId }) : null;
 
   return (

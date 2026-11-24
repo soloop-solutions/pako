@@ -68,6 +68,8 @@ public class AtkTaxBookLayoutTests
         Assert.Equal("(M4+N4+O4+P4+Q4)*18%", sheet.Cell("R4").FormulaA1.TrimStart('='));
         Assert.Equal("(S4+T4+U4+V4)*8%", sheet.Cell("W4").FormulaA1.TrimStart('='));
         Assert.Equal("R4+W4", sheet.Cell("X4").FormulaA1.TrimStart('='));
+        foreach (var cell in new[] { "M4", "R4", "W4", "X4" })
+            Assert.Equal("#,##0.00", sheet.Cell(cell).Style.NumberFormat.Format);
     }
 
     [Fact]

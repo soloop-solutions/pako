@@ -5,7 +5,10 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Api.Services.Notifications;
+using Pako.Domain.Companies;
 using Pako.Domain.Hr;
+using Pako.Domain.Notifications;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
 using Pako.Localization.Xk;
@@ -24,12 +27,14 @@ public class EmployeesController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly CompanyAccessContext _access;
+    private readonly NotificationOutbox _outbox;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public EmployeesController(PakoDbContext db, CompanyAccessContext access, IStringLocalizer<ErrorMessages> localizer)
+    public EmployeesController(PakoDbContext db, CompanyAccessContext access, NotificationOutbox outbox, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _access = access;
+        _outbox = outbox;
         _localizer = localizer;
     }
 
@@ -105,6 +110,41 @@ public class EmployeesController : ControllerBase
         _db.Employees.Add(employee);
         await _db.SaveChangesAsync();
 
+        // Notify Payroll users when the creator lacks Payroll Write — the employee needs salary data.
+        if (_access.LevelFor(AccessModule.Payroll) < AccessLevel.Write)
+        {
+            var payrollRoleIds = await _db.CompanyRoles.AsNoTracking()
+                .Where(r => r.CompanyId == companyId && r.PayrollAccess >= AccessLevel.Write)
+                .Select(r => r.Id)
+                .ToListAsync();
+            var payrollUserIds = await _db.Memberships.AsNoTracking()
+                .Where(m => m.CompanyId == companyId && m.IsActive &&
+                    (m.Role == MembershipRole.ClientAdmin || m.Role == MembershipRole.FirmAdmin || m.Role == MembershipRole.FirmAccountant ||
+                     (m.Role == MembershipRole.ClientStaff && m.CompanyRoleId != null && payrollRoleIds.Contains(m.CompanyRoleId.Value))))
+                .Select(m => m.UserId)
+                .Distinct()
+                .ToListAsync();
+            var recipients = await _db.Users.AsNoTracking()
+                .Where(u => payrollUserIds.Contains(u.Id) && u.Email != null)
+                .Select(u => new NotificationRecipient(u.Email!, NotificationOutbox.DefaultCulture))
+                .ToListAsync();
+
+            if (recipients.Count > 0)
+            {
+                var creatorEmail = await _db.Users.AsNoTracking()
+                    .Where(u => u.Id == _access.UserId)
+                    .Select(u => u.Email)
+                    .FirstOrDefaultAsync();
+                await _outbox.EnqueueAsync(companyId, NotificationTemplates.EmployeeCreatedNeedsSalary, recipients,
+                    new Dictionary<string, string>
+                    {
+                        ["employee"] = employee.Name,
+                        ["createdBy"] = creatorEmail ?? "\u2014"
+                    });
+                await _db.SaveChangesAsync();
+            }
+        }
+
         return StatusCode(StatusCodes.Status201Created, (await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
     }
 
@@ -122,6 +162,64 @@ public class EmployeesController : ControllerBase
         var error = await ApplyAsync(companyId, employee, request);
         if (error is not null) return error;
 
+        await _db.SaveChangesAsync();
+        return Ok((await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
+    }
+
+    [HttpDelete("{id:guid}", Name = "DeleteEmployee")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    public async Task<IActionResult> Delete(Guid companyId, Guid id)
+    {
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
+        if (employee is null) return NotFound();
+
+        // Refuse deletion when payroll or accounting history exists — these are immutable records.
+        var hasPayslipLines = await _db.PayslipLines.AnyAsync(l => l.EmployeeId == id);
+        var hasJournalLines = await _db.JournalEntryLines.AnyAsync(l => l.EmployeeId == id);
+        if (hasPayslipLines || hasJournalLines)
+            return BadRequest(_localizer["EmployeeHasPayrollHistory"].Value);
+
+        // Remove owned child records that have no independent accounting significance.
+        var contracts = await _db.EmployeeContracts.Where(c => c.EmployeeId == id).ToListAsync();
+        _db.EmployeeContracts.RemoveRange(contracts);
+
+        var assignments = await _db.EmployeePartnerAssignments.Where(a => a.EmployeeId == id).ToListAsync();
+        _db.EmployeePartnerAssignments.RemoveRange(assignments);
+
+        var assignmentPeriods = await _db.EmployeePartnerAssignmentPeriods.Where(a => a.EmployeeId == id).ToListAsync();
+        _db.EmployeePartnerAssignmentPeriods.RemoveRange(assignmentPeriods);
+
+        var profileChanges = await _db.EmployeeProfileChanges.Where(p => p.EmployeeId == id).ToListAsync();
+        _db.EmployeeProfileChanges.RemoveRange(profileChanges);
+
+        var leaveRequests = await _db.LeaveRequests.Where(l => l.EmployeeId == id).ToListAsync();
+        _db.LeaveRequests.RemoveRange(leaveRequests);
+
+        var expenseClaims = await _db.ExpenseClaims.Where(e => e.EmployeeId == id).ToListAsync();
+        _db.ExpenseClaims.RemoveRange(expenseClaims);
+
+        var timeEntries = await _db.TimeEntries.Where(t => t.EmployeeId == id).ToListAsync();
+        _db.TimeEntries.RemoveRange(timeEntries);
+
+        var adjustments = await _db.PayrollAdjustments.Where(a => a.EmployeeId == id).ToListAsync();
+        _db.PayrollAdjustments.RemoveRange(adjustments);
+
+        var loans = await _db.EmployeeLoans.Where(l => l.EmployeeId == id).ToListAsync();
+        _db.EmployeeLoans.RemoveRange(loans);
+
+        _db.Employees.Remove(employee);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPatch("{id:guid}/active", Name = "SetEmployeeActive")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    public async Task<ActionResult<EmployeeDetailResponse>> SetActive(Guid companyId, Guid id, SetEmployeeActiveRequest request)
+    {
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
+        if (employee is null) return NotFound();
+
+        employee.IsActive = request.IsActive;
         await _db.SaveChangesAsync();
         return Ok((await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
     }

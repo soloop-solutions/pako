@@ -7223,9 +7223,87 @@ export class PakoApiClient {
         return Promise.resolve<EmployeeDetailResponse>(null as any);
     }
 
+    deleteEmployee(companyId: string, id: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/employees/{id}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {}
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeleteEmployee(_response);
+        });
+    }
+
+    protected processDeleteEmployee(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 204) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    setEmployeeActive(companyId: string, id: string, body: SetEmployeeActiveRequest): Promise<EmployeeDetailResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/employees/{id}/active";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (id === undefined || id === null)
+            throw new globalThis.Error("The parameter 'id' must be defined.");
+        url_ = url_.replace("{id}", encodeURIComponent("" + id));
+        url_ = url_.replace(/[?&]$/, "");
+
+        const content_ = JSON.stringify(body);
+
+        let options_: RequestInit = {
+            body: content_,
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processSetEmployeeActive(_response);
+        });
+    }
+
+    protected processSetEmployeeActive(response: Response): Promise<EmployeeDetailResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as EmployeeDetailResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<EmployeeDetailResponse>(null as any);
+    }
+
     /**
-     * @param page (optional) 
-     * @param pageSize (optional) 
+     * @param page (optional)
+     * @param pageSize (optional)
      * @return OK
      */
     employeeHistory(companyId: string, id: string, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfAuditEntryResponse> {
@@ -15245,13 +15323,18 @@ export class PakoApiClient {
     }
 
     /**
+     * @param activeOnly (optional) 
      * @return OK
      */
-    partnersAll(companyId: string): Promise<PartnerResponse[]> {
-        let url_ = this.baseUrl + "/api/companies/{companyId}/partners";
+    partnersAll(companyId: string, activeOnly: boolean | undefined): Promise<PartnerResponse[]> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
         url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (activeOnly === null)
+            throw new globalThis.Error("The parameter 'activeOnly' cannot be null.");
+        else if (activeOnly !== undefined)
+            url_ += "activeOnly=" + encodeURIComponent("" + activeOnly) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -15332,9 +15415,10 @@ export class PakoApiClient {
      * @param search (optional) 
      * @param role (optional) 
      * @param sort (optional) 
+     * @param includeArchived (optional) 
      * @return OK
      */
-    paged4(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, role: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfPartnerResponse> {
+    paged4(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, role: string | undefined, sort: string | undefined, includeArchived: boolean | undefined): Promise<PaginatedResponseOfPartnerResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/partners/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -15359,6 +15443,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'sort' cannot be null.");
         else if (sort !== undefined)
             url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        if (includeArchived === null)
+            throw new globalThis.Error("The parameter 'includeArchived' cannot be null.");
+        else if (includeArchived !== undefined)
+            url_ += "includeArchived=" + encodeURIComponent("" + includeArchived) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -15462,6 +15550,129 @@ export class PakoApiClient {
     }
 
     protected processPartnersPUT(response: Response): Promise<PartnerResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PartnerResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PartnerResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    deletePartner(companyId: string, partnerId: string): Promise<void> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners/{partnerId}";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (partnerId === undefined || partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' must be defined.");
+        url_ = url_.replace("{partnerId}", encodeURIComponent("" + partnerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "DELETE",
+            headers: {
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processDeletePartner(_response);
+        });
+    }
+
+    protected processDeletePartner(response: Response): Promise<void> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            return;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<void>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    archivePartner(companyId: string, partnerId: string): Promise<PartnerResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners/{partnerId}/archive";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (partnerId === undefined || partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' must be defined.");
+        url_ = url_.replace("{partnerId}", encodeURIComponent("" + partnerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processArchivePartner(_response);
+        });
+    }
+
+    protected processArchivePartner(response: Response): Promise<PartnerResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as PartnerResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<PartnerResponse>(null as any);
+    }
+
+    /**
+     * @return OK
+     */
+    unarchivePartner(companyId: string, partnerId: string): Promise<PartnerResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/partners/{partnerId}/unarchive";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (partnerId === undefined || partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' must be defined.");
+        url_ = url_.replace("{partnerId}", encodeURIComponent("" + partnerId));
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "POST",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processUnarchivePartner(_response);
+        });
+    }
+
+    protected processUnarchivePartner(response: Response): Promise<PartnerResponse> {
         const status = response.status;
         let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
         if (status === 200) {
@@ -37017,6 +37228,7 @@ export interface PartnerResponse {
     defaultExpenseAccountId?: string | undefined;
     defaultRevenueAccountId?: string | undefined;
     vatNumber?: string | undefined;
+    isActive?: boolean;
 
     [key: string]: any;
 }
@@ -39253,6 +39465,12 @@ export interface SaveEmployeeRequest {
     receivePayslipsByEmail?: boolean | undefined;
     preferredLanguage?: string | undefined;
     commissionPlanId?: string | undefined;
+
+    [key: string]: any;
+}
+
+export interface SetEmployeeActiveRequest {
+    isActive: boolean;
 
     [key: string]: any;
 }

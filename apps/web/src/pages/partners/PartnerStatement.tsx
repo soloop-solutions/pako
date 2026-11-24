@@ -50,7 +50,7 @@ export function PartnerStatement() {
 
   const partnersQuery = useQuery({
     queryKey: ["partners", companyId],
-    queryFn: () => apiClient.partnersAll(companyId as string),
+    queryFn: () => apiClient.partnersAll(companyId as string, undefined),
     enabled: !!companyId,
   });
   const statementQuery = useQuery({

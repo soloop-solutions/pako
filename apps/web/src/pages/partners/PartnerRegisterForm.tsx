@@ -103,7 +103,9 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
   );
   const [isVatRegistered, setIsVatRegistered] = useState(initial?.isVatRegistered ?? false);
   const [vatNumber, setVatNumber] = useState(initial?.vatNumber ?? "");
-  const vatNumberMissing = isVatRegistered && !vatNumber.trim();
+  const nuiInvalid = entityType === "company" && !!taxNumber.trim() && !/^\d{9}$/.test(taxNumber.trim());
+  const fiscalNumberInvalid = entityType === "person" && !!fiscalNumber.trim() && !/^\d{9,10}$/.test(fiscalNumber.trim());
+  const vatNumberInvalid = isVatRegistered && !!vatNumber.trim() && !/^\d{9}$/.test(vatNumber.trim());
   const [receivableAccountId, setReceivableAccountId] = useState(initial?.receivableAccountId ?? "");
   const [payableAccountId, setPayableAccountId] = useState(initial?.payableAccountId ?? "");
   const [paymentTermDays, setPaymentTermDays] = useState(initial?.paymentTermDays != null ? String(initial.paymentTermDays) : "");
@@ -242,9 +244,11 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           {entityType === "company" ? (
             <div className="flex flex-col gap-1">
               <Label htmlFor="partner-tax-number">{intl.formatMessage({ id: "partners.form.nui" })}</Label>
-              <Input id="partner-tax-number" inputMode="numeric" maxLength={64} value={taxNumber} aria-invalid={errorOnTaxNumber ? true : undefined} aria-describedby={errorOnTaxNumber ? "partner-tax-number-error" : undefined} onChange={(e) => setTaxNumber(e.target.value)} />
+              <Input id="partner-tax-number" inputMode="numeric" maxLength={9} value={taxNumber} aria-invalid={errorOnTaxNumber || nuiInvalid ? true : undefined} aria-describedby={errorOnTaxNumber ? "partner-tax-number-error" : undefined} onChange={(e) => setTaxNumber(e.target.value)} />
               {errorOnTaxNumber && error ? (
                 <p id="partner-tax-number-error" role="alert" className="text-xs text-destructive">{error}</p>
+              ) : nuiInvalid ? (
+                <p role="alert" className="text-xs text-destructive">{intl.formatMessage({ id: "partners.form.nuiInvalid" })}</p>
               ) : (
                 <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "partners.form.nuiHint" })}</p>
               )}
@@ -252,7 +256,10 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           ) : (
             <div className="flex flex-col gap-1">
               <Label htmlFor="partner-fiscal-number">{intl.formatMessage({ id: "partners.form.fiscalNumber" })}</Label>
-              <Input id="partner-fiscal-number" value={fiscalNumber} onChange={(e) => setFiscalNumber(e.target.value)} />
+              <Input id="partner-fiscal-number" inputMode="numeric" maxLength={10} value={fiscalNumber} aria-invalid={fiscalNumberInvalid || undefined} onChange={(e) => setFiscalNumber(e.target.value)} />
+              {fiscalNumberInvalid && (
+                <p role="alert" className="text-xs text-destructive">{intl.formatMessage({ id: "partners.form.fiscalNumberInvalid" })}</p>
+              )}
             </div>
           )}
         </div>
@@ -265,12 +272,12 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
           {isVatRegistered && (
             <div className="flex flex-col gap-1">
               <Label htmlFor="partner-vat-number">
-                {intl.formatMessage({ id: "partners.form.vatNumber" })} <span className="text-destructive">*</span>
+                {intl.formatMessage({ id: "partners.form.vatNumber" })}
               </Label>
-              <Input id="partner-vat-number" required maxLength={64} value={vatNumber} aria-invalid={vatNumberMissing || undefined}
+              <Input id="partner-vat-number" inputMode="numeric" maxLength={9} value={vatNumber} aria-invalid={vatNumberInvalid || undefined}
                 onChange={(e) => setVatNumber(e.target.value)} />
-              {vatNumberMissing && (
-                <p className="text-xs text-destructive">{intl.formatMessage({ id: "partners.form.vatNumberRequired" })}</p>
+              {vatNumberInvalid && (
+                <p role="alert" className="text-xs text-destructive">{intl.formatMessage({ id: "partners.form.vatNumberInvalid" })}</p>
               )}
             </div>
           )}
@@ -509,7 +516,7 @@ export function PartnerRegisterForm({ mode, accounts, initial, submitting, error
 
       {/* ── Actions ── */}
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting || !name.trim() || (!isCustomer && !isVendor) || (isCustomer && isVendor) || vatNumberMissing}>
+        <Button type="submit" disabled={submitting || !name.trim() || (!isCustomer && !isVendor) || (isCustomer && isVendor) || nuiInvalid || fiscalNumberInvalid || vatNumberInvalid}>
           {submitting
             ? intl.formatMessage({ id: "common.saving" })
             : intl.formatMessage({ id: mode === "create" ? (createButtonLabelKey ?? "partners.addPartner") : "common.save" })}

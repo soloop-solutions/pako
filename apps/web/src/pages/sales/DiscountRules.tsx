@@ -258,7 +258,7 @@ function DiscountRuleForm({
 
   const partners = useQuery({
     queryKey: ["partners", companyId, "all"],
-    queryFn: () => apiClient.partnersAll(companyId),
+    queryFn: () => apiClient.partnersAll(companyId, undefined),
   }).data;
   const categories = useQuery({
     queryKey: ["itemCategories", companyId],

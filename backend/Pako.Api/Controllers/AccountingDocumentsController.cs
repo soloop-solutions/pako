@@ -13,8 +13,8 @@ using Pako.Infrastructure;
 namespace Pako.Api.Controllers;
 
 // Accounting document file cabinet — source documents organized by year/month/type (buy/sell).
-// Replicates the kudofatura-panel "Dokumentet" feature. Restricted to firm roles only
-// (FirmAdmin, FirmAccountant) since this is an accounting-firm workflow.
+// Access is gated by [RequireCompanyAccess(module: Accounting)]: anyone with Accounting access
+// (company admins, firm accountants, or a role with Accounting >= Read) can see and manage them.
 [ApiController]
 [Route("api/companies/{companyId:guid}/accounting-documents")]
 [Authorize]
@@ -35,11 +35,6 @@ public class AccountingDocumentsController : ControllerBase
 
     private Guid CurrentUserId => Guid.Parse(User.FindFirstValue(ClaimTypes.NameIdentifier)!);
 
-    private bool IsFirmRole()
-    {
-        return _access.Roles.Any(r => r is MembershipRole.FirmAdmin or MembershipRole.FirmAccountant);
-    }
-
     [HttpGet]
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<ActionResult<AccountingDocumentListResponse>> List(
@@ -48,9 +43,6 @@ public class AccountingDocumentsController : ControllerBase
         [FromQuery] int? month,
         [FromQuery] string? documentType)
     {
-        if (!IsFirmRole())
-            return Forbid();
-
         var query = _db.AccountingDocuments.AsNoTracking()
             .Where(d => d.CompanyId == companyId);
 
@@ -94,9 +86,6 @@ public class AccountingDocumentsController : ControllerBase
         Guid companyId,
         [FromForm] UploadAccountingDocumentRequest request)
     {
-        if (!IsFirmRole())
-            return Forbid();
-
         if (!Enum.TryParse<AccountingDocumentType>(request.DocumentType, ignoreCase: true, out var parsedType))
         {
             return BadRequest(_localizer["AccountingDocumentInvalidType"].Value);
@@ -159,9 +148,6 @@ public class AccountingDocumentsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Accounting)]
     public async Task<IActionResult> Download(Guid companyId, Guid id)
     {
-        if (!IsFirmRole())
-            return Forbid();
-
         var document = await _db.AccountingDocuments.AsNoTracking()
             .FirstOrDefaultAsync(d => d.Id == id && d.CompanyId == companyId);
 
@@ -177,9 +163,6 @@ public class AccountingDocumentsController : ControllerBase
     [RequireCompanyAccess(writeAccess: true, module: AccessModule.Accounting)]
     public async Task<ActionResult> Delete(Guid companyId, Guid id)
     {
-        if (!IsFirmRole())
-            return Forbid();
-
         var document = await _db.AccountingDocuments
             .FirstOrDefaultAsync(d => d.Id == id && d.CompanyId == companyId);
 

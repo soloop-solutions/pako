@@ -39,6 +39,7 @@ import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { blockingLockDate, lockDateLabel } from "@/lib/lock-dates";
 
 export function BillDetail() {
   const intl = useIntl();
@@ -73,6 +74,8 @@ export function BillDetail() {
   });
   const isMonthLocked = billMonth !== null
     && (monthLockQuery.data?.months ?? []).some((m) => m.month === billMonth && m.isLocked);
+  const lockBlock = activeCompany ? blockingLockDate(bill?.issueDate, activeCompany, "purchase") : null;
+  const isLockBlocked = !!lockBlock || isMonthLocked;
 
   const refresh = useCallback(async () => {
     if (!companyId || !id) return;
@@ -80,7 +83,7 @@ export function BillDetail() {
     try {
       const [billResult, partnersResult, taxesResult, allBillsResult, paymentMethodsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
-        apiClient.partnersAll(companyId),
+        apiClient.partnersAll(companyId, undefined),
         apiClient.taxes(companyId),
         apiClient.billsAll(companyId),
         apiClient.paymentMethodsAll(companyId),
@@ -129,7 +132,7 @@ export function BillDetail() {
   // Task 8: instance tab title follows the same fallback used on screen ("Draft bill"). Editing is
   // its own page now (/bills/:id/edit, user decision 2026-11-24).
   useTabMeta({
-    title: bill ? (bill.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" })) : undefined,
+    title: bill ? (bill.vendorReference ?? intl.formatMessage({ id: bill.state === "Draft" ? "billDetail.draftBill" : "billDetail.title" })) : undefined,
   });
 
   async function handlePost() {
@@ -245,12 +248,24 @@ export function BillDetail() {
         </div>
       )}
 
+      {lockBlock && bill.state === "Draft" && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning-border bg-warning/40 px-4 py-3">
+          <Lock className="size-4 shrink-0 text-warning-foreground" />
+          <span className="text-sm text-warning-foreground">
+            {intl.formatMessage({ id: "document.lockDate.blocked" }, {
+              lockType: lockDateLabel(lockBlock.key, intl).toLowerCase(),
+              lockDate: formatDisplayDate(lockBlock.lockDate),
+            })}
+          </span>
+        </div>
+      )}
+
       <Card ref={billPrintRef} className={cn(bill.state === "Draft" && "border-dashed bg-muted/30", bill.state === "Cancelled" && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle>{bill.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" })}</CardTitle>
+                <CardTitle>{bill.vendorReference ?? intl.formatMessage({ id: bill.state === "Draft" ? "billDetail.draftBill" : "billDetail.title" })}</CardTitle>
                 <Badge variant="outline">{billDocumentTypeLabel(bill.documentType, intl)}</Badge>
               </div>
               <CardDescription>{partner?.name ?? bill.partnerId}</CardDescription>
@@ -318,7 +333,7 @@ export function BillDetail() {
 
           {bill.state === "Draft" && canApprove("purchases") && (
             <div className="flex flex-col items-start gap-1">
-              <Button onClick={() => setShowPostPreview(true)} disabled={posting || isMonthLocked}>
+              <Button onClick={() => setShowPostPreview(true)} disabled={posting || isLockBlocked}>
                 {posting ? intl.formatMessage({ id: "billDetail.posting" }) : intl.formatMessage({ id: "billDetail.postBill" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}

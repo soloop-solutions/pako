@@ -37,7 +37,7 @@ export function useGeneralLedgerReport(companyId: string | null, enabled: boolea
   });
   const partners = useQuery({
     queryKey: ["reports", "partners", companyId] as const,
-    queryFn: () => apiClient.partnersAll(companyId as string),
+    queryFn: () => apiClient.partnersAll(companyId as string, undefined),
     enabled: enabled && !!companyId,
   });
 

@@ -93,7 +93,7 @@ export function StockDocumentDetail() {
   const [partnerId, setPartnerId] = useState("");
   const partners = useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId && (type === StockDocumentType.Receipt || type === StockDocumentType.Delivery),
   }).data ?? [];
   const vendors = partners.filter((p) => p.isVendor);

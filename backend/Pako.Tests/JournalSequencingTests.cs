@@ -223,7 +223,7 @@ public class JournalSequencingTests : IAsyncLifetime
         defaults.NetPayPayableAccountId = accounts["220100"];
         await db.SaveChangesAsync();
 
-        var employees = new EmployeesController(db, CompanyAccessContext.Unrestricted(), new NullStringLocalizer<ErrorMessages>()) { ControllerContext = UserContext() };
+        var employees = new EmployeesController(db, CompanyAccessContext.Unrestricted(), new NotificationOutbox(db), new NullStringLocalizer<ErrorMessages>()) { ControllerContext = UserContext() };
         Created(await employees.Create(companyId, new SaveEmployeeRequest("Arta", "Krasniqi", null, null, null, null, null, null, null, null, "Analyst", null, null, null, null, null, 1000m)));
 
         var first = Created(await Runs(db).Create(companyId, new CreatePayrollRunRequest(new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30))));

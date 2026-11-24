@@ -90,6 +90,16 @@ public class PayrollRunsController : ControllerBase
         var composed = await _composer.ComposeAsync(companyId, request.PeriodStart, request.PeriodEnd);
         if (composed.Lines.Count == 0) return BadRequest(_localizer["NoActiveEmployees"].Value);
 
+        var zeroSalaryIds = composed.Lines.Where(l => l.BaseSalary == 0m).Select(l => l.EmployeeId).Distinct().ToList();
+        if (zeroSalaryIds.Count > 0)
+        {
+            var names = await _db.Employees.AsNoTracking()
+                .Where(e => zeroSalaryIds.Contains(e.Id))
+                .Select(e => e.Name)
+                .ToListAsync();
+            return BadRequest(string.Format(_localizer["PayrollZeroSalary"].Value, string.Join(", ", names)));
+        }
+
         var run = new PayrollRun
         {
             Id = Guid.NewGuid(),
