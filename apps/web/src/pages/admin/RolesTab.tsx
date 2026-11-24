@@ -75,7 +75,7 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
       const isNew = !submitted.id;
       setError(null);
       if (isNew) {
-        setDraft(null);
+        setDraft(toDraft(null));
         setJustCreatedId(saved.id);
         toast.success(intl.formatMessage({ id: "admin.roles.created" }, { name: saved.name }));
       } else {
