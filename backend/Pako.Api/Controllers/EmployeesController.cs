@@ -126,6 +126,64 @@ public class EmployeesController : ControllerBase
         return Ok((await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
     }
 
+    [HttpDelete("{id:guid}", Name = "DeleteEmployee")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    public async Task<IActionResult> Delete(Guid companyId, Guid id)
+    {
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
+        if (employee is null) return NotFound();
+
+        // Refuse deletion when payroll or accounting history exists — these are immutable records.
+        var hasPayslipLines = await _db.PayslipLines.AnyAsync(l => l.EmployeeId == id);
+        var hasJournalLines = await _db.JournalEntryLines.AnyAsync(l => l.EmployeeId == id);
+        if (hasPayslipLines || hasJournalLines)
+            return BadRequest(_localizer["EmployeeHasPayrollHistory"].Value);
+
+        // Remove owned child records that have no independent accounting significance.
+        var contracts = await _db.EmployeeContracts.Where(c => c.EmployeeId == id).ToListAsync();
+        _db.EmployeeContracts.RemoveRange(contracts);
+
+        var assignments = await _db.EmployeePartnerAssignments.Where(a => a.EmployeeId == id).ToListAsync();
+        _db.EmployeePartnerAssignments.RemoveRange(assignments);
+
+        var assignmentPeriods = await _db.EmployeePartnerAssignmentPeriods.Where(a => a.EmployeeId == id).ToListAsync();
+        _db.EmployeePartnerAssignmentPeriods.RemoveRange(assignmentPeriods);
+
+        var profileChanges = await _db.EmployeeProfileChanges.Where(p => p.EmployeeId == id).ToListAsync();
+        _db.EmployeeProfileChanges.RemoveRange(profileChanges);
+
+        var leaveRequests = await _db.LeaveRequests.Where(l => l.EmployeeId == id).ToListAsync();
+        _db.LeaveRequests.RemoveRange(leaveRequests);
+
+        var expenseClaims = await _db.ExpenseClaims.Where(e => e.EmployeeId == id).ToListAsync();
+        _db.ExpenseClaims.RemoveRange(expenseClaims);
+
+        var timeEntries = await _db.TimeEntries.Where(t => t.EmployeeId == id).ToListAsync();
+        _db.TimeEntries.RemoveRange(timeEntries);
+
+        var adjustments = await _db.PayrollAdjustments.Where(a => a.EmployeeId == id).ToListAsync();
+        _db.PayrollAdjustments.RemoveRange(adjustments);
+
+        var loans = await _db.EmployeeLoans.Where(l => l.EmployeeId == id).ToListAsync();
+        _db.EmployeeLoans.RemoveRange(loans);
+
+        _db.Employees.Remove(employee);
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPatch("{id:guid}/active", Name = "SetEmployeeActive")]
+    [RequireCompanyAccess(writeAccess: true, module: AccessModule.Hr)]
+    public async Task<ActionResult<EmployeeDetailResponse>> SetActive(Guid companyId, Guid id, SetEmployeeActiveRequest request)
+    {
+        var employee = await _db.Employees.FirstOrDefaultAsync(e => e.Id == id && e.CompanyId == companyId);
+        if (employee is null) return NotFound();
+
+        employee.IsActive = request.IsActive;
+        await _db.SaveChangesAsync();
+        return Ok((await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
+    }
+
     // ---- Change history (Odoo chatter-style, backed by the audit trail) ----
 
     [HttpGet("{id:guid}/history", Name = "EmployeeHistory")]

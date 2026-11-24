@@ -2070,4 +2070,5 @@ If you are reading it, email delivery works (mode: {mode}).</value></data>
   <data name="PaymentAllocationWrongDocument" xml:space="preserve"><value>The payment can only be applied to this partner's posted invoices (payment received) or bills (payment made).</value></data>
   <data name="PaymentAllocationExceedsUnapplied" xml:space="preserve"><value>The amounts to apply are more than the payment has left ({0}). Lower them and try again.</value></data>
   <data name="PaymentAllocationExceedsOutstanding" xml:space="preserve"><value>{0} has only {1} left to pay. Lower the amount applied to it.</value></data>
+  <data name="EmployeeHasPayrollHistory" xml:space="preserve"><value>This employee cannot be deleted because they have payroll or accounting history. Deactivate them instead.</value></data>
 </root>
