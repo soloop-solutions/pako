@@ -2,7 +2,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { formatMoney } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import { toast } from "sonner";
 
@@ -108,6 +108,13 @@ export function Items() {
   const [createError, setCreateError] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = setTimeout(() => setHighlightId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
   const [barcodeError, setBarcodeError] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
@@ -225,12 +232,13 @@ export function Items() {
         agencyCommissionPercent: fields.agencyCommissionPercent,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       setCreateError(null);
       setDirty(false);
       setCreateOpen(false);
       setCreateFormKey((k) => k + 1);
       urlState.setPage(1);
+      setHighlightId(created.id);
       toast.success(intl.formatMessage({ id: "toast.itemCreated" }));
       await refreshItems();
     },
@@ -706,7 +714,11 @@ export function Items() {
         globalFilterPlaceholder={intl.formatMessage({ id: "items.searchPlaceholder" })}
         emptyMessage={intl.formatMessage({ id: "items.noItems" })}
         exportFileName="items"
-        getRowClassName={(item) => (item.defaultUnitPrice == null ? "text-muted-foreground/70" : undefined)}
+        getRowClassName={(item) =>
+          item.id === highlightId
+            ? "animate-pulse border-primary bg-primary/10"
+            : item.defaultUnitPrice == null ? "text-muted-foreground/70" : undefined
+        }
         manualFiltering
         manualSorting={!isFullyLoaded}
         manualGrouping={!isFullyLoaded}

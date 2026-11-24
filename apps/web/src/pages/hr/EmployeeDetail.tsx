@@ -214,7 +214,7 @@ function EmployeeEditor({
       await queryClient.invalidateQueries({ queryKey: ["departments", companyId] });
       if (isNew) {
         toast.success(intl.formatMessage({ id: "toast.employeeCreated" }));
-        navigate(`/employees/${result.id}`);
+        navigate(`/employees?highlight=${result.id}`);
         return;
       }
       toast.success(intl.formatMessage({ id: "toast.employeeSaved" }));
@@ -532,7 +532,7 @@ function EmployeeEditor({
                       min="0.01"
                       step="0.01"
                       required
-                      className="text-right tabular-nums"
+                      className="tabular-nums"
                       disabled={readOnly}
                       value={form.monthlyGrossSalary}
                       onChange={(e) => set("monthlyGrossSalary", e.target.value)}

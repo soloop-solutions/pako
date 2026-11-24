@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatMoney } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useIntl } from "react-intl";
 import type { AccountResponse, PartnerResponse } from "@pako/shared";
 import { toast } from "sonner";
@@ -82,6 +82,13 @@ export function PartnerListPage({
   const [editingId, setEditingId] = useOpenParam();
   const [mutationError, setMutationError] = useState<PartnerFormError | null>(null);
   const [dirty, setDirty] = useState(false);
+  const [highlightId, setHighlightId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    const timer = setTimeout(() => setHighlightId(null), 3000);
+    return () => clearTimeout(timer);
+  }, [highlightId]);
 
   const partnersQueryKey = ["partners", activeCompanyId] as const;
   const paged = usePagedGrid<PartnerResponse>({
@@ -162,10 +169,11 @@ export function PartnerListPage({
         country: fields.country ?? undefined,
       });
     },
-    onSuccess: async () => {
+    onSuccess: async (created) => {
       setMutationError(null);
       setDirty(false);
       setFormOpen(false);
+      setHighlightId(created.id);
       toast.success(intl.formatMessage({ id: labels.createdKey }));
       await refresh();
     },
@@ -509,6 +517,7 @@ export function PartnerListPage({
         rowCount={paged.total}
         isLoading={partnersQuery.isPending}
         getRowId={(row) => row.id}
+        getRowClassName={(row) => row.id === highlightId ? "animate-pulse border-primary bg-primary/10" : undefined}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: labels.searchPlaceholderKey })}
         emptyMessage={intl.formatMessage({ id: labels.emptyKey })}
