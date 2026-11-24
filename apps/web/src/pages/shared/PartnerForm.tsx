@@ -14,9 +14,9 @@ type PartnerFormProps = {
   onCreated: (id: string) => void;
 };
 
-export function PartnerForm({ companyId, role, onCreated }: PartnerFormProps) {
+export function PartnerForm({ companyId, role, onCreated, initialName }: PartnerFormProps & { initialName?: string }) {
   const intl = useIntl();
-  const [name, setName] = useState("");
+  const [name, setName] = useState(initialName ?? "");
   const [taxNumber, setTaxNumber] = useState("");
   const [fiscalNumber, setFiscalNumber] = useState("");
   const [isVatRegistered, setIsVatRegistered] = useState(false);

@@ -229,6 +229,8 @@ export function BillForm({
     formRef.current?.requestSubmit();
   }, !submitting);
   const [newPartnerOpen, setNewPartnerOpen] = useState(false);
+  // The name typed in the vendor picker, carried into the quick-create form (UI/UX round 2026-11-24).
+  const [newPartnerName, setNewPartnerName] = useState("");
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
@@ -498,7 +500,7 @@ export function BillForm({
             }}
             createAction={{
               label: intl.formatMessage({ id: "bills.addVendor" }),
-              onClick: () => setNewPartnerOpen(true),
+              onClick: (typed) => { setNewPartnerName(typed ?? ""); setNewPartnerOpen(true); },
             }}
             aria-invalid={!!fieldErrors.partnerId}
           />
@@ -820,6 +822,8 @@ export function BillForm({
         size="sm"
       >
         <PartnerForm
+          key={newPartnerName}
+          initialName={newPartnerName}
           companyId={companyId}
           role="vendor"
           onCreated={(id) => {

@@ -133,7 +133,8 @@ export interface SearchableSelectProps {
   /** Whether the field is in an invalid state */
   "aria-invalid"?: boolean;
   /** When set, renders a "+" button next to the trigger to create a new entity inline. */
-  createAction?: { label: string; onClick: () => void };
+  /** onClick receives the typed search text when used from "Create '<text>'" (UI/UX round 2026-11-24). */
+  createAction?: { label: string; onClick: (typed?: string) => void };
 }
 
 export function SearchableSelect({
@@ -461,6 +462,20 @@ export function SearchableSelect({
             {filtered.length === 0 && (
               <div className="px-2 py-4 text-center text-[12.5px] text-muted-foreground">
                 {noResultsText}
+                {createAction && query.trim() && (
+                  <button
+                    type="button"
+                    className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed px-2 py-1.5 text-foreground hover:bg-accent"
+                    onClick={() => {
+                      const typed = query.trim();
+                      setOpen(false);
+                      createAction.onClick(typed);
+                    }}
+                  >
+                    <Plus className="size-3.5" />
+                    {createAction.label}: “{query.trim()}”
+                  </button>
+                )}
               </div>
             )}
 
@@ -507,7 +522,7 @@ export function SearchableSelect({
           "hover:bg-accent hover:text-accent-foreground",
           "focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] outline-none",
         )}
-        onClick={createAction.onClick}
+        onClick={() => createAction.onClick()}
       >
         <Plus className="size-3.5" />
       </button>

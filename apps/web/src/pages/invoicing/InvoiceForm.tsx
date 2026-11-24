@@ -259,6 +259,8 @@ export function InvoiceForm({
   const [submitting, setSubmitting] = useState(false);
   // Set by the "Save and add new" button just before the form submits.
   const keepOpenRef = useRef(false);
+  // The name typed in the customer picker, carried into the quick-create form.
+  const [newPartnerName, setNewPartnerName] = useState("");
   // UI/UX round 2026-11-24: "Create & post" — post the new invoice straight away through the same
   // endpoint as the invoice page; if the server refuses, the invoice stays a draft and opens.
   const postAfterCreateRef = useRef(false);
@@ -762,7 +764,7 @@ export function InvoiceForm({
             pinnedLabel: intl.formatMessage({ id: "favorites.pinned" }),
             frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
           }}
-          onCreateCustomer={() => setNewPartnerOpen(true)}
+          onCreateCustomer={(typed) => { setNewPartnerName(typed ?? ""); setNewPartnerOpen(true); }}
           creditExposure={creditExposure}
           documentGross={quote?.totals.grossAmount}
           currency={currency}
@@ -1181,6 +1183,8 @@ export function InvoiceForm({
         size="sm"
       >
         <PartnerForm
+          key={newPartnerName}
+          initialName={newPartnerName}
           companyId={companyId}
           role="customer"
           onCreated={(id) => {

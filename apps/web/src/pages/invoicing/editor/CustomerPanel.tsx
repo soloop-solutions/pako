@@ -24,7 +24,7 @@ export function CustomerPanel({
   onChange: (partnerId: string) => void;
   error?: string | null;
   favorites?: SelectFavoritesConfig;
-  onCreateCustomer?: () => void;
+  onCreateCustomer?: (typedName?: string) => void;
   creditExposure: CreditExposureResponse | null;
   /** The document's total from the server quote, for the "would exceed the credit limit" warning. */
   documentGross: number | undefined;

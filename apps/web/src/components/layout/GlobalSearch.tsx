@@ -23,6 +23,9 @@ const categoryIcons: Record<string, typeof FileText> = {
   items: Package,
 };
 
+// UI/UX round 2026-11-24: the header's search button opens the same palette as Ctrl/⌘+K.
+export const OPEN_GLOBAL_SEARCH_EVENT = "pako:open-global-search";
+
 export function GlobalSearch() {
   const intl = useIntl();
   const navigate = useNavigate();
@@ -32,6 +35,7 @@ export function GlobalSearch() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [selected, setSelected] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -46,8 +50,13 @@ export function GlobalSearch() {
         setOpen(false);
       }
     }
+    const openFromButton = () => setOpen(true);
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener(OPEN_GLOBAL_SEARCH_EVENT, openFromButton);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener(OPEN_GLOBAL_SEARCH_EVENT, openFromButton);
+    };
   }, [open]);
 
   // Focus input when opened
@@ -67,12 +76,15 @@ export function GlobalSearch() {
         return;
       }
       setLoading(true);
+      setFailed(false);
       try {
         const data = await apiClient.search(activeCompany.id, q);
         setResults(data.results ?? []);
         setSelected(0);
       } catch {
+        // Say the search failed rather than "no results", which would mislead.
         setResults([]);
+        setFailed(true);
       } finally {
         setLoading(false);
       }
@@ -110,6 +122,9 @@ export function GlobalSearch() {
     <div className="fixed inset-0 z-50 flex items-start justify-center pt-[15vh]" onClick={() => setOpen(false)}>
       <div className="fixed inset-0 bg-black/50" />
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={intl.formatMessage({ id: "search.title" })}
         className="relative z-10 w-full max-w-lg rounded-lg border bg-background shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -118,13 +133,14 @@ export function GlobalSearch() {
           <input
             ref={inputRef}
             type="text"
+            aria-label={intl.formatMessage({ id: "search.title" })}
             value={query}
             onChange={(e) => handleQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={intl.formatMessage({ id: "search.placeholder" })}
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
-          <button onClick={() => setOpen(false)} className="text-muted-foreground hover:text-foreground">
+          <button type="button" onClick={() => setOpen(false)} aria-label={intl.formatMessage({ id: "common.close" })} className="text-muted-foreground hover:text-foreground">
             <X className="size-4" />
           </button>
         </div>
@@ -134,7 +150,11 @@ export function GlobalSearch() {
             <p className="px-3 py-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "common.loading" })}</p>
           )}
 
-          {!loading && query.length >= 2 && results.length === 0 && (
+          {!loading && failed && (
+            <p role="alert" className="px-3 py-2 text-xs text-destructive">{intl.formatMessage({ id: "search.failed" })}</p>
+          )}
+
+          {!loading && !failed && query.length >= 2 && results.length === 0 && (
             <p className="px-3 py-2 text-xs text-muted-foreground">{intl.formatMessage({ id: "search.noResults" })}</p>
           )}
 

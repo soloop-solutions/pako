@@ -1,6 +1,6 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Menu, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Building2, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -11,7 +11,7 @@ import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
 import { AccountMenu } from "@/components/layout/AccountMenu";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { DraftsRibbon } from "@/components/layout/DraftsRibbon";
-import { GlobalSearch } from "@/components/layout/GlobalSearch";
+import { GlobalSearch, OPEN_GLOBAL_SEARCH_EVENT } from "@/components/layout/GlobalSearch";
 import { KeyboardShortcuts } from "@/components/layout/KeyboardShortcuts";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TabStrip } from "@/components/layout/TabStrip";
@@ -177,6 +177,17 @@ function AppShell() {
               )}
             </div>
             <div className="flex items-center gap-2 lg:gap-3">
+              <button
+                type="button"
+                onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
+                className="flex h-8 items-center gap-2 rounded-md border bg-card px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label={intl.formatMessage({ id: "search.title" })}
+                data-testid="header-search"
+              >
+                <Search className="size-3.5" />
+                <span className="hidden md:inline">{intl.formatMessage({ id: "search.title" })}</span>
+                <kbd className="hidden rounded border bg-muted px-1 font-mono text-[10px] md:inline">{navigator.platform.includes("Mac") ? "⌘K" : "Ctrl K"}</kbd>
+              </button>
               <ThemeToggleButton />
               <LanguageSwitcher />
               <AccountMenu
