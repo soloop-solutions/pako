@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLineGridKeys, type LineGridCells } from "@/hooks/useLineGridKeys";
+import { formatMoney } from "@/lib/amount";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, BillResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
@@ -133,7 +135,21 @@ type BillFormProps = {
   onPartnerCreated?: (id: string) => void;
   /** Called after an inline item creation so the parent can refresh its data. */
   onItemCreated?: (id: string) => void;
+  /** Full-page editor (BillEditorPage): a Cancel button that leaves the page. */
+  onCancel?: () => void;
 };
+
+const LINE_COLUMNS = ["description", "quantity", "price", "discount"] as const;
+
+/** Grid cells (useLineGridKeys) as a line patch. */
+function linePatch(cells: LineGridCells): Partial<Line> {
+  const patch: Partial<Line> = {};
+  if (cells.description !== undefined) patch.description = cells.description;
+  if (cells.quantity !== undefined) patch.quantity = cells.quantity;
+  if (cells.price !== undefined) patch.unitPrice = cells.price;
+  if (cells.discount !== undefined) patch.discountPercent = cells.discount;
+  return patch;
+}
 
 export function BillForm({
   companyId,
@@ -149,6 +165,7 @@ export function BillForm({
   onSaved,
   onPartnerCreated,
   onItemCreated,
+  onCancel,
 }: BillFormProps) {
   const intl = useIntl();
   const partnerFavs = useEntityFavorites("Partner");
@@ -334,6 +351,25 @@ export function BillForm({
   function addLine() {
     setLines((prev) => [...prev, emptyLine(partnerDrivenTaxId, partnerDrivenAccountId)]);
   }
+
+  // Excel keyboard model of the lines (user decision 2026-11-24), as on the invoice: see hooks/useLineGridKeys.
+  const lineKeys = useLineGridKeys({
+    columns: LINE_COLUMNS,
+    numericColumns: ["quantity", "price", "discount"],
+    rowCount: lines.length,
+    addLine,
+    setCell: (row, column, value) => updateLine(row, linePatch({ [column]: value })),
+    pasteRows: (startRow, rows) =>
+      setLines((prev) => {
+        const next = [...prev];
+        rows.forEach((cells, offset) => {
+          const row = startRow + offset;
+          while (next.length <= row) next.push(emptyLine(partnerDrivenTaxId, partnerDrivenAccountId));
+          next[row] = { ...next[row], ...linePatch(cells) };
+        });
+        return next;
+      }),
+  });
 
   function removeLine(index: number) {
     setLines((prev) => prev.filter((_, i) => i !== index));
@@ -588,7 +624,12 @@ export function BillForm({
         </FormField>
       )}
 
-      <div className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}>
+      <div
+        className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}
+        onKeyDown={lineKeys.onKeyDown}
+        onFocus={lineKeys.onFocus}
+        onPaste={lineKeys.onPaste}
+      >
         {lines.map((line, index) => {
           const enteredAmount = lineEnteredAmount(line);
           const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
@@ -608,7 +649,7 @@ export function BillForm({
                 options={items.map((item) => ({
                   value: item.id,
                   label: item.name,
-                  description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
+                  description: item.defaultUnitPrice != null ? `${formatMoney(item.defaultUnitPrice)}` : undefined,
                 }))}
                 favorites={{
                   pinnedIds: itemFavs.pinnedIds,
@@ -652,14 +693,14 @@ export function BillForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" data-line-cell="description" data-row={index}>
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
               <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
               {projectCostCodes.length > 0 && (
                 <CostCodeSelect costCodes={projectCostCodes} value={line.costCodeId ?? ""} onChange={(v) => updateLine(index, { costCodeId: v || undefined })} />
               )}
             </div>
-            <div className="relative flex flex-col gap-1">
+            <div className="relative flex flex-col gap-1" data-line-cell="quantity" data-row={index}>
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.qty" })}</Label>}
               <Input
                 type="number"
@@ -688,7 +729,7 @@ export function BillForm({
                 />
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" data-line-cell="price" data-row={index}>
               {index === 0 && (
                 <Label>
                   {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat" })}
@@ -708,7 +749,7 @@ export function BillForm({
                 </Badge>
               )}
             </div>
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-1" data-line-cell="discount" data-row={index}>
               {index === 0 && <Label>{intl.formatMessage({ id: "billForm.discountPercent" })}</Label>}
               <Input
                 type="number"
@@ -743,13 +784,13 @@ export function BillForm({
             {isVatRegistered && (
               <div className="flex flex-col gap-1">
                 {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
-                <p className="px-3 py-2 text-sm text-muted-foreground">{net.toFixed(2)}</p>
+                <p className="px-3 py-2 text-sm text-muted-foreground">{formatMoney(net)}</p>
               </div>
             )}
             {isVatRegistered && (
               <div className="flex flex-col gap-1">
                 {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
-                <p className="px-3 py-2 text-sm text-muted-foreground">{tax.toFixed(2)}</p>
+                <p className="px-3 py-2 text-sm text-muted-foreground">{formatMoney(tax)}</p>
               </div>
             )}
             <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
@@ -810,6 +851,11 @@ export function BillForm({
         {!editingBill && (
           <Button type="submit" variant="outline" className="w-fit" disabled={submitting} onClick={() => { keepOpenRef.current = true; }}>
             {intl.formatMessage({ id: "common.saveAndAddNew" })}
+          </Button>
+        )}
+        {onCancel && (
+          <Button type="button" variant="ghost" className="w-fit" disabled={submitting} onClick={onCancel}>
+            {intl.formatMessage({ id: "common.cancel" })}
           </Button>
         )}
       </div>

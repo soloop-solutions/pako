@@ -4,14 +4,12 @@ import { useScrollToHash } from "@/hooks/useScrollToHash";
 import { formatDisplayDate } from "@/lib/dates";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import type {
-  AccountResponse,
   ApplyCreditNoteResponse,
   BillResponse,
   DocumentBalanceResponse,
-  ItemResponse,
   PartnerResponse,
   PaymentMethodResponse,
   TaxDefinitionResponse,
@@ -19,7 +17,6 @@ import type {
 
 import { useQuery } from "@tanstack/react-query";
 import { Lock } from "lucide-react";
-import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { monthLocksClient } from "@/api/month-locks-client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -29,7 +26,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useCompany } from "@/context/CompanyContext";
 import { useTabMeta } from "@/context/TabsContext";
-import { useUnsavedChanges } from "@/hooks/useUnsavedChanges";
 import { BillDocumentType, billDocumentTypeLabel } from "@/lib/document-types";
 import { PriceMode } from "@/lib/tax-enums";
 import { cn } from "@/lib/utils";
@@ -38,7 +34,6 @@ import { EntityHistory } from "@/components/shared/EntityHistory";
 import { RelatedDocuments } from "@/components/shared/RelatedDocuments";
 import { PrintButton } from "@/components/shared/PrintButton";
 import { PostingPreview } from "@/components/shared/PostingPreview";
-import { BillForm } from "@/pages/bills/BillForm";
 import { ApplyCreditNoteForm, type CreditNoteOption } from "@/pages/shared/ApplyCreditNoteForm";
 import { AttachmentsPanel } from "@/pages/shared/AttachmentsPanel";
 import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
@@ -47,6 +42,7 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 
 export function BillDetail() {
   const intl = useIntl();
+  const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
   const { activeCompany } = useCompany();
   // docs/USER_ACCESS_PLAN.md: posting and payments need Purchases: Approve.
@@ -58,10 +54,6 @@ export function BillDetail() {
   const [allBills, setAllBills] = useState<BillResponse[]>([]);
   const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
   const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
-  // F5 — see Invoicing.tsx's identical fields; needed here so editing a Draft bill also gets the
-  // item picker/account override.
-  const [items, setItems] = useState<ItemResponse[]>([]);
-  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balance, setBalance] = useState<DocumentBalanceResponse | null>(null);
   const [creditNoteOptions, setCreditNoteOptions] = useState<CreditNoteOption[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +62,6 @@ export function BillDetail() {
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
   const [showPostPreview, setShowPostPreview] = useState(false);
   // A5 (v2 release): Draft = fully editable, toggled inline rather than a separate route.
-  const [editing, setEditing] = useState(false);
   const billPrintRef = useRef<HTMLDivElement>(null);
 
   const billYear = bill ? new Date(bill.issueDate).getFullYear() : null;
@@ -87,22 +78,18 @@ export function BillDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [billResult, partnersResult, taxesResult, allBillsResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
+      const [billResult, partnersResult, taxesResult, allBillsResult, paymentMethodsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
         apiClient.partnersAll(companyId),
         apiClient.taxes(companyId),
         apiClient.billsAll(companyId),
         apiClient.paymentMethodsAll(companyId),
-        fetchAllItems(companyId),
-        apiClient.accountsAll(companyId),
       ]);
       setBill(billResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
       setAllBills(allBillsResult);
       setPaymentMethods(paymentMethodsResult);
-      setItems(itemsResult.items);
-      setAccounts(accountsResult);
 
       if (billResult.state === "Posted") {
         setBalance(await apiClient.balance(companyId, id));
@@ -139,14 +126,11 @@ export function BillDetail() {
     void refresh();
   }, [refresh]);
 
-  // Task 8: instance tab title follows the same fallback used on screen ("Draft bill"). `dirty`
-  // is the existing inline-edit toggle, not real field-level change tracking.
+  // Task 8: instance tab title follows the same fallback used on screen ("Draft bill"). Editing is
+  // its own page now (/bills/:id/edit, user decision 2026-11-24).
   useTabMeta({
     title: bill ? (bill.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" })) : undefined,
-    dirty: editing,
   });
-
-  useUnsavedChanges(editing);
 
   async function handlePost() {
     if (!companyId || !id) return;
@@ -272,35 +256,17 @@ export function BillDetail() {
               <CardDescription>{partner?.name ?? bill.partnerId}</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {(bill.state === "Draft" || (bill.state === "Posted" && !isMonthLocked)) && !editing && (
-                <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+              {(bill.state === "Draft" || (bill.state === "Posted" && !isMonthLocked)) && (
+                <Button variant="outline" size="sm" onClick={() => navigate(`${bill.documentType === BillDocumentType.PurchaseReturn ? "/purchase-returns" : "/bills"}/${bill.id}/edit`)}>
                   {intl.formatMessage({ id: "common.edit" })}
                 </Button>
               )}
-              {!editing && <PrintButton contentRef={billPrintRef} size="sm" />}
+              <PrintButton contentRef={billPrintRef} size="sm" />
               <DocumentStateBadge state={bill.state} />
             </div>
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {editing ? (
-            <BillForm
-              companyId={activeCompany.id}
-              vendors={partners.filter((p) => p.isVendor)}
-              taxes={taxes}
-              paymentMethods={paymentMethods}
-              items={items}
-              accounts={accounts}
-              isVatRegistered={activeCompany.isVatRegistered}
-              editingBill={bill}
-              onCreated={() => {}}
-              onSaved={() => {
-                setEditing(false);
-                void refresh();
-              }}
-            />
-          ) : (
-            <>
           <div className="grid gap-4 text-sm sm:grid-cols-2">
             <p>
               <span className="text-muted-foreground">{intl.formatMessage({ id: "billDetail.issueDate" })}</span> {formatDisplayDate(bill.issueDate)}
@@ -367,8 +333,6 @@ export function BillDetail() {
             </div>
           )}
             {relatedDocs.length > 0 && <RelatedDocuments documents={relatedDocs} />}
-            </>
-          )}
         </CardContent>
       </Card>
 

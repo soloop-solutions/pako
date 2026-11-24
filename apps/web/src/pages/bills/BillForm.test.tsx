@@ -60,4 +60,42 @@ describe("BillForm", () => {
     await waitFor(() => expect(api.billsPUT).toHaveBeenCalled());
     expect(api.billsPUT.mock.calls[0][2].lines).toEqual([expect.objectContaining({ itemId: "i1", purchaseOrderLineId: "pol1" })]);
   });
+
+  // User decision 2026-11-24: Excel keyboard model on bill lines.
+  function renderNew() {
+    render(
+      <IntlProviderWrapper>
+        <QueryClientProvider client={new QueryClient()}>
+          <BillForm companyId="c1" vendors={[]} taxes={[]} paymentMethods={[]} isVatRegistered={false} onCreated={() => {}} />
+        </QueryClientProvider>
+      </IntlProviderWrapper>,
+    );
+  }
+  const cell = (column: string, row: number) =>
+    document.querySelector<HTMLInputElement>(`[data-line-cell="${column}"][data-row="${row}"] input`);
+
+  it("Enter moves down a column and adds a line at the end; Escape puts the cell back", async () => {
+    renderNew();
+    const description = cell("description", 0)!;
+    fireEvent.focus(description);
+    fireEvent.change(description, { target: { value: "Flour" } });
+    fireEvent.keyDown(description, { key: "Escape" });
+    expect(cell("description", 0)).toHaveValue("");
+
+    const rowsBefore = document.querySelectorAll('[data-line-cell="description"]').length;
+    fireEvent.keyDown(cell("description", rowsBefore - 1)!, { key: "Enter" });
+    await waitFor(() => expect(document.querySelectorAll('[data-line-cell="description"]').length).toBe(rowsBefore + 1));
+    expect(api.billsPOST).not.toHaveBeenCalled();
+  });
+
+  it("a block pasted from a spreadsheet fills the cells right and down, adding lines", async () => {
+    renderNew();
+    const start = cell("description", 0)!;
+    fireEvent.paste(start, { clipboardData: { getData: () => "Flour\t4\t1,234.50\nSugar\t2\t3,5\n" } });
+    await waitFor(() => expect(cell("description", 1)).toHaveValue("Sugar"));
+    expect(cell("description", 0)).toHaveValue("Flour");
+    expect(cell("quantity", 0)).toHaveValue(4);
+    expect(cell("price", 0)).toHaveValue(1234.5);
+    expect(cell("price", 1)).toHaveValue(3.5);
+  });
 });

@@ -2,9 +2,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { formatMoneyOr } from "@/lib/amount";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { BillResponse, DocumentBalanceResponse, PartnerResponse, PaymentMethodResponse, TaxDefinitionResponse } from "@pako/shared";
+import type { BillResponse, DocumentBalanceResponse, PartnerResponse } from "@pako/shared";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,11 +17,8 @@ import { PageHeader } from "@/components/list/PageHeader";
 import { ListTotalsBar } from "@/components/list/ListTotalsBar";
 import { useListRibbonOptions } from "@/hooks/useListRibbonOptions";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { BillDocumentType, getDocumentRowClassName } from "@/lib/document-types";
-import { taxesForPurchase } from "@/lib/tax-enums";
-import { BillForm } from "@/pages/bills/BillForm";
 
 const GRID_ID = "purchaseReturns";
 
@@ -29,30 +26,20 @@ const GRID_ID = "purchaseReturns";
 // original-bill picker, grid only ever shows PurchaseReturn rows.
 export function PurchaseReturns() {
   const intl = useIntl();
+  const navigate = useNavigate();
   const { activeCompany } = useCompany();
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
   const [originalNumbers, setOriginalNumbers] = useState<Record<string, string>>({});
-  const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
-  const [formOpen, setFormOpen] = useState(false);
-  const [formKey, setFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, taxesResult, paymentMethodsResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
-        apiClient.taxes(companyId),
-        apiClient.paymentMethodsAll(companyId),
-      ]);
-      setPartners(partnersResult);
-      setTaxes(taxesResult);
-      setPaymentMethods(paymentMethodsResult);
+      setPartners(await apiClient.partnersAll(companyId));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "purchaseReturns.loadError" })));
     }
@@ -121,7 +108,6 @@ export function PurchaseReturns() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [paged.items, balances, originalNumbers],
   );
-  const refetchPaged = paged.query.refetch;
 
   useEffect(() => {
     if (!companyId) return;
@@ -218,12 +204,6 @@ export function PurchaseReturns() {
     [columns],
   );
 
-  const handleCreated = useCallback(async (options?: { keepOpen?: boolean }) => {
-    if (!options?.keepOpen) setFormOpen(false);
-    setFormKey((k) => k + 1);
-    await refresh();
-    await refetchPaged();
-  }, [refresh, refetchPaged]);
 
   if (!activeCompany) {
     return (
@@ -250,27 +230,9 @@ export function PurchaseReturns() {
       <PageHeader
         title={intl.formatMessage({ id: "purchaseReturns.title" })}
         description={intl.formatMessage({ id: "purchaseReturns.description" })}
-        newAction={{ label: intl.formatMessage({ id: "purchaseReturns.newReturn" }), onClick: () => setFormOpen(true) }}
+        newAction={{ label: intl.formatMessage({ id: "purchaseReturns.newReturn" }), onClick: () => navigate("/purchase-returns/new") }}
       />
 
-      <FormDialog
-        open={formOpen}
-        onOpenChange={(open) => { if (!open) setFormOpen(false); }}
-        title={intl.formatMessage({ id: "purchaseReturns.newReturn" })}
-        description={intl.formatMessage({ id: "purchaseReturns.newReturnDescriptionOptional" })}
-        size="full"
-      >
-        <BillForm
-          key={formKey}
-          companyId={activeCompany.id}
-          vendors={vendors}
-          taxes={taxesForPurchase(taxes)}
-          paymentMethods={paymentMethods}
-          isVatRegistered={activeCompany.isVatRegistered}
-          onCreated={handleCreated}
-          fixedDocumentType={BillDocumentType.PurchaseReturn}
-        />
-      </FormDialog>
 
       <Card>
         <CardHeader>

@@ -17,16 +17,11 @@ import { useMyAccess } from "@/hooks/useMyAccess";
 import { entityPath } from "@/lib/entityLinks";
 import type { ColumnDef } from "@tanstack/react-table";
 import type {
-  AccountResponse,
   BillResponse,
   DocumentBalanceResponse,
-  ItemResponse,
   PartnerResponse,
-  PaymentMethodResponse,
-  TaxDefinitionResponse,
 } from "@pako/shared";
 
-import { fetchAllItems } from "@/api/fetchAllItems";
 import { apiClient, API_BASE_URL, authorizedFetch, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +32,6 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { DocumentFilterBar } from "@/components/data-grid/DocumentFilterBar";
 import { useDocumentFilters } from "@/components/data-grid/useDocumentFilters";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
-import { FormDialog } from "@/components/shared/FormDialog";
 import { useCompany } from "@/context/CompanyContext";
 import { dateToIso } from "@/lib/dates";
 import {
@@ -48,8 +42,6 @@ import {
   paymentStatusBadgeVariant,
   type PaymentStatus,
 } from "@/lib/document-types";
-import { taxesForPurchase } from "@/lib/tax-enums";
-import { BillForm } from "@/pages/bills/BillForm";
 
 const GRID_ID = "bills";
 
@@ -59,36 +51,16 @@ export function Bills() {
   const companyId = activeCompany?.id ?? null;
 
   const [partners, setPartners] = useState<PartnerResponse[]>([]);
-  const [taxes, setTaxes] = useState<TaxDefinitionResponse[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodResponse[]>([]);
-  // F5 — see Invoicing.tsx's identical fields for the full rationale.
-  const [items, setItems] = useState<ItemResponse[]>([]);
-  const [accounts, setAccounts] = useState<AccountResponse[]>([]);
   const [balances, setBalances] = useState<Record<string, DocumentBalanceResponse>>({});
   const [error, setError] = useState<string | null>(null);
-  const [billFormOpen, setBillFormOpen] = useState(false);
+  // User decision 2026-11-24: a bill is entered on its own page (/bills/new), as invoices are.
   const resumeRequest = useOptionalDrafts()?.resumeRequest ?? null;
-  useEffect(() => {
-    if (resumeRequest?.kind === "bill") setBillFormOpen(true);
-  }, [resumeRequest]);
-  const [billFormKey, setBillFormKey] = useState(0);
 
   const refresh = useCallback(async () => {
     if (!companyId) return;
     setError(null);
     try {
-      const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
-        apiClient.taxes(companyId),
-        apiClient.paymentMethodsAll(companyId),
-        fetchAllItems(companyId),
-        apiClient.accountsAll(companyId),
-      ]);
-      setPartners(partnersResult);
-      setTaxes(taxesResult);
-      setPaymentMethods(paymentMethodsResult);
-      setItems(itemsResult.items);
-      setAccounts(accountsResult);
+      setPartners(await apiClient.partnersAll(companyId));
 
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "bills.loadError" })));
@@ -118,6 +90,9 @@ export function Bills() {
   // Client request 2026-11-24: row and bulk actions. Post goes through the same endpoint as the bill
   // page, one bill at a time; Pay opens the bill, where the payment is recorded. Bills have no PDF.
   const navigate = useNavigate();
+  useEffect(() => {
+    if (resumeRequest?.kind === "bill") navigate("/bills/new");
+  }, [resumeRequest, navigate]);
   const confirm = useConfirm();
   const { canApprove, canWrite } = useMyAccess();
   const mayPost = canApprove("purchases");
@@ -161,7 +136,6 @@ export function Bills() {
         {intl.formatMessage({ id: "listActions.postSelected" })}
       </Button>
     ) : null;
-  const refetchPaged = paged.query.refetch;
 
   // The totals under the list: same filters as the grid, every page (client request 2026-11-24).
   const totalsFilters = {
@@ -337,26 +311,8 @@ export function Bills() {
   );
   const visibleColumns = useMemo(() => serverSideColumns(columns, ["vendorReference", "vendor", "issueDate", "dueDate", "state"], ["state"]), [columns]);
 
-  const handleBillCreated = useCallback(async (options?: { keepOpen?: boolean; bill?: BillResponse }) => {
-    if (!options?.keepOpen) setBillFormOpen(false);
-    setBillFormKey((k) => k + 1);
-    // UI/UX round 2026-11-24: open the bill just entered (post, pay) instead of leaving the user to
-    // find it in the list; "Save and add new" keeps the form open as before.
-    if (!options?.keepOpen && options?.bill?.id) {
-      navigate(entityPath({ kind: "Bill", id: options.bill.id }) ?? "/bills");
-      return;
-    }
-    await refresh();
-    await refetchPaged();
-  }, [navigate, refresh, refetchPaged]);
 
-  const handleInlinePartnerCreated = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
 
-  const handleInlineItemCreated = useCallback(async () => {
-    await refresh();
-  }, [refresh]);
 
   if (!activeCompany) {
     return (
@@ -380,30 +336,9 @@ export function Bills() {
       <PageHeader
         title={intl.formatMessage({ id: "bills.title" })}
         description={intl.formatMessage({ id: "bills.description" })}
-        newAction={{ label: intl.formatMessage({ id: "bills.newBill" }), onClick: () => setBillFormOpen(true) }}
+        newAction={{ label: intl.formatMessage({ id: "bills.newBill" }), onClick: () => navigate("/bills/new") }}
       />
 
-      <FormDialog
-        open={billFormOpen}
-        onOpenChange={(open) => { if (!open) setBillFormOpen(false); }}
-        title={intl.formatMessage({ id: "bills.newBill" })}
-        description={intl.formatMessage({ id: "bills.newBillDescription" })}
-        size="full"
-      >
-        <BillForm
-          key={billFormKey}
-          companyId={activeCompany.id}
-          vendors={vendors}
-          taxes={taxesForPurchase(taxes)}
-          paymentMethods={paymentMethods}
-          items={items}
-          accounts={accounts}
-          isVatRegistered={activeCompany.isVatRegistered}
-          onCreated={handleBillCreated}
-          onPartnerCreated={handleInlinePartnerCreated}
-          onItemCreated={handleInlineItemCreated}
-        />
-      </FormDialog>
 
       <Card>
         <CardHeader>
@@ -433,7 +368,7 @@ export function Bills() {
             enableGlobalFilter
             emptyMessage={intl.formatMessage({ id: "bills.noBills" })}
             emptyAction={canWrite("purchases") && docFilters.activeCount === 0 && !paged.urlState.globalFilter.trim() ? (
-              <Button type="button" size="sm" onClick={() => setBillFormOpen(true)}>
+              <Button type="button" size="sm" onClick={() => navigate("/bills/new")}>
                 {intl.formatMessage({ id: "bills.newBill" })}
               </Button>
             ) : undefined}

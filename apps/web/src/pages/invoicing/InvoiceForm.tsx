@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useLineGridKeys, type LineGridCells } from "@/hooks/useLineGridKeys";
 import { formatMoney } from "@/lib/amount";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
@@ -160,6 +161,18 @@ type InvoiceFormProps = {
   /** Called after an inline item creation so the parent can refresh its data. */
   onItemCreated?: (id: string) => void;
 };
+
+const LINE_COLUMNS = ["description", "quantity", "price", "discount"] as const;
+
+/** Grid cells (useLineGridKeys) as a line patch; a typed price or discount counts as edited. */
+function linePatch(cells: LineGridCells): Partial<Line> {
+  const patch: Partial<Line> = {};
+  if (cells.description !== undefined) patch.description = cells.description;
+  if (cells.quantity !== undefined) patch.quantity = cells.quantity;
+  if (cells.price !== undefined) Object.assign(patch, { unitPrice: cells.price, priceEdited: true });
+  if (cells.discount !== undefined) Object.assign(patch, { discountPercent: cells.discount, discountEdited: true });
+  return patch;
+}
 
 export function InvoiceForm({
   companyId,
@@ -708,32 +721,27 @@ export function InvoiceForm({
     return `${item.code} · ${item.name}${barcode ? ` [${barcode}]` : ""}`;
   }
 
-  // Keyboard model of the line table (frontend rule: Excel-like editable grids): Enter or ↓ moves to
-  // the same column on the next line — Enter on the last line adds one — and ↑ to the line above.
-  // Enter never submits the form from a line cell.
-  function handleLineKeyDown(event: KeyboardEvent<HTMLTableSectionElement>) {
-    const target = event.target as HTMLElement;
-    if (target.tagName !== "INPUT") return;
-    const cell = target.closest<HTMLElement>("[data-line-cell]");
-    if (!cell) return;
-    const row = Number(cell.dataset.row);
-    const column = cell.dataset.lineCell;
-    let nextRow: number | null = null;
-    if (event.key === "Enter" || event.key === "ArrowDown") nextRow = row + 1;
-    else if (event.key === "ArrowUp") nextRow = row - 1;
-    if (nextRow == null) return;
-    event.preventDefault();
-    if (nextRow < 0) return;
-    const focus = () =>
-      document.querySelector<HTMLInputElement>(`[data-line-cell="${column}"][data-row="${nextRow}"] input`)?.focus();
-    if (nextRow >= lines.length) {
-      if (event.key !== "Enter") return;
-      addLine();
-      requestAnimationFrame(focus);
-    } else {
-      focus();
-    }
-  }
+  // Excel keyboard model of the line table (frontend rule; user decision 2026-11-24): Enter/↓/↑ within a
+  // column (Enter on the last line adds one), Tab wraps from a line's last cell to the next line,
+  // Escape reverts the cell, and a pasted block fills cells right and down. Enter never submits the form
+  // from a line cell. See hooks/useLineGridKeys.
+  const lineKeys = useLineGridKeys({
+    columns: LINE_COLUMNS,
+    numericColumns: ["quantity", "price", "discount"],
+    rowCount: lines.length,
+    addLine,
+    setCell: (row, column, value) => updateLine(row, linePatch({ [column]: value })),
+    pasteRows: (startRow, rows) =>
+      setLines((prev) => {
+        const next = [...prev];
+        rows.forEach((cells, offset) => {
+          const row = startRow + offset;
+          while (next.length <= row) next.push(emptyLine(partnerDrivenTaxId, partnerDrivenAccountId));
+          next[row] = { ...next[row], ...linePatch(cells) };
+        });
+        return next;
+      }),
+  });
 
   const priceLabelId = priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat";
   const otherBasisLabelId = priceMode === PriceMode.NetExclusive ? "invoiceEditor.inclVatShort" : "invoiceEditor.exclVatShort";
@@ -897,7 +905,7 @@ export function InvoiceForm({
                 <th className="w-8" />
               </tr>
             </thead>
-            <tbody onKeyDown={handleLineKeyDown}>
+            <tbody onKeyDown={lineKeys.onKeyDown} onFocus={lineKeys.onFocus} onPaste={lineKeys.onPaste}>
               {lines.map((line, index) => {
                 const selectedItem = items.find((i) => i.id === line.itemId);
                 const overridden = overriddenFields(line, selectedItem);
