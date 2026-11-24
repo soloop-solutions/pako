@@ -321,6 +321,36 @@
 }
 
 @layer components {
+  /* Fast info tooltip: shows after 100ms instead of the browser's ~500ms+ native title delay. */
+  [data-tip] {
+    position: relative;
+  }
+  [data-tip]::after {
+    content: attr(data-tip);
+    position: absolute;
+    left: 50%;
+    top: calc(100% + 6px);
+    transform: translateX(-50%);
+    white-space: normal;
+    width: max-content;
+    max-width: 260px;
+    padding: 5px 10px;
+    border-radius: var(--radius);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    background: var(--popover);
+    color: var(--popover-foreground);
+    box-shadow: 0 2px 8px oklch(0 0 0 / 0.14);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.12s;
+    z-index: 50;
+  }
+  [data-tip]:hover::after {
+    opacity: 1;
+    transition-delay: 100ms;
+  }
+
   .auth-panel {
     background-color: var(--auth-panel);
     background-image:

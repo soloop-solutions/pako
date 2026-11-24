@@ -15,7 +15,7 @@ export function AccountingTooltip({ termKey }: AccountingTooltipProps) {
   const intl = useIntl();
   const text = intl.formatMessage({ id: termKey });
   return (
-    <span title={text} aria-label={text} className="ml-1 inline-flex items-center">
+    <span data-tip={text} aria-label={text} className="ml-1 inline-flex items-center">
       <HelpCircle className="size-3.5 shrink-0 text-muted-foreground/60" />
     </span>
   );

@@ -82,7 +82,7 @@ export function PageHeader({
           )}
           <h2 className="truncate text-base font-semibold">{title}</h2>
           {description && (
-            <span className="inline-flex shrink-0 text-muted-foreground" title={description}>
+            <span className="inline-flex shrink-0 text-muted-foreground" data-tip={description}>
               <Info className="size-3.5" aria-hidden />
               <span className="sr-only">{description}</span>
             </span>
@@ -126,7 +126,7 @@ export function SectionHeader({
         )}
         <h3 className="truncate text-sm font-semibold">{title}</h3>
         {description && (
-          <span className="inline-flex shrink-0 text-muted-foreground" title={description}>
+          <span className="inline-flex shrink-0 text-muted-foreground" data-tip={description}>
             <Info className="size-3.5" aria-hidden />
             <span className="sr-only">{description}</span>
           </span>
