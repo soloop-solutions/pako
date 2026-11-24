@@ -17,6 +17,7 @@ const api = vi.hoisted(() => ({
   listItemCategories: vi.fn(),
   // The item form previews the next item code (number series).
   preview: vi.fn(),
+  getMyAccess: vi.fn(),
 }));
 
 vi.mock("@/api/client", async (importOriginal) => {
@@ -117,5 +118,58 @@ describe("Item form — till fields", () => {
     await waitFor(() =>
       expect(api.itemsPUT).toHaveBeenCalledWith("c1", "i3", expect.objectContaining({ plu: "12", minimumAge: undefined, sellByWeight: false })),
     );
+  });
+});
+
+describe("Item form — services section follows the services pack", () => {
+  beforeEach(() => {
+    Object.values(api).forEach((f) => f.mockReset());
+    api.itemsGET.mockResolvedValue({ items: [BEER], total: 1 });
+    api.taxes.mockResolvedValue([]);
+    api.preview.mockResolvedValue({ number: "1001" });
+    api.accountsAll.mockResolvedValue(ACCOUNTS);
+    api.listItemCategories.mockResolvedValue([]);
+  });
+
+  async function openNewItemLastStep() {
+    renderItems();
+    fireEvent.click(await screen.findByRole("button", { name: "Add item" }));
+    const dialog = await screen.findByRole("dialog");
+    for (let step = 0; step < 3; step++) {
+      fireEvent.click(within(dialog).getByRole("button", { name: "Next" }));
+    }
+    return dialog;
+  }
+
+  it("hides bookable, package and membership fields for a company without the services pack", async () => {
+    api.getMyAccess.mockResolvedValue({ businessType: 0, features: ["grocery"] });
+    const dialog = await openNewItemLastStep();
+    await waitFor(() => expect(api.getMyAccess).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(within(dialog).queryByTestId("item-services")).toBeNull();
+  });
+
+  it("shows only the till fields of the packs the company has", async () => {
+    api.getMyAccess.mockResolvedValue({ businessType: 3, features: ["services"] });
+    const dialog = await openNewItemLastStep();
+    expect(await within(dialog).findByLabelText("Open price")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/^PLU/)).toBeNull();
+    expect(within(dialog).queryByLabelText("Minimum age")).toBeNull();
+    expect(within(dialog).queryByLabelText("Sold by weight")).toBeNull();
+  });
+
+  it("hides the whole till section when no pack uses it", async () => {
+    api.getMyAccess.mockResolvedValue({ businessType: 8, features: ["construction"] });
+    const dialog = await openNewItemLastStep();
+    await waitFor(() => expect(api.getMyAccess).toHaveBeenCalled());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(within(dialog).queryByLabelText("Open price")).toBeNull();
+    expect(within(dialog).queryByLabelText(/^PLU/)).toBeNull();
+  });
+
+  it("shows them for a company with the services pack", async () => {
+    api.getMyAccess.mockResolvedValue({ businessType: 3, features: ["services"] });
+    const dialog = await openNewItemLastStep();
+    expect(await within(dialog).findByTestId("item-services")).toBeInTheDocument();
   });
 });

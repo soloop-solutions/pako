@@ -80,7 +80,7 @@ export function BillDetail() {
     try {
       const [billResult, partnersResult, taxesResult, allBillsResult, paymentMethodsResult] = await Promise.all([
         apiClient.billsGET(companyId, id),
-        apiClient.partnersAll(companyId),
+        apiClient.partnersAll(companyId, undefined),
         apiClient.taxes(companyId),
         apiClient.billsAll(companyId),
         apiClient.paymentMethodsAll(companyId),
@@ -129,7 +129,7 @@ export function BillDetail() {
   // Task 8: instance tab title follows the same fallback used on screen ("Draft bill"). Editing is
   // its own page now (/bills/:id/edit, user decision 2026-11-24).
   useTabMeta({
-    title: bill ? (bill.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" })) : undefined,
+    title: bill ? (bill.vendorReference ?? intl.formatMessage({ id: bill.state === "Draft" ? "billDetail.draftBill" : "billDetail.title" })) : undefined,
   });
 
   async function handlePost() {
@@ -250,7 +250,7 @@ export function BillDetail() {
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
-                <CardTitle>{bill.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" })}</CardTitle>
+                <CardTitle>{bill.vendorReference ?? intl.formatMessage({ id: bill.state === "Draft" ? "billDetail.draftBill" : "billDetail.title" })}</CardTitle>
                 <Badge variant="outline">{billDocumentTypeLabel(bill.documentType, intl)}</Badge>
               </div>
               <CardDescription>{partner?.name ?? bill.partnerId}</CardDescription>

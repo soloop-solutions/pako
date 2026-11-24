@@ -40,7 +40,7 @@ export function SalesReturns() {
     if (!companyId) return;
     setError(null);
     try {
-      setPartners(await apiClient.partnersAll(companyId));
+      setPartners(await apiClient.partnersAll(companyId, undefined));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "salesReturns.loadError" })));
     }
@@ -236,7 +236,7 @@ export function SalesReturns() {
         <CardContent>
           <DocumentFilterBar
             controls={docFilters}
-            partners={partners.filter((p) => p.isCustomer)}
+            partners={partners.filter((p) => p.isCustomer && p.isActive !== false)}
             partnerLabelId="docFilters.customer"
             showPaymentStatus={false}
             warehouses={ribbonOptions.warehouses}

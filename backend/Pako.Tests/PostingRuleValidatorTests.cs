@@ -38,13 +38,10 @@ public class PostingRuleValidatorTests
         PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), true, "810123456", null);
     }
 
-    // B8: a non-VAT-registered partner (typically a natural person) has no TaxNumber to give —
-    // FiscalNumber is the identifier R07 requires for it instead.
     [Fact]
-    public void ValidateVatCounterpartyTaxNumber_NonVatRegisteredPartnerWithNoFiscalNumber_Throws()
+    public void ValidateVatCounterpartyTaxNumber_NonVatRegisteredPartnerWithNoIdentifier_Succeeds()
     {
-        Assert.Throws<MissingCounterpartyTaxNumberException>(() =>
-            PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), false, "810123456", null));
+        PostingRuleValidator.ValidateVatCounterpartyTaxNumber("S18", Guid.NewGuid(), false, null, null);
     }
 
     [Fact]

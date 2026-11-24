@@ -12,9 +12,8 @@ public class Partner
 
     // S0.3 (Sprint 0 registers, additive/inert): natural-person identifier, distinct from
     // TaxNumber (the business tax number) — Track B5's "with/without-VAT distinction" wiring.
-    // B8: now wired into PostingRuleValidator.ValidateVatCounterpartyTaxNumber (R07) — a
-    // VAT-registered partner's counterparty identifier is TaxNumber, a non-VAT-registered
-    // partner's (a natural person, typically) is FiscalNumber.
+    // R07 (PostingRuleValidator.ValidateVatCounterpartyTaxNumber): a VAT-registered partner must
+    // have a TaxNumber; a non-VAT-registered partner (a natural person, typically) needs no identifier.
     public string? FiscalNumber { get; set; }
     public bool IsVatRegistered { get; set; }
     // Client request 2026-11-23: the partner's VAT number (Nr. i TVSH), distinct from the NUI
@@ -68,6 +67,8 @@ public class Partner
     // docs/POS_PLAN.md P6: refuse new orders and deliveries while an invoice is more than this many
     // days past due (null = never block). Sales: Approve overrides with a reason.
     public int? OverdueBlockDays { get; set; }
+
+    public bool IsActive { get; set; } = true;
 
     // CFA-002: PostgreSQL xmin-based optimistic concurrency token.
     public uint RowVersion { get; set; }

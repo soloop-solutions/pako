@@ -28,7 +28,7 @@ function useCustomers() {
   const { activeCompanyId } = useCompany();
   return useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
   }).data ?? [];
 }

@@ -444,8 +444,8 @@ export function InvoiceForm({
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   }
 
-  function selectLineItem(index: number, itemId: string) {
-    const item = items.find((i) => i.id === itemId);
+  function selectLineItem(index: number, itemId: string, created?: ItemResponse) {
+    const item = created ?? items.find((i) => i.id === itemId);
     // Another item no longer bills the sales order / delivery line this one was linked to.
     setLines((prev) => prev.map((line, i) => (i === index
       ? {
@@ -1213,13 +1213,14 @@ export function InvoiceForm({
       >
         <QuickItemForm
           companyId={companyId}
-          onCreated={(id) => {
+          items={items}
+          onCreated={(created) => {
             setNewItemOpen(false);
             if (newItemLineIndex != null) {
-              selectLineItem(newItemLineIndex, id);
+              selectLineItem(newItemLineIndex, created.id, created);
             }
             setNewItemLineIndex(null);
-            onItemCreated?.(id);
+            onItemCreated?.(created.id);
           }}
         />
       </FormDialog>

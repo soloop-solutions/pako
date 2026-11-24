@@ -33,7 +33,7 @@ export function Reconciliation() {
     setError(null);
     try {
       const [partnersResult, invoicesResult, billsResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
+        apiClient.partnersAll(companyId, undefined),
         apiClient.invoicesAll(companyId),
         apiClient.billsAll(companyId),
       ]);

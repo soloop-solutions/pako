@@ -242,9 +242,16 @@ export function ItemForm({
   const { hasFeature } = useFeatures();
   const showPharmacy = pharmacyRelevant || hasFeature("pharmacy");
   const showAgency = agencyRelevant || hasFeature(["grocery", "forecourt", "pharmacy"]);
+  const showPlu = hasFeature(["grocery", "forecourt"]);
+  const showAge = hasFeature(["grocery", "forecourt", "pharmacy"]);
+  const showOpenPrice = hasFeature(["hospitality", "services"]);
+  const showSerials = hasFeature("autoParts");
+  const showTill = showPlu || showAge || showOpenPrice || showSerials;
+  const servicesRelevant = !!(initial?.isBookable || initial?.packageServiceItemId || initial?.membershipDays != null);
+  const showServices = servicesRelevant || hasFeature("services");
   const vendors = (useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
     staleTime: 60_000,
   }).data ?? []).filter((p) => p.isVendor);
@@ -281,6 +288,7 @@ export function ItemForm({
     const errs: Record<string, string> = {};
     if (!name.trim()) errs.name = requiredMsg;
     if (!unit.trim()) errs.unit = requiredMsg;
+    else if (/^\d+$/.test(unit.trim())) errs.unit = intl.formatMessage({ id: "items.unitNumeric" });
     if (!revenueAccountId) errs.revenueAccountId = requiredMsg;
     if (!expenseAccountId) errs.expenseAccountId = requiredMsg;
     if (!inventoryAccountId) errs.inventoryAccountId = requiredMsg;
@@ -585,91 +593,105 @@ export function ItemForm({
       </fieldset>
       )}
 
-      {showSection("till") && <fieldset className="flex flex-col gap-2 rounded-md border p-3">
+      {showSection("till") && showTill && <fieldset className="flex flex-col gap-2 rounded-md border p-3">
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "items.till" })}</legend>
         <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.till.hint" })}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="item-plu">{intl.formatMessage({ id: "items.plu" })}</Label>
-            <Input
-              id="item-plu"
-              inputMode="numeric"
-              pattern="[0-9]{1,6}"
-              maxLength={6}
-              className="tabular-nums"
-              value={plu}
-              onChange={(e) => setPlu(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.plu.hint" })}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="item-minimum-age">{intl.formatMessage({ id: "items.minimumAge" })}</Label>
-            <Input
-              id="item-minimum-age"
-              type="number"
-              min="1"
-              max="99"
-              step="1"
-              className="text-right tabular-nums"
-              value={minimumAge}
-              onChange={(e) => setMinimumAge(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.minimumAge.hint" })}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="item-deposit">{intl.formatMessage({ id: "items.depositItem" })}</Label>
-            <SearchableSelect
-              id="item-deposit"
-              value={depositItemId}
-              onChange={setDepositItemId}
-              onSearchChange={itemSearch.onSearchChange}
-              placeholder={intl.formatMessage({ id: "items.depositItem.none" })}
-              searchPlaceholder={intl.formatMessage({ id: "common.search" })}
-              noResultsText={intl.formatMessage({ id: "common.noResults" })}
-              emptyOptionLabel={intl.formatMessage({ id: "items.depositItem.none" })}
-              options={depositOptions}
-            />
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.depositItem.hint" })}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="flex h-9 items-center gap-2 text-sm">
-              <Checkbox checked={sellByWeight} onChange={(e) => setSellByWeight(e.target.checked)} />
-              {intl.formatMessage({ id: "items.sellByWeight" })}
-            </label>
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.sellByWeight.hint" })}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="flex h-9 items-center gap-2 text-sm">
-              <Checkbox checked={openPrice} onChange={(e) => setOpenPrice(e.target.checked)} />
-              {intl.formatMessage({ id: "items.openPrice" })}
-            </label>
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.openPrice.hint" })}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="flex h-9 items-center gap-2 text-sm">
-              <Checkbox checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} />
-              {intl.formatMessage({ id: "items.trackSerials" })}
-            </label>
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.trackSerials.hint" })}</p>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label htmlFor="item-warranty">{intl.formatMessage({ id: "items.warrantyMonths" })}</Label>
-            <Input
-              id="item-warranty"
-              type="number"
-              min="1"
-              max="240"
-              step="1"
-              className="text-right tabular-nums"
-              value={warrantyMonths}
-              onChange={(e) => setWarrantyMonths(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.warrantyMonths.hint" })}</p>
-          </div>
+          {showPlu && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="item-plu">{intl.formatMessage({ id: "items.plu" })}</Label>
+              <Input
+                id="item-plu"
+                inputMode="numeric"
+                pattern="[0-9]{1,6}"
+                maxLength={6}
+                className="tabular-nums"
+                value={plu}
+                onChange={(e) => setPlu(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.plu.hint" })}</p>
+            </div>
+          )}
+          {showAge && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="item-minimum-age">{intl.formatMessage({ id: "items.minimumAge" })}</Label>
+              <Input
+                id="item-minimum-age"
+                type="number"
+                min="1"
+                max="99"
+                step="1"
+                className="text-right tabular-nums"
+                value={minimumAge}
+                onChange={(e) => setMinimumAge(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.minimumAge.hint" })}</p>
+            </div>
+          )}
+          {showAge && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="item-deposit">{intl.formatMessage({ id: "items.depositItem" })}</Label>
+              <SearchableSelect
+                id="item-deposit"
+                value={depositItemId}
+                onChange={setDepositItemId}
+                onSearchChange={itemSearch.onSearchChange}
+                placeholder={intl.formatMessage({ id: "items.depositItem.none" })}
+                searchPlaceholder={intl.formatMessage({ id: "common.search" })}
+                noResultsText={intl.formatMessage({ id: "common.noResults" })}
+                emptyOptionLabel={intl.formatMessage({ id: "items.depositItem.none" })}
+                options={depositOptions}
+              />
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.depositItem.hint" })}</p>
+            </div>
+          )}
+          {showPlu && (
+            <div className="flex flex-col gap-1">
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <Checkbox checked={sellByWeight} onChange={(e) => setSellByWeight(e.target.checked)} />
+                {intl.formatMessage({ id: "items.sellByWeight" })}
+              </label>
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.sellByWeight.hint" })}</p>
+            </div>
+          )}
+          {showOpenPrice && (
+            <div className="flex flex-col gap-1">
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <Checkbox checked={openPrice} onChange={(e) => setOpenPrice(e.target.checked)} />
+                {intl.formatMessage({ id: "items.openPrice" })}
+              </label>
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.openPrice.hint" })}</p>
+            </div>
+          )}
+          {showSerials && (
+            <div className="flex flex-col gap-1">
+              <label className="flex h-9 items-center gap-2 text-sm">
+                <Checkbox checked={trackSerials} onChange={(e) => setTrackSerials(e.target.checked)} />
+                {intl.formatMessage({ id: "items.trackSerials" })}
+              </label>
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.trackSerials.hint" })}</p>
+            </div>
+          )}
+          {showSerials && (
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="item-warranty">{intl.formatMessage({ id: "items.warrantyMonths" })}</Label>
+              <Input
+                id="item-warranty"
+                type="number"
+                min="1"
+                max="240"
+                step="1"
+                className="text-right tabular-nums"
+                value={warrantyMonths}
+                onChange={(e) => setWarrantyMonths(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "items.warrantyMonths.hint" })}</p>
+            </div>
+          )}
         </div>
       </fieldset>}
 
-      {showSection("services") && <fieldset className="flex flex-col gap-2 rounded-md border p-3" data-testid="item-services">
+      {showSection("services") && showServices && <fieldset className="flex flex-col gap-2 rounded-md border p-3" data-testid="item-services">
         <legend className="px-1 text-sm font-medium">{intl.formatMessage({ id: "svc.item.section" })}</legend>
         <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "svc.item.hint" })}</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">

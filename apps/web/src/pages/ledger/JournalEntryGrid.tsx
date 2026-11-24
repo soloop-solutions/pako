@@ -117,7 +117,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
   useEffect(() => {
     let cancelled = false;
     apiClient
-      .partnersAll(companyId)
+      .partnersAll(companyId, undefined)
       .then((result) => {
         if (!cancelled) setPartners(result);
       })

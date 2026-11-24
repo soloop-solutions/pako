@@ -147,6 +147,7 @@ export function Reports() {
             type="button"
             variant={tab === t.key ? "default" : "outline"}
             size="sm"
+            className={tab === t.key ? "border border-primary" : undefined}
             onClick={() => setTab(t.key)}
           >
             {intl.formatMessage({ id: t.labelKey })}

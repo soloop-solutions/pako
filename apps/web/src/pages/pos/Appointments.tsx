@@ -298,7 +298,7 @@ export function BookingDialog({ storeId, resources, slot, appointment, onClose, 
   const itemSearch = useItemSearch();
   const customers = (useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
   }).data ?? []).filter((p) => p.isCustomer || p.id === appointment?.customerId);
 

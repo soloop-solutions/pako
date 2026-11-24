@@ -223,7 +223,7 @@ describe("Vendors", () => {
     ));
   });
 
-  it("requires the VAT number once the partner is marked VAT registered", async () => {
+  it("does not require the VAT number, but checks its format when one is given (9 digits)", async () => {
     renderPage();
     await waitFor(() => expect(screen.getByText("Vendor LLC")).toBeInTheDocument());
     const row = screen.getByText("Vendor LLC").closest("tr");
@@ -231,8 +231,25 @@ describe("Vendors", () => {
     fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
 
     fireEvent.click(await screen.findByRole("checkbox", { name: "VAT registered" }));
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    fireEvent.change(screen.getByLabelText(/^VAT number/), { target: { value: "3309" } });
+    expect(screen.getByText("VAT number must be exactly 9 digits.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
     fireEvent.change(screen.getByLabelText(/^VAT number/), { target: { value: "330999999" } });
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("blocks a NUI that is not exactly 9 digits", async () => {
+    renderPage();
+    await waitFor(() => expect(screen.getByText("Vendor LLC")).toBeInTheDocument());
+    const row = screen.getByText("Vendor LLC").closest("tr");
+    if (!row) throw new Error("row not found");
+    fireEvent.click(within(row).getByRole("button", { name: "Edit" }));
+
+    fireEvent.change(await screen.findByLabelText(/^NUI/), { target: { value: "8112" } });
+    expect(screen.getByText("NUI must be exactly 9 digits.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/^NUI/), { target: { value: "811234567" } });
     expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
   });
 

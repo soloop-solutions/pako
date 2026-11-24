@@ -45,7 +45,7 @@ export function useDebtReport(companyId: string | null, enabled: boolean) {
     try {
       const [debtAgingResult, partnersResult] = await Promise.all([
         apiClient.debtAging(companyId, asOf),
-        apiClient.partnersAll(companyId),
+        apiClient.partnersAll(companyId, undefined),
       ]);
       setDebtAging(debtAgingResult);
       setDebtAsOfLoaded(asOf);

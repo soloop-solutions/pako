@@ -27,8 +27,8 @@ export function WarehouseField({ id, value, onChange }: { id: string; value: str
 
 // §12 P7: the unit a line's quantity is in, when the item has a purchase or sales unit besides its
 // base unit. "" = the base unit. Hidden for items with only one unit.
-export function LineUnitSelect({ item, value, onChange }: {
-  item: ItemResponse | undefined; value: string; onChange: (value: string) => void;
+export function LineUnitSelect({ item, value, onChange, className = "h-7 text-xs" }: {
+  item: ItemResponse | undefined; value: string; onChange: (value: string) => void; className?: string;
 }) {
   const intl = useIntl();
   if (!item || (!item.purchaseUnit && !item.salesUnit)) return null;
@@ -38,7 +38,7 @@ export function LineUnitSelect({ item, value, onChange }: {
     options.push({ value: item.salesUnit, label: `${item.salesUnit} (${intl.formatNumber(item.salesUnitFactor ?? 1)})` });
   }
   return (
-    <Select className="h-7 w-full text-xs" value={value} onValueChange={onChange} aria-label={intl.formatMessage({ id: "items.lineUnit" })} options={options} />
+    <Select className={cn("w-full", className)} value={value} onValueChange={onChange} aria-label={intl.formatMessage({ id: "items.lineUnit" })} options={options} />
   );
 }
 

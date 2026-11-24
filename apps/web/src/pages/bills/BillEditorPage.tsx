@@ -56,7 +56,7 @@ export function BillEditorPage({ kind }: { kind: BillEditorKind }) {
     setError(null);
     try {
       const [partnersResult, taxesResult, paymentMethodsResult, itemsResult, accountsResult, billResult] = await Promise.all([
-        apiClient.partnersAll(companyId),
+        apiClient.partnersAll(companyId, undefined),
         apiClient.taxes(companyId),
         apiClient.paymentMethodsAll(companyId),
         fetchAllItems(companyId),
@@ -83,7 +83,7 @@ export function BillEditorPage({ kind }: { kind: BillEditorKind }) {
   const title = id
     ? intl.formatMessage(
         { id: "invoiceEditor.editTitle" },
-        { number: bill?.vendorReference ?? intl.formatMessage({ id: "billDetail.draftBill" }) },
+        { number: bill?.vendorReference ?? intl.formatMessage({ id: !bill || bill.state === "Draft" ? "billDetail.draftBill" : "billDetail.title" }) },
       )
     : intl.formatMessage({ id: NEW_TITLE[kind] });
 
@@ -149,7 +149,7 @@ export function BillEditorPage({ kind }: { kind: BillEditorKind }) {
         <BillForm
           key={formKey}
           companyId={activeCompany.id}
-          vendors={partners.filter((p) => p.isVendor)}
+          vendors={partners.filter((p) => p.isVendor && (p.isActive !== false || p.id === bill?.partnerId))}
           taxes={taxesForPurchase(taxes)}
           paymentMethods={paymentMethods}
           items={items}

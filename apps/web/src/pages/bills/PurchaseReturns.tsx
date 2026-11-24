@@ -39,7 +39,7 @@ export function PurchaseReturns() {
     if (!companyId) return;
     setError(null);
     try {
-      setPartners(await apiClient.partnersAll(companyId));
+      setPartners(await apiClient.partnersAll(companyId, undefined));
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: "purchaseReturns.loadError" })));
     }
@@ -49,7 +49,7 @@ export function PurchaseReturns() {
     void refresh();
   }, [refresh]);
 
-  const vendors = partners.filter((p) => p.isVendor);
+  const vendors = partners.filter((p) => p.isVendor && p.isActive !== false);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
   const docFilters = useDocumentFilters(GRID_ID);
   const paged = usePagedGrid<BillResponse>({

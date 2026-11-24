@@ -93,7 +93,8 @@ public record PartnerResponse(
     Guid? DefaultExpenseAccountId = null,
     Guid? DefaultRevenueAccountId = null,
     // Client request 2026-11-23: VAT number, required when IsVatRegistered.
-    string? VatNumber = null);
+    string? VatNumber = null,
+    bool IsActive = true);
 
 public record CreditExposureResponse(
     decimal? CreditLimit,
