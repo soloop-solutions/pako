@@ -5,7 +5,10 @@ using Microsoft.Extensions.Localization;
 using Pako.Api.Authorization;
 using Pako.Api.Contracts;
 using Pako.Api.Services;
+using Pako.Api.Services.Notifications;
+using Pako.Domain.Companies;
 using Pako.Domain.Hr;
+using Pako.Domain.Notifications;
 using Pako.Domain.Payroll;
 using Pako.Infrastructure;
 using Pako.Localization.Xk;
@@ -24,12 +27,14 @@ public class EmployeesController : ControllerBase
 {
     private readonly PakoDbContext _db;
     private readonly CompanyAccessContext _access;
+    private readonly NotificationOutbox _outbox;
     private readonly IStringLocalizer<ErrorMessages> _localizer;
 
-    public EmployeesController(PakoDbContext db, CompanyAccessContext access, IStringLocalizer<ErrorMessages> localizer)
+    public EmployeesController(PakoDbContext db, CompanyAccessContext access, NotificationOutbox outbox, IStringLocalizer<ErrorMessages> localizer)
     {
         _db = db;
         _access = access;
+        _outbox = outbox;
         _localizer = localizer;
     }
 
@@ -104,6 +109,41 @@ public class EmployeesController : ControllerBase
 
         _db.Employees.Add(employee);
         await _db.SaveChangesAsync();
+
+        // Notify Payroll users when the creator lacks Payroll Write — the employee needs salary data.
+        if (_access.LevelFor(AccessModule.Payroll) < AccessLevel.Write)
+        {
+            var payrollRoleIds = await _db.CompanyRoles.AsNoTracking()
+                .Where(r => r.CompanyId == companyId && r.PayrollAccess >= AccessLevel.Write)
+                .Select(r => r.Id)
+                .ToListAsync();
+            var payrollUserIds = await _db.Memberships.AsNoTracking()
+                .Where(m => m.CompanyId == companyId && m.IsActive &&
+                    (m.Role == MembershipRole.ClientAdmin || m.Role == MembershipRole.FirmAdmin || m.Role == MembershipRole.FirmAccountant ||
+                     (m.Role == MembershipRole.ClientStaff && m.CompanyRoleId != null && payrollRoleIds.Contains(m.CompanyRoleId.Value))))
+                .Select(m => m.UserId)
+                .Distinct()
+                .ToListAsync();
+            var recipients = await _db.Users.AsNoTracking()
+                .Where(u => payrollUserIds.Contains(u.Id) && u.Email != null)
+                .Select(u => new NotificationRecipient(u.Email!, NotificationOutbox.DefaultCulture))
+                .ToListAsync();
+
+            if (recipients.Count > 0)
+            {
+                var creatorEmail = await _db.Users.AsNoTracking()
+                    .Where(u => u.Id == _access.UserId)
+                    .Select(u => u.Email)
+                    .FirstOrDefaultAsync();
+                await _outbox.EnqueueAsync(companyId, NotificationTemplates.EmployeeCreatedNeedsSalary, recipients,
+                    new Dictionary<string, string>
+                    {
+                        ["employee"] = employee.Name,
+                        ["createdBy"] = creatorEmail ?? "\u2014"
+                    });
+                await _db.SaveChangesAsync();
+            }
+        }
 
         return StatusCode(StatusCodes.Status201Created, (await ToResponsesAsync(companyId, new List<Employee> { employee })).Single());
     }

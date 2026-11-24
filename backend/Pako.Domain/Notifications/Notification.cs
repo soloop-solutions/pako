@@ -99,6 +99,7 @@ public static class NotificationTemplates
     public const string PortalOrderPlaced = "PortalOrderPlaced";
     public const string PortalOrderConfirmed = "PortalOrderConfirmed";
     public const string PortalOrderCancelled = "PortalOrderCancelled";
+    public const string EmployeeCreatedNeedsSalary = "EmployeeCreatedNeedsSalary";
 
     // Email delivery: sent by hand from a posted invoice, with its PDF; and "Send test email" from the
     // notification settings or the platform admin. Neither is switchable per company.
@@ -114,7 +115,7 @@ public static class NotificationTemplates
     {
         LeaveSubmitted, LeaveDecided, PayslipReady, StaffInvitation, EdiDeadline, ContractEnding, ProbationEnding,
         ProfileChangeRequested, ProfileChangeDecided, ExpenseClaimSubmitted, ExpenseClaimDecided, AppointmentReminder, RepairStatus,
-        PortalOrderPlaced, PortalOrderConfirmed, PortalOrderCancelled
+        PortalOrderPlaced, PortalOrderConfirmed, PortalOrderCancelled, EmployeeCreatedNeedsSalary
     };
 }
 

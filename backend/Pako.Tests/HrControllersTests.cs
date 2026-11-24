@@ -102,7 +102,7 @@ public class HrControllersTests : IAsyncLifetime
     };
 
     private static EmployeesController Employees(PakoDbContext db, CompanyAccessContext? access = null) =>
-        new(db, access ?? CompanyAccessContext.Unrestricted(), new NullStringLocalizer<ErrorMessages>());
+        new(db, access ?? CompanyAccessContext.Unrestricted(), new NotificationOutbox(db), new NullStringLocalizer<ErrorMessages>());
 
     private static DepartmentsController Departments(PakoDbContext db, CompanyAccessContext? access = null) =>
         new(db, access ?? CompanyAccessContext.Unrestricted(), new NullStringLocalizer<ErrorMessages>());

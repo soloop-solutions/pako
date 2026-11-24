@@ -344,7 +344,7 @@ function EmployeeEditor({
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap gap-2">
-          {SECTIONS.filter((s) => canSeePay || !PAY_SECTIONS.includes(s)).map((s) => {
+          {SECTIONS.filter((s) => s === "pay" || canSeePay || !PAY_SECTIONS.includes(s)).map((s) => {
             const unavailable = isNew && !FORM_SECTIONS.includes(s);
             const needsAttention = isNew && s === "pay" && !form.monthlyGrossSalary && section !== s;
             return (
@@ -518,7 +518,13 @@ function EmployeeEditor({
               <p className="text-sm text-muted-foreground">{intl.formatMessage({ id: "hr.employee.payDataHidden" })}</p>
             )}
 
-            {section === "pay" && !employee?.payDataHidden && (
+            {section === "pay" && !canSeePay && (
+              <Alert>
+                <AlertDescription>{intl.formatMessage({ id: "hr.employee.payManagedByPayroll" })}</AlertDescription>
+              </Alert>
+            )}
+
+            {section === "pay" && !employee?.payDataHidden && canSeePay && (
               <div className="flex flex-col gap-3">
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                   <Field

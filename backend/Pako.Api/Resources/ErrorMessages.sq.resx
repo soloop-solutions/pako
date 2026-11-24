@@ -2071,4 +2071,9 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="PaymentAllocationExceedsUnapplied" xml:space="preserve"><value>Shumat për t'u aplikuar e kalojnë pjesën e mbetur të pagesës ({0}). Ulni shumat dhe provoni përsëri.</value></data>
   <data name="PaymentAllocationExceedsOutstanding" xml:space="preserve"><value>{0} ka vetëm {1} për t'u paguar. Ulni shumën që i aplikohet.</value></data>
   <data name="EmployeeHasPayrollHistory" xml:space="preserve"><value>Ky punonjës nuk mund të fshihet sepse ka histori të pagave ose kontabilitetit. Çaktivizojeni.</value></data>
+  <data name="PayrollZeroSalary" xml:space="preserve"><value>Nuk mund të krijohet lista e pagave: {0} nuk kanë pagë të vendosur. Kërkoni dikujt me qasje në Paga ta vendosë.</value></data>
+  <data name="Email_EmployeeCreatedNeedsSalary_Subject" xml:space="preserve"><value>{employee} u shtua — paga nuk është vendosur</value></data>
+  <data name="Email_EmployeeCreatedNeedsSalary_Body" xml:space="preserve"><value>{employee} u shtua nga {createdBy} — paga dhe të dhënat bankare nuk janë vendosur ende.
+
+Hapni kartelën e tyre për të vendosur pagën dhe të dhënat bankare: {appUrl}/employees</value></data>
 </root>
