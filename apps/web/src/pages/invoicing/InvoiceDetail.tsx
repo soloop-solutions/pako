@@ -47,6 +47,7 @@ import { EditPostedFieldsForm } from "@/pages/shared/EditPostedFieldsForm";
 import { OverrideNumberForm } from "@/pages/shared/OverrideNumberForm";
 import { RecordPaymentForm } from "@/pages/shared/RecordPaymentForm";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { blockingLockDate, lockDateLabel } from "@/lib/lock-dates";
 import { SubmitToAtkButton } from "@/components/SubmitToAtkButton";
 import { InvoiceEmailCard, InvoicePdfButton } from "@/components/shared/InvoiceEmail";
 
@@ -88,6 +89,8 @@ export function InvoiceDetail() {
   });
   const isMonthLocked = invoiceMonth !== null
     && (monthLockQuery.data?.months ?? []).some((m) => m.month === invoiceMonth && m.isLocked);
+  const lockBlock = activeCompany ? blockingLockDate(invoice?.issueDate, activeCompany, "sale") : null;
+  const isLockBlocked = !!lockBlock || isMonthLocked;
   const [showDocPreview, setShowDocPreview] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -297,6 +300,18 @@ export function InvoiceDetail() {
         </div>
       )}
 
+      {lockBlock && invoice.state === "Draft" && (
+        <div className="flex items-center gap-3 rounded-lg border border-warning-border bg-warning/40 px-4 py-3">
+          <Lock className="size-4 shrink-0 text-warning-foreground" />
+          <span className="text-sm text-warning-foreground">
+            {intl.formatMessage({ id: "document.lockDate.blocked" }, {
+              lockType: lockDateLabel(lockBlock.key, intl).toLowerCase(),
+              lockDate: formatDisplayDate(lockBlock.lockDate),
+            })}
+          </span>
+        </div>
+      )}
+
       <Card className={cn(invoice.state === "Draft" && "border-dashed bg-muted/30", invoice.state === "Cancelled" && "opacity-60")}>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -391,7 +406,7 @@ export function InvoiceDetail() {
 
           {invoice.state === "Draft" && invoice.documentType !== InvoiceDocumentType.Proforma && canApprove("sales") && (
             <div className="flex flex-col items-start gap-1">
-              <Button onClick={() => setShowPostPreview(true)} disabled={posting || isMonthLocked}>
+              <Button onClick={() => setShowPostPreview(true)} disabled={posting || isLockBlocked}>
                 {posting ? intl.formatMessage({ id: "invoiceDetail.posting" }) : intl.formatMessage({ id: "invoiceDetail.postInvoice" })}
               </Button>
               {postError && <span className="text-xs text-destructive">{postError}</span>}

@@ -56,3 +56,22 @@ export function lockDateLabel(key: LockDateKey, intl: IntlShape): string {
 export function lockDateExplanation(key: LockDateKey, intl: IntlShape): string {
   return intl.formatMessage({ id: LOCK_DATE_EXPLANATION_KEYS[key] });
 }
+
+/** Returns the blocking lock date key and its value if the given issue date falls on or before
+ *  any relevant company lock date. For invoices check sale+accounting+hard; for bills check
+ *  purchase+accounting+hard. Returns null if no lock blocks. */
+export function blockingLockDate(
+  issueDate: string | undefined,
+  company: { accountingLockDate?: string; taxLockDate?: string; saleLockDate?: string; purchaseLockDate?: string; hardLockDate?: string },
+  kind: "sale" | "purchase",
+): { key: LockDateKey; lockDate: string } | null {
+  if (!issueDate) return null;
+  const checks: LockDateKey[] = kind === "sale"
+    ? ["saleLockDate", "accountingLockDate", "hardLockDate"]
+    : ["purchaseLockDate", "accountingLockDate", "hardLockDate"];
+  for (const key of checks) {
+    const lockDate = company[key];
+    if (lockDate && issueDate <= lockDate) return { key, lockDate };
+  }
+  return null;
+}
