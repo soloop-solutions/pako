@@ -1,4 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
+import { rememberActionToken } from "@/lib/actionTokens";
 import { ApiException } from "@pako/shared";
 import { Eye, EyeOff, Loader2, ShieldCheck } from "lucide-react";
 import { useIntl } from "react-intl";
@@ -47,7 +48,8 @@ export function ActionPasswordDialog({
     setFieldError(null);
     setVerifying(true);
     try {
-      const response = await apiClient.actionTokens({ password, action, companyId });
+      const response = await apiClient.actionTokens({ password, action, companyId, forSession: true });
+      rememberActionToken(companyId, action, response.token, response.expiresAtUtc);
       onConfirm(response.token);
     } catch (err) {
       if (err instanceof ApiException && err.status === 429) {

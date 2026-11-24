@@ -262,7 +262,7 @@ public class AuthController : ControllerBase
         }
 
         actionTokenService.ResetFailedAttempts(userGuid);
-        var (token, expiresAt) = actionTokenService.GenerateToken(userGuid, request.CompanyId, request.Action);
+        var (token, expiresAt) = actionTokenService.GenerateToken(userGuid, request.CompanyId, request.Action, request.ForSession == true);
         return Ok(new ActionTokenResponse(token, expiresAt));
     }
 

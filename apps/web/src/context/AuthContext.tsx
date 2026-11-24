@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
+import { clearActionTokens } from "@/lib/actionTokens";
 import { apiClient } from "@/api/client";
 import { AUTH_STORAGE_KEY, clearStoredAuth, getStoredAuth, setStoredAuth, type StoredAuth } from "@/lib/auth-storage";
 
@@ -63,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const refreshToken = getStoredAuth()?.refreshToken;
     if (refreshToken) void apiClient.logout({ refreshToken }).catch(() => undefined);
     clearStoredAuth();
+    clearActionTokens();
     setAuth(null);
   }
 

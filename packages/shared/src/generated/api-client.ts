@@ -32926,6 +32926,7 @@ export interface ActionTokenRequest {
     password: string;
     action: string;
     companyId: string;
+    forSession?: boolean | undefined;
 
     [key: string]: any;
 }

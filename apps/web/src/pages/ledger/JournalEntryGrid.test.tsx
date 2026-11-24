@@ -1,4 +1,5 @@
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { clearActionTokens } from "@/lib/actionTokens";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { AccountResponse, JournalResponse } from "@pako/shared";
 import { MemoryRouter } from "react-router-dom";
@@ -88,6 +89,7 @@ const JOURNALS: JournalResponse[] = [
 ];
 
 function renderGrid(onCreated = vi.fn()) {
+  clearActionTokens();
   partnersAll.mockResolvedValue([]);
   projectsAll.mockResolvedValue([]);
   listEmployees.mockResolvedValue({ items: [], total: 0, page: 1, pageSize: 50 });
@@ -374,6 +376,21 @@ describe("JournalEntryGrid keyboard model", () => {
     await waitFor(() => expect(post3).toHaveBeenCalledWith("company-1", "entry-1"));
     await waitFor(() => expect(onCreated).toHaveBeenCalled());
     expect(cellInput(0, "Account")).toHaveValue("");
+    // The password is asked for a session token (user decision 2026-11-24).
+    expect(actionTokens.mock.calls.at(-1)?.[0]).toMatchObject({ action: "create-journal-entry", forSession: true });
+
+    // A second entry in the same session saves without asking the password again.
+    actionTokens.mockClear();
+    fireEvent.keyDown(type(0, "Account", "100100"), { key: "Tab" });
+    fireEvent.keyDown(type(0, "Debit", "50.00"), { key: "Enter" });
+    fireEvent.keyDown(type(1, "Account", "400100"), { key: "Tab" });
+    fireEvent.keyDown(type(1, "Credit", "50.00"), { key: "Enter" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Save and post" })).not.toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "Save and post" }));
+    await waitFor(() => expect(journalEntriesCreate).toHaveBeenCalledTimes(2));
+    expect(journalEntriesCreate.mock.calls[1][1]).toBe("test-action-token");
+    expect(actionTokens).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/^Password( \*)?$/)).not.toBeInTheDocument();
   });
 });
 

@@ -7,5 +7,7 @@ public record RefreshRequest(string RefreshToken);
 public record LogoutRequest(string? RefreshToken = null);
 
 public record VerifyPasswordRequest(string Password);
-public record ActionTokenRequest(string Password, string Action, Guid CompanyId);
+// ForSession (2026-11-24, user decision): the password is asked once per session — the token stays
+// valid for repeated use of the same action until it expires (ActionTokenService.SessionLifetime).
+public record ActionTokenRequest(string Password, string Action, Guid CompanyId, bool? ForSession = null);
 public record ActionTokenResponse(string Token, DateTime ExpiresAtUtc);

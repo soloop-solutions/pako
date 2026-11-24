@@ -1,4 +1,6 @@
 import * as RadixPopover from "@radix-ui/react-popover";
+import { forgetActionToken, sessionActionToken } from "@/lib/actionTokens";
+import { ApiException } from "@pako/shared";
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
 import { useIntl } from "react-intl";
 import type { AccountResponse, CostCenterResponse, EmployeeDetailResponse, JournalResponse, PartnerResponse, ProjectResponse } from "@pako/shared";
@@ -44,6 +46,8 @@ function formatCents(cents: number): string {
   return (Math.abs(cents) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
+
+const JOURNAL_ACTION = "create-journal-entry";
 export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: JournalEntryGridProps) {
   const intl = useIntl();
   // Without Accounting: Approve the entry is saved as a draft for someone else to post.
@@ -384,8 +388,10 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       return;
     }
 
-    // Validation passed — show password dialog
-    setShowPasswordDialog(true);
+    // Validation passed — the password is asked once per session (user decision 2026-11-24).
+    const sessionToken = sessionActionToken(companyId, JOURNAL_ACTION);
+    if (sessionToken) void handlePasswordConfirm(sessionToken);
+    else setShowPasswordDialog(true);
   }
 
   async function handlePasswordConfirm(token: string) {
@@ -443,7 +449,15 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       try {
         await apiClient.post3(companyId, draftEntry.id);
       } catch (postErr) {
-        setError(getApiErrorMessage(postErr, intl.formatMessage({ id: "journalGrid.postError" })));
+        // The entry is saved as a draft: clear the grid so saving again cannot create a second draft,
+        // and say where it is (UI/UX round 2026-11-24).
+        const reason = getApiErrorMessage(postErr, intl.formatMessage({ id: "journalGrid.postError" }));
+        setError(intl.formatMessage({ id: "journalGrid.savedNotPosted" }, { number: draftEntry.entryNumber ?? "", reason }));
+        setLines([emptyLine(nextId()), emptyLine(nextId())]);
+        setFocus({ row: 0, col: 0 });
+        setDescription("");
+        setReference("");
+        setRemarks("");
         onCreated();
         return;
       }
@@ -457,6 +471,12 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
       setRemarks("");
       onCreated();
     } catch (err) {
+      // A remembered token the server no longer accepts (expired, server restarted): ask again.
+      if (err instanceof ApiException && err.status === 403 && sessionActionToken(companyId, JOURNAL_ACTION) === token) {
+        forgetActionToken(companyId, JOURNAL_ACTION);
+        setShowPasswordDialog(true);
+        return;
+      }
       const msg = getApiErrorMessage(err, intl.formatMessage({ id: "journalGrid.saveError" }));
       setError(msg);
       toast.error(msg);
@@ -721,7 +741,7 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
         <ActionPasswordDialog
           companyName={activeCompany?.name ?? ""}
           companyId={companyId}
-          action="create-journal-entry"
+          action={JOURNAL_ACTION}
           actionLabelId="actionPassword.action.createJournalEntry"
           onConfirm={(token) => void handlePasswordConfirm(token)}
           onCancel={() => setShowPasswordDialog(false)}

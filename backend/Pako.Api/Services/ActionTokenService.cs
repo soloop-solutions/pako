@@ -7,28 +7,41 @@ public class ActionTokenService
 {
     private readonly ConcurrentDictionary<string, ActionTokenEntry> _tokens = new();
     private readonly TimeSpan _tokenLifetime = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// A session token (user decision 2026-11-24: "password on session") is reusable for the same
+    /// user, company and action until it expires, so a working session asks the password once.
+    /// </summary>
+    public static readonly TimeSpan SessionLifetime = TimeSpan.FromHours(8);
     private readonly int _maxFailedAttempts = 5;
     private readonly ConcurrentDictionary<string, int> _failedAttempts = new();
     private long _cleanupCounter;
 
-    public (string Token, DateTime ExpiresAtUtc) GenerateToken(Guid userId, Guid companyId, string action)
+    public (string Token, DateTime ExpiresAtUtc) GenerateToken(Guid userId, Guid companyId, string action, bool forSession = false)
     {
         // Periodic cleanup of expired tokens (every 50 calls)
         if (Interlocked.Increment(ref _cleanupCounter) % 50 == 0)
             CleanupExpired();
 
         var token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
-        var expiresAt = DateTime.UtcNow.Add(_tokenLifetime);
-        _tokens[token] = new ActionTokenEntry(userId, companyId, action, expiresAt);
+        var expiresAt = DateTime.UtcNow.Add(forSession ? SessionLifetime : _tokenLifetime);
+        _tokens[token] = new ActionTokenEntry(userId, companyId, action, expiresAt, forSession);
         return (token, expiresAt);
     }
 
     public bool ValidateAndConsume(string token, Guid userId, Guid companyId, string action)
     {
-        if (!_tokens.TryRemove(token, out var entry))
+        if (!_tokens.TryGetValue(token, out var entry))
             return false;
 
         if (entry.ExpiresAtUtc < DateTime.UtcNow)
+        {
+            _tokens.TryRemove(token, out _);
+            return false;
+        }
+
+        // A one-off token is used up; a session token stays for the next use of the same action.
+        if (!entry.Reusable && !_tokens.TryRemove(token, out _))
             return false;
 
         return entry.UserId == userId && entry.CompanyId == companyId && entry.Action == action;
@@ -62,5 +75,5 @@ public class ActionTokenService
         }
     }
 
-    private record ActionTokenEntry(Guid UserId, Guid CompanyId, string Action, DateTime ExpiresAtUtc);
+    private record ActionTokenEntry(Guid UserId, Guid CompanyId, string Action, DateTime ExpiresAtUtc, bool Reusable = false);
 }
