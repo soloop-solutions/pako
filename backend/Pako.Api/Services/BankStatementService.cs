@@ -143,17 +143,40 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
             line.State = BankStatementLineState.Ignored;
         }
 
-        // Suggested matches, in file order, sharing what is open on each document.
+        // Suggested matches, in file order. First try outstanding payments (2-step), then
+        // fall back to open invoices/bills (1-step).
         var book = await OpenBookAsync(companyId);
+        var outstandingPayments = await OutstandingPaymentsAsync(companyId, accountId);
         var candidates = statement.Lines.Where(l => l.State == BankStatementLineState.Open).ToList();
-        var suggestions = BankStatementMatcher.Suggest(
-            candidates.Select(l => new StatementLineInput(l.IsIncoming, l.Amount, l.Reference, l.PartnerText)).ToList(),
-            book.Documents, book.Partners);
-        for (var i = 0; i < candidates.Count; i++)
+
+        // Phase 1: match against outstanding payments (amount + partner or reference)
+        var matchedPaymentIds = new HashSet<Guid>();
+        foreach (var line in candidates)
         {
-            var line = candidates[i];
+            var payment = outstandingPayments.FirstOrDefault(p =>
+                !matchedPaymentIds.Contains(p.Id)
+                && p.Amount == line.Amount
+                && ((line.IsIncoming && p.Direction == Domain.Payments.PaymentDirection.Inbound)
+                    || (!line.IsIncoming && p.Direction == Domain.Payments.PaymentDirection.Outbound)));
+            if (payment is not null)
+            {
+                line.PaymentId = payment.Id;
+                line.PartnerId = payment.PartnerId;
+                line.MatchAmount = payment.Amount;
+                matchedPaymentIds.Add(payment.Id);
+            }
+        }
+
+        // Phase 2: for lines not matched to a payment, try invoices/bills
+        var unmatched = candidates.Where(l => l.PaymentId is null).ToList();
+        var suggestions = BankStatementMatcher.Suggest(
+            unmatched.Select(l => new StatementLineInput(l.IsIncoming, l.Amount, l.Reference, l.PartnerText)).ToList(),
+            book.Documents, book.Partners);
+        for (var i = 0; i < unmatched.Count; i++)
+        {
+            var line = unmatched[i];
             var suggestion = suggestions[i];
-            line.PartnerId = suggestion.PartnerId;
+            line.PartnerId ??= suggestion.PartnerId;
             if (suggestion is { Status: MatchStatus.Matched, Document: { } document })
             {
                 SetMatch(line, document, suggestion.Amount);
@@ -227,6 +250,13 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
         var billNumbers = await db.Bills.AsNoTracking().Where(b => b.CompanyId == companyId && billIds.Contains(b.Id))
             .ToDictionaryAsync(b => b.Id, b => b.VendorReference ?? string.Empty);
 
+        // Direct account names for lines with DirectAccountId
+        var directAccountIds = statement.Lines.Where(l => l.DirectAccountId != null).Select(l => l.DirectAccountId!.Value).Distinct().ToList();
+        var directAccountNames = directAccountIds.Count > 0
+            ? await db.Accounts.AsNoTracking().Where(a => directAccountIds.Contains(a.Id))
+                .ToDictionaryAsync(a => a.Id, a => $"{a.Code} {a.Name}")
+            : new Dictionary<Guid, string>();
+
         var lines = statement.Lines.OrderBy(l => l.RowNumber).Select(l =>
         {
             var documentId = l.InvoiceId ?? l.BillId;
@@ -247,7 +277,9 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
                 l.Id, l.RowNumber, l.Date, l.Description, l.PartnerText, l.Reference, l.AmountIn, l.AmountOut,
                 l.State.ToString(), status, l.IsDuplicate,
                 l.PartnerId, l.PartnerId is { } pid ? partnerNames.GetValueOrDefault(pid) : null,
-                l.InvoiceId, l.BillId, number, outstanding, l.MatchAmount, l.JournalEntryId);
+                l.InvoiceId, l.BillId, number, outstanding, l.MatchAmount, l.JournalEntryId,
+                l.PaymentId, l.DirectAccountId,
+                l.DirectAccountId is { } daId ? directAccountNames.GetValueOrDefault(daId) : null);
         }).ToList();
 
         var ledgerOpening = await LedgerBalanceAsync(companyId, statement.BankAccountId, statement.PeriodFrom.AddDays(-1));
@@ -302,6 +334,33 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
         {
             line.ClearMatch();
             line.State = BankStatementLineState.Ignored;
+        }
+        else if (request.PaymentId is not null)
+        {
+            var payment = await db.Payments.AsNoTracking().FirstOrDefaultAsync(p =>
+                p.Id == request.PaymentId && p.CompanyId == companyId && p.State == Domain.Payments.PaymentState.Posted);
+            if (payment is null)
+                return BankStatementResult<BankStatementDetailResponse>.Fail(L("PaymentNotFound"));
+
+            line.ClearMatch();
+            line.PaymentId = payment.Id;
+            line.PartnerId = payment.PartnerId;
+            line.MatchAmount = payment.Amount;
+            line.State = BankStatementLineState.Open;
+        }
+        else if (request.DirectAccountId is not null)
+        {
+            var account = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a =>
+                a.Id == request.DirectAccountId && a.CompanyId == companyId);
+            if (account is null || !account.IsPostable)
+                return BankStatementResult<BankStatementDetailResponse>.Fail(L("BankStmtDirectAccountNotPostable"));
+            if (account.IsControl)
+                return BankStatementResult<BankStatementDetailResponse>.Fail(L("BankStmtDirectAccountIsControl"));
+
+            line.ClearMatch();
+            line.DirectAccountId = account.Id;
+            line.PartnerId = request.DirectPartnerId;
+            line.State = BankStatementLineState.Open;
         }
         else if (request.InvoiceId is not null || request.BillId is not null)
         {
@@ -390,8 +449,68 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
         var transaction = db.Database.SupportsRowLocking() ? await db.Database.BeginTransactionAsync() : null;
         try
         {
+            var clearingService = new PaymentClearingService(db, localizer);
+
             foreach (var line in lines)
             {
+                // Branch 1: clearing an outstanding payment (2-step)
+                if (line.PaymentId is { } paymentId)
+                {
+                    var payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == paymentId && p.CompanyId == companyId);
+                    if (payment is null || payment.State != Domain.Payments.PaymentState.Posted)
+                        return await Abort(L("BankStmtRowError", line.RowNumber, L("PaymentNotFound")));
+
+                    var clearResult = await clearingService.ClearAsync(company, payment, line.Date);
+                    if (!clearResult.Succeeded)
+                        return await Abort(L("BankStmtRowError", line.RowNumber, clearResult.Error!));
+
+                    payment.BankStatementLineId = line.Id;
+                    line.State = BankStatementLineState.Matched;
+                    line.JournalEntryId = clearResult.Entry!.Id;
+                    await db.SaveChangesAsync();
+                    continue;
+                }
+
+                // Branch 2: direct entry (no invoice/bill/payment — user assigned an account)
+                if (line.DirectAccountId is { } directAccountId)
+                {
+                    var directEntry = new JournalEntry
+                    {
+                        Id = Guid.NewGuid(),
+                        CompanyId = companyId,
+                        JournalId = (await JournalResolver.GetAsync(db, companyId, JournalType.Bank))!.Id,
+                        Date = line.Date,
+                        Reference = line.Description,
+                    };
+                    var bankLine = new JournalEntryLine
+                    {
+                        Id = Guid.NewGuid(), AccountId = statement.BankAccountId,
+                        Debit = line.IsIncoming ? line.Amount : 0m,
+                        Credit = line.IsIncoming ? 0m : line.Amount,
+                    };
+                    var accountLine = new JournalEntryLine
+                    {
+                        Id = Guid.NewGuid(), AccountId = directAccountId, PartnerId = line.PartnerId,
+                        Debit = line.IsIncoming ? 0m : line.Amount,
+                        Credit = line.IsIncoming ? line.Amount : 0m,
+                    };
+                    directEntry.Lines.Add(bankLine);
+                    directEntry.Lines.Add(accountLine);
+                    try { directEntry.Post(company); }
+                    catch (Exception ex) when (ex is InvalidOperationException or UnbalancedJournalEntryException
+                        or AccountingLockDateViolationException or TaxLockDateViolationException or HardLockDateViolationException)
+                    {
+                        return await Abort(L("BankStmtRowError", line.RowNumber, ex.Message));
+                    }
+
+                    db.JournalEntries.Add(directEntry);
+                    line.State = BankStatementLineState.Matched;
+                    line.JournalEntryId = directEntry.Id;
+                    await db.SaveChangesAsync();
+                    continue;
+                }
+
+                // Branch 3: invoice/bill match (original 1-step or 2-step depending on journal config)
                 PaymentRecorder.Outcome outcome;
                 if (line.InvoiceId is { } invoiceId)
                 {
@@ -516,4 +635,14 @@ public class BankStatementService(PakoDbContext db, IStringLocalizer<ErrorMessag
             documents.OrderBy(d => d.IssueDate).ThenBy(d => d.Number).ToList(),
             partners.Select(p => new PartnerKey(p.Id, p.Name, p.TaxNumber, p.FiscalNumber)).ToList());
     }
+
+    // All Payments in state Posted whose destination is the given bank account — i.e. payments that
+    // were registered via "Record Payment" (2-step) but haven't been matched to a bank statement yet.
+    private Task<List<Domain.Payments.Payment>> OutstandingPaymentsAsync(Guid companyId, Guid bankAccountId) =>
+        db.Payments.AsNoTracking()
+            .Where(p => p.CompanyId == companyId
+                && p.State == Domain.Payments.PaymentState.Posted
+                && p.DestinationAccountId == bankAccountId)
+            .OrderBy(p => p.Date).ThenBy(p => p.CreatedAt)
+            .ToListAsync();
 }

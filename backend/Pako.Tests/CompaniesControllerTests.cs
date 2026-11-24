@@ -141,7 +141,7 @@ public class CompaniesControllerTests : IAsyncLifetime
     }
 
     // Plani Kontabel v2.0 (COA_V2_IMPLEMENTATION_BRIEF.md Stage 2): a company created with no
-    // EnabledProfiles gets exactly the 167 CORE accounts (50_Profiles), not the old 16-account
+    // EnabledProfiles gets exactly the 169 CORE accounts (50_Profiles), not the old 16-account
     // placeholder chart, and a CompanyAccountDefaults row with the 5 always-present roles
     // resolved and the 4 Payroll-gated ones left null.
     [Fact]
@@ -156,7 +156,7 @@ public class CompaniesControllerTests : IAsyncLifetime
         Assert.Equal(CompanyProfile.Core, created.EnabledProfiles);
 
         var accountCount = await db.Accounts.CountAsync(a => a.CompanyId == created.Id);
-        Assert.Equal(167, accountCount);
+        Assert.Equal(169, accountCount);
 
         var defaults = await db.CompanyAccountDefaults.SingleAsync(d => d.CompanyId == created.Id);
         Assert.NotEqual(Guid.Empty, defaults.ReceivableAccountId);
@@ -183,7 +183,7 @@ public class CompaniesControllerTests : IAsyncLifetime
         Assert.Equal(CompanyProfile.Core | CompanyProfile.Import | CompanyProfile.Payroll, created.EnabledProfiles);
 
         var accountCount = await db.Accounts.CountAsync(a => a.CompanyId == created.Id);
-        Assert.Equal(167 + 22 + 13, accountCount);
+        Assert.Equal(169 + 22 + 13, accountCount);
 
         var defaults = await db.CompanyAccountDefaults.SingleAsync(d => d.CompanyId == created.Id);
         Assert.NotNull(defaults.SalaryExpenseAccountId);

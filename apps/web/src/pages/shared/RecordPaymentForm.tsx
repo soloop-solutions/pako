@@ -31,6 +31,7 @@ export function RecordPaymentForm({
 }: RecordPaymentFormProps) {
   const intl = useIntl();
   const [amount, setAmount] = useState(() => outstanding.toFixed(2));
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [paymentMethodId, setPaymentMethodId] = useState(paymentMethods[0]?.id ?? "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
   const [apiError, setApiError] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export function RecordPaymentForm({
       const body = {
         amount: parsedAmount,
         cashOrBankAccountId: paymentMethod!.ledgerAccountId,
-        date: new Date().toISOString().slice(0, 10),
+        date,
       };
 
       if (documentKind === "invoice") {
@@ -92,7 +93,7 @@ export function RecordPaymentForm({
           <AlertDescription>{apiError}</AlertDescription>
         </Alert>
       )}
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-4">
         <FormField
           label={intl.formatMessage({ id: "recordPayment.amount" })}
           htmlFor="payment-amount"
@@ -109,6 +110,18 @@ export function RecordPaymentForm({
               setFieldErrors((prev) => ({ ...prev, amount: null }));
             }}
             aria-invalid={!!fieldErrors.amount}
+            required
+          />
+        </FormField>
+        <FormField
+          label={intl.formatMessage({ id: "recordPayment.date" })}
+          htmlFor="payment-date"
+        >
+          <Input
+            id="payment-date"
+            type="date"
+            value={date}
+            onChange={(event) => setDate(event.target.value)}
             required
           />
         </FormField>

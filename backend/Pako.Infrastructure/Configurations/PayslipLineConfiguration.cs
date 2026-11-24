@@ -24,6 +24,8 @@ public class PayslipLineConfiguration : IEntityTypeConfiguration<PayslipLine>
         builder.Property(l => l.LoanRepaymentAmount).HasColumnType("numeric(18,2)");
         builder.Property(l => l.ReimbursementAmount).HasColumnType("numeric(18,2)");
         builder.Property(l => l.IsPrimaryEmployer).HasDefaultValue(true);
+        builder.Property(l => l.PensionExempt).HasDefaultValue(false);
+        builder.Property(l => l.TaxExempt).HasDefaultValue(false);
         builder.HasIndex(l => l.EmployeeId);
     }
 }

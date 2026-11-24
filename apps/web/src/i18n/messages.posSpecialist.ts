@@ -382,7 +382,7 @@ export const posSpecialistSq: Record<string, string> = {
   "spec.nav.parts.description": "Gjeni një pjesë këmbimi me numrin e çdo prodhuesi ose sipas automjetit, me çmim dhe stok.",
 
   "spec.store": "Dyqani",
-  "spec.allStores": "Të gjitha dyqanet",
+  "spec.allStores": "Të gjitha njësitë",
   "spec.status": "Statusi",
   "spec.from": "Nga",
   "spec.to": "Deri",
@@ -638,7 +638,7 @@ export const posSpecialistSq: Record<string, string> = {
   "spec.cod.remit.confirm": "Regjistro",
   "spec.cod.remitted": "Dorëzuar",
 
-  "spec.channel.description": "Dyqanet online, tregjet dhe faqet sociale që shesin stokun e një dyqani përmes një tokeni sekret.",
+  "spec.channel.description": "Njësitë online, tregjet dhe faqet sociale që shesin stokun e një dyqani përmes një tokeni sekret.",
   "spec.channel.new": "Kanal i ri",
   "spec.channel.kind.webshop": "Dyqan online",
   "spec.channel.kind.marketplace": "Treg online",

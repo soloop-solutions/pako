@@ -8,32 +8,40 @@ on:
 jobs:
   backend:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: pako_dev
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --shm-size=256mb
-        ports:
-          - 5433:5432
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
     steps:
       - uses: actions/checkout@v4
+      - name: Start Postgres
+        run: |
+          docker run -d --name pako-pg --shm-size=512m -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=pako_dev -p 5433:5432 postgres:16-alpine -c max_connections=300 -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+          until docker exec pako-pg pg_isready -U postgres; do sleep 1; done
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - run: dotnet build backend/Pako.Api/Pako.Api.csproj
-      - run: dotnet test backend/Pako.Tests/Pako.Tests.csproj --logger "console;verbosity=normal"
+      - run: dotnet build backend/Pako.Tests/Pako.Tests.csproj
+      - name: Test shard ${{ matrix.shard }} of 4
+        run: |
+          filter=""
+          i=0
+          for f in $(grep -rlE "\[(Fact|Theory)" backend/Pako.Tests --include=*.cs | sort); do
+            if [ $((i % 4)) -eq ${{ matrix.shard }} ]; then
+              for c in $(grep -hoE "class [A-Za-z0-9_]+" "$f" | awk '{print $2}'); do
+                filter="$filter|FullyQualifiedName~.$c."
+              done
+            fi
+            i=$((i + 1))
+          done
+          dotnet test backend/Pako.Tests/Pako.Tests.csproj --no-build --filter "${filter#|}" --blame-hang-timeout 5m --blame-hang-dump-type none --logger "console;verbosity=normal"
         env:
           PAKO_TEST_POSTGRES_CONNECTION: "Host=localhost;Port=5433;Database=pako_dev;Username=postgres;Password=postgres"
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

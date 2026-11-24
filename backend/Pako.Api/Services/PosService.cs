@@ -30,6 +30,7 @@ public class PosService
     private readonly IStringLocalizer<ErrorMessages> _localizer;
     private readonly AtkFiscalClient _atk;
     private readonly ulong _atkApplicationId;
+    private readonly SignatureEncoding _signatureEncoding;
 
     public PosService(PakoDbContext db, StockService stock, IStringLocalizer<ErrorMessages> localizer, AtkFiscalClient atk, IConfiguration config)
     {
@@ -38,6 +39,8 @@ public class PosService
         _localizer = localizer;
         _atk = atk;
         _atkApplicationId = ulong.TryParse(config["ATK_APPLICATION_ID"], out var id) ? id : 1UL;
+        _signatureEncoding = string.Equals(config["ATK_SIGNATURE_ENCODING"], "P1363", StringComparison.OrdinalIgnoreCase)
+            ? SignatureEncoding.IeeeP1363 : SignatureEncoding.Der;
     }
 
     // Kosovo's clock (CET/CEST): the business day and the coupon's daily number follow it, not UTC.
@@ -1093,7 +1096,7 @@ public class PosService
                 originalDoc?.CouponId, type, methods);
             var built = CouponBuilder.Build(request);
             using var key = FiscalPki.GenerateKey();
-            using var signer = new CouponSigner(key);
+            using var signer = new CouponSigner(key, _signatureEncoding);
             var signed = signer.SignPosCoupon(built.Pos);
             return new FiscalDocument
             {
@@ -1118,7 +1121,7 @@ public class PosService
             var built = CouponBuilder.Build(request);
             using var key = ECDsa.Create();
             key.ImportFromPem(register.EncryptedPrivateKeyPem);
-            using var signer = new CouponSigner(key);
+            using var signer = new CouponSigner(key, _signatureEncoding);
             var signed = signer.SignPosCoupon(built.Pos);
             var serverDoc = new FiscalDocument
             {
@@ -1142,8 +1145,8 @@ public class PosService
             if (issuedAt < notBefore || issuedAt > notAfter) throw Fail("PosCertificateExpired");
             try
             {
-                if (!CouponVerifier.Verify(publicKey, fiscal.Details, fiscal.Signature)) throw Fail("PosFiscalSignatureInvalid");
-                if (CouponVerifier.ReadQrCode(publicKey, fiscal.QrCode) is not { } citizen) throw Fail("PosFiscalSignatureInvalid");
+                if (!CouponVerifier.Verify(publicKey, fiscal.Details, fiscal.Signature, _signatureEncoding)) throw Fail("PosFiscalSignatureInvalid");
+                if (CouponVerifier.ReadQrCode(publicKey, fiscal.QrCode, _signatureEncoding) is not { } citizen) throw Fail("PosFiscalSignatureInvalid");
                 var sent = PosCoupon.Parser.ParseFrom(Convert.FromBase64String(fiscal.Details));
                 var expected = CouponBuilder.Build(CouponRequest(order, register, store, businessId, (ulong)fiscal.CouponId, fiscal.VerificationNo,
                     issuedAt, originalDoc?.CouponId, type, methods, sent.OperatorId, sent.ApplicationId));
@@ -1193,6 +1196,13 @@ public class PosService
             doc.AtkTransactionNo = response.TransactionId;
             doc.SentAt = DateTime.UtcNow;
             doc.AtkError = null;
+
+            // Send the citizen (QR) coupon to ATK — best-effort; a failure here does not block the sale.
+            if (!string.IsNullOrEmpty(doc.QrCode))
+            {
+                try { await _atk.SendCitizenCouponAsync(doc.QrCode); }
+                catch (Exception) { /* logged by the caller if needed; the PosCoupon is already accepted */ }
+            }
         }
         catch (AtkUnavailableException ex)
         {

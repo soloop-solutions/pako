@@ -66,8 +66,8 @@ type ServerLineAmounts = {
 type ServerTotals = { amountBeforeDiscount: number; discountAmount: number; netAmount: number; taxAmount: number; grossAmount: number };
 type ServerVatRow = { taxDefinitionId: string; netAmount: number; taxAmount: number; grossAmount?: number };
 
-// Same abbreviations as InvoiceDocumentService.LegalFormAbbreviation (LegalFormType 1, 2, 3, 5).
-const LEGAL_FORMS: Record<number, string> = { 1: "SH.P.K.", 2: "SH.A.", 3: "SH.K.", 5: "O.E." };
+// Same abbreviations as InvoiceDocumentService.LegalFormAbbreviation (LegalFormType 1–6, the ARBK forms).
+const LEGAL_FORMS: Record<number, string> = { 1: "SH.P.K.", 2: "SH.A.", 3: "O.P.", 4: "O.K.", 5: "D.K.", 6: "Z.P.K." };
 
 const opt = (value: string | null | undefined) => (value && value.trim() !== "" ? value : undefined);
 

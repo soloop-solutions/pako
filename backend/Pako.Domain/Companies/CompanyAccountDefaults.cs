@@ -79,4 +79,9 @@ public class CompanyAccountDefaults
     // Both CORE-profile, always present, so required like the first five roles above.
     public Guid ReverseChargeInputVatAccountId { get; set; }
     public Guid ReverseChargeOutputVatAccountId { get; set; }
+
+    // Two-step payments: Outstanding accounts for bank payments. Null on older companies (1-step).
+    // 100400 Outstanding Bank Payments, 100500 Outstanding Bank Receipts.
+    public Guid? OutstandingPaymentsAccountId { get; set; }
+    public Guid? OutstandingReceiptsAccountId { get; set; }
 }

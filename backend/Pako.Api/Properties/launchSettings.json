@@ -10,7 +10,8 @@
         "ASPNETCORE_ENVIRONMENT": "Development",
         "ATK_BASE_URL": "https://fiskalizimi-test.atk-ks.org",
         "ATK_FISCALIZATION_NO": "694539400125",
-        "ATK_APPLICATION_ID": "895741008848"
+        "ATK_APPLICATION_ID": "895741008848",
+        "ATK_SIGNATURE_ENCODING": "DER"
       }
     },
     "https": {

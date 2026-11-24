@@ -27,4 +27,11 @@ public class Journal
     [Pako.Domain.Shared.AuditIgnore]
     public int SequenceNextNumber { get; set; } = 1;
     public int SequencePadding { get; set; } = 4;
+
+    // Two-step payments: when set, "Record Payment" hits the outstanding account instead of the
+    // bank account directly. Bank reconciliation then clears Outstanding to Bank. When null, the
+    // journal uses the 1-step model (payment hits the bank account directly). Cash journals
+    // default to null (1-step); bank journals are wired to 100400/100500 at company creation.
+    public Guid? OutstandingPaymentsAccountId { get; set; }
+    public Guid? OutstandingReceiptsAccountId { get; set; }
 }

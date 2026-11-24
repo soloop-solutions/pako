@@ -15,17 +15,20 @@ public enum CompanyProfile
     IfrsPlus = 32
 }
 
+// ARBK (Agjencia e Regjistrimit të Bizneseve në Kosovë) legal forms
+// https://arbk.rks-gov.net/Page/32
 public enum LegalFormType
 {
-    Individual = 0,       // Biznes individual
-    Shpk = 1,            // SH.P.K. (Shoqëri me Përgjegjësi të Kufizuar)
-    Sha = 2,             // SH.A. (Shoqëri Aksionare)
-    Shk = 3,             // SH.K. (Shoqëri Kolektive)
-    ShkKomandite = 4,    // Shoqëri Komandite
-    Oe = 5,              // O.E. (Ortakëri e Përgjithshme)
-    Ngo = 6,             // OJQ (Organizatë Jo-Qeveritare)
-    PublicEntity = 7,    // Ndërmarrje publike
-    Other = 99
+    BiznesiIndividual = 0,         // B.I.  — Biznes Individual
+    Shpk = 1,                     // SH.P.K. — Shoqëri me Përgjegjësi të Kufizuar
+    Sha = 2,                      // SH.A. — Shoqëri Aksionare
+    OrtakeriPergjithshme = 3,     // O.P.  — Ortakëri e Përgjithshme
+    OrtakeriKufizuar = 4,         // O.K.  — Ortakëri e Kufizuar
+    ShoqeriaHuajTregtare = 5,    // D.K.  — Dega në Kosovë (Shoqëria e Huaj Tregtare)
+    ZyraPerfaqesise = 6,          // Z.P.K. — Zyra e Përfaqësisë së Shoqërisë së Huaj Tregtare
+    NdermarrjePublike = 7,        // Ndërmarrje Publike
+    NdermarrjeShoqerore = 8,     // Ndërmarrje Shoqërore
+    KooperativaBujqesore = 9,    // Kooperativë Bujqësore
 }
 
 [Pako.Domain.Shared.Audited]

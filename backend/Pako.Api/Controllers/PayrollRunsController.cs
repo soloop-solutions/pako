@@ -379,21 +379,30 @@ public class PayrollRunsController : ControllerBase
         var run = await _db.PayrollRuns.AsNoTracking().Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
         if (run is null) return NotFound();
 
+        var companyName = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.Name).FirstAsync();
         var detail = await ToDetailAsync(companyId, run, new List<string>());
+        var yes = Label("Export_Common_Yes");
+        var no = Label("Export_Common_No");
         var headers = new[]
         {
-            "Employee", "Personal number", "Department", "Working days", "Paid days", "Base salary", "Bonuses",
-            "Other additions", "Gross", "Employee pension", "Employer pension", "PIT", "Deductions", "Net pay", "Primary employer"
+            Label("Export_Payroll_Employee"), Label("Export_Payroll_PersonalNumber"), Label("Export_Payroll_Department"),
+            Label("Export_Payroll_WorkingDays"), Label("Export_Payroll_PaidDays"), Label("Export_Payroll_BaseSalary"),
+            Label("Export_Payroll_Bonuses"), Label("Export_Payroll_OtherAdditions"), Label("Export_Payroll_Gross"),
+            Label("Export_Payroll_EmployeePension"), Label("Export_Payroll_EmployerPension"), Label("Export_Payroll_Pit"),
+            Label("Export_Payroll_Deductions"), Label("Export_Payroll_NetPay"),
+            Label("Export_Payroll_PrimaryEmployer"), Label("Export_Payroll_HasContributions"), Label("Export_Payroll_HasTax")
         };
         var rows = detail.Lines.Select(l => (IReadOnlyList<object?>)new object?[]
         {
             l.EmployeeName, l.PersonalNumber, l.DepartmentName, l.WorkingDays, l.PaidDays, l.BaseSalary, l.BonusAmount,
             l.OtherAdditionsAmount, l.GrossSalary, l.EmployeePensionAmount, l.EmployerPensionAmount, l.PitAmount,
-            l.DeductionsAmount, l.NetPay, l.IsPrimaryEmployer ? "Yes" : "No"
+            l.DeductionsAmount, l.NetPay,
+            l.IsPrimaryEmployer ? yes : no, l.PensionExempt ? no : yes, l.TaxExempt ? no : yes
         }).ToList();
 
-        var bytes = ExcelExportService.BuildWorkbook("Payroll register", headers, rows);
-        return File(bytes, ExcelExportService.XlsxContentType, $"payroll-register-{run.PeriodStart:yyyyMM}.xlsx");
+        var title = Label("Export_Payroll_Register");
+        var bytes = ExcelExportService.BuildWorkbook(title, headers, rows);
+        return File(bytes, ExcelExportService.XlsxContentType, SanitizeFileName($"{run.PeriodStart:yyyy-MM}-{title}-{companyName}.xlsx"));
     }
 
     // The per-employee figures ATK's monthly EDI wage & pension declaration asks for, in that
@@ -408,6 +417,7 @@ public class PayrollRunsController : ControllerBase
         var run = await _db.PayrollRuns.AsNoTracking().Include(r => r.Lines).FirstOrDefaultAsync(r => r.Id == id && r.CompanyId == companyId);
         if (run is null) return NotFound();
 
+        var companyName = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.Name).FirstAsync();
         var detail = await ToDetailAsync(companyId, run, new List<string>());
         var headers = new[]
         {
@@ -421,7 +431,7 @@ public class PayrollRunsController : ControllerBase
         }).ToList();
 
         var bytes = ExcelExportService.BuildWorkbook("EDI", headers, rows);
-        return File(bytes, ExcelExportService.XlsxContentType, $"edi-paga-{run.PeriodStart:yyyyMM}.xlsx");
+        return File(bytes, ExcelExportService.XlsxContentType, SanitizeFileName($"{run.PeriodStart:yyyy-MM}-EDI-{companyName}.xlsx"));
     }
 
     // The yearly income and withholding statement each employee needs for their own annual
@@ -469,11 +479,16 @@ public class PayrollRunsController : ControllerBase
         var documents = await _documents.LoadRunAsync(companyId, id);
         if (documents.Count == 0) return NotFound();
 
+        var companyName = await _db.Companies.AsNoTracking().Where(c => c.Id == companyId).Select(c => c.Name).FirstAsync();
         var bytes = PayslipPdfRenderer.RenderPayslipZip(documents, Label, CultureInfo.CurrentUICulture);
-        return File(bytes, PayslipPdfRenderer.ZipContentType, $"payslips-{documents[0].PeriodStart:yyyyMM}.zip");
+        var title = Label("Export_Payroll_Payslips");
+        return File(bytes, PayslipPdfRenderer.ZipContentType, SanitizeFileName($"{documents[0].PeriodStart:yyyy-MM}-{title}-{companyName}.zip"));
     }
 
     private string Label(string key) => _localizer[key].Value;
+
+    private static string SanitizeFileName(string name) =>
+        string.Concat(name.Select(c => Path.GetInvalidFileNameChars().Contains(c) ? '-' : c));
 
     // Hand-entered adjustments go back to the pool; generated loan repayments are deleted (the
     // next compose generates them again from the loan's balance).
@@ -558,7 +573,9 @@ public class PayrollRunsController : ControllerBase
                         l.CostCenterId,
                         l.CostCenterId is { } c ? lookups.CostCenters.GetValueOrDefault(c) : null,
                         l.LoanRepaymentAmount,
-                        l.ReimbursementAmount);
+                        l.ReimbursementAmount,
+                        l.PensionExempt,
+                        l.TaxExempt);
                 })
                 .OrderBy(l => l.EmployeeName)
                 .ToList();

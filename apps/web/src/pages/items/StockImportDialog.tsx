@@ -278,7 +278,7 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
     ));
   }, []);
 
-  const readyCount = preview?.summary.ready ?? 0;
+  const importableCount = (preview?.summary.ready ?? 0) + (preview?.summary.warnings ?? 0);
   const hasDirtyRows = editedRows.some((r) => r.dirty);
 
   const accountLabel = (a: AccountResponse) => `${a.code} \u00b7 ${a.name}`;
@@ -317,12 +317,12 @@ export function StockImportDialog({ open, onOpenChange, onComplete }: Props) {
                 {intl.formatMessage({ id: "items.import.revalidate" })}
               </Button>
             )}
-            <Button type="button" onClick={hasDirtyRows ? handleRevalidate : handleConfirm} disabled={(!hasDirtyRows && readyCount === 0) || loading}>
+            <Button type="button" onClick={hasDirtyRows ? handleRevalidate : handleConfirm} disabled={(!hasDirtyRows && importableCount === 0) || loading}>
               {loading
                 ? intl.formatMessage({ id: "items.import.processing" })
                 : hasDirtyRows
                   ? intl.formatMessage({ id: "items.import.revalidate" })
-                  : intl.formatMessage({ id: "items.import.confirm.count" }, { count: readyCount })}
+                  : intl.formatMessage({ id: "items.import.confirm.count" }, { count: importableCount })}
             </Button>
           </>
         )}

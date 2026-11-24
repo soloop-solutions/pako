@@ -105,9 +105,15 @@ public class PosTests : IAsyncLifetime
         };
     }
 
+    private sealed class OfflineAtk : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new HttpRequestException("ATK is offline in tests");
+    }
+
     private static PosController Pos(Co c) =>
         As(new PosController(c.Db, new PosService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()), new NullStringLocalizer<ErrorMessages>(),
-            new AtkFiscalClient(new HttpClient { BaseAddress = AtkFiscalClient.BaseUrl(AtkEnvironment.Test) }), new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build()),
+            new AtkFiscalClient(new HttpClient(new OfflineAtk()) { BaseAddress = AtkFiscalClient.BaseUrl(AtkEnvironment.Test) }), new Microsoft.Extensions.Configuration.ConfigurationBuilder().Build()),
             new PriceListService(c.Db, new StockService(c.Db, new NullStringLocalizer<ErrorMessages>()), new NumberSeriesService(c.Db), new NullStringLocalizer<ErrorMessages>()),
             new NullStringLocalizer<ErrorMessages>(), CompanyAccessContext.Unrestricted(), Operators(c)), c.UserId);
 
