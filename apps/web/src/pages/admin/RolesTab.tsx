@@ -74,14 +74,11 @@ export function RolesTab({ companyId, canManage }: { companyId: string; canManag
     onSuccess: (saved, submitted) => {
       const isNew = !submitted.id;
       setError(null);
-      if (isNew) {
-        setDraft(toDraft(null));
-        setJustCreatedId(saved.id);
-        toast.success(intl.formatMessage({ id: "admin.roles.created" }, { name: saved.name }));
-      } else {
-        setDraft(toDraft(saved));
-        toast.success(intl.formatMessage({ id: "admin.roles.updated" }, { name: saved.name }));
-      }
+      setJustCreatedId(isNew ? saved.id : null);
+      setDraft(isNew
+        ? { id: null, name: "", description: "", levels: emptyLevels(), partnerScope: PartnerScope.All }
+        : toDraft(saved));
+      toast.success(intl.formatMessage({ id: isNew ? "admin.roles.created" : "admin.roles.updated" }, { name: saved.name }));
       refresh();
     },
     onError: (err: unknown) => setError(getApiErrorMessage(err, intl.formatMessage({ id: "admin.roles.saveError" }))),
