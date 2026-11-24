@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, Search, Star, X } from "lucide-react";
+import { Building2, ChevronDown, ChevronRight, ChevronUp, MoreHorizontal, PanelLeftClose, Search, Star, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Link, useLocation } from "react-router-dom";
 
@@ -27,8 +27,13 @@ import {
   type SidebarPrefs,
 } from "@/lib/sidebar-prefs";
 import { BrandMark } from "@/components/auth/AuthLayout";
+import { AccountMenu } from "@/components/layout/AccountMenu";
+import { OPEN_GLOBAL_SEARCH_EVENT } from "@/components/layout/GlobalSearch";
+import { SettingsMenu, type SettingsMenuSection } from "@/components/layout/SettingsMenu";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+
+const isMac = typeof navigator !== "undefined" && navigator.platform.includes("Mac");
 
 const allItemsByPath = new Map<string, NavItem>(
   [...topNavItems, ...defaultNavCategories.flatMap((c) => c.items), ...bottomNavItems].map((item) => [item.path, item]),
@@ -55,7 +60,21 @@ function buildSavedViewHref(item: NavItem, filters: Record<string, string>): str
   return `${item.path}?${params.toString()}`;
 }
 
-export function Sidebar() {
+// The settings, company and administration pages sit in the footer's settings menu (user request
+// 2026-11-24), not in the page list.
+const SETTINGS_CATEGORY_ID = "administration";
+const settingsPaths = ["/settings", "/company-profile", "/companies"];
+
+export function Sidebar({
+  onHide,
+  onChangeCompany,
+  onLogout,
+}: {
+  /** Desktop: fold the sidebar away (the tab strip shows a button to bring it back). */
+  onHide?: () => void;
+  onChangeCompany?: () => void;
+  onLogout?: () => void;
+} = {}) {
   const intl = useIntl();
   const userViews = useAllSavedListViews();
   const location = useLocation();
@@ -67,7 +86,10 @@ export function Sidebar() {
   const isFirmClient = !!activeCompany?.firmId;
   const layout = useMemo(() => navLayoutFor(businessType, isFirmClient), [businessType, isFirmClient]);
   const layoutScope = navLayoutScope(businessType, isFirmClient);
-  const layoutCategories = useMemo(() => applyNavLayout(defaultNavCategories, layout), [layout]);
+  const layoutCategories = useMemo(
+    () => applyNavLayout(defaultNavCategories, layout).filter((c) => c.id !== SETTINGS_CATEGORY_ID),
+    [layout],
+  );
   // Client request 2026-11-24: the user's role menu groups ("My work") come first, made of the
   // same pages; the usual sections follow unchanged.
   const menuGroups = access?.menuGroups;
@@ -85,6 +107,14 @@ export function Sidebar() {
     const feature = featureByPath.get(path);
     return (!module || module === "pos" || canSee(module)) && (!feature || hasFeature(feature));
   }
+
+  const settingsSections: SettingsMenuSection[] = [
+    { items: settingsPaths.map((path) => allItemsByPath.get(path)).filter((i): i is NavItem => !!i && isAllowed(i.path)) },
+    {
+      labelKey: "sidebar.category.administration",
+      items: (defaultNavCategories.find((c) => c.id === SETTINGS_CATEGORY_ID)?.items ?? []).filter((i) => isAllowed(i.path)),
+    },
+  ];
 
   // `userId` and `prefs` are kept in one state object, set together, so a user switch is atomic
   // — see the matching comment in TabsContext.tsx for why a separate ref-tracked "loaded key"
@@ -223,11 +253,36 @@ export function Sidebar() {
     : null;
 
   return (
-    <aside className="flex w-[280px] shrink-0 flex-col overflow-y-auto scrollbar-brand border-r bg-card lg:w-[236px]">
-      <div className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
-        <BrandMark className="size-6 text-primary" />
-        <span className="text-base font-semibold">PAKO</span>
+    <aside className="flex h-full w-[280px] shrink-0 flex-col border-r bg-card lg:w-[236px]">
+      <div className="flex shrink-0 flex-col gap-1.5 border-b px-3 pt-2.5 pb-2">
+        <div className="flex items-center gap-2">
+          <BrandMark className="size-5 text-primary" />
+          <span className="text-sm font-semibold">PAKO</span>
+          {onHide && (
+            <button
+              type="button"
+              onClick={onHide}
+              className="ml-auto hidden rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground lg:inline-flex"
+              aria-label={intl.formatMessage({ id: "sidebar.hideSidebar" })}
+              title={intl.formatMessage({ id: "sidebar.hideSidebar" })}
+            >
+              <PanelLeftClose className="size-4" />
+            </button>
+          )}
+        </div>
+        {activeCompany && (
+          <div className="flex min-w-0 items-center gap-1.5 rounded-md bg-primary/10 px-2 py-1" data-testid="active-company" title={activeCompany.name}>
+            <Building2 className="size-3.5 shrink-0 text-primary" />
+            <span className="truncate text-xs font-semibold text-primary">{activeCompany.name}</span>
+            {!activeCompany.isVatRegistered && (
+              <span className="ml-auto shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                {intl.formatMessage({ id: "header.vatBadge" })}
+              </span>
+            )}
+          </div>
+        )}
       </div>
+
 
       <div className="px-2.5 pt-2.5 pb-1.5">
         <div className="relative">
@@ -242,6 +297,7 @@ export function Sidebar() {
         </div>
       </div>
 
+      <div className="min-h-0 flex-1 overflow-y-auto scrollbar-brand">
       {searchResults ? (
         <div className="flex flex-col pb-2">
           {searchResults.length === 0 ? (
@@ -415,20 +471,35 @@ export function Sidebar() {
             );
           })}
 
-          <div className="border-t" />
-          <div className="flex flex-col py-1 pb-2">
-            {bottomNavItems.filter((item) => !layout.topPaths?.includes(item.path) && isAllowed(item.path)).map((item) => (
-              <SidebarLink key={item.path} item={item} label={label(item)} active={isActive(item.path)} />
-            ))}
-          </div>
         </>
       )}
+      </div>
 
       {access?.partnerRestricted && (
-        <p className="mt-auto border-t px-3 py-1.5 text-[11px] text-muted-foreground" data-testid="sidebar-partner-scope">
+        <p className="shrink-0 border-t px-3 py-1.5 text-[11px] text-muted-foreground" data-testid="sidebar-partner-scope">
           {intl.formatMessage({ id: "hr.sidebar.assignedPartners" }, { count: access.assignedPartnerCount })}
         </p>
       )}
+
+      {/* User request 2026-11-24: search, settings and log out at the foot of the sidebar, in place
+          of the top bar. */}
+      <div className="flex shrink-0 items-center gap-1 border-t p-2">
+        <button
+          type="button"
+          onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
+          className="flex h-8 min-w-0 flex-1 items-center gap-2 rounded-md border bg-background px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+          aria-label={intl.formatMessage({ id: "search.title" })}
+          data-testid="header-search"
+        >
+          <Search className="size-3.5 shrink-0" />
+          <span className="truncate">{intl.formatMessage({ id: "search.title" })}</span>
+          <kbd className="ml-auto rounded border bg-muted px-1 font-mono text-[10px]">{isMac ? "⌘K" : "Ctrl K"}</kbd>
+        </button>
+        <SettingsMenu sections={settingsSections} activePath={location.pathname} />
+        {onLogout && (
+          <AccountMenu compact email={auth?.email} companyName={activeCompany?.name} onChangeCompany={onChangeCompany ?? (() => {})} onLogout={onLogout} />
+        )}
+      </div>
     </aside>
   );
 }

@@ -1,17 +1,14 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { Menu, PanelLeftOpen, X } from "lucide-react";
 import { useIntl } from "react-intl";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 
 import { BrandMark } from "@/components/auth/AuthLayout";
-import { LanguageSwitcher } from "@/components/LanguageSwitcher";
-import { ThemeToggleButton } from "@/components/layout/ThemeToggleButton";
-import { AccountMenu } from "@/components/layout/AccountMenu";
 import { Breadcrumbs } from "@/components/layout/Breadcrumbs";
 import { DraftsRibbon } from "@/components/layout/DraftsRibbon";
-import { GlobalSearch, OPEN_GLOBAL_SEARCH_EVENT } from "@/components/layout/GlobalSearch";
+import { GlobalSearch } from "@/components/layout/GlobalSearch";
 import { KeyboardShortcuts } from "@/components/layout/KeyboardShortcuts";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { TabStrip } from "@/components/layout/TabStrip";
@@ -58,7 +55,7 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
-  const { auth, logout } = useAuth();
+  const { logout } = useAuth();
   const { activeCompany, leaveCompany, setHasUnsavedWork } = useCompany();
   const { tabs } = useTabs();
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
@@ -116,15 +113,15 @@ function AppShell() {
       <div className="flex h-screen overflow-hidden">
         {/* Desktop sidebar — always visible on lg+ */}
         <div className={sidebarHidden ? "hidden" : "hidden lg:flex"}>
-          <Sidebar />
+          <Sidebar onHide={toggleSidebarHidden} onChangeCompany={requestExit} onLogout={logout} />
         </div>
 
         {/* Mobile sidebar overlay */}
         {sidebarOpen && (
           <div className="fixed inset-0 z-40 flex lg:hidden">
             <div className="absolute inset-0 bg-black/40 transition-opacity" onClick={() => setSidebarOpen(false)} />
-            <div className="relative z-50 animate-in slide-in-from-left duration-200">
-              <Sidebar />
+            <div className="relative z-50 h-full animate-in slide-in-from-left duration-200">
+              <Sidebar onChangeCompany={requestExit} onLogout={logout} />
               <button
                 type="button"
                 className="absolute top-3 right-3 rounded-md bg-card p-1.5 text-muted-foreground shadow-sm hover:text-foreground"
@@ -139,66 +136,36 @@ function AppShell() {
 
         <div className="flex flex-1 flex-col overflow-hidden">
           <LicenseBanner />
-          <header className="flex h-12 shrink-0 items-center justify-between border-b px-4 lg:px-6">
-            <div className="flex items-center gap-3">
-              {/* Mobile hamburger + brand */}
+          {/* User request 2026-11-24: no top bar — search, settings and log out are at the foot of the
+              sidebar. Small screens keep a slim row with the menu button. */}
+          <div className="flex h-10 shrink-0 items-center gap-2 border-b px-3 lg:hidden">
+            <button
+              type="button"
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              onClick={() => setSidebarOpen(true)}
+              aria-label={intl.formatMessage({ id: "sidebar.openMenu" })}
+            >
+              <Menu className="size-5" />
+            </button>
+            <BrandMark className="size-5 text-primary" />
+            <span className="truncate text-sm font-semibold">{activeCompany?.name ?? "PAKO"}</span>
+          </div>
+          <div className="flex shrink-0">
+            {sidebarHidden && (
               <button
                 type="button"
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground lg:hidden"
-                onClick={() => setSidebarOpen(true)}
-                aria-label={intl.formatMessage({ id: "sidebar.openMenu" })}
-              >
-                <Menu className="size-5" />
-              </button>
-              <button
-                type="button"
-                className="hidden rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground lg:inline-flex"
+                className="hidden h-9 shrink-0 items-center border-r border-b bg-secondary px-2 text-muted-foreground hover:text-foreground lg:inline-flex"
                 onClick={toggleSidebarHidden}
-                aria-label={intl.formatMessage({ id: sidebarHidden ? "sidebar.showSidebar" : "sidebar.hideSidebar" })}
-                title={intl.formatMessage({ id: sidebarHidden ? "sidebar.showSidebar" : "sidebar.hideSidebar" })}
+                aria-label={intl.formatMessage({ id: "sidebar.showSidebar" })}
+                title={intl.formatMessage({ id: "sidebar.showSidebar" })}
               >
-                {sidebarHidden ? <PanelLeftOpen className="size-5" /> : <PanelLeftClose className="size-5" />}
+                <PanelLeftOpen className="size-4" />
               </button>
-              <div className="flex items-center gap-2 lg:hidden">
-                <BrandMark className="size-5 text-primary" />
-                <span className="text-sm font-semibold">PAKO</span>
-              </div>
-              <span className="hidden text-sm text-muted-foreground lg:inline">{intl.formatMessage({ id: "common.kosovoAccountingPlatform" })}</span>
-              {activeCompany && (
-                <div className="flex items-center gap-1.5 rounded-md bg-primary/10 px-2.5 py-1" data-testid="active-company">
-                  <Building2 className="size-3.5 text-primary" />
-                  <span className="hidden text-xs font-semibold text-primary sm:inline">{activeCompany.name}</span>
-                  {!activeCompany.isVatRegistered && (
-                    <span className="hidden rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground sm:inline">
-                      {intl.formatMessage({ id: "header.vatBadge" })}
-                    </span>
-                  )}
-                </div>
-              )}
+            )}
+            <div className="min-w-0 flex-1">
+              <TabStrip />
             </div>
-            <div className="flex items-center gap-2 lg:gap-3">
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new Event(OPEN_GLOBAL_SEARCH_EVENT))}
-                className="flex h-8 items-center gap-2 rounded-md border bg-card px-2.5 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
-                aria-label={intl.formatMessage({ id: "search.title" })}
-                data-testid="header-search"
-              >
-                <Search className="size-3.5" />
-                <span className="hidden md:inline">{intl.formatMessage({ id: "search.title" })}</span>
-                <kbd className="hidden rounded border bg-muted px-1 font-mono text-[10px] md:inline">{navigator.platform.includes("Mac") ? "⌘K" : "Ctrl K"}</kbd>
-              </button>
-              <ThemeToggleButton />
-              <LanguageSwitcher />
-              <AccountMenu
-                email={auth?.email}
-                companyName={activeCompany?.name}
-                onChangeCompany={requestExit}
-                onLogout={logout}
-              />
-            </div>
-          </header>
-          <TabStrip />
+          </div>
           <main className="flex-1 overflow-y-auto scrollbar-brand p-4 lg:p-6">
             <Breadcrumbs />
             <RouteErrorBoundary>

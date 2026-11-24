@@ -12,7 +12,10 @@ export function AccountMenu({
   companyName,
   onChangeCompany,
   onLogout,
+  compact = false,
 }: {
+  /** Icon-only trigger opening upwards (sidebar footer, user request 2026-11-24). */
+  compact?: boolean;
   email: string | undefined;
   companyName: string | undefined;
   onChangeCompany: () => void;
@@ -48,16 +51,23 @@ export function AccountMenu({
           aria-haspopup="menu"
           aria-expanded={open}
           aria-label={email ? `${t("common.logOut")} — ${email}` : t("common.logOut")}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          title={compact ? t("common.logOut") : undefined}
+          data-testid="account-menu"
+          className={
+            compact
+              ? cn("inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-destructive", open && "bg-accent")
+              : "inline-flex h-8 items-center gap-1.5 rounded-md border bg-background px-3 text-sm font-medium hover:bg-accent hover:text-accent-foreground"
+          }
         >
           <LogOut className="size-4" />
-          {t("common.logOut")}
-          <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />
+          {!compact && t("common.logOut")}
+          {!compact && <ChevronDown className={cn("size-3.5 transition-transform", open && "rotate-180")} />}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content
-          align="end"
+          align={compact ? "start" : "end"}
+          side={compact ? "top" : "bottom"}
           sideOffset={6}
           className="z-50 w-64 rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
           onOpenAutoFocus={(e) => {
