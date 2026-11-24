@@ -87,79 +87,71 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
             controlIsDebit: !isCreditDocument, amount, date, reference, null, bill.Id, direction, createdByUserId);
     }
 
+    // Direct payment (2026-11-24): money received from a customer or paid to a vendor with no
+    // document yet. The settlement entry is the same as for a document payment (Outstanding or
+    // Cash/Bank against the partner's AR/AP control line), so the amount sits on the partner's
+    // balance until PaymentApplier matches it to invoices or bills. A Payment is always created:
+    // in one-step mode (Cash journal, or a journal without outstanding accounts) the money is
+    // already on the cash/bank account, so it is created Reconciled with OutstandingAccountId equal
+    // to DestinationAccountId (see Payment.IsDirectToCash).
+    public async Task<(Payment? Payment, JournalEntryLine? ControlLine, string? Error)> ForPartnerAsync(
+        Company company, PaymentDirection direction, Guid partnerId, decimal amount, Guid cashOrBankAccountId, DateOnly date,
+        string? reference, string? createdByUserId)
+    {
+        var inbound = direction == PaymentDirection.Inbound;
+        var controlAccountId = inbound
+            ? await ReceivableAccountIdAsync(company.Id, partnerId)
+            : await PayableAccountIdAsync(company.Id, partnerId);
+        if (controlAccountId == Guid.Empty)
+        {
+            return (null, null, localizer[inbound ? "NoReceivableAccount" : "NoPayableAccount"].Value);
+        }
+
+        // Inbound: Dr Outstanding/Cash, Cr AR. Outbound: Dr AP, Cr Outstanding/Cash.
+        var settlement = await PostSettlementAsync(company, cashOrBankAccountId, controlAccountId, partnerId,
+            controlIsDebit: !inbound, amount, date, reference ?? "", controlFirst: !inbound, direction);
+        if (settlement.Error is not null)
+        {
+            return (null, null, settlement.Error);
+        }
+
+        var payment = new Payment
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            Direction = direction,
+            PartnerId = partnerId,
+            Amount = amount,
+            Date = date,
+            Reference = string.IsNullOrWhiteSpace(reference) ? null : reference.Trim(),
+            JournalEntryId = settlement.Entry!.Id,
+            DestinationAccountId = cashOrBankAccountId,
+            OutstandingAccountId = settlement.OutstandingAccountId ?? cashOrBankAccountId,
+            State = settlement.OutstandingAccountId is null ? PaymentState.Reconciled : PaymentState.Posted,
+            CreatedByUserId = createdByUserId,
+        };
+        db.Payments.Add(payment);
+        return (payment, settlement.ControlLine, null);
+    }
+
+    private readonly record struct Settlement(JournalEntry? Entry, JournalEntryLine? ControlLine, Guid? OutstandingAccountId, string? Error);
+
     private async Task<Outcome> PostAndReconcileAsync(
         Company company, Guid cashOrBankAccountId, Guid controlAccountId, Guid partnerId, bool controlIsDebit,
         decimal amount, DateOnly date, string reference, Guid? invoiceId, Guid? billId,
         PaymentDirection direction, string? createdByUserId)
     {
-        // B9: the Cash or Bank journal, whichever matches the account the money actually moved through.
-        var subType = await db.Accounts.AsNoTracking()
-            .Where(a => a.Id == cashOrBankAccountId).Select(a => a.AccountSubType).FirstOrDefaultAsync();
-        var journal = await JournalResolver.GetAsync(db, company.Id, JournalResolver.SettlementJournalType(subType));
-        if (journal is null)
-        {
-            return Failed(localizer["NoJournalToPost"].Value);
-        }
-
-        // Two-step mode: use the outstanding account if the journal has one configured.
-        // Inbound (customer pays us) → OutstandingReceiptsAccountId
-        // Outbound (we pay vendor) → OutstandingPaymentsAccountId
-        var outstandingAccountId = direction == PaymentDirection.Inbound
-            ? journal.OutstandingReceiptsAccountId
-            : journal.OutstandingPaymentsAccountId;
-
-        // The counter-account: Outstanding if 2-step, or the actual Cash/Bank if 1-step.
-        var counterAccountId = outstandingAccountId ?? cashOrBankAccountId;
-
-        var entry = new JournalEntry
-        {
-            Id = Guid.NewGuid(),
-            CompanyId = company.Id,
-            JournalId = journal.Id,
-            Date = date,
-            Reference = reference,
-        };
-        var controlLine = new JournalEntryLine
-        {
-            Id = Guid.NewGuid(), AccountId = controlAccountId, PartnerId = partnerId,
-            Debit = controlIsDebit ? amount : 0m,
-            Credit = controlIsDebit ? 0m : amount,
-        };
-        var counterLine = new JournalEntryLine
-        {
-            Id = Guid.NewGuid(), AccountId = counterAccountId,
-            Debit = controlIsDebit ? 0m : amount,
-            Credit = controlIsDebit ? amount : 0m,
-        };
         // Same line order as before the extraction: counter first for invoices, control first for bills.
-        if (invoiceId is not null)
+        var settlement = await PostSettlementAsync(company, cashOrBankAccountId, controlAccountId, partnerId, controlIsDebit,
+            amount, date, reference, controlFirst: invoiceId is null, direction);
+        if (settlement.Error is not null)
         {
-            entry.Lines.Add(counterLine);
-            entry.Lines.Add(controlLine);
-        }
-        else
-        {
-            entry.Lines.Add(controlLine);
-            entry.Lines.Add(counterLine);
+            return Failed(settlement.Error);
         }
 
-        try
-        {
-            entry.Post(company);
-        }
-        catch (Exception ex) when (
-            ex is InvalidOperationException or
-            UnbalancedJournalEntryException or
-            AccountingLockDateViolationException or
-            TaxLockDateViolationException or
-            HardLockDateViolationException)
-        {
-            return Failed(ex.Message);
-        }
-
-        db.JournalEntries.Add(entry);
-        await db.SaveChangesAsync();
-
+        var entry = settlement.Entry!;
+        var controlLine = settlement.ControlLine!;
+        var outstandingAccountId = settlement.OutstandingAccountId;
         var result = await ReconciliationCreator.TryCreateAsync(db, company.Id, invoiceId, billId, controlLine.Id, amount);
 
         // Create Payment record if 2-step mode
@@ -192,6 +184,81 @@ public sealed class PaymentRecorder(PakoDbContext db, IStringLocalizer<ErrorMess
             ReconciliationCreationStatus.ValidationFailed => Failed(result.Error ?? ""),
             _ => new Outcome(result.Reconciliation, entry, payment, null),
         };
+    }
+
+    // The settlement entry, posted and saved: the partner's control line against the Outstanding
+    // account (two-step) or the cash/bank account itself (one-step).
+    private async Task<Settlement> PostSettlementAsync(
+        Company company, Guid cashOrBankAccountId, Guid controlAccountId, Guid partnerId, bool controlIsDebit,
+        decimal amount, DateOnly date, string reference, bool controlFirst, PaymentDirection direction)
+    {
+        // B9: the Cash or Bank journal, whichever matches the account the money actually moved through.
+        var subType = await db.Accounts.AsNoTracking()
+            .Where(a => a.Id == cashOrBankAccountId).Select(a => a.AccountSubType).FirstOrDefaultAsync();
+        var journal = await JournalResolver.GetAsync(db, company.Id, JournalResolver.SettlementJournalType(subType));
+        if (journal is null)
+        {
+            return new Settlement(null, null, null, localizer["NoJournalToPost"].Value);
+        }
+
+        // Two-step mode: use the outstanding account if the journal has one configured.
+        // Inbound (customer pays us) → OutstandingReceiptsAccountId
+        // Outbound (we pay vendor) → OutstandingPaymentsAccountId
+        var outstandingAccountId = direction == PaymentDirection.Inbound
+            ? journal.OutstandingReceiptsAccountId
+            : journal.OutstandingPaymentsAccountId;
+
+        // The counter-account: Outstanding if 2-step, or the actual Cash/Bank if 1-step.
+        var counterAccountId = outstandingAccountId ?? cashOrBankAccountId;
+
+        var entry = new JournalEntry
+        {
+            Id = Guid.NewGuid(),
+            CompanyId = company.Id,
+            JournalId = journal.Id,
+            Date = date,
+            Reference = reference,
+        };
+        var controlLine = new JournalEntryLine
+        {
+            Id = Guid.NewGuid(), AccountId = controlAccountId, PartnerId = partnerId,
+            Debit = controlIsDebit ? amount : 0m,
+            Credit = controlIsDebit ? 0m : amount,
+        };
+        var counterLine = new JournalEntryLine
+        {
+            Id = Guid.NewGuid(), AccountId = counterAccountId,
+            Debit = controlIsDebit ? 0m : amount,
+            Credit = controlIsDebit ? amount : 0m,
+        };
+        if (controlFirst)
+        {
+            entry.Lines.Add(controlLine);
+            entry.Lines.Add(counterLine);
+        }
+        else
+        {
+            entry.Lines.Add(counterLine);
+            entry.Lines.Add(controlLine);
+        }
+
+        try
+        {
+            entry.Post(company);
+        }
+        catch (Exception ex) when (
+            ex is InvalidOperationException or
+            UnbalancedJournalEntryException or
+            AccountingLockDateViolationException or
+            TaxLockDateViolationException or
+            HardLockDateViolationException)
+        {
+            return new Settlement(null, null, null, ex.Message);
+        }
+
+        db.JournalEntries.Add(entry);
+        await db.SaveChangesAsync();
+        return new Settlement(entry, controlLine, outstandingAccountId, null);
     }
 
     // B8: the partner's own ReceivableAccountId wins when set; the company's default otherwise.

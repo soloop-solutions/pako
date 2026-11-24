@@ -2057,4 +2057,9 @@ Nëse po e lexoni, dërgimi i emailave funksionon (mënyra: {mode}).</value></da
   <data name="Export_Payroll_Payslip" xml:space="preserve"><value>Fletëpagesa</value></data>
   <data name="Export_Payroll_Payslips" xml:space="preserve"><value>Fletëpagesat</value></data>
   <data name="Export_Payroll_EmployeesList" xml:space="preserve"><value>Lista e punonjësve</value></data>
+  <data name="PaymentDirectionInvalid" xml:space="preserve"><value>Zgjidhni nëse pagesa është marrë nga një klient apo i është paguar një furnitori.</value></data>
+  <data name="PaymentAllocationInvalid" xml:space="preserve"><value>Çdo rresht duhet të tregojë një faturë shitjeje ose blerjeje, vetëm një herë.</value></data>
+  <data name="PaymentAllocationWrongDocument" xml:space="preserve"><value>Pagesa mund të aplikohet vetëm në faturat e postuara të këtij partneri: faturat e shitjes për pagesat e marra, faturat e blerjes për pagesat e bëra.</value></data>
+  <data name="PaymentAllocationExceedsUnapplied" xml:space="preserve"><value>Shumat për t'u aplikuar e kalojnë pjesën e mbetur të pagesës ({0}). Ulni shumat dhe provoni përsëri.</value></data>
+  <data name="PaymentAllocationExceedsOutstanding" xml:space="preserve"><value>{0} ka vetëm {1} për t'u paguar. Ulni shumën që i aplikohet.</value></data>
 </root>
