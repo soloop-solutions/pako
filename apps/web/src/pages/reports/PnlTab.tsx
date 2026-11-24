@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { PeriodPresetSelect } from "@/components/list/PeriodPresetSelect";
 import { useIntl } from "react-intl";
 
 import { PrintButton } from "@/components/shared/PrintButton";
@@ -35,6 +36,7 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
+          <PeriodPresetSelect id="pnl-preset" from={pnlFrom} to={pnlTo} onChange={(from, to) => { setPnlFrom(from); setPnlTo(to); }} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="pnl-from">{intl.formatMessage({ id: "reports.from" })}</Label>
             <Input id="pnl-from" type="date" value={pnlFrom} onChange={(event) => setPnlFrom(event.target.value)} />
@@ -75,7 +77,7 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                     <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                       <TableCell>{line.accountCode}</TableCell>
                       <TableCell>{line.accountName}</TableCell>
-                      <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
+                      <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} accountId={line.accountId} period={pnlPeriod} /></TableCell>
                     </LinkedRow>
                   ))}
                 </TableBody>
@@ -97,7 +99,7 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                       <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                         <TableCell>{line.accountCode}</TableCell>
                         <TableCell>{line.accountName}</TableCell>
-                        <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
+                        <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} accountId={line.accountId} period={pnlPeriod} /></TableCell>
                       </LinkedRow>
                     ))}
                   </TableBody>
@@ -119,7 +121,7 @@ export function PnlTab({ report, companyName, accountingLockDate }: { report: Re
                     <LinkedRow key={line.accountId} to={accountPath(line.accountId)}>
                       <TableCell>{line.accountCode}</TableCell>
                       <TableCell>{line.accountName}</TableCell>
-                      <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} /></TableCell>
+                      <TableCell className="text-right"><DrillAmount amount={line.amount} accountCode={line.accountCode} accountId={line.accountId} period={pnlPeriod} /></TableCell>
                     </LinkedRow>
                   ))}
                 </TableBody>

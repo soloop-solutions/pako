@@ -94,12 +94,14 @@ describe("account rows link to the account", () => {
     expect(route()).toBe(acc("621"));
   });
 
-  it("period P&L: the amount link still goes to the trial balance by code, not the account", async () => {
+  // UI/UX round 2026-11-24: the amount opens the general ledger for that account and the report's
+  // period (was: the trial balance by code, which lost the period).
+  it("period P&L: the amount link opens the general ledger for the account and the period", async () => {
     renderReports("/reports?tab=pnl");
     fireEvent.click(screen.getByRole("button", { name: "Run report" }));
     await screen.findByText("Revenue from sales");
     fireEvent.click(within(rowOf("Revenue from sales")).getByText("1000.00"));
-    expect(route()).toBe("/ledger?trialBalance.q=701");
+    expect(route()).toMatch(/^\/reports\?tab=general-ledger&accountId=5b1f0c2e-1a11-4c01-9a03-000000000701&from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
   });
 
   it("balance sheet: asset, liability and equity rows open the account", async () => {

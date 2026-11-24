@@ -66,7 +66,7 @@ export function GeneralLedgerTab({ report, companyName, accountingLockDate }: { 
       error={report.error}
       controls={
         <>
-          <DateRangeFields idPrefix="general-ledger" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} />
+          <DateRangeFields idPrefix="general-ledger" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} onRange={(from, to) => period.setParams({ from, to })} />
           <div className="flex flex-col gap-2">
             <Label>{intl.formatMessage({ id: "reports.glAccountFilter" })}</Label>
             <Select

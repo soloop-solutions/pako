@@ -129,7 +129,7 @@ export function PurchasesTab({ report, companyName, accountingLockDate }: { repo
               </Button>
             ))}
           </div>
-          <DateRangeFields idPrefix="purchases" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} />
+          <DateRangeFields idPrefix="purchases" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} onRange={(from, to) => period.setParams({ from, to })} />
           {view === "transactions" && (
             <div className="flex flex-col gap-2">
               <Label>{intl.formatMessage({ id: "common.vendor" })}</Label>

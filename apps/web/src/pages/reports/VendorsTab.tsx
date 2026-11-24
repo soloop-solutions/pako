@@ -80,7 +80,7 @@ export function VendorsTab({ report, companyId, companyName, accountingLockDate 
         error={report.error}
         controls={
           <>
-            <DateRangeFields idPrefix="vendors" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} />
+            <DateRangeFields idPrefix="vendors" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} onRange={(from, to) => period.setParams({ from, to })} />
             <div className="flex items-center gap-2 pb-2">
               <Checkbox
                 id="vendors-include-zero"

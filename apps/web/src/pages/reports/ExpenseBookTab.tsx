@@ -73,7 +73,7 @@ export function ExpenseBookTab({ report, companyName, accountingLockDate }: { re
       exporting={report.exporting}
       exportError={report.exportError}
       error={report.error}
-      controls={<DateRangeFields idPrefix="expense-book" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} />}
+      controls={<DateRangeFields idPrefix="expense-book" from={period.from} to={period.to} onFrom={period.setFrom} onTo={period.setTo} onRange={(from, to) => period.setParams({ from, to })} />}
     >
       {data && (
         <DataGrid<ExpenseBookRow>

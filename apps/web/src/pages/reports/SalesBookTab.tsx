@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { PeriodPresetSelect } from "@/components/list/PeriodPresetSelect";
 import { useIntl } from "react-intl";
 
 import { PrintButton } from "@/components/shared/PrintButton";
@@ -33,6 +34,7 @@ export function SalesBookTab({ report, companyName, taxLockDate }: { report: Ret
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
         <div className="flex flex-wrap items-end gap-4">
+          <PeriodPresetSelect id="sales-book-preset" from={salesBookFrom} to={salesBookTo} onChange={(from, to) => { setSalesBookFrom(from); setSalesBookTo(to); }} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="sales-book-from">{intl.formatMessage({ id: "reports.from" })}</Label>
             <Input id="sales-book-from" type="date" value={salesBookFrom} onChange={(event) => setSalesBookFrom(event.target.value)} />

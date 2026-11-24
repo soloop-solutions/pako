@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { PeriodPresetSelect } from "@/components/list/PeriodPresetSelect";
 import { useIntl } from "react-intl";
 
 import { PrintButton } from "@/components/shared/PrintButton";
@@ -45,6 +46,7 @@ export function VatTab({ report, companyName, taxLockDate }: { report: ReturnTyp
               })}
             />
           </div>
+          <PeriodPresetSelect id="vat-preset" from={vatFrom} to={vatTo} onChange={(from, to) => { setVatFrom(from); setVatTo(to); }} />
           <div className="flex flex-col gap-2">
             <Label htmlFor="vat-from">{intl.formatMessage({ id: "reports.from" })}</Label>
             <Input id="vat-from" type="date" value={vatFrom} onChange={(event) => setVatFrom(event.target.value)} />

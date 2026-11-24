@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { PeriodPresetSelect } from "@/components/list/PeriodPresetSelect";
 import { useIntl } from "react-intl";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -9,10 +10,30 @@ import { Label } from "@/components/ui/label";
 import { isOnOrBeforeLock } from "./helpers";
 import { ExportButton, LockNotice } from "./shared";
 
-export function DateRangeFields({ idPrefix, from, to, onFrom, onTo }: { idPrefix: string; from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void }) {
+export function DateRangeFields({ idPrefix, from, to, onFrom, onTo, onRange }: {
+  idPrefix: string;
+  from: string;
+  to: string;
+  onFrom: (v: string) => void;
+  onTo: (v: string) => void;
+  /** Sets both ends at once (a preset); URL-backed periods need it, two separate setters race. */
+  onRange?: (from: string, to: string) => void;
+}) {
   const intl = useIntl();
   return (
     <>
+      <PeriodPresetSelect
+        id={`${idPrefix}-preset`}
+        from={from}
+        to={to}
+        onChange={(nextFrom, nextTo) => {
+          if (onRange) onRange(nextFrom, nextTo);
+          else {
+            onFrom(nextFrom);
+            onTo(nextTo);
+          }
+        }}
+      />
       <div className="flex flex-col gap-2">
         <Label htmlFor={`${idPrefix}-from`}>{intl.formatMessage({ id: "reports.from" })}</Label>
         <Input id={`${idPrefix}-from`} type="date" value={from} onChange={(event) => onFrom(event.target.value)} />

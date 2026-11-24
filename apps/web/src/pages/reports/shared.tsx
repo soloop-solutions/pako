@@ -29,13 +29,25 @@ export function ExportButton({ onClick, loading }: { onClick: () => void; loadin
   );
 }
 
-/** Renders a report amount; non-zero values link to the trial balance filtered by account code. */
-export function DrillAmount({ amount, accountCode }: { amount: number; accountCode: string }) {
+/**
+ * Renders a report amount; a non-zero value links to its source. With an account and the report's
+ * period (UI/UX round 2026-11-24) it opens the general ledger for that account and period, whose
+ * rows open the documents; otherwise the trial balance filtered by account code.
+ */
+export function DrillAmount({ amount, accountCode, accountId, period }: {
+  amount: number;
+  accountCode: string;
+  accountId?: string;
+  period?: { from: string; to: string } | null;
+}) {
   const formatted = formatReportAmount(amount);
   if (amount === 0) return <>{formatted}</>;
+  const target = accountId && period
+    ? `/reports?tab=general-ledger&accountId=${encodeURIComponent(accountId)}&from=${period.from}&to=${period.to}`
+    : `/ledger?trialBalance.q=${encodeURIComponent(accountCode)}`;
   return (
     <Link
-      to={`/ledger?trialBalance.q=${encodeURIComponent(accountCode)}`}
+      to={target}
       className="cursor-pointer text-primary hover:underline"
     >
       {formatted}
