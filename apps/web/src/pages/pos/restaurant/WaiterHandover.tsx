@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import type { WaiterSummaryResponse } from "@pako/shared";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useIntl } from "react-intl";
@@ -11,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 // docs/POS_PLAN.md §6.2: the waiter's cash bag, settled at shift end. Every figure is the
 // server's (WaiterSummaryResponse); the amount handed over is typed, and a mismatch with what the

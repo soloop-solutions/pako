@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AppointmentResponse, ResourceResponse } from "@pako/shared";
 import { ChevronLeft, ChevronRight, Globe, Plus } from "lucide-react";
@@ -40,7 +41,7 @@ import {
 } from "@/lib/pos-services";
 import { cn } from "@/lib/utils";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 const PX_PER_MIN = 1.2;
 const SLOT = 30;
 

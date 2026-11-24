@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import type {
   FloorPlanResponse,
   ItemCategoryResponse,
@@ -36,7 +37,7 @@ import { PayTabDialog } from "@/pages/pos/restaurant/TabPay";
 import { chargeableToRoom, tabKindLabelKey, type TabPayment } from "@/pages/pos/restaurant/tab-utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 /** What is being added, as far as it is known yet; each prompt fills in one piece. */
 interface AddRequest {

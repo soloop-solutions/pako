@@ -39,11 +39,11 @@ describe("CashFlowTab", () => {
     expect(screen.getByText("Investing activities")).toBeInTheDocument();
     expect(screen.getByText("Financing activities")).toBeInTheDocument();
     expect(screen.getByText("Trade receivables")).toBeInTheDocument();
-    expect(screen.getByText("(5000.00)")).toBeInTheDocument();
+    expect(screen.getByText("(5,000.00)")).toBeInTheDocument();
     expect(screen.getByText("Net change in cash")).toBeInTheDocument();
-    expect(screen.getByText("15000.00")).toBeInTheDocument();
+    expect(screen.getByText("15,000.00")).toBeInTheDocument();
     expect(screen.getByText("Opening cash")).toBeInTheDocument();
-    expect(screen.getByText("30000.00")).toBeInTheDocument();
+    expect(screen.getByText("30,000.00")).toBeInTheDocument();
     expect(screen.getByText("Closing cash")).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });

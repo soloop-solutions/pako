@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useIntl } from "react-intl";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -21,7 +22,7 @@ import { PaymentMethodSelect } from "@/pages/shared/PaymentMethodSelect";
 
 export type PaymentDirection = "Inbound" | "Outbound";
 
-const money = (value: number) => value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const money = (value: number) => formatMoney(value);
 
 /** Typed amount → number, or undefined when empty/not a positive number. Parsing only. */
 function parseAmount(text: string | undefined): number | undefined {

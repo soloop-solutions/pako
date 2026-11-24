@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import type { FloorPlanResponse, FloorPlanTableResponse, TabResponse, TabSummaryResponse } from "@pako/shared";
 import { useMutation } from "@tanstack/react-query";
 import { Bike, Plus, ShoppingBag, Users } from "lucide-react";
@@ -16,7 +17,7 @@ import { TabKind, TabState, TableShape, tabKindKey } from "@/lib/pos-enums";
 import { cn } from "@/lib/utils";
 import { tabKindLabelKey } from "@/pages/pos/restaurant/tab-utils";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 // One grid cell of the floor designer, in pixels.
 const CELL = 56;

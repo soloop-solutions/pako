@@ -53,10 +53,10 @@ describe("PurchasesTab", () => {
     expect(screen.getByText("203.39")).toBeInTheDocument();
     const footer = document.querySelector("tfoot") as HTMLElement;
     expect(within(footer).getByText("Total")).toBeInTheDocument();
-    expect(within(footer).getByText("1883.39")).toBeInTheDocument();
+    expect(within(footer).getByText("1,883.39")).toBeInTheDocument();
     expect(within(footer).getByText("20.00")).toBeInTheDocument();
     expect(within(footer).getByText("339.01")).toBeInTheDocument();
-    expect(within(footer).getByText("2222.40")).toBeInTheDocument();
+    expect(within(footer).getByText("2,222.40")).toBeInTheDocument();
   });
 
   it("switches views through the URL", async () => {
@@ -123,16 +123,16 @@ describe("PurchasesTab", () => {
     renderReports(BASE);
     await screen.findByText("Kosova Office Supplies SH.P.K.");
     let footer = document.querySelector("tfoot") as HTMLElement;
-    ["7777.77", "1.11", "2.22", "3.33"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
+    ["7,777.77", "1.11", "2.22", "3.33"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "By item" }));
     await screen.findByText("SRV-ELE");
     footer = document.querySelector("tfoot") as HTMLElement;
-    ["4444.44", "5.55", "6.66"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
+    ["4,444.44", "5.55", "6.66"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: "Transactions" }));
     await screen.findByText("BILL-0005");
     footer = document.querySelector("tfoot") as HTMLElement;
-    ["8888.88", "9.99", "10.10"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
+    ["8,888.88", "9.99", "10.10"].forEach((v) => expect(within(footer).getByText(v)).toBeInTheDocument());
   });
 });

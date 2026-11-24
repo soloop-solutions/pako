@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
 import { FileDown } from "lucide-react";
@@ -18,7 +19,7 @@ const YEAR_PARAM = "year";
 const YEARS_BACK = 6;
 
 function money(value: number): string {
-  return value.toFixed(2);
+  return formatMoney(value);
 }
 
 /**

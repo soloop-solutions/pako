@@ -83,10 +83,10 @@ describe("StockMovementsTab", () => {
     renderReports(URL_);
     await screen.findByText("Laptop");
     const footer = document.querySelector("tfoot") as HTMLElement;
-    expect(within(footer).getByText("11111.11")).toBeInTheDocument();
-    expect(within(footer).getByText("22222.22")).toBeInTheDocument();
-    expect(within(footer).getByText("33333.33")).toBeInTheDocument();
-    expect(within(footer).getByText("44444.44")).toBeInTheDocument();
+    expect(within(footer).getByText("11,111.11")).toBeInTheDocument();
+    expect(within(footer).getByText("22,222.22")).toBeInTheDocument();
+    expect(within(footer).getByText("33,333.33")).toBeInTheDocument();
+    expect(within(footer).getByText("44,444.44")).toBeInTheDocument();
     expect(within(footer).getByText("Total")).toBeInTheDocument();
   });
 

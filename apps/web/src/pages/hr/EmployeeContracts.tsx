@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState, type FormEvent } from "react";
 import { useIntl } from "react-intl";
@@ -87,7 +88,7 @@ export function EmployeeContracts({
         header: intl.formatMessage({ id: "hr.employee.monthlyGrossSalary" }),
         enableColumnFilter: false,
         meta: { numeric: true },
-        cell: ({ getValue }) => `${(getValue() as number).toFixed(2)} €`,
+        cell: ({ getValue }) => `${formatMoney((getValue() as number))} €`,
       },
       {
         id: "employmentType",
@@ -168,7 +169,7 @@ export function EmployeeContracts({
     <div className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-muted-foreground">
-          {intl.formatMessage({ id: "hr.contracts.hint" }, { salary: `${employee.currentSalary.toFixed(2)} €` })}
+          {intl.formatMessage({ id: "hr.contracts.hint" }, { salary: `${formatMoney(employee.currentSalary)} €` })}
         </p>
         {!readOnly && editing === null && (
           <Button

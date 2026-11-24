@@ -1,4 +1,5 @@
 import * as RadixPopover from "@radix-ui/react-popover";
+import { formatMoney } from "@/lib/amount";
 import { forgetActionToken, sessionActionToken } from "@/lib/actionTokens";
 import { ApiException } from "@pako/shared";
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from "react";
@@ -43,7 +44,7 @@ function cellKey(row: number, col: number): string {
 }
 
 function formatCents(cents: number): string {
-  return (Math.abs(cents) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return formatMoney(Math.abs(cents) / 100);
 }
 
 
@@ -702,8 +703,8 @@ export function JournalEntryGrid({ companyId, journals, accounts, onCreated }: J
               <td className="h-[34px] px-2 py-1" colSpan={2}>
                 {intl.formatMessage({ id: "journalGrid.totalDebit" })} / {intl.formatMessage({ id: "journalGrid.totalCredit" })}
               </td>
-              <td className="h-[34px] px-2 py-1 text-right tabular-nums">{totals.debit.toFixed(2)}</td>
-              <td className="h-[34px] px-2 py-1 text-right tabular-nums">{totals.credit.toFixed(2)}</td>
+              <td className="h-[34px] px-2 py-1 text-right tabular-nums">{formatMoney(totals.debit)}</td>
+              <td className="h-[34px] px-2 py-1 text-right tabular-nums">{formatMoney(totals.credit)}</td>
               <td className="h-[34px] px-2 py-1" colSpan={5}>
                 <span className="inline-flex items-center gap-1.5">
                   {intl.formatMessage({ id: "journalGrid.difference" })}

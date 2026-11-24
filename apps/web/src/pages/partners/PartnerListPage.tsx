@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo, useState } from "react";
@@ -303,7 +304,7 @@ export function PartnerListPage({
         accessorKey: "creditLimit",
         header: intl.formatMessage({ id: "partners.form.creditLimit" }),
         meta: { numeric: true },
-        cell: ({ getValue }) => { const v = getValue(); return typeof v === "number" ? `${v.toFixed(2)} \u20AC` : "\u2014"; },
+        cell: ({ getValue }) => { const v = getValue(); return typeof v === "number" ? `${formatMoney(v)} \u20AC` : "\u2014"; },
       },
       {
         id: "actions",

@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { formatMoney } from "@/lib/amount";
 import { createPortal } from "react-dom";
 import { useIntl } from "react-intl";
 import type { PayslipDetailResponse } from "@pako/shared";
@@ -65,7 +66,7 @@ export function Payslip({ companyName, periodStart, periodEnd, line, className }
         { id: "payroll.payslip.hoursTimes" },
         {
           hours: intl.formatNumber(hours, { maximumFractionDigits: 2 }),
-          multiplier: intl.formatNumber(multiplier ?? 1, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          multiplier: formatMoney(multiplier ?? 1),
         },
       )})`;
     }

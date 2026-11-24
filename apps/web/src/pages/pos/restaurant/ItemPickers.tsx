@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import type { ComboSlotResponse, ModifierGroupResponse, PosCatalogItemResponse } from "@pako/shared";
 import { Check } from "lucide-react";
 import { useIntl } from "react-intl";
@@ -7,7 +8,7 @@ import { FormDialog } from "@/components/shared/FormDialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // A group's rule in words: "Choose 1", "Choose 1–2", "Up to 3", "Optional". MaxSelect 0 = no limit.
 function ruleKey(min: number, max: number): { id: string; values: Record<string, number> } {

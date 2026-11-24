@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatMoneyOr } from "@/lib/amount";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useOptionalDrafts } from "@/context/DraftsContext";
 import { PageHeader } from "@/components/list/PageHeader";
@@ -285,7 +286,7 @@ export function Bills() {
         cell: ({ getValue, row }) => {
           const value = getValue() as number | undefined;
           if (row.original.state !== "Posted") return "-";
-          return value !== undefined ? value.toFixed(2) : "...";
+          return formatMoneyOr(value, "...");
         },
       },
       {
@@ -298,7 +299,7 @@ export function Bills() {
         cell: ({ getValue, row }) => {
           const value = getValue() as number | undefined;
           if (row.original.state !== "Posted") return "-";
-          return value !== undefined ? value.toFixed(2) : "...";
+          return formatMoneyOr(value, "...");
         },
       },
       {

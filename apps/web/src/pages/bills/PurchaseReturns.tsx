@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatMoneyOr } from "@/lib/amount";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
@@ -192,7 +193,7 @@ export function PurchaseReturns() {
         cell: ({ getValue, row }) => {
           const value = getValue() as number | undefined;
           if (row.original.state !== "Posted") return "-";
-          return value !== undefined ? value.toFixed(2) : "...";
+          return formatMoneyOr(value, "...");
         },
       },
       {

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { formatMoney, formatMoneyOr } from "@/lib/amount";
 import { useIntl } from "react-intl";
 import { Link } from "react-router-dom";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -91,7 +92,7 @@ export function Reconciliation() {
         meta: { numeric: true },
         enableColumnFilter: false,
         accessorFn: (row) => invoiceBalances[row.id]?.outstanding,
-        cell: ({ getValue }) => (getValue() as number | undefined)?.toFixed(2) ?? "...",
+        cell: ({ getValue }) => formatMoneyOr((getValue() as number | undefined), "..."),
       },
       {
         id: "actions",
@@ -133,7 +134,7 @@ export function Reconciliation() {
         meta: { numeric: true },
         enableColumnFilter: false,
         accessorFn: (row) => billBalances[row.id]?.outstanding,
-        cell: ({ getValue }) => (getValue() as number | undefined)?.toFixed(2) ?? "...",
+        cell: ({ getValue }) => formatMoneyOr((getValue() as number | undefined), "..."),
       },
       {
         id: "actions",
@@ -182,7 +183,7 @@ export function Reconciliation() {
       <Card>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsReceivable" })}<AccountingTooltip termKey="tooltip.accountsReceivable" /></CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: totalAr.toFixed(2) })}</CardDescription>
+          <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: formatMoney(totalAr) })}</CardDescription>
         </CardHeader>
         <CardContent>
           <DataGrid
@@ -206,7 +207,7 @@ export function Reconciliation() {
       <Card>
         <CardHeader>
           <CardTitle>{intl.formatMessage({ id: "reconciliation.accountsPayable" })}<AccountingTooltip termKey="tooltip.accountsPayable" /></CardTitle>
-          <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: totalAp.toFixed(2) })}</CardDescription>
+          <CardDescription>{intl.formatMessage({ id: "reconciliation.totalOutstanding" }, { amount: formatMoney(totalAp) })}</CardDescription>
         </CardHeader>
         <CardContent>
           <DataGrid

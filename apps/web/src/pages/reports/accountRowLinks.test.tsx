@@ -100,7 +100,7 @@ describe("account rows link to the account", () => {
     renderReports("/reports?tab=pnl");
     fireEvent.click(screen.getByRole("button", { name: "Run report" }));
     await screen.findByText("Revenue from sales");
-    fireEvent.click(within(rowOf("Revenue from sales")).getByText("1000.00"));
+    fireEvent.click(within(rowOf("Revenue from sales")).getByText("1,000.00"));
     expect(route()).toMatch(/^\/reports\?tab=general-ledger&accountId=5b1f0c2e-1a11-4c01-9a03-000000000701&from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
   });
 
@@ -141,7 +141,7 @@ describe("account rows link to the account", () => {
     renderReports("/reports?tab=balance-sheet");
     fireEvent.click(screen.getByRole("button", { name: "Run report" }));
     await screen.findByText("Trade receivables");
-    fireEvent.click(within(rowOf("Trade receivables")).getByText("25000.00"));
+    fireEvent.click(within(rowOf("Trade receivables")).getByText("25,000.00"));
     expect(route()).toBe("/ledger?trialBalance.q=120");
   });
 

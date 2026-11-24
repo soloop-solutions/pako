@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Download } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -32,7 +33,7 @@ function downloadFileResponse(file: FileResponse, fallbackFileName: string): voi
 }
 
 function money(value: number | undefined): string {
-  return typeof value === "number" && value !== 0 ? value.toFixed(2) : "—";
+  return typeof value === "number" && value !== 0 ? formatMoney(value) : "—";
 }
 
 function isValidYear(value: string): boolean {
@@ -364,7 +365,7 @@ export function WithholdingTax() {
             ).map(([labelId, value]) => (
               <div key={labelId} className="flex flex-col">
                 <dt className="text-xs text-muted-foreground">{intl.formatMessage({ id: labelId })}</dt>
-                <dd className="tabular-nums">{value.toFixed(2)}</dd>
+                <dd className="tabular-nums">{formatMoney(value)}</dd>
               </div>
             ))}
           </dl>

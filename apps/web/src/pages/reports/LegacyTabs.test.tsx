@@ -126,13 +126,13 @@ describe("legacy report tabs", () => {
     renderReports("/reports?tab=pnl&from=2025-01-01&to=2025-03-31");
     const cost = await screen.findByTestId("pnl-cost-of-revenue");
     expect(within(cost).getByText("Cost of Goods Sold")).toBeInTheDocument();
-    expect(within(cost).getByText("1234.56")).toBeInTheDocument();
-    expect(screen.getByText("Gross profit: 3333.33")).toBeInTheDocument();
-    expect(screen.getByText("Total cost of revenue: 1234.56")).toBeInTheDocument();
+    expect(within(cost).getByText("1,234.56")).toBeInTheDocument();
+    expect(screen.getByText("Gross profit: 3,333.33")).toBeInTheDocument();
+    expect(screen.getByText("Total cost of revenue: 1,234.56")).toBeInTheDocument();
     expect(screen.getByText("Operating expenses")).toBeInTheDocument();
     expect(screen.getByText("Rent")).toBeInTheDocument();
     expect(screen.getByText("Total operating expenses: 800.00")).toBeInTheDocument();
-    expect(screen.queryByText("Total expenses: 2034.56")).not.toBeInTheDocument();
-    expect(screen.getByText("Net income: 2965.44")).toBeInTheDocument();
+    expect(screen.queryByText("Total expenses: 2,034.56")).not.toBeInTheDocument();
+    expect(screen.getByText("Net income: 2,965.44")).toBeInTheDocument();
   });
 });

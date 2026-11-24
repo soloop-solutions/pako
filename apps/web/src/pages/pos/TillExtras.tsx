@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import type { CustomerOrderResponse, PosCatalogItemResponse, SerialLookupResponse } from "@pako/shared";
 import { ApiException } from "@pako/shared";
@@ -16,7 +17,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { CustomerOrderState, customerOrderKindKey, customerOrderStateKey, itemSerialStatusKey } from "@/lib/pos-enums";
 import { cn } from "@/lib/utils";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 // docs/POS_PLAN.md P2 at the till: variants, serial numbers, warranty and customer orders.
 

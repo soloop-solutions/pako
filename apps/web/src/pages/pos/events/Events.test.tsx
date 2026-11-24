@@ -154,8 +154,8 @@ describe("Ticketed events and venues (P5)", () => {
     await waitFor(() => expect(api.setPosEventFinalGuests).toHaveBeenCalledWith("c1", "ev1", { guests: 118 }));
     const folio = await within(details).findByTestId("folio");
     expect(folio).toHaveTextContent("Menu Gold");
-    expect(folio).toHaveTextContent("2950.00");
-    expect(within(folio).getByTestId("folio-due")).toHaveTextContent("2950.00");
+    expect(folio).toHaveTextContent("2,950.00");
+    expect(within(folio).getByTestId("folio-due")).toHaveTextContent("2,950.00");
     // The bill is now open at the store's till for extras and payment.
     expect(within(details).getByRole("button", { name: /Open bill at till/ })).toBeEnabled();
   });

@@ -13,6 +13,7 @@ import {
   type RowSelectionState,
   type SortingState,
 } from "@tanstack/react-table";
+import { formatMoney } from "@/lib/amount";
 import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, ChevronRight, Columns3, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useIntl } from "react-intl";
@@ -610,7 +611,7 @@ export function DataGrid<TData extends object>({
                       <td key={column.id} className="h-8 px-2 py-1 text-right tabular-nums">
                         {meta.footerAggregate === "count"
                           ? aggregate
-                          : aggregate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          : formatMoney(aggregate)}
                       </td>
                     );
                   }

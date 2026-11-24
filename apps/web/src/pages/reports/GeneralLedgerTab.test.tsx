@@ -41,8 +41,8 @@ describe("GeneralLedgerTab", () => {
     renderReports(URL_);
     expect(await screen.findByText("Trade receivables")).toBeInTheDocument();
     expect(screen.getByText("Revenue from sales")).toBeInTheDocument();
-    expect(screen.getAllByText("1180.00").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("1000.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1,180.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("1,000.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Alba Trade SH.P.K.")).toBeInTheDocument();
     expect(m.generalLedger).toHaveBeenCalledWith("c1", "2026-01-01", "2026-12-31", undefined, undefined, 1, 50, undefined, undefined);
   });
@@ -86,7 +86,7 @@ describe("GeneralLedgerTab", () => {
     renderReports(URL_);
     await screen.findByText("Trade receivables");
     const footer = document.querySelector("tfoot") as HTMLElement;
-    expect(within(footer).getAllByText("98765.43")).toHaveLength(2);
+    expect(within(footer).getAllByText("98,765.43")).toHaveLength(2);
     expect(within(footer).getByText("Total")).toBeInTheDocument();
   });
 

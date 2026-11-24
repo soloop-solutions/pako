@@ -1,4 +1,5 @@
 import { forwardRef, useEffect, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import type { PosOrderResponse, RegisterResponse, StoreResponse, TicketResponse } from "@pako/shared";
 import QRCode from "qrcode";
 import { useIntl } from "react-intl";
@@ -11,7 +12,7 @@ export interface CouponIssuer {
   vatNumber?: string;
 }
 
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // docs/POS_PLAN.md §11.4: what the coupon must show (AI MF 01/2026 art. 9) — issuer, NUI, the
 // lines with their VAT letter, VAT per rate, payments, coupon id and the verification QR.

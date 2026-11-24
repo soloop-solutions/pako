@@ -6,8 +6,8 @@ afterEach(() => setNegativeNumberStyle(undefined));
 
 describe("formatReportAmount", () => {
   it("wraps negatives in parentheses by default, never (-100)", () => {
-    expect(formatReportAmount(-1234.5)).toBe("(1234.50)");
-    expect(formatReportAmount(1234.5)).toBe("1234.50");
+    expect(formatReportAmount(-1234.5)).toBe("(1,234.50)");
+    expect(formatReportAmount(1234.5)).toBe("1,234.50");
     expect(formatReportAmount(0)).toBe("0.00");
   });
 

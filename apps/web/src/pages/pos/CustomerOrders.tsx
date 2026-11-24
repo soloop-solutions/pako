@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { CustomerOrderResponse } from "@pako/shared";
@@ -35,7 +36,7 @@ import { cn } from "@/lib/utils";
 
 const GRID_ID = "pos-customer-orders";
 const ALL = "all";
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // docs/POS_PLAN.md P2: layaways and special orders. Deposits are taken and orders collected at the
 // till; here they are created, edited, marked ready and cancelled. Totals, deposits and what is

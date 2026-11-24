@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 
+import { formatMoney } from "@/lib/amount";
 import { apiClient } from "@/api/client";
 import { useCompany } from "@/context/CompanyContext";
 import { usePosStores } from "@/hooks/usePos";
@@ -10,7 +11,7 @@ import { todayLocal } from "@/lib/pos-services";
 // online-channel screens and the till. Figures are always the server's; these only format them.
 
 /** An amount the API returned, with two decimals. */
-export const money = (v: number | undefined | null) => (v ?? 0).toFixed(2);
+export const money = (v: number | undefined | null) => formatMoney((v ?? 0));
 
 /** A quantity (litres, units) the API returned, up to three decimals. */
 export const qty = (v: number | undefined | null) => (v == null ? "—" : String(Math.round(v * 1000) / 1000));

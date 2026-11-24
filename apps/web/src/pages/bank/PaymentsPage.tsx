@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -105,7 +106,7 @@ export function PaymentsPage() {
     {
       accessorKey: "amount",
       header: t("recordPayment.amount"),
-      cell: ({ getValue }) => getValue<number>().toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+      cell: ({ getValue }) => formatMoney(getValue<number>()),
       meta: { numeric: true },
       size: 120,
     },
@@ -114,7 +115,7 @@ export function PaymentsPage() {
       header: t("directPayment.unapplied"),
       cell: ({ getValue }) => {
         const value = getValue<number | undefined>();
-        return value ? value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
+        return value ? formatMoney(value) : "—";
       },
       meta: { numeric: true },
       size: 120,

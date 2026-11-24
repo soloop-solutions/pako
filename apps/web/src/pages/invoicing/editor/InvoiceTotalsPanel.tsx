@@ -1,4 +1,5 @@
 import { useIntl } from "react-intl";
+import { formatMoney } from "@/lib/amount";
 import type { InvoiceQuoteResponse, TaxDefinitionResponse } from "@pako/shared";
 
 import { cn } from "@/lib/utils";
@@ -19,7 +20,7 @@ export function InvoiceTotalsPanel({
 }) {
   const intl = useIntl();
   const t = (id: string) => intl.formatMessage({ id });
-  const money = (value: number | undefined) => (value == null ? "—" : value.toFixed(2));
+  const money = (value: number | undefined) => formatMoney(value);
   const totals = quote?.totals;
 
   return (

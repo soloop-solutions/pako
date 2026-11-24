@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import type { PosOrderLineRequest, TabResponse, TabSplitResponse } from "@pako/shared";
 import { keepPreviousData, useMutation, useQuery } from "@tanstack/react-query";
 import { Check, Divide, ListChecks, Wallet } from "lucide-react";
@@ -14,7 +15,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { cn } from "@/lib/utils";
 import { payable, tabPayLine, type TabPayment } from "@/pages/pos/restaurant/tab-utils";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 // docs/POS_PLAN.md §6.2: pay all, pay chosen lines, or split equally. What each choice costs is
 // always the server's figure — the tab's due, a quote with the tab, or the split's part total.

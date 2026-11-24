@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { formatPrice } from "@/lib/amount";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { PriceChangeResponse, SavePriceChangeRequest } from "@pako/shared";
 import { ArrowLeft, Plus, Printer, X } from "lucide-react";
@@ -168,7 +169,7 @@ export function PriceChangeDetail() {
   }
 
   const setLine = (index: number, patch: Partial<Line>) => setLines((ls) => ls.map((l, i) => (i === index ? { ...l, ...patch } : l)));
-  const price = (v: number | undefined) => (v == null ? "—" : intl.formatNumber(v, { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+  const price = (v: number | undefined) => (v == null ? "—" : formatPrice(v));
 
   if (!activeCompanyId) return <p className="text-muted-foreground">{t("common.selectCompanyFirst")}</p>;
   if (!isNew && changeQuery.isPending) return <p className="text-muted-foreground">{t("platform.loading")}</p>;

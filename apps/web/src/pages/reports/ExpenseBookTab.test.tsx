@@ -42,8 +42,8 @@ describe("ExpenseBookTab", () => {
     expect(within(row).getByText("KEDS J.S.C.")).toBeInTheDocument();
     expect(within(row).getAllByText("240.00").length).toBe(2);
     const totals = screen.getByText("Column totals").closest("tr") as HTMLElement;
-    expect(within(totals).getByText("1000.00")).toBeInTheDocument();
-    expect(within(totals).getByText("3000.00")).toBeInTheDocument();
+    expect(within(totals).getByText("1,000.00")).toBeInTheDocument();
+    expect(within(totals).getByText("3,000.00")).toBeInTheDocument();
     expect(within(totals).getByText("240.00")).toBeInTheDocument();
   });
 
@@ -52,7 +52,7 @@ describe("ExpenseBookTab", () => {
     await screen.findByText("BILL-0001");
     const totals = screen.getByText("Column totals").closest("tr") as HTMLElement;
     const cells = within(totals).getAllByRole("cell");
-    expect(cells[cells.length - 1].textContent).toBe("4240.00");
+    expect(cells[cells.length - 1].textContent).toBe("4,240.00");
   });
 
   it("exports through expenseBookExport", async () => {

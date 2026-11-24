@@ -1,4 +1,5 @@
 import { forwardRef, useMemo, useRef, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RepairTicketResponse, StoreResponse } from "@pako/shared";
@@ -32,7 +33,7 @@ import { cn } from "@/lib/utils";
 
 const GRID_ID = "pos-repairs";
 const ALL = "all";
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 // The way a repair goes; Collected is reached only by the sale at the till, Cancelled any time before.
 const FLOW = [RepairState.Received, RepairState.Diagnosing, RepairState.WaitingApproval, RepairState.Approved, RepairState.InRepair, RepairState.Ready];
 const isClosed = (r: RepairTicketResponse) => r.state === RepairState.Collected || r.state === RepairState.Cancelled;

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useQuery } from "@tanstack/react-query";
 import type { MembershipResponse, PackageResponse } from "@pako/shared";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -14,7 +15,7 @@ import { useCompany } from "@/context/CompanyContext";
 import { MembershipState, membershipStateKey, packageUsable } from "@/lib/pos-services";
 import { cn } from "@/lib/utils";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 // docs/POS_PLAN.md P4: a session from a package — scan or type the package number (or the holder's
 // name or phone); the server prices the line at the package's value and pays it from the package.

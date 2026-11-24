@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useIntl } from "react-intl";
 import { useSearchParams } from "react-router-dom";
@@ -27,7 +28,7 @@ function moneyColumn(key: keyof TrialBalanceLine & string, header: React.ReactNo
     header: () => header,
     meta: { numeric: true },
     enableColumnFilter: false,
-    cell: ({ getValue }) => (getValue() as number).toFixed(2),
+    cell: ({ getValue }) => formatMoney((getValue() as number)),
   };
 }
 
@@ -194,11 +195,11 @@ export function AccountBalancesPanel({ companyId, reloadKey }: AccountBalancesPa
               ? {
                   label: intl.formatMessage({ id: "common.total" }),
                   cells: {
-                    opening: totals.opening.toFixed(2),
-                    debit: totals.debit.toFixed(2),
-                    credit: totals.credit.toFixed(2),
-                    balance: totals.balance != null ? totals.balance.toFixed(2) : "",
-                    closing: totals.closing.toFixed(2),
+                    opening: formatMoney(totals.opening),
+                    debit: formatMoney(totals.debit),
+                    credit: formatMoney(totals.credit),
+                    balance: totals.balance != null ? formatMoney(totals.balance) : "",
+                    closing: formatMoney(totals.closing),
                   },
                 }
               : undefined

@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ProgramResponse, SaveProgramRequest, StoreResponse } from "@pako/shared";
@@ -23,7 +24,7 @@ import { useItemSearch } from "@/hooks/useStock";
 import { PROGRAM_KINDS, PROGRAM_REWARD_KINDS, ProgramKind, ProgramRewardKind, programKindKey, programRewardKey } from "@/lib/pos-enums";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 const DAYS = [0, 1, 2, 3, 4, 5, 6] as const;
 const programsKey = (companyId: string | null) => ["posPrograms", companyId] as const;
 

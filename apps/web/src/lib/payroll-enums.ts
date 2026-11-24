@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/amount";
 // Pako.Api doesn't emit enum member names (see ledger-enums.ts), so PayrollAdjustmentKind arrives
 // as a plain number. Order must match backend/Pako.Domain/Payroll/PayrollAdjustment.cs's
 // PayrollAdjustmentKind enum exactly, by hand.
@@ -191,9 +192,8 @@ export function formatPayrollMonth(monthOrDate: string, intl: IntlShape): string
 }
 
 // Display only — 2 decimals, grouped, never rounded beyond what the API sent.
-// Same plain two-decimal format the invoice/bill registers and the HR screens use (`toFixed(2)`),
-// so a figure reads identically on the run, the payslip and the employee's annual statement.
+// One money format everywhere (lib/amount formatMoney, 1,234.56 — user decision 2026-11-24), so a
+// figure reads identically on the run, the payslip and the employee's annual statement.
 export function formatAmount(value: number | null | undefined): string {
-  if (value === null || value === undefined) return "—";
-  return value.toFixed(2);
+  return formatMoney(value);
 }

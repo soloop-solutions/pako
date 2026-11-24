@@ -1,4 +1,5 @@
 import { forwardRef } from "react";
+import { formatPrice } from "@/lib/amount";
 import type { SalesOrderResponse, TaxDefinitionResponse } from "@pako/shared";
 import { useIntl } from "react-intl";
 
@@ -16,7 +17,7 @@ export const SalesOrderPrint = forwardRef<HTMLDivElement, {
   const isQuote = order.state < SalesOrderState.Confirmed;
   const number = isQuote ? order.quoteNumber : order.number;
   const qty = (v: number) => intl.formatNumber(v);
-  const price = (v: number) => intl.formatNumber(v, { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  const price = (v: number) => formatPrice(v);
   return (
     <div ref={ref} className="flex flex-col gap-5 bg-white p-2 text-[12px] text-black">
       <header className="flex items-start justify-between gap-4 border-b border-black pb-3">

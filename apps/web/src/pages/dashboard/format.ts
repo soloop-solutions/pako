@@ -1,5 +1,6 @@
 import { useIntl, type IntlShape } from "react-intl";
 
+import { formatMoney } from "@/lib/amount";
 import type { Format } from "@/pages/dashboard/charts";
 import { parseIso } from "@/pages/dashboard/period";
 
@@ -15,7 +16,7 @@ export interface Formatters {
 export function useFormatters(): Formatters {
   const intl = useIntl();
   return {
-    money: (v) => intl.formatNumber(v, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    money: (v) => formatMoney(v),
     compact: (v) => intl.formatNumber(v, { notation: "compact", maximumFractionDigits: 1 }),
     count: (v) => intl.formatNumber(v, { maximumFractionDigits: 0 }),
     percent: (v) => `${intl.formatNumber(v, { maximumFractionDigits: 1 })}%`,

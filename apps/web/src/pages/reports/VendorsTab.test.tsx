@@ -44,8 +44,8 @@ describe("VendorsTab", () => {
     expect(await screen.findByText("KEDS J.S.C.")).toBeInTheDocument();
     expect(screen.getByText("Telekomi i Kosoves J.S.C.")).toBeInTheDocument();
     expect(screen.getAllByText("354.00").length).toBe(2);
-    expect(screen.getByText("1180.00", { selector: "td:last-child" })).toBeInTheDocument();
-    expect(screen.getByText("1474.00")).toBeInTheDocument();
+    expect(screen.getByText("1,180.00", { selector: "td:last-child" })).toBeInTheDocument();
+    expect(screen.getByText("1,474.00")).toBeInTheDocument();
     expect(m.vendorSynthetic).toHaveBeenCalledWith("c1", "2026-01-01", "2026-01-31", false);
   });
 
@@ -91,7 +91,7 @@ describe("VendorsTab", () => {
     const dialog = await screen.findByRole("dialog");
     expect(await within(dialog).findByText("BILL-0001")).toBeInTheDocument();
     expect(within(dialog).getByText("Office rent January 2026")).toBeInTheDocument();
-    expect(within(dialog).getByText("1680.00")).toBeInTheDocument();
+    expect(within(dialog).getByText("1,680.00")).toBeInTheDocument();
     expect(within(dialog).getByText("PAY-0001")).toBeInTheDocument();
     expect(within(dialog).getByText("Opening balance")).toBeInTheDocument();
     expect(within(dialog).getByText("Closing balance")).toBeInTheDocument();

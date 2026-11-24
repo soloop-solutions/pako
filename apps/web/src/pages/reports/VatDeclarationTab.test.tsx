@@ -67,12 +67,12 @@ describe("VatDeclarationTab", () => {
     }
     const row = within(sales).getByText("Taxable sales at 18%").closest("tr") as HTMLElement;
     expect(within(row).getByText("12")).toBeInTheDocument();
-    expect(within(row).getByText("44408.45")).toBeInTheDocument();
-    expect(within(row).getByText("7993.57")).toBeInTheDocument();
+    expect(within(row).getByText("44,408.45")).toBeInTheDocument();
+    expect(within(row).getByText("7,993.57")).toBeInTheDocument();
     const total = within(sales).getByText("Total VAT calculated").closest("tr") as HTMLElement;
-    expect(within(total).getByText("7993.57")).toBeInTheDocument();
+    expect(within(total).getByText("7,993.57")).toBeInTheDocument();
     const deductible = within(purchases).getByText("Total deductible VAT").closest("tr") as HTMLElement;
-    expect(within(deductible).getByText("8140.14")).toBeInTheDocument();
+    expect(within(deductible).getByText("8,140.14")).toBeInTheDocument();
     expect(within(sales).queryByText("Total deductible VAT")).not.toBeInTheDocument();
   });
 

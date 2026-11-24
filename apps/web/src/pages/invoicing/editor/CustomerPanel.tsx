@@ -1,4 +1,5 @@
 import { useIntl } from "react-intl";
+import { formatMoney } from "@/lib/amount";
 import type { CreditExposureResponse, PartnerResponse } from "@pako/shared";
 
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ export function CustomerPanel({
   const intl = useIntl();
   const t = (id: string, values?: Record<string, string | number>) => intl.formatMessage({ id }, values);
   const customer = customers.find((c) => c.id === partnerId);
-  const fmt = (n: number) => `${n.toFixed(2)} ${currency}`;
+  const fmt = (n: number) => `${formatMoney(n)} ${currency}`;
 
   const address = [customer?.streetAddress, [customer?.postalCode, customer?.city].filter(Boolean).join(" "), customer?.country]
     .filter((part) => part && part.trim() !== "")

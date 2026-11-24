@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent, type KeyboardEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   AppointmentResponse,
@@ -66,7 +67,7 @@ import { enqueueOfflineOrder, getPendingOrders, syncOfflineOrders, subscribeQueu
 /** P3: cafés and restaurants open the till on the floor plan. */
 const isRestaurant = (profile: number) => profile === RegisterProfile.Cafe || profile === RegisterProfile.Restaurant;
 
-const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+const money = (v: number | undefined) => formatMoney(v ?? 0);
 
 interface BasketLine {
   key: string;

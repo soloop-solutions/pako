@@ -116,7 +116,7 @@ describe("Partners", () => {
     expect(screen.getByText("123456789")).toBeInTheDocument();
     expect(screen.getByText(/110100/)).toBeInTheDocument();
     expect(screen.getByText("30")).toBeInTheDocument();
-    expect(screen.getByText("5000.00 \u20AC")).toBeInTheDocument();
+    expect(screen.getByText("5,000.00 \u20AC")).toBeInTheDocument();
   });
 
   it("edits a partner via the real PUT endpoint and closes the form on success", async () => {

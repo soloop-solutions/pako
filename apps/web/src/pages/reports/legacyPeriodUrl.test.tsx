@@ -44,11 +44,11 @@ interface Case {
 const RANGE = { From: "2025-03-01", To: "2025-06-30" };
 const RANGE_PARAMS = ["from=2025-03-01", "to=2025-06-30"];
 const CASES: Case[] = [
-  { name: "P&L", tab: "pnl", fn: "profitAndLoss", fixture: pnl, visible: "Gross profit: 4242.42", inputs: RANGE, args: ["c1", "2025-03-01", "2025-06-30"], params: RANGE_PARAMS },
-  { name: "VAT return", tab: "vat", fn: "vatReturn", fixture: vat, visible: "Net VAT due: 4242.42", inputs: RANGE, args: ["c1", "2025-03-01", "2025-06-30"], params: RANGE_PARAMS },
+  { name: "P&L", tab: "pnl", fn: "profitAndLoss", fixture: pnl, visible: "Gross profit: 4,242.42", inputs: RANGE, args: ["c1", "2025-03-01", "2025-06-30"], params: RANGE_PARAMS },
+  { name: "VAT return", tab: "vat", fn: "vatReturn", fixture: vat, visible: "Net VAT due: 4,242.42", inputs: RANGE, args: ["c1", "2025-03-01", "2025-06-30"], params: RANGE_PARAMS },
   { name: "sales book", tab: "sales-book", fn: "salesBook", fixture: salesBook, visible: "INV-SALES-1", inputs: RANGE, args: ["c1", "2025-03-01", "2025-06-30"], params: RANGE_PARAMS },
   { name: "purchase book", tab: "purchase-book", fn: "purchaseBook", fixture: purchaseBook, visible: "VR-BOOK-1", inputs: RANGE, args: ["c1", "2025-03-01", "2025-06-30"], params: RANGE_PARAMS },
-  { name: "balance sheet", tab: "balance-sheet", fn: "balanceSheet", fixture: balanceSheet, visible: "Assets (1000.10) = Liabilities + Equity (777.77)", inputs: { "As of": "2025-06-30" }, args: ["c1", "2025-06-30"], params: ["asOf=2025-06-30"] },
+  { name: "balance sheet", tab: "balance-sheet", fn: "balanceSheet", fixture: balanceSheet, visible: "Assets (1,000.10) = Liabilities + Equity (777.77)", inputs: { "As of": "2025-06-30" }, args: ["c1", "2025-06-30"], params: ["asOf=2025-06-30"] },
   { name: "debt aging", tab: "debt", fn: "debtAging", fixture: debt, visible: "INV-7777", inputs: { "As of": "2025-06-30" }, args: ["c1", "2025-06-30"], params: ["asOf=2025-06-30"] },
 ];
 

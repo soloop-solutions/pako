@@ -1,11 +1,12 @@
 import type { RegisterResponse } from "@pako/shared";
 
+import { formatMoney } from "@/lib/amount";
 import { usePosRegisters } from "@/hooks/usePos";
 import { EventBookingState, HotelBookingState, RegisterProfile } from "@/lib/pos-enums";
 
 // docs/POS_PLAN.md §6.4–6.5 / P5: helpers shared by the hotel, events and ticketing pages.
 
-export const money = (v: number | undefined) => (v ?? 0).toFixed(2);
+export const money = (v: number | undefined) => formatMoney((v ?? 0));
 
 // ---- Calendar dates (DateOnly on the wire: "yyyy-MM-dd") ----
 

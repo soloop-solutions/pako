@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useIntl } from "react-intl";
 import type { AccountResponse, CreditExposureResponse, InvoiceResponse, ItemResponse, PartnerResponse, PaymentMethodResponse, ResolvedPriceResponse, TaxDefinitionResponse } from "@pako/shared";
@@ -736,7 +737,7 @@ export function InvoiceForm({
 
   const priceLabelId = priceMode === PriceMode.NetExclusive ? "invoiceForm.priceExclVat" : "invoiceForm.priceInclVat";
   const otherBasisLabelId = priceMode === PriceMode.NetExclusive ? "invoiceEditor.inclVatShort" : "invoiceEditor.exclVatShort";
-  const money = (value: number | undefined) => (value == null ? "—" : value.toFixed(2));
+  const money = (value: number | undefined) => formatMoney(value);
   const th = "px-1.5 py-1.5 text-left text-xs font-medium text-muted-foreground whitespace-nowrap";
   const thNum = `${th} text-right`;
   const td = "px-1 py-1 align-top";
@@ -917,7 +918,7 @@ export function InvoiceForm({
                         options={items.map((item) => ({
                           value: item.id,
                           label: itemOptionLabel(item),
-                          description: item.defaultUnitPrice != null ? `${item.defaultUnitPrice.toFixed(2)}` : undefined,
+                          description: item.defaultUnitPrice != null ? `${formatMoney(item.defaultUnitPrice)}` : undefined,
                         }))}
                         favorites={{
                           pinnedIds: itemFavs.pinnedIds,

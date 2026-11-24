@@ -1,4 +1,5 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useCallback, useMemo, useState } from "react";
@@ -428,7 +429,7 @@ export function Items() {
         meta: { numeric: true },
         cell: ({ getValue }) => {
           const value = getValue();
-          return typeof value === "number" ? `${value.toFixed(2)} €` : "—";
+          return typeof value === "number" ? `${formatMoney(value)} €` : "—";
         },
       },
       {
@@ -439,7 +440,7 @@ export function Items() {
         enableSorting: false,
         cell: ({ getValue }) => {
           const value = getValue();
-          return typeof value === "number" ? `${value.toFixed(2)} €` : "—";
+          return typeof value === "number" ? `${formatMoney(value)} €` : "—";
         },
       },
       {

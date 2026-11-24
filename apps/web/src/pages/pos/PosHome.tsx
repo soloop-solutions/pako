@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { PosOrderSummaryResponse, SessionSummaryResponse } from "@pako/shared";
@@ -28,7 +29,7 @@ import { useListFilters } from "@/components/list/useListFilters";
 const ORDER_FILTERS = ["from", "to", "registerId", "kind"] as const;
 import { SessionReportView } from "@/pages/pos/Till";
 
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // docs/POS_PLAN.md §12: the back office's view of the tills — open one, see the sessions and
 // every coupon issued, reprint one.

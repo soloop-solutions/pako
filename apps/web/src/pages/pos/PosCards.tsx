@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { GiftCardResponse, LoyaltyCardResponse } from "@pako/shared";
@@ -21,7 +22,7 @@ import { GiftCardKind, giftCardKindKey } from "@/lib/pos-enums";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // docs/POS_PLAN.md P2: customers' loyalty cards (points) and the gift cards and store credit
 // issued at the tills (balances). Every figure is the server's.

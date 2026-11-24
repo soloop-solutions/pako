@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useIntl } from "react-intl";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
@@ -98,8 +99,8 @@ export function PostingPreview({ companyId, documentKind, documentId, onConfirm,
                     <TableRow key={idx}>
                       <TableCell className="font-mono text-sm">{line.accountCode}</TableCell>
                       <TableCell>{line.accountName}</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.debit > 0 ? line.debit.toFixed(2) : ""}</TableCell>
-                      <TableCell className="text-right tabular-nums">{line.credit > 0 ? line.credit.toFixed(2) : ""}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.debit > 0 ? formatMoney(line.debit) : ""}</TableCell>
+                      <TableCell className="text-right tabular-nums">{line.credit > 0 ? formatMoney(line.credit) : ""}</TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -108,8 +109,8 @@ export function PostingPreview({ companyId, documentKind, documentId, onConfirm,
                     <TableCell colSpan={2} className="text-right">
                       {intl.formatMessage({ id: "posting.preview.totalDebits" })} / {intl.formatMessage({ id: "posting.preview.totalCredits" })}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{totalDebits.toFixed(2)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{totalCredits.toFixed(2)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatMoney(totalDebits)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatMoney(totalCredits)}</TableCell>
                   </TableRow>
                 </TableFooter>
               </Table>

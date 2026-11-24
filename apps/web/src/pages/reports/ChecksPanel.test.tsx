@@ -41,8 +41,8 @@ describe("ChecksPanel", () => {
     expect(failing).toHaveAttribute("data-passed", "false");
     expect(failing.className).toContain("warning");
     expect(failing).toHaveTextContent("Failed");
-    expect(failing).toHaveTextContent("45000.00");
-    expect(failing).toHaveTextContent("44880.00");
+    expect(failing).toHaveTextContent("45,000.00");
+    expect(failing).toHaveTextContent("44,880.00");
     const passing = screen.getByText("Balance sheet balances").closest("[data-check]") as HTMLElement;
     expect(passing.className).not.toContain("warning");
   });

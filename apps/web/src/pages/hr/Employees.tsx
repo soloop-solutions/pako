@@ -1,4 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import type { ColumnDef } from "@tanstack/react-table";
 import { useMemo } from "react";
@@ -119,7 +120,7 @@ export function Employees() {
         header: intl.formatMessage({ id: "hr.employee.currentSalary" }),
         enableColumnFilter: false,
         meta: { numeric: true },
-        cell: ({ getValue }) => `${(getValue() as number).toFixed(2)} €`,
+        cell: ({ getValue }) => `${formatMoney((getValue() as number))} €`,
       },
       {
         id: "status",

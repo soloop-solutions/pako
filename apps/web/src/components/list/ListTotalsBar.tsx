@@ -1,5 +1,6 @@
 import { useIntl } from "react-intl";
 
+import { formatMoney } from "@/lib/amount";
 import type { BankStatementListTotalsResponse, JournalListTotalsResponse, ListSumResponse, ListTotalsResponse } from "@pako/shared";
 
 export interface ListFigure {
@@ -32,7 +33,7 @@ export function ListFiguresBar({ figures, isLoading }: { figures: ListFigure[] |
 function useMoney() {
   const intl = useIntl();
   return {
-    money: (value: number) => intl.formatNumber(value, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+    money: (value: number) => formatMoney(value),
     count: (value: number) => intl.formatNumber(value),
   };
 }

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useScrollToHash } from "@/hooks/useScrollToHash";
 import { formatDisplayDate } from "@/lib/dates";
 import { DocumentStateBadge } from "@/components/shared/DocumentStateBadge";
@@ -165,7 +166,7 @@ export function BillDetail() {
   }
 
   async function handleAppliedCreditNote(response: ApplyCreditNoteResponse) {
-    const msg = intl.formatMessage({ id: "billDetail.appliedCreditNote" }, { amount: response.reconciliation.amount.toFixed(2) });
+    const msg = intl.formatMessage({ id: "billDetail.appliedCreditNote" }, { amount: formatMoney(response.reconciliation.amount) });
     setApplyMessage(msg);
     toast.success(msg);
     await refresh();
@@ -225,7 +226,7 @@ export function BillDetail() {
 
   // Every amount comes from the server (DocumentLineCalculator), never computed here.
   const totals = bill.totals;
-  const money = (value: number | undefined) => (value ?? 0).toFixed(2);
+  const money = (value: number | undefined) => formatMoney((value ?? 0));
   const priceHeaderId = bill.priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat";
 
   return (
@@ -332,7 +333,7 @@ export function BillDetail() {
                 <TableRow key={line.id}>
                   <TableCell>{line.description}</TableCell>
                   <TableCell className="text-right tabular-nums">{line.unitName ? `${line.quantity} ${line.unitName}` : line.quantity}</TableCell>
-                  <TableCell className="text-right tabular-nums">{line.unitPrice.toFixed(2)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{formatMoney(line.unitPrice)}</TableCell>
                   <TableCell className="text-right tabular-nums">{line.discountPercent.toFixed(2)}</TableCell>
                   <TableCell className="text-right tabular-nums">{money(line.netAmount)}</TableCell>
                   {activeCompany.isVatRegistered && <TableCell>{taxes.find((t) => t.id === line.taxDefinitionId)?.name ?? "-"}</TableCell>}
@@ -360,9 +361,9 @@ export function BillDetail() {
 
           {bill.state === "Posted" && balance && (
             <div className="flex gap-6 text-sm">
-              <p>{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: balance.total.toFixed(2) })}</p>
-              <p>{intl.formatMessage({ id: "billDetail.reconciled" }, { amount: balance.reconciled.toFixed(2) })}</p>
-              <p className="font-medium">{intl.formatMessage({ id: "billDetail.outstanding" }, { amount: balance.outstanding.toFixed(2) })}</p>
+              <p>{intl.formatMessage({ id: "billDetail.totalAmount" }, { amount: formatMoney(balance.total) })}</p>
+              <p>{intl.formatMessage({ id: "billDetail.reconciled" }, { amount: formatMoney(balance.reconciled) })}</p>
+              <p className="font-medium">{intl.formatMessage({ id: "billDetail.outstanding" }, { amount: formatMoney(balance.outstanding) })}</p>
             </div>
           )}
             {relatedDocs.length > 0 && <RelatedDocuments documents={relatedDocs} />}

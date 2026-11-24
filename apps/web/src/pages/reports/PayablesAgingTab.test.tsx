@@ -38,7 +38,7 @@ describe("PayablesAgingTab", () => {
     await screen.findByText("BILL-0004");
     expect(m.payablesAging).toHaveBeenCalledWith("c1", "2026-01-31");
     const expected: Record<string, string> = {
-      Current: "1180.00",
+      Current: "1,180.00",
       "1-30": "240.00",
       "31-45": "0.00",
       "46-60": "234.00",
@@ -91,8 +91,8 @@ describe("PayablesAgingTab", () => {
       expect(within(matrix).getByRole("columnheader", { name: header })).toBeInTheDocument();
     }
     const footer = matrix.querySelector("tfoot") as HTMLElement;
-    expect(within(footer).getByText("1180.00")).toBeInTheDocument();
-    expect(within(footer).getByText("1774.00")).toBeInTheDocument();
+    expect(within(footer).getByText("1,180.00")).toBeInTheDocument();
+    expect(within(footer).getByText("1,774.00")).toBeInTheDocument();
     expect(within(footer).getByText("Total")).toBeInTheDocument();
   });
 

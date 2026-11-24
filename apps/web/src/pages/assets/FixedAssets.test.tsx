@@ -100,7 +100,7 @@ describe("Fixed assets register", () => {
   it("lists the API's figures and opens the asset with its plan", async () => {
     renderAt("/fixed-assets");
     expect(await screen.findByText("CNC lathe")).toBeInTheDocument();
-    expect(screen.getByText("1000.00")).toBeInTheDocument();
+    expect(screen.getByText("1,000.00")).toBeInTheDocument();
     expect(api.listFixedAssets).toHaveBeenCalledWith("c1", 1, 50, undefined, undefined, undefined, undefined);
 
     fireEvent.click(screen.getByText("CNC lathe"));

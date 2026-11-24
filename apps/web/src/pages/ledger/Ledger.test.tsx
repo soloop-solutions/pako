@@ -87,7 +87,7 @@ describe("Ledger trial balance period", () => {
     }
     expect(screen.getByText("Receivables")).toBeInTheDocument();
     expect(screen.getByText("250.50")).toBeInTheDocument();
-    expect(screen.getByText("1430.50")).toBeInTheDocument();
+    expect(screen.getByText("1,430.50")).toBeInTheDocument();
   });
 
   it("sends the period from the URL", async () => {
@@ -135,10 +135,10 @@ describe("Ledger trial balance period", () => {
     await screen.findByText("Trade receivables");
     await waitFor(() => expect(m.trialBalanceTotals).toHaveBeenCalledWith("c1", "2026-01-01", "2026-03-31", undefined));
     const footer = document.querySelector("tfoot") as HTMLElement;
-    await waitFor(() => expect(footer.textContent).toContain("1550.00"));
+    await waitFor(() => expect(footer.textContent).toContain("1,550.00"));
     expect(footer.textContent).toContain("Total");
     expect(footer.textContent).toContain("10.50");
-    expect(footer.textContent).toContain("1549.50");
+    expect(footer.textContent).toContain("1,549.50");
     expect(footer.textContent).toContain("11.00");
     // The period balance comes from the API (totals.balance), not from debit − credit in the browser.
     expect(footer.textContent).toContain("0.50");
@@ -148,6 +148,6 @@ describe("Ledger trial balance period", () => {
     renderLedger("/ledger");
     await screen.findByText("Trade receivables");
     await waitFor(() => expect(m.trialBalanceTotals).toHaveBeenCalledWith("c1", undefined, undefined, undefined));
-    await waitFor(() => expect(document.querySelector("tfoot")?.textContent).toContain("1550.00"));
+    await waitFor(() => expect(document.querySelector("tfoot")?.textContent).toContain("1,550.00"));
   });
 });

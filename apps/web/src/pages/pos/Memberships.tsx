@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { MembershipResponse, PackageResponse } from "@pako/shared";
@@ -22,7 +23,7 @@ import { MembershipStatus } from "@/pages/pos/TillServices";
 
 const PACKAGES_GRID = "pos-packages";
 const MEMBERSHIPS_GRID = "pos-memberships";
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // docs/POS_PLAN.md §6.9 / P4: packages of sessions and memberships, sold at the till. Sessions,
 // values and end dates are the server's. Freezing (Approve) moves the end date; resuming ends the

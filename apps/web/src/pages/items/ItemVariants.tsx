@@ -1,4 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
+import { formatMoney } from "@/lib/amount";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { ItemAttributeResponse, ItemVariantResponse } from "@pako/shared";
@@ -30,7 +31,7 @@ function useItemAttributes() {
   });
 }
 
-const price = (v: number | undefined) => (v == null ? "—" : `${v.toFixed(2)} €`);
+const price = (v: number | undefined) => (v == null ? "—" : `${formatMoney(v)} €`);
 
 // docs/POS_PLAN.md P2 variants: the attributes (size, colour…) and their values that variants are
 // made of. A value a variant uses can't be removed — the server says so.

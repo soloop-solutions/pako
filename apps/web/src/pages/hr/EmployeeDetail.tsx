@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/amount";
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { useIntl } from "react-intl";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -287,7 +288,7 @@ function EmployeeEditor({
           {employee && (
             <div className="text-right">
               <p className="text-xs text-muted-foreground">{intl.formatMessage({ id: "hr.employee.currentSalary" })}</p>
-              <p className="text-lg font-semibold tabular-nums">{employee.currentSalary.toFixed(2)} €</p>
+              <p className="text-lg font-semibold tabular-nums">{formatMoney(employee.currentSalary)} €</p>
             </div>
           )}
         </div>

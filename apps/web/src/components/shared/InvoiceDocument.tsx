@@ -1,3 +1,4 @@
+import { formatMoney } from "@/lib/amount";
 import { useIntl } from "react-intl";
 
 // ---------------------------------------------------------------------------
@@ -116,7 +117,7 @@ const DOCUMENT_TYPE_TITLE_KEYS: Record<number, string> = {
   5: "invoiceDoc.title.proforma",
 };
 
-const money = (value: number | undefined) => (value == null ? "—" : value.toFixed(2));
+const money = (value: number | undefined) => formatMoney(value);
 
 function formatDate(dateStr: string): string {
   if (!dateStr) return "—";

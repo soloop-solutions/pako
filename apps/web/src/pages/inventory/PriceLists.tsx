@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { formatPrice } from "@/lib/amount";
 import { PageHeader } from "@/components/list/PageHeader";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ColumnDef } from "@tanstack/react-table";
@@ -120,7 +121,7 @@ function PricesTab({ lists, selected, onSelect, onEdit }: {
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
-  const price = (v: number | undefined) => (v == null ? "—" : intl.formatNumber(v, { minimumFractionDigits: 2, maximumFractionDigits: 4 }));
+  const price = (v: number | undefined) => (v == null ? "—" : formatPrice(v));
 
   const columns = useMemo<ColumnDef<PriceListItemResponse>[]>(
     () => [

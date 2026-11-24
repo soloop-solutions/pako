@@ -124,7 +124,7 @@ describe("Construction (P8)", () => {
       projectCode: "K-001", address: undefined, startDate: undefined, endDate: undefined, state: 0,
     });
     // The saved site opens, with the BoQ total from the API.
-    expect(await screen.findByTestId("boq-total")).toHaveTextContent("100000.00");
+    expect(await screen.findByTestId("boq-total")).toHaveTextContent("100,000.00");
   });
 
   it("sends the cumulative quantities of a draft progress bill, approves it and opens the invoice it creates", async () => {
@@ -150,8 +150,8 @@ describe("Construction (P8)", () => {
     }]);
     // The period quantity, amount and totals are the API's.
     const totals = await screen.findByTestId("pb-totals");
-    expect(totals).toHaveTextContent("3000.00");
-    expect(totals).toHaveTextContent("2850.00");
+    expect(totals).toHaveTextContent("3,000.00");
+    expect(totals).toHaveTextContent("2,850.00");
 
     api.approveProgressBill.mockImplementation(() => {
       const approved = { ...BILL, state: 1 };

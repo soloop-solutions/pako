@@ -1,4 +1,5 @@
 import { forwardRef, useRef } from "react";
+import { formatMoney } from "@/lib/amount";
 import type { PosBootstrapResponse, TabResponse } from "@pako/shared";
 import { Printer } from "lucide-react";
 import { useIntl } from "react-intl";
@@ -8,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TabLineState } from "@/lib/pos-enums";
 import { printCoupon } from "@/lib/pos-print";
 
-const money = (v: number) => v.toFixed(2);
+const money = (v: number) => formatMoney(v);
 
 // docs/POS_PLAN.md §6.2: the pre-bill shown to the table before paying. It is NOT a fiscal coupon
 // (that is issued at payment) and says so in large letters. Lines, gross and totals are the tab's
