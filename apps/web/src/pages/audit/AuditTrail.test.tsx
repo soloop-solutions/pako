@@ -30,6 +30,7 @@ vi.mock("@/api/client", async (importOriginal) => {
         { membershipId: "m1", userId: "me", email: "me@co.test", role },
         { membershipId: "m2", userId: "9b8a7c6d-3333-4b2b-9c2b-000000000020", email: "alice@acme.test", role: 3 },
       ],
+      getMyAccess: async () => ({ isAdmin: role === 2, isStaff: role !== 2, modules: {} }),
       auditPaged: (...args: unknown[]) => auditPaged(...args),
       auditDetail: (...args: unknown[]) => auditDetailMock(...args),
       auditVerify: (...args: unknown[]) => auditVerify(...args),

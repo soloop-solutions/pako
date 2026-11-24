@@ -94,15 +94,17 @@ export function InvoiceDetail() {
     if (!companyId || !id) return;
     setError(null);
     try {
-      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult] =
+      const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult] =
         await Promise.all([
           apiClient.invoicesGET(companyId, id),
           apiClient.partnersAll(companyId, undefined),
           apiClient.taxes(companyId),
           apiClient.invoicesAll(companyId),
           apiClient.paymentMethodsAll(companyId),
-          apiClient.membersAll(companyId),
         ]);
+      // Members needs Users access; non-admin roles may not have it — load separately and
+      // fall back to an empty list so the page still works.
+      const membersResult = await apiClient.membersAll(companyId).catch(() => []);
       setInvoice(invoiceResult);
       setPartners(partnersResult);
       setTaxes(taxesResult);
