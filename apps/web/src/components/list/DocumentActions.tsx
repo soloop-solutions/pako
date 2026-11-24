@@ -9,18 +9,20 @@ export function RowActionButton({
   icon: Icon,
   onClick,
   disabled,
+  destructive,
 }: {
   label: string;
   icon: ComponentType<{ className?: string }>;
   onClick: () => void;
   disabled?: boolean;
+  destructive?: boolean;
 }) {
   return (
     <Button
       type="button"
       size="icon"
       variant="ghost"
-      className="size-6"
+      className={destructive ? "size-6 text-destructive hover:text-destructive" : "size-6"}
       title={label}
       aria-label={label}
       disabled={disabled}

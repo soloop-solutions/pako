@@ -12,6 +12,10 @@ import { partnerFormError, type PartnerFormError } from "@/pages/partners/partne
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useConfirm } from "@/components/ui/confirm-context";
+import { RowActionButton } from "@/components/list/DocumentActions";
+import { Archive, ArchiveRestore, Pencil, Trash2 } from "lucide-react";
 import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import {
@@ -69,6 +73,8 @@ export function PartnerListPage({
   const intl = useIntl();
   const { activeCompanyId } = useCompany();
   const queryClient = useQueryClient();
+  const confirm = useConfirm();
+  const [showArchived, setShowArchived] = useState(false);
 
   const [formOpen, setFormOpen] = useState(false);
   const [rolePickerOpen, setRolePickerOpen] = useState(false);
@@ -81,10 +87,10 @@ export function PartnerListPage({
   const paged = usePagedGrid<PartnerResponse>({
     gridId,
     enabled: !!activeCompanyId,
-    queryKey: [...partnersQueryKey, "paged", role ?? "all"],
+    queryKey: [...partnersQueryKey, "paged", role ?? "all", showArchived],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort }) => {
-      const result = await apiClient.paged4(activeCompanyId as string, page, pageSize, search, role, sort);
+      const result = await apiClient.paged4(activeCompanyId as string, page, pageSize, search, role, sort, showArchived || undefined);
       return { items: result.items, total: result.total };
     },
   });
@@ -207,11 +213,81 @@ export function PartnerListPage({
       setMutationError(partnerFormError(err, intl.formatMessage({ id: labels.saveErrorKey }))),
   });
 
+  const archiveMutation = useMutation({
+    mutationFn: (vars: { id: string; archive: boolean }) =>
+      vars.archive
+        ? apiClient.archivePartner(activeCompanyId as string, vars.id)
+        : apiClient.unarchivePartner(activeCompanyId as string, vars.id),
+    onSuccess: async (_data, vars) => {
+      setEditingId(null);
+      toast.success(intl.formatMessage({ id: vars.archive ? "partners.archive.success" : "partners.unarchive.success" }));
+      await refresh();
+    },
+    onError: (err: unknown) => toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "partners.archive.error" }))),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiClient.deletePartner(activeCompanyId as string, id),
+    onSuccess: async () => {
+      setEditingId(null);
+      toast.success(intl.formatMessage({ id: "partners.delete.success" }));
+      await refresh();
+    },
+    onError: (err: unknown) => toast.error(getApiErrorMessage(err, intl.formatMessage({ id: "partners.delete.error" }))),
+  });
+
+  function askArchive(partner: PartnerResponse) {
+    if (partner.isActive === false) {
+      archiveMutation.mutate({ id: partner.id, archive: false });
+      return;
+    }
+    confirm(
+      intl.formatMessage({ id: "partners.archive.confirm" }, { name: partner.name }),
+      () => archiveMutation.mutate({ id: partner.id, archive: true }),
+      { confirmLabel: intl.formatMessage({ id: "partners.archive" }) },
+    );
+  }
+
+  function askDelete(partner: PartnerResponse) {
+    confirm(
+      intl.formatMessage({ id: "partners.delete.confirm" }, { name: partner.name }),
+      () => deleteMutation.mutate(partner.id),
+      { confirmLabel: intl.formatMessage({ id: "partners.delete" }), destructive: true },
+    );
+  }
+
+  const rowActions = (partner: PartnerResponse) => (
+    <>
+      <RowActionButton
+        label={intl.formatMessage({ id: "common.edit" })}
+        icon={Pencil}
+        onClick={() => { setEditingId(partner.id); setFormOpen(false); setMutationError(null); setDirty(false); }}
+      />
+      <RowActionButton
+        label={intl.formatMessage({ id: partner.isActive === false ? "partners.unarchive" : "partners.archive" })}
+        icon={partner.isActive === false ? ArchiveRestore : Archive}
+        onClick={() => askArchive(partner)}
+      />
+      <RowActionButton label={intl.formatMessage({ id: "partners.delete" })} icon={Trash2} destructive onClick={() => askDelete(partner)} />
+    </>
+  );
+
   /* eslint-disable react-hooks/exhaustive-deps */
   const columns = useMemo<ColumnDef<PartnerResponse>[]>(() => {
     const hidden = new Set(hiddenColumnIds ?? []);
     const cols: ColumnDef<PartnerResponse>[] = [
-      { accessorKey: "name", header: intl.formatMessage({ id: "partners.form.name" }) },
+      {
+        accessorKey: "name",
+        header: intl.formatMessage({ id: "partners.form.name" }),
+        cell: ({ row }) => (
+          <span className="flex items-center gap-2">
+            {row.original.name}
+            {row.original.isActive === false && (
+              <Badge variant="outline" className="text-muted-foreground text-[10px]">{intl.formatMessage({ id: "partners.archived" })}</Badge>
+            )}
+          </span>
+        ),
+      },
     ];
 
     if (showTypeColumn) {
@@ -305,24 +381,6 @@ export function PartnerListPage({
         header: intl.formatMessage({ id: "partners.form.creditLimit" }),
         meta: { numeric: true },
         cell: ({ getValue }) => { const v = getValue(); return typeof v === "number" ? `${formatMoney(v)} \u20AC` : "\u2014"; },
-      },
-      {
-        id: "actions",
-        header: "",
-        enableSorting: false,
-        enableColumnFilter: false,
-        enableGrouping: false,
-        enableHiding: false,
-        cell: ({ row }) => (
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 text-xs"
-            onClick={() => { setEditingId(row.original.id); setFormOpen(false); setMutationError(null); setDirty(false); }}
-          >
-            {intl.formatMessage({ id: "common.edit" })}
-          </Button>
-        ),
       },
     );
 
@@ -437,9 +495,16 @@ export function PartnerListPage({
         {editingPartner && <div className="mt-4"><EntityHistory entityType="Partner" entityId={editingPartner.id} /></div>}
       </FormDialog>
 
+      <label className="flex w-fit items-center gap-2 text-sm">
+        <Checkbox checked={showArchived} onChange={(e) => setShowArchived(e.target.checked)} />
+        {intl.formatMessage({ id: "partners.showArchived" })}
+      </label>
+
       <DataGrid
         gridId={gridId}
         columns={visibleColumns}
+        getRowClassName={(partner) => (partner.isActive === false ? "text-muted-foreground" : undefined)}
+        rowActions={rowActions}
         data={partners}
         rowCount={paged.total}
         isLoading={partnersQuery.isPending}

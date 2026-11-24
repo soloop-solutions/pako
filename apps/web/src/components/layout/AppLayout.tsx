@@ -166,7 +166,7 @@ function AppShell() {
               <TabStrip />
             </div>
           </div>
-          <main className="flex-1 overflow-y-auto scrollbar-brand p-3 lg:p-4">
+          <main className="flex-1 overflow-y-auto [scrollbar-gutter:stable] scrollbar-brand p-3 lg:p-4">
             <Breadcrumbs />
             <RouteErrorBoundary>
               <Suspense fallback={<div className="flex-1" />}>

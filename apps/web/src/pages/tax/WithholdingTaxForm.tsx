@@ -42,6 +42,22 @@ function amountValue(text: string): number {
   return text ? parseFloat(text) || 0 : 0;
 }
 
+type PaymentType = "rent" | "interest" | "propertyRights" | "lottery" | "nonEntrepreneur" | "nonResident";
+
+const PAYMENT_TYPES: PaymentType[] = ["rent", "interest", "propertyRights", "lottery", "nonEntrepreneur", "nonResident"];
+
+function detectTypes(initial?: WithholdingTaxEntryResponse): Set<PaymentType> {
+  const types = new Set<PaymentType>();
+  if (initial?.grossRent) types.add("rent");
+  if (initial?.grossInterest) types.add("interest");
+  if (initial?.propertyRights) types.add("propertyRights");
+  if (initial?.lotteryWinnings) types.add("lottery");
+  if (initial?.nonEntrepreneur) types.add("nonEntrepreneur");
+  if (initial?.nonResidentEntertainer || initial?.nonResidentServices) types.add("nonResident");
+  if (types.size === 0) types.add("rent");
+  return types;
+}
+
 export function WithholdingTaxForm({
   mode,
   countries,
@@ -56,6 +72,7 @@ export function WithholdingTaxForm({
 
   const [personalNumber, setPersonalNumber] = useState(initial?.personalNumber ?? "");
   const [name, setName] = useState(initial?.name ?? "");
+  const [selectedTypes, setSelectedTypes] = useState<Set<PaymentType>>(() => detectTypes(initial));
   const [interest, setInterest] = useState(amountText(initial?.grossInterest));
   const [propertyRights, setPropertyRights] = useState(amountText(initial?.propertyRights));
   const [lottery, setLottery] = useState(amountText(initial?.lotteryWinnings));
@@ -65,14 +82,41 @@ export function WithholdingTaxForm({
   const [nonEntrepreneur, setNonEntrepreneur] = useState(amountText(initial?.nonEntrepreneur));
   const [area, setArea] = useState(amountText(initial?.rentalAreaM2));
   const [monthlyRent, setMonthlyRent] = useState(amountText(initial?.monthlyGrossRent));
+  const [monthlyEdited, setMonthlyEdited] = useState(
+    !!initial?.monthlyGrossRent && initial.monthlyGrossRent !== initial.grossRent,
+  );
   const [country, setCountry] = useState(initial?.country ?? defaultCountry);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string | null>>({});
 
-  const hasRent = amountValue(rent) > 0;
-  const rentDetailsMissing = hasRent && (amountValue(area) <= 0 || amountValue(monthlyRent) <= 0);
+  const has = (type: PaymentType) => selectedTypes.has(type);
+  const hasRent = has("rent") && amountValue(rent) > 0;
+  const areaMissing = hasRent && amountValue(area) <= 0;
+  const cleanPersonalNumber = personalNumber.replace(/\s/g, "");
+  const personalNumberInvalid = cleanPersonalNumber !== "" && !/^\d{9,10}$/.test(cleanPersonalNumber);
 
   function clearFieldError(field: string) {
     setFieldErrors((prev) => ({ ...prev, [field]: null }));
+  }
+
+  function toggleType(type: PaymentType) {
+    const next = new Set(selectedTypes);
+    if (next.has(type)) {
+      next.delete(type);
+      if (type === "rent") { setRent(""); setArea(""); setMonthlyRent(""); setMonthlyEdited(false); }
+      if (type === "interest") setInterest("");
+      if (type === "propertyRights") setPropertyRights("");
+      if (type === "lottery") setLottery("");
+      if (type === "nonEntrepreneur") setNonEntrepreneur("");
+      if (type === "nonResident") { setEntertainer(""); setServices(""); }
+    } else {
+      next.add(type);
+    }
+    setSelectedTypes(next);
+  }
+
+  function changeRent(value: string) {
+    setRent(value);
+    if (!monthlyEdited) setMonthlyRent(value);
   }
 
   function handleSubmit(e: FormEvent) {
@@ -80,35 +124,36 @@ export function WithholdingTaxForm({
     const errors: Record<string, string | null> = {};
     if (!personalNumber.trim()) {
       errors.personalNumber = intl.formatMessage({ id: "validation.required" });
+    } else if (personalNumberInvalid) {
+      errors.personalNumber = intl.formatMessage({ id: "withholdingTax.personalNumberInvalid" });
     }
     if (!name.trim()) {
       errors.name = intl.formatMessage({ id: "validation.required" });
     }
-    if (rentDetailsMissing) {
-      if (amountValue(area) <= 0) errors.area = intl.formatMessage({ id: "withholdingTax.rentDetailsHint" });
-      if (amountValue(monthlyRent) <= 0) errors.monthlyRent = intl.formatMessage({ id: "withholdingTax.rentDetailsHint" });
+    if (areaMissing) {
+      errors.area = intl.formatMessage({ id: "withholdingTax.rentDetailsHint" });
     }
     if (Object.values(errors).some(Boolean)) {
       setFieldErrors(errors);
       return;
     }
     onSubmit({
-      personalNumber: personalNumber.trim(),
+      personalNumber: cleanPersonalNumber,
       name: name.trim(),
-      grossInterest: amountValue(interest),
-      propertyRights: amountValue(propertyRights),
-      lotteryWinnings: amountValue(lottery),
-      grossRent: amountValue(rent),
-      nonResidentEntertainer: amountValue(entertainer),
-      nonResidentServices: amountValue(services),
-      nonEntrepreneur: amountValue(nonEntrepreneur),
+      grossInterest: has("interest") ? amountValue(interest) : 0,
+      propertyRights: has("propertyRights") ? amountValue(propertyRights) : 0,
+      lotteryWinnings: has("lottery") ? amountValue(lottery) : 0,
+      grossRent: has("rent") ? amountValue(rent) : 0,
+      nonResidentEntertainer: has("nonResident") ? amountValue(entertainer) : 0,
+      nonResidentServices: has("nonResident") ? amountValue(services) : 0,
+      nonEntrepreneur: has("nonEntrepreneur") ? amountValue(nonEntrepreneur) : 0,
       rentalAreaM2: hasRent ? amountValue(area) : undefined,
-      monthlyGrossRent: hasRent ? amountValue(monthlyRent) : undefined,
+      monthlyGrossRent: hasRent ? amountValue(monthlyRent) || amountValue(rent) : undefined,
       country,
     });
   }
 
-  function amountField(id: string, labelId: string, value: string, setValue: (v: string) => void, disabled = false, errorKey?: string) {
+  function amountField(id: string, labelId: string, value: string, setValue: (v: string) => void, errorKey?: string) {
     const err = errorKey ? fieldErrors[errorKey] : undefined;
     return (
       <FormField label={intl.formatMessage({ id: labelId })} htmlFor={id} error={err}>
@@ -117,8 +162,7 @@ export function WithholdingTaxForm({
           type="number"
           step="0.01"
           min="0"
-          className="text-right tabular-nums"
-          disabled={disabled}
+          className="text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
           aria-invalid={!!err}
           aria-describedby={err ? `${id}-error` : undefined}
           value={value}
@@ -144,13 +188,14 @@ export function WithholdingTaxForm({
         <FormField
           label={intl.formatMessage({ id: "withholdingTax.personalNumber" })}
           htmlFor="wht-personal-number"
-          error={fieldErrors.personalNumber}
+          error={fieldErrors.personalNumber ?? (personalNumberInvalid ? intl.formatMessage({ id: "withholdingTax.personalNumberInvalid" }) : undefined)}
           required
         >
           <Input
             id="wht-personal-number"
             required
-            aria-invalid={!!fieldErrors.personalNumber}
+            inputMode="numeric"
+            aria-invalid={!!fieldErrors.personalNumber || personalNumberInvalid}
             aria-describedby={fieldErrors.personalNumber ? "wht-personal-number-error" : undefined}
             value={personalNumber}
             onChange={(e) => {
@@ -180,34 +225,52 @@ export function WithholdingTaxForm({
         </FormField>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {amountField("wht-interest", "withholdingTax.grossInterest", interest, setInterest)}
-        {amountField("wht-property-rights", "withholdingTax.propertyRights", propertyRights, setPropertyRights)}
-        {amountField("wht-lottery", "withholdingTax.lotteryWinnings", lottery, setLottery)}
-        {amountField("wht-entertainer", "withholdingTax.nonResidentEntertainer", entertainer, setEntertainer)}
-        {amountField("wht-services", "withholdingTax.nonResidentServices", services, setServices)}
-        {amountField("wht-non-entrepreneur", "withholdingTax.nonEntrepreneur", nonEntrepreneur, setNonEntrepreneur)}
-        {amountField("wht-rent", "withholdingTax.grossRent", rent, setRent)}
-        {amountField("wht-area", "withholdingTax.rentalAreaM2", area, setArea, !hasRent, "area")}
-        {amountField("wht-monthly-rent", "withholdingTax.monthlyGrossRent", monthlyRent, setMonthlyRent, !hasRent, "monthlyRent")}
+      <div className="flex flex-col gap-1">
+        <span className="text-sm font-medium">{intl.formatMessage({ id: "withholdingTax.paymentTypes" })}</span>
+        <div className="flex flex-wrap gap-2" role="group" aria-label={intl.formatMessage({ id: "withholdingTax.paymentTypes" })}>
+          {PAYMENT_TYPES.map((type) => (
+            <Button
+              key={type}
+              type="button"
+              size="sm"
+              variant={has(type) ? "default" : "outline"}
+              className={has(type) ? "border border-primary" : undefined}
+              aria-pressed={has(type)}
+              onClick={() => toggleType(type)}
+            >
+              {intl.formatMessage({ id: `withholdingTax.type.${type}` })}
+            </Button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <FormField label={intl.formatMessage({ id: "withholdingTax.country" })} htmlFor="wht-country">
-          <Select
-            id="wht-country"
-            value={country}
-            onValueChange={(v) => setCountry(v)}
-            options={countries.map((c) => ({
-              value: c,
-              label: c,
-            }))}
-          />
-        </FormField>
+        {has("rent") && amountField("wht-rent", "withholdingTax.grossRent", rent, changeRent)}
+        {has("rent") && amountField("wht-area", "withholdingTax.rentalAreaM2", area, setArea, "area")}
+        {has("rent") && amountField("wht-monthly-rent", "withholdingTax.monthlyGrossRent", monthlyRent, (v) => { setMonthlyEdited(true); setMonthlyRent(v); })}
+        {has("interest") && amountField("wht-interest", "withholdingTax.grossInterest", interest, setInterest)}
+        {has("propertyRights") && amountField("wht-property-rights", "withholdingTax.propertyRights", propertyRights, setPropertyRights)}
+        {has("lottery") && amountField("wht-lottery", "withholdingTax.lotteryWinnings", lottery, setLottery)}
+        {has("nonEntrepreneur") && amountField("wht-non-entrepreneur", "withholdingTax.nonEntrepreneur", nonEntrepreneur, setNonEntrepreneur)}
+        {has("nonResident") && amountField("wht-entertainer", "withholdingTax.nonResidentEntertainer", entertainer, setEntertainer)}
+        {has("nonResident") && amountField("wht-services", "withholdingTax.nonResidentServices", services, setServices)}
+        {has("nonResident") && (
+          <FormField label={intl.formatMessage({ id: "withholdingTax.country" })} htmlFor="wht-country">
+            <Select
+              id="wht-country"
+              value={country}
+              onValueChange={(v) => setCountry(v)}
+              options={countries.map((c) => ({
+                value: c,
+                label: c,
+              }))}
+            />
+          </FormField>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
-        <Button type="submit" disabled={submitting || !personalNumber.trim() || !name.trim() || rentDetailsMissing}>
+        <Button type="submit" disabled={submitting || !personalNumber.trim() || personalNumberInvalid || !name.trim() || selectedTypes.size === 0 || areaMissing}>
           {submitting
             ? intl.formatMessage({ id: "common.saving" })
             : intl.formatMessage({ id: mode === "create" ? "withholdingTax.addEntry" : "common.save" })}

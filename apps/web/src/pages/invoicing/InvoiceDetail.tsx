@@ -97,7 +97,7 @@ export function InvoiceDetail() {
       const [invoiceResult, partnersResult, taxesResult, allInvoicesResult, paymentMethodsResult, membersResult] =
         await Promise.all([
           apiClient.invoicesGET(companyId, id),
-          apiClient.partnersAll(companyId),
+          apiClient.partnersAll(companyId, undefined),
           apiClient.taxes(companyId),
           apiClient.invoicesAll(companyId),
           apiClient.paymentMethodsAll(companyId),

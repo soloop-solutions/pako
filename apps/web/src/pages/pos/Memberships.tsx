@@ -255,7 +255,7 @@ function HolderDialog({ membership: m, onClose, onSaved }: { membership: Members
   const { activeCompanyId } = useCompany();
   const customers = (useQuery({
     queryKey: ["partners", activeCompanyId],
-    queryFn: () => apiClient.partnersAll(activeCompanyId as string),
+    queryFn: () => apiClient.partnersAll(activeCompanyId as string, undefined),
     enabled: !!activeCompanyId,
   }).data ?? []).filter((p) => p.isCustomer);
   const [holderName, setHolderName] = useState(m.holderName ?? "");

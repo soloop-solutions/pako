@@ -8,13 +8,11 @@ import { toast } from "sonner";
 
 import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Select } from "@/components/ui/select";
 import { BILL_DOCUMENT_TYPE_OPTION_KEYS, BillDocumentType } from "@/lib/document-types";
@@ -81,7 +79,7 @@ function lineEnteredAmount(line: Line): number {
 function itemDefaultsSource(item: ItemResponse): ItemDefaultsSource {
   return {
     name: item.name,
-    defaultUnitPrice: item.defaultUnitPrice,
+    defaultUnitPrice: undefined,
     defaultTaxDefinitionId: item.defaultTaxDefinitionId,
     defaultAccountId: item.defaultExpenseAccountId,
   };
@@ -250,6 +248,9 @@ export function BillForm({
   const [newPartnerName, setNewPartnerName] = useState("");
   const [newItemOpen, setNewItemOpen] = useState(false);
   const [newItemLineIndex, setNewItemLineIndex] = useState<number | null>(null);
+  const lineGrid = isVatRegistered
+    ? "grid-cols-[minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,2fr)_5.5rem_6rem_6.5rem_5rem_minmax(0,1.2fr)_5rem_5rem_5rem]"
+    : "grid-cols-[minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,2fr)_5.5rem_6rem_6.5rem_5rem_minmax(0,1.2fr)_5rem]";
   const trackedItemIds = lines.map((l) => l.itemId).filter((id) => items.find((i) => i.id === id)?.trackInventory);
   const onHand = useStockOnHand(trackedItemIds, warehouseId || null);
 
@@ -340,8 +341,8 @@ export function BillForm({
     setLines((prev) => prev.map((line, i) => (i === index ? { ...line, ...patch } : line)));
   }
 
-  function selectLineItem(index: number, itemId: string) {
-    const item = items.find((i) => i.id === itemId);
+  function selectLineItem(index: number, itemId: string, created?: ItemResponse) {
+    const item = created ?? items.find((i) => i.id === itemId);
     // Another item is no longer the purchase-order line this one billed.
     setLines((prev) => prev.map((line, i) => (i === index
       ? { ...applyItemDefaults(line, item, partnerDrivenTaxId, partnerDrivenAccountId), unitName: undefined, purchaseOrderLineId: line.itemId === itemId ? line.purchaseOrderLineId : undefined }
@@ -404,7 +405,7 @@ export function BillForm({
     if (!partnerId) {
       errors.partnerId = intl.formatMessage({ id: "billForm.selectVendorError" });
     }
-    const validLines = lines.filter((line) => line.description.trim());
+    const validLines = lines.filter((line) => line.description.trim() || line.itemId);
     if (validLines.length === 0) {
       setApiError(intl.formatMessage({ id: "billForm.atLeastOneLine" }));
       return;
@@ -426,7 +427,7 @@ export function BillForm({
     setSubmitting(true);
     try {
       const lineRequests = validLines.map((line) => ({
-        description: line.description,
+        description: line.description.trim() || items.find((i) => i.id === line.itemId)?.name || line.description,
         quantity: parseFloat(line.quantity) || 0,
         unitPrice: parseFloat(line.unitPrice) || 0,
         discountPercent: parseFloat(line.discountPercent) || 0,
@@ -625,20 +626,36 @@ export function BillForm({
       )}
 
       <div
-        className={trackedItemIds.length > 0 ? "flex flex-col gap-5" : "flex flex-col gap-2"}
+        className="flex flex-col gap-3"
         onKeyDown={lineKeys.onKeyDown}
         onFocus={lineKeys.onFocus}
         onPaste={lineKeys.onPaste}
       >
+        <div className={`grid ${lineGrid} items-end gap-x-2 text-xs font-medium text-muted-foreground`}>
+          <span>{intl.formatMessage({ id: "billForm.item" })}</span>
+          <span>{intl.formatMessage({ id: "billForm.expenseAccount" })}</span>
+          <span>{intl.formatMessage({ id: "billForm.description" })}</span>
+          <span className="pr-2.5 text-right">{intl.formatMessage({ id: "billForm.qty" })}</span>
+          <span>{intl.formatMessage({ id: "items.unit" })}</span>
+          <span className="pr-2.5 text-right">
+            {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat" })}
+          </span>
+          <span className="pr-2.5 text-right">{intl.formatMessage({ id: "billForm.discountPercent" })}</span>
+          <span>{intl.formatMessage({ id: "billForm.tax" })}</span>
+          {isVatRegistered && <span className="text-right">{intl.formatMessage({ id: "billForm.net" })}</span>}
+          {isVatRegistered && <span className="text-right">{intl.formatMessage({ id: "billForm.vat" })}</span>}
+          <span />
+        </div>
         {lines.map((line, index) => {
           const enteredAmount = lineEnteredAmount(line);
           const { net, tax } = computeLine(enteredAmount, taxes.find((t) => t.id === line.taxDefinitionId), priceMode);
           const selectedItem = items.find((i) => i.id === line.itemId);
           const overridden = overriddenFields(line, selectedItem);
+          const onHandQuantity = selectedItem?.trackInventory && onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined;
+          const hasNotes = overridden.price || overridden.tax || overridden.account || !!selectedItem?.trackLots || onHandQuantity !== undefined;
           return (
-          <div key={index} className="grid grid-cols-[1fr_1fr_2fr_5rem_6rem_5rem_1fr_5rem_5rem_auto] items-end gap-2">
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.item" })}</Label>}
+          <div key={index} className="flex flex-col gap-1">
+            <div className={`grid ${lineGrid} items-start gap-x-2`}>
               <SearchableSelect
                 value={line.itemId}
                 onChange={(val) => selectLineItem(index, val)}
@@ -649,7 +666,6 @@ export function BillForm({
                 options={items.map((item) => ({
                   value: item.id,
                   label: item.name,
-                  description: item.defaultUnitPrice != null ? `${formatMoney(item.defaultUnitPrice)}` : undefined,
                 }))}
                 favorites={{
                   pinnedIds: itemFavs.pinnedIds,
@@ -664,9 +680,6 @@ export function BillForm({
                   onClick: () => { setNewItemLineIndex(index); setNewItemOpen(true); },
                 }}
               />
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.expenseAccount" })}</Label>}
               <SearchableSelect
                 value={line.expenseAccountId}
                 onChange={(val) => updateLine(index, { expenseAccountId: val })}
@@ -687,81 +700,54 @@ export function BillForm({
                   frequentLabel: intl.formatMessage({ id: "favorites.frequentlyUsed" }),
                 }}
               />
-              {overridden.account && (
-                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-1" data-line-cell="description" data-row={index}>
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.description" })}</Label>}
-              <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
-              {projectCostCodes.length > 0 && (
-                <CostCodeSelect costCodes={projectCostCodes} value={line.costCodeId ?? ""} onChange={(v) => updateLine(index, { costCodeId: v || undefined })} />
-              )}
-            </div>
-            <div className="relative flex flex-col gap-1" data-line-cell="quantity" data-row={index}>
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.qty" })}</Label>}
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                value={line.quantity}
-                onChange={(event) => updateLine(index, { quantity: event.target.value })}
-              />
-              {selectedItem
-                ? <LineUnitSelect item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
-                : <FreeUnitInput value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />}
-              {selectedItem?.trackLots && (
-                <div className="flex gap-1">
-                  <Input className="h-7 text-xs" placeholder={intl.formatMessage({ id: "stock.lot.number" })} aria-label={intl.formatMessage({ id: "stock.lot.number" })}
-                    value={line.lotNumber ?? ""} onChange={(event) => updateLine(index, { lotNumber: event.target.value })} />
-                  <Input className="h-7 text-xs" type="date" aria-label={intl.formatMessage({ id: "stock.lot.expiry" })}
-                    value={line.expiryDate ?? ""} onChange={(event) => updateLine(index, { expiryDate: event.target.value })} />
-                </div>
-              )}
-              {selectedItem?.trackInventory && (
-                <OnHandHint
-                  className="absolute -bottom-4 right-0 whitespace-nowrap"
-                  onHand={onHand.data ? (onHand.data.get(selectedItem.id) ?? 0) : undefined}
-                  requested={baseQuantity(selectedItem, line.unitName, parseFloat(line.quantity) || 0)}
-                  warnWhenShort={documentType === BillDocumentType.PurchaseReturn}
+              <div className="flex flex-col gap-1" data-line-cell="description" data-row={index}>
+                <Input value={line.description} onChange={(event) => updateLine(index, { description: event.target.value })} />
+                {projectCostCodes.length > 0 && (
+                  <CostCodeSelect costCodes={projectCostCodes} value={line.costCodeId ?? ""} onChange={(v) => updateLine(index, { costCodeId: v || undefined })} />
+                )}
+              </div>
+              <div data-line-cell="quantity" data-row={index}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  aria-label={intl.formatMessage({ id: "billForm.qty" })}
+                  value={line.quantity}
+                  onChange={(event) => updateLine(index, { quantity: event.target.value })}
                 />
-              )}
-            </div>
-            <div className="flex flex-col gap-1" data-line-cell="price" data-row={index}>
-              {index === 0 && (
-                <Label>
-                  {intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat" })}
-                </Label>
-              )}
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder={intl.formatMessage({ id: "billForm.purchasePricePlaceholder" })}
-                value={line.unitPrice}
-                onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
-              />
-              {overridden.price && (
-                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
-                  {intl.formatMessage({ id: "billForm.priceOverridden" })}
-                </Badge>
-              )}
-            </div>
-            <div className="flex flex-col gap-1" data-line-cell="discount" data-row={index}>
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.discountPercent" })}</Label>}
-              <Input
-                type="number"
-                step="0.01"
-                min="0"
-                max="100"
-                value={line.discountPercent}
-                onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              {index === 0 && <Label>{intl.formatMessage({ id: "billForm.tax" })}</Label>}
+              </div>
+              <div>
+                {selectedItem
+                  ? (selectedItem.purchaseUnit || selectedItem.salesUnit
+                    ? <LineUnitSelect className="h-7 text-[12.5px]" item={selectedItem} value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />
+                    : <Input readOnly tabIndex={-1} className="bg-muted/40 text-muted-foreground" aria-label={intl.formatMessage({ id: "items.lineUnit" })} value={selectedItem.unit} />)
+                  : <FreeUnitInput className="h-7 text-[12.5px]" value={line.unitName ?? ""} onChange={(v) => updateLine(index, { unitName: v || undefined })} />}
+              </div>
+              <div data-line-cell="price" data-row={index}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  placeholder="0.00"
+                  aria-label={intl.formatMessage({ id: priceMode === PriceMode.NetExclusive ? "billForm.priceExclVat" : "billForm.priceInclVat" })}
+                  value={line.unitPrice}
+                  onChange={(event) => updateLine(index, { unitPrice: event.target.value })}
+                />
+              </div>
+              <div data-line-cell="discount" data-row={index}>
+                <Input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  max="100"
+                  className="text-right tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                  aria-label={intl.formatMessage({ id: "billForm.discountPercent" })}
+                  value={line.discountPercent}
+                  onChange={(event) => updateLine(index, { discountPercent: event.target.value })}
+                />
+              </div>
               <SearchableSelect
                 value={line.taxDefinitionId}
                 onChange={(val) => updateLine(index, { taxDefinitionId: val })}
@@ -775,27 +761,44 @@ export function BillForm({
                   description: tax.code ?? undefined,
                 }))}
               />
-              {overridden.tax && (
-                <Badge variant="outline" className="w-fit text-[10px] text-warning-foreground">
-                  {intl.formatMessage({ id: "common.modified" })}
-                </Badge>
+              {isVatRegistered && (
+                <p className="flex h-7 items-center justify-end text-[12.5px] tabular-nums text-muted-foreground">{formatMoney(net)}</p>
               )}
+              {isVatRegistered && (
+                <p className="flex h-7 items-center justify-end text-[12.5px] tabular-nums text-muted-foreground">{formatMoney(tax)}</p>
+              )}
+              <Button type="button" variant="ghost" size="sm" className="h-7" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
+                {intl.formatMessage({ id: "billForm.remove" })}
+              </Button>
             </div>
-            {isVatRegistered && (
-              <div className="flex flex-col gap-1">
-                {index === 0 && <Label>{intl.formatMessage({ id: "billForm.net" })}</Label>}
-                <p className="px-3 py-2 text-sm text-muted-foreground">{formatMoney(net)}</p>
+            {hasNotes && (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pl-1 text-[11px]">
+                {overridden.price && (
+                  <span className="text-warning-foreground">{intl.formatMessage({ id: "billForm.priceOverridden" })}</span>
+                )}
+                {overridden.account && (
+                  <span className="text-warning-foreground">{intl.formatMessage({ id: "billForm.expenseAccount" })}: {intl.formatMessage({ id: "common.modified" })}</span>
+                )}
+                {overridden.tax && (
+                  <span className="text-warning-foreground">{intl.formatMessage({ id: "billForm.tax" })}: {intl.formatMessage({ id: "common.modified" })}</span>
+                )}
+                {selectedItem?.trackLots && (
+                  <span className="flex gap-1">
+                    <Input className="h-7 w-32 text-xs" placeholder={intl.formatMessage({ id: "stock.lot.number" })} aria-label={intl.formatMessage({ id: "stock.lot.number" })}
+                      value={line.lotNumber ?? ""} onChange={(event) => updateLine(index, { lotNumber: event.target.value })} />
+                    <Input className="h-7 w-36 text-xs" type="date" aria-label={intl.formatMessage({ id: "stock.lot.expiry" })}
+                      value={line.expiryDate ?? ""} onChange={(event) => updateLine(index, { expiryDate: event.target.value })} />
+                  </span>
+                )}
+                {selectedItem?.trackInventory && (
+                  <OnHandHint
+                    onHand={onHandQuantity}
+                    requested={baseQuantity(selectedItem, line.unitName, parseFloat(line.quantity) || 0)}
+                    warnWhenShort={documentType === BillDocumentType.PurchaseReturn}
+                  />
+                )}
               </div>
             )}
-            {isVatRegistered && (
-              <div className="flex flex-col gap-1">
-                {index === 0 && <Label>{intl.formatMessage({ id: "billForm.vat" })}</Label>}
-                <p className="px-3 py-2 text-sm text-muted-foreground">{formatMoney(tax)}</p>
-              </div>
-            )}
-            <Button type="button" variant="ghost" size="sm" onClick={() => removeLine(index)} disabled={lines.length <= 1}>
-              {intl.formatMessage({ id: "billForm.remove" })}
-            </Button>
           </div>
           );
         })}
@@ -889,13 +892,15 @@ export function BillForm({
       >
         <QuickItemForm
           companyId={companyId}
-          onCreated={(id) => {
+          items={items}
+          showPrice={false}
+          onCreated={(created) => {
             setNewItemOpen(false);
             if (newItemLineIndex != null) {
-              selectLineItem(newItemLineIndex, id);
+              selectLineItem(newItemLineIndex, created.id, created);
             }
             setNewItemLineIndex(null);
-            onItemCreated?.(id);
+            onItemCreated?.(created.id);
           }}
         />
       </FormDialog>

@@ -77,7 +77,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     if (!companyId) return;
     setError(null);
     try {
-      setPartners(await apiClient.partnersAll(companyId));
+      setPartners(await apiClient.partnersAll(companyId, undefined));
 
     } catch (err) {
       setError(getApiErrorMessage(err, intl.formatMessage({ id: isProforma ? "proforma.loadError" : "invoicing.loadError" })));
@@ -88,7 +88,7 @@ export function Invoicing({ scope = "invoice" }: { scope?: InvoiceRegisterScope 
     void refresh();
   }, [refresh]);
 
-  const customers = partners.filter((p) => p.isCustomer);
+  const customers = partners.filter((p) => p.isCustomer && p.isActive !== false);
   const partnerName = (id: string) => partners.find((p) => p.id === id)?.name ?? id;
   const documentScopeFilter = useMemo(
     () =>

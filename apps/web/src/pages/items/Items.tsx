@@ -376,7 +376,7 @@ export function Items() {
   // P2 variants: any item but a variant itself can carry variants (generating turns it into a template).
   const hasVariantsTab = !!editingItem && !editingItem.variantOfItemId;
   // P3 recipes: what a sold unit consumes, for companies on the point of sale (not variant templates).
-  const hasRecipeTab = canSee("pos") && !!editingItem && !editingItem.isVariantTemplate;
+  const hasRecipeTab = canSee("pos") && hasFeature("hospitality") && !!editingItem && !editingItem.isVariantTemplate;
   const editTabs: ("details" | "stock" | "variants" | "recipe" | "parts")[] = ["details"];
   if (hasStockTab) editTabs.push("stock");
   if (hasVariantsTab) editTabs.push("variants");
