@@ -7,12 +7,14 @@ import { apiClient, getApiErrorMessage } from "@/api/client";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useCompany } from "@/context/CompanyContext";
 import { useOpenParam } from "@/hooks/useOpenParam";
 import { AccountBalancesPanel } from "@/pages/ledger/AccountBalancesPanel";
 import { JournalEntriesTable } from "@/pages/ledger/JournalEntriesTable";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { useListFilters } from "@/components/list/useListFilters";
+
+const ENTRY_FILTERS = ["from", "to", "state"] as const;
 import { JournalEntryDialog } from "@/pages/ledger/JournalEntryDialog";
 import { JournalEntryGrid } from "@/pages/ledger/JournalEntryGrid";
 
@@ -28,8 +30,10 @@ export function Ledger() {
   const [error, setError] = useState<string | null>(null);
 
   const [searchParams, setSearchParams] = useSearchParams();
-  const fromDate = searchParams.get("fromDate") ?? "";
-  const toDate = searchParams.get("toDate") ?? "";
+  // Client request 2026-11-24: the journal entry list's ribbon (date, state) and totals.
+  const entryFilters = useListFilters("journalEntries", ENTRY_FILTERS);
+  const fromDate = entryFilters.values.from ?? "";
+  const toDate = entryFilters.values.to ?? "";
   const sortOrder = searchParams.get("sortOrder") ?? "newest";
   const [openEntryId, setOpenEntryId] = useOpenParam("entry");
   const openEntry = openEntryId ? (entries.find((e) => e.id === openEntryId) ?? null) : null;
@@ -127,25 +131,16 @@ export function Ledger() {
           <CardTitle>{intl.formatMessage({ id: "ledger.journalEntries" })}</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{intl.formatMessage({ id: "ledger.fromDate" })}</Label>
-              <Input
-                type="date"
-                value={fromDate}
-                onChange={(e) => setDateFilter("fromDate", e.target.value)}
-                className="h-8 w-40"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">{intl.formatMessage({ id: "ledger.toDate" })}</Label>
-              <Input
-                type="date"
-                value={toDate}
-                onChange={(e) => setDateFilter("toDate", e.target.value)}
-                className="h-8 w-40"
-              />
-            </div>
+          <ListRibbon
+            controls={entryFilters}
+            dateLabelId="journalEntries.date"
+            selects={[{
+              name: "state",
+              labelId: "journalEntries.state",
+              className: "w-36",
+              options: ["Draft", "Posted", "Cancelled"].map((state) => ({ value: state, label: intl.formatMessage({ id: `enum.state.${state.toLowerCase()}` }) })),
+            }]}
+          >
             <Button
               variant="outline"
               size="sm"
@@ -155,24 +150,8 @@ export function Ledger() {
                 ? intl.formatMessage({ id: "ledger.newestFirst" })
                 : intl.formatMessage({ id: "ledger.oldestFirst" })}
             </Button>
-            {(fromDate || toDate) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchParams((prev) => {
-                    const next = new URLSearchParams(prev);
-                    next.delete("fromDate");
-                    next.delete("toDate");
-                    return next;
-                  }, { replace: true });
-                }}
-              >
-                {intl.formatMessage({ id: "ledger.clearFilters" })}
-              </Button>
-            )}
-          </div>
-          <JournalEntriesTable companyId={activeCompany.id} journals={journals} fromDate={fromDate} toDate={toDate} sortOrder={sortOrder === "oldest" ? "oldest" : "newest"} onPosted={refresh} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
+          </ListRibbon>
+          <JournalEntriesTable companyId={activeCompany.id} journals={journals} fromDate={fromDate} toDate={toDate} state={entryFilters.values.state || undefined} sortOrder={sortOrder === "oldest" ? "oldest" : "newest"} onPosted={refresh} onOpenEntry={(entry) => setOpenEntryId(entry.id)} />
           <JournalEntryDialog companyId={activeCompany.id} entry={openEntry} accounts={accounts} journals={journals} onClose={() => setOpenEntryId(null)} />
         </CardContent>
       </Card>

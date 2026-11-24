@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 
-import { useAuth } from "@/context/AuthContext";
+import { useOptionalAuth } from "@/context/AuthContext";
 import { useCompany } from "@/context/CompanyContext";
 
 // Views a user saves from a list ribbon ("Overdue this quarter", "Market Arbeni — last month"):
@@ -44,7 +44,8 @@ function write(key: string | null, store: Store) {
 
 /** Every saved view of the signed-in user in the active company, by grid id; live-updating. */
 export function useAllSavedListViews(): { views: Store; save: (gridId: string, name: string, query: string) => void; remove: (gridId: string, id: string) => void } {
-  const { auth } = useAuth();
+  // Optional: outside the signed-in app (tests, previews) there is simply nowhere to keep views.
+  const auth = useOptionalAuth()?.auth;
   const { activeCompanyId } = useCompany();
   const key = auth?.userId && activeCompanyId ? storageKey(auth.userId, activeCompanyId) : null;
   const [store, setStore] = useState<{ key: string | null; views: Store }>(() => ({ key, views: read(key) }));

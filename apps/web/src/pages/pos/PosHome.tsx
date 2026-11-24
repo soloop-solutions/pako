@@ -21,6 +21,11 @@ import { AtkStatus, FiscalMode, PosOrderKind, PosSessionState, RegisterProfile, 
 import { printCoupon } from "@/lib/pos-print";
 import { CouponReceipt } from "@/pages/pos/CouponReceipt";
 import { usePosRegisters, usePosStores } from "@/hooks/usePos";
+import { ListRibbon } from "@/components/list/ListRibbon";
+import { ListSumBar } from "@/components/list/ListTotalsBar";
+import { useListFilters } from "@/components/list/useListFilters";
+
+const ORDER_FILTERS = ["from", "to", "registerId", "kind"] as const;
 import { SessionReportView } from "@/pages/pos/Till";
 
 const money = (v: number) => v.toFixed(2);
@@ -46,9 +51,26 @@ export function PosHome() {
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
+  // Client request 2026-11-24: the order list's ribbon (day, register, kind) and the total under it.
+  const orderRibbon = useListFilters("pos-orders", ORDER_FILTERS);
+  const orderFilters = {
+    search: ordersGrid.globalFilter || undefined,
+    from: orderRibbon.values.from || undefined,
+    to: orderRibbon.values.to || undefined,
+    registerId: orderRibbon.values.registerId || undefined,
+    kind: orderRibbon.values.kind ? Number(orderRibbon.values.kind) : undefined,
+  };
   const orders = useQuery({
-    queryKey: ["posOrders", activeCompanyId, ordersGrid.globalFilter, ordersGrid.page, ordersGrid.pageSize],
-    queryFn: () => apiClient.listPosOrders(activeCompanyId as string, undefined, ordersGrid.globalFilter || undefined, ordersGrid.page, ordersGrid.pageSize),
+    queryKey: ["posOrders", activeCompanyId, orderFilters, ordersGrid.page, ordersGrid.pageSize],
+    queryFn: () => apiClient.listPosOrders(activeCompanyId as string, undefined, orderFilters.search, ordersGrid.page, ordersGrid.pageSize,
+      orderFilters.from, orderFilters.to, orderFilters.registerId, orderFilters.kind, undefined),
+    enabled: !!activeCompanyId,
+    placeholderData: keepPreviousData,
+  });
+  const orderTotals = useQuery({
+    queryKey: ["posOrders-totals", activeCompanyId, orderFilters],
+    queryFn: () => apiClient.posOrderListTotals(activeCompanyId as string, undefined, orderFilters.search,
+      orderFilters.from, orderFilters.to, orderFilters.registerId, orderFilters.kind, undefined),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });
@@ -182,6 +204,21 @@ export function PosHome() {
           <CardTitle>{t("pos.orders")}</CardTitle>
         </CardHeader>
         <CardContent>
+          <ListRibbon
+            controls={orderRibbon}
+            dateLabelId="common.date"
+            selects={[
+              ...(registers.length > 1
+                ? [{ name: "registerId", labelId: "listRibbon.register", className: "w-40", options: registers.map((r) => ({ value: r.id, label: r.code })) }]
+                : []),
+              {
+                name: "kind",
+                labelId: "listRibbon.kind",
+                className: "w-36",
+                options: [PosOrderKind.Sale, PosOrderKind.Return, PosOrderKind.Cancel].map((k) => ({ value: String(k), label: t(`pos.order.kind.${posOrderKindKey(k)}`) })),
+              },
+            ]}
+          />
           <DataGrid
             gridId="pos-orders"
             columns={orderColumns}
@@ -195,6 +232,7 @@ export function PosHome() {
             globalFilterPlaceholder={t("till.return.lookup")}
             emptyMessage={t("pos.order.empty")}
           />
+          <ListSumBar totals={orderTotals.data} isLoading={orderTotals.isFetching} />
         </CardContent>
       </Card>
 

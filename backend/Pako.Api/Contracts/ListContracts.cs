@@ -12,6 +12,13 @@ public record ListTotalsResponse(
 // posted documents past their due date than are checked one by one.
 public record ViewCountsResponse(int All, int Draft, int Posted, int? Overdue = null);
 
+// The totals under a list that has one amount per row (stock document value, POS order total).
+// Returns and cancellations count negative.
+public record ListSumResponse(int Count, decimal Total);
+
+// The totals under the journal entry list.
+public record JournalListTotalsResponse(int Count, decimal Debit, decimal Credit);
+
 public static class ListTotalsLimits
 {
     public const int OutstandingCheckLimit = 500;

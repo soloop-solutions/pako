@@ -8,7 +8,10 @@ import { useListFilters } from "@/components/list/useListFilters";
 import { IntlProviderWrapper } from "@/i18n/IntlProviderWrapper";
 import { useAllSavedListViews } from "@/lib/list-views";
 
-vi.mock("@/context/AuthContext", () => ({ useAuth: () => ({ auth: { userId: "u1" } }) }));
+vi.mock("@/context/AuthContext", () => ({
+  useAuth: () => ({ auth: { userId: "u1" } }),
+  useOptionalAuth: () => ({ auth: { userId: "u1" } }),
+}));
 vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ activeCompanyId: "c1" }) }));
 
 function Search() {

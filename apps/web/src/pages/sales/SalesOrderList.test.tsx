@@ -22,7 +22,10 @@ vi.mock("@/api/client", async (importOriginal) => {
   return { ...actual, apiClient: { ...actual.apiClient, ...mocked } };
 });
 vi.mock("@/context/CompanyContext", () => ({ useCompany: () => ({ activeCompanyId: "c1", activeCompany: { id: "c1", name: "Pako" } }) }));
-vi.mock("@/context/AuthContext", () => ({ useAuth: () => ({ auth: { userId: "u1" } }) }));
+vi.mock("@/context/AuthContext", () => ({
+  useAuth: () => ({ auth: { userId: "u1" } }),
+  useOptionalAuth: () => ({ auth: { userId: "u1" } }),
+}));
 vi.mock("@/hooks/useMyAccess", () => ({
   useMyAccess: () => ({ access: null, isLoading: false, isStaff: false, canSee: () => true, canWrite: () => true, canApprove: () => true }),
 }));

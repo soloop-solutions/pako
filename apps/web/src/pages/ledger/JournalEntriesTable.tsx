@@ -10,6 +10,8 @@ import { DataGrid } from "@/components/data-grid/DataGrid";
 import { serverSideColumns, usePagedGrid } from "@/components/data-grid/usePagedGrid";
 import { documentStateBadgeVariant, getDocumentRowClassName } from "@/lib/document-types";
 import { useMyAccess } from "@/hooks/useMyAccess";
+import { JournalTotalsBar } from "@/components/list/ListTotalsBar";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 const GRID_ID = "journalEntries";
 
@@ -18,12 +20,13 @@ type JournalEntriesTableProps = {
   journals: JournalResponse[];
   fromDate?: string;
   toDate?: string;
+  state?: string;
   sortOrder?: "newest" | "oldest";
   onPosted: () => void;
   onOpenEntry?: (entry: JournalEntryResponse) => void;
 };
 
-export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sortOrder = "newest", onPosted, onOpenEntry }: JournalEntriesTableProps) {
+export function JournalEntriesTable({ companyId, journals, fromDate, toDate, state, sortOrder = "newest", onPosted, onOpenEntry }: JournalEntriesTableProps) {
   const intl = useIntl();
   const { canApprove } = useMyAccess();
   const [postingId, setPostingId] = useState<string | null>(null);
@@ -32,7 +35,7 @@ export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sor
   const paged = usePagedGrid<JournalEntryResponse>({
     gridId: GRID_ID,
     enabled: true,
-    queryKey: ["journal-entries-paged", companyId, fromDate ?? "", toDate ?? "", sortOrder],
+    queryKey: ["journal-entries-paged", companyId, fromDate ?? "", toDate ?? "", state ?? "", sortOrder],
     defaultPageSize: 100,
     fetchPage: async ({ page, pageSize, search, sort }) => {
       const result = await apiClient.paged3(
@@ -43,16 +46,23 @@ export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sor
         fromDate || undefined,
         toDate || undefined,
         sort ?? (sortOrder === "oldest" ? "date" : "-date"),
+        state,
       );
       return { items: result.items, total: result.total };
     },
   });
   const entries = paged.items;
+  const search = paged.urlState.globalFilter.trim() || undefined;
+  const totals = useQuery({
+    queryKey: ["journal-entries-totals", companyId, fromDate ?? "", toDate ?? "", state ?? "", search ?? ""],
+    queryFn: () => apiClient.journalEntryListTotals(companyId, search, fromDate || undefined, toDate || undefined, state),
+    placeholderData: keepPreviousData,
+  });
   const setPage = paged.urlState.setPage;
 
   useEffect(() => {
     setPage(1);
-  }, [fromDate, toDate, sortOrder, setPage]);
+  }, [fromDate, toDate, state, sortOrder, setPage]);
 
   function journalLabel(journalId: string) {
     const journal = journals.find((j) => j.id === journalId);
@@ -143,6 +153,7 @@ export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sor
   const visibleColumns = useMemo(() => serverSideColumns(columns, ["date", "description", "state", "sequenceNumber"]), [columns]);
 
   return (
+    <div>
     <DataGrid
       gridId={GRID_ID}
       columns={visibleColumns}
@@ -158,5 +169,7 @@ export function JournalEntriesTable({ companyId, journals, fromDate, toDate, sor
       defaultPageSize={100}
       pageSizeOptions={[50, 100, 200]}
     />
+    <JournalTotalsBar totals={totals.data} isLoading={totals.isFetching} />
+    </div>
   );
 }

@@ -433,6 +433,36 @@ public class StockTests : IAsyncLifetime
         ((List<WarehouseResponse>)((OkObjectResult)(await Inventory(c).Warehouses(c.Id)).Result!).Value!).Single(w => w.IsDefault).Id;
 
     // D14 phase 2: stolen goods lose the input VAT deducted on them, reversed in the write-off's entry
+    // Client request 2026-11-24: the stock document list's filters, and the total under it equal to
+    // the rows' own values across all pages.
+    [Fact]
+    public async Task DocumentList_FiltersByStateAndDate_TotalEqualsTheRows()
+    {
+        var c = await SeedAsync();
+        await BillAsync(c, D1, 10, 118m);
+        var main = await MainWarehouseAsync(c);
+        await PostDocumentAsync(c, new SaveStockDocumentRequest(StockDocumentType.WriteOff, D2, main,
+            new List<StockDocumentLineRequest> { new(c.Laptop, 2m) }, Reason: WriteOffReason.Theft));
+        await PostDocumentAsync(c, new SaveStockDocumentRequest(StockDocumentType.WriteOff, D3, main,
+            new List<StockDocumentLineRequest> { new(c.Laptop, 1m) }, Reason: WriteOffReason.Theft));
+
+        var all = (PaginatedResponse<StockDocumentSummaryResponse>)Assert.IsType<OkObjectResult>(
+            (await Documents(c).List(c.Id, type: StockDocumentType.WriteOff, pageSize: 1)).Result).Value!;
+        var everyRow = (PaginatedResponse<StockDocumentSummaryResponse>)Assert.IsType<OkObjectResult>(
+            (await Documents(c).List(c.Id, type: StockDocumentType.WriteOff)).Result).Value!;
+        var totals = (ListSumResponse)Assert.IsType<OkObjectResult>((await Documents(c).ListTotals(c.Id, type: StockDocumentType.WriteOff)).Result).Value!;
+        Assert.Equal((2, 1), (all.Total, all.Items.Count));
+        Assert.Equal((2, everyRow.Items.Sum(d => d.TotalValue)), (totals.Count, totals.Total));
+        Assert.NotEqual(0m, totals.Total);
+
+        var onD3 = (PaginatedResponse<StockDocumentSummaryResponse>)Assert.IsType<OkObjectResult>(
+            (await Documents(c).List(c.Id, type: StockDocumentType.WriteOff, from: D3, to: D3)).Result).Value!;
+        Assert.Equal(1, onD3.Total);
+        var drafts = (PaginatedResponse<StockDocumentSummaryResponse>)Assert.IsType<OkObjectResult>(
+            (await Documents(c).List(c.Id, type: StockDocumentType.WriteOff, state: StockDocumentState.Draft)).Result).Value!;
+        Assert.Equal(0, drafts.Total);
+    }
+
     // with the purchase's tax code so the VAT return shows it.
     [Fact]
     public async Task TheftWriteOff_ReversesTheInputVat_WithThePurchaseTaxCode()

@@ -23,6 +23,7 @@ vi.mock("@/context/CompanyContext", () => ({
 
 vi.mock("@/context/AuthContext", () => ({
   useAuth: () => ({ auth: { userId: "user-1" } }),
+  useOptionalAuth: () => ({ auth: { userId: "user-1" } }),
 }));
 
 const FULL = { sales: 2, purchases: 2, partners: 2, accounting: 2, reports: 2, hr: 2 };

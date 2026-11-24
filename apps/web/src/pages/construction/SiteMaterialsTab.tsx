@@ -42,7 +42,8 @@ export function SiteMaterialsTab({ site }: { site: SiteResponse }) {
   const grid = useDataGridUrlState(GRID_ID, 50);
   const query = useQuery({
     queryKey: [...vxKeys.siteIssues(activeCompanyId, site.id), grid.page, grid.pageSize],
-    queryFn: () => apiClient.listStockDocuments(activeCompanyId as string, StockDocumentType.SiteIssue, undefined, grid.page, grid.pageSize, site.id),
+    queryFn: () => apiClient.listStockDocuments(activeCompanyId as string, StockDocumentType.SiteIssue, undefined, grid.page, grid.pageSize, site.id,
+      undefined, undefined, undefined, undefined, undefined),
     enabled: !!activeCompanyId,
     placeholderData: keepPreviousData,
   });

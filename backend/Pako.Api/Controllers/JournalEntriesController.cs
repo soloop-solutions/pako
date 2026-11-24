@@ -61,26 +61,13 @@ public class JournalEntriesController : ControllerBase
         [FromQuery] string? search = null,
         [FromQuery] DateOnly? from = null,
         [FromQuery] DateOnly? to = null,
-        [FromQuery] string? sort = null)
+        [FromQuery] string? sort = null,
+        [FromQuery] string? state = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
 
-        var query = _db.JournalEntries.AsNoTracking()
-            .Include(e => e.Lines)
-            .Where(e => e.CompanyId == companyId);
-
-        if (from is not null) query = query.Where(e => e.Date >= from);
-        if (to is not null) query = query.Where(e => e.Date <= to);
-
-        if (!string.IsNullOrWhiteSpace(search))
-        {
-            var pattern = LikePattern.Contains(search);
-            query = query.Where(e =>
-                (e.SequenceNumber != null && EF.Functions.ILike(e.SequenceNumber, pattern, LikePattern.EscapeChar)) ||
-                (e.Description != null && EF.Functions.ILike(e.Description, pattern, LikePattern.EscapeChar)) ||
-                (e.Reference != null && EF.Functions.ILike(e.Reference, pattern, LikePattern.EscapeChar)));
-        }
+        IQueryable<JournalEntry> query = Filtered(companyId, search, from, to, state).Include(e => e.Lines);
 
         var descending = sort is not null && sort.StartsWith('-');
         var sortField = descending ? sort![1..] : sort;
@@ -97,6 +84,49 @@ public class JournalEntriesController : ControllerBase
         var entries = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
 
         return Ok(new PaginatedResponse<JournalEntryResponse>(entries.Select(ToResponse).ToList(), total, page, pageSize));
+    }
+
+    // Client request 2026-11-24: the debit and credit totals under the list, for every entry the
+    // filters select.
+    [HttpGet("paged/totals", Name = "JournalEntryListTotals")]
+    [RequireCompanyAccess(module: AccessModule.Accounting)]
+    public async Task<ActionResult<JournalListTotalsResponse>> ListTotals(
+        Guid companyId,
+        [FromQuery] string? search = null,
+        [FromQuery] DateOnly? from = null,
+        [FromQuery] DateOnly? to = null,
+        [FromQuery] string? state = null)
+    {
+        var query = Filtered(companyId, search, from, to, state);
+        var count = await query.CountAsync();
+        var lines = query.SelectMany(e => e.Lines);
+        var debit = await lines.SumAsync(l => (decimal?)l.Debit) ?? 0m;
+        var credit = await lines.SumAsync(l => (decimal?)l.Credit) ?? 0m;
+        return Ok(new JournalListTotalsResponse(count, debit, credit));
+    }
+
+    private IQueryable<JournalEntry> Filtered(Guid companyId, string? search, DateOnly? from, DateOnly? to, string? state)
+    {
+        var query = _db.JournalEntries.AsNoTracking().Where(e => e.CompanyId == companyId);
+
+        if (from is not null) query = query.Where(e => e.Date >= from);
+        if (to is not null) query = query.Where(e => e.Date <= to);
+        if (!string.IsNullOrWhiteSpace(state))
+        {
+            var states = Enum.GetValues<JournalEntryState>().Where(s => s.ToString().StartsWith(state.Trim(), StringComparison.OrdinalIgnoreCase)).ToList();
+            query = query.Where(e => states.Contains(e.State));
+        }
+
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var pattern = LikePattern.Contains(search);
+            query = query.Where(e =>
+                (e.SequenceNumber != null && EF.Functions.ILike(e.SequenceNumber, pattern, LikePattern.EscapeChar)) ||
+                (e.Description != null && EF.Functions.ILike(e.Description, pattern, LikePattern.EscapeChar)) ||
+                (e.Reference != null && EF.Functions.ILike(e.Reference, pattern, LikePattern.EscapeChar)));
+        }
+
+        return query;
     }
 
     [HttpGet("{id:guid}", Name = "JournalEntryDetail")]

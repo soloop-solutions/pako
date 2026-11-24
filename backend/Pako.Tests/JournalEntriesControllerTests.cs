@@ -59,6 +59,34 @@ public class JournalEntriesControllerTests : IAsyncLifetime
         return (db, company.Id, journal.Id, accountA.Id, accountB.Id);
     }
 
+    // Client request 2026-11-24: the debit/credit totals under the journal entry list.
+    [Fact]
+    public async Task ListTotals_SumTheFilteredEntries()
+    {
+        var (db, companyId, journalId, accountAId, accountBId) = await SeedAsync();
+        var controller = NewController(db);
+        async Task CreateAsync(DateOnly date, decimal amount)
+        {
+            var request = new CreateJournalEntryRequest(journalId, date, null, new List<CreateJournalEntryLineRequest>
+            {
+                new(accountAId, null, amount, 0m, null),
+                new(accountBId, null, 0m, amount, null)
+            });
+            Assert.IsType<ObjectResult>((await controller.Create(companyId, request, _actionTokenService, MakeActionToken(companyId))).Result);
+        }
+
+        await CreateAsync(new DateOnly(2026, 8, 26), 100m);
+        await CreateAsync(new DateOnly(2026, 9, 2), 40.5m);
+
+        var all = (JournalListTotalsResponse)Assert.IsType<OkObjectResult>((await controller.ListTotals(companyId)).Result).Value!;
+        Assert.Equal(new JournalListTotalsResponse(2, 140.5m, 140.5m), all);
+        var september = (JournalListTotalsResponse)Assert.IsType<OkObjectResult>(
+            (await controller.ListTotals(companyId, from: new DateOnly(2026, 9, 1), to: new DateOnly(2026, 9, 30))).Result).Value!;
+        Assert.Equal(new JournalListTotalsResponse(1, 40.5m, 40.5m), september);
+        var posted = (JournalListTotalsResponse)Assert.IsType<OkObjectResult>((await controller.ListTotals(companyId, state: "Posted")).Result).Value!;
+        Assert.Equal(0, posted.Count);
+    }
+
     [Fact]
     public async Task Create_AmountExceedingNumericCapacity_RejectedWithBadRequest()
     {

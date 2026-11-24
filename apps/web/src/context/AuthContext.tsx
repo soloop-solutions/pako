@@ -77,3 +77,9 @@ export function useAuth() {
   if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
   return ctx;
 }
+
+/** The signed-in user, or null outside an AuthProvider (for widgets that only personalise). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalAuth() {
+  return useContext(AuthContext);
+}

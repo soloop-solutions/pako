@@ -140,6 +140,30 @@ public class PosTests : IAsyncLifetime
         return result.Result;
     }
 
+    // Client request 2026-11-24: the POS order list's filters (Kosovo calendar day, register, kind)
+    // and the total under it.
+    [Fact]
+    public async Task OrderList_FiltersByDayAndRegister_TotalSumsTheOrders()
+    {
+        var c = await SeedAsync();
+        var (_, register) = await SetupAsync(c);
+        var session = await OpenAsync(c, register.Id);
+        Assert.IsAssignableFrom<ObjectResult>(await Submit(c, Sale(c, session.Id, 1m, new List<PosPaymentRequest> { new(c.Cash, 236m) })));
+        Assert.IsAssignableFrom<ObjectResult>(await Submit(c, Sale(c, session.Id, 2m, new List<PosPaymentRequest> { new(c.Cash, 472m) })));
+
+        // Sale() stamps every order 31.10.2026 10:00 UTC (11:00 in Pristina).
+        var today = new DateOnly(2026, 10, 31);
+        var totals = (ListSumResponse)Assert.IsType<OkObjectResult>((await Pos(c).OrderTotals(c.Id, from: today, to: today, registerId: register.Id)).Result).Value!;
+        Assert.Equal(new ListSumResponse(2, 708m), totals);
+
+        var yesterday = (ListSumResponse)Assert.IsType<OkObjectResult>((await Pos(c).OrderTotals(c.Id, to: today.AddDays(-1))).Result).Value!;
+        Assert.Equal(new ListSumResponse(0, 0m), yesterday);
+        var returns = (PaginatedResponse<PosOrderSummaryResponse>)Assert.IsType<OkObjectResult>((await Pos(c).Orders(c.Id, kind: PosOrderKind.Return)).Result).Value!;
+        Assert.Equal(0, returns.Total);
+        var otherRegister = (PaginatedResponse<PosOrderSummaryResponse>)Assert.IsType<OkObjectResult>((await Pos(c).Orders(c.Id, registerId: Guid.NewGuid())).Result).Value!;
+        Assert.Equal(0, otherRegister.Total);
+    }
+
     [Fact]
     public async Task Till_Sells_Returns_AndClosesTheSession_IntoOneBalancedEntry()
     {

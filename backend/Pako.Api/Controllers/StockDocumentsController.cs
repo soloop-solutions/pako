@@ -43,14 +43,13 @@ public class StockDocumentsController : ControllerBase
     [RequireCompanyAccess(module: AccessModule.Inventory)]
     public async Task<ActionResult<PaginatedResponse<StockDocumentSummaryResponse>>> List(Guid companyId,
         [FromQuery] StockDocumentType? type = null, [FromQuery] string? search = null,
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] Guid? siteId = null)
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] Guid? siteId = null,
+        [FromQuery] StockDocumentState? state = null, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null,
+        [FromQuery] Guid? warehouseId = null, [FromQuery] Guid? partnerId = null)
     {
         page = Math.Max(page, 1);
         pageSize = Math.Clamp(pageSize, 1, 200);
-        var query = _db.StockDocuments.AsNoTracking().Where(d => d.CompanyId == companyId);
-        if (type is { } t) query = query.Where(d => d.Type == t);
-        if (siteId is { } site) query = query.Where(d => d.SiteId == site);
-        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
+        var query = Filtered(companyId, type, search, siteId, state, from, to, warehouseId, partnerId);
         var total = await query.CountAsync();
         var documents = await query.OrderByDescending(d => d.Date).ThenByDescending(d => d.CreatedAt)
             .Skip((page - 1) * pageSize).Take(pageSize)
@@ -70,6 +69,41 @@ public class StockDocumentsController : ControllerBase
             // A write-down moves no stock: its value is the allowance change.
             d.Type == StockDocumentType.WriteDown ? d.WriteDown : values.GetValueOrDefault(d.Id), d.PartnerName, d.SiteId)).ToList(),
             total, page, pageSize));
+    }
+
+    // Client request 2026-11-24: the total value under the list — every document the filters
+    // select, as the list's own rows value them (stock moves; a write-down's allowance change).
+    [HttpGet("totals", Name = "StockDocumentListTotals")]
+    [RequireCompanyAccess(module: AccessModule.Inventory)]
+    public async Task<ActionResult<ListSumResponse>> ListTotals(Guid companyId,
+        [FromQuery] StockDocumentType? type = null, [FromQuery] string? search = null, [FromQuery] Guid? siteId = null,
+        [FromQuery] StockDocumentState? state = null, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null,
+        [FromQuery] Guid? warehouseId = null, [FromQuery] Guid? partnerId = null)
+    {
+        var query = Filtered(companyId, type, search, siteId, state, from, to, warehouseId, partnerId);
+        var count = await query.CountAsync();
+        var moved = await _db.StockMoves.AsNoTracking()
+            .Where(m => m.SourceType == StockMoveSource.StockDocument
+                && query.Where(d => d.Type != StockDocumentType.WriteDown).Select(d => d.Id).Contains(m.SourceId))
+            .SumAsync(m => (decimal?)m.Value) ?? 0m;
+        var writtenDown = await query.Where(d => d.Type == StockDocumentType.WriteDown)
+            .SelectMany(d => d.Lines).SumAsync(l => (decimal?)(l.Amount ?? 0m)) ?? 0m;
+        return Ok(new ListSumResponse(count, moved + writtenDown));
+    }
+
+    private IQueryable<StockDocument> Filtered(Guid companyId, StockDocumentType? type, string? search, Guid? siteId,
+        StockDocumentState? state, DateOnly? from, DateOnly? to, Guid? warehouseId, Guid? partnerId)
+    {
+        var query = _db.StockDocuments.AsNoTracking().Where(d => d.CompanyId == companyId);
+        if (type is { } t) query = query.Where(d => d.Type == t);
+        if (siteId is { } site) query = query.Where(d => d.SiteId == site);
+        if (state is { } st) query = query.Where(d => d.State == st);
+        if (from is { } fromDate) query = query.Where(d => d.Date >= fromDate);
+        if (to is { } toDate) query = query.Where(d => d.Date <= toDate);
+        if (warehouseId is { } wid) query = query.Where(d => d.WarehouseId == wid || d.DestinationWarehouseId == wid);
+        if (partnerId is { } pid) query = query.Where(d => d.PartnerId == pid);
+        if (!string.IsNullOrWhiteSpace(search)) query = query.Where(d => d.Number != null && EF.Functions.ILike(d.Number, LikePattern.Contains(search), LikePattern.EscapeChar));
+        return query;
     }
 
     [HttpGet("{id:guid}", Name = "GetStockDocument")]

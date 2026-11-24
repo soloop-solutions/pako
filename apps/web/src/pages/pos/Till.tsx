@@ -2388,7 +2388,7 @@ function ReturnDialog({ boot, sessionId, uuidFor, onClose, onDone, onExchange }:
     mutationFn: async (pickedId?: string): Promise<PosOrderResponse | PosOrderSummaryResponse[]> => {
       if (pickedId) return apiClient.getPosOrder(companyId, pickedId);
       const term = lookup.trim();
-      const page = await apiClient.listPosOrders(companyId, undefined, term, 1, 10);
+      const page = await apiClient.listPosOrders(companyId, undefined, term, 1, 10, undefined, undefined, undefined, undefined, undefined);
       const sales = page.items.filter((o) => o.kind === PosOrderKind.Sale);
       const exact = sales.find((o) => o.number.toLowerCase() === term.toLowerCase() || (o.couponId != null && String(o.couponId) === term));
       if (exact) return apiClient.getPosOrder(companyId, exact.id);

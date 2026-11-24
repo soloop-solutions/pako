@@ -11968,9 +11968,10 @@ export class PakoApiClient {
      * @param from (optional) 
      * @param to (optional) 
      * @param sort (optional) 
+     * @param state (optional) 
      * @return OK
      */
-    paged3(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, from: string | undefined, to: string | undefined, sort: string | undefined): Promise<PaginatedResponseOfJournalEntryResponse> {
+    paged3(companyId: string, page: number | undefined, pageSize: number | undefined, search: string | undefined, from: string | undefined, to: string | undefined, sort: string | undefined, state: string | undefined): Promise<PaginatedResponseOfJournalEntryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/journal-entries/paged?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -11999,6 +12000,10 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'sort' cannot be null.");
         else if (sort !== undefined)
             url_ += "sort=" + encodeURIComponent("" + sort) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -12028,6 +12033,65 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<PaginatedResponseOfJournalEntryResponse>(null as any);
+    }
+
+    /**
+     * @param search (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param state (optional) 
+     * @return OK
+     */
+    journalEntryListTotals(companyId: string, search: string | undefined, from: string | undefined, to: string | undefined, state: string | undefined): Promise<JournalListTotalsResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/journal-entries/paged/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processJournalEntryListTotals(_response);
+        });
+    }
+
+    protected processJournalEntryListTotals(response: Response): Promise<JournalListTotalsResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as JournalListTotalsResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<JournalListTotalsResponse>(null as any);
     }
 
     /**
@@ -19734,9 +19798,14 @@ export class PakoApiClient {
      * @param search (optional) 
      * @param page (optional) 
      * @param pageSize (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param registerId (optional) 
+     * @param kind (optional) 
+     * @param state (optional) 
      * @return OK
      */
-    listPosOrders(companyId: string, sessionId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined): Promise<PaginatedResponseOfPosOrderSummaryResponse> {
+    listPosOrders(companyId: string, sessionId: string | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, from: string | undefined, to: string | undefined, registerId: string | undefined, kind: number | undefined, state: number | undefined): Promise<PaginatedResponseOfPosOrderSummaryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/pos/orders?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -19757,6 +19826,26 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'pageSize' cannot be null.");
         else if (pageSize !== undefined)
             url_ += "pageSize=" + encodeURIComponent("" + pageSize) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (registerId === null)
+            throw new globalThis.Error("The parameter 'registerId' cannot be null.");
+        else if (registerId !== undefined)
+            url_ += "registerId=" + encodeURIComponent("" + registerId) + "&";
+        if (kind === null)
+            throw new globalThis.Error("The parameter 'kind' cannot be null.");
+        else if (kind !== undefined)
+            url_ += "kind=" + encodeURIComponent("" + kind) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -19957,6 +20046,80 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<WaiterSummaryResponse[]>(null as any);
+    }
+
+    /**
+     * @param sessionId (optional) 
+     * @param search (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param registerId (optional) 
+     * @param kind (optional) 
+     * @param state (optional) 
+     * @return OK
+     */
+    posOrderListTotals(companyId: string, sessionId: string | undefined, search: string | undefined, from: string | undefined, to: string | undefined, registerId: string | undefined, kind: number | undefined, state: number | undefined): Promise<ListSumResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/pos/orders/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (sessionId === null)
+            throw new globalThis.Error("The parameter 'sessionId' cannot be null.");
+        else if (sessionId !== undefined)
+            url_ += "sessionId=" + encodeURIComponent("" + sessionId) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (registerId === null)
+            throw new globalThis.Error("The parameter 'registerId' cannot be null.");
+        else if (registerId !== undefined)
+            url_ += "registerId=" + encodeURIComponent("" + registerId) + "&";
+        if (kind === null)
+            throw new globalThis.Error("The parameter 'kind' cannot be null.");
+        else if (kind !== undefined)
+            url_ += "kind=" + encodeURIComponent("" + kind) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processPosOrderListTotals(_response);
+        });
+    }
+
+    protected processPosOrderListTotals(response: Response): Promise<ListSumResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ListSumResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ListSumResponse>(null as any);
     }
 
     /**
@@ -30213,9 +30376,14 @@ export class PakoApiClient {
      * @param page (optional) 
      * @param pageSize (optional) 
      * @param siteId (optional) 
+     * @param state (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param warehouseId (optional) 
+     * @param partnerId (optional) 
      * @return OK
      */
-    listStockDocuments(companyId: string, type: number | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, siteId: string | undefined): Promise<PaginatedResponseOfStockDocumentSummaryResponse> {
+    listStockDocuments(companyId: string, type: number | undefined, search: string | undefined, page: number | undefined, pageSize: number | undefined, siteId: string | undefined, state: number | undefined, from: string | undefined, to: string | undefined, warehouseId: string | undefined, partnerId: string | undefined): Promise<PaginatedResponseOfStockDocumentSummaryResponse> {
         let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents?";
         if (companyId === undefined || companyId === null)
             throw new globalThis.Error("The parameter 'companyId' must be defined.");
@@ -30240,6 +30408,26 @@ export class PakoApiClient {
             throw new globalThis.Error("The parameter 'siteId' cannot be null.");
         else if (siteId !== undefined)
             url_ += "siteId=" + encodeURIComponent("" + siteId) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' cannot be null.");
+        else if (partnerId !== undefined)
+            url_ += "partnerId=" + encodeURIComponent("" + partnerId) + "&";
         url_ = url_.replace(/[?&]$/, "");
 
         let options_: RequestInit = {
@@ -30312,6 +30500,85 @@ export class PakoApiClient {
             });
         }
         return Promise.resolve<StockDocumentResponse>(null as any);
+    }
+
+    /**
+     * @param type (optional) 
+     * @param search (optional) 
+     * @param siteId (optional) 
+     * @param state (optional) 
+     * @param from (optional) 
+     * @param to (optional) 
+     * @param warehouseId (optional) 
+     * @param partnerId (optional) 
+     * @return OK
+     */
+    stockDocumentListTotals(companyId: string, type: number | undefined, search: string | undefined, siteId: string | undefined, state: number | undefined, from: string | undefined, to: string | undefined, warehouseId: string | undefined, partnerId: string | undefined): Promise<ListSumResponse> {
+        let url_ = this.baseUrl + "/api/companies/{companyId}/stock-documents/totals?";
+        if (companyId === undefined || companyId === null)
+            throw new globalThis.Error("The parameter 'companyId' must be defined.");
+        url_ = url_.replace("{companyId}", encodeURIComponent("" + companyId));
+        if (type === null)
+            throw new globalThis.Error("The parameter 'type' cannot be null.");
+        else if (type !== undefined)
+            url_ += "type=" + encodeURIComponent("" + type) + "&";
+        if (search === null)
+            throw new globalThis.Error("The parameter 'search' cannot be null.");
+        else if (search !== undefined)
+            url_ += "search=" + encodeURIComponent("" + search) + "&";
+        if (siteId === null)
+            throw new globalThis.Error("The parameter 'siteId' cannot be null.");
+        else if (siteId !== undefined)
+            url_ += "siteId=" + encodeURIComponent("" + siteId) + "&";
+        if (state === null)
+            throw new globalThis.Error("The parameter 'state' cannot be null.");
+        else if (state !== undefined)
+            url_ += "state=" + encodeURIComponent("" + state) + "&";
+        if (from === null)
+            throw new globalThis.Error("The parameter 'from' cannot be null.");
+        else if (from !== undefined)
+            url_ += "from=" + encodeURIComponent("" + from) + "&";
+        if (to === null)
+            throw new globalThis.Error("The parameter 'to' cannot be null.");
+        else if (to !== undefined)
+            url_ += "to=" + encodeURIComponent("" + to) + "&";
+        if (warehouseId === null)
+            throw new globalThis.Error("The parameter 'warehouseId' cannot be null.");
+        else if (warehouseId !== undefined)
+            url_ += "warehouseId=" + encodeURIComponent("" + warehouseId) + "&";
+        if (partnerId === null)
+            throw new globalThis.Error("The parameter 'partnerId' cannot be null.");
+        else if (partnerId !== undefined)
+            url_ += "partnerId=" + encodeURIComponent("" + partnerId) + "&";
+        url_ = url_.replace(/[?&]$/, "");
+
+        let options_: RequestInit = {
+            method: "GET",
+            headers: {
+                "Accept": "application/json"
+            }
+        };
+
+        return this.http.fetch(url_, options_).then((_response: Response) => {
+            return this.processStockDocumentListTotals(_response);
+        });
+    }
+
+    protected processStockDocumentListTotals(response: Response): Promise<ListSumResponse> {
+        const status = response.status;
+        let _headers: any = {}; if (response.headers && response.headers.forEach) { response.headers.forEach((v: any, k: any) => _headers[k] = v); };
+        if (status === 200) {
+            return response.text().then((_responseText) => {
+            let result200: any = null;
+            result200 = _responseText === "" ? null : JSON.parse(_responseText, this.jsonParseReviver) as ListSumResponse;
+            return result200;
+            });
+        } else if (status !== 200 && status !== 204) {
+            return response.text().then((_responseText) => {
+            return throwException("An unexpected server error occurred.", status, _responseText, _headers);
+            });
+        }
+        return Promise.resolve<ListSumResponse>(null as any);
     }
 
     /**
@@ -34882,6 +35149,14 @@ export interface JournalEntrySourceLineResponse {
     [key: string]: any;
 }
 
+export interface JournalListTotalsResponse {
+    count: number;
+    debit: number;
+    credit: number;
+
+    [key: string]: any;
+}
+
 export interface JournalResponse {
     id: string;
     type: number;
@@ -35026,6 +35301,13 @@ export interface LeaveTypeResponse {
     isActive: boolean;
     carryOverMaxDays?: number | undefined;
     carryOverExpiryMonth?: number | undefined;
+
+    [key: string]: any;
+}
+
+export interface ListSumResponse {
+    count: number;
+    total: number;
 
     [key: string]: any;
 }

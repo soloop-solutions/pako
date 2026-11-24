@@ -765,15 +765,39 @@ public class PosController : ControllerBase
         }
     }
 
-    [HttpGet("orders", Name = "ListPosOrders")]
+    // Client request 2026-11-24: the total under the POS order list, for every order the filters
+    // select; returns and cancellations count negative (as in the POS sales report).
+    [HttpGet("orders/totals", Name = "PosOrderListTotals")]
     [RequireCompanyAccess(module: AccessModule.Pos)]
-    public async Task<ActionResult<PaginatedResponse<PosOrderSummaryResponse>>> Orders(Guid companyId, [FromQuery] Guid? sessionId = null,
-        [FromQuery] string? search = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
+    public async Task<ActionResult<ListSumResponse>> OrderTotals(Guid companyId, [FromQuery] Guid? sessionId = null,
+        [FromQuery] string? search = null, [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null,
+        [FromQuery] Guid? registerId = null, [FromQuery] PosOrderKind? kind = null, [FromQuery] PosOrderState? state = null)
     {
-        page = Math.Max(page, 1);
-        pageSize = Math.Clamp(pageSize, 1, 200);
+        var query = FilteredOrders(companyId, sessionId, search, from, to, registerId, kind, state);
+        var count = await query.CountAsync();
+        var total = await query.SumAsync(o => (decimal?)(o.Kind == PosOrderKind.Sale ? o.Total : -o.Total)) ?? 0m;
+        return Ok(new ListSumResponse(count, total));
+    }
+
+    // Dates are Kosovo calendar days (orders are stamped in UTC).
+    private IQueryable<PosOrder> FilteredOrders(Guid companyId, Guid? sessionId, string? search, DateOnly? from, DateOnly? to,
+        Guid? registerId, PosOrderKind? kind, PosOrderState? state)
+    {
         var query = _db.PosOrders.AsNoTracking().Where(o => o.CompanyId == companyId);
         if (sessionId is { } s) query = query.Where(o => o.SessionId == s);
+        if (registerId is { } r) query = query.Where(o => o.RegisterId == r);
+        if (kind is { } k) query = query.Where(o => o.Kind == k);
+        if (state is { } st) query = query.Where(o => o.State == st);
+        if (from is { } fromDate)
+        {
+            var start = PosService.UtcFromLocal(fromDate.ToDateTime(TimeOnly.MinValue));
+            query = query.Where(o => o.OrderedAt >= start);
+        }
+        if (to is { } toDate)
+        {
+            var end = PosService.UtcFromLocal(toDate.AddDays(1).ToDateTime(TimeOnly.MinValue));
+            query = query.Where(o => o.OrderedAt < end);
+        }
         if (!string.IsNullOrWhiteSpace(search))
         {
             var term = search.Trim();
@@ -781,6 +805,19 @@ public class PosController : ControllerBase
                 ? query.Where(o => _db.FiscalDocuments.Any(d => d.OrderId == o.Id && d.CouponId == coupon) || EF.Functions.ILike(o.Number, LikePattern.Contains(term), LikePattern.EscapeChar))
                 : query.Where(o => EF.Functions.ILike(o.Number, LikePattern.Contains(term), LikePattern.EscapeChar));
         }
+        return query;
+    }
+
+    [HttpGet("orders", Name = "ListPosOrders")]
+    [RequireCompanyAccess(module: AccessModule.Pos)]
+    public async Task<ActionResult<PaginatedResponse<PosOrderSummaryResponse>>> Orders(Guid companyId, [FromQuery] Guid? sessionId = null,
+        [FromQuery] string? search = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 50,
+        [FromQuery] DateOnly? from = null, [FromQuery] DateOnly? to = null, [FromQuery] Guid? registerId = null,
+        [FromQuery] PosOrderKind? kind = null, [FromQuery] PosOrderState? state = null)
+    {
+        page = Math.Max(page, 1);
+        pageSize = Math.Clamp(pageSize, 1, 200);
+        var query = FilteredOrders(companyId, sessionId, search, from, to, registerId, kind, state);
         var total = await query.CountAsync();
         var orders = await query.OrderByDescending(o => o.OrderedAt).Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
         var ids = orders.Select(o => o.Id).ToList();
