@@ -511,13 +511,12 @@ export function PartnerListPage({
       <DataGrid
         gridId={gridId}
         columns={visibleColumns}
-        getRowClassName={(partner) => (partner.isActive === false ? "text-muted-foreground" : undefined)}
         rowActions={rowActions}
         data={partners}
         rowCount={paged.total}
         isLoading={partnersQuery.isPending}
         getRowId={(row) => row.id}
-        getRowClassName={(row) => row.id === highlightId ? "animate-pulse border-primary bg-primary/10" : undefined}
+        getRowClassName={(row) => row.id === highlightId ? "animate-pulse border-primary bg-primary/10" : row.isActive === false ? "text-muted-foreground" : undefined}
         enableGlobalFilter
         globalFilterPlaceholder={intl.formatMessage({ id: labels.searchPlaceholderKey })}
         emptyMessage={intl.formatMessage({ id: labels.emptyKey })}

@@ -78,7 +78,7 @@ public class PartnerScopingTests : IAsyncLifetime
         async Task<Guid> CreatePartner(string name, string taxNumber)
         {
             var id = Assert.IsType<PartnerResponse>(Assert.IsType<ObjectResult>((await partners.Create(company.Id,
-                new CreatePartnerRequest(name, taxNumber, IsCustomer: true, IsVendor: false, IsVatRegistered: true, VatNumber: "33" + taxNumber))).Result).Value).Id;
+                new CreatePartnerRequest(name, taxNumber, IsCustomer: true, IsVendor: false, IsVatRegistered: true, VatNumber: taxNumber))).Result).Value).Id;
             // A legacy partner that is both customer and supplier (created before 2026-11-23, when the
             // two roles were split) — the scoping rules must still hold for both document kinds.
             var created = await db.Partners.SingleAsync(x => x.Id == id);

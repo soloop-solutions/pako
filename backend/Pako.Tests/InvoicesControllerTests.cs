@@ -1245,7 +1245,7 @@ public class InvoicesControllerTests : IAsyncLifetime
         var result = await controller.Post(companyId, created.Id);
 
         var badRequest = Assert.IsType<BadRequestObjectResult>(result.Result);
-        Assert.Contains("sale lock date", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("sales lock date", badRequest.Value!.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
     // B4: a user with a live exception can post despite the company-wide lock.
